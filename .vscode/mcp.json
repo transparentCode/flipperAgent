@@ -1,0 +1,22 @@
+{
+  "servers": {
+    "gitnexus": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "gitnexus", "mcp"]
+    },
+    "automem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@verygoodplugins/mcp-automem"],
+      "env": {
+        "AUTOMEM_ENDPOINT": "http://127.0.0.1:8001"
+      }
+    },
+    "memoir": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/Users/aloobhujia/memoir-mcp/index.js"]
+    }
+  }
+}
