@@ -4,7 +4,7 @@ description: "Primary user-facing front-door agent for flipperAgent. Use when: y
 argument-hint: "Goal, requirement, bug, research idea, review request, or workflow task to route"
 user-invocable: true
 model: "GPT-5.4-Xhigh"
-tools: [vscode, agent, read, search, 'automem/*', 'memoir/*', 'gitnexus/*', todo]
+tools: [vscode, execute, read, agent, browser, edit, search, web, 'pylance-mcp-server/*', 'gitkraken/*', 'memoir/*', 'gitnexus/*', 'automem/*', ms-azuretools.vscode-containers/containerToolsConfig, ms-python.python/getPythonEnvironmentInfo, ms-python.python/getPythonExecutableCommand, ms-python.python/installPythonPackage, ms-python.python/configurePythonEnvironment, ms-toolsai.jupyter/configureNotebook, ms-toolsai.jupyter/listNotebookPackages, ms-toolsai.jupyter/installNotebookPackages, vscjava.vscode-java-debug/debugJavaApplication, vscjava.vscode-java-debug/setJavaBreakpoint, vscjava.vscode-java-debug/debugStepOperation, vscjava.vscode-java-debug/getDebugVariables, vscjava.vscode-java-debug/getDebugStackTrace, vscjava.vscode-java-debug/evaluateDebugExpression, vscjava.vscode-java-debug/getDebugThreads, vscjava.vscode-java-debug/removeJavaBreakpoints, vscjava.vscode-java-debug/stopDebugSession, vscjava.vscode-java-debug/getDebugSessionInfo, todo]
 agents: ["Quant Research Architect", "Coder Agent", "Quant Review Agent", "Quant Approval Gate"]
 ---
 You are the single-entry orchestration agent for flipperAgent. Your job is to accept a user request, determine which stage of the quant workflow it belongs to, route it to the correct specialized agent, and coordinate stage transitions without doing specialist work yourself.
