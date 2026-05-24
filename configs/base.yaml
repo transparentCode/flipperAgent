@@ -1,12 +1,16 @@
 ingestion:
   assets:
-    default_asset: BTC/USDT
+    default_asset: BTCUSDT
     default_binance_asset: BTCUSDT
     historical_backfill_days: 2
     target_list:
     - BTCUSDT
     - ETHUSDT
     - SOLUSDT
+    publish_timeframes:
+      BTCUSDT: ["1h", "4h"]
+      ETHUSDT: ["4h", "1d"]
+      SOLUSDT: ["15m"]
   concurrency:
     gap_fill_limit: 5
     gap_fill_sleep_seconds: 0.5

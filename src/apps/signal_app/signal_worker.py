@@ -4,8 +4,10 @@ import json
 from typing import Optional
 from src.apps.signal_app.feature_manager import FeatureManager
 from src.libs.common.config import ConfigManager
+from src.libs.common.logging.logger_utils import get_logger
+from src.libs.common.enums import SystemComponent
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__).bind(system_component=SystemComponent.SIGNAL_APP)
 
 class SignalWorker:
     def __init__(self, asset: str, timeframe: str):

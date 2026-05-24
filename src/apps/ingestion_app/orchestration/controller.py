@@ -1,4 +1,7 @@
 import asyncio
+import os
+import json
+import redis.asyncio as redis
 from typing import List, Dict, Any
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -24,7 +27,7 @@ config_manager = ConfigManager()
 # Global state for lifespan
 app_state: Dict[str, Any] = {}
 
-async def verify_and_launch_ws(symbol: str, arq_pool: arq.connections.ArqRedis):
+async def verify_and_launch_ws(symbol: str, publish_timeframes: List[str], arq_pool: arq.connections.ArqRedis):
     """
     Periodically checks if the DB is caught up to near-real-time.
     Once verified, launches the WebSocket stream for the asset.
@@ -55,9 +58,9 @@ async def verify_and_launch_ws(symbol: str, arq_pool: arq.connections.ArqRedis):
             await asyncio.sleep(verification_sleep_seconds)
 
     # Launch WebSocket pipeline for this asset
-    asyncio.create_task(run_websocket_pipeline(symbol))
+    asyncio.create_task(run_websocket_pipeline(symbol, publish_timeframes))
 
-async def run_websocket_pipeline(symbol: str):
+async def run_websocket_pipeline(symbol: str, publish_timeframes: List[str]):
     """
     Launches the live WebSocket pipeline for the given asset.
     """
@@ -65,17 +68,24 @@ async def run_websocket_pipeline(symbol: str):
     loop = asyncio.get_event_loop()
     reconnect_sleep_seconds = config_manager.get("ingestion.websocket.reconnect_sleep_seconds", 5)
     
+    redis_uri = config_manager.get("redis.uri", "redis://localhost:6379/0")
+    redis_client = redis.from_url(redis_uri)
+    
     while True:
         try:
             queue = asyncio.Queue()
             adapter = BinanceNativeAdapter()
             
-            async for msg in adapter.stream_multiplex_socket([symbol], loop, queue):
+            # Subscribing to "1m" base plus any configured publish timeframes
+            symbols_timeframes = {symbol: list(set(["1m"] + publish_timeframes))}
+            async for msg in adapter.stream_multiplex_socket(symbols_timeframes, loop, queue):
                 if isinstance(msg, str):
                     msg = json.loads(msg)
                 
                 if isinstance(msg, dict) and "data" in msg and "k" in msg["data"]:
                     kline = msg["data"]["k"]
+                    is_closed = bool(kline.get("x", False))
+                    timeframe = kline.get("i", "1m")
                     
                     record = OHLCVRecord(
                         symbol=symbol,
@@ -84,16 +94,40 @@ async def run_websocket_pipeline(symbol: str):
                         high=float(kline["h"]),
                         low=float(kline["l"]),
                         close=float(kline["c"]),
-                        volume=float(kline["v"])
+                        volume=float(kline["v"]),
+                        is_closed=is_closed
                     )
                     
-                    ts_pool = DBPoolManager.get_writer_pool()
-                    if ts_pool is not None:
-                        writer = TimescaleWriter(ts_pool)
-                        await writer.insert_ohlcv([record], timeframe=kline["i"])
+                    # 1. Insert ONLY 1m closed candles into TimescaleDB
+                    if timeframe == "1m" and is_closed:
+                        ts_pool = DBPoolManager.get_writer_pool()
+                        if ts_pool is not None:
+                            writer = TimescaleWriter(ts_pool)
+                            await writer.insert_ohlcv([record], timeframe=timeframe)
+                    
+                    # 2. Filter Valkey publish based on config
+                    if is_closed and timeframe in publish_timeframes:
+                        stream_key = f"stream:ohlcv:{symbol.lower()}:{timeframe}"
+                        now_utc = int(datetime.now(timezone.utc).timestamp() * 1000)
+                        
+                        payload = {
+                            "exchange": "binance",
+                            "symbol": symbol,
+                            "timeframe": timeframe,
+                            "timestamp": record.timestamp.isoformat(),
+                            "open": str(record.open),
+                            "high": str(record.high),
+                            "low": str(record.low),
+                            "close": str(record.close),
+                            "volume": str(record.volume),
+                            "is_closed": "True",
+                            "ingestion_timestamp": str(now_utc)
+                        }
+                        await redis_client.xadd(stream_key, payload)
                         
         except asyncio.CancelledError:
             logger.info(f"[{symbol}] WebSocket task canceled.")
+            await redis_client.aclose()
             break
         except Exception as e:
             logger.error(f"[{symbol}] WebSocket stream failed: {e}. Reconnecting in {reconnect_sleep_seconds}s...")
@@ -104,9 +138,9 @@ async def run_websocket_pipeline(symbol: str):
 async def lifespan(app: FastAPI):
     # a. Boot: Read target assets list
     target_assets = config_manager.get("ingestion.assets.target_list", ["BTCUSDT"])
+    publish_timeframes = config_manager.get("ingestion.assets.publish_timeframes", {})
     base_timeframe = config_manager.get("ingestion.timeframes.base_gap_fill", "1m")
-    import os
-    redis_settings = RedisSettings.from_dsn(os.getenv("REDIS_URI") or config_manager.get("redis.uri", "redis://localhost:6379/0"))
+    redis_settings = RedisSettings.from_dsn(config_manager.get("redis.uri", "redis://localhost:6379/0"))
 
     # b. Connect DB
     logger.info("Initializing DB pools...")
@@ -136,7 +170,8 @@ async def lifespan(app: FastAPI):
                 logger.info(f"[{symbol}] Data is up-to-date. Skipping REST gap-fill.")
 
             # e. Start Verification Gate loop
-            asyncio.create_task(verify_and_launch_ws(symbol, arq_pool))
+            asset_publish_timeframes = publish_timeframes.get(symbol, [])
+            asyncio.create_task(verify_and_launch_ws(symbol, asset_publish_timeframes, arq_pool))
             
         except Exception as e:
             logger.error(f"Error initializing asset {symbol}: {e}")

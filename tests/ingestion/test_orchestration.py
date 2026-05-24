@@ -107,7 +107,7 @@ async def test_lifespan_cold_start():
             pass
             
         mock_arq_pool.enqueue_job.assert_called_once_with("run_rest_gap_fill", ["BTCUSDT"], EXCHANGE_BINANCE)
-        mock_verify_ws.assert_called_once_with("BTCUSDT", mock_arq_pool)
+        mock_verify_ws.assert_called_once_with("BTCUSDT", [], mock_arq_pool)
 
 @pytest.mark.asyncio
 async def test_lifespan_caught_up():
@@ -147,4 +147,4 @@ async def test_lifespan_caught_up():
             
         # Gap-fill shouldn't be called
         mock_arq_pool.enqueue_job.assert_not_called()
-        mock_verify_ws.assert_called_once_with("BTCUSDT", mock_arq_pool)
+        mock_verify_ws.assert_called_once_with("BTCUSDT", [], mock_arq_pool)

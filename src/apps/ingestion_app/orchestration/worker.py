@@ -77,11 +77,10 @@ class WorkerSettings:
     on_startup = startup
     on_shutdown = shutdown
     
-    import os
     # Example Valkey/Redis connection string
     # E.g. valkey container defined in docker-compose at localhost:6379
     redis_settings = RedisSettings.from_dsn(
-        os.getenv("REDIS_URI") or config_manager.get("redis.uri", "redis://localhost:6379/0")
+        config_manager.get("redis.uri", "redis://localhost:6379/0")
     )
     
     # Maximum concurrent tasks processed by this worker

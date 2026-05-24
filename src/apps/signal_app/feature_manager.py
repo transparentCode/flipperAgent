@@ -2,13 +2,13 @@ import logging
 from typing import Dict, Any, List, Sequence, Tuple, get_type_hints
 
 from src.libs.common.config import ConfigManager
-from src.libs.common.logging.logger_utils import get_logger
+from src.libs.common.logging.logger_utils import bind_logger
 import src.libs.features.indicators
 from src.libs.features.indicators.registry import IndicatorRegistry
 from src.libs.features.indicators.base import Indicator
 from src.libs.common.enums import SystemComponent
 
-logger = get_logger(__name__).bind("component", SystemComponent.FEATURE_MANAGER)
+logger = bind_logger(__name__, system_component=SystemComponent.SIGNAL_APP)
 
 CONFIG_FILE_FEATURES = "configs/features.yaml"
 KEY_FEATURES = "features"

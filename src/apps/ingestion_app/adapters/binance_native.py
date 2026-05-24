@@ -55,14 +55,17 @@ class BinanceNativeAdapter(BaseExchangeAdapter):
         except Exception as e:
             raise DataIngestionError(f"Binance API failed to fetch OHLCV for {symbol}: {e}") from e
 
-    async def stream_multiplex_socket(self, symbols: List[str], loop: asyncio.AbstractEventLoop, queue: asyncio.Queue) -> AsyncGenerator[Dict[str, Any], None]:
+    async def stream_multiplex_socket(self, symbols_timeframes: Dict[str, List[str]], loop: asyncio.AbstractEventLoop, queue: asyncio.Queue) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Connect to Binance Websocket using ThreadedWebsocketManager and bridge via asyncio.Queue.
         """
         ws_client = UMFuturesWebsocketClient(on_message=lambda msg: loop.call_soon_threadsafe(queue.put_nowait, msg))
         
         try:
-            streams = [BINANCE_KLINE_STREAM_TEMPLATE.format(symbol=symbol.lower(), interval=config_manager.get("ingestion.timeframes.binance_stream_interval", "1m")) for symbol in symbols]
+            streams = []
+            for symbol, timeframes in symbols_timeframes.items():
+                for interval in timeframes:
+                    streams.append(BINANCE_KLINE_STREAM_TEMPLATE.format(symbol=symbol.lower(), interval=interval))
             ws_client.multiplex_socket(streams)
             
             while True:
