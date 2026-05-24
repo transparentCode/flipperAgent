@@ -4,7 +4,7 @@ set -e
 
 # Configuration
 COMPOSE_FILE="docker-compose.yml"
-SCHEMA_FILE="src/flipper_agent/ingestion/storage/schema.sql"
+SCHEMA_FILE="src/apps/ingestion_app/storage/schema.sql"
 
 echo "Bringing down any existing containers..."
 docker-compose down -v

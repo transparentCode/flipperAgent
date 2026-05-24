@@ -7,14 +7,14 @@ import unittest
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
-from flipper_agent.commons.logging import (
+from libs.common.logging import (
     bind_logger,
     clear_current_trace_id,
     configure_logging,
     get_logger,
     set_current_trace_id,
 )
-from flipper_agent.commons.paths import default_log_file
+from libs.common.paths import default_log_file
 
 
 class LoggerUtilsTests(unittest.TestCase):

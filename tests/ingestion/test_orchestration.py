@@ -4,9 +4,9 @@ from datetime import datetime, timezone
 import pandas as pd
 import asyncio
 
-from flipper_agent.ingestion.orchestration.tasks import _fetch_asset_gap
-from flipper_agent.ingestion.orchestration.controller import lifespan, app
-from flipper_agent.ingestion.constants import EXCHANGE_BINANCE
+from apps.ingestion_app.orchestration.tasks import _fetch_asset_gap
+from apps.ingestion_app.orchestration.controller import lifespan, app
+from apps.ingestion_app.constants import EXCHANGE_BINANCE
 
 @pytest.mark.asyncio
 async def test_fetch_asset_gap_pagination():
@@ -28,11 +28,11 @@ async def test_fetch_asset_gap_pagination():
     ctx = {}
     symbol = "BTCUSDT"
     
-    with patch('flipper_agent.ingestion.orchestration.tasks.TimescaleReader') as mock_reader_class, \
-         patch('flipper_agent.ingestion.orchestration.tasks.DBPoolManager', new_callable=MagicMock) as mock_db_pool, \
-         patch('flipper_agent.ingestion.orchestration.tasks.TimescaleWriter') as mock_writer_class, \
-         patch('flipper_agent.ingestion.orchestration.tasks.datetime') as mock_datetime, \
-         patch('flipper_agent.ingestion.orchestration.tasks.config_manager') as mock_config:
+    with patch('apps.ingestion_app.orchestration.tasks.TimescaleReader') as mock_reader_class, \
+         patch('apps.ingestion_app.orchestration.tasks.DBPoolManager', new_callable=MagicMock) as mock_db_pool, \
+         patch('apps.ingestion_app.orchestration.tasks.TimescaleWriter') as mock_writer_class, \
+         patch('apps.ingestion_app.orchestration.tasks.datetime') as mock_datetime, \
+         patch('apps.ingestion_app.orchestration.tasks.config_manager') as mock_config:
         
         mock_config.get.side_effect = lambda k, default=None: {
             "ingestion.assets.historical_backfill_days": 30,
@@ -77,11 +77,11 @@ async def test_lifespan_cold_start():
     # Mocking create_pool
     mock_arq_pool = AsyncMock()
     
-    with patch('flipper_agent.ingestion.orchestration.controller.DBPoolManager') as mock_db_pool, \
-         patch('flipper_agent.ingestion.orchestration.controller.TimescaleReader') as mock_reader_class, \
-         patch('flipper_agent.ingestion.orchestration.controller.create_pool') as mock_create_pool, \
-         patch('flipper_agent.ingestion.orchestration.controller.verify_and_launch_ws') as mock_verify_ws, \
-         patch('flipper_agent.ingestion.orchestration.controller.config_manager') as mock_config:
+    with patch('apps.ingestion_app.orchestration.controller.DBPoolManager') as mock_db_pool, \
+         patch('apps.ingestion_app.orchestration.controller.TimescaleReader') as mock_reader_class, \
+         patch('apps.ingestion_app.orchestration.controller.create_pool') as mock_create_pool, \
+         patch('apps.ingestion_app.orchestration.controller.verify_and_launch_ws') as mock_verify_ws, \
+         patch('apps.ingestion_app.orchestration.controller.config_manager') as mock_config:
         
         mock_config.get.side_effect = lambda k, default=None: {
             "ingestion.assets.target_list": ["BTCUSDT"],
@@ -113,12 +113,12 @@ async def test_lifespan_cold_start():
 async def test_lifespan_caught_up():
     mock_arq_pool = AsyncMock()
     
-    with patch('flipper_agent.ingestion.orchestration.controller.DBPoolManager') as mock_db_pool, \
-         patch('flipper_agent.ingestion.orchestration.controller.TimescaleReader') as mock_reader_class, \
-         patch('flipper_agent.ingestion.orchestration.controller.create_pool') as mock_create_pool, \
-         patch('flipper_agent.ingestion.orchestration.controller.verify_and_launch_ws') as mock_verify_ws, \
-         patch('flipper_agent.ingestion.orchestration.controller.config_manager') as mock_config, \
-         patch('flipper_agent.ingestion.orchestration.controller.datetime') as mock_datetime:
+    with patch('apps.ingestion_app.orchestration.controller.DBPoolManager') as mock_db_pool, \
+         patch('apps.ingestion_app.orchestration.controller.TimescaleReader') as mock_reader_class, \
+         patch('apps.ingestion_app.orchestration.controller.create_pool') as mock_create_pool, \
+         patch('apps.ingestion_app.orchestration.controller.verify_and_launch_ws') as mock_verify_ws, \
+         patch('apps.ingestion_app.orchestration.controller.config_manager') as mock_config, \
+         patch('apps.ingestion_app.orchestration.controller.datetime') as mock_datetime:
         
         mock_config.get.side_effect = lambda k, default=None: {
             "ingestion.assets.target_list": ["BTCUSDT"],

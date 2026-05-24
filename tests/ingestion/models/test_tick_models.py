@@ -3,7 +3,7 @@ DEFAULT_BINANCE_ASSET = 'BTCUSDT'
 from datetime import datetime, timezone
 from pydantic import ValidationError
 
-from flipper_agent.ingestion.models.tick_models import OHLCVRecord, TickRecord, OIRecord
+from apps.ingestion_app.models.tick_models import OHLCVRecord, TickRecord, OIRecord
 
 def test_timestamp_utc_coercion():
     # Ms parsing

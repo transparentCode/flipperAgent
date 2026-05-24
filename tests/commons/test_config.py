@@ -8,7 +8,7 @@ from unittest import mock
 import pytest
 import yaml
 
-from flipper_agent.commons.config import ConfigManager
+from libs.common.config import ConfigManager
 
 
 @pytest.fixture

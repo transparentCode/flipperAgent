@@ -23,7 +23,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: arq flipper_agent.ingestion.orchestration.worker.WorkerSettings
+    command: arq apps.ingestion_app.orchestration.worker.WorkerSettings
     volumes:
       - ./data:/app/data
     environment:
@@ -38,7 +38,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: python -m flipper_agent.ingestion.main
+    command: python -m apps.ingestion_app.main
     ports:
       - "8002:8001"
     volumes:

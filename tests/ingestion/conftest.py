@@ -28,7 +28,7 @@ def mock_ccxt_adapter():
 @pytest.fixture(autouse=True)
 def patch_db_pool_manager(mock_asyncpg_pool, mocker):
     mocker.patch(
-        "flipper_agent.ingestion.orchestration.tasks.DBPoolManager.get_writer_pool",
+        "apps.ingestion_app.orchestration.tasks.DBPoolManager.get_writer_pool",
         return_value=mock_asyncpg_pool
     )
 

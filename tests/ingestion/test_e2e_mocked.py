@@ -4,8 +4,8 @@ import ccxt
 from pydantic import ValidationError
 from unittest.mock import AsyncMock
 
-from flipper_agent.ingestion.orchestration.tasks import run_rest_gap_fill, _fetch_asset_gap
-from flipper_agent.ingestion.constants import EXCHANGE_BINANCE
+from apps.ingestion_app.orchestration.tasks import run_rest_gap_fill, _fetch_asset_gap
+from apps.ingestion_app.constants import EXCHANGE_BINANCE
 DEFAULT_ASSET = 'BTCUSDT'
 BASE_GAP_FILL_TIMEFRAME = '1m'
 

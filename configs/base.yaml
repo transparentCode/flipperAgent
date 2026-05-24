@@ -1,55 +1,74 @@
 ingestion:
-  orchestration:
-    schedules:
-      gap_fill_minutes: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
-      gap_fill_timeout: 300
-      ohlcv_minutes: [0, 15, 30, 45]
-      ohlcv_timeout: 120
-      funding_hours: [0, 4, 8, 12, 16, 20]
-      funding_timeout: 60
   assets:
-    default_asset: "BTC/USDT"
-    default_binance_asset: "BTCUSDT"
+    default_asset: BTC/USDT
+    default_binance_asset: BTCUSDT
     historical_backfill_days: 2
-    target_list: 
-      - "BTCUSDT"
-      - "ETHUSDT"
-      - "SOLUSDT"
-  timeframes:
-    default: "15m"
-    base_gap_fill: "1m"
-    binance_stream_interval: "1m"
-  retry:
-    multiplier: 1
-    min_seconds: 4
-    max_seconds: 60
-    max_attempts: 5
+    target_list:
+    - BTCUSDT
+    - ETHUSDT
+    - SOLUSDT
   concurrency:
     gap_fill_limit: 5
     gap_fill_sleep_seconds: 0.5
-    worker_max_jobs: 20
     worker_job_timeout: 300
+    worker_max_jobs: 20
+  orchestration:
+    schedules:
+      funding_hours:
+      - 0
+      - 4
+      - 8
+      - 12
+      - 16
+      - 20
+      funding_timeout: 60
+      gap_fill_minutes:
+      - 0
+      - 5
+      - 10
+      - 15
+      - 20
+      - 25
+      - 30
+      - 35
+      - 40
+      - 45
+      - 50
+      - 55
+      gap_fill_timeout: 300
+      ohlcv_minutes:
+      - 0
+      - 15
+      - 30
+      - 45
+      ohlcv_timeout: 120
+  retry:
+    max_attempts: 5
+    max_seconds: 60
+    min_seconds: 4
+    multiplier: 1
   server:
-    host: "0.0.0.0"
+    host: 0.0.0.0
     port: 8001
+  timeframes:
+    base_gap_fill: 1m
+    binance_stream_interval: 1m
+    default: 15m
   tradingview:
-    cookies_path: "secrets/tv_cookies.json"
+    cookies_path: secrets/tv_cookies.json
     load_sleep_seconds: 5
   websocket:
-    warmup_threshold_ms: 300000
-    verification_sleep_seconds: 10
     reconnect_sleep_seconds: 5
-
-redis:
-  uri: "redis://broker:6379/0"
-
+    verification_sleep_seconds: 10
+    warmup_threshold_ms: 300000
 postgres:
-  user: "flipper"
-  password: "flipperpass"
-  host: "localhost"
-  port: 5432
-  database: "flipper_db"
+  database: flipper_db
+  host: localhost
+  password: flipperpass
   pool:
-    min_size: 2
     max_size: 10
-
+    min_size: 2
+  port: 5432
+  user: flipper
+redis:
+  uri: redis://broker:6379/0

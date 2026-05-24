@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
-from flipper_agent.commons.db.timescale_reader import TimescaleReader
+from libs.common.db.timescale_reader import TimescaleReader
 
 @pytest.mark.asyncio
 async def test_timescale_reader_empty_ohlcv():

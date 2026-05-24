@@ -2,8 +2,8 @@ import pytest
 import pandas as pd
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from flipper_agent.ingestion.adapters.binance_native import BinanceNativeAdapter
-from flipper_agent.ingestion.adapters.tradingview_socket_interceptor import TradingViewInterceptor
+from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
+from apps.ingestion_app.adapters.tradingview_socket_interceptor import TradingViewInterceptor
 DEFAULT_BINANCE_ASSET = 'BTCUSDT'
 BASE_GAP_FILL_TIMEFRAME = '1m'
 
@@ -39,9 +39,9 @@ async def test_tradingview_interceptor_structure():
     mock_page.goto = AsyncMock()
     mock_session.page = mock_page
     
-    with patch("flipper_agent.ingestion.adapters.tradingview_socket_interceptor.StealthyFetcher", return_value=mock_session):
+    with patch("apps.ingestion_app.adapters.tradingview_socket_interceptor.StealthyFetcher", return_value=mock_session):
         with patch.object(adapter, '_load_cookies', new_callable=AsyncMock):
-            with patch("flipper_agent.ingestion.adapters.tradingview_socket_interceptor.asyncio.sleep", new_callable=AsyncMock):
+            with patch("apps.ingestion_app.adapters.tradingview_socket_interceptor.asyncio.sleep", new_callable=AsyncMock):
                 
                 # Mock a frame payload that triggers DataFrame appending
                 def on_websocket_side_effect(event, callback):
@@ -81,9 +81,9 @@ async def test_tradingview_interceptor_empty():
     mock_page.goto = AsyncMock()
     mock_session.page = mock_page
     
-    with patch("flipper_agent.ingestion.adapters.tradingview_socket_interceptor.StealthyFetcher", return_value=mock_session):
+    with patch("apps.ingestion_app.adapters.tradingview_socket_interceptor.StealthyFetcher", return_value=mock_session):
         with patch.object(adapter, '_load_cookies', new_callable=AsyncMock):
-            with patch("flipper_agent.ingestion.adapters.tradingview_socket_interceptor.asyncio.sleep", new_callable=AsyncMock):
+            with patch("apps.ingestion_app.adapters.tradingview_socket_interceptor.asyncio.sleep", new_callable=AsyncMock):
                 
                 def on_websocket_side_effect(event, callback):
                     pass
@@ -102,7 +102,7 @@ async def test_tradingview_interceptor_live_and_historical():
     """Test that TradingViewInterceptor builds a DataFrame from both historical (timescale_update) and live (du) payloads."""
     adapter = TradingViewInterceptor()
     
-    with patch("flipper_agent.ingestion.adapters.tradingview_socket_interceptor.StealthyFetcher") as mock_fetcher_cls:
+    with patch("apps.ingestion_app.adapters.tradingview_socket_interceptor.StealthyFetcher") as mock_fetcher_cls:
         mock_fetcher = MagicMock()
         mock_fetcher_cls.return_value = mock_fetcher
         
@@ -118,7 +118,7 @@ async def test_tradingview_interceptor_live_and_historical():
         mock_fetcher.browser = mock_browser
         
         with patch.object(adapter, '_load_cookies', new_callable=AsyncMock):
-            with patch("flipper_agent.ingestion.adapters.tradingview_socket_interceptor.asyncio.sleep", new_callable=AsyncMock):
+            with patch("apps.ingestion_app.adapters.tradingview_socket_interceptor.asyncio.sleep", new_callable=AsyncMock):
                 
                 # Mock frames that trigger DataFrame appending
                 def on_websocket_side_effect(event, callback):

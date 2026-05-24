@@ -7,7 +7,7 @@ WORKDIR /build
 COPY pyproject.toml README.md ./
 
 # Create dummy src to allow pip wheel to succeed for third-party dependencies caching
-RUN mkdir -p src/flipper_agent && touch src/flipper_agent/__init__.py \
+RUN mkdir -p src/apps src/libs && touch src/apps/__init__.py src/libs/__init__.py \
     && pip wheel --no-cache-dir --wheel-dir /build/wheels .
 
 FROM python:3.13-slim

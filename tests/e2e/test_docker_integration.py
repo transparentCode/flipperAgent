@@ -2,8 +2,8 @@ import asyncio
 import os
 import pytest
 import asyncpg
-from flipper_agent.commons.db.pool_manager import DBPoolManager
-from flipper_agent.commons.config import ConfigManager
+from libs.common.db.pool_manager import DBPoolManager
+from libs.common.config import ConfigManager
 
 import pytest_asyncio
 
@@ -74,7 +74,7 @@ async def test_websocket_live_streaming(db_pools):
     Proves gap-fill completes and WS live streaming brings us to within 5 mins of real-time.
     """
     import time
-    from flipper_agent.commons.db.timescale_reader import TimescaleReader
+    from libs.common.db.timescale_reader import TimescaleReader
     
     pool = DBPoolManager.get_reader_pool()
     reader = TimescaleReader(pool)
