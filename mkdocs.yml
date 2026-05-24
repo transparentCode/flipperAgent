@@ -53,3 +53,5 @@ nav:
   - Architecture:
     - Best Practices: best_practices.md
     - Decision Records: adr/index.md
+  - Components:
+    - Ingestion: ingestion.md

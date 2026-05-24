@@ -4,7 +4,7 @@ import io
 import logging
 import tempfile
 import unittest
-from logging.handlers import RotatingFileHandler
+from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
 from flipper_agent.commons.logging import (
@@ -96,33 +96,39 @@ class LoggerUtilsTests(unittest.TestCase):
             self.assertEqual(parsed["system_component"], "writer")
 
     def test_file_logging_rotates_and_retains_configured_backups(self) -> None:
+        import re
         with tempfile.TemporaryDirectory() as temp_dir:
             log_file = Path(temp_dir) / "logs" / "app.log"
             namespace_logger = configure_logging(
                 level="INFO",
                 enable_file_logging=True,
                 log_file=log_file,
-                file_max_bytes=256,
                 file_backup_count=1,
             )
 
             file_handler = next(
                 handler
                 for handler in namespace_logger.handlers
-                if isinstance(handler, RotatingFileHandler)
+                if isinstance(handler, TimedRotatingFileHandler)
             )
-            self.assertEqual(file_handler.maxBytes, 256)
+            self.assertEqual(file_handler.when, "MIDNIGHT")
             self.assertEqual(file_handler.backupCount, 1)
 
             logger = get_logger("commons.jobs")
-            for index in range(20):
-                logger.info("rotation-line-%s %s", index, "x" * 64)
+            logger.info("line-1")
+
+            # Simulate midnight rotation
+            file_handler.doRollover()
 
             self._flush_namespace_handlers()
 
             self.assertTrue(log_file.exists())
-            self.assertTrue((log_file.parent / "app.log.1").exists())
-            self.assertFalse((log_file.parent / "app.log.2").exists())
+            
+            rotated_files = [
+                f for f in log_file.parent.iterdir()
+                if re.match(r"app\.log\.\d{4}-\d{2}-\d{2}$", f.name)
+            ]
+            self.assertTrue(len(rotated_files) >= 1)
 
     def test_default_log_file_points_to_top_level_logs_directory(self) -> None:
         log_file = default_log_file()

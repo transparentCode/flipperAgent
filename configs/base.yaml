@@ -1,0 +1,55 @@
+ingestion:
+  orchestration:
+    schedules:
+      gap_fill_minutes: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
+      gap_fill_timeout: 300
+      ohlcv_minutes: [0, 15, 30, 45]
+      ohlcv_timeout: 120
+      funding_hours: [0, 4, 8, 12, 16, 20]
+      funding_timeout: 60
+  assets:
+    default_asset: "BTC/USDT"
+    default_binance_asset: "BTCUSDT"
+    historical_backfill_days: 2
+    target_list: 
+      - "BTCUSDT"
+      - "ETHUSDT"
+      - "SOLUSDT"
+  timeframes:
+    default: "15m"
+    base_gap_fill: "1m"
+    binance_stream_interval: "1m"
+  retry:
+    multiplier: 1
+    min_seconds: 4
+    max_seconds: 60
+    max_attempts: 5
+  concurrency:
+    gap_fill_limit: 5
+    gap_fill_sleep_seconds: 0.5
+    worker_max_jobs: 20
+    worker_job_timeout: 300
+  server:
+    host: "0.0.0.0"
+    port: 8001
+  tradingview:
+    cookies_path: "secrets/tv_cookies.json"
+    load_sleep_seconds: 5
+  websocket:
+    warmup_threshold_ms: 300000
+    verification_sleep_seconds: 10
+    reconnect_sleep_seconds: 5
+
+redis:
+  uri: "redis://broker:6379/0"
+
+postgres:
+  user: "flipper"
+  password: "flipperpass"
+  host: "localhost"
+  port: 5432
+  database: "flipper_db"
+  pool:
+    min_size: 2
+    max_size: 10
+

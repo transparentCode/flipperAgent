@@ -14,49 +14,27 @@ import uuid
 from collections.abc import Mapping
 from contextvars import ContextVar
 from enum import Enum
-from logging.handlers import RotatingFileHandler
+from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from typing import Final
 
-from flipper_agent.commons.env import get_bool_env, get_env
 from flipper_agent.commons.exceptions import LoggingConfigurationError
 from flipper_agent.commons.paths import default_log_file
 from flipper_agent.commons.typing import LogContext, PathLike
-
-
-class SystemComponent(str, Enum):
-    """Enumeration of known system components for standardized logging."""
-    CORE_INFRASTRUCTURE = "CORE_INFRASTRUCTURE"
-    DATA_INGESTION_ENGINE = "DATA_INGESTION_ENGINE"
-    STRATEGY_ENGINE = "STRATEGY_ENGINE"
-    SIGNAL_GENERATOR = "SIGNAL_GENERATOR"
-    TRADE_EXECUTION = "TRADE_EXECUTION"
-    MARKET_DATA = "MARKET_DATA"
-
-
-DEFAULT_LOGGER_NAMESPACE: Final[str] = "flipper_agent"
-DEFAULT_LOG_LEVEL: Final[str] = "INFO"
-DEFAULT_LOG_FILE_MAX_BYTES: Final[int] = 30 * 1024 * 1024  # 30 MB
-DEFAULT_LOG_FILE_BACKUP_COUNT: Final[int] = 10  # Used as an absolute upper bound for size-based scaling
-DEFAULT_CONTEXT_FIELDS: Final[tuple[str, ...]] = (
-    "trace_id",
-    "run_id",
-    "job_name",
-    "system_component",
-    "source",
-    "dataset",
-    "symbol",
-    "interval",
-    "window",
-    "attempt",
+from flipper_agent.commons.constants import (
+    DEFAULT_LOG_FILE_BACKUP_COUNT,
+    DEFAULT_LOG_FILE_MAX_BYTES,
+    DEFAULT_LOG_LEVEL,
+    DEFAULT_LOGGER_NAMESPACE,
+    DEFAULT_CONTEXT_FIELDS,
 )
+
 _CONTEXT_FIELD_ALIASES: Final[dict[str, str]] = {
     "traceId": "trace_id",
     "systemComponent": "system_component",
     "component": "system_component",
 }
 _current_trace_id: ContextVar[str | None] = ContextVar("flipper_agent_trace_id", default=None)
-
 
 def set_current_trace_id(trace_id: str | None) -> None:
     """Set the trace id for the current execution context."""
@@ -71,12 +49,10 @@ def get_current_trace_id() -> str:
         _current_trace_id.set(trace_id)
     return trace_id
 
-
 def clear_current_trace_id() -> None:
     """Clear the trace id for the current execution context."""
 
     _current_trace_id.set(None)
-
 
 def _normalize_context(context: Mapping[str, object] | None) -> dict[str, object]:
     raw_context = {key: value for key, value in dict(context or {}).items() if value is not None}
@@ -100,7 +76,6 @@ def _normalize_context(context: Mapping[str, object] | None) -> dict[str, object
 
     return normalized_context
 
-
 class ContextLoggerAdapter(logging.LoggerAdapter):
     """Small adapter for binding stable context fields to a logger."""
 
@@ -116,7 +91,6 @@ class ContextLoggerAdapter(logging.LoggerAdapter):
         merged_context = dict(self.extra)
         merged_context.update({key: value for key, value in context.items() if value is not None})
         return ContextLoggerAdapter(self.logger, _normalize_context(merged_context))
-
 
 def _get_record_context_field(record: logging.LogRecord, field_name: str) -> object:
     record_value = getattr(record, field_name, None)
@@ -136,7 +110,6 @@ def _get_record_context_field(record: logging.LogRecord, field_name: str) -> obj
 
     return None
 
-
 class _LogContextFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         context_parts: list[str] = []
@@ -151,26 +124,12 @@ class _LogContextFilter(logging.Filter):
         record.context = f" | {' '.join(context_parts)}" if context_parts else ""
         return True
 
-
 def _normalize_logger_name(name: str | None) -> str:
     if not name or name == DEFAULT_LOGGER_NAMESPACE:
         return DEFAULT_LOGGER_NAMESPACE
     if name.startswith(f"{DEFAULT_LOGGER_NAMESPACE}."):
         return name
     return f"{DEFAULT_LOGGER_NAMESPACE}.{name.lstrip('.')}"
-
-
-def _normalize_log_level(level: int | str) -> int:
-    if isinstance(level, int):
-        return level
-
-    normalized = level.strip().upper()
-    resolved = logging.getLevelName(normalized)
-    if isinstance(resolved, int):
-        return resolved
-
-    raise LoggingConfigurationError(f"Unsupported log level: {level}")
-
 
 class ColorFormatter(logging.Formatter):
     """Console formatter with ANSI colors based on log level."""
@@ -188,7 +147,6 @@ class ColorFormatter(logging.Formatter):
         color = self.COLORS.get(record.levelno, self.RESET)
         formatted = super().format(record)
         return f"{color}{formatted}{self.RESET}"
-
 
 class JsonFormatter(logging.Formatter):
     """JSON formatter that includes standard log record fields and context."""
@@ -210,77 +168,76 @@ class JsonFormatter(logging.Formatter):
             
         return json.dumps(log_data)
 
+class _LoggerConfigurator:
+    """Namespace class to encapsulate logging configuration builder methods."""
 
-def _build_formatter(format_type: str) -> logging.Formatter:
-    base_fmt = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s%(context)s"
-    date_fmt = "%Y-%m-%d %H:%M:%S"
-    
-    if format_type == "json":
-        return JsonFormatter(datefmt=date_fmt)
-    elif format_type == "color":
-        return ColorFormatter(fmt=base_fmt, datefmt=date_fmt)
-    else:
-        return logging.Formatter(fmt=base_fmt, datefmt=date_fmt)
+    @classmethod
+    def normalize_log_level(cls, level: int | str) -> int:
+        if isinstance(level, int):
+            return level
 
+        normalized = level.strip().upper()
+        resolved = logging.getLevelNamesMapping().get(normalized)
+        if resolved is not None:
+            return resolved
 
-def _build_console_handler(level: int, format_type: str) -> logging.Handler:
-    handler = logging.StreamHandler()
-    handler.setLevel(level)
-    handler.setFormatter(_build_formatter(format_type))
-    handler.addFilter(_LogContextFilter())
-    return handler
+        raise LoggingConfigurationError(f"Unsupported log level: {level}")
 
+    @classmethod
+    def build_formatter(cls, format_type: str) -> logging.Formatter:
+        base_fmt = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s%(context)s"
+        date_fmt = "%Y-%m-%d %H:%M:%S"
+        
+        if format_type == "json":
+            return JsonFormatter(datefmt=date_fmt)
+        elif format_type == "color":
+            return ColorFormatter(fmt=base_fmt, datefmt=date_fmt)
+        else:
+            return logging.Formatter(fmt=base_fmt, datefmt=date_fmt)
 
-def _cleanup_old_logs(log_file: Path, max_age_days: int = 3) -> None:
-    """Purge rotated log files older than max_age_days."""
-    if not log_file.parent.exists():
-        return
-    
-    current_time = time.time()
-    max_age_seconds = max_age_days * 24 * 60 * 60
-    
-    # Check all files matching the log pattern (e.g. app.log, app.log.1, etc.)
-    for path in log_file.parent.glob(log_file.name + "*"):
-        if path.is_file():
-            file_age = current_time - path.stat().st_mtime
-            if file_age > max_age_seconds:
-                try:
-                    path.unlink()
-                except OSError:
-                    pass
-
-def _build_file_handler(
-    level: int,
-    log_file: Path,
-    format_type: str,
-    *,
-    file_max_bytes: int,
-    file_backup_count: int,
-) -> logging.Handler:
-    handler = RotatingFileHandler(log_file, maxBytes=file_max_bytes, backupCount=file_backup_count)
-    handler.setLevel(level)
-    handler.setFormatter(_build_formatter(format_type))
-    handler.addFilter(_LogContextFilter())
-    return handler
+    @classmethod
+    def build_console_handler(cls, level: int, format_type: str) -> logging.Handler:
+        handler = logging.StreamHandler()
+        handler.setLevel(level)
+        handler.setFormatter(cls.build_formatter(format_type))
+        handler.addFilter(_LogContextFilter())
+        return handler
 
 
-def _validate_file_logging_settings(file_max_bytes: int, file_backup_count: int) -> None:
-    if file_max_bytes < 1:
-        raise LoggingConfigurationError("file_max_bytes must be a positive integer.")
-    if file_backup_count < 0:
-        raise LoggingConfigurationError("file_backup_count must be zero or greater.")
+    @classmethod
+    def build_file_handler(
+        cls,
+        level: int,
+        log_file: Path,
+        format_type: str,
+        *,
+        file_max_bytes: int,
+        file_backup_count: int,
+    ) -> logging.Handler:
+        # Use TimedRotatingFileHandler for time-based, runtime log cleanup automatically at midnight
+        handler = TimedRotatingFileHandler(log_file, when="midnight", backupCount=file_backup_count)
+        handler.setLevel(level)
+        handler.setFormatter(cls.build_formatter(format_type))
+        handler.addFilter(_LogContextFilter())
+        return handler
 
+    @classmethod
+    def validate_file_logging_settings(cls, file_max_bytes: int, file_backup_count: int) -> None:
+        if file_backup_count < 0:
+            raise LoggingConfigurationError("file_backup_count must be zero or greater.")
 
-def _clear_handlers(logger: logging.Logger) -> None:
-    for handler in list(logger.handlers):
-        logger.removeHandler(handler)
-        handler.close()
-
+    @classmethod
+    def clear_handlers(cls, logger: logging.Logger) -> None:
+        for handler in list(logger.handlers):
+            logger.removeHandler(handler)
+            handler.close()
 
 def configure_logging(
     *,
     level: int | str | None = None,
-    enable_file_logging: bool | None = None,
+    enable_file_logging: bool = False,
+    console_format: str = "color",
+    file_format: str = "json",
     log_file: PathLike | None = None,
     file_max_bytes: int = DEFAULT_LOG_FILE_MAX_BYTES,
     file_backup_count: int = DEFAULT_LOG_FILE_BACKUP_COUNT,
@@ -288,33 +245,22 @@ def configure_logging(
 ) -> logging.Logger:
     """Configure the shared namespace logger for console and optional file output."""
 
-    resolved_level = _normalize_log_level(level or get_env("FLIPPER_AGENT_LOG_LEVEL", DEFAULT_LOG_LEVEL) or DEFAULT_LOG_LEVEL)
-    console_format = get_env("FLIPPER_AGENT_CONSOLE_FORMAT", "color") or "color"
-    file_format = get_env("FLIPPER_AGENT_FILE_FORMAT", "json") or "json"
-
-    try:
-        file_logging_enabled = (
-            enable_file_logging
-            if enable_file_logging is not None
-            else get_bool_env("FLIPPER_AGENT_LOG_TO_FILE", default=False)
-        )
-    except ValueError as error:
-        raise LoggingConfigurationError(str(error)) from error
+    resolved_level = _LoggerConfigurator.normalize_log_level(level or DEFAULT_LOG_LEVEL)
+    file_logging_enabled = enable_file_logging
 
     logger = logging.getLogger(namespace)
     logger.setLevel(resolved_level)
     logger.propagate = False
-    _clear_handlers(logger)
+    _LoggerConfigurator.clear_handlers(logger)
 
-    logger.addHandler(_build_console_handler(resolved_level, console_format))
+    logger.addHandler(_LoggerConfigurator.build_console_handler(resolved_level, console_format))
 
     if file_logging_enabled:
-        _validate_file_logging_settings(file_max_bytes, file_backup_count)
+        _LoggerConfigurator.validate_file_logging_settings(file_max_bytes, file_backup_count)
         resolved_log_file = Path(log_file) if log_file is not None else default_log_file(create_parent=True)
         resolved_log_file.parent.mkdir(parents=True, exist_ok=True)
-        _cleanup_old_logs(resolved_log_file, max_age_days=3)
         logger.addHandler(
-            _build_file_handler(
+            _LoggerConfigurator.build_file_handler(
                 resolved_level,
                 resolved_log_file,
                 file_format,
@@ -325,13 +271,11 @@ def configure_logging(
 
     return logger
 
-
 def get_logger(name: str | None = None, *, context: LogContext | None = None) -> logging.Logger | ContextLoggerAdapter:
     logger = logging.getLogger(_normalize_logger_name(name))
     if context:
         return ContextLoggerAdapter(logger, _normalize_context(dict(context)))
     return logger
-
 
 def bind_logger(
     logger: logging.Logger | ContextLoggerAdapter | str | None = None,

@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  db:
+    image: timescale/timescaledb:latest-pg15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-flipper}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-flipperpass}
+      POSTGRES_DB: ${POSTGRES_DB:-flipper_db}
+    volumes:
+      - timescaledb-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  broker:
+    image: valkey/valkey:latest
+    volumes:
+      - valkey-data:/data
+    ports:
+      - "6380:6379"
+
+  worker-queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: arq flipper_agent.ingestion.orchestration.worker.WorkerSettings
+    volumes:
+      - ./data:/app/data
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
+      REDIS_URI: redis://broker:6379/0
+      VALKEY_URI: redis://broker:6379/0
+    depends_on:
+      - db
+      - broker
+
+  worker-streams:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m flipper_agent.ingestion.main
+    ports:
+      - "8002:8001"
+    volumes:
+      - ./data:/app/data
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
+      REDIS_URI: redis://broker:6379/0
+      VALKEY_URI: redis://broker:6379/0
+    depends_on:
+      - db
+      - broker
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sleep infinity # placeholder cron dispatcher
+    volumes:
+      - ./data:/app/data
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
+      REDIS_URI: redis://broker:6379/0
+      VALKEY_URI: redis://broker:6379/0
+    depends_on:
+      - db
+      - broker
+
+volumes:
+  timescaledb-data:
+  valkey-data:

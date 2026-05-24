@@ -10,12 +10,27 @@ requires-python = ">=3.13"
 dependencies = [
     "pyyaml>=6.0.0",
     "watchdog>=5.0.0",
-    "pydantic>=2.0.0"
+    "pydantic>=2.0.0",
+    "ccxt>=4.0.0",
+    "binance-futures-connector>=3.0.0",
+    "scrapling[all]",
+    "websockets>=11.0",
+    "aiohttp>=3.0.0",
+    "pandas>=2.0.0",
+    "arq>=0.25.0",
+    "valkey>=6.0.0",
+    "asyncpg>=0.29.0",
+    "aiofiles>=23.0.0",
+    "tenacity>=8.0.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0"
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0,<9.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-mock>=3.12.0",
     "mkdocs>=1.5.0",
     "mkdocs-material>=9.5.0",
 ]

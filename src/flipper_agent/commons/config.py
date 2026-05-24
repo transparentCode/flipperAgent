@@ -8,8 +8,15 @@ from pydantic import BaseModel, ValidationError
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
-from flipper_agent.commons.env import get_env
-from flipper_agent.commons.logging.logger_utils import SystemComponent, bind_logger
+from flipper_agent.commons.logging.logger_utils import bind_logger
+from flipper_agent.commons.enums import SystemComponent
+from flipper_agent.commons.constants import (
+    DEFAULT_ENV,
+    DEFAULT_CONFIG_DIR_NAME,
+    CONFIG_BASE_FILENAME,
+    CONFIG_LOCAL_FILENAME,
+    CONFIG_DEBOUNCE_DELAY_SEC,
+)
 
 logger = bind_logger(__name__, system_component=SystemComponent.CORE_INFRASTRUCTURE)
 
@@ -26,13 +33,13 @@ class ConfigManager:
                 cls._instance._initialized = False
             return cls._instance
 
-    def __init__(self, config_dir: Optional[str] = None):
+    def __init__(self, config_dir: Optional[str] = None, env: str = DEFAULT_ENV):
         with self._lock:
             if getattr(self, "_initialized", False):
                 return
             
-            self._config_dir = Path(config_dir) if config_dir else Path(os.getcwd()) / "configs"
-            self._env = get_env("FLIPPER_ENV", "dev")
+            self._config_dir = Path(config_dir) if config_dir else Path(os.getcwd()) / DEFAULT_CONFIG_DIR_NAME
+            self._env = env
             self._state: Dict[str, Any] = {}
             self._subscribers: Dict[str, list[Callable[[Any], None]]] = {}
             self._subscription_lock = threading.Lock()
@@ -40,7 +47,7 @@ class ConfigManager:
             self._observer: Optional[Observer] = None
             self._debounce_timer: Optional[threading.Timer] = None
             self._debounce_lock = threading.Lock()
-            self._debounce_delay = 0.5  # 500ms debounce
+            self._debounce_delay = CONFIG_DEBOUNCE_DELAY_SEC
             
             self._load_configs(trigger_callbacks=False)
             self._start_watchdog()
@@ -70,9 +77,9 @@ class ConfigManager:
     def _load_configs(self, trigger_callbacks: bool = True) -> None:
         logger.info(f"Loading configs from {self._config_dir} for env={self._env}")
         try:
-            base_data = self._read_yaml(self._config_dir / "base.yaml")
+            base_data = self._read_yaml(self._config_dir / CONFIG_BASE_FILENAME)
             env_data = self._read_yaml(self._config_dir / f"{self._env}.yaml")
-            local_data = self._read_yaml(self._config_dir / "local.yaml")
+            local_data = self._read_yaml(self._config_dir / CONFIG_LOCAL_FILENAME)
             
             new_state = self._merge_dicts(base_data, env_data)
             new_state = self._merge_dicts(new_state, local_data)
