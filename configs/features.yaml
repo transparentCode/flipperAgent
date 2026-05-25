@@ -20,6 +20,8 @@ features:
     default:
       timeframes:
         default:
+          ATR:
+            period: 14
           BollingerBands:
             period: 20
             num_std: 2.0

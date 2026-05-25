@@ -51,7 +51,35 @@ class BaseModel(ABC):
         """Single-tick evaluation for live inference."""
         ...
 
-    @abstractmethod
+    # ------------------------------------------------------------------
+    # Batch evaluation — Template Method with temporal guard
+    # ------------------------------------------------------------------
+
     def batch_evaluate(self, feature_df: pd.DataFrame) -> pd.Series:
-        """Vectorized evaluation for backtest / optimization."""
+        """Validate temporal ordering, delegate to subclass, validate result."""
+        self._validate_temporal_ordering(feature_df)
+        result = self._batch_evaluate_impl(feature_df)
+        self._validate_result_alignment(feature_df, result)
+        return result
+
+    @abstractmethod
+    def _batch_evaluate_impl(self, feature_df: pd.DataFrame) -> pd.Series:
+        """Subclass implementation of batch evaluation."""
         ...
+
+    def _validate_temporal_ordering(self, df: pd.DataFrame) -> None:
+        """Raise if DataFrame index is not monotonically non-decreasing."""
+        if hasattr(df.index, "is_monotonic_increasing"):
+            if not df.index.is_monotonic_increasing:
+                raise ValueError(
+                    f"{self.meta.name}: batch_evaluate input index is not "
+                    "monotonically increasing — possible temporal ordering violation."
+                )
+
+    def _validate_result_alignment(self, df: pd.DataFrame, result: pd.Series) -> None:
+        """Raise if result length doesn't match input."""
+        if len(result) != len(df):
+            raise ValueError(
+                f"{self.meta.name}: batch_evaluate result length ({len(result)}) "
+                f"does not match input length ({len(df)})."
+            )

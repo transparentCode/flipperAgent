@@ -39,14 +39,28 @@ class MeanReversionModel(BaseModel):
 
         direction = 0
         conviction = 0.0
-        metadata: dict[str, Any] = {"rsi_value": rsi_value, "close": close}
+        metadata: dict[str, Any] = {
+            "rsi_value": rsi_value,
+            "close": close,
+            "holding_period": self.params["holding_period"],
+        }
+
+        # Recompute entry bands using bb_entry_std relative to Bollinger midline
+        if bb_upper is not None and bb_lower is not None:
+            bb_mid = (bb_upper + bb_lower) / 2.0
+            entry_ratio = self.params["bb_entry_std"] / 2.0  # 2.0 = assumed indicator num_std
+            model_lower = bb_mid - entry_ratio * (bb_mid - bb_lower)
+            model_upper = bb_mid + entry_ratio * (bb_upper - bb_mid)
+        else:
+            model_lower = bb_lower
+            model_upper = bb_upper
 
         if rsi_value is not None:
-            if rsi_value <= self.params["rsi_oversold"] and bb_lower is not None and close <= bb_lower:
+            if rsi_value <= self.params["rsi_oversold"] and model_lower is not None and close <= model_lower:
                 direction = 1
                 conviction = min(1.0, (self.params["rsi_oversold"] - rsi_value) / self.params["rsi_oversold"])
                 metadata["trigger"] = "oversold"
-            elif rsi_value >= self.params["rsi_overbought"] and bb_upper is not None and close >= bb_upper:
+            elif rsi_value >= self.params["rsi_overbought"] and model_upper is not None and close >= model_upper:
                 direction = -1
                 conviction = min(1.0, (rsi_value - self.params["rsi_overbought"]) / (100 - self.params["rsi_overbought"]))
                 metadata["trigger"] = "overbought"
@@ -65,7 +79,7 @@ class MeanReversionModel(BaseModel):
     # Batch evaluation for optimization / backtest
     # ------------------------------------------------------------------
 
-    def batch_evaluate(self, feature_df: pd.DataFrame) -> pd.Series:
+    def _batch_evaluate_impl(self, feature_df: pd.DataFrame) -> pd.Series:
         """Return a Series of directions (-1, 0, 1) aligned with *feature_df* index."""
         rsi = feature_df.get("RSI")
         bb_lower = feature_df.get("BollingerBands_lower")
@@ -74,13 +88,36 @@ class MeanReversionModel(BaseModel):
 
         directions = pd.Series(0, index=feature_df.index)
 
-        if rsi is not None and bb_lower is not None and close is not None:
-            long_mask = (rsi <= self.params["rsi_oversold"]) & (close <= bb_lower)
+        # Recompute entry bands using bb_entry_std relative to Bollinger midline
+        if bb_lower is not None and bb_upper is not None:
+            bb_mid = (bb_upper + bb_lower) / 2.0
+            entry_ratio = self.params["bb_entry_std"] / 2.0  # 2.0 = assumed indicator num_std
+            model_lower = bb_mid - entry_ratio * (bb_mid - bb_lower)
+            model_upper = bb_mid + entry_ratio * (bb_upper - bb_mid)
+        else:
+            model_lower = bb_lower
+            model_upper = bb_upper
+
+        if rsi is not None and model_lower is not None and close is not None:
+            long_mask = (rsi <= self.params["rsi_oversold"]) & (close <= model_lower)
             directions[long_mask] = 1
 
-        if rsi is not None and bb_upper is not None and close is not None:
-            short_mask = (rsi >= self.params["rsi_overbought"]) & (close >= bb_upper)
+        if rsi is not None and model_upper is not None and close is not None:
+            short_mask = (rsi >= self.params["rsi_overbought"]) & (close >= model_upper)
             directions[short_mask] = -1
+
+        # Apply holding_period cooldown to suppress whipsaw
+        holding_period = self.params["holding_period"]
+        if holding_period > 1:
+            cooldown = 0
+            last_dir = 0
+            for i in range(len(directions)):
+                if cooldown > 0:
+                    directions.iloc[i] = last_dir
+                    cooldown -= 1
+                elif directions.iloc[i] != 0 and directions.iloc[i] != last_dir:
+                    last_dir = directions.iloc[i]
+                    cooldown = holding_period - 1
 
         return directions
 
