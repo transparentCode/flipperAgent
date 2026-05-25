@@ -1,9 +1,9 @@
 from typing import Sequence, Any, Tuple
 import numpy as np
 from numba import njit
-from src.libs.features.indicators.base import Indicator
-from src.libs.features.indicators.registry import IndicatorRegistry
-from src.libs.features.indicators.volatility.atr import _compute_atr_batch, ATR
+from libs.features.indicators.base import Indicator
+from libs.features.indicators.registry import IndicatorRegistry
+from libs.features.indicators.volatility.atr import _compute_atr_batch, ATR
 
 @njit(cache=True)
 def _compute_supertrend_batch(high: np.ndarray, low: np.ndarray, close: np.ndarray, atr: np.ndarray, multiplier: float) -> tuple:

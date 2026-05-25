@@ -4,8 +4,8 @@ import pytest
 
 from libs.contracts.schemas import StudyConfig, TrialResult, ParamDef
 from libs.models.mean_reversion import MeanReversionModel
-from libs.optimization.runner import OptunaRunner
-from libs.optimization.objective import make_objective, build_suggest
+from libs.optim_utils.runner import OptunaRunner
+from libs.optim_utils.objective import make_objective, build_suggest
 
 
 class TestOptunaRunner:

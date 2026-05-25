@@ -1,6 +1,6 @@
 import pytest
-from src.apps.signal_app.feature_manager import FeatureManager
-from src.libs.common.config import ConfigManager
+from apps.signal_app.feature_manager import FeatureManager
+from libs.common.config import ConfigManager
 
 def test_feature_manager():
     # Setup global config or mock it.

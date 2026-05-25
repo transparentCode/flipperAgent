@@ -1,9 +1,9 @@
 from typing import Sequence, Any, Tuple
 import numpy as np
 from numba import njit
-from src.libs.features.indicators.base import Indicator
-from src.libs.features.indicators.registry import IndicatorRegistry
-from src.libs.features.indicators.trend.ema import _compute_ema_batch, EMA
+from libs.features.indicators.base import Indicator
+from libs.features.indicators.registry import IndicatorRegistry
+from libs.features.indicators.trend.ema import _compute_ema_batch, EMA
 
 @njit(cache=True)
 def _compute_macd_batch(data: np.ndarray, fast_period: int, slow_period: int, signal_period: int) -> tuple:

@@ -1,8 +1,8 @@
 from typing import Sequence, Any, Tuple
 import numpy as np
 from numba import njit
-from src.libs.features.indicators.base import Indicator
-from src.libs.features.indicators.registry import IndicatorRegistry
+from libs.features.indicators.base import Indicator
+from libs.features.indicators.registry import IndicatorRegistry
 
 @njit(cache=True)
 def _compute_atr_batch(high: np.ndarray, low: np.ndarray, close: np.ndarray, period: int) -> np.ndarray:

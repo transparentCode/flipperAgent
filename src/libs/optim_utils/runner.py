@@ -11,7 +11,7 @@ from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
 from libs.contracts.schemas import StudyConfig, TrialResult
 from libs.models.base import BaseModel
-from libs.optimization.objective import make_objective
+from libs.optim_utils.objective import make_objective
 
 logger = bind_logger(__name__, system_component=SystemComponent.OPTIMIZATION)
 

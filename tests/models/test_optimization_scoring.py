@@ -17,16 +17,16 @@ from libs.contracts.schemas import (
     ParamAuditReport,
     ScheduleEntry,
 )
-from libs.optimization.param_auditor import (
+from libs.optim_utils.param_auditor import (
     ParamAuditor,
     _DRAWDOWN_DEGRADATION_THRESHOLD,
     _SHARPE_IMPROVEMENT_THRESHOLD,
 )
-from libs.optimization.param_writeback import (
+from libs.optim_utils.param_writeback import (
     read_current_params,
     write_best_params,
 )
-from libs.optimization.scoring import (
+from libs.optim_utils.scoring import (
     compute_max_drawdown,
     compute_returns,
     compute_sharpe,
@@ -182,14 +182,14 @@ class TestParamAuditorRecommend:
 
 class TestParamWriteback:
     def test_write_best_params_creates_file(self, tmp_path):
-        with patch("libs.optimization.param_writeback._config_dir", return_value=tmp_path):
+        with patch("libs.optim_utils.param_writeback._config_dir", return_value=tmp_path):
             out = write_best_params("TestModel", "BTCUSDT", "1h", {"a": 1})
             assert out.exists()
             data = yaml.safe_load(out.read_text())
             assert data["TestModel"]["BTCUSDT"]["1h"] == {"a": 1}
 
     def test_write_best_params_merges(self, tmp_path):
-        with patch("libs.optimization.param_writeback._config_dir", return_value=tmp_path):
+        with patch("libs.optim_utils.param_writeback._config_dir", return_value=tmp_path):
             write_best_params("M1", "BTC", "1h", {"x": 1})
             write_best_params("M2", "ETH", "4h", {"y": 2})
             data = yaml.safe_load((tmp_path / "optimized_params.yaml").read_text())
@@ -211,13 +211,13 @@ class TestParamWriteback:
             }
         }
         (tmp_path / "models.yaml").write_text(yaml.dump(models_data))
-        with patch("libs.optimization.param_writeback._config_dir", return_value=tmp_path):
+        with patch("libs.optim_utils.param_writeback._config_dir", return_value=tmp_path):
             params = read_current_params("MeanReversion", "BTCUSDT", "1h")
             assert params == {"rsi_oversold": 30}
 
     def test_read_current_params_missing_returns_none(self, tmp_path):
         (tmp_path / "models.yaml").write_text(yaml.dump({"models": {}}))
-        with patch("libs.optimization.param_writeback._config_dir", return_value=tmp_path):
+        with patch("libs.optim_utils.param_writeback._config_dir", return_value=tmp_path):
             assert read_current_params("NoSuchModel", "X", "1h") is None
 
 

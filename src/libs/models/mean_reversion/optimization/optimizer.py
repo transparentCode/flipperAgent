@@ -12,8 +12,8 @@ import optuna
 import pandas as pd
 
 from libs.models.registry import ModelRegistry
-from libs.optimization.objective import build_suggest
-from libs.optimization.scoring import (
+from libs.optim_utils.objective import build_suggest
+from libs.optim_utils.scoring import (
     compute_max_drawdown,
     compute_returns,
     compute_sharpe,

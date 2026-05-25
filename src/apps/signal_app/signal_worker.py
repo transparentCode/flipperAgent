@@ -2,10 +2,10 @@ import asyncio
 import logging
 import json
 from typing import Optional
-from src.apps.signal_app.feature_manager import FeatureManager
-from src.libs.common.config import ConfigManager
-from src.libs.common.logging.logger_utils import get_logger
-from src.libs.common.enums import SystemComponent
+from apps.signal_app.feature_manager import FeatureManager
+from libs.common.config import ConfigManager
+from libs.common.logging.logger_utils import get_logger
+from libs.common.enums import SystemComponent
 
 logger = get_logger(__name__).bind(system_component=SystemComponent.SIGNAL_APP)
 

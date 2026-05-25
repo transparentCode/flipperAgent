@@ -48,3 +48,4 @@ packages = [{ include = "apps", from = "src" }, { include = "libs", from = "src"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]

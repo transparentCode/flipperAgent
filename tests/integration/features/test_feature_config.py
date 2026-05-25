@@ -1,13 +1,13 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-from src.libs.common.config import ConfigManager
-from src.libs.features.indicators.registry import IndicatorRegistry
+from libs.common.config import ConfigManager
+from libs.features.indicators.registry import IndicatorRegistry
 
 # Ensure indicators are registered before testing
-import src.libs.features.indicators.momentum.rsi
-import src.libs.features.indicators.momentum.macd
-import src.libs.features.indicators.trend.ema
+import libs.features.indicators.momentum.rsi
+import libs.features.indicators.momentum.macd
+import libs.features.indicators.trend.ema
 
 @pytest.fixture
 def mock_config():

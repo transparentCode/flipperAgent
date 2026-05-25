@@ -1,12 +1,12 @@
 import logging
 from typing import Dict, Any, List, Sequence, Tuple, get_type_hints
 
-from src.libs.common.config import ConfigManager
-from src.libs.common.logging.logger_utils import bind_logger
-import src.libs.features.indicators
-from src.libs.features.indicators.registry import IndicatorRegistry
-from src.libs.features.indicators.base import Indicator
-from src.libs.common.enums import SystemComponent
+from libs.common.config import ConfigManager
+from libs.common.logging.logger_utils import bind_logger
+import libs.features.indicators
+from libs.features.indicators.registry import IndicatorRegistry
+from libs.features.indicators.base import Indicator
+from libs.common.enums import SystemComponent
 
 logger = bind_logger(__name__, system_component=SystemComponent.SIGNAL_APP)
 

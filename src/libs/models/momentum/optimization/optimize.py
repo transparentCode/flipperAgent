@@ -18,10 +18,10 @@ if _src not in sys.path:
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
 from libs.contracts.schemas import StudyConfig
-from libs.optimization.data_fetcher import fetch_historical_ohlcv
-from libs.optimization.param_auditor import ParamAuditor
-from libs.optimization.param_writeback import read_current_params, write_best_params
-from libs.optimization.runner import OptunaRunner
+from libs.optim_utils.data_fetcher import fetch_historical_ohlcv
+from libs.optim_utils.param_auditor import ParamAuditor
+from libs.optim_utils.param_writeback import read_current_params, write_best_params
+from libs.optim_utils.runner import OptunaRunner
 
 import libs.models  # noqa: F401
 
@@ -70,7 +70,7 @@ def main() -> None:
         logger.warning("Insufficient data for optimization — need at least 50 candles")
         return
 
-    from libs.optimization.scoring import split_temporal
+    from libs.optim_utils.scoring import split_temporal
     train_df, test_df, val_df = split_temporal(
         feature_df, train=args.train_ratio, test=args.test_ratio, val=args.val_ratio,
     )

@@ -1,5 +1,5 @@
 from typing import Dict, Type
-from src.libs.features.indicators.base import Indicator
+from libs.features.indicators.base import Indicator
 
 class IndicatorRegistry:
     _registry: Dict[str, Type[Indicator]] = {}

@@ -15,7 +15,7 @@ from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
 from libs.contracts.schemas import ParamAuditReport
 from libs.models.registry import ModelRegistry
-from libs.optimization.scoring import (
+from libs.optim_utils.scoring import (
     compute_max_drawdown,
     compute_returns,
     compute_sharpe,

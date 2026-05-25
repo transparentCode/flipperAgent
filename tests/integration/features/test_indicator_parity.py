@@ -1,9 +1,9 @@
 import pytest
 import math
 import random
-from src.libs.features.indicators.trend.ema import EMA
-from src.libs.features.indicators.momentum.rsi import RSI
-from src.libs.features.indicators.registry import IndicatorRegistry
+from libs.features.indicators.trend.ema import EMA
+from libs.features.indicators.momentum.rsi import RSI
+from libs.features.indicators.registry import IndicatorRegistry
 
 def generate_random_walk(length=1000, start=100.0):
     random.seed(42)
@@ -72,11 +72,11 @@ def test_registry():
     assert IndicatorRegistry.get("EMA") == EMA
     assert IndicatorRegistry.get("RSI") == RSI
 
-from src.libs.features.indicators.momentum.macd import MACD
-from src.libs.features.indicators.volatility.atr import ATR
-from src.libs.features.indicators.volatility.bollinger import BollingerBands
-from src.libs.features.indicators.trend.supertrend import Supertrend
-from src.libs.features.indicators.volume.vwap import VWAP
+from libs.features.indicators.momentum.macd import MACD
+from libs.features.indicators.volatility.atr import ATR
+from libs.features.indicators.volatility.bollinger import BollingerBands
+from libs.features.indicators.trend.supertrend import Supertrend
+from libs.features.indicators.volume.vwap import VWAP
 
 def generate_ohlcv(length=1000, start=100.0, start_ts=1609459200): # Jan 1, 2021
     random.seed(42)

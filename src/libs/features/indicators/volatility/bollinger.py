@@ -3,8 +3,8 @@ import numpy as np
 from numba import njit
 from collections import deque
 import math
-from src.libs.features.indicators.base import Indicator
-from src.libs.features.indicators.registry import IndicatorRegistry
+from libs.features.indicators.base import Indicator
+from libs.features.indicators.registry import IndicatorRegistry
 
 @njit(cache=True)
 def _compute_bb_batch(data: np.ndarray, period: int, num_std: float) -> tuple:
