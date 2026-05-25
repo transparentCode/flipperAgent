@@ -1,0 +1,21 @@
+optimization:
+  defaults:
+    n_trials: 200
+    write_back: false
+
+  schedules:
+    MeanReversion:
+      cron: "0 2 * * 1"           # weekly Monday 2am UTC
+      assets: ["BTCUSDT", "ETHUSDT"]
+      timeframes: ["1h", "4h"]
+      write_back: true
+    TrendFollowing:
+      cron: "0 3 1 * *"           # monthly 1st 3am UTC
+      assets: ["BTCUSDT"]
+      timeframes: ["4h"]
+      write_back: true
+    Momentum:
+      cron: "0 2 */14 * *"        # biweekly
+      assets: ["BTCUSDT", "ETHUSDT"]
+      timeframes: ["4h"]
+      write_back: true

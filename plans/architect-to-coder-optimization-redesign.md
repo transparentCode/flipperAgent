@@ -248,6 +248,36 @@ BARS_PER_YEAR: dict[str, int] = {
 }
 
 
+def split_temporal(
+    df: "pd.DataFrame",
+    train: float = 0.6,
+    test: float = 0.2,
+    val: float = 0.2,
+) -> tuple["pd.DataFrame", "pd.DataFrame", "pd.DataFrame"]:
+    """Chronological train/test/val split — no shuffling.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Full historical dataset sorted by time.
+    train : float
+        Fraction for training (Optuna optimizes params).
+    test : float
+        Fraction for testing (early stopping / pruning during optimization).
+    val : float
+        Fraction for validation (final audit — never seen during optimization).
+
+    Returns
+    -------
+    train_df, test_df, val_df : tuple of DataFrames
+    """
+    assert abs(train + test + val - 1.0) < 1e-6, f"Ratios must sum to 1.0, got {train + test + val}"
+    n = len(df)
+    t1 = int(n * train)
+    t2 = int(n * (train + test))
+    return df.iloc[:t1], df.iloc[t1:t2], df.iloc[t2:]
+
+
 def compute_returns(
     directions: np.ndarray,
     close_prices: np.ndarray,
@@ -818,6 +848,12 @@ def parse_args() -> argparse.Namespace:
                         help="Number of days of historical data (default: 90)")
     parser.add_argument("--cost-bps", type=float, default=10.0,
                         help="Round-trip transaction cost in basis points")
+    parser.add_argument("--train-ratio", type=float, default=0.6,
+                        help="Train set ratio (default: 0.6)")
+    parser.add_argument("--test-ratio", type=float, default=0.2,
+                        help="Test set ratio (default: 0.2)")
+    parser.add_argument("--val-ratio", type=float, default=0.2,
+                        help="Validation set ratio for audit (default: 0.2)")
     parser.add_argument("--write-back", action="store_true",
                         help="Write best params to configs/optimized_params.yaml")
     parser.add_argument("--audit", action="store_true",
@@ -848,9 +884,16 @@ def main() -> None:
         logger.warning("Insufficient data for optimization — need at least 50 candles")
         return
 
-    # --- Build objective from this model's optimizer ---
+    # --- Split data: train / test / val ---
+    from libs.optimization.scoring import split_temporal
+    train_df, test_df, val_df = split_temporal(
+        feature_df, train=args.train_ratio, test=args.test_ratio, val=args.val_ratio,
+    )
+    logger.info(f"Split: train={len(train_df)}, test={len(test_df)}, val={len(val_df)}")
+
+    # --- Build objective from this model's optimizer (train set only) ---
     objective_fn = mr_optimizer.make_objective(
-        feature_df, timeframe=args.timeframe, cost_bps=args.cost_bps,
+        train_df, timeframe=args.timeframe, cost_bps=args.cost_bps,
     )
 
     # --- Resolve study config ---
@@ -879,14 +922,14 @@ def main() -> None:
     processed_params = mr_optimizer.post_process_params(best.params)
     logger.info(f"Best trial #{best.trial_number}: params={processed_params} values={best.values}")
 
-    # --- Audit ---
+    # --- Audit (on validation set — never seen during optimization) ---
     if args.audit:
         current_params = read_current_params(
             mr_optimizer.MODEL_NAME, args.asset, args.timeframe,
         )
         if current_params:
             auditor = ParamAuditor(
-                feature_df, timeframe=args.timeframe, cost_bps=args.cost_bps,
+                val_df, timeframe=args.timeframe, cost_bps=args.cost_bps,
             )
             report = auditor.audit(
                 mr_optimizer.MODEL_NAME, args.asset, args.timeframe,
@@ -1059,7 +1102,8 @@ Cron invocation:
 2. **Backward-compatible imports:** `from libs.models.mean_reversion import MeanReversionModel` still works.
 3. **No shared optimizer ABC:** No `BaseOptimizer`, no `OptimizerRegistry`, no `GenericOptimizer`.
 4. **Fully independent optimizers:** Each model's `optimization/optimizer.py` can use any Optuna sampler, pruner, objective structure, or non-Optuna approach. No enforced method signatures.
-5. **Scoring utilities:** `libs/optimization/scoring.py` provides `compute_returns()`, `compute_sharpe()`, `compute_max_drawdown()`, `compute_win_rate()` as optional pure-function utilities.
+5. **Scoring utilities:** `libs/optimization/scoring.py` provides `split_temporal()`, `compute_returns()`, `compute_sharpe()`, `compute_max_drawdown()`, `compute_win_rate()` as optional pure-function utilities.
+6. **Train/test/val split:** `split_temporal(df, train=0.6, test=0.2, val=0.2)` performs chronological split. CLI scripts accept `--train-ratio`, `--test-ratio`, `--val-ratio` flags. Optuna trains on train set only. Audit runs on val set (unseen). Each model can override or use its own split strategy.
 6. **No standalone Backtester:** Scoring lives inline in each model's optimizer objective function.
 7. **Data fetching from Binance:** `libs/optimization/data_fetcher.py` uses `binance-futures-connector` SDK directly. No cross-app imports. Handles pagination for large date ranges.
 8. **OptunaRunner backward compat:** `runner.run(backtest_fn=fn)` still works. New: `runner.run(objective_fn=fn)`. `runner.study` accessible after run.
@@ -1080,7 +1124,9 @@ Cron invocation:
 - [ ] `from libs.models.momentum import MomentumModel` works
 - [ ] `ModelRegistry.list_all()` returns all 3 models
 - [ ] No `BaseOptimizer`, `OptimizerRegistry`, or `GenericOptimizer` files exist
-- [ ] `from libs.optimization.scoring import compute_sharpe, compute_returns` works
+- [ ] `from libs.optimization.scoring import compute_sharpe, compute_returns, split_temporal` works
+- [ ] `split_temporal(df, 0.6, 0.2, 0.2)` returns 3 DataFrames with correct lengths and no overlap
+- [ ] `split_temporal` raises assertion if ratios don't sum to 1.0
 - [ ] `from libs.optimization.data_fetcher import fetch_historical_ohlcv` works
 - [ ] `fetch_historical_ohlcv("BTCUSDT", "1h", since=..., limit=100)` returns DataFrame with OHLCV columns
 - [ ] Data fetcher paginates correctly for limit > 1500

@@ -55,12 +55,27 @@ class OptunaRunner:
 
     def run(
         self,
-        backtest_fn: Callable[[BaseModel], dict[str, float]],
+        backtest_fn: Callable[[BaseModel], dict[str, float]] | None = None,
+        objective_fn: Callable[["optuna.Trial"], float | tuple[float, ...]] | None = None,
         study_name: str | None = None,
     ) -> list[TrialResult]:
-        """Execute the optimization study and return results."""
+        """Execute the optimization study and return results.
+
+        Accepts either a ``backtest_fn`` (legacy — wraps via make_objective)
+        or a raw ``objective_fn`` (new — used directly by per-model optimizers).
+        Exactly one must be provided.
+        """
+        if backtest_fn is None and objective_fn is None:
+            raise ValueError("Either backtest_fn or objective_fn must be provided")
+        if backtest_fn is not None and objective_fn is not None:
+            raise ValueError("Provide only one of backtest_fn or objective_fn")
+
         study = self.create_study(study_name)
-        objective = make_objective(self.config.model_name, backtest_fn)
+
+        if objective_fn is not None:
+            objective = objective_fn
+        else:
+            objective = make_objective(self.config.model_name, backtest_fn)
 
         logger.info(
             f"Starting optimization: model={self.config.model_name} "
