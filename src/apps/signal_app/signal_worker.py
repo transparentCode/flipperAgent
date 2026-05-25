@@ -92,6 +92,7 @@ class SignalWorker:
                     val = payload.get(key.encode("utf-8")) or payload.get(key)
                     return float(val)
                     
+                open_ = _get_float("open")
                 high = _get_float("high")
                 low = _get_float("low")
                 close = _get_float("close")
@@ -105,7 +106,17 @@ class SignalWorker:
                 results = self.feature_manager.process_tick(data_tuple)
                 logger.debug(f"Indicator results: {results}")
 
-                # Optional: publish results to another stream, maybe feature_data:{asset}:{timeframe}
+                # Publish computed features to Valkey for StrategyWorker consumption
+                if self.redis_client and results:
+                    feature_stream = f"features:{self.asset}:{self.timeframe}"
+                    feature_payload = {
+                        "asset": self.asset,
+                        "timeframe": self.timeframe,
+                        "timestamp": str(timestamp),
+                        "features": json.dumps(results),
+                        "bar_data": json.dumps({"open": open_, "high": high, "low": low, "close": close, "volume": volume}),
+                    }
+                    await self.redis_client.xadd(feature_stream, feature_payload)
                 
             except Exception as e:
                 logger.error(f"Failed to parse or process payload {payload}: {e}")

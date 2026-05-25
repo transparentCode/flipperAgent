@@ -66,6 +66,21 @@ services:
       - db
       - broker
 
+  strategy-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m apps.strategy_app.main
+    volumes:
+      - ./data:/app/data
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
+      REDIS_URI: redis://broker:6379/0
+      VALKEY_URI: redis://broker:6379/0
+    depends_on:
+      - db
+      - broker
+
 volumes:
   timescaledb-data:
   valkey-data:

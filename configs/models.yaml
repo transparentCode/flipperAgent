@@ -1,0 +1,36 @@
+models:
+  assets:
+    BTCUSDT:
+      timeframes:
+        1h:
+          MeanReversion:
+            enabled: true
+            params:
+              rsi_oversold: 30
+              rsi_overbought: 70
+              bb_entry_std: 2.0
+              holding_period: 5
+        4h:
+          MeanReversion:
+            enabled: true
+            params:
+              rsi_oversold: 25
+              rsi_overbought: 75
+              bb_entry_std: 2.5
+              holding_period: 3
+    ETHUSDT:
+      timeframes:
+        4h:
+          MeanReversion:
+            enabled: true
+            params:
+              rsi_oversold: 25
+              rsi_overbought: 75
+              bb_entry_std: 2.5
+              holding_period: 3
+    default:
+      timeframes:
+        default:
+          MeanReversion:
+            enabled: true
+            params: {}
