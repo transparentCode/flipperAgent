@@ -1,0 +1,90 @@
+risk:
+  account:
+    initial_balance: 10000
+    currency: USDT
+    leverage_limit: 5.0
+
+  global_limits:
+    max_total_exposure_pct: 80
+    max_concurrent_positions: 10
+    max_drawdown_pct: 15
+    daily_loss_limit_pct: 5
+    cooldown_after_loss_seconds: 0
+
+  rules:
+    - MaxExposureRule
+    - MaxPositionsRule
+    - MaxDrawdownRule
+    - DailyLossLimitRule
+    - CooldownAfterLossRule
+
+  position_sizing:
+    default_strategy: volatility_scaled
+    fixed_fractional:
+      risk_per_trade_pct: 2.0
+    volatility_scaled:
+      target_risk_pct: 1.0
+      atr_multiplier: 2.0
+    kelly:
+      fraction: 0.5
+    equal_weight: {}
+
+  stop_loss:
+    default_method: atr_based
+    atr_based:
+      multiplier: 2.0
+    fixed_pct:
+      pct: 2.0
+    trailing:
+      atr_multiplier: 2.0
+
+  take_profit:
+    default_method: risk_reward
+    risk_reward:
+      ratio: 2.0
+    fixed_pct:
+      pct: 4.0
+    trailing:
+      atr_multiplier: 3.0
+
+  mtf:
+    default_conflict_resolution: conviction_weighted
+    signal_timeout_seconds: 300
+    timeframe_weights:
+      1m: 0.25
+      5m: 0.5
+      15m: 0.75
+      1h: 1.0
+      4h: 1.5
+      1d: 2.0
+
+  assets:
+    BTCUSDT:
+      max_position_pct: 40
+      signal_handling: aggregate
+      position_sizing:
+        strategy: volatility_scaled
+      stop_loss:
+        method: atr_based
+      timeframes:
+        1h:
+          risk_budget_pct: 60
+        4h:
+          risk_budget_pct: 40
+    ETHUSDT:
+      max_position_pct: 30
+      signal_handling: aggregate
+    SOLUSDT:
+      max_position_pct: 20
+      signal_handling: independent
+      stop_loss:
+        method: trailing
+    default:
+      max_position_pct: 20
+      signal_handling: aggregate
+      position_sizing:
+        strategy: volatility_scaled
+      stop_loss:
+        method: atr_based
+      take_profit:
+        method: risk_reward

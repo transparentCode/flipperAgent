@@ -118,6 +118,8 @@ class StrategyWorker:
                 idempotency_key=self._make_idempotency_key(
                     output.model_name, output.asset, output.timeframe, output.timestamp,
                 ),
+                model_name=output.model_name,
+                metadata=output.metadata,
             )
 
             if self.redis_client:
