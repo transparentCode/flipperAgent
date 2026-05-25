@@ -26,8 +26,12 @@ class FeatureManager:
         self.db_fetcher = db_fetcher
         self.config_mgr = ConfigManager()
         self.config_mgr.register_file(CONFIG_FILE_FEATURES)
-        self.indicators: List[Indicator] = []
+        self._indicator_entries: list[tuple[str, Indicator]] = []
         self._initialize_indicators()
+
+    @property
+    def indicators(self) -> list[Indicator]:
+        return [ind for _, ind in self._indicator_entries]
         
     async def fetch_historical_db_records(self, max_lookback: int) -> Sequence[Tuple[float, float, float, float, float]]:
         """
@@ -52,16 +56,25 @@ class FeatureManager:
             logger.error(f"Error reading indicator config: {e}", exc_info=True)
             return
 
-        for ind_name, params in timeframe_node.items():
+        for config_key, params in timeframe_node.items():
             try:
-                indicator_class = IndicatorRegistry.get(ind_name)
-                indicator = indicator_class(**params)
-                self.indicators.append(indicator)
-                logger.info(f"Initialized indicator {ind_name} for {self.asset} {self.timeframe}")
+                if isinstance(params, dict) and "type" in params:
+                    indicator_type = params["type"]
+                    output_key = config_key
+                    constructor_params = {k: v for k, v in params.items() if k != "type"}
+                else:
+                    indicator_type = config_key
+                    output_key = config_key
+                    constructor_params = params if isinstance(params, dict) else {}
+
+                indicator_class = IndicatorRegistry.get(indicator_type)
+                indicator = indicator_class(**constructor_params)
+                self._indicator_entries.append((output_key, indicator))
+                logger.info(f"Initialized indicator {indicator_type} as '{output_key}' for {self.asset} {self.timeframe}")
             except KeyError:
-                logger.warning(f"Indicator {ind_name} not found in registry. Skipping.")
+                logger.warning(f"Indicator type for '{config_key}' not found in registry. Skipping.")
             except Exception as e:
-                logger.error(f"Error instantiating {ind_name}: {e}", exc_info=True)
+                logger.error(f"Error instantiating '{config_key}': {e}", exc_info=True)
 
     def _get_mapped_input(self, ind: Indicator, data: Tuple[float, float, float, float, float]) -> Any:
         hints = get_type_hints(ind.update)
@@ -89,13 +102,13 @@ class FeatureManager:
         Pre-warms the live internal state.
         historical_data: list of (high, low, close, volume, timestamp)
         """
-        for ind in self.indicators:
+        for output_key, ind in self._indicator_entries:
             try:
                 mapped_data = self._get_mapped_historical_inputs(ind, historical_data)
                 ind.prime(mapped_data)
-                logger.info(f"Primed indicator {ind.__class__.__name__}")
+                logger.info(f"Primed indicator '{output_key}'")
             except Exception as e:
-                logger.error(f"Error priming {ind.__class__.__name__}: {e}")
+                logger.error(f"Error priming '{output_key}': {e}")
                 ind._is_primed = False
 
     def process_tick(self, data: Tuple[float, float, float, float, float]) -> Dict[str, Any]:
@@ -103,16 +116,16 @@ class FeatureManager:
         Accepts incoming (high, low, close, volume, timestamp) tuple.
         """
         results = {}
-        for ind in self.indicators:
+        for output_key, ind in self._indicator_entries:
             if not ind.is_primed:
-                logger.warning(f"Indicator {ind.__class__.__name__} is not primed. Skipping update.")
+                logger.warning(f"Indicator '{output_key}' is not primed. Skipping update.")
                 continue
-            
+
             try:
                 mapped_input = self._get_mapped_input(ind, data)
                 res = ind.update(mapped_input)
-                results[ind.__class__.__name__] = res
+                results[output_key] = res
             except Exception as e:
-                logger.error(f"Indicator {ind.__class__.__name__} failed during update: {e}. Un-priming.", exc_info=True)
+                logger.error(f"Indicator '{output_key}' failed during update: {e}. Un-priming.", exc_info=True)
                 ind._is_primed = False
         return results

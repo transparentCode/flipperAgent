@@ -25,8 +25,12 @@ features:
           BollingerBands:
             period: 20
             num_std: 2.0
-          EMA:
-            period: 20
+          EMA_fast:
+            type: EMA
+            period: 12
+          EMA_slow:
+            type: EMA
+            period: 26
           MACD:
             fast_period: 12
             signal_period: 9

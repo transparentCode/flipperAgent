@@ -13,7 +13,7 @@ class SignalWorker:
     def __init__(self, asset: str, timeframe: str):
         self.asset = asset
         self.timeframe = timeframe
-        self.stream_key = f"market_data:{asset}:{timeframe}"
+        self.stream_key = f"stream:ohlcv:{asset.lower()}:{timeframe}"
         self.group_name = "signal_app_group"
         self.consumer_name = f"signal_worker_{asset}_{timeframe}"
         self.feature_manager = FeatureManager(asset, timeframe)
