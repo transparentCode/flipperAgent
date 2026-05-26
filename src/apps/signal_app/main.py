@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 
 from libs.common.config import ConfigManager
+from libs.common.connections import create_valkey_client, init_db_pools
+from libs.common.db.pool_manager import DBPoolManager
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger, configure_logging
 from apps.signal_app.signal_worker import SignalWorker
@@ -52,12 +54,21 @@ async def _run() -> None:
 
     logger.info(f"Discovered {len(pairs)} asset/timeframe pairs: {pairs}")
 
-    tasks = []
-    for asset, tf in pairs:
-        worker = SignalWorker(asset, tf)
-        tasks.append(asyncio.create_task(worker.start()))
+    # --- Connection setup ---
+    await init_db_pools(config_mgr)
+    redis_client = await create_valkey_client(config_mgr)
 
-    await asyncio.gather(*tasks)
+    try:
+        tasks = []
+        for asset, tf in pairs:
+            worker = SignalWorker(asset, tf)
+            await worker.connect(redis_client)
+            tasks.append(asyncio.create_task(worker.start()))
+
+        await asyncio.gather(*tasks)
+    finally:
+        await redis_client.aclose()
+        await DBPoolManager.close_pools()
 
 
 def main() -> None:

@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 
 from libs.common.config import ConfigManager
+from libs.common.connections import create_valkey_client, init_db_pools
+from libs.common.db.pool_manager import DBPoolManager
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger, configure_logging
 from libs.execution.fill_tracker import FillTracker
@@ -57,6 +59,10 @@ async def _run() -> None:
 
     logger.info(f"Discovered {len(assets)} assets: {assets}")
 
+    # --- Connection setup ---
+    await init_db_pools(config_mgr)
+    redis_client = await create_valkey_client(config_mgr)
+
     # Load execution config
     exec_config = config_mgr.get(KEY_EXECUTION, {})
     mode = exec_config.get("mode", "paper")
@@ -90,17 +96,22 @@ async def _run() -> None:
         fill_tracker=fill_tracker,
     )
 
-    # Spawn one ExecutionWorker per asset
-    tasks = []
-    for asset in assets:
-        worker = ExecutionWorker(
-            asset=asset,
-            order_manager=order_manager,
-            exec_config=exec_config,
-        )
-        tasks.append(asyncio.create_task(worker.start()))
+    try:
+        # Spawn one ExecutionWorker per asset
+        tasks = []
+        for asset in assets:
+            worker = ExecutionWorker(
+                asset=asset,
+                order_manager=order_manager,
+                exec_config=exec_config,
+            )
+            await worker.connect(redis_client)
+            tasks.append(asyncio.create_task(worker.start()))
 
-    await asyncio.gather(*tasks)
+        await asyncio.gather(*tasks)
+    finally:
+        await redis_client.aclose()
+        await DBPoolManager.close_pools()
 
 
 def main() -> None:

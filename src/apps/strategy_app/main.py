@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 
 from libs.common.config import ConfigManager
+from libs.common.connections import create_valkey_client
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger, configure_logging
 from apps.strategy_app.strategy_worker import StrategyWorker
@@ -50,13 +51,19 @@ async def _run() -> None:
 
     logger.info(f"Discovered {len(pairs)} asset/timeframe pairs: {pairs}")
 
-    tasks = []
-    for asset, tf in pairs:
-        worker = StrategyWorker(asset, tf)
-        # In production, redis_client would be injected here via connect().
-        tasks.append(asyncio.create_task(worker.start()))
+    # --- Connection setup ---
+    redis_client = await create_valkey_client(config_mgr)
 
-    await asyncio.gather(*tasks)
+    try:
+        tasks = []
+        for asset, tf in pairs:
+            worker = StrategyWorker(asset, tf)
+            await worker.connect(redis_client)
+            tasks.append(asyncio.create_task(worker.start()))
+
+        await asyncio.gather(*tasks)
+    finally:
+        await redis_client.aclose()
 
 
 def main() -> None:

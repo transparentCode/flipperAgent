@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 
 from libs.common.config import ConfigManager
+from libs.common.connections import create_valkey_client, init_db_pools
+from libs.common.db.pool_manager import DBPoolManager
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger, configure_logging
 from libs.risk.account_state import AccountState
@@ -94,6 +96,10 @@ async def _run() -> None:
 
     logger.info(f"Discovered {len(asset_map)} assets: {asset_map}")
 
+    # --- Connection setup ---
+    await init_db_pools(config_mgr)
+    redis_client = await create_valkey_client(config_mgr)
+
     # Load risk config
     risk_config = config_mgr.get(KEY_RISK, {})
 
@@ -106,31 +112,37 @@ async def _run() -> None:
     risk_engine = _build_risk_engine(risk_config)
     signal_aggregator = SignalAggregator()
 
-    # Spawn one RiskWorker per asset
-    tasks = []
-    for asset, timeframes in asset_map.items():
-        worker = RiskWorker(
-            asset=asset,
-            timeframes=timeframes,
-            risk_engine=risk_engine,
-            signal_aggregator=signal_aggregator,
-            account=account,
-            positions=positions,
-            risk_config=risk_config,
-        )
-        tasks.append(asyncio.create_task(worker.start()))
+    try:
+        # Spawn one RiskWorker per asset
+        tasks = []
+        for asset, timeframes in asset_map.items():
+            worker = RiskWorker(
+                asset=asset,
+                timeframes=timeframes,
+                risk_engine=risk_engine,
+                signal_aggregator=signal_aggregator,
+                account=account,
+                positions=positions,
+                risk_config=risk_config,
+            )
+            await worker.connect(redis_client)
+            tasks.append(asyncio.create_task(worker.start()))
 
-    # Spawn one FillListener per asset
-    unique_assets = list(asset_map.keys())
-    for asset in unique_assets:
-        listener = FillListener(
-            asset=asset,
-            account=account,
-            positions=positions,
-        )
-        tasks.append(asyncio.create_task(listener.start()))
+        # Spawn one FillListener per asset
+        unique_assets = list(asset_map.keys())
+        for asset in unique_assets:
+            listener = FillListener(
+                asset=asset,
+                account=account,
+                positions=positions,
+            )
+            await listener.connect(redis_client)
+            tasks.append(asyncio.create_task(listener.start()))
 
-    await asyncio.gather(*tasks)
+        await asyncio.gather(*tasks)
+    finally:
+        await redis_client.aclose()
+        await DBPoolManager.close_pools()
 
 
 def main() -> None:

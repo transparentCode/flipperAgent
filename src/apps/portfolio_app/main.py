@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 
 from libs.common.config import ConfigManager
+from libs.common.connections import create_valkey_client, init_db_pools
+from libs.common.db.pool_manager import DBPoolManager
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger, configure_logging
 
@@ -46,31 +48,33 @@ async def _run() -> None:
     assets = _discover_assets(config_mgr)
     logger.info(f"Portfolio tracker assets: {assets}")
 
-    # DB pool setup (same pattern as risk_app)
-    db_pool = None  # TODO: create asyncpg pool from config
-
-    # Valkey client setup
-    redis_client = None  # TODO: create redis.asyncio client from config
-
-    workers: list[PortfolioWorker] = []
-    tasks: list[asyncio.Task] = []
-
-    for asset in assets:
-        worker = PortfolioWorker(
-            asset=asset,
-            db_pool=db_pool,
-            config_mgr=config_mgr,
-        )
-        await worker.connect(redis_client)
-        workers.append(worker)
-        tasks.append(asyncio.create_task(worker.start()))
-
-    logger.info(f"Spawned {len(tasks)} portfolio workers")
+    # --- Connection setup ---
+    await init_db_pools(config_mgr)
+    redis_client = await create_valkey_client(config_mgr)
+    db_pool = DBPoolManager.get_writer_pool()
 
     try:
+        workers: list[PortfolioWorker] = []
+        tasks: list[asyncio.Task] = []
+
+        for asset in assets:
+            worker = PortfolioWorker(
+                asset=asset,
+                db_pool=db_pool,
+                config_mgr=config_mgr,
+            )
+            await worker.connect(redis_client)
+            workers.append(worker)
+            tasks.append(asyncio.create_task(worker.start()))
+
+        logger.info(f"Spawned {len(tasks)} portfolio workers")
+
         await asyncio.gather(*tasks)
     except asyncio.CancelledError:
         logger.info("Portfolio app shutting down")
+    finally:
+        await redis_client.aclose()
+        await DBPoolManager.close_pools()
 
 
 if __name__ == "__main__":
