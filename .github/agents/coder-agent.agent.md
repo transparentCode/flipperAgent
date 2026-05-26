@@ -3,7 +3,7 @@ name: "Coder Agent"
 description: "Use for implementing approved Python quantitative pipeline, strategy, indicator, validation, and infrastructure changes. Use when: executing a clear handoff from Quant Research Architect, making scoped code changes, running validation, or preparing an execution handoff. Use GitNexus to assess blast radius before changing shared code."
 argument-hint: "Approved implementation task, bug fix, or coder handoff to execute"
 user-invocable: false
-model: "GPT-5.4-Xhigh"
+model: "Claude Opus 4.6-High"
 tools: [vscode, execute, read, agent, edit, search, web, browser, 'gitnexus/*', 'gitkraken/*', 'pylance-mcp-server/*', 'automem/*', 'memoir/*', 'obsidian/*', vscode.mermaid-chat-features/renderMermaidDiagram, ms-azuretools.vscode-containers/containerToolsConfig, ms-python.python/getPythonEnvironmentInfo, ms-python.python/getPythonExecutableCommand, ms-python.python/installPythonPackage, ms-python.python/configurePythonEnvironment, ms-toolsai.jupyter/configureNotebook, ms-toolsai.jupyter/listNotebookPackages, ms-toolsai.jupyter/installNotebookPackages, vscjava.vscode-java-debug/debugJavaApplication, vscjava.vscode-java-debug/setJavaBreakpoint, vscjava.vscode-java-debug/debugStepOperation, vscjava.vscode-java-debug/getDebugVariables, vscjava.vscode-java-debug/getDebugStackTrace, vscjava.vscode-java-debug/evaluateDebugExpression, vscjava.vscode-java-debug/getDebugThreads, vscjava.vscode-java-debug/removeJavaBreakpoints, vscjava.vscode-java-debug/stopDebugSession, vscjava.vscode-java-debug/getDebugSessionInfo, todo]
 handoffs:
   - label: Send for Review

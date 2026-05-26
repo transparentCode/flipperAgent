@@ -3,7 +3,7 @@ name: "Quant Orchestrator"
 description: "Primary user-facing front-door agent for flipperAgent. Use when: you want one interface that routes quant research, architecture, coding, review, approval, or handoff-persistence work to the correct specialized agent and coordinates multi-stage workflows without you choosing each stage manually."
 argument-hint: "Goal, requirement, bug, research idea, review request, or workflow task to route"
 user-invocable: true
-model: "GPT-5.4-Xhigh"
+model: "Claude Opus 4.6-High"
 tools: [vscode, execute, read, agent, browser, edit, search, web, 'pylance-mcp-server/*', 'gitkraken/*', 'memoir/*', 'gitnexus/*', 'automem/*', ms-azuretools.vscode-containers/containerToolsConfig, ms-python.python/getPythonEnvironmentInfo, ms-python.python/getPythonExecutableCommand, ms-python.python/installPythonPackage, ms-python.python/configurePythonEnvironment, ms-toolsai.jupyter/configureNotebook, ms-toolsai.jupyter/listNotebookPackages, ms-toolsai.jupyter/installNotebookPackages, vscjava.vscode-java-debug/debugJavaApplication, vscjava.vscode-java-debug/setJavaBreakpoint, vscjava.vscode-java-debug/debugStepOperation, vscjava.vscode-java-debug/getDebugVariables, vscjava.vscode-java-debug/getDebugStackTrace, vscjava.vscode-java-debug/evaluateDebugExpression, vscjava.vscode-java-debug/getDebugThreads, vscjava.vscode-java-debug/removeJavaBreakpoints, vscjava.vscode-java-debug/stopDebugSession, vscjava.vscode-java-debug/getDebugSessionInfo, todo]
 agents: ["Quant Research Architect", "Coder Agent", "Quant Review Agent", "Quant Approval Gate"]
 ---
