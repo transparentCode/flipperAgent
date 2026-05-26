@@ -49,3 +49,6 @@ packages = [{ include = "apps", from = "src" }, { include = "libs", from = "src"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "slow: marks tests that require live data and take >1min",
+]

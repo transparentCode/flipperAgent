@@ -1,12 +1,21 @@
 #!/usr/bin/env bash
+# Usage: ./tests/e2e/run_e2e_tests.sh [--slow]
+#   --slow: Include slow tests (organic candle, persistence)
+#   Default: Skip slow tests for faster CI feedback
 
-set -e
+set -euo pipefail
+SECONDS=0
 
 # Configuration
 COMPOSE_FILE="docker-compose.yml"
-INGESTION_SCHEMA="src/apps/ingestion_app/storage/schema.sql"
-PIPELINE_SCHEMA="sql/pipeline_schema.sql"
 
+# Parse arguments
+PYTEST_ARGS=(-v --timeout=300)
+if [[ "${1:-}" != "--slow" ]]; then
+    PYTEST_ARGS+=(-m "not slow")
+fi
+
+echo "=== E2E Test Run — $(date -u '+%Y-%m-%d %H:%M:%S UTC') ==="
 echo "=== Tearing down previous run ==="
 docker-compose down -v
 
@@ -34,9 +43,8 @@ for i in {1..30}; do
   sleep 2
 done
 
-echo "=== Applying schemas ==="
-cat $INGESTION_SCHEMA | docker-compose exec -T -e PGPASSWORD=flipperpass db psql -U flipper -d flipper_db
-cat $PIPELINE_SCHEMA  | docker-compose exec -T -e PGPASSWORD=flipperpass db psql -U flipper -d flipper_db
+# Schemas auto-applied via docker-entrypoint-initdb.d volume mount
+echo "=== Schema auto-applied via docker-entrypoint-initdb.d ==="
 
 echo "=== Starting all workers ==="
 docker-compose up -d --build worker-streams worker-queue signal-worker strategy-worker risk-worker execution-worker portfolio-worker
@@ -45,7 +53,7 @@ echo "=== Waiting for workers to stabilize (15s) ==="
 sleep 15
 
 echo "=== Running E2E tests ==="
-if .venv/bin/python -m pytest tests/e2e/test_docker_integration.py -v --timeout=300; then
+if PYTHONPATH=src .venv/bin/python -m pytest tests/e2e/test_docker_integration.py "${PYTEST_ARGS[@]}"; then
     echo "E2E tests passed."
     TEST_RESULT=0
 else
@@ -63,4 +71,5 @@ fi
 echo "=== Cleanup ==="
 docker-compose down -v
 
+echo "Total E2E time: ${SECONDS}s"
 exit $TEST_RESULT

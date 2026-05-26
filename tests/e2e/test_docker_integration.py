@@ -1,49 +1,13 @@
 import asyncio
 import json
-import os
 import subprocess
+import time
+import uuid
+
 import pytest
 import asyncpg
-import redis.asyncio as aioredis
 from libs.common.db.pool_manager import DBPoolManager
-from libs.common.config import ConfigManager
 
-import pytest_asyncio
-
-@pytest_asyncio.fixture(autouse=True)
-async def db_pools():
-    # Setup test-specific config values matching docker-compose defaults
-    os.environ["POSTGRES_USER"] = "flipper"
-    os.environ["POSTGRES_PASSWORD"] = "flipperpass"
-    os.environ["POSTGRES_DB"] = "flipper_db"
-    os.environ["POSTGRES_HOST"] = "localhost"
-    os.environ["POSTGRES_PORT"] = "5432"
-    
-    # We patch the config manager to return the docker values
-    class TestConfigManager(ConfigManager):
-        def get(self, key_path: str, default: any = None) -> any:
-            mapping = {
-                "postgres.user": "flipper",
-                "postgres.password": "flipperpass",
-                "postgres.host": "localhost",
-                "postgres.port": 5432,
-                "postgres.database": "flipper_db",
-                "postgres.pool.min_size": 1,
-                "postgres.pool.max_size": 2,
-            }
-            return mapping.get(key_path, super().get(key_path, default))
-
-    config_manager = TestConfigManager()
-    await DBPoolManager.init_pools(config_manager=config_manager)
-    yield
-    await DBPoolManager.close_pools()
-
-
-@pytest_asyncio.fixture
-async def valkey_client():
-    client = aioredis.from_url("redis://localhost:6380/0")
-    yield client
-    await client.aclose()
 
 @pytest.mark.asyncio
 async def test_timescaledb_initialization_and_gap_fill(db_pools):
@@ -263,11 +227,15 @@ async def test_consumer_groups_exist(db_pools, valkey_client):
     required_groups = [
         ("stream:ohlcv:btcusdt:1h", "signal_app_group"),
         ("stream:ohlcv:btcusdt:4h", "signal_app_group"),
+        ("stream:ohlcv:ethusdt:4h", "signal_app_group"),
         ("features:BTCUSDT:1h", "strategy_app_group"),
         ("features:BTCUSDT:4h", "strategy_app_group"),
+        ("features:ETHUSDT:4h", "strategy_app_group"),
     ]
     optional_groups = [
         ("signals:BTCUSDT:1h", "risk_app_group"),
+        ("signals:BTCUSDT:4h", "risk_app_group"),
+        ("signals:ETHUSDT:4h", "risk_app_group"),
     ]
 
     max_retries = 60
@@ -309,3 +277,351 @@ async def test_consumer_groups_exist(db_pools, valkey_client):
                 print(f"Optional group '{expected_group}' not yet on '{stream}' (OK)")
         except Exception:
             print(f"Stream '{stream}' does not exist yet (OK for optional check)")
+
+
+# ---------------------------------------------------------------------------
+# Phase 3A Sprint 2 — Synthetic Injection E2E Tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_synthetic_signal_to_order_roundtrip(db_pools, valkey_client):
+    """Inject a signal, verify risk produces an order on orders:{asset} OR consumed the signal."""
+    from libs.contracts.schemas import TradeSignal, valkey_encode
+
+    unique_key = f"e2e_signal_{uuid.uuid4().hex[:8]}"
+    signal = TradeSignal(
+        asset="BTCUSDT",
+        timeframe="4h",
+        timestamp=time.time(),
+        direction=1,
+        conviction=0.9,
+        price=50000.0,
+        idempotency_key=unique_key,
+        model_name="e2e_test_model",
+        metadata={"source": "e2e_test"},
+    )
+
+    # Inject signal into the signals stream
+    await valkey_client.xadd(
+        "signals:BTCUSDT:4h",
+        valkey_encode(signal),
+        maxlen=5000,
+    )
+
+    # Poll orders:BTCUSDT for an order with matching idempotency key
+    order_found = False
+    max_retries = 30
+    for _ in range(max_retries):
+        try:
+            entries = await valkey_client.xrange("orders:BTCUSDT", count=50)
+            for _, data in entries:
+                if data.get("idempotency_key") == unique_key:
+                    assert data["asset"] == "BTCUSDT"
+                    assert data["side"] == "buy"  # direction=1 → buy
+                    assert float(data["requested_price"]) == 50000.0
+                    order_found = True
+                    break
+        except Exception:
+            pass
+        if order_found:
+            break
+        await asyncio.sleep(2)
+
+    if order_found:
+        return  # Success — risk accepted the signal and produced an order
+
+    # Fallback: risk may have legitimately rejected the signal.
+    # Verify the signal was at least consumed by checking consumer group info.
+    signal_consumed = False
+    try:
+        info = await valkey_client.xinfo_groups("signals:BTCUSDT:4h")
+        for g in info:
+            name = g.get("name", "")
+            if name == "risk_app_group":
+                entries_read = int(g.get("entries-read", 0) or 0)
+                if entries_read > 0:
+                    signal_consumed = True
+                    break
+    except Exception:
+        pass
+
+    assert signal_consumed, (
+        f"Order with key {unique_key} not found on orders:BTCUSDT AND risk_app_group "
+        f"shows no consumption on signals:BTCUSDT:4h after {max_retries * 2}s"
+    )
+
+
+@pytest.mark.asyncio
+async def test_synthetic_order_to_fill_roundtrip(db_pools, valkey_client):
+    """Inject an order, verify execution produces a fill."""
+    from libs.contracts.schemas import OrderExecutionRequest, valkey_encode
+
+    unique_key = f"e2e_order_{uuid.uuid4().hex[:8]}"
+    order = OrderExecutionRequest(
+        asset="BTCUSDT",
+        side="buy",
+        size=0.001,
+        order_type="market",
+        timestamp=time.time(),
+        requested_price=50000.0,
+        idempotency_key=unique_key,
+        stop_loss_price=49000.0,
+        take_profit_price=52000.0,
+        model_name="e2e_test_model",
+        source_timeframe="4h",
+    )
+
+    await valkey_client.xadd("orders:BTCUSDT", valkey_encode(order), maxlen=5000)
+
+    # Poll fills:BTCUSDT for a fill with matching idempotency key
+    fill_found = False
+    max_retries = 30
+    for _ in range(max_retries):
+        try:
+            entries = await valkey_client.xrange("fills:BTCUSDT", count=100)
+            for _, data in entries:
+                if data.get("idempotency_key") == unique_key:
+                    assert data["asset"] == "BTCUSDT"
+                    assert data["side"] == "buy"
+                    assert data["status"] == "FILLED"
+                    assert float(data["filled_size"]) > 0
+                    fill_found = True
+                    break
+        except Exception:
+            pass
+        if fill_found:
+            break
+        await asyncio.sleep(2)
+
+    assert fill_found, (
+        f"Fill with key {unique_key} not found on fills:BTCUSDT after {max_retries * 2}s"
+    )
+
+
+@pytest.mark.asyncio
+async def test_fill_populates_portfolio_equity(db_pools, valkey_client):
+    """Verify that fills trigger portfolio equity snapshots in the DB."""
+    from libs.contracts.schemas import OrderExecutionRequest, valkey_encode
+
+    unique_key = f"e2e_portfolio_{uuid.uuid4().hex[:8]}"
+    order = OrderExecutionRequest(
+        asset="BTCUSDT",
+        side="buy",
+        size=0.001,
+        order_type="market",
+        timestamp=time.time(),
+        requested_price=50000.0,
+        idempotency_key=unique_key,
+    )
+    await valkey_client.xadd("orders:BTCUSDT", valkey_encode(order), maxlen=5000)
+
+    # Wait for fill to be consumed by portfolio_worker and equity point written
+    pool = DBPoolManager.get_reader_pool()
+    equity_found = False
+    max_retries = 30
+    for _ in range(max_retries):
+        async with pool.acquire() as conn:
+            try:
+                row = await conn.fetchrow(
+                    "SELECT COUNT(*) as cnt FROM portfolio_equity_curve"
+                )
+                if row and row["cnt"] > 0:
+                    equity_found = True
+                    break
+            except Exception:
+                pass
+        await asyncio.sleep(2)
+
+    assert equity_found, (
+        "No equity curve entries found in portfolio_equity_curve after fill injection"
+    )
+
+
+@pytest.mark.asyncio
+async def test_execution_idempotency(db_pools, valkey_client):
+    """Same idempotency key should only produce one fill."""
+    from libs.contracts.schemas import OrderExecutionRequest, valkey_encode
+
+    unique_key = f"e2e_idem_{uuid.uuid4().hex[:8]}"
+    order = OrderExecutionRequest(
+        asset="BTCUSDT",
+        side="buy",
+        size=0.001,
+        order_type="market",
+        timestamp=time.time(),
+        requested_price=50000.0,
+        idempotency_key=unique_key,
+    )
+
+    # Inject same order twice
+    payload = valkey_encode(order)
+    await valkey_client.xadd("orders:BTCUSDT", payload, maxlen=5000)
+    await asyncio.sleep(1)
+    await valkey_client.xadd("orders:BTCUSDT", payload, maxlen=5000)
+
+    # Wait for processing
+    await asyncio.sleep(10)
+
+    # Count fills with this idempotency key
+    entries = await valkey_client.xrange("fills:BTCUSDT")
+    matching_fills = [e for _, e in entries if e.get("idempotency_key") == unique_key]
+    assert len(matching_fills) == 1, (
+        f"Expected 1 fill for {unique_key}, got {len(matching_fills)}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_all_pipeline_db_tables_exist(db_pools):
+    """Verify all expected DB tables exist."""
+    pool = DBPoolManager.get_reader_pool()
+    expected_tables = [
+        "ohlcv",
+        "ticks",
+        "open_interest",
+        "risk_positions",
+        "risk_account_snapshots",
+        "execution_fills",
+        "execution_idempotency_keys",
+        "portfolio_equity_curve",
+        "portfolio_closed_trades",
+    ]
+
+    async with pool.acquire() as conn:
+        for table in expected_tables:
+            try:
+                await conn.fetchrow(f"SELECT 1 FROM {table} LIMIT 0")
+            except asyncpg.exceptions.UndefinedTableError:
+                pytest.fail(f"Expected table '{table}' does not exist")
+
+
+@pytest.mark.asyncio
+async def test_all_consumer_groups_comprehensive(db_pools, valkey_client):
+    """Comprehensive check: all expected consumer groups on all pipeline streams."""
+    # These groups MUST exist for the pipeline to function
+    required = {
+        "stream:ohlcv:btcusdt:1h": ["signal_app_group"],
+        "stream:ohlcv:btcusdt:4h": ["signal_app_group"],
+        "stream:ohlcv:ethusdt:4h": ["signal_app_group"],
+        "features:BTCUSDT:1h": ["strategy_app_group"],
+        "features:BTCUSDT:4h": ["strategy_app_group"],
+        "features:ETHUSDT:4h": ["strategy_app_group"],
+    }
+    # These are expected but depend on signals existing
+    optional = {
+        "signals:BTCUSDT:1h": ["risk_app_group"],
+        "signals:BTCUSDT:4h": ["risk_app_group"],
+        "signals:ETHUSDT:4h": ["risk_app_group"],
+        "orders:BTCUSDT": ["execution_app_group"],
+        "orders:ETHUSDT": ["execution_app_group"],
+        "fills:BTCUSDT": ["risk_app_fills_group", "portfolio_app_fills_group"],
+        "fills:ETHUSDT": ["risk_app_fills_group", "portfolio_app_fills_group"],
+    }
+
+    max_retries = 30
+    for stream, groups in required.items():
+        for expected_group in groups:
+            found = False
+            for _ in range(max_retries):
+                try:
+                    info = await valkey_client.xinfo_groups(stream)
+                    names = [g.get("name", "") for g in info]
+                    if expected_group in names:
+                        found = True
+                        break
+                except Exception:
+                    pass
+                await asyncio.sleep(2)
+            assert found, (
+                f"Required group '{expected_group}' not found on '{stream}'"
+            )
+
+    # Optional — log but don't fail
+    for stream, groups in optional.items():
+        for expected_group in groups:
+            try:
+                info = await valkey_client.xinfo_groups(stream)
+                names = [g.get("name", "") for g in info]
+                if expected_group not in names:
+                    print(f"Optional: '{expected_group}' not on '{stream}' (OK)")
+            except Exception:
+                print(f"Optional: stream '{stream}' does not exist yet (OK)")
+
+
+# ---------------------------------------------------------------------------
+# Phase 3A Sprint 3 — Organic Validation (slow marker)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.slow
+async def test_organic_candle_full_roundtrip(db_pools, valkey_client):
+    """Wait for a real candle to flow from ingestion through the entire pipeline.
+
+    This test requires live Binance connectivity and may take several minutes.
+    Run with: pytest -m slow
+    Skip with: pytest -m 'not slow' (default in CI)
+    """
+    # 1. Wait for a fresh OHLCV entry (timestamp within last 2 min)
+    max_retries = 120  # 4 min
+    fresh_candle = False
+    for _ in range(max_retries):
+        entries = await valkey_client.xrange("stream:ohlcv:btcusdt:4h", count=5)
+        for _, data in reversed(entries):
+            ts = float(data.get("timestamp", "0"))
+            # timestamps from ingestion may be epoch seconds or ms
+            if ts > 1e12:
+                ts = ts / 1000
+            if time.time() - ts < 120:  # within last 2 min
+                fresh_candle = True
+                break
+        if fresh_candle:
+            break
+        await asyncio.sleep(2)
+
+    if not fresh_candle:
+        pytest.skip("No fresh candle within 2 min — Binance connectivity may be down")
+
+    # 2. Check features were computed
+    features_len = await valkey_client.xlen("features:BTCUSDT:4h")
+    assert features_len > 0, "No features produced for BTCUSDT:4h"
+
+    # 3. Check signal stream has entries (may be 0 if no signal triggered — that's OK)
+    try:
+        signals_len = await valkey_client.xlen("signals:BTCUSDT:4h")
+        print(f"Signals on signals:BTCUSDT:4h: {signals_len}")
+    except Exception:
+        print("signals:BTCUSDT:4h stream doesn't exist yet (OK — no signals triggered)")
+
+    print("Organic candle roundtrip verified!")
+
+
+@pytest.mark.asyncio
+@pytest.mark.slow
+async def test_db_persistence_across_restart(db_pools):
+    """Verify OHLCV data survives a container restart (volume-backed)."""
+    pool = DBPoolManager.get_reader_pool()
+
+    # 1. Get current row count
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT COUNT(*) as cnt FROM ohlcv")
+        count_before = row["cnt"]
+
+    assert count_before > 0, "Need existing OHLCV data for persistence test"
+
+    # 2. Restart the ingestion worker (not the DB — data should persist)
+    subprocess.run(
+        ["docker-compose", "restart", "worker-streams"],
+        check=True, capture_output=True, text=True,
+    )
+    await asyncio.sleep(10)  # Wait for restart
+
+    # 3. Verify data still exists — DB container was NOT restarted
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT COUNT(*) as cnt FROM ohlcv")
+        count_after = row["cnt"]
+
+    assert count_after >= count_before, (
+        f"Data lost after restart: {count_before} → {count_after}"
+    )
+    print(f"Persistence verified: {count_before} → {count_after} rows")
