@@ -41,7 +41,7 @@ class ConfigManager:
             self._config_dir = Path(config_dir) if config_dir else Path(os.getcwd()) / DEFAULT_CONFIG_DIR_NAME
             self._env = env
             self._state: Dict[str, Any] = {}
-            self._registered_files = []
+            self._registered_files: set[Path] = set()
             self._watched_dirs = set()
             self._watched_dirs.add(self._config_dir)
             self._subscribers: Dict[str, list[Callable[[Any], None]]] = {}
@@ -207,29 +207,35 @@ class ConfigManager:
                 if event.src_path.endswith('.yaml') or event.src_path.endswith('.yml'):
                     self.manager._trigger_reload()
                     
-        self._observer = Observer()
-        for d in self._watched_dirs:
-            if d.exists():
-                self._observer.schedule(ConfigHandler(self), str(d), recursive=False)
-        self._observer.start()
+        try:
+            self._observer = Observer()
+            for d in self._watched_dirs:
+                if d.exists():
+                    self._observer.schedule(ConfigHandler(self), str(d), recursive=False)
+            self._observer.daemon = True
+            self._observer.start()
+        except Exception:
+            logger.warning("Watchdog file monitoring unavailable \u2014 config hot-reload disabled")
+            self._observer = None
 
     def register_file(self, file_path: str | Path) -> None:
-        path_obj = Path(file_path)
+        resolved = Path(file_path).resolve()
         with self._subscription_lock:
-            if path_obj not in self._registered_files:
-                self._registered_files.append(path_obj)
-                parent_dir = path_obj.parent
-                if parent_dir not in self._watched_dirs:
-                    self._watched_dirs.add(parent_dir)
-                    if self._observer and parent_dir.exists():
-                        # We use a localized handler for the new directory
-                        class LocalConfigHandler(FileSystemEventHandler):
-                            def __init__(self, manager):
-                                self.manager = manager
-                            def on_modified(self, event):
-                                if not event.is_directory and (event.src_path.endswith('.yaml') or event.src_path.endswith('.yml')):
-                                    self.manager._trigger_reload()
-                        self._observer.schedule(LocalConfigHandler(self), str(parent_dir), recursive=False)
+            if resolved in self._registered_files:
+                return  # already registered
+            self._registered_files.add(resolved)
+            parent_dir = resolved.parent
+            if parent_dir not in self._watched_dirs:
+                self._watched_dirs.add(parent_dir)
+                if self._observer and parent_dir.exists():
+                    # We use a localized handler for the new directory
+                    class LocalConfigHandler(FileSystemEventHandler):
+                        def __init__(self, manager):
+                            self.manager = manager
+                        def on_modified(self, event):
+                            if not event.is_directory and (event.src_path.endswith('.yaml') or event.src_path.endswith('.yml')):
+                                self.manager._trigger_reload()
+                    self._observer.schedule(LocalConfigHandler(self), str(parent_dir), recursive=False)
         # trigger a reload to bring the new file in
         self._load_configs(trigger_callbacks=True)
 
@@ -249,4 +255,12 @@ class ConfigManager:
     def reset_singleton(cls):
         """Used mainly for testing to allow fresh instantiation."""
         with cls._lock:
+            if cls._instance is not None:
+                if hasattr(cls._instance, '_observer') and cls._instance._observer is not None:
+                    cls._instance._observer.stop()
+                    cls._instance._observer.join(timeout=2)
+                with cls._instance._debounce_lock:
+                    if cls._instance._debounce_timer is not None:
+                        cls._instance._debounce_timer.cancel()
+                        cls._instance._debounce_timer = None
             cls._instance = None

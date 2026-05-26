@@ -111,13 +111,14 @@ class TestMaxPositionsRule:
         verdict = rule.evaluate(ctx)
         assert verdict.action == "ALLOW"
 
-    def test_reject_when_at_limit(self):
+    @pytest.mark.asyncio
+    async def test_reject_when_at_limit(self):
         rule = MaxPositionsRule()
         positions = PositionTracker()
         from libs.contracts.schemas import PositionState
 
         for i in range(10):
-            positions.open_position(
+            await positions.open_position(
                 PositionState(
                     asset=f"ASSET{i}",
                     direction=1,

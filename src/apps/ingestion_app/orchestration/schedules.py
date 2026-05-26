@@ -2,7 +2,7 @@ from libs.common.config import ConfigManager
 from arq.cron import cron
 from libs.common.scheduling import BaseScheduler
 from apps.ingestion_app.constants import EXCHANGE_BINANCE
-from .tasks import poll_binance_ohlcv, poll_funding_rates, scheduled_gap_fill
+from .tasks import poll_binance_ohlcv, scheduled_gap_fill
 
 class IngestionScheduler(BaseScheduler):
     def __init__(self):
@@ -22,9 +22,6 @@ class IngestionScheduler(BaseScheduler):
         ohlcv_minutes = set(schedules.get("ohlcv_minutes", [0, 15, 30, 45]))
         ohlcv_timeout = schedules.get("ohlcv_timeout", 120)
         
-        funding_hours = set(schedules.get("funding_hours", [0, 4, 8, 12, 16, 20]))
-        funding_timeout = schedules.get("funding_timeout", 60)
-        
         target_list = self.config_manager.get("ingestion.assets.target_list", ["BTCUSDT"])
 
         return [
@@ -43,14 +40,5 @@ class IngestionScheduler(BaseScheduler):
                 run_at_startup=True,
                 unique=True,
                 timeout=ohlcv_timeout,
-            ),
-            # Poll funding rates
-            cron(
-                poll_funding_rates,
-                hour=funding_hours,
-                minute=0,
-                run_at_startup=True,
-                unique=True,
-                timeout=funding_timeout,
             ),
         ]

@@ -53,7 +53,6 @@ services:
       - /tmp
     environment:
       POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
-      REDIS_URI: redis://broker:6379/0
       VALKEY_URI: redis://broker:6379/0
     depends_on:
       db:
@@ -85,7 +84,6 @@ services:
       - /tmp
     environment:
       POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
-      REDIS_URI: redis://broker:6379/0
       VALKEY_URI: redis://broker:6379/0
     depends_on:
       db:
@@ -115,7 +113,6 @@ services:
       - /tmp
     environment:
       POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
-      REDIS_URI: redis://broker:6379/0
       VALKEY_URI: redis://broker:6379/0
     depends_on:
       db:
@@ -145,7 +142,6 @@ services:
       - /tmp
     environment:
       POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
-      REDIS_URI: redis://broker:6379/0
       VALKEY_URI: redis://broker:6379/0
     depends_on:
       db:
@@ -176,7 +172,6 @@ services:
     environment:
       NUMBA_CACHE_DIR: /tmp/numba_cache
       POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
-      REDIS_URI: redis://broker:6379/0
       VALKEY_URI: redis://broker:6379/0
     depends_on:
       db:
@@ -206,7 +201,6 @@ services:
       - /tmp
     environment:
       POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
-      REDIS_URI: redis://broker:6379/0
       VALKEY_URI: redis://broker:6379/0
     depends_on:
       db:
@@ -236,7 +230,6 @@ services:
       - /tmp
     environment:
       POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
-      REDIS_URI: redis://broker:6379/0
       VALKEY_URI: redis://broker:6379/0
     depends_on:
       db:
@@ -266,7 +259,6 @@ services:
       - /tmp
     environment:
       POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
-      REDIS_URI: redis://broker:6379/0
       VALKEY_URI: redis://broker:6379/0
     depends_on:
       db:

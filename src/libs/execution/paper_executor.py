@@ -29,11 +29,13 @@ class PaperExecutor(BaseExecutor):
         slippage_jitter_bps: float = 0.5,
         commission_bps: float = 4.0,
         fill_delay_ms: float = 50.0,
+        seed: int = 42,
     ) -> None:
         self.slippage_bps = slippage_bps
         self.slippage_jitter_bps = slippage_jitter_bps
         self.commission_bps = commission_bps
         self.fill_delay_ms = fill_delay_ms
+        self._rng = random.Random(seed)
 
         # Paper state
         self._positions: dict[str, dict] = {}
@@ -49,7 +51,7 @@ class PaperExecutor(BaseExecutor):
         now = time.time()
 
         # Direction-aware slippage: buy fills ABOVE, sell fills BELOW
-        jitter = random.uniform(0, self.slippage_jitter_bps)
+        jitter = self._rng.uniform(0, self.slippage_jitter_bps)
         total_slippage_bps = self.slippage_bps + jitter
 
         if order.side == "buy":
@@ -99,6 +101,23 @@ class PaperExecutor(BaseExecutor):
                 "timeframe": order.source_timeframe,
             },
         )
+
+        # Update paper state tracking
+        notional = order.size * fill_price
+        if order.side == "buy":
+            self._balance["USDT"] -= notional + commission
+            pos = self._positions.get(order.asset, {"asset": order.asset, "size": 0.0, "avg_price": 0.0})
+            old_notional = pos["size"] * pos["avg_price"]
+            pos["size"] += order.size
+            pos["avg_price"] = (old_notional + notional) / pos["size"] if pos["size"] > 0 else 0.0
+            self._positions[order.asset] = pos
+        else:
+            self._balance["USDT"] += notional - commission
+            pos = self._positions.get(order.asset)
+            if pos:
+                pos["size"] -= order.size
+                if pos["size"] <= 1e-12:
+                    del self._positions[order.asset]
 
         logger.info(
             f"Paper fill: {order.asset} {order.side} {order.size:.6f} "

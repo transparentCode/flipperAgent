@@ -8,6 +8,7 @@ import pandas as pd
 
 from libs.contracts.schemas import FeatureVector, ModelOutput, ParamDef
 from libs.models.base import BaseModel, ModelMeta
+from libs.models.feature_extractors import extract_rsi, extract_macd_field
 from libs.models.registry import ModelRegistry
 
 
@@ -17,7 +18,7 @@ class MomentumModel(BaseModel):
     meta = ModelMeta(
         name="Momentum",
         required_indicators=["RSI", "MACD"],
-        required_fields=["RSI.value", "MACD.histogram", "MACD.line"],
+        required_fields=["RSI", "MACD_histogram", "MACD_line"],
         hyperparameter_schema={
             "rsi_long_threshold": ParamDef(type="int", default=55, low=50, high=70, step=1),
             "rsi_short_threshold": ParamDef(type="int", default=45, low=30, high=50, step=1),
@@ -44,9 +45,9 @@ class MomentumModel(BaseModel):
     # ------------------------------------------------------------------
 
     def evaluate(self, features: FeatureVector) -> ModelOutput:
-        rsi = self._extract_rsi(features.features)
-        macd_hist = self._extract_macd_field(features.features, "histogram")
-        macd_line = self._extract_macd_field(features.features, "line")
+        rsi = extract_rsi(features.features)
+        macd_hist = extract_macd_field(features.features, "histogram")
+        macd_line = extract_macd_field(features.features, "line")
 
         direction = 0
         conviction = 0.0
@@ -120,24 +121,4 @@ class MomentumModel(BaseModel):
 
         return directions
 
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
 
-    @staticmethod
-    def _extract_rsi(features: dict[str, Any]) -> float | None:
-        rsi = features.get("RSI")
-        if isinstance(rsi, dict):
-            return rsi.get("value")
-        if isinstance(rsi, (int, float)):
-            return float(rsi)
-        return None
-
-    @staticmethod
-    def _extract_macd_field(features: dict[str, Any], field: str) -> float | None:
-        macd = features.get("MACD")
-        if isinstance(macd, dict):
-            val = macd.get(field)
-            if isinstance(val, (int, float)):
-                return float(val)
-        return None

@@ -1,6 +1,7 @@
 from typing import Dict, Any, List, Sequence, Tuple, get_type_hints
 
 from libs.common.config import ConfigManager
+from libs.common.constants import CONFIG_FILE_FEATURES
 from libs.common.logging.logger_utils import bind_logger
 import libs.features.indicators
 from libs.features.indicators.registry import IndicatorRegistry
@@ -9,7 +10,6 @@ from libs.common.enums import SystemComponent
 
 logger = bind_logger(__name__, system_component=SystemComponent.SIGNAL_APP)
 
-CONFIG_FILE_FEATURES = "configs/features.yaml"
 KEY_FEATURES = "features"
 KEY_ASSETS = "assets"
 KEY_TIMEFRAMES = "timeframes"
@@ -75,31 +75,32 @@ class FeatureManager:
             except Exception as e:
                 logger.error(f"Error instantiating '{config_key}': {e}", exc_info=True)
 
-    def _get_mapped_input(self, ind: Indicator, data: Tuple[float, float, float, float, float]) -> Any:
+    def _get_mapped_input(self, ind: Indicator, data: Tuple[float, float, float, float, float, float]) -> Any:
         hints = get_type_hints(ind.update)
         new_value_type = hints.get("new_value")
         # Heuristics based on type
         if new_value_type is float:
-            return data[2]  # close
+            return data[3]  # close
         
-        # We can also check by string rep of type, or hardcode based on tuple size
+        # Disambiguate by counting commas in the type string
         type_str = str(new_value_type)
-        if TYPE_HINT_FULL_CANDLE in type_str:
-            return data
-        elif TYPE_HINT_HLC_CANDLE in type_str:
-            return (data[0], data[1], data[2])
+        comma_count = type_str.count(",")
+        if comma_count >= 4:  # 5+ floats = full candle (open, high, low, close, volume)
+            return data[:5]
+        elif comma_count >= 2:  # 3 floats = HLC candle
+            return (data[1], data[2], data[3])
             
         # fallback to close if undetermined, or just pass full data
-        return data[2]
+        return data[3]
 
-    def _get_mapped_historical_inputs(self, ind: Indicator, historical_data: Sequence[Tuple[float, float, float, float, float]]) -> List[Any]:
+    def _get_mapped_historical_inputs(self, ind: Indicator, historical_data: Sequence[Tuple[float, float, float, float, float, float]]) -> List[Any]:
         # Maps the entire sequence
         return [self._get_mapped_input(ind, d) for d in historical_data]
 
-    def prime(self, historical_data: Sequence[Tuple[float, float, float, float, float]]) -> None:
+    def prime(self, historical_data: Sequence[Tuple[float, float, float, float, float, float]]) -> None:
         """
         Pre-warms the live internal state.
-        historical_data: list of (high, low, close, volume, timestamp)
+        historical_data: list of (open, high, low, close, volume, timestamp)
         """
         for output_key, ind in self._indicator_entries:
             try:
@@ -110,9 +111,9 @@ class FeatureManager:
                 logger.error(f"Error priming '{output_key}': {e}")
                 ind._is_primed = False
 
-    def process_tick(self, data: Tuple[float, float, float, float, float]) -> Dict[str, Any]:
+    def process_tick(self, data: Tuple[float, float, float, float, float, float]) -> Dict[str, Any]:
         """
-        Accepts incoming (high, low, close, volume, timestamp) tuple.
+        Accepts incoming (open, high, low, close, volume, timestamp) tuple.
         """
         results = {}
         for output_key, ind in self._indicator_entries:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections import defaultdict
 from typing import Any
@@ -17,33 +18,36 @@ class PositionTracker:
     """Manages open positions per asset with SL/TP checking and trailing stop updates."""
 
     def __init__(self) -> None:
+        self._lock = asyncio.Lock()
         self.positions: dict[str, list[PositionState]] = defaultdict(list)
 
     # ------------------------------------------------------------------
     # Position lifecycle
     # ------------------------------------------------------------------
 
-    def open_position(self, state: PositionState) -> None:
-        self.positions[state.asset].append(state)
-        logger.info(
-            f"Opened position — asset={state.asset}, direction={state.direction}, "
-            f"size={state.size:.6f}, entry={state.entry_price:.4f}",
-        )
+    async def open_position(self, state: PositionState) -> None:
+        async with self._lock:
+            self.positions[state.asset].append(state)
+            logger.info(
+                f"Opened position — asset={state.asset}, direction={state.direction}, "
+                f"size={state.size:.6f}, entry={state.entry_price:.4f}",
+            )
 
-    def close_position(self, asset: str, index: int) -> float:
+    async def close_position(self, asset: str, index: int) -> float:
         """Close position at *index* for *asset*. Returns realized PnL."""
-        pos_list = self.positions.get(asset, [])
-        if index < 0 or index >= len(pos_list):
-            raise IndexError(f"Invalid position index {index} for {asset}")
+        async with self._lock:
+            pos_list = self.positions.get(asset, [])
+            if index < 0 or index >= len(pos_list):
+                raise IndexError(f"Invalid position index {index} for {asset}")
 
-        pos = pos_list.pop(index)
-        pnl = pos.unrealized_pnl
-        logger.info(
-            f"Closed position — asset={asset}, direction={pos.direction}, "
-            f"pnl={pnl:.4f}, entry={pos.entry_price:.4f}, "
-            f"exit={pos.current_price:.4f}",
-        )
-        return pnl
+            pos = pos_list.pop(index)
+            pnl = pos.unrealized_pnl
+            logger.info(
+                f"Closed position — asset={asset}, direction={pos.direction}, "
+                f"pnl={pnl:.4f}, entry={pos.entry_price:.4f}, "
+                f"exit={pos.current_price:.4f}",
+            )
+            return pnl
 
     # ------------------------------------------------------------------
     # Price updates

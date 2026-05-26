@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from libs.common.config import ConfigManager
+from libs.common.constants import CONFIG_FILE_MODELS, CONFIG_FILE_FEATURES
 from libs.common.enums import SystemComponent
 from libs.common.exceptions import ConfigurationError
 from libs.common.logging.logger_utils import bind_logger
@@ -16,9 +17,6 @@ from libs.models.registry import ModelRegistry
 import libs.models  # noqa: F401
 
 logger = bind_logger(__name__, system_component=SystemComponent.MODEL_STRATEGY)
-
-CONFIG_FILE_MODELS = "configs/models.yaml"
-CONFIG_FILE_FEATURES = "configs/features.yaml"
 
 KEY_MODELS = "models"
 KEY_FEATURES = "features"
@@ -99,6 +97,13 @@ class ModelManager:
                 raise ConfigurationError(
                     f"Model '{model.meta.name}' for {self.asset}/{self.timeframe} requires "
                     f"{missing} but features.yaml only provides {sorted(available_features)}"
+                )
+            missing_fields = model.validate_required_fields(available_features)
+            if missing_fields:
+                logger.warning(
+                    f"Model '{model.meta.name}' for {self.asset}/{self.timeframe}: "
+                    f"required_fields {missing_fields} not found in available features. "
+                    f"These will be validated at runtime.",
                 )
 
     def _available_features_from_config(self) -> set[str]:

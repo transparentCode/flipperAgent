@@ -1,16 +1,16 @@
+logging:
+  level: INFO
+
 ingestion:
   assets:
-    default_asset: BTCUSDT
     default_binance_asset: BTCUSDT
     historical_backfill_days: 2
     target_list:
     - BTCUSDT
     - ETHUSDT
-    - SOLUSDT
     publish_timeframes:
       BTCUSDT: ["1h", "4h"]
-      ETHUSDT: ["4h", "1d"]
-      SOLUSDT: ["15m"]
+      ETHUSDT: ["4h"]
   concurrency:
     gap_fill_limit: 5
     gap_fill_sleep_seconds: 0.5
@@ -69,11 +69,11 @@ ingestion:
 postgres:
   database: flipper_db
   host: localhost
-  # password: set via POSTGRES_PASSWORD env var or .env file
+  password: flipperpass
   pool:
     max_size: 10
     min_size: 2
   port: 5432
   user: flipper
-redis:
-  uri: redis://broker:6379/0
+valkey:
+  uri: redis://localhost:6379/0

@@ -197,12 +197,12 @@ class TestMeanReversionBatch:
             "close": [90, 100, 100, 100, 100],
         })
         result = model.batch_evaluate(df)
-        # Bar 0: long signal, cooldown = 2
-        # Bar 1: cooldown active, held at 1
-        # Bar 2: cooldown active, held at 1
-        # Bar 3: cooldown expired, short signal, cooldown = 2
-        # Bar 4: cooldown active, held at -1
-        assert list(result) == [1, 1, 1, -1, -1]
+        # Bar 0: long signal, first entry — no cooldown (no prior direction)
+        # Bar 1: short signal, direction reversal from 1→-1, cooldown = 2
+        # Bar 2: cooldown active, held at -1
+        # Bar 3: cooldown active, held at -1
+        # Bar 4: short signal, same direction — no cooldown
+        assert list(result) == [1, -1, -1, -1, -1]
 
 
 # ---------------------------------------------------------------------------

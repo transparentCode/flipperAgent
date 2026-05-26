@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid
 
@@ -29,47 +30,49 @@ class OrderManager:
         self.executor = executor
         self.idempotency_store = idempotency_store
         self.fill_tracker = fill_tracker
+        self._lock = asyncio.Lock()
 
     async def process_order(
         self, order: OrderExecutionRequest
     ) -> ExecutionReport | None:
-        # 1. Idempotency check
-        if self.idempotency_store.is_duplicate(order.idempotency_key):
-            logger.info(f"Duplicate order skipped: {order.idempotency_key}")
-            return None
+        async with self._lock:
+            # 1. Idempotency check
+            if self.idempotency_store.is_duplicate(order.idempotency_key):
+                logger.info(f"Duplicate order skipped: {order.idempotency_key}")
+                return None
 
-        # 2. Validate
-        error = self._validate(order)
-        if error:
-            report = self._rejection_report(order, error)
+            # 2. Validate
+            error = self._validate(order)
+            if error:
+                report = self._rejection_report(order, error)
+                self.fill_tracker.record_fill(report)
+                self.idempotency_store.mark_processed(
+                    order.idempotency_key, report.timestamp
+                )
+                return report
+
+            # 3. Execute
+            try:
+                report = await self.executor.execute_order(order)
+            except Exception as exc:
+                logger.error(f"Executor error for {order.idempotency_key}: {exc}")
+                report = self._rejection_report(order, str(exc))
+                self.fill_tracker.record_fill(report)
+                self.idempotency_store.mark_processed(
+                    order.idempotency_key, report.timestamp
+                )
+                return report
+
+            # 4. Record fill
             self.fill_tracker.record_fill(report)
+
+            # 5. Mark idempotency key
             self.idempotency_store.mark_processed(
                 order.idempotency_key, report.timestamp
             )
+
+            # 6. Return
             return report
-
-        # 3. Execute
-        try:
-            report = await self.executor.execute_order(order)
-        except Exception as exc:
-            logger.error(f"Executor error for {order.idempotency_key}: {exc}")
-            report = self._rejection_report(order, str(exc))
-            self.fill_tracker.record_fill(report)
-            self.idempotency_store.mark_processed(
-                order.idempotency_key, report.timestamp
-            )
-            return report
-
-        # 4. Record fill
-        self.fill_tracker.record_fill(report)
-
-        # 5. Mark idempotency key
-        self.idempotency_store.mark_processed(
-            order.idempotency_key, report.timestamp
-        )
-
-        # 6. Return
-        return report
 
     # ------------------------------------------------------------------
 

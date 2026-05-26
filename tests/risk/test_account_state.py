@@ -1,5 +1,7 @@
 """Tests for AccountState."""
 
+from unittest.mock import patch
+
 import pytest
 
 from libs.contracts.schemas import PositionState
@@ -29,24 +31,27 @@ class TestAccountStateBasics:
 
 
 class TestRecordTradeClose:
-    def test_records_pnl(self):
+    @pytest.mark.asyncio
+    async def test_records_pnl(self):
         state = AccountState(10_000)
-        state.record_trade_close(500, 1_000_000)
+        await state.record_trade_close(500, 1_000_000)
         assert state.realized_pnl == 500
         assert state.daily_pnl == 500
         assert state.last_trade_pnl == 500
         assert state.last_trade_timestamp == 1_000_000
 
-    def test_negative_pnl(self):
+    @pytest.mark.asyncio
+    async def test_negative_pnl(self):
         state = AccountState(10_000)
-        state.record_trade_close(-300, 1_000_000)
+        await state.record_trade_close(-300, 1_000_000)
         assert state.realized_pnl == -300
         assert state.daily_pnl == -300
         assert state.last_trade_pnl == -300
 
-    def test_peak_equity_updates_on_profit(self):
+    @pytest.mark.asyncio
+    async def test_peak_equity_updates_on_profit(self):
         state = AccountState(10_000)
-        state.record_trade_close(500, 1_000_000)
+        await state.record_trade_close(500, 1_000_000)
         assert state.peak_equity == 10_500
 
 
@@ -64,27 +69,34 @@ class TestDrawdown:
 
 
 class TestDailyReset:
-    def test_resets_on_new_day(self):
+    @pytest.mark.asyncio
+    async def test_resets_on_new_day(self):
         state = AccountState(10_000)
         state.daily_pnl = -500
         state.daily_reset_timestamp = 86_400 * 100  # day 100
 
-        # New day
-        state.check_daily_reset(86_400 * 101)
+        # Mock wall-clock to day 101
+        with patch("libs.risk.account_state.time") as mock_time:
+            mock_time.time.return_value = 86_400 * 101
+            await state.check_daily_reset(0)
         assert state.daily_pnl == 0.0
 
-    def test_no_reset_same_day(self):
+    @pytest.mark.asyncio
+    async def test_no_reset_same_day(self):
         state = AccountState(10_000)
         state.daily_pnl = -500
         state.daily_reset_timestamp = 86_400 * 100
 
-        # Same day (a few hours later)
-        state.check_daily_reset(86_400 * 100 + 3600)
+        # Mock wall-clock to same day (a few hours later)
+        with patch("libs.risk.account_state.time") as mock_time:
+            mock_time.time.return_value = 86_400 * 100 + 3600
+            await state.check_daily_reset(0)
         assert state.daily_pnl == -500
 
 
 class TestUpdateUnrealized:
-    def test_updates_from_positions(self):
+    @pytest.mark.asyncio
+    async def test_updates_from_positions(self):
         state = AccountState(10_000)
         positions = [
             PositionState(
@@ -98,7 +110,7 @@ class TestUpdateUnrealized:
                 entry_timestamp=0, source_model="m", source_timeframe="1h",
             ),
         ]
-        state.update_unrealized(positions)
+        await state.update_unrealized(positions)
         assert state.unrealized_pnl == 1_100
         assert state.equity == 11_100
 

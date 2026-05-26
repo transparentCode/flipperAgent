@@ -11,7 +11,7 @@ from libs.common.db.pool_manager import DBPoolManager
 from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
 from apps.ingestion_app.adapters.crypto_ccxt import CCXTAdapter
 from apps.ingestion_app.constants import EXCHANGE_BINANCE
-from .tasks import poll_binance_ohlcv, poll_funding_rates, run_rest_gap_fill, scheduled_gap_fill
+from .tasks import poll_binance_ohlcv, run_rest_gap_fill, scheduled_gap_fill
 from .schedules import IngestionScheduler
 
 config_manager = ConfigManager()
@@ -67,7 +67,6 @@ class WorkerSettings:
     """
     functions = [
         poll_binance_ohlcv,
-        poll_funding_rates,
         run_rest_gap_fill,
         scheduled_gap_fill,
     ]
@@ -77,10 +76,10 @@ class WorkerSettings:
     on_startup = startup
     on_shutdown = shutdown
     
-    # Example Valkey/Redis connection string
+    # Example Valkey connection string
     # E.g. valkey container defined in docker-compose at localhost:6379
     redis_settings = RedisSettings.from_dsn(
-        config_manager.get("redis.uri", "redis://localhost:6379/0")
+        config_manager.get("valkey.uri", "redis://localhost:6379/0")
     )
     
     # Maximum concurrent tasks processed by this worker

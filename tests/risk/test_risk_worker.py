@@ -153,3 +153,51 @@ class TestProcessSignalBatch:
         worker.redis_client.xadd.assert_called_once()
         call_args = worker.redis_client.xadd.call_args
         assert call_args[0][0] == "orders:BTCUSDT"
+
+    @pytest.mark.asyncio
+    async def test_sl_tp_triggers_order(self) -> None:
+        """Position with stop_loss hit at current price → xadd called for SL/TP."""
+        from libs.contracts.schemas import PositionState
+
+        worker = _make_worker()
+        worker.redis_client = AsyncMock()
+
+        signal = _make_signal(price=48_000.0)  # price below stop
+        worker.signal_aggregator.aggregate.return_value = None  # no aggregated signal
+
+        # Pre-populate a long position with a stop-loss that will be hit
+        pos = PositionState(
+            asset="BTCUSDT",
+            direction=1,
+            entry_price=50_000.0,
+            current_price=50_000.0,
+            size=0.1,
+            unrealized_pnl=0.0,
+            entry_timestamp=1_699_999_000.0,
+            source_model="test_model",
+            source_timeframe="1h",
+            stop_loss_price=49_000.0,
+            take_profit_price=55_000.0,
+        )
+        worker.positions.positions["BTCUSDT"].append(pos)
+
+        await worker._process_signal_batch([signal])
+
+        # SL/TP triggered → should have published an order
+        worker.redis_client.xadd.assert_called_once()
+        call_args = worker.redis_client.xadd.call_args
+        assert call_args[0][0] == "orders:BTCUSDT"
+
+    @pytest.mark.asyncio
+    async def test_daily_reset_called(self) -> None:
+        """Verify account.check_daily_reset is called during batch processing."""
+        worker = _make_worker()
+        worker.redis_client = AsyncMock()
+        worker.account.check_daily_reset = AsyncMock()
+
+        signal = _make_signal()
+        worker.signal_aggregator.aggregate.return_value = None
+
+        await worker._process_signal_batch([signal])
+
+        worker.account.check_daily_reset.assert_called_once_with(signal.timestamp)

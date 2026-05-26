@@ -43,23 +43,11 @@ async def poll_binance_ohlcv(ctx: Dict[str, Any], symbol: str = config_manager.g
         raise DataIngestionError(f"Error polling OHLCV for {symbol}", context={"symbol": symbol}) from e
 
 
-async def poll_funding_rates(ctx: Dict[str, Any], symbol: str = config_manager.get("ingestion.assets.default_binance_asset", "BTCUSDT")) -> None:
-    """
-    Placeholder task to poll funding rates via CCXT or Binance connector.
-    """
-    logger.info(f"Task poll_funding_rates started for {symbol}")
-    
-    ccxt_adapter = ctx.get("ccxt_adapter")
-    binance_adapter = ctx.get("binance_adapter")
-
-    # Mock fetch
-    await asyncio.sleep(1)
-    logger.info(f"Successfully processed funding rates for {symbol}.")
-
-
 # Exponential backoff layer (Layer 4)
 @retry(
     retry=retry_if_exception_type((ccxt.RateLimitExceeded, ccxt.RequestTimeout, ccxt.NetworkError)),
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(min=4, max=60),
     reraise=True
 )
 async def _fetch_asset_gap(ctx: Dict[str, Any], ccxt_adapter, symbol: str):
@@ -68,7 +56,7 @@ async def _fetch_asset_gap(ctx: Dict[str, Any], ccxt_adapter, symbol: str):
     """
     logger.info(f"Fetching REST data for asset: {symbol}")
     
-    historical_backfill_days = config_manager.get("ingestion.assets.historical_backfill_days", 30)
+    historical_backfill_days = config_manager.get("ingestion.assets.historical_backfill_days", 2)
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
     since_ms = now_ms - historical_backfill_days * 86400 * 1000
     

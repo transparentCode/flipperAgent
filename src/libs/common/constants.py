@@ -35,3 +35,11 @@ DIR_SRC: Final[str] = "src"
 DIR_LOGS: Final[str] = "logs"
 FILE_APP_LOG: Final[str] = "app.log"
 
+# Config file paths (used by multiple apps)
+CONFIG_FILE_MODELS: Final[str] = "configs/models.yaml"
+CONFIG_FILE_FEATURES: Final[str] = "configs/features.yaml"
+CONFIG_FILE_RISK: Final[str] = "configs/risk.yaml"
+CONFIG_FILE_EXECUTION: Final[str] = "configs/execution.yaml"
+CONFIG_FILE_PORTFOLIO: Final[str] = "configs/portfolio.yaml"
+CONFIG_FILE_OPTIMIZATION: Final[str] = "configs/optimization.yaml"
+

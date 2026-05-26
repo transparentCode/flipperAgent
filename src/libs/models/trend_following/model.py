@@ -8,6 +8,7 @@ import pandas as pd
 
 from libs.contracts.schemas import FeatureVector, ModelOutput, ParamDef
 from libs.models.base import BaseModel, ModelMeta
+from libs.models.feature_extractors import extract_macd_field
 from libs.models.registry import ModelRegistry
 
 
@@ -19,7 +20,7 @@ class TrendFollowingModel(BaseModel):
         required_indicators=["EMA", "MACD", "ATR"],
         required_fields=[
             "EMA_fast", "EMA_slow",
-            "MACD.line", "MACD.signal", "MACD.histogram",
+            "MACD_line", "MACD_signal", "MACD_histogram",
             "ATR",
         ],
         hyperparameter_schema={
@@ -50,7 +51,7 @@ class TrendFollowingModel(BaseModel):
     def evaluate(self, features: FeatureVector) -> ModelOutput:
         ema_fast = self._extract_float(features.features, "EMA_fast")
         ema_slow = self._extract_float(features.features, "EMA_slow")
-        macd_hist = self._extract_macd_field(features.features, "histogram")
+        macd_hist = extract_macd_field(features.features, "histogram")
         atr = self._extract_float(features.features, "ATR")
 
         direction = 0
@@ -124,13 +125,4 @@ class TrendFollowingModel(BaseModel):
             return float(val)
         if isinstance(val, dict):
             return val.get("value")
-        return None
-
-    @staticmethod
-    def _extract_macd_field(features: dict[str, Any], field: str) -> float | None:
-        macd = features.get("MACD")
-        if isinstance(macd, dict):
-            val = macd.get(field)
-            if isinstance(val, (int, float)):
-                return float(val)
         return None

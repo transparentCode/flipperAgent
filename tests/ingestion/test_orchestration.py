@@ -86,7 +86,7 @@ async def test_lifespan_cold_start():
         mock_config.get.side_effect = lambda k, default=None: {
             "ingestion.assets.target_list": ["BTCUSDT"],
             "ingestion.timeframes.base_gap_fill": "1m",
-            "redis.uri": "redis://localhost:6379/0",
+            "valkey.uri": "redis://localhost:6379/0",
             "ingestion.websocket.warmup_threshold_ms": 300000
         }.get(k, default)
         
@@ -123,7 +123,7 @@ async def test_lifespan_caught_up():
         mock_config.get.side_effect = lambda k, default=None: {
             "ingestion.assets.target_list": ["BTCUSDT"],
             "ingestion.timeframes.base_gap_fill": "1m",
-            "redis.uri": "redis://localhost:6379/0",
+            "valkey.uri": "redis://localhost:6379/0",
             "ingestion.websocket.warmup_threshold_ms": 300000
         }.get(k, default)
         

@@ -7,8 +7,8 @@ from libs.contracts.schemas import (
     ExecutionReport,
     OrderFill,
     OrderStatus,
-    PositionState,
 )
+from libs.common.position_matcher import OpenPosition
 from apps.portfolio_app.portfolio_worker import PortfolioWorker
 
 
@@ -190,9 +190,10 @@ class TestProcessFillOpen:
         report = _make_report(side="buy", price=100.0, ts=1000)
         await worker._process_fill(report)
 
-        assert len(worker._open_positions) == 1
-        assert worker._open_positions[0].direction == 1
-        assert worker._open_positions[0].entry_price == 100.0
+        positions = worker._matcher.open_positions.get("BTCUSDT", [])
+        assert len(positions) == 1
+        assert positions[0].side == "buy"
+        assert positions[0].entry_price == 100.0
 
     @pytest.mark.asyncio
     async def test_sell_opens_short_when_no_longs(self):
@@ -203,8 +204,9 @@ class TestProcessFillOpen:
         report = _make_report(side="sell", price=100.0, ts=1000)
         await worker._process_fill(report)
 
-        assert len(worker._open_positions) == 1
-        assert worker._open_positions[0].direction == -1
+        positions = worker._matcher.open_positions.get("BTCUSDT", [])
+        assert len(positions) == 1
+        assert positions[0].side == "sell"
 
     @pytest.mark.asyncio
     async def test_non_filled_status_ignored(self):
@@ -215,7 +217,7 @@ class TestProcessFillOpen:
         report.status = OrderStatus.REJECTED
         await worker._process_fill(report)
 
-        assert len(worker._open_positions) == 0
+        assert len(worker._matcher.open_positions.get("BTCUSDT", [])) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -231,11 +233,11 @@ class TestProcessFillClose:
 
         # Open long
         await worker._process_fill(_make_report(side="buy", price=100.0, ts=1000))
-        assert len(worker._open_positions) == 1
+        assert len(worker._matcher.open_positions.get("BTCUSDT", [])) == 1
 
         # Close long
         await worker._process_fill(_make_report(side="sell", price=110.0, ts=2000))
-        assert len(worker._open_positions) == 0
+        assert len(worker._matcher.open_positions.get("BTCUSDT", [])) == 0
 
         # Should have saved a closed trade
         trade_inserts = [
@@ -252,11 +254,11 @@ class TestProcessFillClose:
 
         # Open short
         await worker._process_fill(_make_report(side="sell", price=100.0, ts=1000))
-        assert len(worker._open_positions) == 1
+        assert len(worker._matcher.open_positions.get("BTCUSDT", [])) == 1
 
         # Close short
         await worker._process_fill(_make_report(side="buy", price=90.0, ts=2000))
-        assert len(worker._open_positions) == 0
+        assert len(worker._matcher.open_positions.get("BTCUSDT", [])) == 0
 
     @pytest.mark.asyncio
     async def test_pnl_calculation_long(self):
@@ -297,10 +299,10 @@ class TestMaeMfe:
             _make_report(side="buy", price=95.0, ts=1500, asset="BTCUSDT")
         )
 
-        # Now close first position at 110
-        # Pop first long which had watermarks updated
-        first_pos = worker._open_positions[0]
-        wm = worker._position_watermarks.get(id(first_pos))
+        # Check watermarks for first position (stable key)
+        first_pos = worker._matcher.open_positions["BTCUSDT"][0]
+        wm_key = (first_pos.asset, first_pos.timestamp, first_pos.entry_price)
+        wm = worker._position_watermarks.get(wm_key)
         assert wm is not None
         assert wm["worst_price"] == 95.0  # went down to 95
         assert wm["best_price"] == 100.0  # best was entry at 100 (then 95 was worse)
@@ -312,8 +314,9 @@ class TestMaeMfe:
         worker = _make_worker(conn)
 
         await worker._process_fill(_make_report(side="buy", price=100.0, ts=1000))
-        pos = worker._open_positions[0]
-        wm = worker._position_watermarks[id(pos)]
+        pos = worker._matcher.open_positions["BTCUSDT"][0]
+        wm_key = (pos.asset, pos.timestamp, pos.entry_price)
+        wm = worker._position_watermarks[wm_key]
         assert wm["worst_price"] == 100.0
         assert wm["best_price"] == 100.0
 
@@ -326,42 +329,40 @@ class TestSnapshotEquity:
     @pytest.mark.asyncio
     async def test_writes_equity_point(self):
         conn = FakeConnection()
-        _set_snapshot(conn, equity=10000.0)
         worker = _make_worker(conn)
 
         await worker._snapshot_equity(1000.0)
 
-        # Should have: 1 fetchrow (account snapshot) + 1 execute (save equity point)
-        fetchrow_calls = [c for c in conn.executed if c[0] == "fetchrow"]
+        # Should write an equity point (no DB read needed — computed locally)
         execute_calls = [c for c in conn.executed if c[0] == "execute"]
-        assert len(fetchrow_calls) == 1
         assert len(execute_calls) == 1
         assert "portfolio_equity_curve" in execute_calls[0][1]
 
     @pytest.mark.asyncio
-    async def test_no_snapshot_when_no_account_data(self):
+    async def test_default_equity_from_balance(self):
         conn = FakeConnection()
-        conn.fetchrow_result = None
         worker = _make_worker(conn)
 
         await worker._snapshot_equity(1000.0)
 
         execute_calls = [c for c in conn.executed if c[0] == "execute"]
-        assert len(execute_calls) == 0
+        assert len(execute_calls) == 1
+        args = execute_calls[0][2]
+        # Default balance is 10000.0, equity should match
+        equity = args[1]
+        assert equity == pytest.approx(10000.0)
 
     @pytest.mark.asyncio
     async def test_exposure_computed_from_open_positions(self):
         conn = FakeConnection()
-        _set_snapshot(conn, equity=10000.0)
         worker = _make_worker(conn)
 
         # Add a mock open long position: 1 BTC at 50000
-        pos = PositionState(
-            asset="BTCUSDT", direction=1, entry_price=50000, current_price=50000,
-            size=1.0, unrealized_pnl=0, entry_timestamp=900,
-            source_model="", source_timeframe="",
+        pos = OpenPosition(
+            asset="BTCUSDT", side="buy", size=1.0,
+            entry_price=50000, timestamp=900,
         )
-        worker._open_positions.append(pos)
+        worker._matcher.open_positions.setdefault("BTCUSDT", []).append(pos)
 
         await worker._snapshot_equity(1000.0)
 
@@ -394,3 +395,55 @@ class TestWorkerConfig:
         assert worker.group_name == "portfolio_app_fills_group"
         assert worker.fill_stream_key == "fills:BTCUSDT"
         assert worker.consumer_name == "portfolio_worker_BTCUSDT"
+
+
+# ---------------------------------------------------------------------------
+# Decode "None" string fields
+# ---------------------------------------------------------------------------
+
+class TestDecodeNoneStringFields:
+    def test_decode_none_string_fields(self):
+        """'None' string in Optional fields should decode to Python None."""
+        payload = {
+            "order_id": "ord-none",
+            "idempotency_key": "idem-none",
+            "asset": "BTCUSDT",
+            "side": "buy",
+            "requested_size": "1.0",
+            "filled_size": "1.0",
+            "requested_price": "100.0",
+            "average_fill_price": "100.0",
+            "status": "FILLED",
+            "fills": "[]",
+            "slippage_bps": "1.0",
+            "timestamp": "1000.0",
+            "stop_loss_price": "None",
+            "take_profit_price": "None",
+            "error_message": "",
+            "metadata": "{}",
+        }
+        report = PortfolioWorker._decode_report(payload)
+        assert report.stop_loss_price is None
+        assert report.take_profit_price is None
+
+
+# ---------------------------------------------------------------------------
+# Non-filled status skipped
+# ---------------------------------------------------------------------------
+
+class TestNonFilledStatusSkipped:
+    @pytest.mark.asyncio
+    async def test_non_filled_status_skipped(self):
+        """_process_fill with CANCELLED status should do nothing."""
+        conn = FakeConnection()
+        worker = _make_worker(conn)
+
+        report = _make_report(side="buy")
+        report.status = OrderStatus.CANCELLED
+        await worker._process_fill(report)
+
+        # No positions opened
+        assert len(worker._matcher.open_positions.get("BTCUSDT", [])) == 0
+        # No DB writes
+        execute_calls = [c for c in conn.executed if c[0] == "execute"]
+        assert len(execute_calls) == 0

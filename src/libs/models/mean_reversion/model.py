@@ -4,11 +4,31 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
 import pandas as pd
+from numba import njit
 
 from libs.contracts.schemas import FeatureVector, ModelOutput, ParamDef
 from libs.models.base import BaseModel, ModelMeta
+from libs.models.feature_extractors import extract_rsi
 from libs.models.registry import ModelRegistry
+
+
+@njit(cache=True)
+def _apply_cooldown(directions_arr: np.ndarray, holding_period: int) -> np.ndarray:
+    cooldown = 0
+    last_dir = 0
+    for i in range(len(directions_arr)):
+        if cooldown > 0:
+            directions_arr[i] = last_dir
+            cooldown -= 1
+        elif directions_arr[i] != 0:
+            if last_dir != 0 and directions_arr[i] != last_dir:
+                last_dir = directions_arr[i]
+                cooldown = holding_period - 1
+            else:
+                last_dir = directions_arr[i]
+    return directions_arr
 
 
 @ModelRegistry.register("MeanReversion")
@@ -17,7 +37,7 @@ class MeanReversionModel(BaseModel):
     meta = ModelMeta(
         name="MeanReversion",
         required_indicators=["RSI", "BollingerBands"],
-        required_fields=["RSI.value", "BollingerBands.upper", "BollingerBands.lower"],
+        required_fields=["RSI", "BollingerBands_upper", "BollingerBands_lower"],
         hyperparameter_schema={
             "rsi_oversold": ParamDef(type="int", default=30, low=15, high=40, step=1),
             "rsi_overbought": ParamDef(type="int", default=70, low=60, high=85, step=1),
@@ -32,7 +52,7 @@ class MeanReversionModel(BaseModel):
     # ------------------------------------------------------------------
 
     def evaluate(self, features: FeatureVector) -> ModelOutput:
-        rsi_value = self._extract_rsi(features.features)
+        rsi_value = extract_rsi(features.features)
         bb_upper = self._extract_bb(features.features, "upper")
         bb_lower = self._extract_bb(features.features, "lower")
         close = features.bar_data.get("close", 0.0)
@@ -109,30 +129,14 @@ class MeanReversionModel(BaseModel):
         # Apply holding_period cooldown to suppress whipsaw
         holding_period = self.params["holding_period"]
         if holding_period > 1:
-            cooldown = 0
-            last_dir = 0
-            for i in range(len(directions)):
-                if cooldown > 0:
-                    directions.iloc[i] = last_dir
-                    cooldown -= 1
-                elif directions.iloc[i] != 0 and directions.iloc[i] != last_dir:
-                    last_dir = directions.iloc[i]
-                    cooldown = holding_period - 1
+            arr = directions.values.astype(np.float64)
+            directions = pd.Series(_apply_cooldown(arr, holding_period), index=directions.index)
 
         return directions
 
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
-
-    @staticmethod
-    def _extract_rsi(features: dict[str, Any]) -> float | None:
-        rsi = features.get("RSI")
-        if isinstance(rsi, dict):
-            return rsi.get("value")
-        if isinstance(rsi, (int, float)):
-            return float(rsi)
-        return None
 
     @staticmethod
     def _extract_bb(features: dict[str, Any], band: str) -> float | None:

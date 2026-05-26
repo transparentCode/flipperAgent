@@ -36,13 +36,22 @@ class IdempotencyStore:
                 "CREATE TABLE IF NOT EXISTS execution_idempotency_keys "
                 "(key TEXT PRIMARY KEY, ts DOUBLE PRECISION NOT NULL)"
             )
-            await conn.execute("DELETE FROM execution_idempotency_keys")
-            for key, ts in self._seen.items():
-                await conn.execute(
-                    "INSERT INTO execution_idempotency_keys (key, ts) VALUES ($1, $2)",
-                    key,
-                    ts,
-                )
+            async with conn.transaction():
+                for key, ts in self._seen.items():
+                    await conn.execute(
+                        "INSERT INTO execution_idempotency_keys (key, ts) VALUES ($1, $2) "
+                        "ON CONFLICT (key) DO UPDATE SET ts = EXCLUDED.ts",
+                        key,
+                        ts,
+                    )
+                # Prune keys no longer in the in-memory store
+                if self._seen:
+                    await conn.execute(
+                        "DELETE FROM execution_idempotency_keys WHERE key != ALL($1::text[])",
+                        list(self._seen.keys()),
+                    )
+                else:
+                    await conn.execute("DELETE FROM execution_idempotency_keys")
 
     @classmethod
     async def load(cls, db_pool: Any, max_size: int = 10_000) -> IdempotencyStore:

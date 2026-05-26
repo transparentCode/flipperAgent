@@ -102,3 +102,31 @@ def test_poison_pill_handling(config_manager, temp_config_dir):
     
     # Verify state didn't crash and is intact
     assert config_manager.get("app.port") == old_port
+
+
+def test_hot_reload_triggers_callback(config_manager, temp_config_dir):
+    """Register a subscriber on a config key, simulate a file change, verify callback fires."""
+    callback_event = threading.Event()
+    received_val = {}
+
+    def on_db_host_change(new_val):
+        received_val["val"] = new_val
+        callback_event.set()
+
+    config_manager.subscribe("db.host", on_db_host_change)
+
+    # Modify local.yaml to change db.host
+    path = Path(temp_config_dir) / "local.yaml"
+    with open(path, "r") as f:
+        data = yaml.safe_load(f) or {}
+
+    data["db"] = data.get("db", {})
+    data["db"]["host"] = "new-db-host.example.com"
+    with open(path, "w") as f:
+        yaml.dump(data, f)
+
+    callback_event.wait(timeout=2.0)
+
+    assert callback_event.is_set(), "Subscriber callback not triggered"
+    assert received_val["val"] == "new-db-host.example.com"
+    assert config_manager.get("db.host") == "new-db-host.example.com"

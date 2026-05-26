@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from typing import Any
 
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
-from libs.contracts.schemas import OrderExecutionRequest, TradeSignal
+from libs.common.stream_consumer import BaseStreamConsumer, ensure_consumer_group
+from libs.contracts.schemas import OrderExecutionRequest, TradeSignal, valkey_encode, valkey_decode
 from libs.risk.account_state import AccountState
 from libs.risk.engine import RiskEngine
 from libs.risk.mtf.aggregator import SignalAggregator
@@ -17,8 +17,11 @@ from libs.risk.position_tracker import PositionTracker
 logger = bind_logger(__name__, system_component=SystemComponent.RISK_MANAGER)
 
 
-class RiskWorker:
-    """Per-asset Valkey consumer. Subscribes to signals:{asset}:{tf} for ALL timeframes."""
+class RiskWorker(BaseStreamConsumer):
+    """Per-asset Valkey consumer. Subscribes to signals:{asset}:{tf} for ALL timeframes.
+
+    Overrides ``run()`` because it reads from multiple streams and batches signals.
+    """
 
     def __init__(
         self,
@@ -30,6 +33,14 @@ class RiskWorker:
         positions: PositionTracker,
         risk_config: dict[str, Any],
     ) -> None:
+        # Use first signal stream as primary stream_key for base class
+        super().__init__(
+            stream_key=f"signals:{asset}:{timeframes[0]}" if timeframes else f"signals:{asset}",
+            group_name="risk_app_group",
+            consumer_name=f"risk_worker_{asset}",
+            batch_size=10,
+            block_ms=1000,
+        )
         self.asset = asset
         self.timeframes = timeframes
         self.risk_engine = risk_engine
@@ -40,26 +51,23 @@ class RiskWorker:
 
         self.signal_stream_keys = [f"signals:{asset}:{tf}" for tf in timeframes]
         self.order_stream_key = f"orders:{asset}"
-        self.group_name = "risk_app_group"
-        self.consumer_name = f"risk_worker_{asset}"
-        self.redis_client: Any = None
 
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
 
     async def connect(self, redis_client: Any) -> None:
+        """Store client and create consumer groups for all signal streams."""
         self.redis_client = redis_client
         for key in self.signal_stream_keys:
-            try:
-                await self.redis_client.xgroup_create(
-                    key, self.group_name, id="0", mkstream=True,
-                )
-            except Exception as e:
-                if "BUSYGROUP" not in str(e):
-                    logger.error(f"Failed to create group {self.group_name} on {key}: {e}")
+            await ensure_consumer_group(redis_client, key, self.group_name)
 
     async def start(self) -> None:
+        """Alias for run() — keeps existing call-sites working."""
+        await self.run()
+
+    async def run(self) -> None:
+        """Multi-stream batch consumer loop."""
         logger.info(
             f"Starting risk worker for {self.asset} "
             f"(timeframes={self.timeframes})",
@@ -77,8 +85,8 @@ class RiskWorker:
                     self.group_name,
                     self.consumer_name,
                     streams,
-                    count=10,
-                    block=1000,
+                    count=self.batch_size,
+                    block=self.block_ms,
                 )
                 if not response:
                     continue
@@ -93,8 +101,7 @@ class RiskWorker:
                             signals.append(sig)
                         except Exception as e:
                             logger.error(f"Failed to decode signal: {e}")
-                        sname = stream_name.decode("utf-8") if isinstance(stream_name, bytes) else stream_name
-                        ack_items.append((sname, message_id))
+                        ack_items.append((stream_name, message_id))
 
                 if signals:
                     await self._process_signal_batch(signals)
@@ -108,6 +115,10 @@ class RiskWorker:
                 logger.error(f"Error in risk worker loop: {e}", exc_info=True)
                 await asyncio.sleep(1)
 
+    async def process_message(self, message_id: str, data: dict[str, str]) -> None:
+        """Not used — RiskWorker overrides run() for batch processing."""
+        raise NotImplementedError("RiskWorker uses batch processing via run()")
+
     # ------------------------------------------------------------------
     # Processing
     # ------------------------------------------------------------------
@@ -117,7 +128,42 @@ class RiskWorker:
 
         # Check daily reset
         if signals:
-            self.account.check_daily_reset(signals[0].timestamp)
+            await self.account.check_daily_reset(signals[0].timestamp)
+
+        # --- SL/TP monitoring ---
+        if signals:
+            price = signals[0].price
+            self.positions.update_prices(self.asset, price)
+            self.positions.update_trailing_stops(self.asset, price)
+
+            hit_positions = self.positions.check_sl_tp(self.asset, price)
+            for pos in hit_positions:
+                close_side = "sell" if pos.direction == 1 else "buy"
+                order = OrderExecutionRequest(
+                    asset=self.asset,
+                    side=close_side,
+                    size=pos.size,
+                    order_type="market",
+                    timestamp=signals[0].timestamp,
+                    requested_price=price,
+                    idempotency_key=f"sl_tp_{self.asset}_{int(pos.entry_timestamp)}",
+                    stop_loss_price=None,
+                    take_profit_price=None,
+                    model_name=pos.source_model,
+                    source_timeframe=pos.source_timeframe,
+                )
+                if self.redis_client:
+                    await self.redis_client.xadd(
+                        self.order_stream_key,
+                        valkey_encode(order),
+                        maxlen=5000,
+                        approximate=True,
+                    )
+                    logger.info(
+                        f"SL/TP triggered for {self.asset}: "
+                        f"closing {'long' if pos.direction == 1 else 'short'} "
+                        f"position @ {price:.4f}",
+                    )
 
         # Determine conflict resolution strategy from config
         mtf_config = self.risk_config.get("mtf", {})
@@ -166,7 +212,7 @@ class RiskWorker:
             if self.redis_client:
                 await self.redis_client.xadd(
                     self.order_stream_key,
-                    order.model_dump(),
+                    valkey_encode(order),
                     maxlen=5000,
                     approximate=True,
                 )
@@ -181,25 +227,5 @@ class RiskWorker:
 
     @staticmethod
     def _decode_signal(payload: dict) -> TradeSignal:
-        """Decode bytes keys/values from Valkey and reconstruct TradeSignal."""
-        decoded: dict[str, Any] = {}
-        for k, v in payload.items():
-            key = k.decode("utf-8") if isinstance(k, bytes) else k
-            val = v.decode("utf-8") if isinstance(v, bytes) else v
-            decoded[key] = val
-
-        # Parse nested JSON fields
-        if isinstance(decoded.get("metadata"), str):
-            decoded["metadata"] = json.loads(decoded["metadata"])
-
-        return TradeSignal(
-            asset=decoded["asset"],
-            timeframe=decoded["timeframe"],
-            timestamp=float(decoded["timestamp"]),
-            direction=int(decoded["direction"]),
-            conviction=float(decoded.get("conviction", 1.0)),
-            price=float(decoded["price"]),
-            idempotency_key=decoded["idempotency_key"],
-            model_name=decoded.get("model_name", ""),
-            metadata=decoded.get("metadata", {}),
-        )
+        """Decode a Valkey flat-map payload into a TradeSignal."""
+        return valkey_decode(payload, TradeSignal)

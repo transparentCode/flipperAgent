@@ -1,31 +1,29 @@
+from __future__ import annotations
+
 import asyncio
-import json
-from typing import Optional
+from typing import Any
+
 from apps.signal_app.feature_manager import FeatureManager
-from libs.common.config import ConfigManager
 from libs.common.logging.logger_utils import bind_logger
 from libs.common.enums import SystemComponent
+from libs.common.stream_consumer import BaseStreamConsumer
+from libs.contracts.schemas import FeatureVector, valkey_encode
 
 logger = bind_logger(__name__, system_component=SystemComponent.SIGNAL_APP)
 
-class SignalWorker:
+
+class SignalWorker(BaseStreamConsumer):
     def __init__(self, asset: str, timeframe: str, db_fetcher=None):
+        super().__init__(
+            stream_key=f"stream:ohlcv:{asset.lower()}:{timeframe}",
+            group_name="signal_app_group",
+            consumer_name=f"signal_worker_{asset}_{timeframe}",
+            batch_size=10,
+            block_ms=1000,
+        )
         self.asset = asset
         self.timeframe = timeframe
-        self.stream_key = f"stream:ohlcv:{asset.lower()}:{timeframe}"
-        self.group_name = "signal_app_group"
-        self.consumer_name = f"signal_worker_{asset}_{timeframe}"
         self.feature_manager = FeatureManager(asset, timeframe, db_fetcher=db_fetcher)
-        self.redis_client = None  # To be injected or instantiated
-
-    async def connect(self, redis_client):
-        self.redis_client = redis_client
-        # Ensure group exists
-        try:
-            await self.redis_client.xgroup_create(self.stream_key, self.group_name, id="0", mkstream=True)
-        except Exception as e:
-            if "BUSYGROUP" not in str(e):
-                logger.error(f"Failed to create group {self.group_name} on {self.stream_key}: {e}")
 
     async def start(self):
         logger.info(f"Starting signal worker for {self.asset} {self.timeframe}...")
@@ -35,73 +33,43 @@ class SignalWorker:
         for ind in self.feature_manager.indicators:
             max_lookback = max(max_lookback, ind.lookback_required)
 
-        # 2. Fetch history
-        history = await self.feature_manager.fetch_historical_db_records(max_lookback)
-        
-        # 3. Prime indicators
-        if history:
-            self.feature_manager.prime(history)
-        else:
-            logger.warning("No history returned, indicators may fail to prime.")
-
-        # 4. Listen on stream
-        if not self.redis_client:
-            logger.warning("No redis client provided. Running in mock mode.")
-            return
-
-        logger.info(f"Listening to stream {self.stream_key} via XREADGROUP...")
-        while True:
+        # 2. Fetch history and prime indicators (with retry for transient errors)
+        for attempt in range(3):
             try:
-                # Block for up to 1 second
-                response = await self.redis_client.xreadgroup(
-                    self.group_name,
-                    self.consumer_name,
-                    {self.stream_key: ">"},
-                    count=10,
-                    block=1000
-                )
-
-                if not response:
-                    continue
-
-                for stream_name, messages in response:
-                    for message_id, payload in messages:
-                        await self.process_message(message_id, payload)
-                        # Acknowledge message
-                        await self.redis_client.xack(self.stream_key, self.group_name, message_id)
-
-            except asyncio.CancelledError:
+                history = await self.feature_manager.fetch_historical_db_records(max_lookback)
+                if history:
+                    self.feature_manager.prime(history)
+                else:
+                    logger.warning("No history returned, indicators may fail to prime.")
                 break
-            except Exception as e:
-                logger.error(f"Error in signal worker loop: {e}", exc_info=True)
-                await asyncio.sleep(1)
+            except Exception:
+                if attempt < 2:
+                    logger.warning(f"Priming attempt {attempt + 1} failed for {self.asset}:{self.timeframe}, retrying...")
+                    await asyncio.sleep(1)
+                else:
+                    logger.error(f"Priming failed after 3 attempts for {self.asset}:{self.timeframe}")
 
-    async def process_message(self, message_id: str, payload: dict):
+        # 3. Listen on stream via base class consumer loop
+        await self.run()
+
+    async def process_message(self, message_id: str, payload: dict) -> None:
         # Identify when incoming streamed events flag as `bar_closed: true`
-        is_closed = (
-            payload.get(b"bar_closed") or payload.get("bar_closed")
-            or payload.get(b"is_closed") or payload.get("is_closed")
-        )
-        
-        # We need to treat bytes vs str gracefully depending on valkey client decoding
-        if isinstance(is_closed, bytes):
-            is_closed = is_closed.decode("utf-8")
-            
+        is_closed = payload.get("bar_closed") or payload.get("is_closed")
+
         if is_closed in ("true", "True", "1", True):
             try:
-                # Extract values, assuming they might be bytes
-                def _get_float(key: str) -> float:
-                    val = payload.get(key.encode("utf-8")) or payload.get(key)
-                    return float(val)
-                    
-                open_ = _get_float("open")
-                high = _get_float("high")
-                low = _get_float("low")
-                close = _get_float("close")
-                volume = _get_float("volume")
-                timestamp = _get_float("timestamp")
+                open_ = float(payload["open"])
+                high = float(payload["high"])
+                low = float(payload["low"])
+                close = float(payload["close"])
+                volume = float(payload["volume"])
+                timestamp = float(payload["timestamp"])
 
-                data_tuple = (high, low, close, volume, timestamp)
+                # Ensure timestamp is in milliseconds
+                if timestamp < 1e12:
+                    timestamp = int(timestamp * 1000)
+
+                data_tuple = (open_, high, low, close, volume, timestamp)
                 logger.debug(f"Dispatching tick {data_tuple} to FeatureManager")
                 
                 # Update features
@@ -111,14 +79,14 @@ class SignalWorker:
                 # Publish computed features to Valkey for StrategyWorker consumption
                 if self.redis_client and results:
                     feature_stream = f"features:{self.asset}:{self.timeframe}"
-                    feature_payload = {
-                        "asset": self.asset,
-                        "timeframe": self.timeframe,
-                        "timestamp": str(timestamp),
-                        "features": json.dumps(results),
-                        "bar_data": json.dumps({"open": open_, "high": high, "low": low, "close": close, "volume": volume}),
-                    }
-                    await self.redis_client.xadd(feature_stream, feature_payload, maxlen=10000, approximate=True)
+                    fv = FeatureVector(
+                        asset=self.asset,
+                        timeframe=self.timeframe,
+                        timestamp=timestamp,
+                        features=results,
+                        bar_data={"open": open_, "high": high, "low": low, "close": close, "volume": volume},
+                    )
+                    await self.redis_client.xadd(feature_stream, valkey_encode(fv), maxlen=10000, approximate=True)
                 
             except Exception as e:
                 logger.error(f"Failed to parse or process payload {payload}: {e}")

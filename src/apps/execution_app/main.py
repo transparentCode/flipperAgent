@@ -6,7 +6,9 @@ import asyncio
 
 from libs.common.config import ConfigManager
 from libs.common.connections import create_valkey_client, init_db_pools
+from libs.common.constants import CONFIG_FILE_EXECUTION, CONFIG_FILE_MODELS
 from libs.common.db.pool_manager import DBPoolManager
+from libs.common.discovery import discover_assets
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger, configure_logging
 from libs.execution.fill_tracker import FillTracker
@@ -17,30 +19,9 @@ from libs.execution.binance_executor import BinanceExecutor
 
 from apps.execution_app.execution_worker import ExecutionWorker
 
-CONFIG_FILE_EXECUTION = "configs/execution.yaml"
-CONFIG_FILE_MODELS = "configs/models.yaml"
-KEY_MODELS = "models"
-KEY_ASSETS = "assets"
-KEY_DEFAULT = "default"
 KEY_EXECUTION = "execution"
 
 logger = bind_logger(__name__, system_component=SystemComponent.TRADE_EXECUTION)
-
-
-def _discover_assets(config_mgr: ConfigManager) -> list[str]:
-    """Read models.yaml to find all assets."""
-    models_config = config_mgr.get(KEY_MODELS, {})
-    assets_config = models_config.get(KEY_ASSETS, {})
-    result: list[str] = []
-
-    for asset, asset_cfg in assets_config.items():
-        if asset == KEY_DEFAULT:
-            continue
-        if not isinstance(asset_cfg, dict):
-            continue
-        result.append(asset)
-
-    return result
 
 
 async def _run() -> None:
@@ -52,7 +33,7 @@ async def _run() -> None:
     configure_logging(level=log_level, enable_file_logging=False)
 
     # Discover assets from models.yaml
-    assets = _discover_assets(config_mgr)
+    assets = discover_assets(config_mgr)
     if not assets:
         logger.warning("No assets found in models.yaml. Exiting.")
         return
@@ -75,11 +56,14 @@ async def _run() -> None:
             slippage_jitter_bps=paper_cfg.get("slippage_jitter_bps", 2.0),
             commission_bps=paper_cfg.get("commission_bps", 4.0),
             fill_delay_ms=paper_cfg.get("fill_delay_ms", 50.0),
+            seed=paper_cfg.get("seed", 42),
         )
         logger.info("Using PaperExecutor")
     elif mode == "live":
-        executor = BinanceExecutor()
-        logger.info("Using BinanceExecutor (stub)")
+        raise NotImplementedError(
+            "Live execution is not yet implemented. "
+            "Set execution.mode to 'paper' in configs/execution.yaml"
+        )
     else:
         logger.error(f"Unknown execution mode: {mode}")
         return

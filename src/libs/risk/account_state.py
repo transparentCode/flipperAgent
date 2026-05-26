@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 from typing import Any
 
@@ -18,6 +19,7 @@ class AccountState:
     """In-memory account state for paper-trading risk management."""
 
     def __init__(self, initial_balance: float) -> None:
+        self._lock = asyncio.Lock()
         self.initial_balance = initial_balance
         self.realized_pnl: float = 0.0
         self.unrealized_pnl: float = 0.0
@@ -49,39 +51,48 @@ class AccountState:
     # State mutations
     # ------------------------------------------------------------------
 
-    def record_trade_close(self, pnl: float, timestamp: float) -> None:
+    async def record_trade_close(self, pnl: float, timestamp: float) -> None:
         """Record PnL from a closed position."""
-        self.realized_pnl += pnl
-        self.daily_pnl += pnl
-        self.last_trade_pnl = pnl
-        self.last_trade_timestamp = timestamp
+        async with self._lock:
+            self.realized_pnl += pnl
+            self.daily_pnl += pnl
+            self.last_trade_pnl = pnl
+            self.last_trade_timestamp = timestamp
 
-        # Update peak equity after realized PnL change
-        if self.equity > self.peak_equity:
-            self.peak_equity = self.equity
+            # Update peak equity after realized PnL change
+            if self.equity > self.peak_equity:
+                self.peak_equity = self.equity
 
-        logger.debug(
-            f"Trade closed — pnl={pnl:.4f}, realized_total={self.realized_pnl:.4f}, "
-            f"equity={self.equity:.4f}",
-        )
+            logger.debug(
+                f"Trade closed — pnl={pnl:.4f}, realized_total={self.realized_pnl:.4f}, "
+                f"equity={self.equity:.4f}",
+            )
 
-    def update_unrealized(self, positions: list[PositionState]) -> None:
+    async def update_unrealized(self, positions: list[PositionState]) -> None:
         """Recompute unrealized PnL from current open positions."""
-        self.unrealized_pnl = sum(p.unrealized_pnl for p in positions)
+        async with self._lock:
+            self.unrealized_pnl = sum(p.unrealized_pnl for p in positions)
 
-        # Update peak equity when unrealized moves favorably
-        if self.equity > self.peak_equity:
-            self.peak_equity = self.equity
+            # Update peak equity when unrealized moves favorably
+            if self.equity > self.peak_equity:
+                self.peak_equity = self.equity
 
-    def check_daily_reset(self, current_timestamp: float) -> None:
-        """Reset daily PnL if a new UTC day has started."""
-        current_day = int(current_timestamp // _SECONDS_PER_DAY)
-        last_day = int(self.daily_reset_timestamp // _SECONDS_PER_DAY)
+    async def check_daily_reset(self, current_timestamp: float) -> None:
+        """Reset daily PnL if a new UTC day has started.
 
-        if current_day > last_day:
-            logger.info(f"Daily PnL reset — previous daily_pnl={self.daily_pnl:.4f}")
-            self.daily_pnl = 0.0
-            self.daily_reset_timestamp = current_timestamp
+        Uses wall-clock time for reliable daily boundaries regardless
+        of signal arrival order.  The *current_timestamp* parameter is
+        kept for backward compatibility but is not used internally.
+        """
+        async with self._lock:
+            wall_time = time.time()
+            current_day = int(wall_time // _SECONDS_PER_DAY)
+            last_day = int(self.daily_reset_timestamp // _SECONDS_PER_DAY)
+
+            if current_day > last_day:
+                logger.info(f"Daily PnL reset — previous daily_pnl={self.daily_pnl:.4f}")
+                self.daily_pnl = 0.0
+                self.daily_reset_timestamp = wall_time
 
     # ------------------------------------------------------------------
     # Serialization

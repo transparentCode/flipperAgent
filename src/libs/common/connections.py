@@ -23,18 +23,18 @@ async def create_valkey_client(
     Resolution order:
       1. ``VALKEY_URI`` env var  (Docker override)
       2. ``REDIS_URI``  env var  (legacy compat)
-      3. ``redis.uri`` from config YAML
+      3. ``valkey.uri`` from config YAML
       4. Hardcoded fallback ``redis://localhost:6379/0``
     """
     uri = os.getenv("VALKEY_URI") or os.getenv("REDIS_URI")
     if not uri:
         if config_mgr is None:
             config_mgr = ConfigManager()
-        uri = config_mgr.get("redis.uri", "redis://localhost:6379/0")
+        uri = config_mgr.get("valkey.uri", "redis://localhost:6379/0")
 
     _masked_uri = uri.split('@')[-1] if '@' in uri else uri
     logger.info(f"Connecting Valkey client → ...@{_masked_uri}")
-    client: valkey.Valkey = valkey.Valkey.from_url(uri, decode_responses=False)
+    client: valkey.Valkey = valkey.Valkey.from_url(uri, decode_responses=True)
     # Verify connectivity
     await client.ping()
     logger.info("Valkey client connected")

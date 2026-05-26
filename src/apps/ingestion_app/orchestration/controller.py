@@ -1,7 +1,6 @@
 import asyncio
 import os
 import json
-import redis.asyncio as redis
 from typing import List, Dict, Any
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -11,6 +10,7 @@ from datetime import datetime, timezone
 import logging
 
 from libs.common.config import ConfigManager
+from libs.common.connections import create_valkey_client
 from libs.common.logging.logger_utils import bind_logger
 from libs.common.enums import SystemComponent
 from libs.common.db.pool_manager import DBPoolManager
@@ -58,9 +58,9 @@ async def verify_and_launch_ws(symbol: str, publish_timeframes: List[str], arq_p
             await asyncio.sleep(verification_sleep_seconds)
 
     # Launch WebSocket pipeline for this asset
-    asyncio.create_task(run_websocket_pipeline(symbol, publish_timeframes))
+    asyncio.create_task(run_websocket_pipeline(symbol, publish_timeframes, arq_pool))
 
-async def run_websocket_pipeline(symbol: str, publish_timeframes: List[str]):
+async def run_websocket_pipeline(symbol: str, publish_timeframes: List[str], arq_pool=None):
     """
     Launches the live WebSocket pipeline for the given asset.
     """
@@ -68,11 +68,19 @@ async def run_websocket_pipeline(symbol: str, publish_timeframes: List[str]):
     loop = asyncio.get_event_loop()
     reconnect_sleep_seconds = config_manager.get("ingestion.websocket.reconnect_sleep_seconds", 5)
     
-    redis_uri = config_manager.get("redis.uri", "redis://localhost:6379/0")
-    redis_client = redis.from_url(redis_uri)
+    redis_client = None
     
     while True:
         try:
+            # Close stale client before creating a new one on reconnect
+            if redis_client is not None:
+                await redis_client.aclose()
+            redis_client = await create_valkey_client(config_manager)
+
+            # Create TimescaleWriter once per connection cycle
+            ts_pool = DBPoolManager.get_writer_pool()
+            ts_writer = TimescaleWriter(ts_pool) if ts_pool is not None else None
+
             queue = asyncio.Queue()
             adapter = BinanceNativeAdapter()
             
@@ -100,16 +108,15 @@ async def run_websocket_pipeline(symbol: str, publish_timeframes: List[str]):
                     
                     # 1. Insert closed 1m candles into TimescaleDB
                     if timeframe == "1m" and is_closed:
-                        ts_pool = DBPoolManager.get_writer_pool()
-                        if ts_pool is not None:
-                            writer = TimescaleWriter(ts_pool)
-                            await writer.insert_ohlcv([record], timeframe=timeframe)
+                        if ts_writer is not None:
+                            await ts_writer.insert_ohlcv([record], timeframe=timeframe)
                     
                     # 2. Filter Valkey publish based on config
                     if is_closed and timeframe in publish_timeframes:
                         stream_key = f"stream:ohlcv:{symbol.lower()}:{timeframe}"
                         now_utc = int(datetime.now(timezone.utc).timestamp() * 1000)
                         
+                        # TODO: replace with StreamOHLCVPayload schema + valkey_encode
                         payload = {
                             "exchange": "binance",
                             "symbol": symbol,
@@ -123,14 +130,24 @@ async def run_websocket_pipeline(symbol: str, publish_timeframes: List[str]):
                             "bar_closed": "True",
                             "ingestion_timestamp": str(now_utc)
                         }
-                        await redis_client.xadd(stream_key, payload, maxlen=10000, approximate=True)
+                        pipe = redis_client.pipeline(transaction=False)
+                        pipe.xadd(stream_key, payload, maxlen=10000, approximate=True)
+                        await pipe.execute()
                         
         except asyncio.CancelledError:
             logger.info(f"[{symbol}] WebSocket task canceled.")
-            await redis_client.aclose()
+            if redis_client is not None:
+                await redis_client.aclose()
             break
         except Exception as e:
             logger.error(f"[{symbol}] WebSocket stream failed: {e}. Reconnecting in {reconnect_sleep_seconds}s...")
+            # Trigger gap-fill immediately after WS disconnect to cover missed data
+            if arq_pool is not None:
+                try:
+                    await arq_pool.enqueue_job("run_rest_gap_fill", [symbol], EXCHANGE_BINANCE)
+                    logger.info(f"[{symbol}] Enqueued gap-fill task after WS disconnect")
+                except Exception as gf_err:
+                    logger.warning(f"[{symbol}] Failed to enqueue gap-fill: {gf_err}")
             await asyncio.sleep(reconnect_sleep_seconds)
 
 
@@ -140,7 +157,7 @@ async def lifespan(app: FastAPI):
     target_assets = config_manager.get("ingestion.assets.target_list", ["BTCUSDT"])
     publish_timeframes = config_manager.get("ingestion.assets.publish_timeframes", {})
     base_timeframe = config_manager.get("ingestion.timeframes.base_gap_fill", "1m")
-    redis_settings = RedisSettings.from_dsn(config_manager.get("redis.uri", "redis://localhost:6379/0"))
+    redis_settings = RedisSettings.from_dsn(config_manager.get("valkey.uri", "redis://localhost:6379/0"))
 
     # b. Connect DB
     logger.info("Initializing DB pools...")

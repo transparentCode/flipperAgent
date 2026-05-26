@@ -6,30 +6,29 @@ def test_feature_manager():
     # Setup global config or mock it.
     ConfigManager.reset_singleton()
     config_mgr = ConfigManager()
-    # It reads from default base.yaml, which contains:
-    # BTC/USD -> 15m -> RSI: period 21
+    # features.yaml defines ETHUSDT:4h -> RSI: period 12
     
-    # We will test BTCUSDT 15m
-    fm = FeatureManager("BTCUSDT", "15m")
+    # We will test ETHUSDT 4h
+    fm = FeatureManager("ETHUSDT", "4h")
     assert len(fm.indicators) == 1
     assert fm.indicators[0].__class__.__name__ == "RSI"
-    assert fm.indicators[0].period == 21
+    assert fm.indicators[0].period == 12
     
     # Let's mock a sequence of history data
-    # (high, low, close, volume, timestamp)
+    # (open, high, low, close, volume, timestamp)
     
     history = []
     base_ts = 1600000000
     for i in range(30):
         val = 100.0 + i
-        history.append((val + 1, val - 1, val, 10.0, base_ts + i * 900))
+        history.append((val, val + 1, val - 1, val, 10.0, base_ts + i * 900))
         
     fm.prime(history)
     
     assert fm.indicators[0].is_primed is True
     
     # Now simulate process_tick
-    tick = (131.0, 129.0, 130.0, 10.0, base_ts + 30 * 900)
+    tick = (130.0, 131.0, 129.0, 130.0, 10.0, base_ts + 30 * 900)
     res = fm.process_tick(tick)
     
     assert "RSI" in res
@@ -48,14 +47,14 @@ def test_feature_manager_multiple_indicators():
     base_ts = 1600000000
     for i in range(50):
         val = 100.0 + i
-        history.append((val + 1, val - 1, val, 10.0, base_ts + i * 3600))
+        history.append((val, val + 1, val - 1, val, 10.0, base_ts + i * 3600))
         
     fm.prime(history)
     
     for ind in fm.indicators:
         assert ind.is_primed is True
         
-    tick = (151.0, 149.0, 150.0, 10.0, base_ts + 50 * 3600)
+    tick = (150.0, 151.0, 149.0, 150.0, 10.0, base_ts + 50 * 3600)
     res = fm.process_tick(tick)
     
     assert "MACD" in res
@@ -98,10 +97,10 @@ def test_feature_manager_multi_instance_indicator(monkeypatch):
     assert periods == {"EMA_fast": 9, "EMA_slow": 21}
 
     # Prime and tick
-    history = [(100.0 + i + 1, 100.0 + i - 1, 100.0 + i, 10.0, 1600000000 + i * 3600) for i in range(30)]
+    history = [(100.0 + i, 100.0 + i + 1, 100.0 + i - 1, 100.0 + i, 10.0, 1600000000 + i * 3600) for i in range(30)]
     fm.prime(history)
 
-    tick = (131.0, 129.0, 130.0, 10.0, 1600000000 + 30 * 3600)
+    tick = (130.0, 131.0, 129.0, 130.0, 10.0, 1600000000 + 30 * 3600)
     res = fm.process_tick(tick)
 
     # Output keys must be the aliases, not "EMA"
@@ -137,10 +136,10 @@ def test_feature_manager_backward_compat_no_type_key(monkeypatch):
     fm = FeatureManager("ANYASSET", "1h")
     assert len(fm.indicators) == 2
 
-    history = [(100.0 + i + 1, 100.0 + i - 1, 100.0 + i, 10.0, 1600000000 + i * 3600) for i in range(30)]
+    history = [(100.0 + i, 100.0 + i + 1, 100.0 + i - 1, 100.0 + i, 10.0, 1600000000 + i * 3600) for i in range(30)]
     fm.prime(history)
 
-    tick = (131.0, 129.0, 130.0, 10.0, 1600000000 + 30 * 3600)
+    tick = (130.0, 131.0, 129.0, 130.0, 10.0, 1600000000 + 30 * 3600)
     res = fm.process_tick(tick)
 
     assert "EMA" in res

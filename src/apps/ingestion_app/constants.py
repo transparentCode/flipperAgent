@@ -10,7 +10,6 @@ BINANCE_RAW_KLINE_COLUMNS = [
 ]
 BINANCE_KLINE_STREAM_TEMPLATE = "{symbol}@kline_{interval}"
 EXCHANGE_BINANCE = "binance"
-TV_CHART_URL_TEMPLATE = "https://www.tradingview.com/chart/?symbol={symbol}"
 
 # Storage Constants (Phase 4)
 TABLE_OHLCV = "ohlcv"

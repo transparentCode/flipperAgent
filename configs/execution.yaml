@@ -40,5 +40,4 @@ execution:
       rate_limit_override:
         orders_per_second: 3
     ETHUSDT: {}
-    SOLUSDT: {}
     default: {}

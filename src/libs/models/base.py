@@ -42,6 +42,15 @@ class BaseModel(ABC):
         """Return list of missing required indicators."""
         return [ind for ind in self.meta.required_indicators if ind not in available]
 
+    def validate_required_fields(self, available: set[str]) -> list[str]:
+        """Return required fields whose indicator prefix is not in *available*."""
+        missing: list[str] = []
+        for f in self.meta.required_fields:
+            prefix = f.split(".")[0] if "." in f else f
+            if prefix not in available:
+                missing.append(f)
+        return missing
+
     # ------------------------------------------------------------------
     # Core interface
     # ------------------------------------------------------------------

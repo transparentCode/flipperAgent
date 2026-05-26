@@ -2,10 +2,14 @@ features:
   assets:
     BTCUSDT:
       timeframes:
-        15m:
-          RSI:
-            period: 21
         1h:
+          MACD:
+            fast_period: 12
+            signal_period: 9
+            slow_period: 26
+          RSI:
+            period: 14
+        4h:
           MACD:
             fast_period: 12
             signal_period: 9
@@ -14,7 +18,7 @@ features:
             period: 14
     ETHUSDT:
       timeframes:
-        1h:
+        4h:
           RSI:
             period: 12
     default:
