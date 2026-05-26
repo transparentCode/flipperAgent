@@ -23,6 +23,7 @@ import libs.risk.rules.max_drawdown  # noqa: F401
 import libs.risk.rules.daily_loss  # noqa: F401
 import libs.risk.rules.cooldown  # noqa: F401
 
+from apps.risk_app.fill_listener import FillListener
 from apps.risk_app.risk_worker import RiskWorker
 
 CONFIG_FILE_RISK = "configs/risk.yaml"
@@ -118,6 +119,16 @@ async def _run() -> None:
             risk_config=risk_config,
         )
         tasks.append(asyncio.create_task(worker.start()))
+
+    # Spawn one FillListener per asset
+    unique_assets = list(asset_map.keys())
+    for asset in unique_assets:
+        listener = FillListener(
+            asset=asset,
+            account=account,
+            positions=positions,
+        )
+        tasks.append(asyncio.create_task(listener.start()))
 
     await asyncio.gather(*tasks)
 

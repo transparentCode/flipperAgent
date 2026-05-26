@@ -1,0 +1,44 @@
+execution:
+  mode: paper   # "paper" or "live"
+
+  paper:
+    slippage_bps: 5.0
+    slippage_jitter_bps: 2.0
+    commission_bps: 4.0
+    fill_delay_ms: 50
+    partial_fill_probability: 0.0
+
+  live:
+    # API keys resolved via ConfigManager (NOT os.getenv)
+    api_key_path: secrets/binance_api_key
+    api_secret_path: secrets/binance_api_secret
+    testnet: true
+    recv_window: 5000
+
+  order_defaults:
+    default_type: market
+    timeout_seconds: 30
+
+  rate_limiting:
+    orders_per_second: 5
+    burst_size: 10
+
+  idempotency:
+    max_memory_keys: 10000
+    persist_to_db: true
+
+  slippage_tracking:
+    enabled: true
+    alert_threshold_bps: 20.0
+
+  reconciliation:
+    enabled: false
+    interval_seconds: 300
+
+  assets:
+    BTCUSDT:
+      rate_limit_override:
+        orders_per_second: 3
+    ETHUSDT: {}
+    SOLUSDT: {}
+    default: {}
