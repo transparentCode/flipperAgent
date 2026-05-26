@@ -1,4 +1,3 @@
-import logging
 from typing import Dict, Any, List, Sequence, Tuple, get_type_hints
 
 from libs.common.config import ConfigManager

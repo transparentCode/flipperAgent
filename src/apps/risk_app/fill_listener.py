@@ -116,25 +116,47 @@ class FillListener:
             return
 
         if report.side == "buy":
-            # Open a long position
-            pos = PositionState(
-                asset=report.asset,
-                direction=1,
-                entry_price=report.average_fill_price,
-                current_price=report.average_fill_price,
-                size=report.filled_size,
-                unrealized_pnl=0.0,
-                entry_timestamp=report.timestamp,
-                source_model="",
-                source_timeframe="",
-                stop_loss_price=report.stop_loss_price,
-                take_profit_price=report.take_profit_price,
-            )
-            self.positions.open_position(pos)
-            logger.info(
-                f"Opened long position for {report.asset}: "
-                f"size={report.filled_size:.6f} @ {report.average_fill_price:.4f}",
-            )
+            # FIFO: try to close first open short (direction=-1)
+            pos_list = self.positions.positions.get(report.asset, [])
+            matched_idx: int | None = None
+            for i, pos in enumerate(pos_list):
+                if pos.direction == -1:
+                    matched_idx = i
+                    break
+
+            if matched_idx is not None:
+                pos = pos_list[matched_idx]
+                pos.current_price = report.average_fill_price
+                pos.unrealized_pnl = (
+                    pos.direction
+                    * (pos.current_price - pos.entry_price)
+                    * pos.size
+                )
+                pnl = self.positions.close_position(report.asset, matched_idx)
+                self.account.record_trade_close(pnl, report.timestamp)
+                logger.info(
+                    f"Closed short position for {report.asset}: pnl={pnl:.4f}",
+                )
+            else:
+                # No matching short — open a long position
+                pos = PositionState(
+                    asset=report.asset,
+                    direction=1,
+                    entry_price=report.average_fill_price,
+                    current_price=report.average_fill_price,
+                    size=report.filled_size,
+                    unrealized_pnl=0.0,
+                    entry_timestamp=report.timestamp,
+                    source_model="",
+                    source_timeframe="",
+                    stop_loss_price=report.stop_loss_price,
+                    take_profit_price=report.take_profit_price,
+                )
+                self.positions.open_position(pos)
+                logger.info(
+                    f"Opened long position for {report.asset}: "
+                    f"size={report.filled_size:.6f} @ {report.average_fill_price:.4f}",
+                )
 
         elif report.side == "sell":
             # FIFO: find first open position with direction=1 (closing a long)

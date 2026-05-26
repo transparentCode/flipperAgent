@@ -1,13 +1,12 @@
 import asyncio
-import logging
 import json
 from typing import Optional
 from apps.signal_app.feature_manager import FeatureManager
 from libs.common.config import ConfigManager
-from libs.common.logging.logger_utils import get_logger
+from libs.common.logging.logger_utils import bind_logger
 from libs.common.enums import SystemComponent
 
-logger = get_logger(__name__).bind(system_component=SystemComponent.SIGNAL_APP)
+logger = bind_logger(__name__, system_component=SystemComponent.SIGNAL_APP)
 
 class SignalWorker:
     def __init__(self, asset: str, timeframe: str):
