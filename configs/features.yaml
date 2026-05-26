@@ -41,3 +41,13 @@ features:
             slow_period: 26
           RSI:
             period: 14
+          KAMA:
+            period: 10
+            fast_period: 2
+            slow_period: 30
+          KeltnerChannel:
+            period: 20
+            multiplier: 1.5
+            atr_period: 14
+          LinReg:
+            period: 12

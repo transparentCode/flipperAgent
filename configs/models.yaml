@@ -24,6 +24,15 @@ models:
               rsi_short_threshold: 45
               require_macd_positive: false
               histogram_min_abs: 0.0
+          SqueezeBreakout:
+            enabled: true
+            params:
+              kama_period: 10
+              kama_fast: 2
+              kama_slow: 30
+              mom_period: 12
+              squeeze_lookback: 1
+              ss_threshold: 3
         4h:
           MeanReversion:
             enabled: true
@@ -39,6 +48,8 @@ models:
               ema_slow_period: 21
               require_macd_confirm: true
               atr_conviction_scale: 2.0
+          SqueezeBreakout:
+            enabled: false
     ETHUSDT:
       timeframes:
         4h:
@@ -54,6 +65,34 @@ models:
             params:
               rsi_long_threshold: 55
               rsi_short_threshold: 45
+    XRPUSDT:
+      timeframes:
+        1h:
+          SqueezeBreakout:
+            enabled: true
+            params:
+              ss_threshold: 3
+    SOLUSDT:
+      timeframes:
+        1h:
+          SqueezeBreakout:
+            enabled: true
+            params:
+              ss_threshold: 3
+    BNBUSDT:
+      timeframes:
+        30m:
+          SqueezeBreakout:
+            enabled: true
+            params:
+              ss_threshold: 3
+    DOGEUSDT:
+      timeframes:
+        4h:
+          SqueezeBreakout:
+            enabled: true
+            params:
+              ss_threshold: 3
     default:
       timeframes:
         default:

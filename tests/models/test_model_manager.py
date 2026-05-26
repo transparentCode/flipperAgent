@@ -22,7 +22,7 @@ class TestModelManager:
     def test_validate_feature_coverage_pass(self):
         mm = ModelManager("BTCUSDT", "1h")
         # Providing all required indicators
-        mm.validate_feature_coverage({"RSI", "BollingerBands", "MACD", "EMA", "ATR"})
+        mm.validate_feature_coverage({"RSI", "BollingerBands", "MACD", "EMA", "ATR", "KAMA", "KeltnerChannel", "LinReg"})
 
     def test_validate_feature_coverage_fail(self):
         mm = ModelManager("BTCUSDT", "1h")

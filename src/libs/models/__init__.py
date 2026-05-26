@@ -2,3 +2,4 @@
 import libs.models.mean_reversion  # noqa: F401
 import libs.models.trend_following  # noqa: F401
 import libs.models.momentum  # noqa: F401
+import libs.models.squeeze_breakout  # noqa: F401
