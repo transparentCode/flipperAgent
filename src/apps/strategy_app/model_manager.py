@@ -102,9 +102,18 @@ class ModelManager:
                 )
 
     def _available_features_from_config(self) -> set[str]:
-        """Read configured indicator names from features.yaml for this asset/timeframe."""
+        """Read configured indicator names from features.yaml for this asset/timeframe.
+
+        Both the config key (e.g. ``EMA_fast``) and any explicit ``type``
+        value (e.g. ``EMA``) are considered available so that models can
+        declare a requirement like ``"EMA"`` satisfied by ``EMA_fast``.
+        """
         features_node = self._resolve_config_node(KEY_FEATURES)
-        return set(features_node.keys())
+        available = set(features_node.keys())
+        for key, cfg in features_node.items():
+            if isinstance(cfg, dict) and "type" in cfg:
+                available.add(cfg["type"])
+        return available
 
     # ------------------------------------------------------------------
     # Evaluation

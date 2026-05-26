@@ -39,7 +39,7 @@ class DBPoolManager:
                     cls._writer_pool = await asyncpg.create_pool(dsn=dsn, min_size=min_size, max_size=max_size)
                     break
                 except Exception as e:
-                    logger.warning(f"Waiting for DB pool... {e}")
+                    logger.warning(f"Waiting for writer DB pool... {type(e).__name__}")
                     await asyncio.sleep(1)
 
         if cls._reader_pool is None:
@@ -50,7 +50,7 @@ class DBPoolManager:
                     cls._reader_pool = await asyncpg.create_pool(dsn=dsn, min_size=min_size, max_size=max_size)
                     break
                 except Exception as e:
-                    logger.warning(f"Waiting for DB pool... {e}")
+                    logger.warning(f"Waiting for reader DB pool... {type(e).__name__}")
                     await asyncio.sleep(1)
 
     @classmethod

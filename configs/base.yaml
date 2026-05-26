@@ -62,13 +62,14 @@ ingestion:
     cookies_path: secrets/tv_cookies.json
     load_sleep_seconds: 5
   websocket:
+    stream_url: wss://fstream.binancefuture.com
     reconnect_sleep_seconds: 5
     verification_sleep_seconds: 10
     warmup_threshold_ms: 300000
 postgres:
   database: flipper_db
   host: localhost
-  password: flipperpass
+  # password: set via POSTGRES_PASSWORD env var or .env file
   pool:
     max_size: 10
     min_size: 2

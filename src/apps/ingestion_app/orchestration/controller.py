@@ -98,7 +98,7 @@ async def run_websocket_pipeline(symbol: str, publish_timeframes: List[str]):
                         is_closed=is_closed
                     )
                     
-                    # 1. Insert ONLY 1m closed candles into TimescaleDB
+                    # 1. Insert closed 1m candles into TimescaleDB
                     if timeframe == "1m" and is_closed:
                         ts_pool = DBPoolManager.get_writer_pool()
                         if ts_pool is not None:
@@ -114,16 +114,16 @@ async def run_websocket_pipeline(symbol: str, publish_timeframes: List[str]):
                             "exchange": "binance",
                             "symbol": symbol,
                             "timeframe": timeframe,
-                            "timestamp": record.timestamp.isoformat(),
+                            "timestamp": str(record.timestamp.timestamp()),
                             "open": str(record.open),
                             "high": str(record.high),
                             "low": str(record.low),
                             "close": str(record.close),
                             "volume": str(record.volume),
-                            "is_closed": "True",
+                            "bar_closed": "True",
                             "ingestion_timestamp": str(now_utc)
                         }
-                        await redis_client.xadd(stream_key, payload)
+                        await redis_client.xadd(stream_key, payload, maxlen=10000, approximate=True)
                         
         except asyncio.CancelledError:
             logger.info(f"[{symbol}] WebSocket task canceled.")

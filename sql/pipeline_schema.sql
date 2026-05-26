@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS risk_positions (
 -- 2. risk_account_snapshots — AccountState persistence
 --    (account_state.py: save_snapshot / load_latest)
 CREATE TABLE IF NOT EXISTS risk_account_snapshots (
-    timestamp           DOUBLE PRECISION NOT NULL,
+    timestamp           BIGINT NOT NULL,
     balance             DOUBLE PRECISION NOT NULL,
     equity              DOUBLE PRECISION NOT NULL,
     unrealized_pnl      DOUBLE PRECISION NOT NULL DEFAULT 0,
@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS risk_account_snapshots (
     daily_pnl           DOUBLE PRECISION NOT NULL DEFAULT 0
 );
 SELECT create_hypertable('risk_account_snapshots', 'timestamp',
+       chunk_time_interval => 86400,
        if_not_exists => true, migrate_data => true);
 
 -- 3. execution_fills — FillTracker persistence

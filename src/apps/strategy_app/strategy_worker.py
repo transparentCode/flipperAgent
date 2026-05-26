@@ -126,6 +126,8 @@ class StrategyWorker:
                 await self.redis_client.xadd(
                     self.signal_stream_key,
                     signal.model_dump(),
+                    maxlen=5000,
+                    approximate=True,
                 )
                 logger.debug(f"Published signal: {signal.idempotency_key}")
 

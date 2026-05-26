@@ -57,16 +57,18 @@ class BinanceNativeAdapter(BaseExchangeAdapter):
 
     async def stream_multiplex_socket(self, symbols_timeframes: Dict[str, List[str]], loop: asyncio.AbstractEventLoop, queue: asyncio.Queue) -> AsyncGenerator[Dict[str, Any], None]:
         """
-        Connect to Binance Websocket using ThreadedWebsocketManager and bridge via asyncio.Queue.
+        Connect to Binance Websocket using UMFuturesWebsocketClient and bridge via asyncio.Queue.
         """
-        ws_client = UMFuturesWebsocketClient(on_message=lambda msg: loop.call_soon_threadsafe(queue.put_nowait, msg))
+        ws_client = UMFuturesWebsocketClient(
+            stream_url=config_manager.get("ingestion.websocket.stream_url", "wss://fstream.binance.com"),
+            on_message=lambda _ws, msg: loop.call_soon_threadsafe(queue.put_nowait, msg),
+            is_combined=True,
+        )
         
         try:
-            streams = []
             for symbol, timeframes in symbols_timeframes.items():
                 for interval in timeframes:
-                    streams.append(BINANCE_KLINE_STREAM_TEMPLATE.format(symbol=symbol.lower(), interval=interval))
-            ws_client.multiplex_socket(streams)
+                    ws_client.kline(symbol=symbol.lower(), interval=interval)
             
             while True:
                 msg = await queue.get()

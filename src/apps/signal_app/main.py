@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Sequence, Tuple
 
 from libs.common.config import ConfigManager
 from libs.common.connections import create_valkey_client, init_db_pools
 from libs.common.db.pool_manager import DBPoolManager
+from libs.common.db.timescale_reader import TimescaleReader
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger, configure_logging
 from apps.signal_app.signal_worker import SignalWorker
@@ -58,10 +60,32 @@ async def _run() -> None:
     await init_db_pools(config_mgr)
     redis_client = await create_valkey_client(config_mgr)
 
+    # --- Build db_fetcher for indicator priming ---
+    reader_pool = DBPoolManager.get_reader_pool()
+    reader = TimescaleReader(reader_pool)
+
+    async def db_fetcher(
+        asset: str, timeframe: str, max_lookback: int
+    ) -> Sequence[Tuple[float, float, float, float, float]]:
+        df = await reader.get_ohlcv_aggregated(asset, timeframe, max_lookback)
+        if df.empty:
+            return []
+        # Return (high, low, close, volume, timestamp_as_float)
+        return [
+            (
+                float(row["high"]),
+                float(row["low"]),
+                float(row["close"]),
+                float(row["volume"]),
+                float(row["timestamp"].timestamp()) if hasattr(row["timestamp"], "timestamp") else float(row["timestamp"]),
+            )
+            for _, row in df.iterrows()
+        ]
+
     try:
         tasks = []
         for asset, tf in pairs:
-            worker = SignalWorker(asset, tf)
+            worker = SignalWorker(asset, tf, db_fetcher=db_fetcher)
             await worker.connect(redis_client)
             tasks.append(asyncio.create_task(worker.start()))
 

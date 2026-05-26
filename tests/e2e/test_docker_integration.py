@@ -1,7 +1,10 @@
 import asyncio
+import json
 import os
+import subprocess
 import pytest
 import asyncpg
+import redis.asyncio as aioredis
 from libs.common.db.pool_manager import DBPoolManager
 from libs.common.config import ConfigManager
 
@@ -34,6 +37,13 @@ async def db_pools():
     await DBPoolManager.init_pools(config_manager=config_manager)
     yield
     await DBPoolManager.close_pools()
+
+
+@pytest_asyncio.fixture
+async def valkey_client():
+    client = aioredis.from_url("redis://localhost:6380/0")
+    yield client
+    await client.aclose()
 
 @pytest.mark.asyncio
 async def test_timescaledb_initialization_and_gap_fill(db_pools):
@@ -124,3 +134,178 @@ async def test_continuous_aggregates_exist(db_pools):
             assert row is not None
         except asyncpg.exceptions.UndefinedTableError:
             pytest.fail("Continuous aggregate market_1m_bars does not exist.")
+
+
+@pytest.mark.asyncio
+async def test_signal_worker_consumes_and_produces(db_pools, valkey_client):
+    """
+    Verify signal_worker consumed from stream:ohlcv:btcusdt:1h and produced
+    feature entries to features:BTCUSDT:1h.
+    """
+    stream_key = "stream:ohlcv:btcusdt:1h"
+    features_key = "features:BTCUSDT:1h"
+    max_retries = 60
+    delay_seconds = 2.0
+
+    # Check that signal_app_group consumer group exists on the OHLCV stream
+    group_found = False
+    for i in range(max_retries):
+        try:
+            groups = await valkey_client.xinfo_groups(stream_key)
+            for g in groups:
+                name = g.get("name") or g.get(b"name", b"")
+                if isinstance(name, bytes):
+                    name = name.decode()
+                if name == "signal_app_group":
+                    group_found = True
+                    break
+            if group_found:
+                break
+        except Exception:
+            pass
+        await asyncio.sleep(delay_seconds)
+
+    assert group_found, (
+        f"Timeout: signal_app_group not found on {stream_key} after {max_retries * delay_seconds}s"
+    )
+
+    # Poll features stream for produced entries
+    features_found = False
+    for i in range(max_retries):
+        try:
+            length = await valkey_client.xlen(features_key)
+            if length > 0:
+                entries = await valkey_client.xrange(features_key, count=1)
+                if entries:
+                    _, data = entries[0]
+                    # Verify expected keys exist
+                    decoded = {
+                        (k.decode() if isinstance(k, bytes) else k): (
+                            v.decode() if isinstance(v, bytes) else v
+                        )
+                        for k, v in data.items()
+                    }
+                    assert "features" in decoded, f"Missing 'features' key in entry: {decoded.keys()}"
+                    features_json = json.loads(decoded["features"])
+                    assert len(features_json) > 0, "Features JSON is empty"
+                    features_found = True
+                    break
+        except Exception:
+            pass
+        await asyncio.sleep(delay_seconds)
+
+    assert features_found, (
+        f"Timeout: no entries in {features_key} after {max_retries * delay_seconds}s"
+    )
+
+
+@pytest.mark.asyncio
+async def test_strategy_worker_consumes_features(db_pools, valkey_client):
+    """
+    Verify strategy_worker created its consumer group on the features stream.
+    """
+    features_key = "features:BTCUSDT:1h"
+    max_retries = 60
+    delay_seconds = 2.0
+
+    group_found = False
+    for i in range(max_retries):
+        try:
+            groups = await valkey_client.xinfo_groups(features_key)
+            for g in groups:
+                name = g.get("name") or g.get(b"name", b"")
+                if isinstance(name, bytes):
+                    name = name.decode()
+                if name == "strategy_app_group":
+                    group_found = True
+                    break
+            if group_found:
+                break
+        except Exception:
+            pass
+        await asyncio.sleep(delay_seconds)
+
+    assert group_found, (
+        f"Timeout: strategy_app_group not found on {features_key} after {max_retries * delay_seconds}s"
+    )
+
+
+@pytest.mark.asyncio
+async def test_downstream_workers_running_no_errors(db_pools):
+    """
+    Verify risk, execution, portfolio workers are running without crash loops.
+    """
+    result = subprocess.run(
+        ["docker-compose", "ps"],
+        capture_output=True,
+        text=True,
+    )
+    output = result.stdout
+
+    # Check that no worker container is in a restarting state
+    for service in [
+        "signal-worker",
+        "strategy-worker",
+        "risk-worker",
+        "execution-worker",
+        "portfolio-worker",
+    ]:
+        assert "restarting" not in output.lower() or service not in output, (
+            f"{service} appears to be restarting. docker-compose ps output:\n{output}"
+        )
+
+
+@pytest.mark.asyncio
+async def test_consumer_groups_exist(db_pools, valkey_client):
+    """
+    Verify each app created its expected consumer groups on the right streams.
+    """
+    required_groups = [
+        ("stream:ohlcv:btcusdt:1h", "signal_app_group"),
+        ("stream:ohlcv:btcusdt:4h", "signal_app_group"),
+        ("features:BTCUSDT:1h", "strategy_app_group"),
+        ("features:BTCUSDT:4h", "strategy_app_group"),
+    ]
+    optional_groups = [
+        ("signals:BTCUSDT:1h", "risk_app_group"),
+    ]
+
+    max_retries = 60
+    delay_seconds = 2.0
+
+    for stream, expected_group in required_groups:
+        found = False
+        for i in range(max_retries):
+            try:
+                groups = await valkey_client.xinfo_groups(stream)
+                for g in groups:
+                    name = g.get("name") or g.get(b"name", b"")
+                    if isinstance(name, bytes):
+                        name = name.decode()
+                    if name == expected_group:
+                        found = True
+                        break
+                if found:
+                    break
+            except Exception:
+                pass
+            await asyncio.sleep(delay_seconds)
+        assert found, (
+            f"Required consumer group '{expected_group}' not found on stream '{stream}' "
+            f"after {max_retries * delay_seconds}s"
+        )
+
+    # Optional groups — log but don't fail
+    for stream, expected_group in optional_groups:
+        try:
+            groups = await valkey_client.xinfo_groups(stream)
+            names = []
+            for g in groups:
+                name = g.get("name") or g.get(b"name", b"")
+                if isinstance(name, bytes):
+                    name = name.decode()
+                names.append(name)
+            if expected_group not in names:
+                print(f"Optional group '{expected_group}' not yet on '{stream}' (OK)")
+        except Exception:
+            print(f"Stream '{stream}' does not exist yet (OK for optional check)")

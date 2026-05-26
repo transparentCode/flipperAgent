@@ -9,13 +9,13 @@ from libs.common.enums import SystemComponent
 logger = bind_logger(__name__, system_component=SystemComponent.SIGNAL_APP)
 
 class SignalWorker:
-    def __init__(self, asset: str, timeframe: str):
+    def __init__(self, asset: str, timeframe: str, db_fetcher=None):
         self.asset = asset
         self.timeframe = timeframe
         self.stream_key = f"stream:ohlcv:{asset.lower()}:{timeframe}"
         self.group_name = "signal_app_group"
         self.consumer_name = f"signal_worker_{asset}_{timeframe}"
-        self.feature_manager = FeatureManager(asset, timeframe)
+        self.feature_manager = FeatureManager(asset, timeframe, db_fetcher=db_fetcher)
         self.redis_client = None  # To be injected or instantiated
 
     async def connect(self, redis_client):
@@ -78,7 +78,10 @@ class SignalWorker:
 
     async def process_message(self, message_id: str, payload: dict):
         # Identify when incoming streamed events flag as `bar_closed: true`
-        is_closed = payload.get(b"bar_closed") or payload.get("bar_closed")
+        is_closed = (
+            payload.get(b"bar_closed") or payload.get("bar_closed")
+            or payload.get(b"is_closed") or payload.get("is_closed")
+        )
         
         # We need to treat bytes vs str gracefully depending on valkey client decoding
         if isinstance(is_closed, bytes):
@@ -115,7 +118,7 @@ class SignalWorker:
                         "features": json.dumps(results),
                         "bar_data": json.dumps({"open": open_, "high": high, "low": low, "close": close, "volume": volume}),
                     }
-                    await self.redis_client.xadd(feature_stream, feature_payload)
+                    await self.redis_client.xadd(feature_stream, feature_payload, maxlen=10000, approximate=True)
                 
             except Exception as e:
                 logger.error(f"Failed to parse or process payload {payload}: {e}")

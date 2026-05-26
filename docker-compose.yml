@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: timescale/timescaledb:latest-pg15
@@ -10,14 +8,38 @@ services:
     volumes:
       - timescaledb-data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-flipper}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    networks:
+      - flipper-net
 
   broker:
     image: valkey/valkey:latest
     volumes:
       - valkey-data:/data
     ports:
-      - "6380:6379"
+      - "127.0.0.1:6380:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    networks:
+      - flipper-net
 
   worker-queue:
     build:
@@ -26,13 +48,28 @@ services:
     command: arq apps.ingestion_app.orchestration.worker.WorkerSettings
     volumes:
       - ./data:/app/data
+    tmpfs:
+      - /app/logs
+      - /tmp
     environment:
       POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
       REDIS_URI: redis://broker:6379/0
       VALKEY_URI: redis://broker:6379/0
     depends_on:
-      - db
-      - broker
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - flipper-net
 
   worker-streams:
     build:
@@ -43,13 +80,28 @@ services:
       - "8002:8001"
     volumes:
       - ./data:/app/data
+    tmpfs:
+      - /app/logs
+      - /tmp
     environment:
       POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
       REDIS_URI: redis://broker:6379/0
       VALKEY_URI: redis://broker:6379/0
     depends_on:
-      - db
-      - broker
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - flipper-net
 
   scheduler:
     build:
@@ -58,13 +110,28 @@ services:
     command: sleep infinity # placeholder cron dispatcher
     volumes:
       - ./data:/app/data
+    tmpfs:
+      - /app/logs
+      - /tmp
     environment:
       POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
       REDIS_URI: redis://broker:6379/0
       VALKEY_URI: redis://broker:6379/0
     depends_on:
-      - db
-      - broker
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - flipper-net
 
   strategy-worker:
     build:
@@ -73,13 +140,28 @@ services:
     command: python -m apps.strategy_app.main
     volumes:
       - ./data:/app/data
+    tmpfs:
+      - /app/logs
+      - /tmp
     environment:
       POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
       REDIS_URI: redis://broker:6379/0
       VALKEY_URI: redis://broker:6379/0
     depends_on:
-      - db
-      - broker
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - flipper-net
 
   signal-worker:
     build:
@@ -88,13 +170,29 @@ services:
     command: python -m apps.signal_app.main
     volumes:
       - ./data:/app/data
+    tmpfs:
+      - /app/logs
+      - /tmp
     environment:
+      NUMBA_CACHE_DIR: /tmp/numba_cache
       POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
       REDIS_URI: redis://broker:6379/0
       VALKEY_URI: redis://broker:6379/0
     depends_on:
-      - db
-      - broker
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - flipper-net
 
   risk-worker:
     build:
@@ -103,13 +201,28 @@ services:
     command: python -m apps.risk_app.main
     volumes:
       - ./data:/app/data
+    tmpfs:
+      - /app/logs
+      - /tmp
     environment:
       POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
       REDIS_URI: redis://broker:6379/0
       VALKEY_URI: redis://broker:6379/0
     depends_on:
-      - db
-      - broker
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - flipper-net
 
   execution-worker:
     build:
@@ -118,13 +231,28 @@ services:
     command: python -m apps.execution_app.main
     volumes:
       - ./data:/app/data
+    tmpfs:
+      - /app/logs
+      - /tmp
     environment:
       POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
       REDIS_URI: redis://broker:6379/0
       VALKEY_URI: redis://broker:6379/0
     depends_on:
-      - db
-      - broker
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - flipper-net
 
   portfolio-worker:
     build:
@@ -133,13 +261,32 @@ services:
     command: python -m apps.portfolio_app.main
     volumes:
       - ./data:/app/data
+    tmpfs:
+      - /app/logs
+      - /tmp
     environment:
       POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
       REDIS_URI: redis://broker:6379/0
       VALKEY_URI: redis://broker:6379/0
     depends_on:
-      - db
-      - broker
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - flipper-net
+
+networks:
+  flipper-net:
+    driver: bridge
 
 volumes:
   timescaledb-data:

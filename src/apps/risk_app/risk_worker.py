@@ -167,6 +167,8 @@ class RiskWorker:
                 await self.redis_client.xadd(
                     self.order_stream_key,
                     order.model_dump(),
+                    maxlen=5000,
+                    approximate=True,
                 )
                 logger.info(
                     f"Published order for {self.asset}: "

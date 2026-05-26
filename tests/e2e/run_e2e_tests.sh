@@ -4,12 +4,13 @@ set -e
 
 # Configuration
 COMPOSE_FILE="docker-compose.yml"
-SCHEMA_FILE="src/apps/ingestion_app/storage/schema.sql"
+INGESTION_SCHEMA="src/apps/ingestion_app/storage/schema.sql"
+PIPELINE_SCHEMA="sql/pipeline_schema.sql"
 
-echo "Bringing down any existing containers..."
+echo "=== Tearing down previous run ==="
 docker-compose down -v
 
-echo "Starting Docker containers..."
+echo "=== Starting infrastructure ==="
 docker-compose up -d --build db broker
 
 echo "Waiting for PostgreSQL to be ready..."
@@ -33,23 +34,33 @@ for i in {1..30}; do
   sleep 2
 done
 
-echo "Applying Database Schema..."
-cat $SCHEMA_FILE | docker-compose exec -T -e PGPASSWORD=flipperpass db psql -U flipper -d flipper_db
+echo "=== Applying schemas ==="
+cat $INGESTION_SCHEMA | docker-compose exec -T -e PGPASSWORD=flipperpass db psql -U flipper -d flipper_db
+cat $PIPELINE_SCHEMA  | docker-compose exec -T -e PGPASSWORD=flipperpass db psql -U flipper -d flipper_db
 
-echo "Starting Docker workers..."
-docker-compose up -d --build worker-streams worker-queue
+echo "=== Starting all workers ==="
+docker-compose up -d --build worker-streams worker-queue signal-worker strategy-worker risk-worker execution-worker portfolio-worker
 
-echo "Running E2E tests..."
-if .venv/bin/python -m pytest tests/e2e/test_docker_integration.py -v; then
+echo "=== Waiting for workers to stabilize (15s) ==="
+sleep 15
+
+echo "=== Running E2E tests ==="
+if .venv/bin/python -m pytest tests/e2e/test_docker_integration.py -v --timeout=300; then
     echo "E2E tests passed."
     TEST_RESULT=0
 else
-    echo "E2E tests failed! Extracting logs:"
-    docker-compose logs
+    echo "E2E tests FAILED! Dumping logs:"
+    docker-compose logs --tail=100 signal-worker
+    docker-compose logs --tail=100 strategy-worker
+    docker-compose logs --tail=100 risk-worker
+    docker-compose logs --tail=100 execution-worker
+    docker-compose logs --tail=100 portfolio-worker
+    docker-compose logs --tail=50 worker-streams
+    docker-compose logs --tail=50 worker-queue
     TEST_RESULT=1
 fi
 
-echo "Cleaning up..."
+echo "=== Cleanup ==="
 docker-compose down -v
 
 exit $TEST_RESULT

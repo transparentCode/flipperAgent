@@ -83,6 +83,8 @@ class ExecutionWorker:
                                 await self.redis_client.xadd(
                                     self.fill_stream_key,
                                     self._encode_report(report),
+                                    maxlen=5000,
+                                    approximate=True,
                                 )
                                 logger.info(
                                     f"Published fill for {self.asset}: "

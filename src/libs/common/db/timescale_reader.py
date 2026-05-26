@@ -1,6 +1,26 @@
 import asyncpg
 import pandas as pd
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+
+# Map timeframe strings to PostgreSQL interval literals
+TF_INTERVAL_MAP: dict[str, str] = {
+    "1m": "1 minute",
+    "5m": "5 minutes",
+    "15m": "15 minutes",
+    "1h": "1 hour",
+    "4h": "4 hours",
+    "1d": "1 day",
+}
+
+# Map timeframe strings to seconds (for lookback calculation)
+TF_SECONDS_MAP: dict[str, int] = {
+    "1m": 60,
+    "5m": 300,
+    "15m": 900,
+    "1h": 3600,
+    "4h": 14400,
+    "1d": 86400,
+}
 
 class TimescaleReader:
     def __init__(self, pool: asyncpg.Pool):
@@ -102,4 +122,59 @@ class TimescaleReader:
         if not records:
             return pd.DataFrame(columns=columns)
             
+        return pd.DataFrame([dict(r) for r in records])
+
+    async def get_ohlcv_aggregated(
+        self,
+        symbol: str,
+        timeframe: str,
+        max_lookback: int,
+    ) -> pd.DataFrame:
+        """Aggregate 1m candles into a higher timeframe using time_bucket.
+
+        Falls back to a direct query when timeframe is '1m'.
+        Returns a DataFrame with columns [timestamp, open, high, low, close, volume].
+        """
+        interval = TF_INTERVAL_MAP.get(timeframe)
+        if interval is None:
+            return pd.DataFrame(columns=["timestamp", "open", "high", "low", "close", "volume"])
+
+        tf_seconds = TF_SECONDS_MAP.get(timeframe, 60)
+        since = datetime.now(timezone.utc) - timedelta(seconds=tf_seconds * max_lookback)
+        interval_td = timedelta(seconds=tf_seconds)
+
+        if timeframe == "1m":
+            query = """
+                SELECT timestamp, open, high, low, close, volume
+                FROM ohlcv
+                WHERE symbol = $1 AND timeframe = '1m'
+                  AND timestamp >= $2
+                ORDER BY timestamp ASC
+                LIMIT $3
+            """
+            async with self.pool.acquire() as conn:
+                records = await conn.fetch(query, symbol, since, max_lookback)
+        else:
+            # Aggregate higher-TF candles from 1m data using time_bucket
+            agg_query = """
+                SELECT
+                    time_bucket($2::interval, timestamp) AS timestamp,
+                    FIRST(open, timestamp) AS open,
+                    MAX(high) AS high,
+                    MIN(low) AS low,
+                    LAST(close, timestamp) AS close,
+                    SUM(volume) AS volume
+                FROM ohlcv
+                WHERE symbol = $1 AND timeframe = '1m'
+                  AND timestamp >= $3
+                GROUP BY time_bucket($2::interval, timestamp)
+                ORDER BY timestamp ASC
+                LIMIT $4
+            """
+            async with self.pool.acquire() as conn:
+                records = await conn.fetch(agg_query, symbol, interval_td, since, max_lookback)
+
+        columns = ["timestamp", "open", "high", "low", "close", "volume"]
+        if not records:
+            return pd.DataFrame(columns=columns)
         return pd.DataFrame([dict(r) for r in records])

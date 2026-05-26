@@ -32,7 +32,8 @@ async def create_valkey_client(
             config_mgr = ConfigManager()
         uri = config_mgr.get("redis.uri", "redis://localhost:6379/0")
 
-    logger.info(f"Connecting Valkey client → {uri}")
+    _masked_uri = uri.split('@')[-1] if '@' in uri else uri
+    logger.info(f"Connecting Valkey client → ...@{_masked_uri}")
     client: valkey.Valkey = valkey.Valkey.from_url(uri, decode_responses=False)
     # Verify connectivity
     await client.ping()

@@ -115,7 +115,7 @@ class AccountState:
                      drawdown_pct, peak_equity, open_position_count, daily_pnl)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 """,
-                snap.timestamp,
+                int(snap.timestamp),
                 snap.balance,
                 snap.equity,
                 snap.unrealized_pnl,
