@@ -39,11 +39,11 @@ risk:
       atr_multiplier: 2.0
 
   take_profit:
-    default_method: risk_reward
+    default_method: fixed_pct
     risk_reward:
       ratio: 2.0
     fixed_pct:
-      pct: 4.0
+      pct: 1.5
     trailing:
       atr_multiplier: 3.0
 
