@@ -8,9 +8,17 @@ ingestion:
     target_list:
     - BTCUSDT
     - ETHUSDT
+    - XRPUSDT
+    - SOLUSDT
+    - BNBUSDT
+    - DOGEUSDT
     publish_timeframes:
       BTCUSDT: ["1h", "4h"]
       ETHUSDT: ["4h"]
+      XRPUSDT: ["1h"]
+      SOLUSDT: ["1h"]
+      BNBUSDT: ["30m"]
+      DOGEUSDT: ["4h"]
   concurrency:
     gap_fill_limit: 5
     gap_fill_sleep_seconds: 0.5

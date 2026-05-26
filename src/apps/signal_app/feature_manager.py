@@ -87,6 +87,8 @@ class FeatureManager:
         comma_count = type_str.count(",")
         if comma_count >= 4:  # 5+ floats = full candle (open, high, low, close, volume)
             return data[:5]
+        elif comma_count >= 3:  # 4 floats = HLCV
+            return (data[1], data[2], data[3], data[4])
         elif comma_count >= 2:  # 3 floats = HLC candle
             return (data[1], data[2], data[3])
             
