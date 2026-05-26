@@ -1,0 +1,47 @@
+portfolio:
+  # Equity curve snapshot interval (seconds).
+  # In live mode, a snapshot is also taken on every fill.
+  snapshot_interval_seconds: 300
+
+  # Regular-interval return series (industry standard)
+  returns:
+    # Resample interval for return computation (seconds)
+    # 3600 = 1h (recommended for 24/7 crypto markets)
+    resample_interval_seconds: 3600
+    # Minimum points for valid ratio computation
+    min_points: 24
+
+  # Benchmark comparison
+  benchmark:
+    # Benchmark asset for alpha/beta computation
+    asset: BTCUSDT
+    # Strategy: buy_hold (default) or custom
+    strategy: buy_hold
+
+  # Performance metrics
+  metrics:
+    # Risk-free rate for Sharpe/Sortino (annualized, decimal)
+    risk_free_rate: 0.0
+    # Trading days per year for annualization (365 for 24/7 crypto)
+    trading_days_per_year: 365
+    # Minimum trades before computing ratios (avoids divide-by-zero noise)
+    min_trades_for_ratios: 5
+
+  # Equity curve
+  equity_curve:
+    # Max points to return in a single query (for memory safety)
+    max_points: 10000
+
+  # Trade journal
+  trade_journal:
+    # Default page size when querying closed trades
+    default_page_size: 100
+    max_page_size: 1000
+
+  # Consumer group config for live mode
+  consumer:
+    group_name: portfolio_app_fills_group
+    batch_size: 10
+    block_ms: 2000
+    # Periodic DB snapshot interval (seconds) independent of fills
+    periodic_snapshot_seconds: 60

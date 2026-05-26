@@ -34,8 +34,12 @@ The module must be usable in two modes:
 | Primary data sources | `risk_account_snapshots`, `risk_positions`, `execution_fills` DB tables |
 | Live stream source | `fills:{asset}` Valkey stream (read-only, own consumer group) |
 | Schema reuse | Reuse `AccountSnapshot`, `PositionState`, `ExecutionReport`, `OrderFill` — do NOT duplicate |
-| New schemas | `ClosedTrade`, `TradeJournalEntry`, `PnLAttribution`, `PerformanceSummary`, `EquityPoint`, `PortfolioSnapshot` |
-| Metric computation | Pure functions operating on lists/DataFrames — no side effects |
+| New schemas | `ClosedTrade`, `TradeJournalEntry`, `PnLAttribution`, `PerformanceSummary`, `EquityPoint`, `PortfolioSnapshot`, `ExposurePoint`, `BenchmarkComparison` |
+| Metric computation | Pure functions operating on regular-interval return series — no side effects |
+| Return series | Equity curve resampled to fixed intervals (configurable, default 1h for 24/7 crypto) before computing any ratio |
+| Benchmark | BTC buy-and-hold as default benchmark; alpha, beta, information ratio computed via OLS regression |
+| MAE/MFE | Track per-trade max adverse/favorable excursion for SL/TP optimization feedback |
+| Exposure tracking | Net/gross exposure as % of equity tracked over time |
 | No `apps/` imports | `libs/portfolio/` must NOT import from `apps/` |
 | Config pattern | `ConfigManager` from `libs.common.config` — no `os.getenv()` |
 | Logging pattern | `bind_logger(__name__, system_component=SystemComponent.PORTFOLIO_TRACKER)` |
@@ -57,8 +61,8 @@ The module must be usable in two modes:
 - Dashboard / UI / REST API (future concern)
 - Alerting / notification system
 - Real-time WebSocket feed to external consumers
-- Modifying any existing pipeline app (ingestion, signal, strategy, risk, execution)
-- Modifying existing DB tables or schemas
+- Modifying any existing pipeline app (ingestion, signal, strategy, risk, execution) — EXCEPT Step 0 prerequisite (adding model_name/timeframe to OrderExecutionRequest)
+- Modifying existing DB tables
 - Alembic migrations (schema definition only)
 - Optimization / parameter tuning integration
 - Live P&L streaming to external systems
@@ -89,6 +93,8 @@ The module must be usable in two modes:
                     ┌──────────▼──────────────────────┐
                     │     libs/portfolio/               │
                     │  MetricsCalculator (pure funcs)   │
+                    │  ReturnsBuilder (resample→grid)   │
+                    │  BenchmarkAnalyzer (α,β,IR)       │
                     │  PnLAttributor                    │
                     │  TradeJournal                     │
                     │  EquityCurveBuilder               │
@@ -107,6 +113,8 @@ The `portfolio_app` is an **observer** — it never publishes back to any tradin
 src/libs/portfolio/
 ├── __init__.py
 ├── metrics.py             # MetricsCalculator — Sharpe, Sortino, drawdown, win rate, etc.
+├── returns.py             # ReturnsBuilder — resample equity curve to fixed-interval return series
+├── benchmark.py           # BenchmarkAnalyzer — alpha, beta, information ratio vs benchmark
 ├── attribution.py         # PnLAttributor — break down PnL by asset, model, timeframe
 ├── trade_journal.py       # TradeJournal — query and build trade history from DB
 ├── equity_curve.py        # EquityCurveBuilder — build equity time-series from snapshots
@@ -121,6 +129,8 @@ configs/portfolio.yaml
 tests/portfolio/
 ├── __init__.py
 ├── test_metrics.py
+├── test_returns.py
+├── test_benchmark.py
 ├── test_attribution.py
 ├── test_trade_journal.py
 ├── test_equity_curve.py
@@ -131,11 +141,13 @@ tests/portfolio/
 
 | File | Change |
 |---|---|
-| `src/libs/contracts/schemas.py` | Add `ClosedTrade`, `TradeJournalEntry`, `PnLAttribution`, `PerformanceSummary`, `EquityPoint`, `PortfolioSnapshot` |
+| `src/libs/contracts/schemas.py` | Add `ClosedTrade`, `TradeJournalEntry`, `PnLAttribution`, `PerformanceSummary`, `EquityPoint`, `PortfolioSnapshot`, `ExposurePoint`, `BenchmarkComparison` |
 | `src/libs/common/enums.py` | Add `PORTFOLIO_TRACKER` to `SystemComponent` |
+| `src/libs/contracts/schemas.py` (OrderExecutionRequest) | Add `model_name`, `source_timeframe` optional fields (Step 0 prerequisite) |
+| `src/apps/risk_app/risk_worker.py` | Pass `model_name` and `timeframe` into OrderExecutionRequest (Step 0) |
 
 ### Not Changed
-- All trading pipeline apps (ingestion, signal, strategy, risk, execution)
+- All trading pipeline apps (ingestion, signal, strategy, risk, execution) — except Step 0 minor additions
 - All existing `libs/` modules (risk, execution, features, models, etc.)
 - All existing configs (base.yaml, risk.yaml, execution.yaml, models.yaml, features.yaml, optimization.yaml)
 - All existing DB tables (risk_account_snapshots, risk_positions, execution_fills)
@@ -143,6 +155,28 @@ tests/portfolio/
 ---
 
 ## Data Contracts / Interfaces
+
+### 0. Step 0 Prerequisite — Propagate model_name/timeframe through execution chain
+
+Add to `OrderExecutionRequest`:
+```python
+class OrderExecutionRequest(BaseModel):
+    # ... existing fields ...
+    model_name: str = Field(default="", description="Model that generated the original signal")
+    source_timeframe: str = Field(default="", description="Timeframe of the original signal")
+```
+
+Update `RiskWorker` order construction to pass signal's model_name and timeframe:
+```python
+order = OrderExecutionRequest(
+    # ... existing fields ...
+    model_name=signal.model_name,
+    source_timeframe=signal.timeframe,
+)
+```
+
+Update `ExecutionWorker._decode_order()` to parse these new fields.
+Update `ExecutionWorker._encode_report()` — the `ExecutionReport.metadata` dict should include `model_name` and `timeframe` from the order.
 
 ### 1. New Enum Value (`libs/common/enums.py`)
 
@@ -178,6 +212,9 @@ class ClosedTrade(BaseModel):
     source_timeframe: str = Field(default="")
     entry_order_id: str = Field(default="")
     exit_order_id: str = Field(default="")
+    # MAE/MFE for SL/TP optimization
+    mae_pct: float = Field(default=0.0, description="Max Adverse Excursion as % of entry notional")
+    mfe_pct: float = Field(default=0.0, description="Max Favorable Excursion as % of entry notional")
 
 
 class TradeJournalEntry(BaseModel):
@@ -228,6 +265,11 @@ class PerformanceSummary(BaseModel):
     calmar_ratio: float = Field(default=0.0, description="Annual return / max drawdown")
     expectancy: float = Field(default=0.0, description="(win_rate * avg_win) - (loss_rate * avg_loss)")
     payoff_ratio: float = Field(default=0.0, description="avg_win / abs(avg_loss)")
+    # Benchmark-relative metrics
+    alpha: float = Field(default=0.0, description="Jensen's alpha vs benchmark")
+    beta: float = Field(default=0.0, description="Portfolio beta vs benchmark")
+    information_ratio: float = Field(default=0.0, description="Active return / tracking error")
+    tracking_error: float = Field(default=0.0, description="Std dev of active returns, annualized")
 
 
 class EquityPoint(BaseModel):
@@ -249,6 +291,29 @@ class PortfolioSnapshot(BaseModel):
     attribution_by_asset: list[PnLAttribution] = Field(default_factory=list)
     attribution_by_model: list[PnLAttribution] = Field(default_factory=list)
     attribution_by_timeframe: list[PnLAttribution] = Field(default_factory=list)
+
+
+class ExposurePoint(BaseModel):
+    """Net/gross exposure at a point in time."""
+    timestamp: float
+    net_exposure_pct: float = Field(..., description="(long_notional - short_notional) / equity * 100")
+    gross_exposure_pct: float = Field(..., description="(long_notional + short_notional) / equity * 100")
+    long_exposure_pct: float = Field(default=0.0)
+    short_exposure_pct: float = Field(default=0.0)
+
+
+class BenchmarkComparison(BaseModel):
+    """Strategy vs benchmark performance comparison."""
+    benchmark_name: str = Field(default="BTC_BUY_HOLD")
+    strategy_return_pct: float
+    benchmark_return_pct: float
+    alpha: float = Field(..., description="Jensen's alpha (annualized)")
+    beta: float = Field(..., description="OLS regression slope")
+    correlation: float = Field(default=0.0)
+    information_ratio: float = Field(default=0.0)
+    tracking_error: float = Field(default=0.0, description="Annualized std of active returns")
+    start_timestamp: float
+    end_timestamp: float
 ```
 
 ---
@@ -267,6 +332,8 @@ CREATE TABLE IF NOT EXISTS portfolio_equity_curve (
     unrealized_pnl DOUBLE PRECISION NOT NULL,
     drawdown_pct   DOUBLE PRECISION NOT NULL,
     open_position_count INTEGER NOT NULL DEFAULT 0,
+    net_exposure_pct    DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    gross_exposure_pct  DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     PRIMARY KEY (timestamp)
 );
 
@@ -297,7 +364,9 @@ CREATE TABLE IF NOT EXISTS portfolio_closed_trades (
     source_model       TEXT NOT NULL DEFAULT '',
     source_timeframe   TEXT NOT NULL DEFAULT '',
     entry_order_id     TEXT NOT NULL DEFAULT '',
-    exit_order_id      TEXT NOT NULL DEFAULT ''
+    exit_order_id      TEXT NOT NULL DEFAULT '',
+    mae_pct            DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    mfe_pct            DOUBLE PRECISION NOT NULL DEFAULT 0.0
 );
 
 -- Index for attribution queries
@@ -318,6 +387,21 @@ portfolio:
   # Equity curve snapshot interval (seconds).
   # In live mode, a snapshot is also taken on every fill.
   snapshot_interval_seconds: 300
+
+  # Regular-interval return series (industry standard)
+  returns:
+    # Resample interval for return computation (seconds)
+    # 3600 = 1h (recommended for 24/7 crypto markets)
+    resample_interval_seconds: 3600
+    # Minimum points for valid ratio computation
+    min_points: 24
+
+  # Benchmark comparison
+  benchmark:
+    # Benchmark asset for alpha/beta computation
+    asset: BTCUSDT
+    # Strategy: buy_hold (default) or custom
+    strategy: buy_hold
 
   # Performance metrics
   metrics:
@@ -354,7 +438,7 @@ portfolio:
 
 ### A. MetricsCalculator (`libs/portfolio/metrics.py`)
 
-Pure-function module. No state, no DB access, no side effects. Takes lists of `ClosedTrade` and/or `EquityPoint` and returns computed metrics.
+Pure-function module. No state, no DB access, no side effects. All ratio metrics (Sharpe, Sortino, Calmar) operate on a **regular-interval return series** produced by `returns.py`, NOT on raw irregularly-spaced equity points. Trade-level stats operate on `ClosedTrade` lists.
 
 ```python
 from __future__ import annotations
@@ -372,40 +456,47 @@ logger = bind_logger(__name__, system_component=SystemComponent.PORTFOLIO_TRACKE
 
 def compute_performance(
     trades: list[ClosedTrade],
+    returns: list[float],
     equity_curve: list[EquityPoint],
     risk_free_rate: float = 0.0,
-    trading_days_per_year: int = 365,
+    periods_per_year: int = 8760,
     min_trades_for_ratios: int = 5,
 ) -> PerformanceSummary:
-    """Compute aggregate performance metrics from closed trades and equity curve.
+    """Compute aggregate performance metrics.
 
-    Returns a PerformanceSummary with all fields populated.
-    Returns zeroed summary if no trades.
+    Args:
+        trades: List of closed trades for trade-level stats.
+        returns: Regular-interval log returns from ReturnsBuilder.
+        equity_curve: Equity points for drawdown computation.
+        periods_per_year: Number of return intervals per year (8760 for hourly, 365 for daily).
     """
     ...
 
 
 def compute_sharpe(
-    equity_points: list[EquityPoint],
+    returns: list[float],
     risk_free_rate: float = 0.0,
-    trading_days_per_year: int = 365,
+    periods_per_year: int = 8760,
 ) -> float:
-    """Annualized Sharpe ratio from equity curve points.
+    """Annualized Sharpe ratio from regular-interval return series.
 
-    Uses log returns between consecutive equity points.
-    Returns 0.0 if fewer than 2 points or zero std dev.
+    sharpe = (mean_excess_return / std_return) * sqrt(periods_per_year)
+    where excess_return = return - (risk_free_rate / periods_per_year)
+    Returns 0.0 if fewer than 2 returns or zero std dev.
     """
     ...
 
 
 def compute_sortino(
-    equity_points: list[EquityPoint],
+    returns: list[float],
     risk_free_rate: float = 0.0,
-    trading_days_per_year: int = 365,
+    periods_per_year: int = 8760,
 ) -> float:
-    """Annualized Sortino ratio (downside deviation only).
+    """Annualized Sortino ratio from regular-interval return series.
 
-    Returns 0.0 if fewer than 2 points or zero downside deviation.
+    sortino = (mean_excess_return / downside_deviation) * sqrt(periods_per_year)
+    Downside deviation uses only negative excess returns.
+    Returns 0.0 if fewer than 2 returns or zero downside deviation.
     """
     ...
 
@@ -422,11 +513,13 @@ def compute_max_drawdown(
 
 
 def compute_calmar(
+    returns: list[float],
     equity_points: list[EquityPoint],
-    trading_days_per_year: int = 365,
+    periods_per_year: int = 8760,
 ) -> float:
     """Calmar ratio = annualized return / max drawdown pct.
 
+    Annualized return computed from compounding regular-interval returns.
     Returns 0.0 if max drawdown is 0 or curve is too short.
     """
     ...
@@ -440,16 +533,166 @@ def compute_trade_stats(
     Returns dict with keys matching PerformanceSummary field names.
     """
     ...
+
+
+def compute_rolling_sharpe(
+    returns: list[float],
+    timestamps: list[float],
+    window_periods: int,
+    risk_free_rate: float = 0.0,
+    periods_per_year: int = 8760,
+) -> list[tuple[float, float]]:
+    """Rolling Sharpe ratio over a sliding window.
+
+    Returns list of (timestamp, sharpe) tuples.
+    Window slides by 1 period each step.
+    """
+    ...
 ```
 
 **Implementation notes:**
-- Use `math.log` for log-returns between consecutive equity points.
-- Annualize: `sharpe = mean_return / std_return * sqrt(trading_days_per_year)`.
-- Sortino: same but `std` computed only from negative returns.
-- Calmar: `annual_return / max_drawdown_pct`. Annual return from first/last equity point over elapsed time.
+- All ratio functions accept `returns: list[float]` (regular-interval log returns from `ReturnsBuilder`).
+- `periods_per_year`: 8760 for hourly (365*24), 365 for daily. Driven by config `resample_interval_seconds`.
+- Sharpe: `(mean(excess_returns) / std(returns)) * sqrt(periods_per_year)`.
+- Sortino: same but denominator is `sqrt(mean(min(0, excess_return)^2))`.
+- Calmar: `(compound_annual_return) / max_drawdown_pct`. Compound: `(final/initial)^(periods_per_year/n_periods) - 1`.
 - `profit_factor = gross_profit / abs(gross_loss)`. If `gross_loss == 0`, return `float('inf')`.
 - `expectancy = (win_rate * avg_win) - (loss_rate * avg_loss)`.
 - `payoff_ratio = avg_win / abs(avg_loss)`. If `avg_loss == 0`, return `float('inf')`.
+- Use `math.log` for log returns, `math.sqrt` for annualization.
+
+### A2. ReturnsBuilder (`libs/portfolio/returns.py`)
+
+Resamples irregularly-spaced equity curve to fixed-interval return series. This is the **critical industry-standard step** that makes all ratio metrics mathematically correct.
+
+```python
+from __future__ import annotations
+
+from libs.common.enums import SystemComponent
+from libs.common.logging.logger_utils import bind_logger
+from libs.contracts.schemas import EquityPoint
+
+logger = bind_logger(__name__, system_component=SystemComponent.PORTFOLIO_TRACKER)
+
+
+def resample_equity_curve(
+    equity_points: list[EquityPoint],
+    interval_seconds: int = 3600,
+) -> list[EquityPoint]:
+    """Resample irregular equity points to a fixed-interval time grid.
+
+    Uses forward-fill (last observation carried forward) for intervals
+    with no equity change. Drops leading intervals before first observation.
+
+    Args:
+        equity_points: Raw equity curve (irregular timestamps), sorted ASC.
+        interval_seconds: Target interval (3600=hourly, 86400=daily).
+
+    Returns: List of EquityPoint at regular intervals.
+    """
+    ...
+
+
+def compute_log_returns(
+    resampled_points: list[EquityPoint],
+) -> list[float]:
+    """Compute log returns from resampled (fixed-interval) equity points.
+
+    return_i = ln(equity_i / equity_{i-1})
+    Returns list of length len(resampled_points) - 1.
+    Skips any interval where previous equity is <= 0.
+    """
+    ...
+
+
+def compute_simple_returns(
+    resampled_points: list[EquityPoint],
+) -> list[float]:
+    """Compute simple returns: (equity_i - equity_{i-1}) / equity_{i-1}.
+
+    Returns list of length len(resampled_points) - 1.
+    """
+    ...
+
+
+def get_return_timestamps(
+    resampled_points: list[EquityPoint],
+) -> list[float]:
+    """Get timestamps corresponding to each return (uses the later point's timestamp).
+
+    Returns list of length len(resampled_points) - 1.
+    """
+    ...
+```
+
+**Implementation notes:**
+- Grid construction: `start = first_point.timestamp`, generate `start + i * interval_seconds` up to last point.
+- Forward-fill: for each grid point, use the last equity point with `timestamp <= grid_time`.
+- Log returns: `math.log(equity[i] / equity[i-1])`. Guard against zero/negative equity.
+- This module has NO DB access — it operates on in-memory lists.
+
+### A3. BenchmarkAnalyzer (`libs/portfolio/benchmark.py`)
+
+Computes alpha, beta, information ratio, and tracking error vs a benchmark return series.
+
+```python
+from __future__ import annotations
+
+from libs.common.enums import SystemComponent
+from libs.common.logging.logger_utils import bind_logger
+from libs.contracts.schemas import BenchmarkComparison
+
+logger = bind_logger(__name__, system_component=SystemComponent.PORTFOLIO_TRACKER)
+
+
+def compute_benchmark_comparison(
+    strategy_returns: list[float],
+    benchmark_returns: list[float],
+    periods_per_year: int = 8760,
+    start_timestamp: float = 0.0,
+    end_timestamp: float = 0.0,
+    benchmark_name: str = "BTC_BUY_HOLD",
+) -> BenchmarkComparison:
+    """Compare strategy returns vs benchmark returns.
+
+    Both return series must be aligned (same length, same time grid).
+
+    Computes:
+        alpha: Jensen's alpha = mean(strategy - rf) - beta * mean(benchmark - rf)
+        beta: OLS slope of strategy_returns ~ benchmark_returns
+        correlation: Pearson correlation
+        information_ratio: mean(active_returns) / std(active_returns) * sqrt(periods_per_year)
+        tracking_error: std(active_returns) * sqrt(periods_per_year)
+
+    Returns BenchmarkComparison with all fields.
+    Returns zeroed comparison if fewer than 2 aligned returns.
+    """
+    ...
+
+
+def build_benchmark_returns(
+    benchmark_prices: list[tuple[float, float]],
+    interval_seconds: int = 3600,
+) -> list[float]:
+    """Build benchmark return series from price data.
+
+    Args:
+        benchmark_prices: List of (timestamp, price) tuples, sorted ASC.
+        interval_seconds: Same interval as strategy returns.
+
+    Resamples to grid, computes log returns. Same logic as ReturnsBuilder
+    but operates on raw prices rather than equity points.
+    """
+    ...
+```
+
+**Implementation notes:**
+- Beta via OLS: `beta = cov(strategy, benchmark) / var(benchmark)`. Use manual computation (no numpy dependency).
+- Alpha (Jensen's): `alpha = mean(strategy_excess) - beta * mean(benchmark_excess)`. Annualize: `alpha * periods_per_year`.
+- Information ratio: `IR = mean(active_returns) / std(active_returns) * sqrt(periods_per_year)` where `active = strategy - benchmark`.
+- Tracking error: `TE = std(active_returns) * sqrt(periods_per_year)`.
+- Correlation: `cov(s,b) / (std(s) * std(b))`.
+- All computations use stdlib `math` + manual variance/covariance — no external dependencies.
 
 ### B. PnLAttributor (`libs/portfolio/attribution.py`)
 
@@ -708,7 +951,9 @@ class PortfolioWorker:
         self.equity_builder = EquityCurveBuilder(db_pool)
 
         # Local position tracking (read-only mirror for building ClosedTrade records)
+        # Each entry is (PositionState, mae_price, mfe_price) for MAE/MFE tracking
         self._open_positions: list[PositionState] = []
+        self._position_watermarks: dict[int, dict[str, float]] = {}  # id(pos) -> {"worst_price": ..., "best_price": ...}
         self.redis_client: Any = None
 
     async def connect(self, redis_client: Any) -> None:
@@ -786,6 +1031,11 @@ class PortfolioWorker:
                 take_profit_price=report.take_profit_price,
             )
             self._open_positions.append(pos)
+            # Init MAE/MFE watermarks
+            self._position_watermarks[id(pos)] = {
+                "worst_price": report.average_fill_price,
+                "best_price": report.average_fill_price,
+            }
 
         elif report.side == "sell":
             # FIFO match against open longs
@@ -797,8 +1047,20 @@ class PortfolioWorker:
 
             if matched_idx is not None:
                 pos = self._open_positions.pop(matched_idx)
+                watermarks = self._position_watermarks.pop(id(pos), {})
                 pnl = pos.direction * (report.average_fill_price - pos.entry_price) * pos.size
                 pnl_pct = (pnl / (pos.entry_price * pos.size)) * 100 if pos.entry_price * pos.size else 0.0
+
+                # Compute MAE/MFE as % of entry notional
+                notional = pos.entry_price * pos.size
+                if notional > 0 and watermarks:
+                    worst = watermarks.get("worst_price", pos.entry_price)
+                    best = watermarks.get("best_price", pos.entry_price)
+                    mae_pct = abs(min(0.0, pos.direction * (worst - pos.entry_price) / pos.entry_price)) * 100
+                    mfe_pct = abs(max(0.0, pos.direction * (best - pos.entry_price) / pos.entry_price)) * 100
+                else:
+                    mae_pct = 0.0
+                    mfe_pct = 0.0
 
                 closed = ClosedTrade(
                     trade_id=uuid.uuid4().hex,
@@ -818,6 +1080,8 @@ class PortfolioWorker:
                     source_timeframe=pos.source_timeframe,
                     entry_order_id="",
                     exit_order_id=report.order_id,
+                    mae_pct=mae_pct,
+                    mfe_pct=mfe_pct,
                 )
                 await self.trade_journal.save_closed_trade(closed)
                 logger.info(
@@ -839,12 +1103,23 @@ class PortfolioWorker:
                     take_profit_price=report.take_profit_price,
                 )
                 self._open_positions.append(pos)
+                self._position_watermarks[id(pos)] = {
+                    "worst_price": report.average_fill_price,
+                    "best_price": report.average_fill_price,
+                }
+
+        # Update MAE/MFE watermarks for all open positions
+        for open_pos in self._open_positions:
+            wm = self._position_watermarks.get(id(open_pos))
+            if wm:
+                wm["worst_price"] = min(wm["worst_price"], report.average_fill_price) if open_pos.direction == 1 else max(wm["worst_price"], report.average_fill_price)
+                wm["best_price"] = max(wm["best_price"], report.average_fill_price) if open_pos.direction == 1 else min(wm["best_price"], report.average_fill_price)
 
         # Snapshot equity point after every fill
         await self._snapshot_equity(report.timestamp)
 
     async def _snapshot_equity(self, timestamp: float) -> None:
-        """Read latest AccountSnapshot from DB and write an EquityPoint."""
+        """Read latest AccountSnapshot from DB and write an EquityPoint with exposure."""
         async with self.db_pool.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT * FROM risk_account_snapshots ORDER BY timestamp DESC LIMIT 1",
@@ -852,15 +1127,22 @@ class PortfolioWorker:
         if not row:
             return
 
+        # Compute net/gross exposure from local open positions
+        equity = row["equity"]
+        long_notional = sum(p.current_price * p.size for p in self._open_positions if p.direction == 1)
+        short_notional = sum(p.current_price * p.size for p in self._open_positions if p.direction == -1)
+        net_exposure_pct = ((long_notional - short_notional) / equity * 100) if equity > 0 else 0.0
+        gross_exposure_pct = ((long_notional + short_notional) / equity * 100) if equity > 0 else 0.0
+
         point = EquityPoint(
             timestamp=timestamp,
-            equity=row["equity"],
+            equity=equity,
             balance=row["balance"],
             unrealized_pnl=row["unrealized_pnl"],
             drawdown_pct=row["drawdown_pct"],
             open_position_count=row["open_position_count"],
         )
-        await self.equity_builder.save_equity_point(point)
+        await self.equity_builder.save_equity_point(point, net_exposure_pct, gross_exposure_pct)
 
     @staticmethod
     def _decode_report(payload: dict) -> ExecutionReport:
@@ -978,53 +1260,68 @@ if __name__ == "__main__":
 
 | Step | File(s) | Description |
 |---|---|---|
+| 0 | `src/libs/contracts/schemas.py`, `src/apps/risk_app/risk_worker.py`, `src/apps/execution_app/execution_worker.py` | **Prerequisite:** Add `model_name`, `source_timeframe` fields to `OrderExecutionRequest`. Update RiskWorker to pass them. Update ExecutionWorker decode/encode to propagate into `ExecutionReport.metadata`. Update existing tests. |
 | 1 | `src/libs/common/enums.py` | Add `PORTFOLIO_TRACKER = "PORTFOLIO_TRACKER"` to `SystemComponent` |
-| 2 | `src/libs/contracts/schemas.py` | Add `ClosedTrade`, `TradeJournalEntry`, `PnLAttribution`, `PerformanceSummary`, `EquityPoint`, `PortfolioSnapshot` |
-| 3 | `configs/portfolio.yaml` | Create config file |
+| 2 | `src/libs/contracts/schemas.py` | Add `ClosedTrade`, `TradeJournalEntry`, `PnLAttribution`, `PerformanceSummary`, `EquityPoint`, `PortfolioSnapshot`, `ExposurePoint`, `BenchmarkComparison` |
+| 3 | `configs/portfolio.yaml` | Create config file (including returns, benchmark, exposure sections) |
 | 4 | `src/libs/portfolio/__init__.py` | Create empty package |
-| 5 | `src/libs/portfolio/metrics.py` | Implement `compute_performance`, `compute_sharpe`, `compute_sortino`, `compute_max_drawdown`, `compute_calmar`, `compute_trade_stats` |
-| 6 | `src/libs/portfolio/attribution.py` | Implement `attribute_pnl` |
-| 7 | `src/libs/portfolio/trade_journal.py` | Implement `TradeJournal` class with DB queries |
-| 8 | `src/libs/portfolio/equity_curve.py` | Implement `EquityCurveBuilder` with DB queries and `build_from_account_snapshots` |
-| 9 | `tests/portfolio/__init__.py` | Create test package |
-| 10 | `tests/portfolio/test_metrics.py` | Unit tests for all metric functions |
-| 11 | `tests/portfolio/test_attribution.py` | Unit tests for PnL attribution |
-| 12 | `tests/portfolio/test_trade_journal.py` | Unit tests for TradeJournal (mock DB) |
-| 13 | `tests/portfolio/test_equity_curve.py` | Unit tests for EquityCurveBuilder (mock DB) |
-| 14 | `src/apps/portfolio_app/__init__.py` | Create app package |
-| 15 | `src/apps/portfolio_app/portfolio_worker.py` | Implement PortfolioWorker |
-| 16 | `src/apps/portfolio_app/main.py` | Implement entrypoint |
-| 17 | `tests/portfolio/test_portfolio_worker.py` | Unit tests for PortfolioWorker (mock Valkey + DB) |
+| 5 | `src/libs/portfolio/returns.py` | Implement `resample_equity_curve`, `compute_log_returns`, `compute_simple_returns`, `get_return_timestamps` |
+| 6 | `src/libs/portfolio/metrics.py` | Implement `compute_performance`, `compute_sharpe`, `compute_sortino`, `compute_max_drawdown`, `compute_calmar`, `compute_trade_stats`, `compute_rolling_sharpe` — all ratio metrics consume regular-interval returns from `returns.py` |
+| 7 | `src/libs/portfolio/benchmark.py` | Implement `compute_benchmark_comparison`, `build_benchmark_returns` |
+| 8 | `src/libs/portfolio/attribution.py` | Implement `attribute_pnl` |
+| 9 | `src/libs/portfolio/trade_journal.py` | Implement `TradeJournal` class with DB queries |
+| 10 | `src/libs/portfolio/equity_curve.py` | Implement `EquityCurveBuilder` with DB queries and `build_from_account_snapshots` |
+| 11 | `tests/portfolio/__init__.py` | Create test package |
+| 12 | `tests/portfolio/test_returns.py` | Unit tests for resampling, log returns, edge cases |
+| 13 | `tests/portfolio/test_metrics.py` | Unit tests for all metric functions using regular-interval returns |
+| 14 | `tests/portfolio/test_benchmark.py` | Unit tests for alpha, beta, IR, tracking error |
+| 15 | `tests/portfolio/test_attribution.py` | Unit tests for PnL attribution |
+| 16 | `tests/portfolio/test_trade_journal.py` | Unit tests for TradeJournal (mock DB) |
+| 17 | `tests/portfolio/test_equity_curve.py` | Unit tests for EquityCurveBuilder (mock DB) |
+| 18 | `src/apps/portfolio_app/__init__.py` | Create app package |
+| 19 | `src/apps/portfolio_app/portfolio_worker.py` | Implement PortfolioWorker with MAE/MFE tracking and exposure computation |
+| 20 | `src/apps/portfolio_app/main.py` | Implement entrypoint |
+| 21 | `tests/portfolio/test_portfolio_worker.py` | Unit tests for PortfolioWorker (mock Valkey + DB) — verify MAE/MFE, exposure |
 
-Steps 1-6 are pure logic with no DB or Valkey dependency — implement and test first.
-Steps 7-8 add DB interaction — test with mocked `db_pool`.
-Steps 14-17 add the live consumer — test with mocked Valkey client.
+Step 0 is a prerequisite that touches existing code (minimal changes).
+Steps 1-8 are pure logic with no DB or Valkey dependency — implement and test first.
+Steps 9-10 add DB interaction — test with mocked `db_pool`.
+Steps 18-21 add the live consumer — test with mocked Valkey client.
 
 ---
 
 ## Acceptance Criteria
 
-1. `compute_performance()` returns a valid `PerformanceSummary` for a list of ≥1 closed trades and ≥2 equity points.
-2. `compute_sharpe()` returns 0.0 for flat equity, positive for upward-trending equity, negative for downward-trending.
-3. `compute_max_drawdown()` correctly identifies the deepest trough and longest recovery period.
-4. `attribute_pnl()` correctly groups by asset, model, and timeframe, and `pnl_pct_of_total` sums to 100% across groups.
-5. `TradeJournal.get_closed_trades()` filters by asset, model, timeframe, and time range correctly.
-6. `TradeJournal.get_journal_entries()` enriches trades with nearest equity snapshot.
-7. `EquityCurveBuilder.get_equity_curve()` returns points sorted by timestamp ASC.
-8. `EquityCurveBuilder.build_from_account_snapshots()` produces `EquityPoint` objects from `risk_account_snapshots` rows.
-9. `PortfolioWorker` correctly builds `ClosedTrade` from FIFO-matched fill pairs.
-10. `PortfolioWorker` creates an equity snapshot after each fill.
-11. All modules use `bind_logger(__name__, system_component=SystemComponent.PORTFOLIO_TRACKER)`.
-12. All config read via `ConfigManager` — no `os.getenv()`.
-13. No imports from `apps/` in `libs/portfolio/`.
-14. All new tests pass: `pytest tests/portfolio/ -v`.
-15. Existing tests unaffected: `pytest tests/ --ignore=tests/e2e -q` shows no regressions.
+1. `resample_equity_curve()` converts irregular equity points to fixed-interval grid with forward-fill.
+2. `compute_log_returns()` produces correct log returns from resampled equity points.
+3. `compute_performance()` returns a valid `PerformanceSummary` with all metrics populated.
+4. `compute_sharpe()` uses regular-interval returns and returns 0.0 for flat equity, positive for upward-trending, negative for downward-trending.
+5. `compute_sortino()` uses only downside deviation; returns ≥ Sharpe for positive-skew return distributions.
+6. `compute_max_drawdown()` correctly identifies the deepest trough and longest recovery period.
+7. `compute_calmar()` returns annualized return / max drawdown.
+8. `compute_rolling_sharpe()` returns windowed Sharpe values with correct timestamps.
+9. `compute_benchmark_comparison()` returns alpha, beta, information ratio, tracking error, correlation.
+10. `attribute_pnl()` correctly groups by asset, model, and timeframe, and `pnl_pct_of_total` sums to ~100% across groups.
+11. `TradeJournal.get_closed_trades()` filters by asset, model, timeframe, and time range correctly.
+12. `TradeJournal.get_journal_entries()` enriches trades with nearest equity snapshot.
+13. `EquityCurveBuilder.get_equity_curve()` returns points sorted by timestamp ASC.
+14. `EquityCurveBuilder.build_from_account_snapshots()` produces `EquityPoint` objects from `risk_account_snapshots` rows.
+15. `PortfolioWorker` correctly builds `ClosedTrade` with MAE/MFE from FIFO-matched fill pairs.
+16. `PortfolioWorker` creates equity snapshots with net/gross exposure after each fill.
+17. `ClosedTrade.mae_pct` and `mfe_pct` are correctly computed from position watermarks.
+18. All modules use `bind_logger(__name__, system_component=SystemComponent.PORTFOLIO_TRACKER)`.
+19. All config read via `ConfigManager` — no `os.getenv()`.
+20. No imports from `apps/` in `libs/portfolio/`.
+21. All new tests pass: `pytest tests/portfolio/ -v`.
+22. Existing tests unaffected: `pytest tests/ --ignore=tests/e2e -q` shows no regressions.
+23. Step 0 prerequisite: `OrderExecutionRequest` propagates `model_name` and `source_timeframe` through to `ExecutionReport.metadata`.
 
 ---
 
 ## Validation Checklist
 
-- [ ] Sharpe computation uses log returns and annualizes with `sqrt(trading_days)`.
+- [ ] Equity curve is resampled to fixed intervals (default 1h) BEFORE computing any ratio metric.
+- [ ] Sharpe computation uses regular-interval log returns and annualizes with `sqrt(periods_per_year)`.
 - [ ] Sortino uses only downside returns for denominator.
 - [ ] Max drawdown tracks peak-to-trough percentage, not absolute value.
 - [ ] Win rate = winning trades / total trades (not including breakeven).
@@ -1037,6 +1334,13 @@ Steps 14-17 add the live consumer — test with mocked Valkey client.
 - [ ] `portfolio_closed_trades` uses `ON CONFLICT DO NOTHING` for idempotency.
 - [ ] Config keys match `configs/portfolio.yaml` exactly.
 - [ ] No circular imports between `libs/portfolio/` and `libs/risk/`.
+- [ ] Benchmark comparison uses aligned return series (same length, same grid).
+- [ ] Beta computed as `cov(strategy, benchmark) / var(benchmark)` — manual (no numpy).
+- [ ] MAE/MFE watermarks updated on every fill for all open positions of that asset.
+- [ ] MAE/MFE: MAE tracks worst adverse move, MFE tracks best favorable move, as % of entry notional.
+- [ ] Exposure: net_exposure_pct = (long_notional - short_notional) / equity * 100.
+- [ ] Rolling Sharpe window slides correctly without look-ahead bias.
+- [ ] Step 0: `model_name` and `source_timeframe` propagate from TradeSignal → OrderExecutionRequest → ExecutionReport.metadata.
 
 ---
 
@@ -1047,7 +1351,7 @@ Steps 14-17 add the live consumer — test with mocked Valkey client.
 | `PortfolioWorker` FIFO position matching drifts from `FillListener`'s matching | Phantom trades or double-counted PnL | Both use identical FIFO logic. Mitigation: periodic reconciliation by comparing `portfolio_closed_trades` PnL sum against `AccountState.realized_pnl`. |
 | `risk_account_snapshots` rows not yet persisted when `PortfolioWorker` reads | Stale equity data in equity curve | `PortfolioWorker` reads the latest row, which is "close enough" (risk_app saves frequently). Accept minor lag for v1. |
 | Very high fill rate overwhelms equity curve table | Storage bloat | `snapshot_interval_seconds` in config caps snapshot frequency. Downsampling on read via `max_points`. |
-| `source_model` and `source_timeframe` are empty strings from `FillListener` | Attribution by model/timeframe is useless | The `ExecutionReport.metadata` dict carries `model_name` and `timeframe` from the original signal chain. `PortfolioWorker` extracts from `metadata`. Requires verifying that `risk_worker.py` → `execution_worker.py` propagates this metadata. If not, a follow-up task is needed to add it. |
+| `source_model` and `source_timeframe` are empty strings from `FillListener` | Attribution by model/timeframe is useless | **Resolved by Step 0:** `OrderExecutionRequest` now carries `model_name` and `source_timeframe` fields. ExecutionWorker propagates them into `ExecutionReport.metadata`. PortfolioWorker extracts from `metadata`. |
 | Backtest mode has no `portfolio_app` running | No closed trades in `portfolio_closed_trades` | Use `TradeJournal` + `EquityCurveBuilder.build_from_account_snapshots()` to compute from existing tables. Or run a one-off script that replays `execution_fills` into `portfolio_closed_trades`. |
 
 ---
@@ -1059,7 +1363,7 @@ Steps 14-17 add the live consumer — test with mocked Valkey client.
 | 1 | Should `PortfolioWorker` also persist a periodic equity snapshot on a timer (not just on fills)? | Yes, at `periodic_snapshot_seconds` interval (config default: 60s) |
 | 2 | Should `PortfolioSnapshot` support serialization to JSON for a future REST API? | No — Pydantic `.model_dump()` is sufficient for v1. REST API is a non-goal. |
 | 3 | Should the `_decode_report` logic be extracted to a shared utility (it's duplicated in `FillListener`)? | Follow-up refactor — keep duplicated for v1 to avoid modifying `fill_listener.py`. |
-| 4 | Does `ExecutionReport.metadata` currently carry `model_name` and `timeframe` from the signal chain? | Verify before implementation. If not, add propagation as a prerequisite step 0. |
+| 4 | ~~Does `ExecutionReport.metadata` currently carry `model_name`/`timeframe`?~~ | ~~Resolved — Step 0 adds this.~~ |
 
 ---
 
@@ -1067,9 +1371,9 @@ Steps 14-17 add the live consumer — test with mocked Valkey client.
 
 ### Blast Radius: LOW
 
-This module is **purely additive**:
-- Two new files modified (schemas.py gets new models, enums.py gets one new value) — both are append-only changes with no effect on existing consumers.
-- No existing pipeline app is modified.
+This module is **purely additive** with one minor prerequisite change:
+- Step 0: `OrderExecutionRequest` gets two new optional fields (`model_name`, `source_timeframe`) with defaults — fully backward-compatible. `risk_worker.py` gets 2 lines added. `execution_worker.py` decode/encode updated to propagate metadata.
+- Two existing files modified (schemas.py gets new models, enums.py gets one new value) — both are append-only changes with no effect on existing consumers.
 - No existing DB table is modified.
 - The `portfolio_app` reads from `fills:{asset}` with its own consumer group — it does not compete with `risk_app`'s `FillListener`.
 - The `libs/portfolio/` library has no reverse dependencies at creation time.

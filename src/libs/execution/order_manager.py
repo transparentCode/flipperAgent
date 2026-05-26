@@ -98,4 +98,8 @@ class OrderManager:
             take_profit_price=order.take_profit_price,
             timestamp=time.time(),
             error_message=error,
+            metadata={
+                "model_name": order.model_name,
+                "timeframe": order.source_timeframe,
+            },
         )

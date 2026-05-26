@@ -94,6 +94,10 @@ class PaperExecutor(BaseExecutor):
             stop_loss_price=order.stop_loss_price,
             take_profit_price=order.take_profit_price,
             timestamp=now,
+            metadata={
+                "model_name": order.model_name,
+                "timeframe": order.source_timeframe,
+            },
         )
 
         logger.info(

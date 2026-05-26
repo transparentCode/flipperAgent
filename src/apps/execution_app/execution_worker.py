@@ -134,6 +134,8 @@ class ExecutionWorker:
             idempotency_key=decoded["idempotency_key"],
             stop_loss_price=float(stop_loss) if stop_loss and stop_loss != "None" else None,
             take_profit_price=float(take_profit) if take_profit and take_profit != "None" else None,
+            model_name=decoded.get("model_name", ""),
+            source_timeframe=decoded.get("source_timeframe", ""),
         )
 
     @staticmethod

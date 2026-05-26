@@ -159,6 +159,8 @@ class RiskWorker:
                 idempotency_key=signal.idempotency_key,
                 stop_loss_price=assessment.stop_loss_price,
                 take_profit_price=assessment.take_profit_price,
+                model_name=signal.model_name,
+                source_timeframe=signal.timeframe,
             )
 
             if self.redis_client:
