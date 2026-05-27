@@ -75,6 +75,14 @@ models:
     XRPUSDT:
       timeframes:
         1h:
+          MeanReversion:
+            enabled: true
+            params:
+              rsi_oversold: 17
+              rsi_overbought: 61
+              bb_entry_std: 2.1
+              adx_regime_threshold: 15.0
+              holding_period: 13
           SqueezeBreakout:
             enabled: true
             params:
@@ -113,6 +121,14 @@ models:
     BNBUSDT:
       timeframes:
         30m:
+          MeanReversion:
+            enabled: true
+            params:
+              rsi_oversold: 36
+              rsi_overbought: 78
+              bb_entry_std: 2.0
+              adx_regime_threshold: 30.0
+              holding_period: 8
           SqueezeBreakout:
             enabled: true
             params:
