@@ -8,6 +8,7 @@ from libs.features.engineered.registry import EngineeredFeatureRegistry
 
 # Ensure feature registrations are triggered
 import libs.features.engineered.features  # noqa: F401
+import libs.features.engineered.cross_sectional  # noqa: F401
 
 logger = bind_logger(__name__)
 
@@ -79,12 +80,14 @@ class EngineeredFeatureManager:
         self,
         features: dict[str, Any],
         bar_data: dict[str, float],
+        index_data: dict[str, dict[str, float]] | None = None,
     ) -> dict[str, float]:
         """Compute all configured engineered features.
 
         Args:
             features: Raw indicator outputs (from FeatureManager.process_tick)
             bar_data: OHLCV data
+            index_data: Optional cross-sectional index data (e.g. BTC.D, TOTAL2, TOTAL3)
 
         Returns:
             Dict mapping engineered feature name → float value.
@@ -93,7 +96,7 @@ class EngineeredFeatureManager:
         results: dict[str, float] = {}
         for feat in self._features:
             try:
-                value = feat.compute(features, bar_data, self._state[feat.name])
+                value = feat.compute(features, bar_data, self._state[feat.name], index_data=index_data)
                 if value is not None:
                     results[f"eng_{feat.name}"] = value
             except Exception as e:

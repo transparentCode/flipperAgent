@@ -1,0 +1,9 @@
+tradingview:
+  indices:
+    - "CRYPTOCAP:TOTAL2"
+    - "CRYPTOCAP:TOTAL3"
+    - "CRYPTOCAP:BTC.D"
+  timeframe: "1h"
+  staleness_ttl_seconds: 10800  # 3 hours — after this, features return neutral
+  fetch_delay_seconds: 2         # delay between sequential index fetches
+  cookies_path: "secrets/tv_cookies.json"

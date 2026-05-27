@@ -41,6 +41,7 @@ class VolumeAdjustedMomentum(EngineeredFeature):
         features: dict[str, Any],
         bar_data: dict[str, float],
         state: dict[str, Any],
+        index_data: dict[str, dict[str, float]] | None = None,
     ) -> float | None:
         momentum = features.get("Momentum")
         volume = bar_data.get("volume")
@@ -84,6 +85,7 @@ class ATRNormalizedReturn(EngineeredFeature):
         features: dict[str, Any],
         bar_data: dict[str, float],
         state: dict[str, Any],
+        index_data: dict[str, dict[str, float]] | None = None,
     ) -> float | None:
         atr = features.get("ATR")
         close = bar_data.get("close")
@@ -123,6 +125,7 @@ class ResidualMomentum(EngineeredFeature):
         features: dict[str, Any],
         bar_data: dict[str, float],
         state: dict[str, Any],
+        index_data: dict[str, dict[str, float]] | None = None,
     ) -> float | None:
         momentum = features.get("Momentum")
         rsi = features.get("RSI")
@@ -192,6 +195,7 @@ class SqueezeIntensity(EngineeredFeature):
         features: dict[str, Any],
         bar_data: dict[str, float],
         state: dict[str, Any],
+        index_data: dict[str, dict[str, float]] | None = None,
     ) -> float | None:
         bb = features.get("BollingerBands")
         kc = features.get("KeltnerChannel")
@@ -231,6 +235,7 @@ class RegimeScore(EngineeredFeature):
         features: dict[str, Any],
         bar_data: dict[str, float],
         state: dict[str, Any],
+        index_data: dict[str, dict[str, float]] | None = None,
     ) -> float | None:
         adx = features.get("ADX")
         if adx is None:
@@ -260,6 +265,7 @@ class MeanReversionZ(EngineeredFeature):
         features: dict[str, Any],
         bar_data: dict[str, float],
         state: dict[str, Any],
+        index_data: dict[str, dict[str, float]] | None = None,
     ) -> float | None:
         kama_slow = features.get("KAMA_slow")
         atr = features.get("ATR")

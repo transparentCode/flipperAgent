@@ -29,6 +29,7 @@ class EngineeredFeature(ABC):
         features: dict[str, Any],
         bar_data: dict[str, float],
         state: dict[str, Any],
+        index_data: dict[str, dict[str, float]] | None = None,
     ) -> float | None:
         """Compute the engineered feature value.
 
@@ -37,6 +38,8 @@ class EngineeredFeature(ABC):
             bar_data: OHLCV bar data
             state: Mutable per-feature state dict for rolling computations.
                    The manager maintains one state dict per feature instance.
+            index_data: Optional cross-sectional index data from TradingView
+                        (e.g. BTC.D, TOTAL2, TOTAL3 latest values).
 
         Returns:
             float value, or None if insufficient data.

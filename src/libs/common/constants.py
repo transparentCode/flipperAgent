@@ -43,4 +43,5 @@ CONFIG_FILE_EXECUTION: Final[str] = "configs/execution.yaml"
 CONFIG_FILE_PORTFOLIO: Final[str] = "configs/portfolio.yaml"
 CONFIG_FILE_OPTIMIZATION: Final[str] = "configs/optimization.yaml"
 CONFIG_FILE_SELECTION: Final[str] = "configs/selection.yaml"
+CONFIG_FILE_TRADINGVIEW: Final[str] = "configs/tradingview.yaml"
 

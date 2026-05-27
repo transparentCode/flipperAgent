@@ -277,6 +277,33 @@ services:
     networks:
       - flipper-net
 
+  tv-scraper:
+    build:
+      context: .
+      dockerfile: Dockerfile.tv-scraper
+    command: arq apps.tv_scraper.worker.WorkerSettings
+    volumes:
+      - ./secrets:/app/secrets:ro
+      - ./data:/app/data
+    tmpfs:
+      - /tmp
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
+      VALKEY_URI: redis://broker:6379/0
+      TV_COOKIES_PATH: /app/secrets/tv_cookies.json
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    networks:
+      - flipper-net
+
 networks:
   flipper-net:
     driver: bridge

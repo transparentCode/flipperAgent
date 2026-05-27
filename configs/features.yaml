@@ -84,3 +84,11 @@ engineered_features:
             enabled: true
           mean_reversion_z:
             enabled: true
+          btc_dominance_regime:
+            enabled: true
+          altcoin_market_momentum:
+            enabled: true
+          market_cap_breadth:
+            enabled: true
+          altcoin_beta:
+            enabled: true

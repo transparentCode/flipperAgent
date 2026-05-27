@@ -79,10 +79,25 @@ class SignalWorker(BaseStreamConsumer):
                 logger.debug(f"Indicator results: {results}")
 
                 # Compute engineered features from raw indicator outputs
+                # Pre-fetch TV index data from Valkey hashes (O(1) per index)
+                index_data: dict[str, dict[str, float]] = {}
+                if self.redis_client:
+                    for idx_symbol in ("BTC.D", "TOTAL2", "TOTAL3"):
+                        try:
+                            raw = await self.redis_client.hgetall(f"index:latest:{idx_symbol}")
+                            if raw:
+                                index_data[idx_symbol] = {
+                                    k.decode() if isinstance(k, bytes) else k:
+                                    float(v.decode() if isinstance(v, bytes) else v)
+                                    for k, v in raw.items()
+                                }
+                        except Exception:
+                            pass  # index data is optional, failures are silent
+
                 engineered = self.engineered_manager.compute(results, {
                     "open": open_, "high": high, "low": low,
                     "close": close, "volume": volume,
-                })
+                }, index_data=index_data if index_data else None)
                 results.update(engineered)
 
                 # Publish computed features to Valkey for StrategyWorker consumption
