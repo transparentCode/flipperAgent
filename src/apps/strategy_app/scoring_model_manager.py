@@ -1,0 +1,132 @@
+"""ScoringModelManager — config-driven loader and evaluator for ScoringModel subclasses."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from libs.common.config import ConfigManager
+from libs.common.constants import CONFIG_FILE_MODELS, CONFIG_FILE_FEATURES
+from libs.common.enums import SystemComponent
+from libs.common.exceptions import ConfigurationError
+from libs.common.logging.logger_utils import bind_logger
+from libs.contracts.schemas import FeatureVector
+from libs.contracts.signal import ScoringOutput
+from libs.models.scoring_base import ScoringModel
+from libs.models.scoring_registry import ScoringModelRegistry
+
+# Ensure concrete scoring models are registered on import.
+import libs.models  # noqa: F401
+
+logger = bind_logger(__name__, system_component=SystemComponent.MODEL_STRATEGY)
+
+KEY_SCORING_MODELS = "scoring_models"
+KEY_FEATURES = "features"
+KEY_ASSETS = "assets"
+KEY_TIMEFRAMES = "timeframes"
+KEY_DEFAULT = "default"
+
+
+class ScoringModelManager:
+    """Loads scoring models for a specific (asset, timeframe) from ``configs/models.yaml``."""
+
+    def __init__(self, asset: str, timeframe: str) -> None:
+        self.asset = asset
+        self.timeframe = timeframe
+        self.config_mgr = ConfigManager()
+        self.config_mgr.register_file(CONFIG_FILE_MODELS)
+        self.config_mgr.register_file(CONFIG_FILE_FEATURES)
+
+        self.models: list[ScoringModel] = []
+        self._load_models()
+
+    # ------------------------------------------------------------------
+    # Bootstrap
+    # ------------------------------------------------------------------
+
+    def _resolve_config_node(self, root_key: str) -> dict[str, Any]:
+        """Resolve config with fallback chain: asset/tf → asset/default → default/tf → default/default."""
+        config = self.config_mgr.get(root_key, {})
+        assets_config = config.get(KEY_ASSETS, {})
+
+        # Asset-level node (fallback to default)
+        asset_node = assets_config.get(self.asset, {})
+        default_asset_node = assets_config.get(KEY_DEFAULT, {})
+
+        # Timeframe-level nodes
+        tf_node = asset_node.get(KEY_TIMEFRAMES, {}).get(self.timeframe, {})
+        asset_default_tf = asset_node.get(KEY_TIMEFRAMES, {}).get(KEY_DEFAULT, {})
+        default_tf_node = default_asset_node.get(KEY_TIMEFRAMES, {}).get(self.timeframe, {})
+        default_default_tf = default_asset_node.get(KEY_TIMEFRAMES, {}).get(KEY_DEFAULT, {})
+
+        # Merge with priority: specific first
+        merged: dict[str, Any] = {}
+        for node in (default_default_tf, default_tf_node, asset_default_tf, tf_node):
+            merged.update(node)
+        return merged
+
+    def _load_models(self) -> None:
+        models_node = self._resolve_config_node(KEY_SCORING_MODELS)
+
+        for model_name, model_cfg in models_node.items():
+            if not isinstance(model_cfg, dict):
+                continue
+            if not model_cfg.get("enabled", True):
+                logger.info(f"Scoring model {model_name} disabled for {self.asset}/{self.timeframe}")
+                continue
+            try:
+                model_cls = ScoringModelRegistry.get(model_name)
+            except KeyError:
+                logger.warning(f"Scoring model '{model_name}' not found in registry, skipping.")
+                continue
+            params = model_cfg.get("params", {}) or {}
+            model = model_cls(params)
+            self.models.append(model)
+            logger.info(f"Loaded scoring model {model_name} for {self.asset}/{self.timeframe}")
+
+    # ------------------------------------------------------------------
+    # Feature coverage validation (called at boot)
+    # ------------------------------------------------------------------
+
+    def validate_feature_coverage(self, available_features: set[str] | None = None) -> None:
+        """Validate that all required indicators are configured in features.yaml."""
+        if available_features is None:
+            available_features = self._available_features_from_config()
+
+        for model in self.models:
+            missing = model.validate_features(available_features)
+            if missing:
+                raise ConfigurationError(
+                    f"Scoring model '{model.meta.name}' for {self.asset}/{self.timeframe} requires "
+                    f"{missing} but features.yaml only provides {sorted(available_features)}"
+                )
+            missing_fields = model.validate_required_fields(available_features)
+            if missing_fields:
+                logger.warning(
+                    f"Scoring model '{model.meta.name}' for {self.asset}/{self.timeframe}: "
+                    f"required_fields {missing_fields} not found in available features. "
+                    f"These will be validated at runtime.",
+                )
+
+    def _available_features_from_config(self) -> set[str]:
+        """Read configured indicator names from features.yaml for this asset/timeframe."""
+        features_node = self._resolve_config_node(KEY_FEATURES)
+        available = set(features_node.keys())
+        for key, cfg in features_node.items():
+            if isinstance(cfg, dict) and "type" in cfg:
+                available.add(cfg["type"])
+        return available
+
+    # ------------------------------------------------------------------
+    # Evaluation
+    # ------------------------------------------------------------------
+
+    def evaluate(self, features: FeatureVector) -> list[ScoringOutput]:
+        """Run all active scoring models on a feature vector."""
+        outputs: list[ScoringOutput] = []
+        for model in self.models:
+            try:
+                output = model.evaluate(features)
+                outputs.append(output)
+            except Exception as e:
+                logger.error(f"Scoring model {model.meta.name} failed: {e}", exc_info=True)
+        return outputs

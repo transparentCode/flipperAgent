@@ -170,3 +170,37 @@ models:
           MeanReversion:
             enabled: true
             params: {}
+
+scoring_models:
+  assets:
+    default:
+      timeframes:
+        default:
+          RegimePullbackScorer:
+            enabled: true
+            params:
+              regime_threshold: -0.1
+              min_z_depth: 1.0
+              rsi_oversold_gate: 40
+              rsi_overbought_gate: 60
+              squeeze_weight: 0.3
+              breadth_weight: 0.2
+              btc_dom_weight: 0.3
+          DivergenceEdgeScorer:
+            enabled: true
+            params:
+              divergence_lookback: 14
+              weight_rsi: 0.4
+              weight_macd: 0.35
+              weight_mfi: 0.25
+              min_confirming_indicators: 2
+              min_divergence_magnitude: 0.1
+    BTCUSDT:
+      timeframes:
+        1h:
+          RegimePullbackScorer:
+            enabled: true
+            params:
+              btc_dom_weight: 0.0
+          DivergenceEdgeScorer:
+            enabled: true

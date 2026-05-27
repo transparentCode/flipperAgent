@@ -11,6 +11,7 @@ from libs.common.logging.logger_utils import bind_logger
 from libs.common.stream_consumer import BaseStreamConsumer
 from libs.contracts.schemas import FeatureVector, TradeSignal, valkey_encode, valkey_decode
 from apps.strategy_app.model_manager import ModelManager
+from apps.strategy_app.scoring_model_manager import ScoringModelManager
 from libs.selection.selection_layer import SelectionLayer
 
 logger = bind_logger(__name__, system_component=SystemComponent.MODEL_STRATEGY)
@@ -32,6 +33,7 @@ class StrategyWorker(BaseStreamConsumer):
         self.feature_stream_key = self.stream_key
         self.signal_stream_key = f"signals:{asset}:{timeframe}"
         self.model_manager = ModelManager(asset, timeframe)
+        self.scoring_model_manager = ScoringModelManager(asset, timeframe)
         self.selection_layer = SelectionLayer(asset, timeframe)
 
     # ------------------------------------------------------------------
@@ -43,6 +45,7 @@ class StrategyWorker(BaseStreamConsumer):
 
         # Validate feature coverage at boot
         self.model_manager.validate_feature_coverage()
+        self.scoring_model_manager.validate_feature_coverage()
 
         # Delegate to base class consumer loop
         await self.run()
@@ -64,11 +67,12 @@ class StrategyWorker(BaseStreamConsumer):
             return
 
         outputs = self.model_manager.evaluate(feature_vec)
+        scoring_outputs = self.scoring_model_manager.evaluate(feature_vec)
 
-        # Run selection layer (no scoring outputs in Phase 1)
+        # Run selection layer
         selected = self.selection_layer.select(
             model_outputs=outputs,
-            scoring_outputs=None,
+            scoring_outputs=scoring_outputs,
             feature_vec=feature_vec,
         )
 
