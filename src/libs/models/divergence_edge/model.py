@@ -364,4 +364,25 @@ class DivergenceEdgeScorer(ScoringModel):
 
             result.iloc[i] = normalized
 
+        # VAM confirmation
+        vam_col = feature_df.get("eng_volume_adjusted_momentum")
+        if vam_col is not None:
+            nonzero = result.values != 0
+            vam_vals = vam_col.values
+            vam_same_sign = (np.sign(vam_vals) == np.sign(result.values)) & nonzero
+            vam_diff_sign = (np.sign(vam_vals) != np.sign(result.values)) & (vam_vals != 0) & nonzero
+            vam_multiplier = np.ones(n)
+            vam_multiplier[vam_same_sign] = 1.0 + p["vam_confirm_boost"]
+            vam_multiplier[vam_diff_sign] = 1.0 - p["vam_contradict_penalty"]
+            result = result * vam_multiplier
+
+        # Residual momentum boost
+        res_col = feature_df.get("eng_residual_momentum")
+        if res_col is not None:
+            nonzero = result.values != 0
+            res_same_sign = (np.sign(res_col.values) == np.sign(result.values)) & nonzero
+            res_multiplier = np.ones(n)
+            res_multiplier[res_same_sign] = 1.0 + p["residual_weight"]
+            result = result * res_multiplier
+
         return result
