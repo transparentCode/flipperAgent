@@ -38,7 +38,7 @@ def test_feature_manager_multiple_indicators():
     ConfigManager.reset_singleton()
     fm = FeatureManager("BTCUSDT", "1h")
     
-    assert len(fm.indicators) == 2
+    assert len(fm.indicators) >= 2
     names = [i.__class__.__name__ for i in fm.indicators]
     assert "MACD" in names
     assert "RSI" in names

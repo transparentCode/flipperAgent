@@ -9,6 +9,42 @@ features:
             slow_period: 26
           RSI:
             period: 14
+          ATR:
+            period: 14
+          BollingerBands:
+            period: 20
+            num_std: 2.0
+          EMA_fast:
+            type: EMA
+            period: 12
+          EMA_slow:
+            type: EMA
+            period: 26
+          KAMA_fast:
+            type: KAMA
+            period: 5
+            fast_period: 2
+            slow_period: 10
+          KAMA_slow:
+            type: KAMA
+            period: 30
+            fast_period: 2
+            slow_period: 10
+          KeltnerChannel:
+            period: 20
+            multiplier: 1.5
+            atr_period: 14
+          LinReg:
+            period: 12
+          CCI:
+            period: 5
+          ADX:
+            period: 14
+          MFI:
+            period: 14
+          ADLine: {}
+          Momentum:
+            period: 10
         4h:
           MACD:
             fast_period: 12
@@ -16,6 +52,42 @@ features:
             slow_period: 26
           RSI:
             period: 14
+          ATR:
+            period: 14
+          BollingerBands:
+            period: 20
+            num_std: 2.0
+          EMA_fast:
+            type: EMA
+            period: 12
+          EMA_slow:
+            type: EMA
+            period: 26
+          KAMA_fast:
+            type: KAMA
+            period: 5
+            fast_period: 2
+            slow_period: 10
+          KAMA_slow:
+            type: KAMA
+            period: 30
+            fast_period: 2
+            slow_period: 10
+          KeltnerChannel:
+            period: 20
+            multiplier: 1.5
+            atr_period: 14
+          LinReg:
+            period: 12
+          CCI:
+            period: 5
+          ADX:
+            period: 14
+          MFI:
+            period: 14
+          ADLine: {}
+          Momentum:
+            period: 10
     ETHUSDT:
       timeframes:
         4h:

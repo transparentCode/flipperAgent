@@ -9,7 +9,7 @@ Indicator output formats used here (from actual indicator code):
 - KAMA.update() -> float  (config key may be KAMA_slow, KAMA_fast, etc.)
 - Momentum.update() -> float
 - RSI.update() -> float
-- ADX.update() -> float
+- ADX.update() -> dict  {"adx": float, "plus_di": float, "minus_di": float}
 """
 
 import math
@@ -237,9 +237,12 @@ class RegimeScore(EngineeredFeature):
         state: dict[str, Any],
         index_data: dict[str, dict[str, float]] | None = None,
     ) -> float | None:
-        adx = features.get("ADX")
-        if adx is None:
+        adx_raw = features.get("ADX")
+        if adx_raw is None:
             return None
+
+        # ADX indicator returns dict {"adx": ..., "plus_di": ..., "minus_di": ...}
+        adx = adx_raw["adx"] if isinstance(adx_raw, dict) else adx_raw
 
         return math.tanh((adx - 25) / 10)
 
