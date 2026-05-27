@@ -11,6 +11,7 @@ from libs.common.logging.logger_utils import bind_logger
 from libs.common.stream_consumer import BaseStreamConsumer
 from libs.contracts.schemas import FeatureVector, TradeSignal, valkey_encode, valkey_decode
 from apps.strategy_app.model_manager import ModelManager
+from libs.selection.selection_layer import SelectionLayer
 
 logger = bind_logger(__name__, system_component=SystemComponent.MODEL_STRATEGY)
 
@@ -31,6 +32,7 @@ class StrategyWorker(BaseStreamConsumer):
         self.feature_stream_key = self.stream_key
         self.signal_stream_key = f"signals:{asset}:{timeframe}"
         self.model_manager = ModelManager(asset, timeframe)
+        self.selection_layer = SelectionLayer(asset, timeframe)
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -63,21 +65,33 @@ class StrategyWorker(BaseStreamConsumer):
 
         outputs = self.model_manager.evaluate(feature_vec)
 
-        for output in outputs:
-            if output.direction == 0:
-                continue
+        # Run selection layer (no scoring outputs in Phase 1)
+        selected = self.selection_layer.select(
+            model_outputs=outputs,
+            scoring_outputs=None,
+            feature_vec=feature_vec,
+        )
+
+        for result in selected:
+            candidate = result.candidate
             signal = TradeSignal(
-                asset=output.asset,
-                timeframe=output.timeframe,
-                timestamp=output.timestamp,
-                direction=output.direction,
-                conviction=output.conviction,
+                asset=candidate.asset,
+                timeframe=candidate.timeframe,
+                timestamp=candidate.timestamp,
+                direction=candidate.direction,
+                conviction=candidate.conviction,
                 price=feature_vec.bar_data.get("close", 0.0),
                 idempotency_key=self._make_idempotency_key(
-                    output.model_name, output.asset, output.timeframe, output.timestamp,
+                    candidate.model_name, candidate.asset,
+                    candidate.timeframe, candidate.timestamp,
                 ),
-                model_name=output.model_name,
-                metadata=output.metadata,
+                model_name=candidate.model_name,
+                metadata={
+                    **candidate.metadata,
+                    "selection_rank": result.rank,
+                    "selection_score": result.selection_score,
+                    "selection_penalties": result.penalties,
+                },
             )
 
             if self.redis_client:

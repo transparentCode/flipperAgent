@@ -1,0 +1,10 @@
+selection:
+  assets:
+    default:
+      timeframes:
+        default:
+          strategy: overlap_penalized_top_k
+          top_k: 3
+          min_edge_threshold: 0.0
+          same_direction_penalty: 0.3
+          max_penalty: 0.8

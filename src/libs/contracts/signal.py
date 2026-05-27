@@ -47,4 +47,39 @@ class ParamDef(BaseModel):
     choices: Optional[list[Any]] = None
 
 
-__all__ = ["TradeSignal", "FeatureVector", "ModelOutput", "ParamDef"]
+class ScoringOutput(BaseModel):
+    """Returned by ScoringModel.evaluate() — continuous edge score."""
+    model_name: str
+    asset: str
+    timeframe: str
+    timestamp: float
+    edge_score: float = Field(..., description="Continuous edge estimate, unbounded")
+    conviction: float = Field(default=1.0, ge=0.0, le=1.0, description="Model self-confidence")
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class SelectionCandidate(BaseModel):
+    """Unified candidate for the selection layer."""
+    model_name: str
+    asset: str
+    timeframe: str
+    timestamp: float
+    direction: int
+    edge_score: float
+    conviction: float
+    source_type: Literal["threshold", "scoring"]
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class SelectionResult(BaseModel):
+    """Output of the SelectionLayer — a ranked, filtered candidate."""
+    candidate: SelectionCandidate
+    rank: int
+    selection_score: float = Field(..., description="Final composite selection score")
+    penalties: dict[str, float] = Field(default_factory=dict, description="Applied penalties breakdown")
+
+
+__all__ = [
+    "TradeSignal", "FeatureVector", "ModelOutput", "ParamDef",
+    "ScoringOutput", "SelectionCandidate", "SelectionResult",
+]

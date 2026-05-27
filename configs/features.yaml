@@ -66,3 +66,21 @@ features:
           ADLine: {}
           Momentum:
             period: 10
+
+engineered_features:
+  assets:
+    default:
+      timeframes:
+        default:
+          volume_adjusted_momentum:
+            enabled: true
+          atr_normalized_return:
+            enabled: true
+          residual_momentum:
+            enabled: true
+          squeeze_intensity:
+            enabled: true
+          regime_score:
+            enabled: true
+          mean_reversion_z:
+            enabled: true

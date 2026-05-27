@@ -5,6 +5,7 @@ from typing import Any
 
 from apps.signal_app.feature_manager import FeatureManager
 from libs.common.logging.logger_utils import bind_logger
+from libs.features.engineered.manager import EngineeredFeatureManager
 from libs.common.enums import SystemComponent
 from libs.common.stream_consumer import BaseStreamConsumer
 from libs.contracts.schemas import FeatureVector, valkey_encode
@@ -24,6 +25,7 @@ class SignalWorker(BaseStreamConsumer):
         self.asset = asset
         self.timeframe = timeframe
         self.feature_manager = FeatureManager(asset, timeframe, db_fetcher=db_fetcher)
+        self.engineered_manager = EngineeredFeatureManager(asset, timeframe)
 
     async def start(self):
         logger.info(f"Starting signal worker for {self.asset} {self.timeframe}...")
@@ -75,6 +77,13 @@ class SignalWorker(BaseStreamConsumer):
                 # Update features
                 results = self.feature_manager.process_tick(data_tuple)
                 logger.debug(f"Indicator results: {results}")
+
+                # Compute engineered features from raw indicator outputs
+                engineered = self.engineered_manager.compute(results, {
+                    "open": open_, "high": high, "low": low,
+                    "close": close, "volume": volume,
+                })
+                results.update(engineered)
 
                 # Publish computed features to Valkey for StrategyWorker consumption
                 if self.redis_client and results:
