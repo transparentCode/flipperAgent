@@ -138,16 +138,19 @@ class TestInterceptorHelpers:
 
 
 # ---------------------------------------------------------------------------
-# TradingViewInterceptor.get_historical_ohlcv — Scrapling not installed
+# TradingViewInterceptor.get_historical_ohlcv — Patchright not installed
 # ---------------------------------------------------------------------------
 
 
-class TestInterceptorNoScrapling:
+class TestInterceptorNoPatchright:
     @pytest.mark.asyncio
-    async def test_returns_empty_df_when_scrapling_missing(self):
+    async def test_returns_empty_df_when_patchright_missing(self):
         interceptor = TradingViewInterceptor()
-        # Scrapling is not installed in test env — should gracefully return empty
-        df = await interceptor.get_historical_ohlcv("CRYPTOCAP:TOTAL2", "1h")
+        # Simulate patchright not being installed
+        import unittest.mock as _mock
+
+        with _mock.patch.dict("sys.modules", {"patchright": None, "patchright.async_api": None}):
+            df = await interceptor.get_historical_ohlcv("CRYPTOCAP:TOTAL2", "1h")
         assert isinstance(df, pd.DataFrame)
         assert df.empty
         assert list(df.columns) == ["timestamp", "open", "high", "low", "close", "volume"]

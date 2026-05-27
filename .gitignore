@@ -19,6 +19,9 @@ ENV/
 .env.*
 !.env.rename
 
+# Secrets (cookies, API keys, etc.)
+secrets/
+
 # IDE specific
 # .idea/
 # .vscode/

@@ -10,6 +10,7 @@ from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
 from libs.common.stream_consumer import BaseStreamConsumer
 from libs.contracts.schemas import FeatureVector, TradeSignal, valkey_encode, valkey_decode
+from libs.contracts.signal import ModelOutput, ScoringOutput
 from apps.strategy_app.model_manager import ModelManager
 from apps.strategy_app.scoring_model_manager import ScoringModelManager
 from libs.selection.selection_layer import SelectionLayer
@@ -69,6 +70,14 @@ class StrategyWorker(BaseStreamConsumer):
         outputs = self.model_manager.evaluate(feature_vec)
         scoring_outputs = self.scoring_model_manager.evaluate(feature_vec)
 
+        # Adapted legacy models (migration_mode="adapted")
+        adapted_outputs = self.model_manager.evaluate_adapted(feature_vec)
+        scoring_outputs.extend(adapted_outputs)
+
+        # Shadow comparison logging
+        shadow_outputs = self.model_manager.evaluate_shadow(feature_vec)
+        self._log_migration_comparison(adapted_outputs, shadow_outputs)
+
         # Run selection layer
         selected = self.selection_layer.select(
             model_outputs=outputs,
@@ -115,3 +124,40 @@ class StrategyWorker(BaseStreamConsumer):
     def _make_idempotency_key(model_name: str, asset: str, timeframe: str, timestamp: float) -> str:
         raw = f"{model_name}:{asset}:{timeframe}:{timestamp}"
         return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+    # ------------------------------------------------------------------
+    # Migration comparison logging
+    # ------------------------------------------------------------------
+
+    def _log_migration_comparison(
+        self,
+        adapted: list[ScoringOutput],
+        shadow: list[ModelOutput],
+    ) -> None:
+        """Log comparison between adapted scoring output and shadow binary output."""
+        shadow_by_name = {m.model_name: m for m in shadow}
+        for adapted_out in adapted:
+            name = adapted_out.model_name
+            shadow_out = shadow_by_name.get(name)
+            if shadow_out is None:
+                continue
+            implied_edge = float(shadow_out.direction) * shadow_out.conviction
+            match = abs(implied_edge - adapted_out.edge_score) < 1e-9
+            logger.info(
+                "legacy_migration_comparison",
+                model_name=name,
+                asset=self.asset,
+                timeframe=self.timeframe,
+                timestamp=adapted_out.timestamp,
+                legacy_direction=shadow_out.direction,
+                legacy_conviction=shadow_out.conviction,
+                legacy_edge_implied=implied_edge,
+                adapted_edge=adapted_out.edge_score,
+                adapted_conviction=adapted_out.conviction,
+                match=match,
+            )
+            if not match:
+                logger.warning(
+                    f"Migration mismatch for {name}: "
+                    f"legacy={implied_edge:.6f} vs adapted={adapted_out.edge_score:.6f}"
+                )

@@ -107,6 +107,10 @@ class TradingViewInterceptor(BaseExchangeAdapter):
     ) -> pd.DataFrame:
         """Fetch historical OHLCV for a TradingView symbol.
 
+        Uses Patchright (Playwright-compatible) to launch a stealth browser,
+        navigate to a TradingView chart, and intercept WebSocket frames
+        carrying ``~m~`` encoded OHLCV data.
+
         Args:
             symbol: TradingView symbol (e.g., 'CRYPTOCAP:TOTAL2')
             timeframe: Candle timeframe (e.g., '1h', '4h', '1D')
@@ -117,48 +121,79 @@ class TradingViewInterceptor(BaseExchangeAdapter):
         Returns:
             DataFrame with columns [timestamp, open, high, low, close, volume]
         """
+        empty = pd.DataFrame(columns=["timestamp", "open", "high", "low", "close", "volume"])
+
         try:
-            from scrapling import StealthyFetcher
+            from patchright.async_api import async_playwright
         except ImportError:
             logger.error(
-                "Scrapling is not installed. Install with: pip install 'scrapling[all]'"
+                "Patchright is not installed. Install with: pip install patchright"
             )
-            return pd.DataFrame(columns=["timestamp", "open", "high", "low", "close", "volume"])
+            return empty
 
         intercepted_messages: list[str] = []
 
-        # Map timeframe to TV resolution
         tv_resolution = self._map_timeframe(timeframe)
-
-        # Build chart URL
         chart_url = f"https://www.tradingview.com/chart/?symbol={symbol}&interval={tv_resolution}"
 
-        logger.info(f"Fetching TV data for {symbol} ({timeframe}) via stealth interception...")
+        logger.info(f"Fetching TV data for {symbol} ({timeframe}) via WS interception...")
 
         try:
-            fetcher = StealthyFetcher()
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(
+                    headless=True,
+                    args=[
+                        "--disable-blink-features=AutomationControlled",
+                        "--no-sandbox",
+                    ],
+                )
+                context = await browser.new_context(
+                    viewport={"width": 1920, "height": 1080},
+                    user_agent=(
+                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/120.0.0.0 Safari/537.36"
+                    ),
+                )
 
-            cookies = self._load_cookies()
+                cookies = self._load_cookies()
+                if cookies:
+                    pw_cookies = []
+                    for c in cookies:
+                        cookie = dict(c)
+                        # Playwright requires domain without leading dot
+                        if "domain" in cookie and cookie["domain"].startswith("."):
+                            cookie["domain"] = cookie["domain"][1:]
+                        pw_cookies.append(cookie)
+                    await context.add_cookies(pw_cookies)
 
-            page = await fetcher.async_fetch(
-                chart_url,
-                headless=True,
-                network_idle=True,
-                wait_selector="div.chart-container",
-                timeout=30000,
-                cookies=cookies,
-            )
+                page = await context.new_page()
 
-            # Extract WS messages from page network log
-            for entry in getattr(page, "network_log", []):
-                if "data.tradingview.com" in str(entry.get("url", "")):
-                    data = entry.get("data", "")
-                    if isinstance(data, str) and "~m~" in data:
-                        intercepted_messages.append(data)
+                def on_websocket(ws):
+                    if "tradingview.com" in ws.url:
+                        def on_frame(data):
+                            payload = data if isinstance(data, str) else str(data)
+                            if "~m~" in payload:
+                                intercepted_messages.append(payload)
+                        ws.on("framereceived", on_frame)
+
+                page.on("websocket", on_websocket)
+
+                await page.goto(chart_url, wait_until="networkidle", timeout=60000)
+
+                # Wait for WebSocket chart data to arrive
+                deadline = time.monotonic() + 15
+                while time.monotonic() < deadline:
+                    has_data = any("timescale_update" in m or '"du"' in m for m in intercepted_messages)
+                    if has_data:
+                        break
+                    await asyncio.sleep(0.5)
+
+                await browser.close()
 
         except Exception as e:
-            logger.error(f"Stealth fetch failed for {symbol}: {e}", exc_info=True)
-            return pd.DataFrame(columns=["timestamp", "open", "high", "low", "close", "volume"])
+            logger.error(f"WS interception failed for {symbol}: {e}", exc_info=True)
+            return empty
 
         # Parse intercepted messages
         all_bars = []
@@ -169,7 +204,7 @@ class TradingViewInterceptor(BaseExchangeAdapter):
 
         if not all_bars:
             logger.warning(f"No OHLCV data extracted for {symbol}")
-            return pd.DataFrame(columns=["timestamp", "open", "high", "low", "close", "volume"])
+            return empty
 
         df = pd.DataFrame(all_bars)
         df = df.drop_duplicates(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)

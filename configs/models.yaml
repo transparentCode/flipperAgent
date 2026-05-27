@@ -26,6 +26,8 @@ models:
               histogram_min_abs: 0.0
           SqueezeBreakout:
             enabled: true
+            migration_mode: adapted
+            comparison_logging: true
             params:
               kama_fast_period: 15
               kama_slow_period: 44
