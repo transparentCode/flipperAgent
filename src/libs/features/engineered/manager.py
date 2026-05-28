@@ -49,7 +49,8 @@ class EngineeredFeatureManager:
                 continue
             try:
                 feat_cls = EngineeredFeatureRegistry.get(feat_name)
-                self._features.append(feat_cls())
+                params = feat_params.get("params", {}) if isinstance(feat_params, dict) else {}
+                self._features.append(feat_cls(params=params))
                 self._state[feat_name] = {}
                 logger.info(
                     f"Loaded engineered feature '{feat_name}' for "
@@ -94,7 +95,13 @@ class EngineeredFeatureManager:
             Keys are prefixed with 'eng_' to distinguish from raw indicators.
         """
         results: dict[str, float] = {}
-        for feat in self._features:
+
+        # Two-pass compute: independent features first, then dependent ones
+        pass1 = [f for f in self._features if not f.depends_on_engineered]
+        pass2 = [f for f in self._features if f.depends_on_engineered]
+
+        # Pass 1: compute features that do NOT depend on other eng_* values
+        for feat in pass1:
             try:
                 value = feat.compute(features, bar_data, self._state[feat.name], index_data=index_data)
                 if value is not None:
@@ -103,4 +110,20 @@ class EngineeredFeatureManager:
                 logger.error(
                     f"Engineered feature '{feat.name}' failed: {e}", exc_info=True
                 )
+
+        # Merge pass-1 results into features so pass-2 features can read them
+        merged = {**features, **results}
+
+        # Pass 2: compute features that depend on other eng_* values
+        for feat in pass2:
+            try:
+                value = feat.compute(merged, bar_data, self._state[feat.name], index_data=index_data)
+                if value is not None:
+                    results[f"eng_{feat.name}"] = value
+                    merged[f"eng_{feat.name}"] = value
+            except Exception as e:
+                logger.error(
+                    f"Engineered feature '{feat.name}' failed: {e}", exc_info=True
+                )
+
         return results

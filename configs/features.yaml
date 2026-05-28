@@ -164,3 +164,32 @@ engineered_features:
             enabled: true
           altcoin_beta:
             enabled: true
+          btc_dominance_momentum:
+            enabled: true
+            params:
+              sma_period: 10
+              atr_period: 14
+          total3_momentum_z:
+            enabled: true
+            params:
+              sma_period: 20
+              z_period: 50
+              clip_range: 3.0
+          relative_strength_vs_total3:
+            enabled: true
+            params:
+              period: 20
+              clip_range: 10.0
+          cross_asset_regime_state:
+            enabled: true
+            params:
+              btc_d_threshold: 0.3
+              t3_threshold: 0.3
+          regime_alignment_score:
+            enabled: true
+            params:
+              w_btc_d: 0.3
+              w_t3: 0.3
+              w_breadth: 0.2
+              w_rs: 0.2
+              breadth_scale: 10.0

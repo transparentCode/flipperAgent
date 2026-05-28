@@ -8,7 +8,7 @@ from typing import Any
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
 from libs.common.stream_consumer import BaseStreamConsumer, ensure_consumer_group
-from libs.contracts.schemas import OrderExecutionRequest, TradeSignal, valkey_encode, valkey_decode
+from libs.contracts.schemas import OrderExecutionRequest, TradeSignal, PriceUpdate, valkey_encode, valkey_decode
 from libs.risk.account_state import AccountState
 from libs.risk.engine import RiskEngine
 from libs.risk.mtf.aggregator import SignalAggregator
@@ -50,17 +50,21 @@ class RiskWorker(BaseStreamConsumer):
         self.risk_config = risk_config
 
         self.signal_stream_keys = [f"signals:{asset}:{tf}" for tf in timeframes]
+        self.price_stream_keys = [f"price_update:{asset}:{tf}" for tf in timeframes]
         self.order_stream_key = f"orders:{asset}"
+        self.price_group_name = "risk_app_price_group"
 
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
 
     async def connect(self, redis_client: Any) -> None:
-        """Store client and create consumer groups for all signal streams."""
+        """Store client and create consumer groups for all signal and price streams."""
         self.redis_client = redis_client
         for key in self.signal_stream_keys:
             await ensure_consumer_group(redis_client, key, self.group_name)
+        for key in self.price_stream_keys:
+            await ensure_consumer_group(redis_client, key, self.price_group_name)
 
     async def start(self) -> None:
         """Alias for run() — keeps existing call-sites working."""
@@ -77,17 +81,42 @@ class RiskWorker(BaseStreamConsumer):
             logger.warning("No redis client. Running in mock mode.")
             return
 
-        streams = {key: ">" for key in self.signal_stream_keys}
+        signal_streams = {key: ">" for key in self.signal_stream_keys}
+        price_streams = {key: ">" for key in self.price_stream_keys}
+        price_stream_set = set(self.price_stream_keys)
 
         while True:
             try:
+                # Read signal streams
                 response = await self.redis_client.xreadgroup(
                     self.group_name,
                     self.consumer_name,
-                    streams,
+                    signal_streams,
                     count=self.batch_size,
                     block=self.block_ms,
                 )
+
+                # Read price update streams (non-blocking)
+                price_response = await self.redis_client.xreadgroup(
+                    self.price_group_name,
+                    self.consumer_name,
+                    price_streams,
+                    count=self.batch_size,
+                    block=0,
+                )
+
+                # Process price updates first (SL/TP on every bar)
+                if price_response:
+                    for stream_name, messages in price_response:
+                        for message_id, payload in messages:
+                            try:
+                                await self._process_price_update(payload)
+                            except Exception as e:
+                                logger.error(f"Failed to process price update: {e}")
+                            await self.redis_client.xack(
+                                stream_name, self.price_group_name, message_id,
+                            )
+
                 if not response:
                     continue
 
@@ -133,10 +162,13 @@ class RiskWorker(BaseStreamConsumer):
         # --- SL/TP monitoring ---
         if signals:
             price = signals[0].price
+            metadata = signals[0].metadata or {}
+            high = metadata.get("bar_high", price)
+            low = metadata.get("bar_low", price)
             self.positions.update_prices(self.asset, price)
             self.positions.update_trailing_stops(self.asset, price)
 
-            hit_positions = self.positions.check_sl_tp(self.asset, price)
+            hit_positions = self.positions.check_sl_tp_hlc(self.asset, high, low, price)
             for pos in hit_positions:
                 close_side = "sell" if pos.direction == 1 else "buy"
                 order = OrderExecutionRequest(
@@ -219,6 +251,49 @@ class RiskWorker(BaseStreamConsumer):
                 logger.info(
                     f"Published order for {self.asset}: "
                     f"side={order.side}, size={order.size:.6f}",
+                )
+
+    # ------------------------------------------------------------------
+    # Price update processing
+    # ------------------------------------------------------------------
+
+    async def _process_price_update(self, payload: dict) -> None:
+        """Handle a price heartbeat — check SL/TP on every bar regardless of signals."""
+        price_update = valkey_decode(payload, PriceUpdate)
+        close = price_update.close
+        high = price_update.high
+        low = price_update.low
+
+        self.positions.update_prices(self.asset, close)
+        self.positions.update_trailing_stops(self.asset, close)
+
+        hit_positions = self.positions.check_sl_tp_hlc(self.asset, high, low, close)
+        for pos in hit_positions:
+            close_side = "sell" if pos.direction == 1 else "buy"
+            order = OrderExecutionRequest(
+                asset=self.asset,
+                side=close_side,
+                size=pos.size,
+                order_type="market",
+                timestamp=price_update.timestamp,
+                requested_price=close,
+                idempotency_key=f"sl_tp_{self.asset}_{int(pos.entry_timestamp)}",
+                stop_loss_price=None,
+                take_profit_price=None,
+                model_name=pos.source_model,
+                source_timeframe=pos.source_timeframe,
+            )
+            if self.redis_client:
+                await self.redis_client.xadd(
+                    self.order_stream_key,
+                    valkey_encode(order),
+                    maxlen=5000,
+                    approximate=True,
+                )
+                logger.info(
+                    f"Price heartbeat SL/TP triggered for {self.asset}: "
+                    f"closing {'long' if pos.direction == 1 else 'short'} "
+                    f"position @ close={close:.4f} (H={high:.4f} L={low:.4f})",
                 )
 
     # ------------------------------------------------------------------

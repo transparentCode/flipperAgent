@@ -24,6 +24,7 @@ class RegimePullbackScorer(ScoringModel):
             "KAMA_slow", "ATR", "RSI",
             "eng_regime_score", "eng_mean_reversion_z", "eng_squeeze_intensity",
             "eng_btc_dominance_regime", "eng_market_cap_breadth",
+            "eng_cross_asset_regime_state", "eng_regime_alignment_score",
         ],
         hyperparameter_schema={
             "regime_threshold": ParamDef(type="float", default=-0.1, low=-0.5, high=0.3, step=0.05),
@@ -37,6 +38,8 @@ class RegimePullbackScorer(ScoringModel):
             "depth_bonus": ParamDef(type="float", default=0.4, low=0.1, high=0.6, step=0.05),
             "max_z_for_full_conviction": ParamDef(type="float", default=3.0, low=1.5, high=5.0, step=0.5),
             "regime_bonus": ParamDef(type="float", default=0.3, low=0.0, high=0.5, step=0.05),
+            "regime_overlay_weight": ParamDef(type="float", default=0.3, low=0.0, high=0.8, step=0.05),
+            "suppress_broad_selloff": ParamDef(type="int", default=1, low=0, high=1, step=1),
         },
         min_history_bars=50,
     )
@@ -67,6 +70,12 @@ class RegimePullbackScorer(ScoringModel):
             edge_score=0.0,
             conviction=0.0,
         )
+
+        # Gate 0: suppress during BROAD_SELLOFF
+        regime_state = f.get("eng_cross_asset_regime_state")
+        alignment = f.get("eng_regime_alignment_score", 0.0)
+        if p["suppress_broad_selloff"] and regime_state == 3:
+            return zero
 
         # Gate 1: regime must be ranging
         if regime_score is None or regime_score >= p["regime_threshold"]:
@@ -114,6 +123,9 @@ class RegimePullbackScorer(ScoringModel):
             * btc_dom_penalty
         )
 
+        # Regime overlay: scale edge by alignment
+        edge_score *= (1.0 + alignment * p["regime_overlay_weight"])
+
         # Conviction
         conviction = (
             p["base_conviction"]
@@ -138,6 +150,8 @@ class RegimePullbackScorer(ScoringModel):
                 "squeeze_bonus": squeeze_bonus,
                 "breadth_adjustment": breadth_adjustment,
                 "btc_dom_penalty": btc_dom_penalty,
+                "regime_state": regime_state,
+                "regime_alignment": alignment,
             },
         )
 
@@ -160,6 +174,14 @@ class RegimePullbackScorer(ScoringModel):
 
         if regime is None or mr_z is None or rsi is None:
             return result
+
+        # Gate 0: suppress BROAD_SELLOFF
+        regime_state_col = feature_df.get("eng_cross_asset_regime_state")
+        alignment_col = feature_df.get("eng_regime_alignment_score")
+        if p["suppress_broad_selloff"] and regime_state_col is not None:
+            broad_selloff = regime_state_col == 3
+        else:
+            broad_selloff = pd.Series(False, index=feature_df.index)
 
         # Gate 1: regime < threshold
         gate1 = regime < p["regime_threshold"]
@@ -198,5 +220,10 @@ class RegimePullbackScorer(ScoringModel):
             * btc_dom_pen
         )
 
+        # Regime overlay: scale by alignment
+        if alignment_col is not None:
+            edge = edge * (1.0 + alignment_col * p["regime_overlay_weight"])
+
+        valid = valid & ~broad_selloff
         result[valid] = edge[valid]
         return result

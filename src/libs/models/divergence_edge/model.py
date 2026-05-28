@@ -61,6 +61,7 @@ class DivergenceEdgeScorer(ScoringModel):
             "eng_volume_adjusted_momentum", "eng_atr_normalized_return",
             "eng_residual_momentum",
             "eng_altcoin_market_momentum", "eng_altcoin_beta",
+            "eng_cross_asset_regime_state", "eng_regime_alignment_score",
         ],
         hyperparameter_schema={
             "divergence_lookback": ParamDef(type="int", default=14, low=8, high=30, step=1),
@@ -79,6 +80,8 @@ class DivergenceEdgeScorer(ScoringModel):
             "agreement_bonus": ParamDef(type="float", default=0.35, low=0.1, high=0.5, step=0.05),
             "magnitude_bonus": ParamDef(type="float", default=0.35, low=0.1, high=0.5, step=0.05),
             "divergence_saturation": ParamDef(type="float", default=2.0, low=0.5, high=5.0, step=0.5),
+            "regime_overlay_weight": ParamDef(type="float", default=0.2, low=0.0, high=0.8, step=0.05),
+            "suppress_broad_selloff": ParamDef(type="int", default=1, low=0, high=1, step=1),
         },
         min_history_bars=50,
     )
@@ -127,6 +130,14 @@ class DivergenceEdgeScorer(ScoringModel):
         res_mom = f.get("eng_residual_momentum")
         altcoin_mom = f.get("eng_altcoin_market_momentum")
         altcoin_beta = f.get("eng_altcoin_beta")
+
+        # Regime overlay features
+        regime_state = f.get("eng_cross_asset_regime_state")
+        alignment = f.get("eng_regime_alignment_score", 0.0)
+
+        # Gate 0: suppress during BROAD_SELLOFF
+        if p["suppress_broad_selloff"] and regime_state == 3:
+            return zero
 
         # Append to rolling buffers
         if rsi is not None:
@@ -240,6 +251,9 @@ class DivergenceEdgeScorer(ScoringModel):
             * beta_dampener
         )
 
+        # Regime overlay: scale by alignment
+        edge_score *= (1.0 + alignment * p["regime_overlay_weight"])
+
         # Conviction
         min_conf = p["min_confirming_indicators"]
         denom = 3 - min_conf if 3 - min_conf > 0 else 1
@@ -269,6 +283,8 @@ class DivergenceEdgeScorer(ScoringModel):
                 "rsi_slope": rsi_slope,
                 "macd_hist_slope": macd_hist_slope,
                 "mfi_slope": mfi_slope,
+                "regime_state": regime_state,
+                "regime_alignment": alignment,
             },
         )
 
@@ -384,5 +400,16 @@ class DivergenceEdgeScorer(ScoringModel):
             res_multiplier = np.ones(n)
             res_multiplier[res_same_sign] = 1.0 + p["residual_weight"]
             result = result * res_multiplier
+
+        # Regime overlay: scale by alignment
+        alignment_col = feature_df.get("eng_regime_alignment_score")
+        if alignment_col is not None:
+            result = result * (1.0 + alignment_col * p["regime_overlay_weight"])
+
+        # Suppress BROAD_SELLOFF
+        regime_state_col = feature_df.get("eng_cross_asset_regime_state")
+        if p["suppress_broad_selloff"] and regime_state_col is not None:
+            broad_selloff = regime_state_col == 3
+            result[broad_selloff] = 0.0
 
         return result

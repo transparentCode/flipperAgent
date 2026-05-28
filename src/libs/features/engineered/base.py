@@ -5,6 +5,14 @@ from typing import Any
 class EngineeredFeature(ABC):
     """Base class for composite features computed from raw indicator outputs."""
 
+    def __init__(self, params: dict[str, Any] | None = None) -> None:
+        self.params: dict[str, Any] = params or {}
+
+    @property
+    def depends_on_engineered(self) -> bool:
+        """Return True if this feature reads other eng_* values from features dict."""
+        return False
+
     @property
     @abstractmethod
     def name(self) -> str:

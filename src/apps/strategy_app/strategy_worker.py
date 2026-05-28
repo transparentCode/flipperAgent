@@ -104,6 +104,8 @@ class StrategyWorker(BaseStreamConsumer):
                     "selection_rank": result.rank,
                     "selection_score": result.selection_score,
                     "selection_penalties": result.penalties,
+                    "bar_high": feature_vec.bar_data.get("high", 0.0),
+                    "bar_low": feature_vec.bar_data.get("low", 0.0),
                 },
             )
 

@@ -67,9 +67,10 @@ class TestSignalWorkerProcessMessage:
         await worker.process_message("msg-1", payload)
 
         mock_fm.process_tick.assert_called_once()
-        worker.redis_client.xadd.assert_called_once()
-        call_args = worker.redis_client.xadd.call_args
-        assert call_args[0][0] == "features:BTCUSDT:4h"
+        assert worker.redis_client.xadd.call_count == 2
+        calls = worker.redis_client.xadd.call_args_list
+        assert calls[0][0][0] == "features:BTCUSDT:4h"
+        assert calls[1][0][0] == "price_update:BTCUSDT:4h"
 
     @pytest.mark.asyncio
     @patch("apps.signal_app.signal_worker.FeatureManager")

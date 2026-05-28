@@ -79,7 +79,19 @@ class SelectionResult(BaseModel):
     penalties: dict[str, float] = Field(default_factory=dict, description="Applied penalties breakdown")
 
 
+class PriceUpdate(BaseModel):
+    """Lightweight bar price update published by SignalWorker on every closed bar."""
+    asset: str
+    timeframe: str
+    timestamp: float
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
+
+
 __all__ = [
     "TradeSignal", "FeatureVector", "ModelOutput", "ParamDef",
-    "ScoringOutput", "SelectionCandidate", "SelectionResult",
+    "ScoringOutput", "SelectionCandidate", "SelectionResult", "PriceUpdate",
 ]

@@ -239,3 +239,322 @@ class AltcoinBeta(EngineeredFeature):
         cov_xy = n * sum_xy - sum_x * sum_y
         beta = cov_xy / var_x
         return beta
+
+
+# ---------------------------------------------------------------------------
+# New cross-asset regime features
+# ---------------------------------------------------------------------------
+
+
+@EngineeredFeatureRegistry.register("btc_dominance_momentum")
+class BTCDominanceMomentum(EngineeredFeature):
+    """Normalized momentum of BTC.D: (close - SMA(close, period)) / ATR(period).
+
+    Positive → BTC.D rising (alts weakening).
+    Negative → BTC.D falling (alt season starting).
+    """
+
+    @property
+    def name(self) -> str:
+        return "btc_dominance_momentum"
+
+    @property
+    def required_indicators(self) -> list[str]:
+        return []
+
+    @property
+    def required_bar_fields(self) -> list[str]:
+        return []
+
+    def compute(
+        self,
+        features: dict[str, Any],
+        bar_data: dict[str, float],
+        state: dict[str, Any],
+        index_data: dict[str, dict[str, float]] | None = None,
+    ) -> float | None:
+        if not index_data or "BTC.D" not in index_data:
+            return 0.0
+
+        btc_d = index_data["BTC.D"]
+        close = btc_d.get("close")
+        high = btc_d.get("high")
+        low = btc_d.get("low")
+        if close is None:
+            return 0.0
+
+        sma_period = self.params.get("sma_period", 10)
+        atr_period = self.params.get("atr_period", 14)
+
+        # Initialize rolling state
+        if "closes" not in state:
+            state["closes"] = deque(maxlen=sma_period)
+            state["tr_values"] = deque(maxlen=atr_period)
+            state["prev_close"] = None
+
+        state["closes"].append(close)
+
+        # Compute True Range for ATR
+        prev_close = state["prev_close"]
+        if prev_close is not None and high is not None and low is not None:
+            tr = max(
+                high - low,
+                abs(high - prev_close),
+                abs(low - prev_close),
+            )
+            state["tr_values"].append(tr)
+        elif high is not None and low is not None:
+            state["tr_values"].append(high - low)
+
+        state["prev_close"] = close
+
+        if len(state["closes"]) < sma_period or len(state["tr_values"]) < atr_period:
+            return 0.0
+
+        sma = sum(state["closes"]) / len(state["closes"])
+        atr = sum(state["tr_values"]) / len(state["tr_values"])
+
+        if atr <= 0:
+            return 0.0
+
+        return (close - sma) / atr
+
+
+@EngineeredFeatureRegistry.register("total3_momentum_z")
+class Total3MomentumZ(EngineeredFeature):
+    """Z-score of TOTAL3 momentum relative to its own rolling distribution.
+
+    Uses Welford's online algorithm for rolling mean/std.
+    Clipped to [-clip_range, clip_range].
+    """
+
+    @property
+    def name(self) -> str:
+        return "total3_momentum_z"
+
+    @property
+    def required_indicators(self) -> list[str]:
+        return []
+
+    @property
+    def required_bar_fields(self) -> list[str]:
+        return []
+
+    def compute(
+        self,
+        features: dict[str, Any],
+        bar_data: dict[str, float],
+        state: dict[str, Any],
+        index_data: dict[str, dict[str, float]] | None = None,
+    ) -> float | None:
+        if not index_data or "TOTAL3" not in index_data:
+            return 0.0
+
+        t3 = index_data["TOTAL3"]
+        close = t3.get("close")
+        if close is None:
+            return 0.0
+
+        sma_period = self.params.get("sma_period", 20)
+        z_period = self.params.get("z_period", 50)
+        clip_range = self.params.get("clip_range", 3.0)
+
+        # Initialize rolling state
+        if "closes" not in state:
+            state["closes"] = deque(maxlen=sma_period)
+            state["mom_values"] = deque(maxlen=z_period)
+
+        state["closes"].append(close)
+
+        if len(state["closes"]) < sma_period:
+            return 0.0
+
+        sma = sum(state["closes"]) / len(state["closes"])
+        raw_mom = close - sma
+
+        state["mom_values"].append(raw_mom)
+
+        if len(state["mom_values"]) < z_period:
+            return 0.0
+
+        # Welford's online mean/std from the deque
+        n = len(state["mom_values"])
+        mean = sum(state["mom_values"]) / n
+        variance = sum((v - mean) ** 2 for v in state["mom_values"]) / n
+        std = math.sqrt(variance) if variance > 0 else 0.0
+
+        if std < 1e-12:
+            return 0.0
+
+        z = (raw_mom - mean) / std
+        return max(-clip_range, min(clip_range, z))
+
+
+@EngineeredFeatureRegistry.register("relative_strength_vs_total3")
+class RelativeStrengthVsTotal3(EngineeredFeature):
+    """Per-asset relative strength vs TOTAL3.
+
+    RS = (asset_return_N - TOTAL3_return_N) / max(abs(TOTAL3_return_N), epsilon)
+    """
+
+    @property
+    def name(self) -> str:
+        return "relative_strength_vs_total3"
+
+    @property
+    def required_indicators(self) -> list[str]:
+        return []
+
+    @property
+    def required_bar_fields(self) -> list[str]:
+        return ["close"]
+
+    def compute(
+        self,
+        features: dict[str, Any],
+        bar_data: dict[str, float],
+        state: dict[str, Any],
+        index_data: dict[str, dict[str, float]] | None = None,
+    ) -> float | None:
+        asset_close = bar_data.get("close")
+        if asset_close is None:
+            return 0.0
+
+        if not index_data or "TOTAL3" not in index_data:
+            return 0.0
+
+        t3_close = index_data["TOTAL3"].get("close")
+        if t3_close is None:
+            return 0.0
+
+        period = self.params.get("period", 20)
+
+        if "asset_closes" not in state:
+            state["asset_closes"] = deque(maxlen=period + 1)
+            state["t3_closes"] = deque(maxlen=period + 1)
+
+        state["asset_closes"].append(asset_close)
+        state["t3_closes"].append(t3_close)
+
+        if len(state["asset_closes"]) <= period:
+            return 0.0
+
+        asset_old = state["asset_closes"][-period - 1]
+        t3_old = state["t3_closes"][-period - 1]
+
+        if asset_old <= 0 or t3_old <= 0:
+            return 0.0
+
+        asset_ret = (asset_close - asset_old) / asset_old
+        t3_ret = (t3_close - t3_old) / t3_old
+
+        clip_range = self.params.get("clip_range", 10.0)
+        raw = (asset_ret - t3_ret) / max(abs(t3_ret), 1e-4)
+        return max(-clip_range, min(clip_range, raw))
+
+
+@EngineeredFeatureRegistry.register("cross_asset_regime_state")
+class CrossAssetRegimeState(EngineeredFeature):
+    """4-state regime classifier from BTC.D momentum + altcoin momentum.
+
+    States: RISK_OFF=0, ALT_SEASON=1, ROTATION=2, BROAD_SELLOFF=3.
+    """
+
+    @property
+    def name(self) -> str:
+        return "cross_asset_regime_state"
+
+    @property
+    def depends_on_engineered(self) -> bool:
+        return True
+
+    @property
+    def required_indicators(self) -> list[str]:
+        return []
+
+    @property
+    def required_bar_fields(self) -> list[str]:
+        return []
+
+    def compute(
+        self,
+        features: dict[str, Any],
+        bar_data: dict[str, float],
+        state: dict[str, Any],
+        index_data: dict[str, dict[str, float]] | None = None,
+    ) -> float | None:
+        btc_d_mom = features.get("eng_btc_dominance_momentum", 0.0)
+        t3_mom = features.get("eng_altcoin_market_momentum", 0.0)
+
+        btc_d_threshold = self.params.get("btc_d_threshold", 0.3)
+        t3_threshold = self.params.get("t3_threshold", 0.3)
+
+        btc_d_rising = btc_d_mom > btc_d_threshold
+        btc_d_falling = btc_d_mom < -btc_d_threshold
+        t3_rising = t3_mom > t3_threshold
+        t3_falling = t3_mom < -t3_threshold
+
+        if btc_d_rising and t3_falling:
+            return 0  # RISK_OFF
+        elif btc_d_falling and t3_rising:
+            return 1  # ALT_SEASON
+        elif btc_d_rising and t3_rising:
+            return 2  # ROTATION
+        elif btc_d_falling and t3_falling:
+            return 3  # BROAD_SELLOFF
+        else:
+            return 2  # ROTATION (default neutral)
+
+
+@EngineeredFeatureRegistry.register("regime_alignment_score")
+class RegimeAlignmentScore(EngineeredFeature):
+    """Continuous composite regime alignment score in [-1, 1].
+
+    regime_alignment = w1*tanh(btc_d_mom) + w2*tanh(t3_mom)
+                     + w3*tanh(breadth) + w4*tanh(rs)
+    """
+
+    @property
+    def name(self) -> str:
+        return "regime_alignment_score"
+
+    @property
+    def depends_on_engineered(self) -> bool:
+        return True
+
+    @property
+    def required_indicators(self) -> list[str]:
+        return []
+
+    @property
+    def required_bar_fields(self) -> list[str]:
+        return []
+
+    def compute(
+        self,
+        features: dict[str, Any],
+        bar_data: dict[str, float],
+        state: dict[str, Any],
+        index_data: dict[str, dict[str, float]] | None = None,
+    ) -> float | None:
+        btc_d_mom = features.get("eng_btc_dominance_momentum", 0.0)
+        t3_mom = features.get("eng_altcoin_market_momentum", 0.0)
+        breadth = features.get("eng_market_cap_breadth", 0.0)
+        rs = features.get("eng_relative_strength_vs_total3", 0.0)
+
+        w1 = self.params.get("w_btc_d", 0.3)
+        w2 = self.params.get("w_t3", 0.3)
+        w3 = self.params.get("w_breadth", 0.2)
+        w4 = self.params.get("w_rs", 0.2)
+        breadth_scale = self.params.get("breadth_scale", 10.0)
+
+        # Normalize each component to [-1, 1] via tanh, then weight
+        # Negate btc_d_mom because rising BTC.D is bearish for alts
+        score = (
+            w1 * math.tanh(-btc_d_mom)
+            + w2 * math.tanh(t3_mom)
+            + w3 * math.tanh(breadth * breadth_scale)
+            + w4 * math.tanh(rs)
+        )
+
+        return max(-1.0, min(1.0, score))

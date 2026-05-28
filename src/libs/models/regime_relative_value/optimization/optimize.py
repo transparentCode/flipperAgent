@@ -1,14 +1,15 @@
-"""CLI runner for MeanReversion optimization.
+"""CLI runner for RegimeRelativeValueScorer optimization.
 
 Usage:
-    PYTHONPATH=src python -m libs.models.mean_reversion.optimization.optimize \
-        --asset BTCUSDT --timeframe 1h --n-trials 200 --audit --write-back
+    PYTHONPATH=src python -m libs.models.regime_relative_value.optimization.optimize \
+        --asset BTCUSDT --timeframe 1h --n-trials 200 --days 180 --audit
 """
 
 from __future__ import annotations
 
 import argparse
 import sys
+import time
 from pathlib import Path
 
 # Ensure src/ is on sys.path when run as a script
@@ -16,9 +17,6 @@ _src = str(Path(__file__).resolve().parents[4])
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-import optuna
-
-from libs.common.config import ConfigManager
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
 from libs.contracts.schemas import StudyConfig
@@ -31,31 +29,22 @@ from libs.optim_utils.runner import OptunaRunner
 # Trigger model registration
 import libs.models  # noqa: F401
 
-# Import this model's optimizer module
-from libs.models.mean_reversion.optimization import optimizer as mr_optimizer
+from libs.models.regime_relative_value.optimization import optimizer as rrv_optimizer
 
 logger = bind_logger(__name__, system_component=SystemComponent.OPTIMIZATION)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run MeanReversion optimization study"
+        description="Run RegimeRelativeValueScorer optimization study"
     )
     parser.add_argument("--asset", required=True, help="Asset symbol (e.g., BTCUSDT)")
     parser.add_argument("--timeframe", required=True, help="Timeframe (e.g., 1h)")
     parser.add_argument("--n-trials", type=int, default=None)
-    parser.add_argument("--since", type=int, default=None,
-                        help="Start time in ms (Binance timestamp)")
-    parser.add_argument("--days", type=int, default=90,
-                        help="Number of days of historical data (default: 90)")
+    parser.add_argument("--days", type=int, default=180,
+                        help="Number of days of historical data (default: 180)")
     parser.add_argument("--cost-bps", type=float, default=10.0,
                         help="Round-trip transaction cost in basis points")
-    parser.add_argument("--train-ratio", type=float, default=0.6,
-                        help="Train set ratio (default: 0.6)")
-    parser.add_argument("--test-ratio", type=float, default=0.2,
-                        help="Test set ratio (default: 0.2)")
-    parser.add_argument("--val-ratio", type=float, default=0.2,
-                        help="Validation set ratio for audit (default: 0.2)")
     parser.add_argument("--write-back", action="store_true",
                         help="Write best params to configs/optimized_params.yaml")
     parser.add_argument("--audit", action="store_true",
@@ -67,56 +56,45 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    # --- Fetch data from Binance ---
-    import time
-    since_ms = args.since
-    if since_ms is None:
-        since_ms = int((time.time() - args.days * 86400) * 1000)
-
+    # --- Fetch OHLCV from Binance ---
+    since_ms = int((time.time() - args.days * 86400) * 1000)
     logger.info(f"Fetching {args.days}d of {args.timeframe} candles for {args.asset}")
     ohlcv_df = fetch_historical_ohlcv(
         symbol=args.asset,
         timeframe=args.timeframe,
         since=since_ms,
-        limit=args.days * 24,  # rough upper bound for 1h candles
+        limit=args.days * 24,
     )
     logger.info(f"Fetched {len(ohlcv_df)} candles")
 
-    if len(ohlcv_df) < 50:
-        logger.warning("Insufficient data for optimization — need at least 50 candles")
+    if len(ohlcv_df) < 200:
+        logger.warning("Insufficient data — need at least 200 candles")
         return
 
-    # --- Build feature DataFrame (indicators + engineered features) ---
-    logger.info("Building feature DataFrame with indicators...")
+    # --- Build feature DataFrame ---
+    logger.info("Building scoring feature DataFrame…")
     feature_df = build_scoring_feature_df(ohlcv_df, args.asset, args.timeframe)
     logger.info(f"Feature DataFrame: {len(feature_df)} rows, {len(feature_df.columns)} columns")
 
-    # --- Split data: train / test / val ---
-    from libs.optim_utils.scoring import split_temporal
-    train_df, test_df, val_df = split_temporal(
-        feature_df, train=args.train_ratio, test=args.test_ratio, val=args.val_ratio,
-    )
-    logger.info(f"Split: train={len(train_df)}, test={len(test_df)}, val={len(val_df)}")
-
-    # --- Build objective from this model's optimizer (train set only) ---
-    objective_fn = mr_optimizer.make_objective(
-        train_df, timeframe=args.timeframe, cost_bps=args.cost_bps,
+    # --- Build objective ---
+    objective_fn = rrv_optimizer.make_objective(
+        feature_df, timeframe=args.timeframe, cost_bps=args.cost_bps,
     )
 
-    # --- Resolve study config ---
-    n_trials = args.n_trials or mr_optimizer.STUDY_DEFAULTS.get("n_trials", 200)
+    # --- Study config ---
+    n_trials = args.n_trials or rrv_optimizer.STUDY_DEFAULTS.get("n_trials", 200)
     study_config = StudyConfig(
-        model_name=mr_optimizer.MODEL_NAME,
+        model_name=rrv_optimizer.MODEL_NAME,
         asset=args.asset,
         timeframe=args.timeframe,
         n_trials=n_trials,
-        sampler=mr_optimizer.STUDY_DEFAULTS.get("sampler", "TPE"),
-        pruner=mr_optimizer.STUDY_DEFAULTS.get("pruner", "MedianPruner"),
+        sampler=rrv_optimizer.STUDY_DEFAULTS.get("sampler", "TPE"),
+        pruner=rrv_optimizer.STUDY_DEFAULTS.get("pruner", "MedianPruner"),
         objectives=["score"],
-        directions=[mr_optimizer.STUDY_DEFAULTS.get("direction", "maximize")],
+        directions=[rrv_optimizer.STUDY_DEFAULTS.get("direction", "maximize")],
     )
 
-    # --- Run Optuna study ---
+    # --- Run ---
     runner = OptunaRunner(study_config)
     results = runner.run(objective_fn=objective_fn, study_name=args.study_name)
 
@@ -126,20 +104,20 @@ def main() -> None:
         return
 
     best = max(completed, key=lambda r: list(r.values.values())[0])
-    processed_params = mr_optimizer.post_process_params(best.params)
+    processed_params = rrv_optimizer.post_process_params(best.params)
     logger.info(f"Best trial #{best.trial_number}: params={processed_params} values={best.values}")
 
-    # --- Audit (on validation set — never seen during optimization) ---
+    # --- Audit ---
     if args.audit:
         current_params = read_current_params(
-            mr_optimizer.MODEL_NAME, args.asset, args.timeframe,
+            rrv_optimizer.MODEL_NAME, args.asset, args.timeframe,
         )
         if current_params:
             auditor = ParamAuditor(
-                val_df, timeframe=args.timeframe, cost_bps=args.cost_bps,
+                feature_df, timeframe=args.timeframe, cost_bps=args.cost_bps,
             )
             report = auditor.audit(
-                mr_optimizer.MODEL_NAME, args.asset, args.timeframe,
+                rrv_optimizer.MODEL_NAME, args.asset, args.timeframe,
                 current_params, processed_params,
             )
             _print_audit_report(report)
@@ -149,7 +127,7 @@ def main() -> None:
     # --- Write-back ---
     if args.write_back:
         write_best_params(
-            mr_optimizer.MODEL_NAME, args.asset, args.timeframe, processed_params,
+            rrv_optimizer.MODEL_NAME, args.asset, args.timeframe, processed_params,
         )
         logger.info("Wrote best params to configs/optimized_params.yaml")
 

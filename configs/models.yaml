@@ -28,20 +28,21 @@ models:
             enabled: true
             migration_mode: adapted
             comparison_logging: true
+            # 2yr validation: defaults Sharpe +0.89 vs v7 +0.26 — using model defaults
             params:
-              kama_fast_period: 15
-              kama_slow_period: 44
-              mom_period: 29
-              squeeze_lookback: 2
-              ss_threshold: 1
+              kama_fast_period: 5
+              kama_slow_period: 30
+              mom_period: 20
+              squeeze_lookback: 1
+              ss_threshold: 3
               cci_period: 5
-              adx_period: 20
-              adx_threshold: 26
-              ad_sma_period: 19
-              mfi_period: 9
-              mfi_sma_period: 12
-              mom_lr_period: 18
-              mom_lr_mom_period: 6
+              adx_period: 14
+              adx_threshold: 18
+              ad_sma_period: 21
+              mfi_period: 14
+              mfi_sma_period: 9
+              mom_lr_period: 14
+              mom_lr_mom_period: 10
         4h:
           MeanReversion:
             enabled: true
@@ -133,19 +134,20 @@ models:
               holding_period: 8
           SqueezeBreakout:
             enabled: true
+            # 2yr validation: defaults Sharpe +1.22 vs v7 +0.77 — using model defaults
             params:
               kama_fast_period: 5
-              kama_slow_period: 43
+              kama_slow_period: 30
               mom_period: 20
               squeeze_lookback: 1
               ss_threshold: 3
-              cci_period: 10
-              adx_period: 9
-              adx_threshold: 30
-              ad_sma_period: 23
-              mfi_period: 21
-              mfi_sma_period: 8
-              mom_lr_period: 9
+              cci_period: 5
+              adx_period: 14
+              adx_threshold: 18
+              ad_sma_period: 21
+              mfi_period: 14
+              mfi_sma_period: 9
+              mom_lr_period: 14
               mom_lr_mom_period: 10
     DOGEUSDT:
       timeframes:
@@ -188,6 +190,8 @@ scoring_models:
               squeeze_weight: 0.3
               breadth_weight: 0.2
               btc_dom_weight: 0.3
+              regime_overlay_weight: 0.3
+              suppress_broad_selloff: 1
           DivergenceEdgeScorer:
             enabled: true
             params:
@@ -197,6 +201,17 @@ scoring_models:
               weight_mfi: 0.25
               min_confirming_indicators: 2
               min_divergence_magnitude: 0.1
+              regime_overlay_weight: 0.2
+              suppress_broad_selloff: 1
+          RegimeRelativeValueScorer:
+            enabled: true
+            params:
+              rs_underperformance_threshold: -0.5
+              rsi_oversold_gate: 35
+              regime_state_required: 0
+              min_btc_d_momentum: 0.3
+              conviction_base: 0.3
+              conviction_depth_bonus: 0.4
     BTCUSDT:
       timeframes:
         1h:

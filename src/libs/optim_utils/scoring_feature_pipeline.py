@@ -40,9 +40,9 @@ def _flatten_indicators(raw: dict[str, Any]) -> dict[str, Any]:
             flat["MACD_signal"] = val[1]
             flat["MACD_histogram"] = val[2]
         elif key == "ADX" and isinstance(val, dict):
-            flat["ADX"] = val.get("adx")
-            flat["plus_DI"] = val.get("plus_di")
-            flat["minus_DI"] = val.get("minus_di")
+            flat["ADX_adx"] = val.get("adx")
+            flat["ADX_plus_di"] = val.get("plus_di")
+            flat["ADX_minus_di"] = val.get("minus_di")
         elif key in ("BollingerBands", "KeltnerChannel") and isinstance(val, (tuple, list)):
             if len(val) >= 3:
                 flat[f"{key}_middle"] = val[0]

@@ -101,6 +101,35 @@ class PositionTracker:
                     continue
         return hit
 
+    def check_sl_tp_hlc(
+        self, asset: str, high: float, low: float, close: float,
+    ) -> list[PositionState]:
+        """Return positions whose SL or TP was hit using intrabar high/low extremes.
+
+        Uses *low* for long SL and short TP, *high* for long TP and short SL.
+        When both SL and TP are hit on the same bar, TP takes priority.
+        """
+        hit: list[PositionState] = []
+        for pos in self.positions.get(asset, []):
+            tp_hit = False
+            sl_hit = False
+
+            if pos.take_profit_price is not None:
+                if pos.direction == 1 and high >= pos.take_profit_price:
+                    tp_hit = True
+                elif pos.direction == -1 and low <= pos.take_profit_price:
+                    tp_hit = True
+
+            if pos.stop_loss_price is not None:
+                if pos.direction == 1 and low <= pos.stop_loss_price:
+                    sl_hit = True
+                elif pos.direction == -1 and high >= pos.stop_loss_price:
+                    sl_hit = True
+
+            if tp_hit or sl_hit:
+                hit.append(pos)
+        return hit
+
     # ------------------------------------------------------------------
     # Exposure queries
     # ------------------------------------------------------------------

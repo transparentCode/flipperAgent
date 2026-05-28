@@ -157,6 +157,107 @@ class TestSLTPCheck:
         assert len(hit) == 0
 
 
+class TestSLTPCheckHLC:
+    """Tests for check_sl_tp_hlc — intrabar high/low SL/TP detection."""
+
+    @pytest.mark.asyncio
+    async def test_long_sl_hit_via_low(self):
+        """Long SL hit when low <= SL but close > SL (wick stop)."""
+        tracker = PositionTracker()
+        pos = _make_position(direction=1, stop_loss_price=49_000)
+        await tracker.open_position(pos)
+
+        # Low pierces SL, close recovers above it
+        hit = tracker.check_sl_tp_hlc("BTCUSDT", high=50_500, low=48_800, close=50_000)
+        assert len(hit) == 1
+
+    @pytest.mark.asyncio
+    async def test_long_tp_hit_via_high(self):
+        """Long TP hit when high >= TP but close < TP."""
+        tracker = PositionTracker()
+        pos = _make_position(direction=1, take_profit_price=52_000)
+        await tracker.open_position(pos)
+
+        # High touches TP, close falls back
+        hit = tracker.check_sl_tp_hlc("BTCUSDT", high=52_100, low=50_500, close=51_500)
+        assert len(hit) == 1
+
+    @pytest.mark.asyncio
+    async def test_short_sl_hit_via_high(self):
+        """Short SL hit when high >= SL."""
+        tracker = PositionTracker()
+        pos = _make_position(direction=-1, entry_price=50_000, stop_loss_price=51_000)
+        await tracker.open_position(pos)
+
+        hit = tracker.check_sl_tp_hlc("BTCUSDT", high=51_200, low=49_500, close=50_000)
+        assert len(hit) == 1
+
+    @pytest.mark.asyncio
+    async def test_short_tp_hit_via_low(self):
+        """Short TP hit when low <= TP."""
+        tracker = PositionTracker()
+        pos = _make_position(direction=-1, entry_price=50_000, take_profit_price=48_000)
+        await tracker.open_position(pos)
+
+        hit = tracker.check_sl_tp_hlc("BTCUSDT", high=50_500, low=47_800, close=49_000)
+        assert len(hit) == 1
+
+    @pytest.mark.asyncio
+    async def test_no_hit_within_bands(self):
+        """No hit when high/low stay within SL/TP bands."""
+        tracker = PositionTracker()
+        pos = _make_position(
+            direction=1, stop_loss_price=49_000, take_profit_price=52_000,
+        )
+        await tracker.open_position(pos)
+
+        hit = tracker.check_sl_tp_hlc("BTCUSDT", high=51_500, low=49_500, close=50_500)
+        assert len(hit) == 0
+
+    @pytest.mark.asyncio
+    async def test_both_sl_tp_hit_same_bar_tp_priority(self):
+        """When both SL and TP are hit on same bar, position is still returned (TP priority)."""
+        tracker = PositionTracker()
+        pos = _make_position(
+            direction=1, stop_loss_price=49_000, take_profit_price=52_000,
+        )
+        await tracker.open_position(pos)
+
+        # Wide bar: low pierces SL, high pierces TP
+        hit = tracker.check_sl_tp_hlc("BTCUSDT", high=52_500, low=48_500, close=50_500)
+        assert len(hit) == 1  # Position included — caller handles TP priority
+
+    @pytest.mark.asyncio
+    async def test_hlc_does_not_trigger_without_sl_tp(self):
+        """Position with no SL/TP set is never hit."""
+        tracker = PositionTracker()
+        pos = _make_position(direction=1)
+        await tracker.open_position(pos)
+
+        hit = tracker.check_sl_tp_hlc("BTCUSDT", high=99_000, low=1_000, close=50_000)
+        assert len(hit) == 0
+
+    @pytest.mark.asyncio
+    async def test_exact_sl_boundary_long(self):
+        """Long SL hit when low == SL exactly."""
+        tracker = PositionTracker()
+        pos = _make_position(direction=1, stop_loss_price=49_000)
+        await tracker.open_position(pos)
+
+        hit = tracker.check_sl_tp_hlc("BTCUSDT", high=50_500, low=49_000, close=50_000)
+        assert len(hit) == 1
+
+    @pytest.mark.asyncio
+    async def test_exact_tp_boundary_long(self):
+        """Long TP hit when high == TP exactly."""
+        tracker = PositionTracker()
+        pos = _make_position(direction=1, take_profit_price=52_000)
+        await tracker.open_position(pos)
+
+        hit = tracker.check_sl_tp_hlc("BTCUSDT", high=52_000, low=50_000, close=51_000)
+        assert len(hit) == 1
+
+
 class TestExposure:
     @pytest.mark.asyncio
     async def test_total_exposure(self):

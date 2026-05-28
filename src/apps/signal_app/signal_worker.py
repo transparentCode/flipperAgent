@@ -8,7 +8,7 @@ from libs.common.logging.logger_utils import bind_logger
 from libs.features.engineered.manager import EngineeredFeatureManager
 from libs.common.enums import SystemComponent
 from libs.common.stream_consumer import BaseStreamConsumer
-from libs.contracts.schemas import FeatureVector, valkey_encode
+from libs.contracts.schemas import FeatureVector, PriceUpdate, valkey_encode
 
 logger = bind_logger(__name__, system_component=SystemComponent.SIGNAL_APP)
 
@@ -111,6 +111,21 @@ class SignalWorker(BaseStreamConsumer):
                         bar_data={"open": open_, "high": high, "low": low, "close": close, "volume": volume},
                     )
                     await self.redis_client.xadd(feature_stream, valkey_encode(fv), maxlen=10000, approximate=True)
+
+                # Publish lightweight price heartbeat for RiskWorker SL/TP on every bar
+                if self.redis_client:
+                    price_stream = f"price_update:{self.asset}:{self.timeframe}"
+                    pu = PriceUpdate(
+                        asset=self.asset,
+                        timeframe=self.timeframe,
+                        timestamp=timestamp,
+                        open=open_,
+                        high=high,
+                        low=low,
+                        close=close,
+                        volume=volume,
+                    )
+                    await self.redis_client.xadd(price_stream, valkey_encode(pu), maxlen=100, approximate=True)
                 
             except Exception as e:
                 logger.error(f"Failed to parse or process payload {payload}: {e}")

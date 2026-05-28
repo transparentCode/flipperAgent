@@ -5,3 +5,4 @@ import libs.models.momentum  # noqa: F401
 import libs.models.squeeze_breakout  # noqa: F401
 import libs.models.regime_pullback  # noqa: F401
 import libs.models.divergence_edge  # noqa: F401
+import libs.models.regime_relative_value  # noqa: F401
