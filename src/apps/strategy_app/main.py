@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 
 from libs.common.config import ConfigManager
 from libs.common.connections import create_valkey_client
@@ -20,7 +21,12 @@ async def _run() -> None:
     config_mgr.register_file(CONFIG_FILE_MODELS)
 
     log_level = config_mgr.get("logging.level", default="INFO")
-    configure_logging(level=log_level, enable_file_logging=False)
+    configure_logging(
+        level=log_level,
+        enable_file_logging=True,
+        console_format=os.environ.get("LOG_FORMAT", "json"),
+        log_file=os.environ.get("LOG_FILE"),
+    )
 
     pairs = discover_pairs(config_mgr)
     if not pairs:

@@ -41,6 +41,8 @@ class ConfigManager:
             self._config_dir = Path(config_dir) if config_dir else Path(os.getcwd()) / DEFAULT_CONFIG_DIR_NAME
             self._env = env
             self._state: Dict[str, Any] = {}
+            self._file_states: Dict[str, Dict[str, Any]] = {}
+            self._file_paths: Dict[str, str] = {}
             self._registered_files: set[Path] = set()
             self._watched_dirs = set()
             self._watched_dirs.add(self._config_dir)
@@ -81,29 +83,45 @@ class ConfigManager:
         logger.info(f"Loading configs from {self._config_dir} for env={self._env}")
         try:
             new_state = {}
-            
+            new_file_states: Dict[str, Dict[str, Any]] = {}
+            new_file_paths: Dict[str, str] = {}
+
             # Load base first
             base_file = self._config_dir / CONFIG_BASE_FILENAME
             if base_file.exists():
-                new_state = self._merge_dicts(new_state, self._read_yaml(base_file))
-                
+                base_data = self._read_yaml(base_file)
+                new_file_states[base_file.stem] = base_data
+                new_file_paths[base_file.stem] = str(base_file)
+                new_state = self._merge_dicts(new_state, base_data)
+
             env_file = self._config_dir / f"{self._env}.yaml"
             local_file = self._config_dir / CONFIG_LOCAL_FILENAME
-            
+
             # Load explicitly registered files (e.g. features.yaml)
             for registered_file in self._registered_files:
                 if registered_file.exists():
-                    new_state = self._merge_dicts(new_state, self._read_yaml(registered_file))
-                    
+                    file_data = self._read_yaml(registered_file)
+                    new_file_states[registered_file.stem] = file_data
+                    new_file_paths[registered_file.stem] = str(registered_file)
+                    new_state = self._merge_dicts(new_state, file_data)
+
             # Load env and local last for overrides
             if env_file.exists():
-                new_state = self._merge_dicts(new_state, self._read_yaml(env_file))
+                env_data = self._read_yaml(env_file)
+                new_file_states[env_file.stem] = env_data
+                new_file_paths[env_file.stem] = str(env_file)
+                new_state = self._merge_dicts(new_state, env_data)
             if local_file.exists():
-                new_state = self._merge_dicts(new_state, self._read_yaml(local_file))
-            
+                local_data = self._read_yaml(local_file)
+                new_file_states[local_file.stem] = local_data
+                new_file_paths[local_file.stem] = str(local_file)
+                new_state = self._merge_dicts(new_state, local_data)
+
             old_state = self._state
             self._state = new_state  # Atomic pointer swap for thread safety
-            
+            self._file_states = new_file_states
+            self._file_paths = new_file_paths
+
             if trigger_callbacks:
                 self._notify_subscribers(old_state, new_state)
         except Exception as e:
@@ -238,6 +256,64 @@ class ConfigManager:
                     self._observer.schedule(LocalConfigHandler(self), str(parent_dir), recursive=False)
         # trigger a reload to bring the new file in
         self._load_configs(trigger_callbacks=True)
+
+    def get_all_file_states(self) -> list[Dict[str, Any]]:
+        """Return per-file config info as a list of entries.
+
+        Each entry has shape: ``{"fileName": str, "filePath": str, "contents": dict}``
+        so callers can identify the source file, display it, and POST updates using fileName.
+        """
+        return [
+            {
+                "fileName": stem,
+                "filePath": self._file_paths.get(stem, ""),
+                "contents": data,
+            }
+            for stem, data in self._file_states.items()
+        ]
+
+    def update_yaml_file(self, filename: str, updates: Dict[str, Any]) -> None:
+        """Deep-merge *updates* into the on-disk YAML file identified by *filename* stem.
+
+        Only files that are already tracked (registered or base) are writable.
+        The watchdog detects the write and triggers a reload in all containers.
+        Raises ValueError for unknown or path-traversal filenames.
+        Raises FileNotFoundError if the resolved file does not exist on disk.
+        """
+        # Allowlist: base + every registered file stem
+        allowed_stems = {Path(CONFIG_BASE_FILENAME).stem} | {f.stem for f in self._registered_files}
+        if filename not in allowed_stems:
+            raise ValueError(
+                f"Unknown config file '{filename}'. Allowed: {sorted(allowed_stems)}"
+            )
+
+        # Resolve path strictly within _config_dir or registered file dirs
+        candidate: Optional[Path] = None
+        if filename == Path(CONFIG_BASE_FILENAME).stem:
+            candidate = self._config_dir / CONFIG_BASE_FILENAME
+        else:
+            for reg in self._registered_files:
+                if reg.stem == filename:
+                    candidate = reg
+                    break
+
+        if candidate is None or not candidate.exists():
+            raise FileNotFoundError(f"Config file for '{filename}' not found on disk.")
+
+        # Read → deep-merge → write atomically via temp file
+        existing = self._read_yaml(candidate)
+        merged = self._merge_dicts(existing, updates)
+
+        tmp_path = candidate.with_suffix(".yaml.tmp")
+        try:
+            with open(tmp_path, "w", encoding="utf-8") as fh:
+                yaml.dump(merged, fh, default_flow_style=False, allow_unicode=True, sort_keys=False)
+            tmp_path.replace(candidate)  # atomic on POSIX
+        except Exception:
+            tmp_path.unlink(missing_ok=True)
+            raise
+
+        logger.info(f"Config file updated on disk: {candidate.name} — watchdog reload will follow.")
 
     def shutdown(self) -> None:
         """Clean shutdown of watchdog and timers."""

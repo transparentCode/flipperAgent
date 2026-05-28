@@ -1,3 +1,4 @@
+import os
 import uvicorn
 from libs.common.config import ConfigManager
 from libs.common.enums import SystemComponent
@@ -7,7 +8,12 @@ def main():
     config_manager = ConfigManager()
 
     log_level = config_manager.get("logging.level", default="INFO")
-    configure_logging(level=log_level, enable_file_logging=True)
+    configure_logging(
+        level=log_level,
+        enable_file_logging=True,
+        console_format=os.environ.get("LOG_FORMAT", "json"),
+        log_file=os.environ.get("LOG_FILE"),
+    )
     
     logger = bind_logger(component=SystemComponent.DATA_INGESTION_ENGINE)
     

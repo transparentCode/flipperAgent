@@ -4,7 +4,7 @@ description: "Use for final merge-readiness and sign-off review after implementa
 argument-hint: "Reviewed implementation summary, findings, or candidate change for final approval"
 user-invocable: false
 model: "GPT-5.4-Xhigh"
-tools: [vscode, execute, read, agent, search, 'gitnexus/*', 'pylance-mcp-server/*', 'automem/*', 'memoir/*', todo]
+tools: [vscode, execute, read, agent, search, web, 'automem/*', 'gitnexus/*', 'memoir/*', 'pylance-mcp-server/*', todo]
 handoffs:
   - label: Send Back to Reviewer
     agent: Quant Review Agent

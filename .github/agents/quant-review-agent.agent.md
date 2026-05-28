@@ -4,7 +4,7 @@ description: "Use for reviewing implementation output against the approved quant
 argument-hint: "Implementation diff, coder output, or execution handoff to review"
 user-invocable: false
 model: "GPT-5.4-Xhigh"
-tools: [vscode, execute, read, agent, search, 'gitnexus/*', 'pylance-mcp-server/*', 'automem/*', 'memoir/*', todo]
+tools: [vscode, execute, read, agent, search, web, 'automem/*', 'gitnexus/*', 'memoir/*', 'pylance-mcp-server/*', todo]
 handoffs:
   - label: Send Back to Coder
     agent: Coder Agent

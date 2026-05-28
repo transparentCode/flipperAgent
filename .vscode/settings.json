@@ -1,5 +1,7 @@
 {
     "python-envs.defaultEnvManager": "ms-python.python:system",
     "python-envs.defaultPackageManager": "ms-python.python:pip",
-    "github.copilot.chat.codeGeneration.useInstructionFiles": true
+    "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+    "chat.mcp.gallery.enabled": true,
+    "chat.mcp.assisted.nuget.enabled": true
 }

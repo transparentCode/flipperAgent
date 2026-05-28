@@ -52,6 +52,7 @@ nav:
   - Home: index.md
   - Architecture:
     - Best Practices: best_practices.md
+    - Docker Topology: docker_topology.md
     - Decision Records: adr/index.md
   - Components:
     - Ingestion: ingestion.md
