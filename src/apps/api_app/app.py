@@ -23,6 +23,7 @@ from apps.api_app.routers import config as config_router
 from apps.api_app.routers import health as health_router
 from apps.api_app.routers import ingestion as ingestion_router
 from apps.api_app.routers import signal as signal_router
+from apps.api_app.routers import strategy as strategy_router
 
 logger = bind_logger(__name__, system_component=SystemComponent.CORE_INFRASTRUCTURE)
 
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
     app.include_router(config_router.router)
     app.include_router(ingestion_router.router)
     app.include_router(signal_router.router)
+    app.include_router(strategy_router.router)
     return app
 
 

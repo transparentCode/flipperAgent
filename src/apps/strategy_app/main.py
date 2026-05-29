@@ -38,14 +38,20 @@ async def _run() -> None:
     # --- Connection setup ---
     redis_client = await create_valkey_client(config_mgr)
 
+    tasks: list[asyncio.Task] = []
     try:
-        tasks = []
         for asset, tf in pairs:
             worker = StrategyWorker(asset, tf)
             await worker.connect(redis_client)
             tasks.append(asyncio.create_task(worker.start()))
 
         await asyncio.gather(*tasks)
+    except BaseException:
+        for t in tasks:
+            t.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        raise
     finally:
         await redis_client.aclose()
 

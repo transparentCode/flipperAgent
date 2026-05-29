@@ -85,6 +85,14 @@ class StrategyWorker(BaseStreamConsumer):
             feature_vec=feature_vec,
         )
 
+        bar_close = feature_vec.bar_data.get("close")
+        if not bar_close:
+            logger.error(
+                f"FeatureVector missing close price for {feature_vec.asset}/{feature_vec.timeframe} "
+                f"at ts={feature_vec.timestamp} — skipping signal publication"
+            )
+            return
+
         for result in selected:
             candidate = result.candidate
             signal = TradeSignal(
@@ -93,7 +101,7 @@ class StrategyWorker(BaseStreamConsumer):
                 timestamp=candidate.timestamp,
                 direction=candidate.direction,
                 conviction=candidate.conviction,
-                price=feature_vec.bar_data.get("close", 0.0),
+                price=bar_close,
                 idempotency_key=self._make_idempotency_key(
                     candidate.model_name, candidate.asset,
                     candidate.timeframe, candidate.timestamp,
