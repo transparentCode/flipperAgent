@@ -20,6 +20,9 @@ from libs.common.logging.logger_utils import bind_logger
 logger = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_ENGINE)
 
 _STATE_KEY_PREFIX = "ingestion:state"
+_DISCONNECT_TS_PREFIX = "ingestion:disconnect_ts"
+_LAST_LIVE_TS_PREFIX = "ingestion:last_live_ts"
+_DISCONNECT_COUNT_PREFIX = "ingestion:disconnect_count"
 
 
 class IngestionState(str, Enum):
@@ -56,6 +59,18 @@ class IngestionCoordinator:
     def _state_key(symbol: str, tf: str) -> str:
         return f"{_STATE_KEY_PREFIX}:{symbol}:{tf}"
 
+    @staticmethod
+    def _disconnect_ts_key(symbol: str, tf: str) -> str:
+        return f"{_DISCONNECT_TS_PREFIX}:{symbol}:{tf}"
+
+    @staticmethod
+    def _last_live_ts_key(symbol: str, tf: str) -> str:
+        return f"{_LAST_LIVE_TS_PREFIX}:{symbol}:{tf}"
+
+    @staticmethod
+    def _disconnect_count_key(symbol: str, tf: str) -> str:
+        return f"{_DISCONNECT_COUNT_PREFIX}:{symbol}:{tf}"
+
     # ------------------------------------------------------------------ public API
 
     async def get_state(self, symbol: str, tf: str) -> IngestionState:
@@ -69,9 +84,51 @@ class IngestionCoordinator:
             return IngestionState.COLD
 
     async def transition(self, symbol: str, tf: str, state: IngestionState) -> None:
-        """Write a state transition to Valkey and emit a log line."""
+        """Write a state transition to Valkey and emit a log line.
+
+        Side-effects on specific states:
+        - LIVE  → records last_live_ts
+        - COLD  → records disconnect_ts, increments rolling disconnect counter
+                   (counter TTL = ingestion.observability.disconnect_window_seconds)
+        """
+        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
         await self._valkey.set(self._state_key(symbol, tf), state.value)
+
+        if state == IngestionState.LIVE:
+            await self._valkey.set(self._last_live_ts_key(symbol, tf), str(now_ms))
+
+        elif state == IngestionState.COLD:
+            await self._valkey.set(self._disconnect_ts_key(symbol, tf), str(now_ms))
+            window_s: int = self._config.get(
+                "ingestion.observability.disconnect_window_seconds", 3600
+            )
+            count_key = self._disconnect_count_key(symbol, tf)
+            count = await self._valkey.incr(count_key)
+            if count == 1:
+                # First increment in this window — set the TTL
+                await self._valkey.expire(count_key, window_s)
+
         logger.info(f"[{symbol}:{tf}] ingestion state → {state.value}")
+
+    async def get_disconnect_count(self, symbol: str, tf: str) -> int:
+        """Return the number of COLD transitions within the current disconnect window."""
+        raw = await self._valkey.get(self._disconnect_count_key(symbol, tf))
+        return int(raw) if raw is not None else 0
+
+    async def get_observability_snapshot(self, symbol: str, tf: str) -> dict:
+        """Return a per-asset observability dict suitable for the /ingestion/status endpoint."""
+        state_raw, disconnect_ts_raw, last_live_ts_raw, count_raw = await asyncio.gather(
+            self._valkey.get(self._state_key(symbol, tf)),
+            self._valkey.get(self._disconnect_ts_key(symbol, tf)),
+            self._valkey.get(self._last_live_ts_key(symbol, tf)),
+            self._valkey.get(self._disconnect_count_key(symbol, tf)),
+        )
+        return {
+            "state": state_raw or IngestionState.COLD.value,
+            "last_live_ts": int(last_live_ts_raw) if last_live_ts_raw else None,
+            "last_disconnect_ts": int(disconnect_ts_raw) if disconnect_ts_raw else None,
+            "disconnects_in_window": int(count_raw) if count_raw else 0,
+        }
 
     async def is_stale(self, symbol: str, tf: str) -> bool:
         """Single authoritative staleness check.

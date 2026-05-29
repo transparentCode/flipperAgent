@@ -144,7 +144,21 @@ async def run_websocket_pipeline(
                         logger.info(f"[{symbol}] Enqueued gap-fill task after WS disconnect")
                     except Exception as gf_err:
                         logger.warning(f"[{symbol}] Failed to enqueue gap-fill: {gf_err}")
-                await asyncio.sleep(reconnect_sleep_seconds)
+
+                # Circuit breaker: escalate sleep if disconnect rate exceeds threshold
+                sleep_s = reconnect_sleep_seconds
+                if coordinator:
+                    cb_threshold = config_manager.get("ingestion.observability.circuit_breaker_threshold", 5)
+                    cb_sleep = config_manager.get("ingestion.observability.circuit_breaker_sleep_seconds", 300)
+                    disconnect_count = await coordinator.get_disconnect_count(symbol, base_timeframe)
+                    if disconnect_count >= cb_threshold:
+                        logger.critical(
+                            f"[{symbol}] Circuit breaker triggered: {disconnect_count} disconnects "
+                            f"in window. Backing off for {cb_sleep}s."
+                        )
+                        sleep_s = cb_sleep
+
+                await asyncio.sleep(sleep_s)
     finally:
         if redis_client is not None:
             await redis_client.aclose()
@@ -199,6 +213,7 @@ async def lifespan(app: FastAPI):
     await redis_client.aclose()
 
 app = FastAPI(lifespan=lifespan)
+
 
 @app.get("/health")
 async def health_check():
