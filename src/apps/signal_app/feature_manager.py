@@ -85,8 +85,8 @@ class FeatureManager:
         # Disambiguate by counting commas in the type string
         type_str = str(new_value_type)
         comma_count = type_str.count(",")
-        if comma_count >= 4:  # 5+ floats = full candle (open, high, low, close, volume)
-            return data[:5]
+        if comma_count >= 4:  # 5+ floats = HLCV + timestamp (e.g. VWAP)
+            return data[1:6]
         elif comma_count >= 3:  # 4 floats = HLCV
             return (data[1], data[2], data[3], data[4])
         elif comma_count >= 2:  # 3 floats = HLC candle

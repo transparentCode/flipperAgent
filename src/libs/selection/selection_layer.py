@@ -62,7 +62,7 @@ class SelectionLayer:
             )
             builder = _STRATEGY_MAP["overlap_penalized_top_k"]
 
-        self._strategy = builder() if callable(builder) and not isinstance(builder, type) else builder()
+        self._strategy = builder()
         logger.info(
             f"SelectionLayer initialized for {self.asset}/{self.timeframe} "
             f"with strategy={strategy_name}"

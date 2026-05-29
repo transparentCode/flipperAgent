@@ -112,10 +112,4 @@ class SignalAggregator:
         """
         return list(signals)
 
-    def _independent(
-        self,
-        signals: list[TradeSignal],
-        tf_weights: dict[str, float],
-    ) -> list[TradeSignal]:
-        """No aggregation — return all signals."""
-        return list(signals)
+

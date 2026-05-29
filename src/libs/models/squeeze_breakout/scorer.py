@@ -14,22 +14,7 @@ from libs.features.indicators.momentum.linreg import _compute_linreg_batch
 from libs.models.base import ModelMeta
 from libs.models.scoring_base import ScoringModel
 from libs.models.registry import ModelRegistry
-
-
-def _sma_series(arr: np.ndarray, period: int) -> np.ndarray:
-    """Simple moving average over a 1-D array, returns NaN for warmup."""
-    out = np.full(len(arr), np.nan)
-    if len(arr) < period:
-        return out
-    cs = np.cumsum(arr)
-    cs = np.insert(cs, 0, 0.0)
-    out[period - 1:] = (cs[period:] - cs[:-period]) / period
-    return out
-
-
-def _rolling_linreg(data: np.ndarray, period: int) -> np.ndarray:
-    """Rolling linear-regression value, delegates to the njit kernel."""
-    return _compute_linreg_batch(data, period)
+from libs.models.squeeze_breakout.math_utils import rolling_linreg as _rolling_linreg
 
 
 @ModelRegistry.register("SqueezeBreakoutScorer")

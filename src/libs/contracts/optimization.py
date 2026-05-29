@@ -63,6 +63,32 @@ class OptimizationConfig(BaseModel):
     schedules: dict[str, ScheduleEntry] = Field(default_factory=dict)
 
 
+class ScreeningSummary(BaseModel):
+    """Summary of Stage 1 importance screening."""
+    screening_trials: int
+    importance_threshold: float
+    importances: dict[str, float]
+    frozen_params: dict[str, Any]
+    active_params: list[str]
+    total_params: int
+    reduced_params: int
+
+
+class TwoStageResult(BaseModel):
+    """Output of the two-stage automated optimization pipeline."""
+    model_name: str
+    asset: str
+    timeframe: str
+    best_params: dict[str, Any]
+    deployed: bool
+    rejection_reason: Optional[str] = None
+    screening: ScreeningSummary
+    oos_metrics: dict[str, dict[str, float]]
+    default_params: dict[str, Any]
+    stage2_best_score: Optional[float] = None
+    stage2_n_trials: int = 0
+
+
 __all__ = [
     "StudyConfig",
     "TrialResult",
@@ -70,4 +96,6 @@ __all__ = [
     "ScheduleEntry",
     "OptimizationDefaults",
     "OptimizationConfig",
+    "ScreeningSummary",
+    "TwoStageResult",
 ]

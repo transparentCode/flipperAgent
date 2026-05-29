@@ -79,6 +79,9 @@ class VWAP(Indicator[Tuple[float, float, float, float, float], float]):
         arr = np.array(historical_data, dtype=np.float64)
         timestamp = arr[:, 4]
         
+        # Normalise millisecond timestamps to seconds for day-boundary math
+        if timestamp[-1] > 1e12:
+            timestamp = timestamp / 1000.0
         last_day = int((timestamp[-1] - self.anchor_offset) / 86400)
         
         cum_pv = 0.0
@@ -106,6 +109,9 @@ class VWAP(Indicator[Tuple[float, float, float, float, float], float]):
             raise RuntimeError("Indicator must be primed before update() can be called.")
             
         high, low, close, volume, timestamp = new_value
+        # Normalise millisecond timestamps to seconds for day-boundary math
+        if timestamp > 1e12:
+            timestamp = timestamp / 1000.0
         day = int((timestamp - self.anchor_offset) / 86400)
         
         if day != self.current_day:

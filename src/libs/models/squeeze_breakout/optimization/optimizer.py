@@ -131,8 +131,11 @@ def post_process_params(params: dict[str, Any]) -> dict[str, Any]:
     """Round integer params, enforce constraints."""
     result = dict(params)
     for key in (
-        "kama_period", "kama_fast", "kama_slow",
+        "kama_fast_period", "kama_slow_period",
         "mom_period", "squeeze_lookback", "ss_threshold",
+        "cci_period", "adx_period", "ad_sma_period",
+        "mfi_period", "mfi_sma_period",
+        "mom_lr_period", "mom_lr_mom_period",
     ):
         if key in result:
             result[key] = int(round(result[key]))

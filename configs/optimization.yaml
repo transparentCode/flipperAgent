@@ -8,6 +8,11 @@ optimization:
       oos_ratio: 0.20
       purge_bars: 24
     convergence_patience: 50
+    two_stage:
+      screening_trials: 50
+      importance_threshold: 0.05
+      oos_sharpe_ratio: 0.50
+      seed: 42
 
   schedules:
     MeanReversion:

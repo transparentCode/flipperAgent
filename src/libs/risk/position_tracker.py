@@ -81,9 +81,14 @@ class PositionTracker:
     # ------------------------------------------------------------------
 
     def check_sl_tp(self, asset: str, current_price: float) -> list[PositionState]:
-        """Return positions that have hit their SL or TP at *current_price*."""
+        """Return positions that have hit their SL or TP at *current_price*.
+
+        Skips multi-TP positions — those are handled by check_sl_tp_hlc_multi.
+        """
         hit: list[PositionState] = []
         for pos in self.positions.get(asset, []):
+            if pos.tp_levels:
+                continue
             if pos.stop_loss_price is not None:
                 if pos.direction == 1 and current_price <= pos.stop_loss_price:
                     hit.append(pos)
@@ -108,9 +113,12 @@ class PositionTracker:
 
         Uses *low* for long SL and short TP, *high* for long TP and short SL.
         When both SL and TP are hit on the same bar, TP takes priority.
+        Skips multi-TP positions — those are handled by check_sl_tp_hlc_multi.
         """
         hit: list[PositionState] = []
         for pos in self.positions.get(asset, []):
+            if pos.tp_levels:
+                continue
             tp_hit = False
             sl_hit = False
 
