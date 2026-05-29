@@ -104,5 +104,18 @@ class SignalAggregator:
         signals: list[TradeSignal],
         tf_weights: dict[str, float],
     ) -> list[TradeSignal]:
+        """Pass all signals through independently — no aggregation or conflict resolution.
+
+        Each signal is evaluated by RiskEngine separately, allowing multiple
+        concurrent positions from different timeframes for the same asset.
+        Returns the full list; caller receives list[TradeSignal] instead of TradeSignal.
+        """
+        return list(signals)
+
+    def _independent(
+        self,
+        signals: list[TradeSignal],
+        tf_weights: dict[str, float],
+    ) -> list[TradeSignal]:
         """No aggregation — return all signals."""
         return list(signals)

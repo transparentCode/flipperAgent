@@ -69,7 +69,11 @@ async def test_rate_limit_backoff_validation(base_worker_ctx, mock_ccxt_adapter,
         nonlocal call_count
         call_count += 1
         if call_count <= 2:
-            raise ccxt.RateLimitExceeded("Simulated 429 Rate Limit")
+            from libs.common.exceptions import DataIngestionError
+            raise DataIngestionError(
+                "Simulated 429 Rate Limit",
+                context={"symbol": "ETH/USDT"},
+            )
         return mock_df
         
     mock_ccxt_adapter.get_historical_ohlcv.side_effect = mock_get_historical_ohlcv

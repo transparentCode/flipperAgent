@@ -56,8 +56,12 @@ async def _run() -> None:
         logger.info(f"Spawned {len(tasks)} portfolio workers")
 
         await asyncio.gather(*tasks)
-    except asyncio.CancelledError:
-        logger.info("Portfolio app shutting down")
+    except BaseException:
+        for t in tasks:
+            t.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        raise
     finally:
         await redis_client.aclose()
         await DBPoolManager.close_pools()

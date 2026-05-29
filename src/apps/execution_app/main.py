@@ -76,9 +76,23 @@ async def _run() -> None:
 
     # Build shared components
     idem_cfg = exec_config.get("idempotency", {})
-    idempotency_store = IdempotencyStore(
-        max_size=idem_cfg.get("max_memory_keys", 10_000),
-    )
+    max_memory_keys = idem_cfg.get("max_memory_keys", 10_000)
+    persist_to_db = idem_cfg.get("persist_to_db", False)
+
+    # Restore idempotency keys from DB if persistence is enabled.
+    # This prevents re-executing orders that were already filled but whose
+    # stream messages were unacked at crash time (still in the PEL).
+    if persist_to_db:
+        try:
+            reader_pool = DBPoolManager.get_reader_pool()
+            idempotency_store = await IdempotencyStore.load(reader_pool, max_size=max_memory_keys)
+            logger.info(f"Restored {len(idempotency_store._seen)} idempotency keys from DB")
+        except Exception:
+            logger.warning("Could not load idempotency keys from DB — starting empty", exc_info=True)
+            idempotency_store = IdempotencyStore(max_size=max_memory_keys)
+    else:
+        idempotency_store = IdempotencyStore(max_size=max_memory_keys)
+
     fill_tracker = FillTracker()
     order_manager = OrderManager(
         executor=executor,
@@ -86,9 +100,9 @@ async def _run() -> None:
         fill_tracker=fill_tracker,
     )
 
+    tasks: list[asyncio.Task] = []
     try:
         # Spawn one ExecutionWorker per asset
-        tasks = []
         for asset in assets:
             worker = ExecutionWorker(
                 asset=asset,
@@ -99,7 +113,22 @@ async def _run() -> None:
             tasks.append(asyncio.create_task(worker.start()))
 
         await asyncio.gather(*tasks)
+    except BaseException:
+        for t in tasks:
+            t.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        raise
     finally:
+        # Persist idempotency keys so the next startup can dedup PEL replays.
+        if persist_to_db:
+            try:
+                writer_pool = DBPoolManager.get_writer_pool()
+                await idempotency_store.save(writer_pool)
+                logger.info("Idempotency keys persisted to DB")
+            except Exception:
+                logger.warning("Could not persist idempotency keys to DB", exc_info=True)
+
         await redis_client.aclose()
         await DBPoolManager.close_pools()
 

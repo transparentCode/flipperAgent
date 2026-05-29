@@ -2,6 +2,8 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
+from apps.ingestion_app.coordination import IngestionCoordinator
+
 @pytest.fixture
 def mock_asyncpg_pool():
     pool = MagicMock()
@@ -34,8 +36,11 @@ def patch_db_pool_manager(mock_asyncpg_pool, mocker):
 
 @pytest.fixture
 def base_worker_ctx(mock_asyncpg_pool, mock_ccxt_adapter):
+    coordinator = MagicMock(spec=IngestionCoordinator)
+    coordinator.transition = AsyncMock()
     return {
         "job_id": "test_job_123",
         "ccxt_adapter": mock_ccxt_adapter,
-        "binance_adapter": AsyncMock()
+        "binance_adapter": AsyncMock(),
+        "coordinator": coordinator,
     }

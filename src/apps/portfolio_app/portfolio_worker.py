@@ -90,6 +90,7 @@ class PortfolioWorker(BaseStreamConsumer):
         )
 
         # Process closed trades
+        total_commission = sum(f.commission for f in report.fills)
         for ct in closed_trades:
             wm_key = (ct.asset, ct.entry_time, ct.entry_price)
             watermarks = self._position_watermarks.get(wm_key, {})
@@ -108,6 +109,16 @@ class PortfolioWorker(BaseStreamConsumer):
                 mae_pct = 0.0
                 mfe_pct = 0.0
 
+            # Proportional commission: this closed trade's share of the fill's total commission.
+            # When one fill closes multiple FIFO entries, each entry should only bear its
+            # fraction of the commission; assigning the full commission to every entry would
+            # inflate commission_total by len(closed_trades)×.
+            commission_share = (
+                ct.size / report.filled_size * total_commission
+                if report.filled_size > 0
+                else 0.0
+            )
+
             closed = ClosedTrade(
                 trade_id=uuid.uuid4().hex,
                 asset=report.asset,
@@ -117,7 +128,7 @@ class PortfolioWorker(BaseStreamConsumer):
                 size=ct.size,
                 realized_pnl=ct.pnl,
                 realized_pnl_pct=pnl_pct,
-                commission_total=sum(f.commission for f in report.fills),
+                commission_total=commission_share,
                 slippage_bps=report.slippage_bps,
                 entry_timestamp=ct.entry_time,
                 exit_timestamp=ct.exit_time,
@@ -130,7 +141,9 @@ class PortfolioWorker(BaseStreamConsumer):
                 mfe_pct=mfe_pct,
             )
             await self.trade_journal.save_closed_trade(closed)
-            self._balance += ct.pnl
+            # Net PnL: gross position PnL minus proportional commission paid on the exit.
+            # Without this deduction, _balance drifts above the true net-of-commission equity.
+            self._balance += ct.pnl - commission_share
             logger.info(f"Recorded closed trade — {report.asset} pnl={ct.pnl:.4f}")
 
         # Determine which positions are still active

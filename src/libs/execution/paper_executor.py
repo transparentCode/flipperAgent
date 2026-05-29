@@ -111,13 +111,26 @@ class PaperExecutor(BaseExecutor):
             pos["size"] += order.size
             pos["avg_price"] = (old_notional + notional) / pos["size"] if pos["size"] > 0 else 0.0
             self._positions[order.asset] = pos
-        else:
+        else:  # sell
             self._balance["USDT"] += notional - commission
             pos = self._positions.get(order.asset)
             if pos:
+                # Close or reduce an existing long
                 pos["size"] -= order.size
                 if pos["size"] <= 1e-12:
                     del self._positions[order.asset]
+            else:
+                # Opening or increasing a short position (size stored as negative)
+                short_pos = self._positions.get(
+                    order.asset, {"asset": order.asset, "size": 0.0, "avg_price": 0.0}
+                )
+                old_notional = abs(short_pos["size"]) * short_pos["avg_price"]
+                short_pos["size"] -= order.size  # goes more negative
+                total_short = abs(short_pos["size"])
+                short_pos["avg_price"] = (
+                    (old_notional + notional) / total_short if total_short > 0 else 0.0
+                )
+                self._positions[order.asset] = short_pos
 
         logger.info(
             f"Paper fill: {order.asset} {order.side} {order.size:.6f} "

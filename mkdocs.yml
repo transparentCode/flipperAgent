@@ -56,4 +56,9 @@ nav:
     - Decision Records: adr/index.md
   - Components:
     - Ingestion: ingestion.md
+    - Signal App: signal_app.md
+    - Strategy App: strategy_app.md
+    - Risk App: risk_app.md
+    - Execution App: execution_app.md
+    - Portfolio App: portfolio_app.md
     - TradingView Scraper: tv_scraper.md

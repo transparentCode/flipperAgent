@@ -82,6 +82,8 @@ class OrderManager:
             return f"Invalid order size: {order.size}"
         if order.side not in {"buy", "sell"}:
             return f"Invalid order side: {order.side}"
+        if order.requested_price <= 0:
+            return f"Invalid order price: {order.requested_price}"
         return ""
 
     @staticmethod

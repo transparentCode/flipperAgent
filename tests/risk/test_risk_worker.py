@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -24,7 +25,7 @@ def _make_signal(**overrides) -> TradeSignal:
     defaults = dict(
         asset="BTCUSDT",
         timeframe="1h",
-        timestamp=1_700_000_000.0,
+        timestamp=time.time(),
         direction=1,
         conviction=0.8,
         price=50_000.0,
@@ -156,14 +157,15 @@ class TestProcessSignalBatch:
 
     @pytest.mark.asyncio
     async def test_sl_tp_triggers_order(self) -> None:
-        """Position with stop_loss hit at current price → xadd called for SL/TP."""
-        from libs.contracts.schemas import PositionState
+        """Position with stop_loss hit at current price → xadd called for SL/TP.
+
+        SL/TP monitoring lives in _process_price_update (fired on every bar),
+        NOT in _process_signal_batch.
+        """
+        from libs.contracts.schemas import PositionState, PriceUpdate, valkey_encode
 
         worker = _make_worker()
         worker.redis_client = AsyncMock()
-
-        signal = _make_signal(price=48_000.0)  # price below stop
-        worker.signal_aggregator.aggregate.return_value = None  # no aggregated signal
 
         # Pre-populate a long position with a stop-loss that will be hit
         pos = PositionState(
@@ -181,7 +183,19 @@ class TestProcessSignalBatch:
         )
         worker.positions.positions["BTCUSDT"].append(pos)
 
-        await worker._process_signal_batch([signal])
+        # Send a price update where low breaches stop_loss
+        price_payload = valkey_encode(PriceUpdate(
+            asset="BTCUSDT",
+            timeframe="1h",
+            timestamp=time.time(),
+            open=49_500.0,
+            high=49_800.0,
+            low=48_000.0,
+            close=48_500.0,
+            volume=100.0,
+        ))
+
+        await worker._process_price_update(price_payload)
 
         # SL/TP triggered → should have published an order
         worker.redis_client.xadd.assert_called_once()

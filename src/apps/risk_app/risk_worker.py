@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any
 
 from libs.common.enums import SystemComponent
@@ -81,6 +82,8 @@ class RiskWorker(BaseStreamConsumer):
             logger.warning("No redis client. Running in mock mode.")
             return
 
+        await self._drain_signal_pel()
+
         signal_streams = {key: ">" for key in self.signal_stream_keys}
         price_streams = {key: ">" for key in self.price_stream_keys}
         price_stream_set = set(self.price_stream_keys)
@@ -111,11 +114,11 @@ class RiskWorker(BaseStreamConsumer):
                         for message_id, payload in messages:
                             try:
                                 await self._process_price_update(payload)
+                                await self.redis_client.xack(
+                                    stream_name, self.price_group_name, message_id,
+                                )
                             except Exception as e:
-                                logger.error(f"Failed to process price update: {e}")
-                            await self.redis_client.xack(
-                                stream_name, self.price_group_name, message_id,
-                            )
+                                logger.error(f"Failed to process price update: {e}", exc_info=True)
 
                 if not response:
                     continue
@@ -148,54 +151,81 @@ class RiskWorker(BaseStreamConsumer):
         """Not used — RiskWorker overrides run() for batch processing."""
         raise NotImplementedError("RiskWorker uses batch processing via run()")
 
+    async def _drain_signal_pel(self) -> None:
+        """Re-claim and reprocess any signal messages left in the PEL from a previous crash.
+
+        Price-update streams are not drained — price heartbeats are ephemeral and
+        replaying them after a crash offers no value.
+        """
+        for stream_key in self.signal_stream_keys:
+            try:
+                next_id = "0-0"
+                while True:
+                    result = await self.redis_client.xautoclaim(
+                        stream_key,
+                        self.group_name,
+                        self.consumer_name,
+                        min_idle_time=0,
+                        start_id=next_id,
+                        count=self.batch_size,
+                    )
+                    next_id, pending_messages, _ = result
+                    if not pending_messages:
+                        break
+
+                    signals: list[TradeSignal] = []
+                    ack_ids: list[str] = []
+                    for message_id, data in pending_messages:
+                        try:
+                            signals.append(self._decode_signal(data))
+                        except Exception as e:
+                            logger.error(f"Failed to decode PEL signal {message_id}: {e}")
+                        ack_ids.append(message_id)
+
+                    if signals:
+                        await self._process_signal_batch(signals)
+                    for mid in ack_ids:
+                        await self.redis_client.xack(stream_key, self.group_name, mid)
+
+                    if next_id == "0-0":
+                        break
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.warning(
+                    f"PEL drain failed for {stream_key} — skipping, proceeding to live stream",
+                    exc_info=True,
+                )
+
     # ------------------------------------------------------------------
     # Processing
     # ------------------------------------------------------------------
 
     async def _process_signal_batch(self, signals: list[TradeSignal]) -> None:
-        """MTF aggregation -> RiskEngine.assess() -> publish or reject."""
+        """MTF aggregation -> RiskEngine.assess() -> publish or reject.
+
+        SL/TP monitoring is handled exclusively by _process_price_update() via the
+        price_update stream, which fires on every bar. Do NOT duplicate that check
+        here — it would cause double close-orders for the same bar.
+        """
 
         # Check daily reset
         if signals:
             await self.account.check_daily_reset(signals[0].timestamp)
 
-        # --- SL/TP monitoring ---
-        if signals:
-            price = signals[0].price
-            metadata = signals[0].metadata or {}
-            high = metadata.get("bar_high", price)
-            low = metadata.get("bar_low", price)
-            self.positions.update_prices(self.asset, price)
-            self.positions.update_trailing_stops(self.asset, price)
-
-            hit_positions = self.positions.check_sl_tp_hlc(self.asset, high, low, price)
-            for pos in hit_positions:
-                close_side = "sell" if pos.direction == 1 else "buy"
-                order = OrderExecutionRequest(
-                    asset=self.asset,
-                    side=close_side,
-                    size=pos.size,
-                    order_type="market",
-                    timestamp=signals[0].timestamp,
-                    requested_price=price,
-                    idempotency_key=f"sl_tp_{self.asset}_{int(pos.entry_timestamp)}",
-                    stop_loss_price=None,
-                    take_profit_price=None,
-                    model_name=pos.source_model,
-                    source_timeframe=pos.source_timeframe,
+        # Drop signals older than signal_timeout_seconds
+        timeout_secs = self.risk_config.get("mtf", {}).get("signal_timeout_seconds", 300)
+        if timeout_secs > 0:
+            now = time.time()
+            fresh = [s for s in signals if now - s.timestamp <= timeout_secs]
+            if len(fresh) < len(signals):
+                logger.warning(
+                    f"Dropped {len(signals) - len(fresh)} stale signal(s) for {self.asset} "
+                    f"(timeout={timeout_secs}s)",
                 )
-                if self.redis_client:
-                    await self.redis_client.xadd(
-                        self.order_stream_key,
-                        valkey_encode(order),
-                        maxlen=5000,
-                        approximate=True,
-                    )
-                    logger.info(
-                        f"SL/TP triggered for {self.asset}: "
-                        f"closing {'long' if pos.direction == 1 else 'short'} "
-                        f"position @ {price:.4f}",
-                    )
+            signals = fresh
+        if not signals:
+            return
 
         # Determine conflict resolution strategy from config
         mtf_config = self.risk_config.get("mtf", {})

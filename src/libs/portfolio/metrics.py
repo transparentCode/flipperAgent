@@ -68,19 +68,19 @@ def compute_max_drawdown(
         return 0.0, 0.0
 
     peak = equity_points[0].equity
-    peak_ts = equity_points[0].timestamp
     max_dd_pct = 0.0
     max_dd_duration = 0.0
     current_dd_start_ts = equity_points[0].timestamp
 
     for pt in equity_points:
         if pt.equity >= peak:
-            # New peak — record recovery duration
+            # Recovered to a new peak — record duration of the preceding drawdown.
+            # No guard on initial equity: a strategy that never exceeds its starting
+            # equity still has real drawdown durations worth tracking.
             duration = pt.timestamp - current_dd_start_ts
-            if duration > max_dd_duration and peak > equity_points[0].equity:
+            if duration > max_dd_duration:
                 max_dd_duration = duration
             peak = pt.equity
-            peak_ts = pt.timestamp
             current_dd_start_ts = pt.timestamp
         else:
             dd_pct = (peak - pt.equity) / peak * 100 if peak > 0 else 0.0

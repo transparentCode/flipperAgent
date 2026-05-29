@@ -92,9 +92,9 @@ async def _run() -> None:
     risk_engine = _build_risk_engine(risk_config)
     signal_aggregator = SignalAggregator()
 
+    tasks: list[asyncio.Task] = []
     try:
         # Spawn one RiskWorker per asset
-        tasks = []
         for asset, timeframes in asset_map.items():
             worker = RiskWorker(
                 asset=asset,
@@ -120,6 +120,12 @@ async def _run() -> None:
             tasks.append(asyncio.create_task(listener.start()))
 
         await asyncio.gather(*tasks)
+    except BaseException:
+        for t in tasks:
+            t.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        raise
     finally:
         await redis_client.aclose()
         await DBPoolManager.close_pools()
