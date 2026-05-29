@@ -72,6 +72,13 @@ def create_app() -> FastAPI:
     app.include_router(risk_router.router)
     app.include_router(execution_router.router)
     app.include_router(portfolio_router.router)
+
+    try:
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+        FastAPIInstrumentor.instrument_app(app)
+    except ImportError:
+        pass
+
     return app
 
 

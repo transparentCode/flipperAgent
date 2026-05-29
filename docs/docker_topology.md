@@ -34,6 +34,14 @@ graph TD
         API[api-server\napi_app.main :8080]
     end
 
+    subgraph observability["Observability Stack"]
+        OC[otel-collector\n:4317 gRPC]
+        TMP[Tempo\ntraces]
+        LOK[Loki\nlogs]
+        PRM[Prometheus\nmetrics]
+        GRF[Grafana\n:3000]
+    end
+
     SCH -->|enqueue jobs| BRK
     BRK -->|dequeue| WQ
     BRK -->|dequeue| TV
@@ -48,6 +56,21 @@ graph TD
     EXE -->|fills| PRT
 
     API -->|read/write configs| DB
+
+    WQ  -.->|OTLP| OC
+    WS  -.->|OTLP| OC
+    SIG -.->|OTLP| OC
+    STR -.->|OTLP| OC
+    RSK -.->|OTLP| OC
+    EXE -.->|OTLP| OC
+    PRT -.->|OTLP| OC
+    API -.->|OTLP| OC
+    OC  -->|traces| TMP
+    OC  -->|logs| LOK
+    OC  -->|metrics| PRM
+    TMP --> GRF
+    LOK --> GRF
+    PRM --> GRF
 
     DB  -.->|healthcheck dep| WQ
     DB  -.->|healthcheck dep| WS
@@ -75,6 +98,10 @@ graph LR
         V1[(timescaledb-data)]
         V2[(valkey-data)]
         V3[(flipper-logs)]
+        V4[(tempo-data)]
+        V5[(loki-data)]
+        V6[(prometheus-data)]
+        V7[(grafana-data)]
     end
 
     subgraph bind["Host Bind Mounts"]
@@ -376,6 +403,100 @@ graph LR
 
 ---
 
+### Observability Stack
+
+All 5 observability services run on `flipper-net`. App containers send telemetry to the OTel Collector via OTLP gRPC but do **not** depend on it for startup — if the collector is down, apps continue running and silently drop telemetry.
+
+```mermaid
+graph LR
+    subgraph otel["Observability"]
+        OC["otel-collector\n:4317 gRPC · :4318 HTTP · :8888 metrics"]
+        TMP["Tempo :3200\ntrace storage"]
+        LOK["Loki :3100\nlog aggregation"]
+        PRM["Prometheus :9090\nmetrics TSDB"]
+        GRF["Grafana :3000\ndashboards"]
+    end
+
+    OC -->|OTLP export| TMP
+    OC -->|remote-write| PRM
+    OC -->|push| LOK
+    TMP --> GRF
+    LOK --> GRF
+    PRM --> GRF
+```
+
+#### `otel-collector`
+
+| Property | Value |
+|---|---|
+| Image | `otel/opentelemetry-collector-contrib:0.104.0` |
+| Ports | `127.0.0.1:4317` (gRPC), `:4318` (HTTP), `:8888` (self-metrics) |
+| Config | `configs/observability/otel-collector.yaml` |
+| Resources | 256 M RAM · 0.15 CPU |
+| Healthcheck | `wget http://localhost:13133/` every 15 s |
+| Role | Receives OTLP from all apps; batches and fans out to Tempo (traces), Loki (logs), Prometheus (metrics) |
+
+#### `tempo`
+
+| Property | Value |
+|---|---|
+| Image | `grafana/tempo:2.5.0` |
+| Config | `configs/observability/tempo.yaml` |
+| Volume | `tempo-data:/var/tempo` |
+| Resources | 256 M RAM · 0.1 CPU |
+| Healthcheck | `wget http://localhost:3200/ready` every 15 s |
+| Retention | 72 hours (3 days) |
+| Role | Stores distributed traces; search-by-trace-ID via Grafana |
+
+#### `loki`
+
+| Property | Value |
+|---|---|
+| Image | `grafana/loki:3.1.0` |
+| Config | `configs/observability/loki.yaml` |
+| Volume | `loki-data:/loki` |
+| Resources | 256 M RAM · 0.1 CPU |
+| Healthcheck | `wget http://localhost:3100/ready` every 15 s |
+| Retention | 72 hours (3 days) |
+| Role | Stores structured JSON logs; label-indexed, correlates to traces via `trace_id` |
+
+#### `prometheus`
+
+| Property | Value |
+|---|---|
+| Image | `prom/prometheus:v2.53.0` |
+| Config | `configs/observability/prometheus.yml` |
+| Volume | `prometheus-data:/prometheus` |
+| Resources | 256 M RAM · 0.1 CPU |
+| Healthcheck | `wget http://localhost:9090/-/healthy` every 15 s |
+| Retention | 3 days / 50 MB |
+| Role | Stores metrics received via remote-write from OTel Collector |
+
+#### `grafana`
+
+| Property | Value |
+|---|---|
+| Image | `grafana/grafana:11.1.0` |
+| Port | `127.0.0.1:3000:3000` |
+| Volume | `grafana-data:/var/lib/grafana` |
+| Resources | 256 M RAM · 0.15 CPU |
+| Healthcheck | `wget http://localhost:3000/api/health` every 15 s |
+| Auth | Anonymous viewer access enabled; admin password via `GRAFANA_ADMIN_PASSWORD` env var |
+| Provisioning | Auto-provisions Prometheus, Tempo, Loki datasources + pipeline health dashboard |
+| Depends on | `tempo` (healthy), `loki` (healthy), `prometheus` (healthy) |
+
+#### Trace Propagation
+
+End-to-end traces flow through Valkey stream payloads via W3C `traceparent` injection:
+
+```
+ingestion_app → [_traceparent in XADD] → signal_app → ... → portfolio_app
+```
+
+Each `valkey_encode()` call injects `_traceparent` / `_tracestate` keys into the stream payload. `BaseStreamConsumer.run()` extracts the context and creates a child span, so all hops appear in a single Grafana Tempo waterfall.
+
+---
+
 ## Security Posture
 
 | Container | `read_only` | `no-new-privileges` | Secrets mount |
@@ -392,5 +513,10 @@ graph LR
 | execution-worker | ✅ | ✅ | — |
 | portfolio-worker | ✅ | ✅ | — |
 | api-server | ✅ | ✅ | — |
+| otel-collector | — | — | — |
+| tempo | — | — | — |
+| loki | — | — | — |
+| prometheus | — | — | — |
+| grafana | — | — | `GRAFANA_ADMIN_PASSWORD` env var |
 
 All app containers use `tmpfs` for `/tmp` so ephemeral writes don't touch the host filesystem.

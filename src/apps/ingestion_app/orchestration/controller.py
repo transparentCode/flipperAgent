@@ -20,6 +20,17 @@ from libs.common.db.pool_manager import DBPoolManager
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
 
+# --- OTel setup (graceful if not available) ---
+_tracer = None
+_inject_trace_context = None
+try:
+    from opentelemetry import trace as _trace
+    from libs.common.telemetry.propagation import inject_trace_context as _itc
+    _tracer = _trace.get_tracer(__name__)
+    _inject_trace_context = _itc
+except ImportError:
+    pass
+
 logger = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_ENGINE)
 config_manager = ConfigManager()
 
@@ -124,9 +135,25 @@ async def run_websocket_pipeline(
                                 "bar_closed": "True",
                                 "ingestion_timestamp": str(now_utc)
                             }
-                            pipe = redis_client.pipeline(transaction=False)
-                            pipe.xadd(stream_key, payload, maxlen=10000, approximate=True)
-                            await pipe.execute()
+
+                            if _tracer and _inject_trace_context:
+                                with _tracer.start_as_current_span(
+                                    "ingestion.publish_ohlcv",
+                                    attributes={
+                                        "messaging.system": "valkey",
+                                        "messaging.destination": stream_key,
+                                        "ingestion.symbol": symbol,
+                                        "ingestion.timeframe": timeframe,
+                                    },
+                                ):
+                                    _inject_trace_context(payload)
+                                    pipe = redis_client.pipeline(transaction=False)
+                                    pipe.xadd(stream_key, payload, maxlen=10000, approximate=True)
+                                    await pipe.execute()
+                            else:
+                                pipe = redis_client.pipeline(transaction=False)
+                                pipe.xadd(stream_key, payload, maxlen=10000, approximate=True)
+                                await pipe.execute()
 
             except asyncio.CancelledError:
                 logger.info(f"[{symbol}] WebSocket task canceled.")

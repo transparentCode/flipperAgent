@@ -6,6 +6,12 @@ from libs.common.logging.logger_utils import bind_logger, configure_logging
 def main():
     config_manager = ConfigManager()
 
+    try:
+        from libs.common.telemetry.bootstrap import init_telemetry
+        init_telemetry("ingestion_app")
+    except ImportError:
+        pass
+
     log_level = config_manager.get("logging.level", default="INFO")
     configure_logging(
         level=log_level,
@@ -13,6 +19,11 @@ def main():
         console_format=config_manager.get("logging.console_format", "json"),
         log_file=config_manager.get("logging.log_file"),
     )
+    try:
+        from libs.common.telemetry.bootstrap import attach_otel_log_handler
+        attach_otel_log_handler()
+    except ImportError:
+        pass
     
     logger = bind_logger(component=SystemComponent.DATA_INGESTION_ENGINE)
     

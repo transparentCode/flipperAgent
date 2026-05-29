@@ -12,7 +12,7 @@ _T = TypeVar("_T", bound=BaseModel)
 _NONE_SENTINEL = "__NONE__"
 
 
-def valkey_encode(model: BaseModel) -> dict[str, str]:
+def valkey_encode(model: BaseModel, *, inject_trace: bool = True) -> dict[str, str]:
     """Serialize a Pydantic model to a flat dict[str, str] suitable for Valkey XADD.
 
     Rules:
@@ -20,6 +20,8 @@ def valkey_encode(model: BaseModel) -> dict[str, str]:
     - dict/list values → JSON string
     - Enum values → their .value
     - Everything else → str()
+
+    If inject_trace=True (default), injects W3C traceparent into the payload.
     """
     payload: dict[str, str] = {}
     for key, value in model.model_dump().items():
@@ -31,6 +33,14 @@ def valkey_encode(model: BaseModel) -> dict[str, str]:
             payload[key] = _json.dumps(value)
         else:
             payload[key] = str(value)
+
+    if inject_trace:
+        try:
+            from libs.common.telemetry.propagation import inject_trace_context
+            inject_trace_context(payload)
+        except ImportError:
+            pass  # OTel not installed — graceful degradation
+
     return payload
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import abc
 import asyncio
+import time as _time
 from typing import Any
 
 from libs.common.logging.logger_utils import bind_logger
@@ -58,12 +59,40 @@ class BaseStreamConsumer(abc.ABC):
         ...
 
     async def run(self) -> None:
-        """Main consumer loop with error recovery."""
+        """Main consumer loop with error recovery and OTel tracing."""
         if not self.redis_client:
             logger.warning(f"No redis client for {self.stream_key} — consumer inactive")
             return
 
         logger.info(f"Listening to stream {self.stream_key} via XREADGROUP...")
+
+        # --- Attempt OTel setup (graceful if not available) ---
+        _tracer = None
+        _extract_trace_context = None
+        _msg_duration = None
+        _msg_counter = None
+        _error_counter = None
+        try:
+            from opentelemetry import trace as _trace, metrics as _metrics
+            from libs.common.telemetry.propagation import extract_trace_context as _etc
+            _tracer = _trace.get_tracer(__name__)
+            _extract_trace_context = _etc
+            _meter = _metrics.get_meter(__name__)
+            _msg_duration = _meter.create_histogram(
+                "stream.message.duration_ms",
+                description="Time to process a single stream message",
+                unit="ms",
+            )
+            _msg_counter = _meter.create_counter(
+                "stream.message.processed_total",
+                description="Total messages processed",
+            )
+            _error_counter = _meter.create_counter(
+                "stream.message.error_total",
+                description="Total message processing errors",
+            )
+        except ImportError:
+            pass
 
         # Drain any messages left in the Pending Entry List (PEL) from previous
         # runs before reading new messages.  We use XAUTOCLAIM to atomically
@@ -115,11 +144,36 @@ class BaseStreamConsumer(abc.ABC):
                 for stream_name, messages in response:
                     for message_id, data in messages:
                         try:
-                            await self.process_message(message_id, data)
+                            if _tracer and _extract_trace_context:
+                                parent_ctx = _extract_trace_context(data)
+                                _start = _time.monotonic()
+                                with _tracer.start_as_current_span(
+                                    f"{self.stream_key}.process",
+                                    context=parent_ctx,
+                                    attributes={
+                                        "messaging.system": "valkey",
+                                        "messaging.destination": self.stream_key,
+                                        "messaging.message_id": message_id
+                                        if isinstance(message_id, str)
+                                        else message_id.decode("utf-8", errors="replace"),
+                                        "messaging.consumer_group": self.group_name,
+                                    },
+                                ):
+                                    await self.process_message(message_id, data)
+                                _elapsed = (_time.monotonic() - _start) * 1000
+                                if _msg_duration:
+                                    _msg_duration.record(_elapsed, {"stream": self.stream_key})
+                                if _msg_counter:
+                                    _msg_counter.add(1, {"stream": self.stream_key})
+                            else:
+                                await self.process_message(message_id, data)
+
                             await self.redis_client.xack(
                                 self.stream_key, self.group_name, message_id
                             )
                         except Exception:
+                            if _error_counter:
+                                _error_counter.add(1, {"stream": self.stream_key})
                             logger.exception(
                                 f"Error processing message {message_id} from {self.stream_key} — not acking, message will remain in PEL for redelivery"
                             )

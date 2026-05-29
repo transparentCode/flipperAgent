@@ -26,6 +26,11 @@ dependencies = [
     "numpy>=2.0.0",
     "numba>=0.60.0",
     "optuna>=3.0.0",
+    # OpenTelemetry
+    "opentelemetry-api>=1.25.0",
+    "opentelemetry-sdk>=1.25.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.25.0",
+    "opentelemetry-instrumentation-fastapi>=0.46b0",
 ]
 
 [project.optional-dependencies]

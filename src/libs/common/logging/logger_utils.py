@@ -162,6 +162,17 @@ class JsonFormatter(logging.Formatter):
         for field in DEFAULT_CONTEXT_FIELDS:
             if hasattr(record, field):
                 log_data[field] = getattr(record, field)
+
+        # Inject OTel trace context if available
+        try:
+            from opentelemetry import trace as _trace
+            span = _trace.get_current_span()
+            ctx = span.get_span_context()
+            if ctx and ctx.trace_id:
+                log_data["trace_id"] = format(ctx.trace_id, "032x")
+                log_data["span_id"] = format(ctx.span_id, "016x")
+        except ImportError:
+            pass
                 
         if record.exc_info:
             log_data["exc_info"] = self.formatException(record.exc_info)

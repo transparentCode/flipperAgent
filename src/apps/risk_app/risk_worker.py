@@ -17,6 +17,17 @@ from libs.risk.position_tracker import PositionTracker
 
 logger = bind_logger(__name__, system_component=SystemComponent.RISK_MANAGER)
 
+# --- OTel setup (graceful if not available) ---
+_tracer = None
+_extract_trace_context = None
+try:
+    from opentelemetry import trace as _trace
+    from libs.common.telemetry.propagation import extract_trace_context as _etc
+    _tracer = _trace.get_tracer(__name__)
+    _extract_trace_context = _etc
+except ImportError:
+    pass
+
 
 class RiskWorker(BaseStreamConsumer):
     """Per-asset Valkey consumer. Subscribes to signals:{asset}:{tf} for ALL timeframes.
@@ -113,7 +124,22 @@ class RiskWorker(BaseStreamConsumer):
                     for stream_name, messages in price_response:
                         for message_id, payload in messages:
                             try:
-                                await self._process_price_update(payload)
+                                if _tracer and _extract_trace_context:
+                                    parent_ctx = _extract_trace_context(payload)
+                                    with _tracer.start_as_current_span(
+                                        "risk.process_price_update",
+                                        context=parent_ctx,
+                                        attributes={
+                                            "messaging.system": "valkey",
+                                            "messaging.destination": stream_name
+                                            if isinstance(stream_name, str)
+                                            else stream_name.decode("utf-8", errors="replace"),
+                                            "risk.asset": self.asset,
+                                        },
+                                    ):
+                                        await self._process_price_update(payload)
+                                else:
+                                    await self._process_price_update(payload)
                                 await self.redis_client.xack(
                                     stream_name, self.price_group_name, message_id,
                                 )
@@ -125,10 +151,13 @@ class RiskWorker(BaseStreamConsumer):
 
                 signals: list[TradeSignal] = []
                 ack_items: list[tuple[str, str]] = []
+                first_parent_ctx = None
 
                 for stream_name, messages in response:
                     for message_id, payload in messages:
                         try:
+                            if _extract_trace_context and first_parent_ctx is None:
+                                first_parent_ctx = _extract_trace_context(payload)
                             sig = self._decode_signal(payload)
                             signals.append(sig)
                         except Exception as e:
@@ -136,7 +165,22 @@ class RiskWorker(BaseStreamConsumer):
                         ack_items.append((stream_name, message_id))
 
                 if signals:
-                    await self._process_signal_batch(signals)
+                    if _tracer:
+                        span_kwargs: dict = {
+                            "attributes": {
+                                "risk.asset": self.asset,
+                                "risk.batch_size": len(signals),
+                            },
+                        }
+                        if first_parent_ctx is not None:
+                            span_kwargs["context"] = first_parent_ctx
+                        with _tracer.start_as_current_span(
+                            "risk.process_signal_batch",
+                            **span_kwargs,
+                        ):
+                            await self._process_signal_batch(signals)
+                    else:
+                        await self._process_signal_batch(signals)
 
                 for sname, mid in ack_items:
                     await self.redis_client.xack(sname, self.group_name, mid)

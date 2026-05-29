@@ -24,6 +24,12 @@ async def _run() -> None:
     config_mgr.register_file(CONFIG_FILE_MODELS)
     config_mgr.register_file(CONFIG_FILE_FEATURES)
 
+    try:
+        from libs.common.telemetry.bootstrap import init_telemetry
+        init_telemetry("signal_app")
+    except ImportError:
+        pass
+
     log_level = config_mgr.get("logging.level", default="INFO")
     configure_logging(
         level=log_level,
@@ -31,6 +37,11 @@ async def _run() -> None:
         console_format=os.environ.get("LOG_FORMAT", "json"),
         log_file=os.environ.get("LOG_FILE"),
     )
+    try:
+        from libs.common.telemetry.bootstrap import attach_otel_log_handler
+        attach_otel_log_handler()
+    except ImportError:
+        pass
 
     pairs = discover_pairs(config_mgr)
     if not pairs:

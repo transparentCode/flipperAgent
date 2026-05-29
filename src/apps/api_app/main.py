@@ -12,6 +12,13 @@ from libs.common.logging.logger_utils import configure_logging
 
 def main() -> None:
     config_mgr = ConfigManager()
+
+    try:
+        from libs.common.telemetry.bootstrap import init_telemetry
+        init_telemetry("api_app")
+    except ImportError:
+        pass
+
     log_level = config_mgr.get("logging.level", default="INFO")
     configure_logging(
         level=log_level,
