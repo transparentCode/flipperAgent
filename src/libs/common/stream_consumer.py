@@ -64,6 +64,40 @@ class BaseStreamConsumer(abc.ABC):
             return
 
         logger.info(f"Listening to stream {self.stream_key} via XREADGROUP...")
+
+        # Drain any messages left in the Pending Entry List (PEL) from previous
+        # runs before reading new messages.  We use XAUTOCLAIM to atomically
+        # re-assign idle PEL entries (min-idle-time = 0 ms → claim immediately).
+        try:
+            next_id = "0-0"
+            while True:
+                result = await self.redis_client.xautoclaim(
+                    self.stream_key,
+                    self.group_name,
+                    self.consumer_name,
+                    min_idle_time=0,
+                    start_id=next_id,
+                    count=self.batch_size,
+                )
+                # xautoclaim returns (next_start_id, [(id, data), ...], [deleted_ids])
+                next_id, pending_messages, _ = result
+                if not pending_messages:
+                    break
+                for message_id, data in pending_messages:
+                    try:
+                        await self.process_message(message_id, data)
+                        await self.redis_client.xack(self.stream_key, self.group_name, message_id)
+                    except Exception:
+                        logger.exception(
+                            f"Error reprocessing PEL message {message_id} from {self.stream_key} — leaving in PEL"
+                        )
+                if next_id == "0-0":
+                    break
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning(f"PEL drain failed for {self.stream_key} — skipping, proceeding to live stream", exc_info=True)
+
         streams = {self.stream_key: ">"}
 
         while True:
@@ -82,13 +116,13 @@ class BaseStreamConsumer(abc.ABC):
                     for message_id, data in messages:
                         try:
                             await self.process_message(message_id, data)
+                            await self.redis_client.xack(
+                                self.stream_key, self.group_name, message_id
+                            )
                         except Exception:
                             logger.exception(
-                                f"Error processing message {message_id} from {self.stream_key}"
+                                f"Error processing message {message_id} from {self.stream_key} — not acking, message will remain in PEL for redelivery"
                             )
-                        await self.redis_client.xack(
-                            self.stream_key, self.group_name, message_id
-                        )
             except asyncio.CancelledError:
                 logger.info(f"Consumer {self.consumer_name} cancelled")
                 break

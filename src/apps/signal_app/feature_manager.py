@@ -32,7 +32,7 @@ class FeatureManager:
     def indicators(self) -> list[Indicator]:
         return [ind for _, ind in self._indicator_entries]
         
-    async def fetch_historical_db_records(self, max_lookback: int) -> Sequence[Tuple[float, float, float, float, float]]:
+    async def fetch_historical_db_records(self, max_lookback: int) -> Sequence[Tuple[float, float, float, float, float, float]]:
         """
         Mock DB historical fetch injected dependency or default stub.
         In reality, this queries TimescaleDB to get the last `max_lookback` bars before accepting live updates.

@@ -53,9 +53,10 @@ async def _run() -> None:
         df = await reader.get_ohlcv_aggregated(asset, timeframe, max_lookback)
         if df.empty:
             return []
-        # Return (high, low, close, volume, timestamp_as_float)
+        # Return (open, high, low, close, volume, timestamp_as_float)
         return [
             (
+                float(row["open"]),
                 float(row["high"]),
                 float(row["low"]),
                 float(row["close"]),

@@ -100,7 +100,7 @@ class SignalWorker(BaseStreamConsumer):
                                     for k, v in raw.items()
                                 }
                         except Exception:
-                            pass  # index data is optional, failures are silent
+                            logger.warning(f"Failed to fetch TV index data for {idx_symbol}", exc_info=True)
 
                 engineered = self.engineered_manager.compute(results, {
                     "open": open_, "high": high, "low": low,
