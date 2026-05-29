@@ -1,0 +1,1410 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A good quant research agent">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>MeanReversion Model — Technical Documentation - flipperAgent</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#meanreversion-model-technical-documentation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="flipperAgent" class="md-header__button md-logo" aria-label="flipperAgent" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            flipperAgent
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              MeanReversion Model — Technical Documentation
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../best_practices/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../ingestion/" class="md-tabs__link">
+          
+  
+  
+  Components
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="flipperAgent" class="md-nav__button md-logo" aria-label="flipperAgent" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    flipperAgent
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../best_practices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Best Practices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../docker_topology/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decision Records
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Components
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Components
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ingestion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingestion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tv_scraper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TradingView Scraper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="meanreversion-model-technical-documentation">MeanReversion Model — Technical Documentation<a class="headerlink" href="#meanreversion-model-technical-documentation" title="Permanent link">&para;</a></h1>
+<h2 id="1-overview">1. Overview<a class="headerlink" href="#1-overview" title="Permanent link">&para;</a></h2>
+<p>The <strong>MeanReversion</strong> model is a counter-trend trading strategy that identifies overbought/oversold conditions in ranging markets. It complements the momentum-based <strong>SqueezeBreakout</strong> model by capturing profit when price reverts to the mean after reaching statistical extremes.</p>
+<p><strong>Core thesis:</strong> When a market is not trending (low ADX), RSI extremes combined with Bollinger Band touches indicate unsustainable price extensions that tend to revert.</p>
+<hr />
+<h2 id="2-high-level-design-hld">2. High-Level Design (HLD)<a class="headerlink" href="#2-high-level-design-hld" title="Permanent link">&para;</a></h2>
+<h3 id="21-position-in-pipeline">2.1 Position in Pipeline<a class="headerlink" href="#21-position-in-pipeline" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart LR
+    subgraph signal_app["Signal App"]
+        IND["Indicators&lt;br/&gt;(RSI, BB, ADX)"]
+    end
+
+    subgraph strategy_app["Strategy App"]
+        MM["ModelManager"]
+        MR["MeanReversion&lt;br/&gt;Model"]
+        SB["SqueezeBreakout&lt;br/&gt;Model"]
+        MM --&gt; MR
+        MM --&gt; SB
+    end
+
+    subgraph risk_app["Risk App"]
+        AGG["SignalAggregator"]
+        RE["RiskEngine"]
+        AGG --&gt; RE
+    end
+
+    IND -- "FeatureVector&lt;br/&gt;(Valkey stream)" --&gt; MM
+    MR -- "ModelOutput" --&gt; AGG
+    SB -- "ModelOutput" --&gt; AGG
+    RE -- "OrderExecutionRequest" --&gt; EX["Execution App"]</code></pre>
+<h3 id="22-model-architecture">2.2 Model Architecture<a class="headerlink" href="#22-model-architecture" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart TD
+    FV["FeatureVector&lt;br/&gt;(RSI, BB, ADX, close)"]
+
+    subgraph MeanReversionModel
+        ADX{"ADX &lt; threshold?&lt;br/&gt;(Regime Gate)"}
+        RSI{"RSI extreme?"}
+        BB{"Close beyond&lt;br/&gt;adjusted BB?"}
+        SIG["Direction = ±1&lt;br/&gt;Conviction = f(RSI distance)"]
+        FLAT["Direction = 0&lt;br/&gt;Conviction = 0"]
+    end
+
+    FV --&gt; ADX
+    ADX -- "Yes (ranging)" --&gt; RSI
+    ADX -- "No (trending)" --&gt; FLAT
+    RSI -- "Oversold / Overbought" --&gt; BB
+    RSI -- "Neutral" --&gt; FLAT
+    BB -- "Yes" --&gt; SIG
+    BB -- "No" --&gt; FLAT</code></pre>
+<h3 id="23-design-rationale">2.3 Design Rationale<a class="headerlink" href="#23-design-rationale" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Decision</th>
+<th>Choice</th>
+<th>Reasoning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Indicator set</td>
+<td>RSI + BB + ADX</td>
+<td>v1 used 7 indicators (CCI, MFI, A/D, Momentum, LinReg) — optimizer stripped them all on every asset</td>
+</tr>
+<tr>
+<td>Gate type</td>
+<td>ADX &lt; threshold</td>
+<td>Mean reversion only works in ranging markets; trending markets invalidate the thesis</td>
+</tr>
+<tr>
+<td>Confirmation style</td>
+<td>AND gate (all 3)</td>
+<td>Fewer false positives than OR; 3 conditions are tractable for optimizer</td>
+</tr>
+<tr>
+<td>Conviction formula</td>
+<td>Linear RSI distance</td>
+<td>Simple, monotonic, interpretable</td>
+</tr>
+<tr>
+<td>Signal strength voters</td>
+<td>Removed</td>
+<td>v1 had 5 SS voters — optimizer universally set <code>ss_threshold=0</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-low-level-design-lld">3. Low-Level Design (LLD)<a class="headerlink" href="#3-low-level-design-lld" title="Permanent link">&para;</a></h2>
+<h3 id="31-class-hierarchy">3.1 Class Hierarchy<a class="headerlink" href="#31-class-hierarchy" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>classDiagram
+    class BaseModel {
+        &lt;&lt;abstract&gt;&gt;
+        +meta: ModelMeta
+        +params: dict
+        +evaluate(FeatureVector) ModelOutput
+        +batch_evaluate(DataFrame) Series
+        +validate_features(set) list
+        #_batch_evaluate_impl(DataFrame) Series
+        -_defaults() dict
+        -_validate_temporal_ordering(DataFrame)
+        -_validate_result_alignment(DataFrame, Series)
+    }
+
+    class MeanReversionModel {
+        +meta: ModelMeta
+        +evaluate(FeatureVector) ModelOutput
+        #_batch_evaluate_impl(DataFrame) Series
+        -_extract_bb(dict, str) float|None
+    }
+
+    class ModelRegistry {
+        -_registry: dict
+        +register(name) decorator
+        +get(name) Type~BaseModel~
+        +list_all() list
+    }
+
+    BaseModel &lt;|-- MeanReversionModel
+    ModelRegistry o-- MeanReversionModel : registers</code></pre>
+<h3 id="32-hyperparameter-schema">3.2 Hyperparameter Schema<a class="headerlink" href="#32-hyperparameter-schema" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Range</th>
+<th>Step</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rsi_oversold</code></td>
+<td>int</td>
+<td>30</td>
+<td>15–40</td>
+<td>1</td>
+<td>RSI level below which price is considered oversold (long entry)</td>
+</tr>
+<tr>
+<td><code>rsi_overbought</code></td>
+<td>int</td>
+<td>70</td>
+<td>60–85</td>
+<td>1</td>
+<td>RSI level above which price is considered overbought (short entry)</td>
+</tr>
+<tr>
+<td><code>bb_entry_std</code></td>
+<td>float</td>
+<td>2.0</td>
+<td>1.0–3.0</td>
+<td>0.1</td>
+<td>Bollinger Band width multiplier for entry threshold</td>
+</tr>
+<tr>
+<td><code>adx_regime_threshold</code></td>
+<td>float</td>
+<td>25.0</td>
+<td>15.0–40.0</td>
+<td>1.0</td>
+<td>ADX must be strictly below this for signals (ranging market gate)</td>
+</tr>
+<tr>
+<td><code>holding_period</code></td>
+<td>int</td>
+<td>5</td>
+<td>1–20</td>
+<td>1</td>
+<td>Minimum bars between direction reversals (whipsaw cooldown)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="33-signal-logic-evaluate-single-tick">3.3 Signal Logic — <code>evaluate()</code> (Single Tick)<a class="headerlink" href="#33-signal-logic-evaluate-single-tick" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>Input:  FeatureVector { RSI, BollingerBands{upper, lower}, ADX{adx}, bar_data{close} }
+
+1. Extract: rsi_value, bb_upper, bb_lower, close, adx_val
+2. Compute adjusted bands:
+     bb_mid    = (bb_upper + bb_lower) / 2
+     ratio     = bb_entry_std / 2.0
+     model_lower = bb_mid - ratio * (bb_mid - bb_lower)
+     model_upper = bb_mid + ratio * (bb_upper - bb_mid)
+3. Regime gate: adx_pass = (adx_val &lt; adx_regime_threshold)
+4. If adx_pass AND rsi &lt;= rsi_oversold AND close &lt;= model_lower:
+     direction  = +1 (LONG)
+     conviction = min(1.0, (rsi_oversold - rsi) / rsi_oversold)
+5. Elif adx_pass AND rsi &gt;= rsi_overbought AND close &gt;= model_upper:
+     direction  = -1 (SHORT)
+     conviction = min(1.0, (rsi - rsi_overbought) / (100 - rsi_overbought))
+6. Else:
+     direction  = 0, conviction = 0.0
+
+Output: ModelOutput { direction, conviction, metadata{rsi_value, close, adx, trigger} }
+</code></pre></div>
+<h3 id="34-signal-logic-_batch_evaluate_impl-vectorized">3.4 Signal Logic — <code>_batch_evaluate_impl()</code> (Vectorized)<a class="headerlink" href="#34-signal-logic-_batch_evaluate_impl-vectorized" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart TD
+    DF["DataFrame&lt;br/&gt;(RSI, BB_upper, BB_lower, close, ADX_adx)"]
+    BANDS["Compute model_lower / model_upper&lt;br/&gt;using bb_entry_std"]
+    GATE["ADX gate: adx &lt; threshold"]
+    LONG["Long mask: adx_pass &amp; RSI ≤ oversold &amp; close ≤ model_lower"]
+    SHORT["Short mask: adx_pass &amp; RSI ≥ overbought &amp; close ≥ model_upper"]
+    CD["_apply_cooldown(directions, holding_period)&lt;br/&gt;@njit(cache=True)"]
+    OUT["Series of directions (-1, 0, +1)"]
+
+    DF --&gt; BANDS --&gt; GATE
+    GATE --&gt; LONG
+    GATE --&gt; SHORT
+    LONG --&gt; CD
+    SHORT --&gt; CD
+    CD --&gt; OUT</code></pre>
+<p>The batch path is functionally equivalent to <code>evaluate()</code> but uses vectorized pandas operations for performance, followed by a Numba JIT-compiled cooldown pass.</p>
+<h3 id="35-cooldown-state-machine-_apply_cooldown">3.5 Cooldown State Machine (<code>_apply_cooldown</code>)<a class="headerlink" href="#35-cooldown-state-machine-_apply_cooldown" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>stateDiagram-v2
+    [*] --&gt; Idle : last_dir=0
+    Idle --&gt; Holding : signal ≠ 0 (set last_dir)
+    Holding --&gt; Holding : same direction (no cooldown)
+    Holding --&gt; Cooldown : direction reversal (cooldown = holding_period - 1)
+    Cooldown --&gt; Cooldown : cooldown &gt; 0 (hold last_dir, cooldown--)
+    Cooldown --&gt; Holding : cooldown = 0, new signal</code></pre>
+<p>The <code>_apply_cooldown</code> function is JIT-compiled with <code>@njit(cache=True)</code> for performance. It suppresses direction flips within <code>holding_period</code> bars by maintaining the previous direction during cooldown.</p>
+<h3 id="36-required-indicators-features">3.6 Required Indicators &amp; Features<a class="headerlink" href="#36-required-indicators-features" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Indicator</th>
+<th>Config Key</th>
+<th>Output Fields Used</th>
+<th>Fixed Period</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RSI</td>
+<td><code>RSI</code></td>
+<td><code>RSI</code> (scalar or <code>{value}</code> dict)</td>
+<td>14</td>
+</tr>
+<tr>
+<td>BollingerBands</td>
+<td><code>BollingerBands</code></td>
+<td><code>BollingerBands_upper</code>, <code>BollingerBands_lower</code></td>
+<td>20, 2σ</td>
+</tr>
+<tr>
+<td>ADX</td>
+<td><code>ADX</code></td>
+<td><code>ADX</code> (<code>{adx, plus_di, minus_di}</code> dict)</td>
+<td>14</td>
+</tr>
+</tbody>
+</table>
+<p>Minimum history bars: <strong>20</strong> (driven by BB period).</p>
+<hr />
+<h2 id="4-config-management">4. Config Management<a class="headerlink" href="#4-config-management" title="Permanent link">&para;</a></h2>
+<h3 id="41-config-hierarchy">4.1 Config Hierarchy<a class="headerlink" href="#41-config-hierarchy" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart TD
+    MY["configs/models.yaml"]
+    CM["ConfigManager"]
+    MM["ModelManager(asset, tf)"]
+    RESOLVE["_resolve_config_node()"]
+    FALLBACK["Fallback chain:&lt;br/&gt;1. asset/tf&lt;br/&gt;2. asset/default&lt;br/&gt;3. default/tf&lt;br/&gt;4. default/default"]
+    INST["MeanReversionModel(params)"]
+
+    MY --&gt; CM --&gt; MM --&gt; RESOLVE --&gt; FALLBACK --&gt; INST</code></pre>
+<h3 id="42-modelsyaml-structure">4.2 models.yaml Structure<a class="headerlink" href="#42-modelsyaml-structure" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="nt">models</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">assets</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">XRPUSDT</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">timeframes</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">1h</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">MeanReversion</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">        </span><span class="c1"># Set false to disable without removing</span>
+<span class="w">            </span><span class="nt">params</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">rsi_oversold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">17</span>
+<span class="w">              </span><span class="nt">rsi_overbought</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">61</span>
+<span class="w">              </span><span class="nt">bb_entry_std</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2.1</span>
+<span class="w">              </span><span class="nt">adx_regime_threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15.0</span>
+<span class="w">              </span><span class="nt">holding_period</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">13</span>
+<span class="w">    </span><span class="nt">default</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">timeframes</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">default</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">MeanReversion</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">            </span><span class="nt">params</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">           </span><span class="c1"># Falls back to schema defaults</span>
+</code></pre></div>
+<h3 id="43-config-resolution-flow">4.3 Config Resolution Flow<a class="headerlink" href="#43-config-resolution-flow" title="Permanent link">&para;</a></h3>
+<ol>
+<li><code>ModelManager.__init__(asset, timeframe)</code> calls <code>_resolve_config_node("models")</code></li>
+<li>Merges config nodes with specificity priority: <code>asset/tf &gt; asset/default &gt; default/tf &gt; default/default</code></li>
+<li>For each model entry with <code>enabled: true</code>:</li>
+<li>Looks up class via <code>ModelRegistry.get(name)</code></li>
+<li>Merges <code>params</code> with <code>hyperparameter_schema</code> defaults</li>
+<li>Instantiates model</li>
+<li>At boot, <code>validate_feature_coverage()</code> checks that <code>features.yaml</code> provides all <code>required_indicators</code></li>
+</ol>
+<h3 id="44-currently-deployed-configurations">4.4 Currently Deployed Configurations<a class="headerlink" href="#44-currently-deployed-configurations" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Asset</th>
+<th>Timeframe</th>
+<th>Status</th>
+<th>Key Params</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>XRPUSDT</td>
+<td>1h</td>
+<td><strong>Optimized</strong></td>
+<td>rsi_os=17, rsi_ob=61, bb=2.1, adx=15.0, hp=13</td>
+</tr>
+<tr>
+<td>BNBUSDT</td>
+<td>30m</td>
+<td><strong>Optimized</strong></td>
+<td>rsi_os=36, rsi_ob=78, bb=2.0, adx=30.0, hp=8</td>
+</tr>
+<tr>
+<td>BTCUSDT</td>
+<td>1h</td>
+<td>Default</td>
+<td>rsi_os=30, rsi_ob=70, bb=2.0, hp=5</td>
+</tr>
+<tr>
+<td>BTCUSDT</td>
+<td>4h</td>
+<td>Default</td>
+<td>rsi_os=25, rsi_ob=75, bb=2.5, hp=3</td>
+</tr>
+<tr>
+<td>ETHUSDT</td>
+<td>4h</td>
+<td>Default</td>
+<td>rsi_os=25, rsi_ob=75, bb=2.5, hp=3</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5-optimization-pipeline">5. Optimization Pipeline<a class="headerlink" href="#5-optimization-pipeline" title="Permanent link">&para;</a></h2>
+<h3 id="51-workflow-overview">5.1 Workflow Overview<a class="headerlink" href="#51-workflow-overview" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart LR
+    DATA["Fetch 1yr OHLCV&lt;br/&gt;(Binance UMFutures)"]
+    FEAT["Compute Indicators&lt;br/&gt;(RSI, BB, ADX)"]
+    MORRIS["Morris Sensitivity&lt;br/&gt;Screening&lt;br/&gt;(20 trajectories)"]
+    OPTUNA["Optuna TPE&lt;br/&gt;(100 trials,&lt;br/&gt;5-fold purged CV)"]
+    STAB["Stability Check&lt;br/&gt;(±1 step neighbors)"]
+    DEPLOY["Deploy to&lt;br/&gt;models.yaml"]
+
+    DATA --&gt; FEAT --&gt; MORRIS --&gt; OPTUNA --&gt; STAB --&gt; DEPLOY</code></pre>
+<h3 id="52-anti-overfit-guardrails">5.2 Anti-Overfit Guardrails<a class="headerlink" href="#52-anti-overfit-guardrails" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Guardrail</th>
+<th>Method</th>
+<th>Threshold</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cross-validation</td>
+<td>5-fold purged time-series CV</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Regularized objective</td>
+<td><code>mean_sharpe - 0.5 * std_sharpe</code></td>
+<td>Positive required</td>
+</tr>
+<tr>
+<td>Minimum trades</td>
+<td>Per-fold trade count</td>
+<td>≥ 2 per fold</td>
+</tr>
+<tr>
+<td>Sensitivity screening</td>
+<td>Morris elementary effects</td>
+<td>mu* ≥ 12% of max</td>
+</tr>
+<tr>
+<td>Param stability</td>
+<td>±1 step neighbor scores</td>
+<td>Score range &lt; 0.5</td>
+</tr>
+<tr>
+<td>FS vs CV gap</td>
+<td>Full-sample Sharpe vs CV mean</td>
+<td>Gap &lt; 0.5 = CONSISTENT</td>
+</tr>
+</tbody>
+</table>
+<h3 id="53-morris-sensitivity-screening">5.3 Morris Sensitivity Screening<a class="headerlink" href="#53-morris-sensitivity-screening" title="Permanent link">&para;</a></h3>
+<p>Runs <strong>before</strong> Optuna to identify which parameters materially affect performance. Parameters below the threshold are fixed at defaults to reduce search space.</p>
+<div class="highlight"><pre><span></span><code>For each of 20 trajectories:
+  1. Random starting point in param space
+  2. Perturb each param by ¼ of its range
+  3. Measure elementary effect = Δ(reg_score) / Δ(normalized_param)
+  4. mu* = mean(|effects|), sigma = std(effects)
+
+Result: All 5 MR params are sensitive (mu* ≥ 0.364)
+  rsi_oversold (3.035) &gt; bb_entry_std (2.603) &gt; rsi_overbought (2.496)
+  &gt; adx_regime_threshold (2.470) &gt; holding_period (0.773)
+</code></pre></div>
+<h3 id="54-optuna-optimization">5.4 Optuna Optimization<a class="headerlink" href="#54-optuna-optimization" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart TD
+    TRIAL["Optuna TPE Trial&lt;br/&gt;(suggest 5 params)"]
+    CV["5-Fold Purged CV"]
+
+    subgraph each_fold["Per Fold"]
+        SIG["Generate signals"]
+        BT["Multi-TP Backtest&lt;br/&gt;(TP1=1.5% TP2=3% TP3=5% SL=2%)"]
+        SHARPE["Compute Sharpe"]
+    end
+
+    OBJ["Objective:&lt;br/&gt;mean(fold_sharpes) - 0.5*std(fold_sharpes)&lt;br/&gt;penalty if min_fold_trades &lt; 2"]
+
+    TRIAL --&gt; CV --&gt; each_fold --&gt; OBJ
+    OBJ -- "100 trials" --&gt; TRIAL</code></pre>
+<h3 id="55-backtester-multi-tp">5.5 Backtester (Multi-TP)<a class="headerlink" href="#55-backtester-multi-tp" title="Permanent link">&para;</a></h3>
+<p>The backtester uses a tiered take-profit exit strategy shared with SqueezeBreakout:</p>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Target</th>
+<th>Portion Closed</th>
+<th>Action on Hit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TP1</td>
+<td>+1.5%</td>
+<td>40%</td>
+<td>Move SL to breakeven</td>
+</tr>
+<tr>
+<td>TP2</td>
+<td>+3.0%</td>
+<td>30%</td>
+<td>—</td>
+</tr>
+<tr>
+<td>TP3</td>
+<td>+5.0%</td>
+<td>Remaining</td>
+<td>Close fully</td>
+</tr>
+<tr>
+<td>SL</td>
+<td>-2.0%</td>
+<td>100%</td>
+<td>Close fully</td>
+</tr>
+</tbody>
+</table>
+<p>Commission: 0.04% per trade (entry + exit).</p>
+<h3 id="56-v2-optimization-results">5.6 v2 Optimization Results<a class="headerlink" href="#56-v2-optimization-results" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Asset-TF</th>
+<th>Reg Score</th>
+<th>Trades</th>
+<th>Win Rate</th>
+<th>Full-Sample Sharpe</th>
+<th>Stability</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BNBUSDT 30m</td>
+<td><strong>+1.710</strong></td>
+<td>143</td>
+<td>66%</td>
+<td>+1.973</td>
+<td>All stable</td>
+<td><strong>DEPLOYED</strong></td>
+</tr>
+<tr>
+<td>DOGEUSDT 4h</td>
+<td>+1.834</td>
+<td>30</td>
+<td>74%</td>
+<td>+2.285</td>
+<td>2 unstable</td>
+<td>HOLD</td>
+</tr>
+<tr>
+<td>BTCUSDT 15m</td>
+<td>+1.745</td>
+<td>39</td>
+<td>72%</td>
+<td>+2.211</td>
+<td>1 unstable</td>
+<td>DEFERRED</td>
+</tr>
+<tr>
+<td>DOGEUSDT 1h</td>
+<td>+1.739</td>
+<td>23</td>
+<td>83%</td>
+<td>+1.853</td>
+<td>1 unstable</td>
+<td>DEFERRED</td>
+</tr>
+<tr>
+<td>XRPUSDT 1h</td>
+<td><strong>+1.290</strong></td>
+<td>22</td>
+<td>75%</td>
+<td>+1.772</td>
+<td>All stable</td>
+<td><strong>DEPLOYED</strong></td>
+</tr>
+<tr>
+<td>BTCUSDT 30m</td>
+<td>+1.020</td>
+<td>113</td>
+<td>63%</td>
+<td>+1.034</td>
+<td>2 unstable</td>
+<td>DEFERRED</td>
+</tr>
+<tr>
+<td>SOLUSDT 1h</td>
+<td>+0.212</td>
+<td>17</td>
+<td>70%</td>
+<td>+1.362</td>
+<td>1 unstable</td>
+<td>HOLD</td>
+</tr>
+<tr>
+<td>BTCUSDT 1h</td>
+<td>-0.467</td>
+<td>14</td>
+<td>57%</td>
+<td>+0.069</td>
+<td>2 unstable</td>
+<td>NEGATIVE</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-live-inference-flow">6. Live Inference Flow<a class="headerlink" href="#6-live-inference-flow" title="Permanent link">&para;</a></h2>
+<h3 id="61-end-to-end-signal-path">6.1 End-to-End Signal Path<a class="headerlink" href="#61-end-to-end-signal-path" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>sequenceDiagram
+    participant Ingestion as Ingestion App
+    participant Signal as Signal App
+    participant Strategy as Strategy App
+    participant Risk as Risk App
+    participant Exec as Execution App
+
+    Ingestion-&gt;&gt;Signal: OHLCV bar (Valkey stream)
+    Signal-&gt;&gt;Signal: Compute RSI, BB, ADX
+    Signal-&gt;&gt;Strategy: FeatureVector (Valkey stream)
+    Strategy-&gt;&gt;Strategy: ModelManager.evaluate()
+    Strategy-&gt;&gt;Strategy: MeanReversionModel.evaluate(fv)
+    alt direction ≠ 0
+        Strategy-&gt;&gt;Risk: TradeSignal (Valkey stream)
+        Risk-&gt;&gt;Risk: SignalAggregator.aggregate()
+        Risk-&gt;&gt;Risk: RiskEngine (rules, sizing, SL/TP)
+        Risk-&gt;&gt;Exec: OrderExecutionRequest
+    end</code></pre>
+<h3 id="62-multi-model-coexistence">6.2 Multi-Model Coexistence<a class="headerlink" href="#62-multi-model-coexistence" title="Permanent link">&para;</a></h3>
+<p>When MeanReversion and SqueezeBreakout both run on the same asset/timeframe:</p>
+<pre class="mermaid"><code>flowchart TD
+    FV["FeatureVector"]
+    MR["MeanReversion&lt;br/&gt;evaluate()"]
+    SB["SqueezeBreakout&lt;br/&gt;evaluate()"]
+    OUT1["ModelOutput&lt;br/&gt;(direction, conviction)"]
+    OUT2["ModelOutput&lt;br/&gt;(direction, conviction)"]
+
+    FV --&gt; MR --&gt; OUT1
+    FV --&gt; SB --&gt; OUT2
+
+    OUT1 --&gt; AGG["SignalAggregator&lt;br/&gt;(conviction_weighted)"]
+    OUT2 --&gt; AGG
+
+    AGG --&gt; |"Net signal"| RISK["RiskEngine"]
+    AGG --&gt; |"Conflicting = cancel"| NULL["No order"]</code></pre>
+<p>The <code>SignalAggregator</code> supports four conflict resolution strategies:
+- <strong><code>conviction_weighted</code></strong> (default): Net direction = sign of conviction-weighted sum
+- <strong><code>higher_tf_priority</code></strong>: Higher timeframe wins
+- <strong><code>cancel_on_conflict</code></strong>: Opposing signals cancel out
+- <strong><code>independent</code></strong>: Each signal generates its own order</p>
+<hr />
+<h2 id="7-testing">7. Testing<a class="headerlink" href="#7-testing" title="Permanent link">&para;</a></h2>
+<h3 id="71-test-structure">7.1 Test Structure<a class="headerlink" href="#71-test-structure" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Test File</th>
+<th>Scope</th>
+<th>Tests</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tests/test_mean_reversion_model.py</code></td>
+<td>Unit tests for MR model</td>
+<td>30+ tests across 12 classes</td>
+</tr>
+<tr>
+<td><code>tests/models/test_models.py</code></td>
+<td>Cross-model integration</td>
+<td>Registry, temporal guard, batch eval</td>
+</tr>
+</tbody>
+</table>
+<h3 id="72-test-coverage-matrix">7.2 Test Coverage Matrix<a class="headerlink" href="#72-test-coverage-matrix" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>What's Tested</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Registry</td>
+<td>Registration, lookup, class identity</td>
+</tr>
+<tr>
+<td>Defaults</td>
+<td>Schema defaults match, 5 params, required indicators</td>
+</tr>
+<tr>
+<td>Long signal</td>
+<td>RSI oversold + BB lower touch, conviction scaling</td>
+</tr>
+<tr>
+<td>Short signal</td>
+<td>RSI overbought + BB upper touch, conviction scaling</td>
+</tr>
+<tr>
+<td>ADX gate</td>
+<td>Blocks in trending market, boundary behavior (≥ vs &lt;)</td>
+</tr>
+<tr>
+<td>BB entry std</td>
+<td>Tight vs wide bands, signal suppression</td>
+</tr>
+<tr>
+<td>Neutral RSI</td>
+<td>No signal in mid-range</td>
+</tr>
+<tr>
+<td>Metadata</td>
+<td>RSI value, ADX, trigger field</td>
+</tr>
+<tr>
+<td>Feature validation</td>
+<td>All-present, missing indicators</td>
+</tr>
+<tr>
+<td>Batch evaluation</td>
+<td>Result alignment, temporal guard, long/short/neutral, ADX gate</td>
+</tr>
+<tr>
+<td>Holding period</td>
+<td>Cooldown suppression, hp=1 allows all</td>
+</tr>
+<tr>
+<td>Model output</td>
+<td>Contract compliance, conviction bounds, zero on flat</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-file-reference">8. File Reference<a class="headerlink" href="#8-file-reference" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>src/libs/models/mean_reversion/model.py</code></td>
+<td>Model implementation</td>
+</tr>
+<tr>
+<td><code>src/libs/models/mean_reversion/__init__.py</code></td>
+<td>Re-export for auto-registration</td>
+</tr>
+<tr>
+<td><code>src/libs/models/base.py</code></td>
+<td><code>BaseModel</code> ABC and <code>ModelMeta</code></td>
+</tr>
+<tr>
+<td><code>src/libs/models/registry.py</code></td>
+<td><code>ModelRegistry</code> (decorator-based)</td>
+</tr>
+<tr>
+<td><code>src/apps/strategy_app/model_manager.py</code></td>
+<td>Config-driven model loading</td>
+</tr>
+<tr>
+<td><code>src/apps/strategy_app/strategy_worker.py</code></td>
+<td>Valkey consumer → model evaluation → signal publish</td>
+</tr>
+<tr>
+<td><code>configs/models.yaml</code></td>
+<td>Per-asset model enable/disable and hyperparameters</td>
+</tr>
+<tr>
+<td><code>configs/features.yaml</code></td>
+<td>Indicator configuration (RSI, BB, ADX periods)</td>
+</tr>
+<tr>
+<td><code>tests/test_mean_reversion_model.py</code></td>
+<td>Dedicated MR unit tests</td>
+</tr>
+<tr>
+<td><code>tests/models/test_models.py</code></td>
+<td>Cross-model integration tests</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="9-evolution-history">9. Evolution History<a class="headerlink" href="#9-evolution-history" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Version</th>
+<th>Date</th>
+<th>Changes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>v1 (enhanced)</td>
+<td>May 2026</td>
+<td>13 params, 7 indicators, 5 SS voters, multi-confirmation AND gate</td>
+</tr>
+<tr>
+<td>v2 (simplified)</td>
+<td>May 2026</td>
+<td>Stripped to 5 params (RSI+BB+ADX). Optimizer proved CCI/MFI/SS useless for crypto MR. Deployed to XRPUSDT 1h and BNBUSDT 30m.</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

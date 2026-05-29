@@ -1,0 +1,1138 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A good quant research agent">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Signal App — Technical Documentation - flipperAgent</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#signal-app-technical-documentation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="flipperAgent" class="md-header__button md-logo" aria-label="flipperAgent" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            flipperAgent
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Signal App — Technical Documentation
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../best_practices/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../ingestion/" class="md-tabs__link">
+          
+  
+  
+  Components
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="flipperAgent" class="md-nav__button md-logo" aria-label="flipperAgent" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    flipperAgent
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../best_practices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Best Practices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../docker_topology/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decision Records
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Components
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Components
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ingestion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingestion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tv_scraper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TradingView Scraper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="signal-app-technical-documentation">Signal App — Technical Documentation<a class="headerlink" href="#signal-app-technical-documentation" title="Permanent link">&para;</a></h1>
+<h2 id="1-overview">1. Overview<a class="headerlink" href="#1-overview" title="Permanent link">&para;</a></h2>
+<p>The <strong>Signal App</strong> is the feature computation layer in the flipperAgent pipeline. It sits between the ingestion layer and the strategy layer, consuming raw OHLCV candle events from Valkey streams, computing technical indicator values via the <code>FeatureManager</code>, and publishing structured <code>FeatureVector</code> payloads downstream for model consumption.</p>
+<p><strong>Single Responsibility:</strong> Transform raw market data into computed feature vectors.</p>
+<hr />
+<h2 id="2-high-level-design-hld">2. High-Level Design (HLD)<a class="headerlink" href="#2-high-level-design-hld" title="Permanent link">&para;</a></h2>
+<h3 id="21-position-in-pipeline">2.1 Position in Pipeline<a class="headerlink" href="#21-position-in-pipeline" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart LR
+    subgraph Ingestion App
+        WS[Binance WebSocket] --&gt; IC[Ingestion Controller]
+    end
+
+    subgraph Signal App
+        SW[SignalWorker] --&gt; FM[FeatureManager]
+        FM --&gt; IR[IndicatorRegistry]
+        IR --&gt; IND[Indicator Instances]
+    end
+
+    subgraph Strategy App
+        STW[StrategyWorker]
+    end
+
+    IC -- "Valkey Stream\nstream:ohlcv:{symbol}:{tf}" --&gt; SW
+    SW -- "Valkey Stream\nfeatures:{asset}:{tf}" --&gt; STW
+</code></pre>
+<h3 id="22-design-principles">2.2 Design Principles<a class="headerlink" href="#22-design-principles" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Principle</th>
+<th>Implementation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decoupled via streams</strong></td>
+<td>No imports from <code>ingestion_app</code> or <code>strategy_app</code> — Valkey streams are the only integration boundary</td>
+</tr>
+<tr>
+<td><strong>Config-driven indicators</strong></td>
+<td><code>features.yaml</code> defines which indicators run per asset/timeframe via fallback chain</td>
+</tr>
+<tr>
+<td><strong>Registry pattern</strong></td>
+<td><code>IndicatorRegistry</code> auto-discovers indicator classes via decorators</td>
+</tr>
+<tr>
+<td><strong>Multi-instance aliasing</strong></td>
+<td>Same indicator type can appear multiple times with different params (e.g., <code>EMA_fast</code>, <code>EMA_slow</code>)</td>
+</tr>
+<tr>
+<td><strong>Stateful priming</strong></td>
+<td>Indicators are pre-warmed with historical data before live processing</td>
+</tr>
+</tbody>
+</table>
+<h3 id="23-key-contracts">2.3 Key Contracts<a class="headerlink" href="#23-key-contracts" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Contract</th>
+<th>Direction</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Input</strong></td>
+<td>Valkey <code>XREADGROUP</code> from <code>stream:ohlcv:{asset}:{timeframe}</code></td>
+<td>Raw OHLCV fields: <code>open</code>, <code>high</code>, <code>low</code>, <code>close</code>, <code>volume</code>, <code>timestamp</code>, <code>bar_closed</code></td>
+</tr>
+<tr>
+<td><strong>Output</strong></td>
+<td>Valkey <code>XADD</code> to <code>features:{asset}:{timeframe}</code></td>
+<td><code>FeatureVector</code>: <code>{asset, timeframe, timestamp, features: dict, bar_data: dict}</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-low-level-design-lld">3. Low-Level Design (LLD)<a class="headerlink" href="#3-low-level-design-lld" title="Permanent link">&para;</a></h2>
+<h3 id="31-component-architecture">3.1 Component Architecture<a class="headerlink" href="#31-component-architecture" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>classDiagram
+    class SignalWorker {
+        +asset: str
+        +timeframe: str
+        +stream_key: str
+        +group_name: str
+        +consumer_name: str
+        +feature_manager: FeatureManager
+        +redis_client: Any
+        +connect(redis_client) 
+        +start()
+        +process_message(message_id, payload)
+    }
+
+    class FeatureManager {
+        +asset: str
+        +timeframe: str
+        +config_mgr: ConfigManager
+        -_indicator_entries: list~tuple[str, Indicator]~
+        +indicators: list~Indicator~
+        +fetch_historical_db_records(max_lookback)
+        +prime(historical_data)
+        +process_tick(data) dict
+        -_initialize_indicators()
+        -_get_mapped_input(ind, data)
+    }
+
+    class IndicatorRegistry {
+        -_registry: dict~str, Type[Indicator]~
+        +register(name) decorator
+        +get(name) Type[Indicator]
+    }
+
+    class Indicator {
+        &lt;&lt;abstract&gt;&gt;
+        +lookback_required: int
+        +is_primed: bool
+        +batch(data)
+        +prime(historical_data)
+        +update(new_value)
+    }
+
+    class EMA
+    class RSI
+    class MACD
+    class BollingerBands
+    class ATR
+
+    SignalWorker --&gt; FeatureManager
+    FeatureManager --&gt; IndicatorRegistry
+    FeatureManager *-- Indicator
+    IndicatorRegistry --&gt; Indicator
+    EMA --|&gt; Indicator
+    RSI --|&gt; Indicator
+    MACD --|&gt; Indicator
+    BollingerBands --|&gt; Indicator
+    ATR --|&gt; Indicator</code></pre>
+<h3 id="32-file-structure">3.2 File Structure<a class="headerlink" href="#32-file-structure" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>src/apps/signal_app/
+├── signal_worker.py          # Valkey consumer — orchestrates lifecycle
+└── feature_manager.py        # Config-driven indicator loading + tick dispatch
+
+src/libs/features/
+├── __init__.py
+└── indicators/
+    ├── __init__.py            # Auto-imports for registry self-registration
+    ├── base.py                # Indicator ABC (Generic[TInput, TOutput])
+    ├── registry.py            # IndicatorRegistry (decorator-based)
+    ├── trend/
+    │   └── ema.py             # EMA indicator
+    ├── momentum/
+    │   ├── rsi.py             # RSI indicator
+    │   └── macd.py            # MACD indicator
+    ├── volatility/
+    │   ├── bollinger.py       # Bollinger Bands
+    │   └── atr.py             # Average True Range
+    └── volume/                # (placeholder for future volume indicators)
+</code></pre></div>
+<h3 id="33-configuration-featuresyaml">3.3 Configuration — <code>features.yaml</code><a class="headerlink" href="#33-configuration-featuresyaml" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="nt">features</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">assets</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">BTCUSDT</span><span class="p">:</span><span class="w">                    </span><span class="c1"># Asset-specific overrides</span>
+<span class="w">      </span><span class="nt">timeframes</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">1h</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">MACD</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> fast_period</span><span class="p">:</span><span class="w"> </span><span class="nv">12</span><span class="p p-Indicator">,</span><span class="nt"> signal_period</span><span class="p">:</span><span class="w"> </span><span class="nv">9</span><span class="p p-Indicator">,</span><span class="nt"> slow_period</span><span class="p">:</span><span class="w"> </span><span class="nv">26</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">          </span><span class="nt">RSI</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> period</span><span class="p">:</span><span class="w"> </span><span class="nv">14</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">    </span><span class="nt">default</span><span class="p">:</span><span class="w">                    </span><span class="c1"># Fallback for any unspecified asset</span>
+<span class="w">      </span><span class="nt">timeframes</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">default</span><span class="p">:</span><span class="w">                </span><span class="c1"># Fallback for any unspecified timeframe</span>
+<span class="w">          </span><span class="nt">ATR</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> period</span><span class="p">:</span><span class="w"> </span><span class="nv">14</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">          </span><span class="nt">BollingerBands</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> period</span><span class="p">:</span><span class="w"> </span><span class="nv">20</span><span class="p p-Indicator">,</span><span class="nt"> num_std</span><span class="p">:</span><span class="w"> </span><span class="nv">2.0</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">          </span><span class="nt">EMA_fast</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">EMA</span><span class="p p-Indicator">,</span><span class="nt"> period</span><span class="p">:</span><span class="w"> </span><span class="nv">12</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># Multi-instance alias</span>
+<span class="w">          </span><span class="nt">EMA_slow</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">EMA</span><span class="p p-Indicator">,</span><span class="nt"> period</span><span class="p">:</span><span class="w"> </span><span class="nv">26</span><span class="w"> </span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># Multi-instance alias</span>
+<span class="w">          </span><span class="nt">MACD</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> fast_period</span><span class="p">:</span><span class="w"> </span><span class="nv">12</span><span class="p p-Indicator">,</span><span class="nt"> signal_period</span><span class="p">:</span><span class="w"> </span><span class="nv">9</span><span class="p p-Indicator">,</span><span class="nt"> slow_period</span><span class="p">:</span><span class="w"> </span><span class="nv">26</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<span class="w">          </span><span class="nt">RSI</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> period</span><span class="p">:</span><span class="w"> </span><span class="nv">14</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</code></pre></div>
+<p><strong>Fallback chain:</strong> <code>asset/timeframe</code> → <code>asset/default</code> → <code>default/timeframe</code> → <code>default/default</code></p>
+<p><strong>Multi-instance aliasing:</strong> When a YAML key contains a <code>type</code> field, the key becomes the output alias and <code>type</code> specifies the indicator class. Without <code>type</code>, the YAML key is both the class name and the output key.</p>
+<hr />
+<h2 id="4-pipeline-flow-top-down-view">4. Pipeline Flow — Top-Down View<a class="headerlink" href="#4-pipeline-flow-top-down-view" title="Permanent link">&para;</a></h2>
+<h3 id="41-boot-sequence">4.1 Boot Sequence<a class="headerlink" href="#41-boot-sequence" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>sequenceDiagram
+    participant Main as Entrypoint
+    participant SW as SignalWorker
+    participant FM as FeatureManager
+    participant IR as IndicatorRegistry
+    participant CFG as ConfigManager
+    participant DB as TimescaleDB
+    participant VK as Valkey
+
+    Main-&gt;&gt;SW: __init__(asset, timeframe)
+    SW-&gt;&gt;FM: __init__(asset, timeframe)
+    FM-&gt;&gt;CFG: register_file("configs/features.yaml")
+    FM-&gt;&gt;CFG: get("features") → resolve fallback chain
+    FM-&gt;&gt;IR: get(indicator_type) for each config entry
+    IR--&gt;&gt;FM: Indicator class
+    FM-&gt;&gt;FM: instantiate indicator with params
+    Note over FM: _indicator_entries = [(output_key, Indicator), ...]
+
+    SW-&gt;&gt;VK: connect(redis_client)
+    SW-&gt;&gt;VK: XGROUP CREATE market_data:{asset}:{tf}
+
+    SW-&gt;&gt;FM: max(ind.lookback_required) across all indicators
+    SW-&gt;&gt;FM: fetch_historical_db_records(max_lookback)
+    FM-&gt;&gt;DB: Query last N closed 1m candles
+    DB--&gt;&gt;FM: historical OHLCV tuples
+
+    SW-&gt;&gt;FM: prime(historical_data)
+    FM-&gt;&gt;FM: map inputs per indicator type hint
+    FM-&gt;&gt;FM: ind.prime(mapped_data) for each indicator
+    Note over FM: All indicators now is_primed = True
+
+    SW-&gt;&gt;VK: XREADGROUP (blocking loop)</code></pre>
+<h3 id="42-live-processing-loop">4.2 Live Processing Loop<a class="headerlink" href="#42-live-processing-loop" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>sequenceDiagram
+    participant VK as Valkey
+    participant SW as SignalWorker
+    participant FM as FeatureManager
+    participant IND as Indicators
+
+    loop Every closed candle event
+        VK--&gt;&gt;SW: XREADGROUP → payload {open, high, low, close, volume, timestamp, bar_closed}
+        SW-&gt;&gt;SW: Check bar_closed == true
+        SW-&gt;&gt;SW: Extract OHLCV floats
+
+        SW-&gt;&gt;FM: process_tick((high, low, close, volume, timestamp))
+        loop For each (output_key, indicator)
+            FM-&gt;&gt;FM: _get_mapped_input(ind, data) → type-aware mapping
+            FM-&gt;&gt;IND: ind.update(mapped_input)
+            IND--&gt;&gt;FM: indicator value
+            FM-&gt;&gt;FM: results[output_key] = value
+        end
+        FM--&gt;&gt;SW: results dict {EMA_fast: 65432.1, RSI: 42.5, ...}
+
+        SW-&gt;&gt;VK: XADD features:{asset}:{tf} {asset, timeframe, timestamp, features: JSON, bar_data: JSON}
+        SW-&gt;&gt;VK: XACK message_id
+    end</code></pre>
+<h3 id="43-input-mapping-logic">4.3 Input Mapping Logic<a class="headerlink" href="#43-input-mapping-logic" title="Permanent link">&para;</a></h3>
+<p><code>FeatureManager._get_mapped_input()</code> inspects each indicator's <code>update()</code> type hint to determine what data to pass:</p>
+<table>
+<thead>
+<tr>
+<th>Type Hint</th>
+<th>Mapped Input</th>
+<th>Example Indicators</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>float</code></td>
+<td><code>data[2]</code> (close price)</td>
+<td>EMA, RSI</td>
+</tr>
+<tr>
+<td><code>Tuple[float, float, float]</code> (HLC)</td>
+<td><code>(data[0], data[1], data[2])</code></td>
+<td>BollingerBands</td>
+</tr>
+<tr>
+<td><code>Tuple[float, float, float, float, float]</code> (full candle)</td>
+<td><code>data</code> (entire tuple)</td>
+<td>ATR</td>
+</tr>
+<tr>
+<td>Fallback</td>
+<td><code>data[2]</code> (close price)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5-valkey-stream-protocol">5. Valkey Stream Protocol<a class="headerlink" href="#5-valkey-stream-protocol" title="Permanent link">&para;</a></h2>
+<h3 id="51-input-stream">5.1 Input Stream<a class="headerlink" href="#51-input-stream" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Key:</strong> <code>stream:ohlcv:{asset}:{timeframe}</code> (e.g., <code>stream:ohlcv:btcusdt:1h</code>)</li>
+<li><strong>Consumer group:</strong> <code>signal_app_group</code></li>
+<li><strong>Consumer name:</strong> <code>signal_worker_{asset}_{timeframe}</code></li>
+<li><strong>Payload fields:</strong></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>open</code></td>
+<td>string/float</td>
+<td>Open price</td>
+</tr>
+<tr>
+<td><code>high</code></td>
+<td>string/float</td>
+<td>High price</td>
+</tr>
+<tr>
+<td><code>low</code></td>
+<td>string/float</td>
+<td>Low price</td>
+</tr>
+<tr>
+<td><code>close</code></td>
+<td>string/float</td>
+<td>Close price</td>
+</tr>
+<tr>
+<td><code>volume</code></td>
+<td>string/float</td>
+<td>Volume</td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>string/float</td>
+<td>Candle timestamp</td>
+</tr>
+<tr>
+<td><code>bar_closed</code></td>
+<td>string/bool</td>
+<td><code>"true"</code> / <code>"True"</code> / <code>"1"</code> / <code>True</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-output-stream">5.2 Output Stream<a class="headerlink" href="#52-output-stream" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Key:</strong> <code>features:{asset}:{timeframe}</code> (e.g., <code>features:BTCUSDT:1h</code>)</li>
+<li><strong>Payload fields:</strong></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>asset</code></td>
+<td>string</td>
+<td>Asset symbol</td>
+</tr>
+<tr>
+<td><code>timeframe</code></td>
+<td>string</td>
+<td>Timeframe</td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>string</td>
+<td>Candle timestamp</td>
+</tr>
+<tr>
+<td><code>features</code></td>
+<td>JSON string</td>
+<td><code>{"EMA_fast": 65432.1, "RSI": 42.5, ...}</code></td>
+</tr>
+<tr>
+<td><code>bar_data</code></td>
+<td>JSON string</td>
+<td><code>{"open": 65000.0, "high": 65500.0, ...}</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Note:</strong> <code>bar_data</code> includes the full OHLCV bar so downstream consumers (StrategyWorker) have price context without a separate DB query.</p>
+</blockquote>
+<hr />
+<h2 id="6-indicator-lifecycle">6. Indicator Lifecycle<a class="headerlink" href="#6-indicator-lifecycle" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>stateDiagram-v2
+    [*] --&gt; Unprimed: __init__()
+    Unprimed --&gt; Priming: prime(historical_data)
+    Priming --&gt; Primed: lookback_required bars consumed
+    Primed --&gt; Primed: update(new_value) → returns indicator value
+    Primed --&gt; Unprimed: update() throws → _is_primed = False (un-primed by FeatureManager)</code></pre>
+<h3 id="61-indicator-abc-contract">6.1 Indicator ABC Contract<a class="headerlink" href="#61-indicator-abc-contract" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Indicator</span><span class="p">(</span><span class="n">ABC</span><span class="p">,</span> <span class="n">Generic</span><span class="p">[</span><span class="n">TInput</span><span class="p">,</span> <span class="n">TOutput</span><span class="p">]):</span>
+    <span class="n">lookback_required</span><span class="p">:</span> <span class="nb">int</span>      <span class="c1"># Minimum historical bars for valid output</span>
+    <span class="n">is_primed</span><span class="p">:</span> <span class="nb">bool</span>             <span class="c1"># Whether indicator has enough state</span>
+    <span class="n">batch</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="err">→</span> <span class="n">Sequence</span>      <span class="c1"># Vectorized for backtesting</span>
+    <span class="n">prime</span><span class="p">(</span><span class="n">historical_data</span><span class="p">)</span>      <span class="c1"># Pre-warm live state from history</span>
+    <span class="n">update</span><span class="p">(</span><span class="n">new_value</span><span class="p">)</span> <span class="err">→</span> <span class="n">TOutput</span> <span class="c1"># Single-tick update for live trading</span>
+</code></pre></div>
+<h3 id="62-registered-indicators">6.2 Registered Indicators<a class="headerlink" href="#62-registered-indicators" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Class</th>
+<th>Input Type</th>
+<th>Key Params</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>EMA</code></td>
+<td><code>EMA</code></td>
+<td><code>float</code> (close)</td>
+<td><code>period</code></td>
+</tr>
+<tr>
+<td><code>RSI</code></td>
+<td><code>RSI</code></td>
+<td><code>float</code> (close)</td>
+<td><code>period</code></td>
+</tr>
+<tr>
+<td><code>MACD</code></td>
+<td><code>MACD</code></td>
+<td><code>float</code> (close)</td>
+<td><code>fast_period</code>, <code>slow_period</code>, <code>signal_period</code></td>
+</tr>
+<tr>
+<td><code>BollingerBands</code></td>
+<td><code>BollingerBands</code></td>
+<td><code>(H, L, C)</code> tuple</td>
+<td><code>period</code>, <code>num_std</code></td>
+</tr>
+<tr>
+<td><code>ATR</code></td>
+<td><code>ATR</code></td>
+<td><code>(H, L, C, V, T)</code> full candle</td>
+<td><code>period</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-error-handling">7. Error Handling<a class="headerlink" href="#7-error-handling" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Indicator not found in registry</td>
+<td>Logged as warning, skipped during init</td>
+</tr>
+<tr>
+<td>Indicator instantiation fails</td>
+<td>Logged as error, skipped</td>
+</tr>
+<tr>
+<td>No history for priming</td>
+<td>Logged as warning, indicators remain unprimed</td>
+</tr>
+<tr>
+<td>Unprimed indicator on tick</td>
+<td>Skipped with warning — no output for that indicator</td>
+</tr>
+<tr>
+<td>Indicator throws on <code>update()</code></td>
+<td>Logged as error, indicator un-primed (<code>_is_primed = False</code>)</td>
+</tr>
+<tr>
+<td>No redis client</td>
+<td>Runs in mock mode — processes but doesn't publish</td>
+</tr>
+<tr>
+<td>Consumer group already exists</td>
+<td><code>BUSYGROUP</code> exception silently caught</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-known-integration-notes">8. Known Integration Notes<a class="headerlink" href="#8-known-integration-notes" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>bytes vs str:</strong> SignalWorker handles both <code>bytes</code> and <code>str</code> keys/values from Valkey (depends on client <code>decode_responses</code> setting).</li>
+<li><strong>Only closed bars:</strong> <code>process_message()</code> filters on <code>bar_closed == true</code> — partial/open candles are ignored.</li>
+<li><strong>No <code>main.py</code> entrypoint:</strong> Signal App currently has no boot/discovery mechanism. <code>SignalWorker</code> must be instantiated externally (e.g., from a shared orchestrator or a future <code>main.py</code>).</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

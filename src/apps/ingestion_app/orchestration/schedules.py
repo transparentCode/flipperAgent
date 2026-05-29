@@ -5,8 +5,8 @@ from apps.ingestion_app.constants import EXCHANGE_BINANCE
 from .tasks import poll_binance_ohlcv, scheduled_gap_fill
 
 class IngestionScheduler(BaseScheduler):
-    def __init__(self):
-        self.config_manager = ConfigManager()
+    def __init__(self, config_manager: ConfigManager | None = None):
+        self.config_manager = config_manager or ConfigManager()
 
     def get_cron_jobs(self) -> list:
         """

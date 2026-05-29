@@ -1,29 +1,37 @@
-from libs.common.config import ConfigManager
-config_manager = ConfigManager()
-
 import asyncio
-from typing import Dict, Any, List
-import logging
 from datetime import datetime, timezone, timedelta
-from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
-import ccxt
+from typing import Dict, Any, List
 
-from libs.common.logging.logger_utils import bind_logger
-from libs.common.enums import SystemComponent
-from libs.common.exceptions import DataIngestionError
+import ccxt
+from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
+
+from apps.ingestion_app.coordination import IngestionCoordinator, IngestionState
+from apps.ingestion_app.models.tick_models import OHLCVRecord
 from apps.ingestion_app.storage.timescale_writer import TimescaleWriter
+from libs.common.config import ConfigManager
 from libs.common.db.pool_manager import DBPoolManager
 from libs.common.db.timescale_reader import TimescaleReader
-from apps.ingestion_app.models.tick_models import OHLCVRecord
+from libs.common.enums import SystemComponent
+from libs.common.exceptions import DataIngestionError
+from libs.common.logging.logger_utils import bind_logger
 
+config_manager = ConfigManager()
 
 logger = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_ENGINE)
 
-async def poll_binance_ohlcv(ctx: Dict[str, Any], symbol: str = config_manager.get("ingestion.assets.default_binance_asset", "BTCUSDT"), timeframe: str = config_manager.get("ingestion.timeframes.default", "15m")) -> None:
-    """
-    Placeholder task to poll Binance OHLCV data.
+async def poll_binance_ohlcv(
+    ctx: Dict[str, Any],
+    symbol: str | None = None,
+    timeframe: str | None = None,
+) -> None:
+    """Placeholder task to poll Binance OHLCV data.
     Uses the adapter instances setup in ctx.
     """
+    cfg = ConfigManager()
+    if symbol is None:
+        symbol = cfg.get("ingestion.assets.default_binance_asset", "BTCUSDT")
+    if timeframe is None:
+        timeframe = cfg.get("ingestion.timeframes.default", "15m")
     logger.info(f"Task poll_binance_ohlcv started for {symbol} ({timeframe})")
     
     binance_adapter = ctx.get("binance_adapter")
@@ -74,6 +82,13 @@ async def _fetch_asset_gap(ctx: Dict[str, Any], ccxt_adapter, symbol: str):
     limit = 1000
     sleep_seconds = config_manager.get("ingestion.concurrency.gap_fill_sleep_seconds", 0.5)
 
+    try:
+        ts_pool = DBPoolManager.get_writer_pool()
+        ts_writer: TimescaleWriter | None = TimescaleWriter(ts_pool)
+    except RuntimeError:
+        logger.warning("DB writer pool not initialized. TimescaleDB inserts will be skipped.")
+        ts_writer = None
+
     while True:
         try:
             df = await ccxt_adapter.get_historical_ohlcv(symbol, base_timeframe, since=start_ts, limit=limit)
@@ -96,13 +111,8 @@ async def _fetch_asset_gap(ctx: Dict[str, Any], ccxt_adapter, symbol: str):
                 )
                 records.append(record)
                 
-            try:
-                ts_pool = DBPoolManager.get_writer_pool()
-                if records:
-                    writer = TimescaleWriter(ts_pool)
-                    await writer.insert_ohlcv(records, timeframe=base_timeframe)
-            except RuntimeError:
-                logger.warning("DB pools not initialized. Skipping database insert.")
+            if records and ts_writer is not None:
+                await ts_writer.insert_ohlcv(records, timeframe=base_timeframe)
             
             if len(df) < limit:
                 break
@@ -123,25 +133,28 @@ async def run_rest_gap_fill(ctx: Dict[str, Any], assets: List[str], exchange: st
     via REST to bridge the gap.
     """
     logger.info(f"Task run_rest_gap_fill started for exchange {exchange} with {len(assets)} assets")
-    
+
     ccxt_adapter = ctx.get("ccxt_adapter")
-    
+    coordinator: IngestionCoordinator | None = ctx.get("coordinator")
+    base_timeframe = config_manager.get("ingestion.timeframes.base_gap_fill", "1m")
     concurrency_limit = config_manager.get("ingestion.concurrency.gap_fill_limit", 5)
-    # Layer 2: Concurrency limits using a Semaphore (allow at most 5 concurrent requests)
     semaphore = asyncio.Semaphore(concurrency_limit)
-    
+
     async def process_asset(symbol: str):
         async with semaphore:
+            if coordinator:
+                await coordinator.transition(symbol, base_timeframe, IngestionState.BACKFILLING)
             try:
                 await _fetch_asset_gap(ctx, ccxt_adapter, symbol)
+                if coordinator:
+                    await coordinator.transition(symbol, base_timeframe, IngestionState.WARMING)
             except Exception as e:
                 logger.error(f"Failed to gap-fill {symbol}: {e}")
-                # Log and continue since it's a batch background task
-                
-            # Layer 3: Sleep slightly after a request completes to space out calls
+                if coordinator:
+                    await coordinator.transition(symbol, base_timeframe, IngestionState.ERROR)
+            # Space out calls after each asset completes
             await asyncio.sleep(config_manager.get("ingestion.concurrency.gap_fill_sleep_seconds", 0.5))
 
-    # Launch batched requests
     await asyncio.gather(*(process_asset(symbol) for symbol in assets))
     logger.info(f"Gap fill task completed successfully for {exchange}.")
 

@@ -14,9 +14,9 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-# Add non-root user and prepare data directory
+# Add non-root user and prepare data and logs directories with correct ownership
 RUN groupadd -r flipper && useradd -r -g flipper flipper \
-    && mkdir -p /app/data && chown -R flipper:flipper /app
+    && mkdir -p /app/data /app/logs && chown -R flipper:flipper /app
 
 # Copy the built wheels and install them
 COPY --from=builder /build/wheels /wheels

@@ -1,78 +1,296 @@
-# Ingestion Module (HLD & LLD)
+# Ingestion App
 
-The Ingestion Module abstracts data retrieval behind modular Adapters and manages continuous real-time streams and historical gap-filling through orchestration.
+The Ingestion App is the pipeline entry point: it owns all market data acquisition, normalises it into a canonical OHLCV schema, persists it in TimescaleDB, and publishes closed-bar events downstream over Valkey streams for consumption by the Signal App.
+
+---
 
 ## High-Level Design (HLD)
 
+### System Context
+
 ```mermaid
 flowchart TD
-    %% Data Sources
-    subgraph Sources [Data Sources]
-        Binance[Binance API / WS]
-        CCXT[CCXT Supported Exchanges]
+    subgraph External [External Data Sources]
+        BinanceWS[Binance USD-M Futures WebSocket]
+        BinanceREST[Binance REST API]
+        CCXT[CCXT-Unified REST]
     end
 
-    %% Ingestion Adapters
-    subgraph Adapters [Ingestion Adapters]
-        BN_Adapter[Binance Native Adapter]
-        CCXT_Adapter[CCXT Adapter]
+    subgraph IngestionApp [Ingestion App]
+        WorkerStreams[worker-streams\nFastAPI / uvicorn]
+        WorkerQueue[worker-queue\nARQ / cron]
+        Coordinator[IngestionCoordinator\nValkey state machine]
     end
 
-    %% Orchestration & Gap Filling
-    subgraph Orchestration [Orchestration Layer]
-        Controller[FastAPI Controller]
-        Worker[ARQ Task Worker]
-        Valkey[(Valkey / Redis)]
+    subgraph Infra [Infrastructure]
+        Valkey[(Valkey\nstate + streams + task queue)]
+        TimescaleDB[(TimescaleDB\nohlcv hypertable)]
     end
 
-    %% Storage Layer
-    subgraph Storage [TimescaleDB Storage]
-        Hypertable[Hypertable: ticks & ohlcv]
-        ContAgg[Continuous Aggregates]
+    subgraph Downstream [Downstream]
+        SignalApp[Signal App]
     end
 
-    %% Relationships
-    Binance <--> BN_Adapter
-    CCXT <--> CCXT_Adapter
+    BinanceWS -->|kline stream| WorkerStreams
+    BinanceREST -->|historical klines| WorkerStreams
+    CCXT -->|paginated REST| WorkerQueue
 
-    Controller -->|Dispatch gap-fill tasks| Valkey
-    Valkey -->|Consume tasks| Worker
-    Worker -->|REST Historical fetch| CCXT_Adapter
-    Controller -->|WS Streaming| BN_Adapter
-    
-    BN_Adapter --> Hypertable
-    Worker --> Hypertable
-    Hypertable --> ContAgg
+    WorkerStreams <-->|state read/write| Coordinator
+    WorkerQueue <-->|state read/write| Coordinator
+    Coordinator <-->|ingestion:state:{sym}:{tf}| Valkey
+
+    WorkerQueue -->|enqueue gap-fill| Valkey
+    Valkey -->|dequeue| WorkerQueue
+
+    WorkerStreams -->|INSERT closed 1m candles| TimescaleDB
+    WorkerQueue -->|INSERT backfill candles| TimescaleDB
+
+    WorkerStreams -->|XADD stream:ohlcv:{sym}:{tf}| Valkey
+    Valkey -->|XREAD| SignalApp
 ```
+
+### Two-Service Architecture
+
+The ingestion app runs as **two separate processes** that cannot be merged:
+
+| Service | Runtime | Owns | Why separate |
+|---|---|---|---|
+| `worker-streams` | FastAPI + uvicorn | WebSocket daemons, Valkey stream publishing | FastAPI/uvicorn owns the asyncio event loop for unbounded long-lived coroutines |
+| `worker-queue` | ARQ worker | REST gap-fill jobs, cron scheduling | ARQ owns the event loop for bounded, retriable, queued tasks |
+
+Both services share the same Valkey instance and TimescaleDB, coordinated via `IngestionCoordinator`.
+
+### Boot Sequence
+
+```mermaid
+sequenceDiagram
+    participant WS as worker-streams (lifespan)
+    participant Coord as IngestionCoordinator
+    participant Valkey as Valkey
+    participant WQ as worker-queue (arq)
+    participant DB as TimescaleDB
+
+    WS->>Coord: is_stale(symbol, "1m")
+    Coord->>DB: get_max_timestamp(symbol, "1m")
+    DB-->>Coord: max_ts
+
+    alt data stale / missing
+        Coord-->>WS: True
+        WS->>Valkey: enqueue run_rest_gap_fill
+        Valkey->>WQ: dequeue
+        WQ->>Coord: transition → BACKFILLING
+        WQ->>DB: paginated REST INSERT
+        WQ->>Coord: transition → WARMING
+    else data fresh
+        Coord-->>WS: False
+        WS->>Coord: transition → WARMING
+    end
+
+    WS->>Coord: wait_until_warmed (poll Valkey)
+    Coord-->>WS: WARMING or LIVE reached
+    WS->>Valkey: start WebSocket pipeline
+    WS->>Coord: transition → LIVE
+```
+
+---
 
 ## Low-Level Design (LLD)
 
-### 1. Valkey (Redis-compatible) & ARQ Background Task Queues
-To manage long-running data backfills (which can take minutes or hours for large datasets) without blocking the main event loops, the ingestion engine utilizes **ARQ** for distributed background task queues. 
-- **Valkey Broker**: A Redis-compatible high-performance in-memory datastore serves as the message broker (`valkey:latest` inside Docker Compose).
-- **FastAPI Controller (`controller.py`)**: Acts as the system orchestrator. Through its FastApi lifespan hooks, it checks the database on boot. If data is stale or missing, it enqueues a background `run_rest_gap_fill` job to the Valkey queue.
-- **Worker (`worker.py`)**: Subscribes to the Valkey queues. Concurrently processes REST gap-filling using `asyncio.Semaphore` logic to prevent rate-limiting against the CCXT exchange adapters.
+### Component Breakdown
 
-### 2. WebSocket Streaming vs Historical CCXT Polling
-The system explicitly divides data retrieval into two modes:
-- **WebSocket Live Streaming**: Once the asynchronous Controller identifies that the TimescaleDB dataset is fully caught up (via the "Verification Gate"), it automatically launches a persistent, multiplexed WebSocket stream through the Binance Native Adapter. Ticks go straight into the database for sub-second latency.
-- **Historical Gap Filling (via CCXT)**: To bridge any missing holes from offline periods, the ARQ worker fetches REST data using the unified `CCXT Adapter`. `tenacity` provides exponential backoff, preventing HTTP 429 bans while looping backwards through time safely enforcing API rate limits.
+#### `coordination.py` — IngestionCoordinator
 
-### 3. Configurable Publish Timeframes & Write Optimization
-To provide flexible triggers for downstream strategies without creating data bloat, the pipeline supports configurable target timeframes:
-- **Baseline 1m Storage**: The system subscribes to 1-minute streams universally as a baseline rule. Only closed `1m` candles are inserted into TimescaleDB, ensuring storage remains atomic, standardized, and protected from write amplification.
-- **Selective Valkey Publishing**: Users configure specific `publish_timeframes` per asset (e.g. `1h`, `4h`) in `base.yaml`. The WebSocket multiplexes subscriptions to capture official Binance closed-candle events across all configured limits. Internal pipeline routing filters these streams—forwarding the high-granularity official exchange closes directly onto the Valkey Pub/Sub bus orchestrating downstream workers instantly, entirely bypassing database storage to preserve efficiency.
+Single source of truth for per-asset ingestion state. Both containers write to the same Valkey keys.
 
-### 4. TimescaleDB Continuous Aggregates Schema
-Our persistence layer resides in **TimescaleDB** using efficient, chunked hypertables and continuous aggregates defined in `schema.sql`.
-- **Raw Hypertables**: Incoming WebSocket ticks (`ticks`) and Gap-filled candle bars (`ohlcv`) stream directly into hypertables sharded intelligently by `timestamp` indexing.
-- **Continuous Aggregates**: The `market_1m_bars` layout acts as a Continuous Materialized View spanning the `ticks` hypertable. It rolls continuous records into clean 1-minute bars (`open`, `high`, `low`, `close`, `volume`) directly inside the database kernel natively.
-- **Refresh Policies & Retention**: PostGIS/Timescale automatically refreshes `market_1m_bars` in the background (configured for a 1-minute schedule increment). Older tick limits are bounded by a 30-day Retention Policy protecting storage capacity against unbounded log expansion.
+**State machine:**
 
-### 5. End-to-End (E2E) Docker Testing Strategy
-Testing an asynchronous architecture encompassing WS, background workers, Redis, and Postgres natively requires high fidelity staging:
-- **Topology (`docker-compose.yml`)**: Deploys `db` (Timescale), `broker` (Valkey), `worker-queue` (ARQ), and `worker-streams` (FastAPI Controller) as separate containers representing perfect production symmetry.
-- **Bootstrapping (`run_e2e_tests.sh`)**: The bash orchestrator handles the startup race conditions. Post spinning up containers, it repeatedly executes `pg_isready` polling until the DB is live, pushes `schema.sql` directly into Timescale, and evaluates `pytest` integration targets.
-- **Integration Assertions (`test_docker_integration.py`)**: The test suite confirms the system behavior purely through datastore output reflection:
-  - **Gap Fill Check**: Polls the `ohlcv` hypertable ensuring that records actively insert from the decoupled ARQ queue workers.
-  - **WebSocket Live Hand-off Check**: Evaluates if the `MAX(timestamp)` divergence relative to wall-clock time shrinks beneath the `warmup_threshold_ms`, proving the Verification Gate transferred ingestion logic from REST gap-filling successfully over to the persistent Live WebSockets.
+```
+COLD → BACKFILLING → WARMING → LIVE
+                             ↘ ERROR
+```
+
+| State | Set by | Meaning |
+|---|---|---|
+| `COLD` | default (key absent) | No data, no activity |
+| `BACKFILLING` | `worker-queue` on gap-fill start | REST fetch in progress |
+| `WARMING` | `worker-queue` on gap-fill complete | DB caught up, WS may connect |
+| `LIVE` | `worker-streams` after WS connects | Streaming active |
+| `ERROR` | either service on unrecoverable failure | Gap-fill or WS failed |
+
+**Key methods:**
+
+| Method | Description |
+|---|---|
+| `get_state(symbol, tf)` | `GET ingestion:state:{symbol}:{tf}` → `IngestionState` |
+| `transition(symbol, tf, state)` | `SET` + structured log |
+| `is_stale(symbol, tf)` | `get_max_timestamp` vs `now - warmup_threshold_ms`; returns `True` if data is missing or old |
+| `wait_until_warmed(symbol, tf)` | Polls Valkey until `WARMING`/`LIVE`; raises `asyncio.TimeoutError` after `warmup_timeout_seconds` (default 600s); returns `False` on `ERROR` |
+
+Config keys consumed: `ingestion.websocket.warmup_threshold_ms`, `ingestion.websocket.warmup_timeout_seconds`, `ingestion.websocket.verification_sleep_seconds`.
+
+---
+
+#### `adapters/binance_native.py` — BinanceNativeAdapter
+
+Wraps the `binance-futures-connector` library for both REST and WebSocket access to Binance USD-M Futures.
+
+| Method | Transport | Description |
+|---|---|---|
+| `get_historical_ohlcv(symbol, tf, since, until, limit)` | REST | Calls `UMFutures.klines()` in a thread pool (`asyncio.to_thread`) to avoid blocking the event loop. Returns a normalised `pd.DataFrame` with `OHLCV_COLUMNS`. |
+| `stream_multiplex_socket(symbols_timeframes, loop, queue)` | WebSocket | Opens a combined `UMFuturesWebsocketClient` stream, bridges the thread-safe `on_message` callback into an `asyncio.Queue`, and yields raw JSON messages as an async generator. Supports multiple symbols × timeframes in a single socket connection. |
+
+Credentials are read from `ingestion.credentials.api_key` / `ingestion.credentials.api_secret` in `base.yaml` (no `os.getenv`).
+
+---
+
+#### `adapters/crypto_ccxt.py` — CCXTAdapter
+
+Provides a unified CCXT interface for historical REST fetches used by the gap-fill worker.
+
+- `get_historical_ohlcv(symbol, tf, since, limit)` → `pd.DataFrame`
+- Used exclusively by `_fetch_asset_gap` in `tasks.py`; not used for live streaming.
+
+---
+
+#### `orchestration/controller.py` — worker-streams entrypoint
+
+FastAPI app with a `lifespan` context manager that orchestrates the boot sequence and runs the WebSocket pipeline.
+
+**`lifespan(app)`**
+
+1. Initialises DB pools (`DBPoolManager.init_pools`)
+2. Creates ARQ pool and Valkey client
+3. Instantiates `IngestionCoordinator`
+4. For each asset in `ingestion.assets.target_list`:
+   - Calls `coordinator.is_stale()` → enqueues `run_rest_gap_fill` or transitions directly to `WARMING`
+   - Spawns `verify_and_launch_ws()` as an asyncio task
+
+**`verify_and_launch_ws(symbol, publish_timeframes, arq_pool, coordinator)`**
+
+- Awaits `coordinator.wait_until_warmed()` (blocks until `WARMING`/`LIVE` or timeout)
+- On success: spawns `run_websocket_pipeline()` as a background task
+
+**`run_websocket_pipeline(symbol, publish_timeframes, arq_pool, coordinator)`**
+
+- Outer `while True` reconnect loop
+- Transitions to `LIVE` before entering the message loop
+- On each closed `1m` kline: writes to TimescaleDB via `TimescaleWriter`
+- On each closed kline in `publish_timeframes`: `XADD stream:ohlcv:{symbol.lower()}:{tf}` to Valkey (consumed by Signal App)
+- On `CancelledError`: transitions to `COLD`, exits cleanly
+- On exception: transitions to `COLD`, enqueues gap-fill, sleeps `reconnect_sleep_seconds`, reconnects
+
+Stream payload fields: `exchange`, `symbol`, `timeframe`, `timestamp`, `open`, `high`, `low`, `close`, `volume`, `bar_closed`, `ingestion_timestamp`.
+
+---
+
+#### `orchestration/tasks.py` — worker-queue tasks
+
+**`run_rest_gap_fill(ctx, assets, exchange)`**
+
+Entrypoint for the ARQ gap-fill job. For each asset (bounded by `asyncio.Semaphore(gap_fill_limit)`):
+
+1. Transitions asset to `BACKFILLING`
+2. Calls `_fetch_asset_gap(ctx, ccxt_adapter, symbol)`
+3. On success: transitions to `WARMING`
+4. On failure: transitions to `ERROR`
+
+**`_fetch_asset_gap(ctx, ccxt_adapter, symbol)`**
+
+Paginated REST backfill with `tenacity` retry (5 attempts, exponential backoff 4–60s) on `RateLimitExceeded`, `RequestTimeout`, `NetworkError`.
+
+- Reads `get_max_timestamp` from TimescaleDB to find the gap start
+- `TimescaleWriter` instantiated once before the pagination loop (not per-page)
+- Inserts each page of `OHLCVRecord` objects via `ts_writer.insert_ohlcv()`
+- Exits when `len(df) < limit` (last page)
+
+**`poll_binance_ohlcv(ctx, symbol, timeframe)`** — cron task (every 15m), currently a stub for supplemental polling.
+
+**`scheduled_gap_fill(ctx)`** — cron wrapper; reads `target_list` from config, delegates to `run_rest_gap_fill`.
+
+---
+
+#### `orchestration/worker.py` — ARQ worker settings
+
+Defines the ARQ `WorkerSettings` class consumed by the `arq` CLI.
+
+- `startup`: initialises `BinanceNativeAdapter`, `CCXTAdapter`, `DBPoolManager`, Valkey client, and `IngestionCoordinator`; stores all in `ctx`
+- `shutdown`: closes Valkey client and DB pools
+- Credentials: `ingestion.credentials.api_key/api_secret` from ConfigManager (no `os.getenv`)
+
+---
+
+#### `orchestration/schedules.py` — IngestionScheduler
+
+Extends `BaseScheduler` to return the ARQ `cron` job list.
+
+| Cron job | Schedule | Config key |
+|---|---|---|
+| `scheduled_gap_fill` | every 5 minutes | `ingestion.orchestration.schedules.gap_fill_minutes` |
+| `poll_binance_ohlcv` | every 15 minutes | `ingestion.orchestration.schedules.ohlcv_minutes` |
+
+---
+
+#### `models/tick_models.py` — Data models
+
+| Model | Fields | Notes |
+|---|---|---|
+| `OHLCVRecord` | `symbol`, `timestamp`, `open`, `high`, `low`, `close`, `volume`, `is_closed` | Timestamp auto-coerced from ms epoch or `datetime`. Validates `high >= low`. |
+| `TickRecord` | `symbol`, `price`, `size`, `side` | Used for raw tick ingestion (future use). |
+| `OIRecord` | `symbol`, `open_interest`, `timestamp` | Open interest (future use). |
+
+All models inherit `BaseDataModel` which normalises `timestamp` to UTC `datetime` from ms-epoch integers.
+
+---
+
+#### `storage/timescale_writer.py` — TimescaleWriter
+
+Bulk-inserts `OHLCVRecord` lists into the `ohlcv` hypertable.
+
+- Pool acquired from `DBPoolManager.get_writer_pool()`
+- Used in both `controller.py` (per-reconnect cycle, instantiated once) and `tasks.py` (per gap-fill, instantiated once before pagination loop)
+
+---
+
+### Configuration Reference
+
+All config under `configs/base.yaml`. No `os.getenv` anywhere in the app.
+
+| Key | Default | Description |
+|---|---|---|
+| `ingestion.assets.target_list` | `[BTCUSDT, ...]` | Assets to ingest |
+| `ingestion.assets.publish_timeframes` | `{BTCUSDT: [30m, 1h, 4h], ...}` | Per-asset Valkey publish timeframes |
+| `ingestion.assets.historical_backfill_days` | `2` | REST backfill window |
+| `ingestion.timeframes.base_gap_fill` | `1m` | TimescaleDB write timeframe |
+| `ingestion.credentials.api_key/api_secret` | `""` | Binance API credentials |
+| `ingestion.websocket.stream_url` | `wss://fstream.binancefuture.com` | WS endpoint |
+| `ingestion.websocket.warmup_threshold_ms` | `300000` | Staleness threshold (5 min) |
+| `ingestion.websocket.warmup_timeout_seconds` | `600` | Max wait for WARMING state |
+| `ingestion.websocket.reconnect_sleep_seconds` | `5` | WS reconnect delay |
+| `ingestion.concurrency.gap_fill_limit` | `5` | Max concurrent REST fetches |
+| `ingestion.concurrency.gap_fill_sleep_seconds` | `0.5` | Delay between REST pages |
+| `logging.level` | `INFO` | Log level |
+| `logging.console_format` | `json` | `json` or `color` |
+
+---
+
+### Downstream Interface
+
+The Signal App consumes Valkey streams published by `worker-streams`:
+
+- **Stream key**: `stream:ohlcv:{symbol_lower}:{timeframe}` (e.g. `stream:ohlcv:btcusdt:1h`)
+- **Trigger**: closed candle on a configured `publish_timeframe`
+- **Fields**: `exchange`, `symbol`, `timeframe`, `timestamp` (float seconds), `open`, `high`, `low`, `close`, `volume`, `bar_closed` (`"True"`), `ingestion_timestamp` (ms epoch string)
+
+---
+
+### E2E Docker Testing Strategy
+
+```
+db (TimescaleDB) + broker (Valkey) → worker-queue (ARQ) + worker-streams (FastAPI)
+```
+
+- **`docker-compose.yml`**: four containers matching production topology
+- **`run_e2e_tests.sh`**: waits for `pg_isready`, applies `schema.sql`, then runs `pytest tests/e2e/`
+- **Assertions**:
+  - Gap-fill check: polls `ohlcv` hypertable for inserted rows from the ARQ worker
+  - WS handoff check: `MAX(timestamp)` lag falls below `warmup_threshold_ms`, confirming `LIVE` state reached

@@ -1,47 +1,31 @@
 # Dockerfile.tv-scraper
-# Separate image for TradingView index scraping — includes headless Chromium
+# Separate image for TradingView index scraping — includes headless Chromium via patchright
+#
+# Uses the Microsoft Playwright Python base image (Ubuntu Noble, Python 3.12) which ships
+# all Chromium system libraries pre-installed, eliminating fragile apt-get downloads from
+# Debian mirrors at build time. patchright replaces the bundled Playwright Chromium with
+# its stealth-patched version (downloads ~170 MB from playwright.azureedge.net, no apt-get).
+#
+# pyproject.toml requires >=3.12; all application code is Python 3.12-compatible.
 
-FROM python:3.13-slim AS base
-
-# System dependencies for Scrapling/Chromium
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget \
-    gnupg \
-    ca-certificates \
-    fonts-liberation \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libcups2 \
-    libdbus-1-3 \
-    libdrm2 \
-    libgbm1 \
-    libgtk-3-0 \
-    libnspr4 \
-    libnss3 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxrandr2 \
-    libxss1 \
-    xdg-utils \
-    && rm -rf /var/lib/apt/lists/*
+FROM mcr.microsoft.com/playwright/python:v1.52.0-noble
 
 WORKDIR /app
 
-# Install Python dependencies
+# Install our Python packages
 COPY pyproject.toml README.md ./
-RUN pip install --no-cache-dir -e ".[tv-scraper]" 2>/dev/null || \
-    pip install --no-cache-dir scrapling[all] arq asyncpg redis pydantic pyyaml
+# Dummy src dirs so pip can resolve the package metadata without real source files
+RUN mkdir -p src/apps src/libs && touch src/apps/__init__.py src/libs/__init__.py \
+    && pip install --no-cache-dir ".[tv-scraper]"
 
-# Install Scrapling browser binaries
-RUN python -m scrapling install 2>/dev/null || true
+# Replace the bundled Playwright Chromium with patchright's stealth-patched binary.
+# No --with-deps needed — system libraries already present in the base image.
+RUN python -m patchright install chromium
 
 # Copy application code
 COPY src/ ./src/
 COPY configs/ ./configs/
 
-# Set Python path
 ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1
 

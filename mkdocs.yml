@@ -56,3 +56,4 @@ nav:
     - Decision Records: adr/index.md
   - Components:
     - Ingestion: ingestion.md
+    - TradingView Scraper: tv_scraper.md

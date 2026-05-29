@@ -1,0 +1,1642 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A good quant research agent">
+      
+      
+      
+      
+        <link rel="prev" href="../best_practices/">
+      
+      
+        <link rel="next" href="../adr/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Docker Topology - flipperAgent</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#docker-topology" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="flipperAgent" class="md-header__button md-logo" aria-label="flipperAgent" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            flipperAgent
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Docker Topology
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../best_practices/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../ingestion/" class="md-tabs__link">
+          
+  
+  
+  Components
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="flipperAgent" class="md-nav__button md-logo" aria-label="flipperAgent" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    flipperAgent
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../best_practices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Best Practices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Topology
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#high-level-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-Level Architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#volume-mount-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Volume &amp; Mount Map
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#component-contexts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Component Contexts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Component Contexts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#infrastructure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Infrastructure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Infrastructure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#db-timescaledb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        db — TimescaleDB
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#broker-valkey" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        broker — Valkey
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ingestion-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ingestion Layer
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Ingestion Layer">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        scheduler
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#worker-queue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        worker-queue
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#worker-streams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        worker-streams
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tv-scraper" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        tv-scraper
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#processing-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Processing Pipeline
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Processing Pipeline">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#signal-worker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        signal-worker
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#strategy-worker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        strategy-worker
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#risk-worker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        risk-worker
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#execution-worker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        execution-worker
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#portfolio-worker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        portfolio-worker
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API Layer
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API Layer">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#api-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        api-server
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-posture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security Posture
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decision Records
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Components
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Components
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ingestion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingestion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tv_scraper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TradingView Scraper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="docker-topology">Docker Topology<a class="headerlink" href="#docker-topology" title="Permanent link">&para;</a></h1>
+<p>This page documents the full container topology for <strong>flipperAgent</strong>, derived directly from <code>docker-compose.yml</code>.</p>
+<hr />
+<h2 id="high-level-architecture">High-Level Architecture<a class="headerlink" href="#high-level-architecture" title="Permanent link">&para;</a></h2>
+<p>All containers share a single bridge network (<code>flipper-net</code>). Infrastructure services are health-checked before any app container starts. The data flow runs in one direction: scrape → ingest → signal → strategy → risk → execution → portfolio.</p>
+<pre class="mermaid"><code>graph TD
+    subgraph infra["Infrastructure"]
+        DB[(TimescaleDB\nport 5432)]
+        BRK[(Valkey broker\nport 6379)]
+    end
+
+    subgraph ingestion["Ingestion Layer"]
+        SCH[scheduler]
+        WQ[worker-queue\narq WorkerSettings]
+        WS[worker-streams\ningestion_app.main]
+        TV[tv-scraper\ntv_scraper.worker]
+    end
+
+    subgraph pipeline["Processing Pipeline"]
+        SIG[signal-worker\nsignal_app.main]
+        STR[strategy-worker\nstrategy_app.main]
+        RSK[risk-worker\nrisk_app.main]
+        EXE[execution-worker\nexecution_app.main]
+        PRT[portfolio-worker\nportfolio_app.main]
+    end
+
+    subgraph api["API Layer"]
+        API[api-server\napi_app.main :8080]
+    end
+
+    SCH --&gt;|enqueue jobs| BRK
+    BRK --&gt;|dequeue| WQ
+    BRK --&gt;|dequeue| TV
+    TV  --&gt;|OHLCV stream| BRK
+    BRK --&gt;|consume stream| WS
+    WS  --&gt;|write OHLCV| DB
+
+    DB  --&gt;|read OHLCV| SIG
+    SIG --&gt;|features stream| STR
+    STR --&gt;|decisions stream| RSK
+    RSK --&gt;|approved orders| EXE
+    EXE --&gt;|fills| PRT
+
+    API --&gt;|read/write configs| DB
+
+    DB  -.-&gt;|healthcheck dep| WQ
+    DB  -.-&gt;|healthcheck dep| WS
+    DB  -.-&gt;|healthcheck dep| SIG
+    DB  -.-&gt;|healthcheck dep| STR
+    DB  -.-&gt;|healthcheck dep| RSK
+    DB  -.-&gt;|healthcheck dep| EXE
+    DB  -.-&gt;|healthcheck dep| PRT
+    DB  -.-&gt;|healthcheck dep| TV
+    DB  -.-&gt;|healthcheck dep| API
+    BRK -.-&gt;|healthcheck dep| WQ
+    BRK -.-&gt;|healthcheck dep| WS
+    BRK -.-&gt;|healthcheck dep| SIG
+    BRK -.-&gt;|healthcheck dep| TV
+    BRK -.-&gt;|healthcheck dep| API</code></pre>
+<hr />
+<h2 id="volume-mount-map">Volume &amp; Mount Map<a class="headerlink" href="#volume-mount-map" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>graph LR
+    subgraph named["Named Volumes"]
+        V1[(timescaledb-data)]
+        V2[(valkey-data)]
+        V3[(flipper-logs)]
+    end
+
+    subgraph bind["Host Bind Mounts"]
+        B1[./configs]
+        B2[./data]
+        B3[./sql]
+        B4[./secrets]
+    end
+
+    DB    --&gt; V1
+    BRK   --&gt; V2
+
+    WQ    --&gt; B1
+    WQ    --&gt; B2
+    WQ    --&gt; V3
+    WS    --&gt; B1
+    WS    --&gt; B2
+    WS    --&gt; V3
+    SCH   --&gt; B1
+    SCH   --&gt; B2
+    SCH   --&gt; V3
+    TV    --&gt; B1
+    TV    --&gt; B2
+    TV    --&gt; B4
+
+    SIG   --&gt; B1
+    SIG   --&gt; B2
+    SIG   --&gt; V3
+    STR   --&gt; B1
+    STR   --&gt; B2
+    STR   --&gt; V3
+    RSK   --&gt; B1
+    RSK   --&gt; B2
+    RSK   --&gt; V3
+    EXE   --&gt; B1
+    EXE   --&gt; B2
+    EXE   --&gt; V3
+    PRT   --&gt; B1
+    PRT   --&gt; B2
+    PRT   --&gt; V3
+
+    API   --&gt; B1
+    API   --&gt; V3
+
+    DB    --&gt; B3</code></pre>
+<blockquote>
+<p><strong>Note:</strong> <code>./configs</code> is mounted <strong>read-only</strong> on all workers and tv-scraper, but <strong>read-write</strong> on <code>api-server</code> so the config hot-reload API can write back changes.</p>
+</blockquote>
+<hr />
+<h2 id="component-contexts">Component Contexts<a class="headerlink" href="#component-contexts" title="Permanent link">&para;</a></h2>
+<h3 id="infrastructure">Infrastructure<a class="headerlink" href="#infrastructure" title="Permanent link">&para;</a></h3>
+<h4 id="db-timescaledb"><code>db</code> — TimescaleDB<a class="headerlink" href="#db-timescaledb" title="Permanent link">&para;</a></h4>
+<pre class="mermaid"><code>graph LR
+    subgraph db["db (TimescaleDB)"]
+        PG["timescale/timescaledb:latest-pg15\nPostgres 15 + TimescaleDB extension"]
+    end
+
+    H["127.0.0.1:5432"] --&gt;|exposed| PG
+    PG --&gt; V[(timescaledb-data)]
+    SQL["./sql/*.sql"] --&gt;|init scripts| PG
+    PG --&gt;|healthcheck: pg_isready| HC{healthy}</code></pre>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Image</td>
+<td><code>timescale/timescaledb:latest-pg15</code></td>
+</tr>
+<tr>
+<td>Exposed port</td>
+<td><code>127.0.0.1:5432:5432</code></td>
+</tr>
+<tr>
+<td>Volume</td>
+<td><code>timescaledb-data:/var/lib/postgresql/data</code></td>
+</tr>
+<tr>
+<td>Init scripts</td>
+<td><code>./sql</code> → <code>/docker-entrypoint-initdb.d</code> (ro)</td>
+</tr>
+<tr>
+<td>Resources</td>
+<td>1 G RAM · 0.5 CPU</td>
+</tr>
+<tr>
+<td>Healthcheck</td>
+<td><code>pg_isready -U flipper</code> every 10 s</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h4 id="broker-valkey"><code>broker</code> — Valkey<a class="headerlink" href="#broker-valkey" title="Permanent link">&para;</a></h4>
+<pre class="mermaid"><code>graph LR
+    subgraph broker["broker (Valkey)"]
+        VK["valkey/valkey:latest\nRedis-compatible in-memory store"]
+    end
+
+    H2["127.0.0.1:6380"] --&gt;|exposed| VK
+    VK --&gt; V2[(valkey-data)]
+    VK --&gt;|healthcheck: PING| HC2{healthy}</code></pre>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Image</td>
+<td><code>valkey/valkey:latest</code></td>
+</tr>
+<tr>
+<td>Exposed port</td>
+<td><code>127.0.0.1:6380:6379</code></td>
+</tr>
+<tr>
+<td>Volume</td>
+<td><code>valkey-data:/data</code></td>
+</tr>
+<tr>
+<td>Resources</td>
+<td>256 M RAM · 0.5 CPU</td>
+</tr>
+<tr>
+<td>Healthcheck</td>
+<td><code>valkey-cli ping</code> every 10 s</td>
+</tr>
+<tr>
+<td>Role</td>
+<td>arq job queue + Redis streams bus</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="ingestion-layer">Ingestion Layer<a class="headerlink" href="#ingestion-layer" title="Permanent link">&para;</a></h3>
+<h4 id="scheduler"><code>scheduler</code><a class="headerlink" href="#scheduler" title="Permanent link">&para;</a></h4>
+<pre class="mermaid"><code>graph LR
+    CFG["./configs (ro)"] --&gt; SCH
+    subgraph SCH["scheduler"]
+        CMD["sleep infinity\n(placeholder cron dispatcher)"]
+    end
+    SCH --&gt;|enqueue scrape jobs| BRK[(broker)]
+    SCH --&gt; LOG[(flipper-logs)]</code></pre>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Image</td>
+<td><code>Dockerfile</code> (shared app image)</td>
+</tr>
+<tr>
+<td>Command</td>
+<td><code>sleep infinity</code> — placeholder; replace with APScheduler/cron</td>
+</tr>
+<tr>
+<td>Depends on</td>
+<td><code>db</code> healthy, <code>broker</code> healthy</td>
+</tr>
+<tr>
+<td>Resources</td>
+<td>512 M RAM · 0.5 CPU</td>
+</tr>
+<tr>
+<td>Mounts</td>
+<td><code>./configs</code> ro · <code>./data</code> · <code>flipper-logs</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h4 id="worker-queue"><code>worker-queue</code><a class="headerlink" href="#worker-queue" title="Permanent link">&para;</a></h4>
+<pre class="mermaid"><code>graph LR
+    BRK[(broker)] --&gt;|dequeue arq jobs| WQ
+    subgraph WQ["worker-queue"]
+        ARQ["arq WorkerSettings\napps.ingestion_app.orchestration.worker"]
+    end
+    WQ --&gt; DB[(TimescaleDB)]
+    WQ --&gt; LOG[(flipper-logs)]
+    CFG["./configs (ro)"] --&gt; WQ</code></pre>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Command</td>
+<td><code>arq apps.ingestion_app.orchestration.worker.WorkerSettings</code></td>
+</tr>
+<tr>
+<td>Role</td>
+<td>Pulls scrape jobs from Valkey queue, orchestrates ingestion tasks</td>
+</tr>
+<tr>
+<td>Depends on</td>
+<td><code>db</code> healthy, <code>broker</code> healthy</td>
+</tr>
+<tr>
+<td>Resources</td>
+<td>512 M RAM · 0.5 CPU</td>
+</tr>
+<tr>
+<td>Security</td>
+<td><code>read_only: true</code> · <code>no-new-privileges</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h4 id="worker-streams"><code>worker-streams</code><a class="headerlink" href="#worker-streams" title="Permanent link">&para;</a></h4>
+<pre class="mermaid"><code>graph LR
+    BRK[(broker)] --&gt;|Redis streams| WS
+    subgraph WS["worker-streams"]
+        ST["python -m apps.ingestion_app.main\nRedis stream consumers"]
+    end
+    WS --&gt;|write OHLCV rows| DB[(TimescaleDB)]
+    WS --&gt; LOG[(flipper-logs)]</code></pre>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Command</td>
+<td><code>python -m apps.ingestion_app.main</code></td>
+</tr>
+<tr>
+<td>Port</td>
+<td><code>8002:8001</code> (internal management)</td>
+</tr>
+<tr>
+<td>Role</td>
+<td>Consumes OHLCV from Redis streams, persists to TimescaleDB</td>
+</tr>
+<tr>
+<td>Depends on</td>
+<td><code>db</code> healthy, <code>broker</code> healthy</td>
+</tr>
+<tr>
+<td>Resources</td>
+<td>512 M RAM · 0.5 CPU</td>
+</tr>
+<tr>
+<td>Security</td>
+<td><code>read_only: true</code> · <code>no-new-privileges</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h4 id="tv-scraper"><code>tv-scraper</code><a class="headerlink" href="#tv-scraper" title="Permanent link">&para;</a></h4>
+<pre class="mermaid"><code>graph LR
+    BRK[(broker)] --&gt;|dequeue scrape jobs| TV
+    subgraph TV["tv-scraper"]
+        ARQ2["arq WorkerSettings\napps.tv_scraper.worker\nDockerfile.tv-scraper"]
+    end
+    TV --&gt;|OHLCV → Redis stream| BRK
+    SEC["./secrets (ro)\ntv_cookies.json"] --&gt; TV
+    CFG["./configs (ro)"] --&gt; TV</code></pre>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dockerfile</td>
+<td><code>Dockerfile.tv-scraper</code> (separate, heavier image with browser deps)</td>
+</tr>
+<tr>
+<td>Command</td>
+<td><code>arq apps.tv_scraper.worker.WorkerSettings</code></td>
+</tr>
+<tr>
+<td>Role</td>
+<td>Scrapes OHLCV from TradingView, publishes to broker stream</td>
+</tr>
+<tr>
+<td>Secrets</td>
+<td><code>./secrets/tv_cookies.json</code> (ro)</td>
+</tr>
+<tr>
+<td>Resources</td>
+<td>1 G RAM · 0.5 CPU</td>
+</tr>
+<tr>
+<td><strong>No</strong> <code>read_only</code></td>
+<td>Requires writable fs for browser/scraper temp files</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="processing-pipeline">Processing Pipeline<a class="headerlink" href="#processing-pipeline" title="Permanent link">&para;</a></h3>
+<p>The pipeline workers are all built from the same <code>Dockerfile</code>, run as read-only containers, and communicate exclusively via Valkey streams + TimescaleDB reads.</p>
+<pre class="mermaid"><code>sequenceDiagram
+    participant DB as TimescaleDB
+    participant SIG as signal-worker
+    participant STR as strategy-worker
+    participant RSK as risk-worker
+    participant EXE as execution-worker
+    participant PRT as portfolio-worker
+
+    DB  -&gt;&gt; SIG: read OHLCV bars
+    SIG -&gt;&gt; STR: publish features (Valkey stream)
+    STR -&gt;&gt; RSK: publish decisions (Valkey stream)
+    RSK -&gt;&gt; EXE: publish approved orders (Valkey stream)
+    EXE -&gt;&gt; PRT: publish fills (Valkey stream)
+    PRT -&gt;&gt; DB:  write portfolio state</code></pre>
+<h4 id="signal-worker"><code>signal-worker</code><a class="headerlink" href="#signal-worker" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Command</td>
+<td><code>python -m apps.signal_app.main</code></td>
+</tr>
+<tr>
+<td>Role</td>
+<td>Reads OHLCV from TimescaleDB, computes indicators &amp; features via <code>FeatureManager</code>, publishes feature vectors to broker</td>
+</tr>
+<tr>
+<td>Extra env</td>
+<td><code>NUMBA_CACHE_DIR=/tmp/numba_cache</code></td>
+</tr>
+<tr>
+<td>Resources</td>
+<td>512 M RAM · 0.5 CPU</td>
+</tr>
+</tbody>
+</table>
+<h4 id="strategy-worker"><code>strategy-worker</code><a class="headerlink" href="#strategy-worker" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Command</td>
+<td><code>python -m apps.strategy_app.main</code></td>
+</tr>
+<tr>
+<td>Role</td>
+<td>Consumes feature vectors, runs <code>ModelManager</code> scoring + regime overlay, publishes trade decisions</td>
+</tr>
+<tr>
+<td>Resources</td>
+<td>512 M RAM · 0.5 CPU</td>
+</tr>
+</tbody>
+</table>
+<h4 id="risk-worker"><code>risk-worker</code><a class="headerlink" href="#risk-worker" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Command</td>
+<td><code>python -m apps.risk_app.main</code></td>
+</tr>
+<tr>
+<td>Role</td>
+<td>Applies position sizing, drawdown limits, and exposure checks; approves or rejects orders</td>
+</tr>
+<tr>
+<td>Resources</td>
+<td>512 M RAM · 0.5 CPU</td>
+</tr>
+</tbody>
+</table>
+<h4 id="execution-worker"><code>execution-worker</code><a class="headerlink" href="#execution-worker" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Command</td>
+<td><code>python -m apps.execution_app.main</code></td>
+</tr>
+<tr>
+<td>Role</td>
+<td>Submits approved orders to broker/exchange, tracks fill lifecycle</td>
+</tr>
+<tr>
+<td>Resources</td>
+<td>512 M RAM · 0.5 CPU</td>
+</tr>
+</tbody>
+</table>
+<h4 id="portfolio-worker"><code>portfolio-worker</code><a class="headerlink" href="#portfolio-worker" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Command</td>
+<td><code>python -m apps.portfolio_app.main</code></td>
+</tr>
+<tr>
+<td>Role</td>
+<td>Aggregates fills into positions, computes realised/unrealised PnL, publishes portfolio state</td>
+</tr>
+<tr>
+<td>Resources</td>
+<td>512 M RAM · 0.5 CPU</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="api-layer">API Layer<a class="headerlink" href="#api-layer" title="Permanent link">&para;</a></h3>
+<h4 id="api-server"><code>api-server</code><a class="headerlink" href="#api-server" title="Permanent link">&para;</a></h4>
+<pre class="mermaid"><code>graph LR
+    subgraph api["api-server"]
+        FA["FastAPI · uvicorn :8080\npython -m apps.api_app.main"]
+        CM["ConfigManager\nwatchdog hot-reload"]
+        FA --&gt; CM
+    end
+
+    H3["127.0.0.1:8080"] --&gt;|exposed| FA
+    CM --&gt;|read/write| CFG["./configs"]
+    FA --&gt; LOG[(flipper-logs)]
+
+    FE["External client / FE"] --&gt;|GET /api/v1/configs| FA
+    FE --&gt;|POST /api/v1/configs/:filename| FA</code></pre>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Command</td>
+<td><code>python -m apps.api_app.main</code></td>
+</tr>
+<tr>
+<td>Port</td>
+<td><code>127.0.0.1:8080:8080</code></td>
+</tr>
+<tr>
+<td><code>./configs</code> mount</td>
+<td><strong>read-write</strong> (only container with write access)</td>
+</tr>
+<tr>
+<td>Role</td>
+<td>Serves config read/write API; <code>ConfigManager</code> watches for changes and notifies all subscribers</td>
+</tr>
+<tr>
+<td>Resources</td>
+<td>256 M RAM · 0.5 CPU</td>
+</tr>
+<tr>
+<td>Security</td>
+<td><code>read_only: true</code> · <code>no-new-privileges</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Endpoints:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/configs</code></td>
+<td>Returns <code>AllConfigsResponse</code> — list of <code>{fileName, filePath, contents}</code></td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/configs/{filename}</code></td>
+<td>Deep-merges <code>{"updates": {...}}</code> into named YAML, triggers watchdog reload</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/health</code></td>
+<td>Liveness check</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="security-posture">Security Posture<a class="headerlink" href="#security-posture" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Container</th>
+<th><code>read_only</code></th>
+<th><code>no-new-privileges</code></th>
+<th>Secrets mount</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>db</td>
+<td>—</td>
+<td>—</td>
+<td>env vars only</td>
+</tr>
+<tr>
+<td>broker</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>worker-queue</td>
+<td>✅</td>
+<td>✅</td>
+<td>—</td>
+</tr>
+<tr>
+<td>worker-streams</td>
+<td>✅</td>
+<td>✅</td>
+<td>—</td>
+</tr>
+<tr>
+<td>scheduler</td>
+<td>✅</td>
+<td>✅</td>
+<td>—</td>
+</tr>
+<tr>
+<td>tv-scraper</td>
+<td>❌</td>
+<td>—</td>
+<td><code>./secrets</code> ro</td>
+</tr>
+<tr>
+<td>signal-worker</td>
+<td>✅</td>
+<td>✅</td>
+<td>—</td>
+</tr>
+<tr>
+<td>strategy-worker</td>
+<td>✅</td>
+<td>✅</td>
+<td>—</td>
+</tr>
+<tr>
+<td>risk-worker</td>
+<td>✅</td>
+<td>✅</td>
+<td>—</td>
+</tr>
+<tr>
+<td>execution-worker</td>
+<td>✅</td>
+<td>✅</td>
+<td>—</td>
+</tr>
+<tr>
+<td>portfolio-worker</td>
+<td>✅</td>
+<td>✅</td>
+<td>—</td>
+</tr>
+<tr>
+<td>api-server</td>
+<td>✅</td>
+<td>✅</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>All app containers use <code>tmpfs</code> for <code>/tmp</code> so ephemeral writes don't touch the host filesystem.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

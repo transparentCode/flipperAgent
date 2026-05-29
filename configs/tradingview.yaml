@@ -4,6 +4,28 @@ tradingview:
     - "CRYPTOCAP:TOTAL3"
     - "CRYPTOCAP:BTC.D"
   timeframe: "1h"
-  staleness_ttl_seconds: 10800  # 3 hours — after this, features return neutral
+  staleness_ttl_seconds: 1800   # 30 minutes — matches fetch cadence (fetch at :00:30 and :30:30)
   fetch_delay_seconds: 2         # delay between sequential index fetches
   cookies_path: "secrets/tv_cookies.json"
+
+  # Browser stealth settings
+  chart_base_url: "https://www.tradingview.com/chart/"
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+  viewport_width: 1920
+  viewport_height: 1080
+
+  # Timing / interception settings
+  page_load_timeout_ms: 30000
+  ws_intercept_timeout_seconds: 30
+  ws_poll_interval_seconds: 0.5
+
+  # ARQ worker schedule & limits
+  # cron_minutes: list of minute-of-hour values to fire at (set semantics)
+  # Covers: 30m closes (:30), 1h closes (:00), 4h closes (:00)
+  cron_minutes:
+    - 0
+    - 30
+  cron_second: 30
+  run_at_startup: false
+  max_concurrent_jobs: 1
+  job_timeout_seconds: 300

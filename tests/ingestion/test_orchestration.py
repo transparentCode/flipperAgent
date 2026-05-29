@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import pandas as pd
 import asyncio
 
+from apps.ingestion_app.coordination import IngestionState
 from apps.ingestion_app.orchestration.tasks import _fetch_asset_gap
 from apps.ingestion_app.orchestration.controller import lifespan, app
 from apps.ingestion_app.constants import EXCHANGE_BINANCE
@@ -76,75 +77,78 @@ async def test_fetch_asset_gap_pagination():
 async def test_lifespan_cold_start():
     # Mocking create_pool
     mock_arq_pool = AsyncMock()
-    
+    mock_valkey_client = AsyncMock()
+    mock_coordinator = AsyncMock()
+    mock_coordinator.is_stale = AsyncMock(return_value=True)
+    mock_coordinator.transition = AsyncMock()
+
     with patch('apps.ingestion_app.orchestration.controller.DBPoolManager') as mock_db_pool, \
-         patch('apps.ingestion_app.orchestration.controller.TimescaleReader') as mock_reader_class, \
          patch('apps.ingestion_app.orchestration.controller.create_pool') as mock_create_pool, \
+         patch('apps.ingestion_app.orchestration.controller.create_valkey_client') as mock_create_valkey, \
+         patch('apps.ingestion_app.orchestration.controller.IngestionCoordinator') as mock_coordinator_class, \
          patch('apps.ingestion_app.orchestration.controller.verify_and_launch_ws') as mock_verify_ws, \
          patch('apps.ingestion_app.orchestration.controller.config_manager') as mock_config:
-        
+
         mock_config.get.side_effect = lambda k, default=None: {
             "ingestion.assets.target_list": ["BTCUSDT"],
             "ingestion.timeframes.base_gap_fill": "1m",
             "valkey.uri": "redis://localhost:6379/0",
             "ingestion.websocket.warmup_threshold_ms": 300000
         }.get(k, default)
-        
+
         mock_create_pool.return_value = mock_arq_pool
-        
-        # max_ts = 0
-        mock_reader = mock_reader_class.return_value
-        mock_reader.get_max_timestamp = AsyncMock(return_value=0)
-        
+        mock_create_valkey.return_value = mock_valkey_client
+        mock_coordinator_class.return_value = mock_coordinator
+
         mock_db_pool.init_pools = AsyncMock()
         mock_db_pool.close_pools = AsyncMock()
-        
+
         # Make verify_and_launch_ws return immediately
         mock_verify_ws.return_value = None
-        
+
         async with lifespan(app):
             # In the lifespan block
             pass
-            
+
         mock_arq_pool.enqueue_job.assert_called_once_with("run_rest_gap_fill", ["BTCUSDT"], EXCHANGE_BINANCE)
-        mock_verify_ws.assert_called_once_with("BTCUSDT", [], mock_arq_pool)
+        mock_verify_ws.assert_called_once_with("BTCUSDT", [], mock_arq_pool, mock_coordinator)
 
 @pytest.mark.asyncio
 async def test_lifespan_caught_up():
     mock_arq_pool = AsyncMock()
-    
+    mock_valkey_client = AsyncMock()
+    mock_coordinator = AsyncMock()
+    mock_coordinator.is_stale = AsyncMock(return_value=False)
+    mock_coordinator.transition = AsyncMock()
+
     with patch('apps.ingestion_app.orchestration.controller.DBPoolManager') as mock_db_pool, \
-         patch('apps.ingestion_app.orchestration.controller.TimescaleReader') as mock_reader_class, \
          patch('apps.ingestion_app.orchestration.controller.create_pool') as mock_create_pool, \
+         patch('apps.ingestion_app.orchestration.controller.create_valkey_client') as mock_create_valkey, \
+         patch('apps.ingestion_app.orchestration.controller.IngestionCoordinator') as mock_coordinator_class, \
          patch('apps.ingestion_app.orchestration.controller.verify_and_launch_ws') as mock_verify_ws, \
-         patch('apps.ingestion_app.orchestration.controller.config_manager') as mock_config, \
-         patch('apps.ingestion_app.orchestration.controller.datetime') as mock_datetime:
-        
+         patch('apps.ingestion_app.orchestration.controller.config_manager') as mock_config:
+
         mock_config.get.side_effect = lambda k, default=None: {
             "ingestion.assets.target_list": ["BTCUSDT"],
             "ingestion.timeframes.base_gap_fill": "1m",
             "valkey.uri": "redis://localhost:6379/0",
             "ingestion.websocket.warmup_threshold_ms": 300000
         }.get(k, default)
-        
+
         mock_create_pool.return_value = mock_arq_pool
-        
-        mock_now = datetime(2023, 1, 31, tzinfo=timezone.utc)
-        mock_datetime.now.return_value = mock_now
-        now_ms = int(mock_now.timestamp() * 1000)
-        
-        # max_ts is just 1 minute (60s) ago
+        mock_create_valkey.return_value = mock_valkey_client
+        mock_coordinator_class.return_value = mock_coordinator
+
         mock_db_pool.init_pools = AsyncMock()
         mock_db_pool.close_pools = AsyncMock()
-        
-        mock_reader = mock_reader_class.return_value
-        mock_reader.get_max_timestamp = AsyncMock(return_value=now_ms - 60000)
-        
+
         mock_verify_ws.return_value = None
-        
+
         async with lifespan(app):
             pass
-            
+
         # Gap-fill shouldn't be called
         mock_arq_pool.enqueue_job.assert_not_called()
-        mock_verify_ws.assert_called_once_with("BTCUSDT", [], mock_arq_pool)
+        # Coordinator should be set to WARMING since data is caught up
+        mock_coordinator.transition.assert_called_once_with("BTCUSDT", "1m", IngestionState.WARMING)
+        mock_verify_ws.assert_called_once_with("BTCUSDT", [], mock_arq_pool, mock_coordinator)

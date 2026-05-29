@@ -250,6 +250,52 @@ class TestFetchTvIndices:
         mock_redis.hset.assert_not_called()
 
 
+    @pytest.mark.asyncio
+    async def test_bulk_upsert_all_bars(self):
+        """All bars in the DataFrame are upserted to DB, not just the latest."""
+        multi_bar_df = pd.DataFrame(
+            [
+                {"timestamp": 1700000000000, "open": 100.0, "high": 110.0, "low": 90.0, "close": 105.0, "volume": 500.0},
+                {"timestamp": 1700001800000, "open": 105.0, "high": 115.0, "low": 95.0, "close": 110.0, "volume": 600.0},
+                {"timestamp": 1700003600000, "open": 110.0, "high": 120.0, "low": 100.0, "close": 115.0, "volume": 700.0},
+            ]
+        )
+
+        mock_interceptor = AsyncMock()
+        mock_interceptor.get_historical_ohlcv = AsyncMock(return_value=multi_bar_df)
+
+        mock_redis = AsyncMock()
+
+        # Build a mock db_pool with acquire() as async context manager
+        mock_conn = AsyncMock()
+        mock_pool = MagicMock()
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        ctx = {
+            "redis": mock_redis,
+            "db_pool": mock_pool,
+            "tv_interceptor": mock_interceptor,
+        }
+
+        with patch("apps.tv_scraper.worker.asyncio.sleep", new_callable=AsyncMock):
+            await fetch_tv_indices(ctx)
+
+        # executemany called once per index (3 indices × 1 executemany each)
+        assert mock_conn.executemany.call_count == 3
+
+        # Each executemany batch should contain all 3 bars
+        for call in mock_conn.executemany.call_args_list:
+            rows = call.args[1]
+            assert len(rows) == 3, f"Expected 3 rows per batch, got {len(rows)}"
+
+        # Valkey hash still receives only latest bar (iloc[-1]) — close=115.0
+        assert mock_redis.hset.call_count == 3
+        for call in mock_redis.hset.call_args_list:
+            mapping = call.kwargs.get("mapping") or call.args[1]
+            assert float(mapping["close"]) == 115.0
+
+
 # ---------------------------------------------------------------------------
 # Worker — INDEX_KEY_MAP covers all TV_INDICES
 # ---------------------------------------------------------------------------

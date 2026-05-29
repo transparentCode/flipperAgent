@@ -6,6 +6,7 @@ import asyncio
 import json
 import re
 import time
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -85,7 +86,7 @@ def extract_ohlcv_from_tv_response(messages: list[dict[str, Any]]) -> list[dict[
 class TradingViewInterceptor(BaseExchangeAdapter):
     """Stealth WebSocket interceptor for TradingView chart data.
 
-    Uses Scrapling to launch a headless browser, navigate to a TradingView chart,
+    Uses patchright to launch a headless Chromium browser, navigate to a TradingView chart,
     intercept the WebSocket traffic, and extract OHLCV data.
     """
 
@@ -96,6 +97,7 @@ class TradingViewInterceptor(BaseExchangeAdapter):
         )
         self.proxy_url = proxy_url
         self._session = None
+        self._config = config
 
     async def get_historical_ohlcv(
         self,
@@ -134,7 +136,8 @@ class TradingViewInterceptor(BaseExchangeAdapter):
         intercepted_messages: list[str] = []
 
         tv_resolution = self._map_timeframe(timeframe)
-        chart_url = f"https://www.tradingview.com/chart/?symbol={symbol}&interval={tv_resolution}"
+        chart_base = self._config.get("tradingview.chart_base_url", "https://www.tradingview.com/chart/")
+        chart_url = f"{chart_base}?symbol={symbol}&interval={tv_resolution}"
 
         logger.info(f"Fetching TV data for {symbol} ({timeframe}) via WS interception...")
 
@@ -148,11 +151,15 @@ class TradingViewInterceptor(BaseExchangeAdapter):
                     ],
                 )
                 context = await browser.new_context(
-                    viewport={"width": 1920, "height": 1080},
-                    user_agent=(
+                    viewport={
+                        "width": self._config.get("tradingview.viewport_width", 1920),
+                        "height": self._config.get("tradingview.viewport_height", 1080),
+                    },
+                    user_agent=self._config.get(
+                        "tradingview.user_agent",
                         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                         "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/120.0.0.0 Safari/537.36"
+                        "Chrome/125.0.0.0 Safari/537.36",
                     ),
                 )
 
@@ -179,15 +186,17 @@ class TradingViewInterceptor(BaseExchangeAdapter):
 
                 page.on("websocket", on_websocket)
 
-                await page.goto(chart_url, wait_until="networkidle", timeout=60000)
+                await page.goto(chart_url, wait_until="domcontentloaded", timeout=self._config.get("tradingview.page_load_timeout_ms", 30000))
 
                 # Wait for WebSocket chart data to arrive
-                deadline = time.monotonic() + 15
+                _timeout = self._config.get("tradingview.ws_intercept_timeout_seconds", 15)
+                _poll = self._config.get("tradingview.ws_poll_interval_seconds", 0.5)
+                deadline = time.monotonic() + _timeout
                 while time.monotonic() < deadline:
                     has_data = any("timescale_update" in m or '"du"' in m for m in intercepted_messages)
                     if has_data:
                         break
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(_poll)
 
                 await browser.close()
 
@@ -215,10 +224,8 @@ class TradingViewInterceptor(BaseExchangeAdapter):
     def _load_cookies(self) -> list[dict] | None:
         """Load TradingView session cookies from JSON file."""
         try:
-            import os
-
-            if os.path.exists(self.cookies_path):
-                with open(self.cookies_path) as f:
+            if Path(self.cookies_path).exists():
+                with open(self.cookies_path, encoding="utf-8") as f:
                     return json.load(f)
         except Exception as e:
             logger.warning(f"Failed to load TV cookies from {self.cookies_path}: {e}")

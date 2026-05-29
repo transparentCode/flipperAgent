@@ -14,6 +14,8 @@
         <link rel="prev" href="../adr/">
       
       
+        <link rel="next" href="../tv_scraper/">
+      
       
         
       
@@ -74,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#ingestion-module" class="md-skip">
+        <a href="#ingestion-app" class="md-skip">
           Skip to content
         </a>
       
@@ -413,6 +415,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../docker_topology/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../adr/" class="md-nav__link">
         
   
@@ -573,25 +603,36 @@
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#orchestration-gap-filling" class="md-nav__link">
+    <nav class="md-nav" aria-label="High-Level Design (HLD)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#system-context" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Orchestration &amp; Gap Filling
+        System Context
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Orchestration &amp; Gap Filling">
-      <ul class="md-nav__list">
+</li>
         
           <li class="md-nav__item">
-  <a href="#layered-defense-mechanism" class="md-nav__link">
+  <a href="#two-service-architecture" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Layered Defense Mechanism
+        Two-Service Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#boot-sequence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Boot Sequence
       
     </span>
   </a>
@@ -604,22 +645,34 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ingestion-adapters" class="md-nav__link">
+  <a href="#low-level-design-lld" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Ingestion Adapters
+        Low-Level Design (LLD)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Ingestion Adapters">
+    <nav class="md-nav" aria-label="Low-Level Design (LLD)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-ccxt-adapter-ccxtadapter" class="md-nav__link">
+  <a href="#component-breakdown" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. CCXT Adapter (CCXTAdapter)
+        Component Breakdown
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Component Breakdown">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#coordinationpy-ingestioncoordinator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        coordination.py — IngestionCoordinator
       
     </span>
   </a>
@@ -627,10 +680,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-binance-native-adapter-binancenativeadapter" class="md-nav__link">
+  <a href="#adaptersbinance_nativepy-binancenativeadapter" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Binance Native Adapter (BinanceNativeAdapter)
+        adapters/binance_native.py — BinanceNativeAdapter
       
     </span>
   </a>
@@ -638,10 +691,114 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#3-tradingview-interceptor-tradingviewinterceptor" class="md-nav__link">
+  <a href="#adapterscrypto_ccxtpy-ccxtadapter" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. TradingView Interceptor (TradingViewInterceptor)
+        adapters/crypto_ccxt.py — CCXTAdapter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#orchestrationcontrollerpy-worker-streams-entrypoint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        orchestration/controller.py — worker-streams entrypoint
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#orchestrationtaskspy-worker-queue-tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        orchestration/tasks.py — worker-queue tasks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#orchestrationworkerpy-arq-worker-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        orchestration/worker.py — ARQ worker settings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#orchestrationschedulespy-ingestionscheduler" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        orchestration/schedules.py — IngestionScheduler
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelstick_modelspy-data-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        models/tick_models.py — Data models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#storagetimescale_writerpy-timescalewriter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        storage/timescale_writer.py — TimescaleWriter
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration Reference
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#downstream-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Downstream Interface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#e2e-docker-testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        E2E Docker Testing Strategy
       
     </span>
   </a>
@@ -657,6 +814,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tv_scraper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TradingView Scraper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -686,104 +871,421 @@
 
 
 
-<h1 id="ingestion-module">Ingestion Module<a class="headerlink" href="#ingestion-module" title="Permanent link">&para;</a></h1>
-<p>The Ingestion Module abstracts data retrieval behind modular Adapters and manages continuous real-time streams and historical gap-filling through orchestration.</p>
+<h1 id="ingestion-app">Ingestion App<a class="headerlink" href="#ingestion-app" title="Permanent link">&para;</a></h1>
+<p>The Ingestion App is the pipeline entry point: it owns all market data acquisition, normalises it into a canonical OHLCV schema, persists it in TimescaleDB, and publishes closed-bar events downstream over Valkey streams for consumption by the Signal App.</p>
+<hr />
 <h2 id="high-level-design-hld">High-Level Design (HLD)<a class="headerlink" href="#high-level-design-hld" title="Permanent link">&para;</a></h2>
+<h3 id="system-context">System Context<a class="headerlink" href="#system-context" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>flowchart TD
-    %% Data Sources
-    subgraph Sources [Data Sources]
-        Binance[Binance API / WS]
-        CCXT[CCXT Supported Exchanges]
-        TV[TradingView]
+    subgraph External [External Data Sources]
+        BinanceWS[Binance USD-M Futures WebSocket]
+        BinanceREST[Binance REST API]
+        CCXT[CCXT-Unified REST]
     end
 
-    %% Ingestion Adapters
-    subgraph Adapters [Ingestion Adapters]
-        BN_Adapter[Binance Native Adapter]
-        CCXT_Adapter[CCXT Adapter]
-        TV_Adapter[TradingView Interceptor]
+    subgraph IngestionApp [Ingestion App]
+        WorkerStreams[worker-streams\nFastAPI / uvicorn]
+        WorkerQueue[worker-queue\nARQ / cron]
+        Coordinator[IngestionCoordinator\nValkey state machine]
     end
 
-    %% Orchestration &amp; Gap Filling
-    subgraph Orchestration [Orchestration Layer]
-        Worker[ARQ Worker]
-        Scheduler[Cron Scheduler]
-        GapFiller[Gap Filling Logic]
+    subgraph Infra [Infrastructure]
+        Valkey[(Valkey\nstate + streams + task queue)]
+        TimescaleDB[(TimescaleDB\nohlcv hypertable)]
     end
 
-    %% Storage Layer
-    subgraph Storage [TimescaleDB]
-        Hypertable[Hypertable: tick_data]
-        ContAgg[Continuous Aggregates]
+    subgraph Downstream [Downstream]
+        SignalApp[Signal App]
     end
 
-    %% Relationships
-    Binance &lt;--&gt; BN_Adapter
-    CCXT &lt;--&gt; CCXT_Adapter
-    TV &lt;--&gt; TV_Adapter
+    BinanceWS --&gt;|kline stream| WorkerStreams
+    BinanceREST --&gt;|historical klines| WorkerStreams
+    CCXT --&gt;|paginated REST| WorkerQueue
 
-    Adapters --&gt; Worker
-    Worker &lt;--&gt; Scheduler
-    Worker &lt;--&gt; GapFiller
+    WorkerStreams &lt;--&gt;|state read/write| Coordinator
+    WorkerQueue &lt;--&gt;|state read/write| Coordinator
+    Coordinator &lt;--&gt;|ingestion:state:{sym}:{tf}| Valkey
 
-    Worker --&gt; Hypertable
-    GapFiller --&gt; Hypertable
-    Hypertable --&gt; ContAgg</code></pre>
-<h2 id="orchestration-gap-filling">Orchestration &amp; Gap Filling<a class="headerlink" href="#orchestration-gap-filling" title="Permanent link">&para;</a></h2>
-<p>The orchestration system manages data ingestion lifecycles across multiple exchanges, ensuring robust and backfill-capable historical data aggregation. It uses a layered defense mechanism to safely fetch data while adhering to rate limits.</p>
-<h3 id="layered-defense-mechanism">Layered Defense Mechanism<a class="headerlink" href="#layered-defense-mechanism" title="Permanent link">&para;</a></h3>
-<p>The "Gap Filling" logic retrieves historical REST data whenever the continuous real-time stream disconnects or falls behind. This guarantees data contiguousness spanning months or years. To ensure data is safely extracted without hitting exchange bans, a layered approach is used:</p>
+    WorkerQueue --&gt;|enqueue gap-fill| Valkey
+    Valkey --&gt;|dequeue| WorkerQueue
+
+    WorkerStreams --&gt;|INSERT closed 1m candles| TimescaleDB
+    WorkerQueue --&gt;|INSERT backfill candles| TimescaleDB
+
+    WorkerStreams --&gt;|XADD stream:ohlcv:{sym}:{tf}| Valkey
+    Valkey --&gt;|XREAD| SignalApp</code></pre>
+<h3 id="two-service-architecture">Two-Service Architecture<a class="headerlink" href="#two-service-architecture" title="Permanent link">&para;</a></h3>
+<p>The ingestion app runs as <strong>two separate processes</strong> that cannot be merged:</p>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Runtime</th>
+<th>Owns</th>
+<th>Why separate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>worker-streams</code></td>
+<td>FastAPI + uvicorn</td>
+<td>WebSocket daemons, Valkey stream publishing</td>
+<td>FastAPI/uvicorn owns the asyncio event loop for unbounded long-lived coroutines</td>
+</tr>
+<tr>
+<td><code>worker-queue</code></td>
+<td>ARQ worker</td>
+<td>REST gap-fill jobs, cron scheduling</td>
+<td>ARQ owns the event loop for bounded, retriable, queued tasks</td>
+</tr>
+</tbody>
+</table>
+<p>Both services share the same Valkey instance and TimescaleDB, coordinated via <code>IngestionCoordinator</code>.</p>
+<h3 id="boot-sequence">Boot Sequence<a class="headerlink" href="#boot-sequence" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>sequenceDiagram
+    participant WS as worker-streams (lifespan)
+    participant Coord as IngestionCoordinator
+    participant Valkey as Valkey
+    participant WQ as worker-queue (arq)
+    participant DB as TimescaleDB
+
+    WS-&gt;&gt;Coord: is_stale(symbol, "1m")
+    Coord-&gt;&gt;DB: get_max_timestamp(symbol, "1m")
+    DB--&gt;&gt;Coord: max_ts
+
+    alt data stale / missing
+        Coord--&gt;&gt;WS: True
+        WS-&gt;&gt;Valkey: enqueue run_rest_gap_fill
+        Valkey-&gt;&gt;WQ: dequeue
+        WQ-&gt;&gt;Coord: transition → BACKFILLING
+        WQ-&gt;&gt;DB: paginated REST INSERT
+        WQ-&gt;&gt;Coord: transition → WARMING
+    else data fresh
+        Coord--&gt;&gt;WS: False
+        WS-&gt;&gt;Coord: transition → WARMING
+    end
+
+    WS-&gt;&gt;Coord: wait_until_warmed (poll Valkey)
+    Coord--&gt;&gt;WS: WARMING or LIVE reached
+    WS-&gt;&gt;Valkey: start WebSocket pipeline
+    WS-&gt;&gt;Coord: transition → LIVE</code></pre>
+<hr />
+<h2 id="low-level-design-lld">Low-Level Design (LLD)<a class="headerlink" href="#low-level-design-lld" title="Permanent link">&para;</a></h2>
+<h3 id="component-breakdown">Component Breakdown<a class="headerlink" href="#component-breakdown" title="Permanent link">&para;</a></h3>
+<h4 id="coordinationpy-ingestioncoordinator"><code>coordination.py</code> — IngestionCoordinator<a class="headerlink" href="#coordinationpy-ingestioncoordinator" title="Permanent link">&para;</a></h4>
+<p>Single source of truth for per-asset ingestion state. Both containers write to the same Valkey keys.</p>
+<p><strong>State machine:</strong></p>
+<div class="highlight"><pre><span></span><code>COLD → BACKFILLING → WARMING → LIVE
+                             ↘ ERROR
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>State</th>
+<th>Set by</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>COLD</code></td>
+<td>default (key absent)</td>
+<td>No data, no activity</td>
+</tr>
+<tr>
+<td><code>BACKFILLING</code></td>
+<td><code>worker-queue</code> on gap-fill start</td>
+<td>REST fetch in progress</td>
+</tr>
+<tr>
+<td><code>WARMING</code></td>
+<td><code>worker-queue</code> on gap-fill complete</td>
+<td>DB caught up, WS may connect</td>
+</tr>
+<tr>
+<td><code>LIVE</code></td>
+<td><code>worker-streams</code> after WS connects</td>
+<td>Streaming active</td>
+</tr>
+<tr>
+<td><code>ERROR</code></td>
+<td>either service on unrecoverable failure</td>
+<td>Gap-fill or WS failed</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key methods:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>get_state(symbol, tf)</code></td>
+<td><code>GET ingestion:state:{symbol}:{tf}</code> → <code>IngestionState</code></td>
+</tr>
+<tr>
+<td><code>transition(symbol, tf, state)</code></td>
+<td><code>SET</code> + structured log</td>
+</tr>
+<tr>
+<td><code>is_stale(symbol, tf)</code></td>
+<td><code>get_max_timestamp</code> vs <code>now - warmup_threshold_ms</code>; returns <code>True</code> if data is missing or old</td>
+</tr>
+<tr>
+<td><code>wait_until_warmed(symbol, tf)</code></td>
+<td>Polls Valkey until <code>WARMING</code>/<code>LIVE</code>; raises <code>asyncio.TimeoutError</code> after <code>warmup_timeout_seconds</code> (default 600s); returns <code>False</code> on <code>ERROR</code></td>
+</tr>
+</tbody>
+</table>
+<p>Config keys consumed: <code>ingestion.websocket.warmup_threshold_ms</code>, <code>ingestion.websocket.warmup_timeout_seconds</code>, <code>ingestion.websocket.verification_sleep_seconds</code>.</p>
+<hr />
+<h4 id="adaptersbinance_nativepy-binancenativeadapter"><code>adapters/binance_native.py</code> — BinanceNativeAdapter<a class="headerlink" href="#adaptersbinance_nativepy-binancenativeadapter" title="Permanent link">&para;</a></h4>
+<p>Wraps the <code>binance-futures-connector</code> library for both REST and WebSocket access to Binance USD-M Futures.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Transport</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>get_historical_ohlcv(symbol, tf, since, until, limit)</code></td>
+<td>REST</td>
+<td>Calls <code>UMFutures.klines()</code> in a thread pool (<code>asyncio.to_thread</code>) to avoid blocking the event loop. Returns a normalised <code>pd.DataFrame</code> with <code>OHLCV_COLUMNS</code>.</td>
+</tr>
+<tr>
+<td><code>stream_multiplex_socket(symbols_timeframes, loop, queue)</code></td>
+<td>WebSocket</td>
+<td>Opens a combined <code>UMFuturesWebsocketClient</code> stream, bridges the thread-safe <code>on_message</code> callback into an <code>asyncio.Queue</code>, and yields raw JSON messages as an async generator. Supports multiple symbols × timeframes in a single socket connection.</td>
+</tr>
+</tbody>
+</table>
+<p>Credentials are read from <code>ingestion.credentials.api_key</code> / <code>ingestion.credentials.api_secret</code> in <code>base.yaml</code> (no <code>os.getenv</code>).</p>
+<hr />
+<h4 id="adapterscrypto_ccxtpy-ccxtadapter"><code>adapters/crypto_ccxt.py</code> — CCXTAdapter<a class="headerlink" href="#adapterscrypto_ccxtpy-ccxtadapter" title="Permanent link">&para;</a></h4>
+<p>Provides a unified CCXT interface for historical REST fetches used by the gap-fill worker.</p>
+<ul>
+<li><code>get_historical_ohlcv(symbol, tf, since, limit)</code> → <code>pd.DataFrame</code></li>
+<li>Used exclusively by <code>_fetch_asset_gap</code> in <code>tasks.py</code>; not used for live streaming.</li>
+</ul>
+<hr />
+<h4 id="orchestrationcontrollerpy-worker-streams-entrypoint"><code>orchestration/controller.py</code> — worker-streams entrypoint<a class="headerlink" href="#orchestrationcontrollerpy-worker-streams-entrypoint" title="Permanent link">&para;</a></h4>
+<p>FastAPI app with a <code>lifespan</code> context manager that orchestrates the boot sequence and runs the WebSocket pipeline.</p>
+<p><strong><code>lifespan(app)</code></strong></p>
 <ol>
-<li>
-<p><strong>ARQ Cron Scheduling</strong><br />
-   Background workers are organized utilizing ARQ (Redis queues). They check database buckets periodically using Cron-like scheduling, looking for discrepancies or missing ticks inside timescales. By decoupling requests, the gap checker performs independently of the websocket consumer.</p>
-</li>
-<li>
-<p><strong>Semaphore Concurrency Limits</strong><br />
-   When missing data is identified for hundreds of assets, firing requests simultaneously is naive. The system employs <code>asyncio.Semaphore</code> arrays to enforce maximum limits on concurrent data-fetching loops (e.g., typically capped to 5 active tasks per worker). This drastically lowers bursting capabilities against rate-limit buckets.</p>
-</li>
-<li>
-<p><strong>Request Sleep Pacing</strong><br />
-   Regardless of concurrency controls, rapid consecutive calls often trigger soft rate-limit tripwires. The application imposes a micro-sleep (<code>await asyncio.sleep(...)</code>) instantly after any REST call finalizes. It spaces out individual request batches inside the same worker, giving external endpoint token buckets time to replenish.</p>
-</li>
-<li>
-<p><strong>Tenacity Exponential Backoff</strong><br />
-   If requests still fail due to HTTP 429 schemas or transient networking blips, <code>tenacity</code> wraps the underlying HTTP transport logic. The agent employs configurable exponential backoff strategies, introducing progressively longer pauses upon retries before failing completely.</p>
-</li>
-<li>
-<p><strong>Pydantic Normalization</strong><br />
-   Raw JSON structures returned from various exchanges undergo uncompromising strict validations and typecasting through pure Pydantic mappings. Any malformed bars resulting from dirty rest responses are dropped or corrected directly, ensuring standard formatting prior to datastore interaction.</p>
-</li>
-<li>
-<p><strong>TimescaleDB Ingestion</strong><br />
-   The fully validated rows are sent to TimescaleDB's chunked hypertables. Timescale cleanly resolves updates upon duplicate constraints by executing ON CONFLICT protocols, seamlessly sewing freshly downloaded gaps straight into continuous aggregate materializations without overlap errors.</p>
-</li>
+<li>Initialises DB pools (<code>DBPoolManager.init_pools</code>)</li>
+<li>Creates ARQ pool and Valkey client</li>
+<li>Instantiates <code>IngestionCoordinator</code></li>
+<li>For each asset in <code>ingestion.assets.target_list</code>:</li>
+<li>Calls <code>coordinator.is_stale()</code> → enqueues <code>run_rest_gap_fill</code> or transitions directly to <code>WARMING</code></li>
+<li>Spawns <code>verify_and_launch_ws()</code> as an asyncio task</li>
 </ol>
-<h2 id="ingestion-adapters">Ingestion Adapters<a class="headerlink" href="#ingestion-adapters" title="Permanent link">&para;</a></h2>
-<p>The <code>flipperAgent</code> abstracts data retrieval behind a system of modular <em>Adapters</em>, all inheriting from <code>BaseExchangeAdapter</code>. This ensures downstream orchestration workflows operate seamlessly regardless of the data source.</p>
-<h3 id="1-ccxt-adapter-ccxtadapter">1. CCXT Adapter (<code>CCXTAdapter</code>)<a class="headerlink" href="#1-ccxt-adapter-ccxtadapter" title="Permanent link">&para;</a></h3>
+<p><strong><code>verify_and_launch_ws(symbol, publish_timeframes, arq_pool, coordinator)</code></strong></p>
 <ul>
-<li><strong>Adapter Path:</strong> <code>src/flipper_agent/ingestion/adapters/crypto_ccxt.py</code></li>
-<li><strong>Usage:</strong> Standardized REST polling for historical OHLCV data using the unified <a href="https://docs.ccxt.com/">CCXT</a> library. Pass the <code>exchange_id</code> (e.g., <code>bybit</code>, <code>okx</code>, <code>kraken</code>) upon instantiation.</li>
-<li><strong>Capabilities:</strong> Wide exchange support. Provides <code>get_historical_ohlcv(symbol, timeframe, since, until, limit)</code>.</li>
-<li><strong>Limitations:</strong> Dependent on CCXT's unified API which sometimes abstracts away deep exchange-specific options. Does not currently implement websocket streaming multiplexing due to the overhead/complexity of CCXT Pro vs native solutions.</li>
+<li>Awaits <code>coordinator.wait_until_warmed()</code> (blocks until <code>WARMING</code>/<code>LIVE</code> or timeout)</li>
+<li>On success: spawns <code>run_websocket_pipeline()</code> as a background task</li>
 </ul>
-<h3 id="2-binance-native-adapter-binancenativeadapter">2. Binance Native Adapter (<code>BinanceNativeAdapter</code>)<a class="headerlink" href="#2-binance-native-adapter-binancenativeadapter" title="Permanent link">&para;</a></h3>
+<p><strong><code>run_websocket_pipeline(symbol, publish_timeframes, arq_pool, coordinator)</code></strong></p>
 <ul>
-<li><strong>Adapter Path:</strong> <code>src/flipper_agent/ingestion/adapters/binance_native.py</code></li>
-<li><strong>Usage:</strong> High-performance REST fetching and Websocket multiplexing specifically for Binance USD-M Futures using the official <code>binance-futures-connector</code>.</li>
-<li><strong>Capabilities:</strong> Fast implementation for <code>get_historical_ohlcv</code> containing exact mappings (e.g., subsetting the 12-column Binance payload into standard OHLCV fields natively). Handles native <code>stream_multiplex_socket</code> linking multiple assets asynchronously to an <code>asyncio.Queue</code> using <code>ThreadedWebsocketManager</code>.</li>
-<li><strong>Limitations:</strong> Tightly coupled to Binance Futures explicitly. Not extensible to spot or other exchanges.</li>
+<li>Outer <code>while True</code> reconnect loop</li>
+<li>Transitions to <code>LIVE</code> before entering the message loop</li>
+<li>On each closed <code>1m</code> kline: writes to TimescaleDB via <code>TimescaleWriter</code></li>
+<li>On each closed kline in <code>publish_timeframes</code>: <code>XADD stream:ohlcv:{symbol.lower()}:{tf}</code> to Valkey (consumed by Signal App)</li>
+<li>On <code>CancelledError</code>: transitions to <code>COLD</code>, exits cleanly</li>
+<li>On exception: transitions to <code>COLD</code>, enqueues gap-fill, sleeps <code>reconnect_sleep_seconds</code>, reconnects</li>
 </ul>
-<h3 id="3-tradingview-interceptor-tradingviewinterceptor">3. TradingView Interceptor (<code>TradingViewInterceptor</code>)<a class="headerlink" href="#3-tradingview-interceptor-tradingviewinterceptor" title="Permanent link">&para;</a></h3>
+<p>Stream payload fields: <code>exchange</code>, <code>symbol</code>, <code>timeframe</code>, <code>timestamp</code>, <code>open</code>, <code>high</code>, <code>low</code>, <code>close</code>, <code>volume</code>, <code>bar_closed</code>, <code>ingestion_timestamp</code>.</p>
+<hr />
+<h4 id="orchestrationtaskspy-worker-queue-tasks"><code>orchestration/tasks.py</code> — worker-queue tasks<a class="headerlink" href="#orchestrationtaskspy-worker-queue-tasks" title="Permanent link">&para;</a></h4>
+<p><strong><code>run_rest_gap_fill(ctx, assets, exchange)</code></strong></p>
+<p>Entrypoint for the ARQ gap-fill job. For each asset (bounded by <code>asyncio.Semaphore(gap_fill_limit)</code>):</p>
+<ol>
+<li>Transitions asset to <code>BACKFILLING</code></li>
+<li>Calls <code>_fetch_asset_gap(ctx, ccxt_adapter, symbol)</code></li>
+<li>On success: transitions to <code>WARMING</code></li>
+<li>On failure: transitions to <code>ERROR</code></li>
+</ol>
+<p><strong><code>_fetch_asset_gap(ctx, ccxt_adapter, symbol)</code></strong></p>
+<p>Paginated REST backfill with <code>tenacity</code> retry (5 attempts, exponential backoff 4–60s) on <code>RateLimitExceeded</code>, <code>RequestTimeout</code>, <code>NetworkError</code>.</p>
 <ul>
-<li><strong>Adapter Path:</strong> <code>src/flipper_agent/ingestion/adapters/tradingview_socket_interceptor.py</code></li>
-<li><strong>Usage:</strong> Ingests chart data dynamically by orchestrating a headless browser via the <code>scrapling</code> package up against <code>tradingview.com</code> and intercepting the underlying <code>timescale_update</code> JSON websocket frames. Optionally injects authenticated sessions via local cookie injection.</li>
-<li><strong>Capabilities:</strong> Can fetch data for non-crypto assets (Equities, Forex) or custom synthetics available exclusively on TradingView without requiring expensive institutional data feeds.</li>
-<li><strong>Limitations:</strong> </li>
-<li>Substantially heavier compute footprint (requires a headless Chromium process).</li>
-<li>High brittleness: extremely susceptible to upstream DOM/Websocket protocol changes pushed by TradingView.</li>
-<li>Slower execution compared to REST endpoints (requires DOM load and sleep offsets).</li>
+<li>Reads <code>get_max_timestamp</code> from TimescaleDB to find the gap start</li>
+<li><code>TimescaleWriter</code> instantiated once before the pagination loop (not per-page)</li>
+<li>Inserts each page of <code>OHLCVRecord</code> objects via <code>ts_writer.insert_ohlcv()</code></li>
+<li>Exits when <code>len(df) &lt; limit</code> (last page)</li>
+</ul>
+<p><strong><code>poll_binance_ohlcv(ctx, symbol, timeframe)</code></strong> — cron task (every 15m), currently a stub for supplemental polling.</p>
+<p><strong><code>scheduled_gap_fill(ctx)</code></strong> — cron wrapper; reads <code>target_list</code> from config, delegates to <code>run_rest_gap_fill</code>.</p>
+<hr />
+<h4 id="orchestrationworkerpy-arq-worker-settings"><code>orchestration/worker.py</code> — ARQ worker settings<a class="headerlink" href="#orchestrationworkerpy-arq-worker-settings" title="Permanent link">&para;</a></h4>
+<p>Defines the ARQ <code>WorkerSettings</code> class consumed by the <code>arq</code> CLI.</p>
+<ul>
+<li><code>startup</code>: initialises <code>BinanceNativeAdapter</code>, <code>CCXTAdapter</code>, <code>DBPoolManager</code>, Valkey client, and <code>IngestionCoordinator</code>; stores all in <code>ctx</code></li>
+<li><code>shutdown</code>: closes Valkey client and DB pools</li>
+<li>Credentials: <code>ingestion.credentials.api_key/api_secret</code> from ConfigManager (no <code>os.getenv</code>)</li>
+</ul>
+<hr />
+<h4 id="orchestrationschedulespy-ingestionscheduler"><code>orchestration/schedules.py</code> — IngestionScheduler<a class="headerlink" href="#orchestrationschedulespy-ingestionscheduler" title="Permanent link">&para;</a></h4>
+<p>Extends <code>BaseScheduler</code> to return the ARQ <code>cron</code> job list.</p>
+<table>
+<thead>
+<tr>
+<th>Cron job</th>
+<th>Schedule</th>
+<th>Config key</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scheduled_gap_fill</code></td>
+<td>every 5 minutes</td>
+<td><code>ingestion.orchestration.schedules.gap_fill_minutes</code></td>
+</tr>
+<tr>
+<td><code>poll_binance_ohlcv</code></td>
+<td>every 15 minutes</td>
+<td><code>ingestion.orchestration.schedules.ohlcv_minutes</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h4 id="modelstick_modelspy-data-models"><code>models/tick_models.py</code> — Data models<a class="headerlink" href="#modelstick_modelspy-data-models" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Fields</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OHLCVRecord</code></td>
+<td><code>symbol</code>, <code>timestamp</code>, <code>open</code>, <code>high</code>, <code>low</code>, <code>close</code>, <code>volume</code>, <code>is_closed</code></td>
+<td>Timestamp auto-coerced from ms epoch or <code>datetime</code>. Validates <code>high &gt;= low</code>.</td>
+</tr>
+<tr>
+<td><code>TickRecord</code></td>
+<td><code>symbol</code>, <code>price</code>, <code>size</code>, <code>side</code></td>
+<td>Used for raw tick ingestion (future use).</td>
+</tr>
+<tr>
+<td><code>OIRecord</code></td>
+<td><code>symbol</code>, <code>open_interest</code>, <code>timestamp</code></td>
+<td>Open interest (future use).</td>
+</tr>
+</tbody>
+</table>
+<p>All models inherit <code>BaseDataModel</code> which normalises <code>timestamp</code> to UTC <code>datetime</code> from ms-epoch integers.</p>
+<hr />
+<h4 id="storagetimescale_writerpy-timescalewriter"><code>storage/timescale_writer.py</code> — TimescaleWriter<a class="headerlink" href="#storagetimescale_writerpy-timescalewriter" title="Permanent link">&para;</a></h4>
+<p>Bulk-inserts <code>OHLCVRecord</code> lists into the <code>ohlcv</code> hypertable.</p>
+<ul>
+<li>Pool acquired from <code>DBPoolManager.get_writer_pool()</code></li>
+<li>Used in both <code>controller.py</code> (per-reconnect cycle, instantiated once) and <code>tasks.py</code> (per gap-fill, instantiated once before pagination loop)</li>
+</ul>
+<hr />
+<h3 id="configuration-reference">Configuration Reference<a class="headerlink" href="#configuration-reference" title="Permanent link">&para;</a></h3>
+<p>All config under <code>configs/base.yaml</code>. No <code>os.getenv</code> anywhere in the app.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ingestion.assets.target_list</code></td>
+<td><code>[BTCUSDT, ...]</code></td>
+<td>Assets to ingest</td>
+</tr>
+<tr>
+<td><code>ingestion.assets.publish_timeframes</code></td>
+<td><code>{BTCUSDT: [30m, 1h, 4h], ...}</code></td>
+<td>Per-asset Valkey publish timeframes</td>
+</tr>
+<tr>
+<td><code>ingestion.assets.historical_backfill_days</code></td>
+<td><code>2</code></td>
+<td>REST backfill window</td>
+</tr>
+<tr>
+<td><code>ingestion.timeframes.base_gap_fill</code></td>
+<td><code>1m</code></td>
+<td>TimescaleDB write timeframe</td>
+</tr>
+<tr>
+<td><code>ingestion.credentials.api_key/api_secret</code></td>
+<td><code>""</code></td>
+<td>Binance API credentials</td>
+</tr>
+<tr>
+<td><code>ingestion.websocket.stream_url</code></td>
+<td><code>wss://fstream.binancefuture.com</code></td>
+<td>WS endpoint</td>
+</tr>
+<tr>
+<td><code>ingestion.websocket.warmup_threshold_ms</code></td>
+<td><code>300000</code></td>
+<td>Staleness threshold (5 min)</td>
+</tr>
+<tr>
+<td><code>ingestion.websocket.warmup_timeout_seconds</code></td>
+<td><code>600</code></td>
+<td>Max wait for WARMING state</td>
+</tr>
+<tr>
+<td><code>ingestion.websocket.reconnect_sleep_seconds</code></td>
+<td><code>5</code></td>
+<td>WS reconnect delay</td>
+</tr>
+<tr>
+<td><code>ingestion.concurrency.gap_fill_limit</code></td>
+<td><code>5</code></td>
+<td>Max concurrent REST fetches</td>
+</tr>
+<tr>
+<td><code>ingestion.concurrency.gap_fill_sleep_seconds</code></td>
+<td><code>0.5</code></td>
+<td>Delay between REST pages</td>
+</tr>
+<tr>
+<td><code>logging.level</code></td>
+<td><code>INFO</code></td>
+<td>Log level</td>
+</tr>
+<tr>
+<td><code>logging.console_format</code></td>
+<td><code>json</code></td>
+<td><code>json</code> or <code>color</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="downstream-interface">Downstream Interface<a class="headerlink" href="#downstream-interface" title="Permanent link">&para;</a></h3>
+<p>The Signal App consumes Valkey streams published by <code>worker-streams</code>:</p>
+<ul>
+<li><strong>Stream key</strong>: <code>stream:ohlcv:{symbol_lower}:{timeframe}</code> (e.g. <code>stream:ohlcv:btcusdt:1h</code>)</li>
+<li><strong>Trigger</strong>: closed candle on a configured <code>publish_timeframe</code></li>
+<li><strong>Fields</strong>: <code>exchange</code>, <code>symbol</code>, <code>timeframe</code>, <code>timestamp</code> (float seconds), <code>open</code>, <code>high</code>, <code>low</code>, <code>close</code>, <code>volume</code>, <code>bar_closed</code> (<code>"True"</code>), <code>ingestion_timestamp</code> (ms epoch string)</li>
+</ul>
+<hr />
+<h3 id="e2e-docker-testing-strategy">E2E Docker Testing Strategy<a class="headerlink" href="#e2e-docker-testing-strategy" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>db (TimescaleDB) + broker (Valkey) → worker-queue (ARQ) + worker-streams (FastAPI)
+</code></pre></div>
+<ul>
+<li><strong><code>docker-compose.yml</code></strong>: four containers matching production topology</li>
+<li><strong><code>run_e2e_tests.sh</code></strong>: waits for <code>pg_isready</code>, applies <code>schema.sql</code>, then runs <code>pytest tests/e2e/</code></li>
+<li><strong>Assertions</strong>:</li>
+<li>Gap-fill check: polls <code>ohlcv</code> hypertable for inserted rows from the ARQ worker</li>
+<li>WS handoff check: <code>MAX(timestamp)</code> lag falls below <code>warmup_threshold_ms</code>, confirming <code>LIVE</code> state reached</li>
 </ul>
 
 

@@ -1,0 +1,1303 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A good quant research agent">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Strategy App — Technical Documentation - flipperAgent</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#strategy-app-technical-documentation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="flipperAgent" class="md-header__button md-logo" aria-label="flipperAgent" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            flipperAgent
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Strategy App — Technical Documentation
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../best_practices/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../ingestion/" class="md-tabs__link">
+          
+  
+  
+  Components
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="flipperAgent" class="md-nav__button md-logo" aria-label="flipperAgent" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    flipperAgent
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../best_practices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Best Practices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../docker_topology/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decision Records
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Components
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Components
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ingestion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingestion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tv_scraper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TradingView Scraper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="strategy-app-technical-documentation">Strategy App — Technical Documentation<a class="headerlink" href="#strategy-app-technical-documentation" title="Permanent link">&para;</a></h1>
+<h2 id="1-overview">1. Overview<a class="headerlink" href="#1-overview" title="Permanent link">&para;</a></h2>
+<p>The <strong>Strategy App</strong> is the model inference and signal generation layer in the flipperAgent pipeline. It sits between the feature computation layer (Signal App) and the downstream execution layer, consuming computed <code>FeatureVector</code> payloads from Valkey streams, running them through config-driven quantitative models via the <code>ModelManager</code>, and publishing <code>TradeSignal</code> payloads for downstream consumption.</p>
+<p><strong>Single Responsibility:</strong> Evaluate models on incoming features and emit actionable trade signals.</p>
+<hr />
+<h2 id="2-high-level-design-hld">2. High-Level Design (HLD)<a class="headerlink" href="#2-high-level-design-hld" title="Permanent link">&para;</a></h2>
+<h3 id="21-position-in-pipeline">2.1 Position in Pipeline<a class="headerlink" href="#21-position-in-pipeline" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart LR
+    subgraph Signal App
+        FM[FeatureManager]
+    end
+
+    subgraph Strategy App
+        STW[StrategyWorker] --&gt; MM[ModelManager]
+        MM --&gt; MR[ModelRegistry]
+        MR --&gt; MOD[Model Instances]
+    end
+
+    subgraph Downstream
+        EX[Execution / Risk Layer]
+    end
+
+    FM -- "Valkey Stream\nfeatures:{asset}:{tf}" --&gt; STW
+    STW -- "Valkey Stream\nsignals:{asset}:{tf}" --&gt; EX</code></pre>
+<h3 id="22-design-principles">2.2 Design Principles<a class="headerlink" href="#22-design-principles" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Principle</th>
+<th>Implementation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decoupled via streams</strong></td>
+<td>No imports from <code>signal_app</code> or any downstream app — Valkey streams are the only boundary</td>
+</tr>
+<tr>
+<td><strong>Config-driven models</strong></td>
+<td><code>models.yaml</code> defines which models run per asset/timeframe with fallback chain</td>
+</tr>
+<tr>
+<td><strong>Registry pattern</strong></td>
+<td><code>ModelRegistry</code> auto-discovers model classes via decorators</td>
+</tr>
+<tr>
+<td><strong>Boot-time validation</strong></td>
+<td><code>ModelManager.validate_feature_coverage()</code> ensures all required indicators exist in <code>features.yaml</code> before accepting traffic</td>
+</tr>
+<tr>
+<td><strong>Idempotent signals</strong></td>
+<td>Deterministic <code>idempotency_key</code> (SHA-256 of model+asset+timeframe+timestamp) prevents duplicate downstream processing</td>
+</tr>
+<tr>
+<td><strong>Flat-signal suppression</strong></td>
+<td><code>direction == 0</code> (flat) signals are never published — only actionable long/short signals reach the stream</td>
+</tr>
+</tbody>
+</table>
+<h3 id="23-key-contracts">2.3 Key Contracts<a class="headerlink" href="#23-key-contracts" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Contract</th>
+<th>Direction</th>
+<th>Schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Input</strong></td>
+<td>Valkey <code>XREADGROUP</code> from <code>features:{asset}:{timeframe}</code></td>
+<td><code>FeatureVector</code>: <code>{asset, timeframe, timestamp, features: dict, bar_data: dict}</code></td>
+</tr>
+<tr>
+<td><strong>Output</strong></td>
+<td>Valkey <code>XADD</code> to <code>signals:{asset}:{timeframe}</code></td>
+<td><code>TradeSignal</code>: <code>{asset, timeframe, timestamp, direction, conviction, price, idempotency_key}</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-low-level-design-lld">3. Low-Level Design (LLD)<a class="headerlink" href="#3-low-level-design-lld" title="Permanent link">&para;</a></h2>
+<h3 id="31-component-architecture">3.1 Component Architecture<a class="headerlink" href="#31-component-architecture" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>classDiagram
+    class StrategyWorker {
+        +asset: str
+        +timeframe: str
+        +feature_stream_key: str
+        +signal_stream_key: str
+        +group_name: str
+        +consumer_name: str
+        +model_manager: ModelManager
+        +redis_client: Any
+        +connect(redis_client)
+        +start()
+        +process_features(payload)
+        -_make_idempotency_key(model, asset, tf, ts) str
+    }
+
+    class ModelManager {
+        +asset: str
+        +timeframe: str
+        +config_mgr: ConfigManager
+        +models: list~BaseModel~
+        +validate_feature_coverage()
+        +evaluate(features) list~ModelOutput~
+        -_load_models()
+        -_resolve_config_node(root_key) dict
+        -_available_features_from_config() set
+    }
+
+    class ModelRegistry {
+        -_registry: dict~str, Type[BaseModel]~
+        +register(name) decorator
+        +get(name) Type[BaseModel]
+        +list_all() list
+    }
+
+    class BaseModel {
+        &lt;&lt;abstract&gt;&gt;
+        +meta: ModelMeta
+        +params: dict
+        +evaluate(features) ModelOutput
+        +batch_evaluate(feature_df) Series
+        +validate_features(available) list
+        #_batch_evaluate_impl(feature_df) Series
+        -_validate_temporal_ordering(df)
+        -_validate_result_alignment(df, result)
+    }
+
+    class ModelMeta {
+        +name: str
+        +required_indicators: list~str~
+        +required_fields: list~str~
+        +hyperparameter_schema: dict~str, ParamDef~
+        +min_history_bars: int
+    }
+
+    class MeanReversionModel
+    class TrendFollowingModel
+    class MomentumModel
+
+    StrategyWorker --&gt; ModelManager
+    ModelManager --&gt; ModelRegistry
+    ModelManager *-- BaseModel
+    BaseModel --&gt; ModelMeta
+    MeanReversionModel --|&gt; BaseModel
+    TrendFollowingModel --|&gt; BaseModel
+    MomentumModel --|&gt; BaseModel</code></pre>
+<h3 id="32-pydantic-contracts">3.2 Pydantic Contracts<a class="headerlink" href="#32-pydantic-contracts" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>classDiagram
+    class FeatureVector {
+        +asset: str
+        +timeframe: str
+        +timestamp: float
+        +features: dict~str, Any~
+        +bar_data: dict~str, float~
+    }
+
+    class ModelOutput {
+        +model_name: str
+        +asset: str
+        +timeframe: str
+        +timestamp: float
+        +direction: int
+        +conviction: float [0.0–1.0]
+        +metadata: dict~str, Any~
+    }
+
+    class TradeSignal {
+        +asset: str
+        +timeframe: str
+        +timestamp: float
+        +direction: int
+        +conviction: float
+        +price: float
+        +idempotency_key: str
+    }
+
+    class ParamDef {
+        +type: "float" | "int" | "categorical"
+        +default: Any
+        +low: float?
+        +high: float?
+        +step: float?
+        +choices: list?
+    }
+
+    FeatureVector --&gt; ModelOutput : model.evaluate()
+    ModelOutput --&gt; TradeSignal : StrategyWorker wraps</code></pre>
+<h3 id="33-file-structure">3.3 File Structure<a class="headerlink" href="#33-file-structure" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>src/apps/strategy_app/
+├── __init__.py
+├── main.py                    # Entrypoint — discovers pairs from config, boots workers
+├── strategy_worker.py         # Valkey consumer — deserializes features, dispatches to ModelManager
+└── model_manager.py           # Config-driven model loading + feature coverage validation
+
+src/libs/models/
+├── __init__.py                # Auto-imports for registry self-registration
+├── base.py                    # BaseModel ABC + ModelMeta dataclass
+├── registry.py                # ModelRegistry (decorator-based)
+├── mean_reversion.py          # RSI + BollingerBands mean-reversion model
+├── trend_following.py         # EMA crossover + MACD confirm + ATR conviction
+└── momentum.py                # RSI directional bias + MACD histogram
+
+src/libs/contracts/
+└── schemas.py                 # FeatureVector, ModelOutput, TradeSignal, ParamDef, StudyConfig, TrialResult
+</code></pre></div>
+<h3 id="34-configuration-modelsyaml">3.4 Configuration — <code>models.yaml</code><a class="headerlink" href="#34-configuration-modelsyaml" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="nt">models</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">assets</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">BTCUSDT</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">timeframes</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">1h</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">MeanReversion</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">            </span><span class="nt">params</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">rsi_oversold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span>
+<span class="w">              </span><span class="nt">rsi_overbought</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">70</span>
+<span class="w">              </span><span class="nt">bb_entry_std</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2.0</span>
+<span class="w">              </span><span class="nt">holding_period</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">          </span><span class="nt">TrendFollowing</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">            </span><span class="nt">params</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">ema_fast_period</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">12</span>
+<span class="w">              </span><span class="nt">ema_slow_period</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">26</span>
+<span class="w">              </span><span class="nt">require_macd_confirm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">              </span><span class="nt">atr_conviction_scale</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+<span class="w">          </span><span class="nt">Momentum</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">            </span><span class="nt">params</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">rsi_long_threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">55</span>
+<span class="w">              </span><span class="nt">rsi_short_threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">45</span>
+<span class="w">        </span><span class="nt">4h</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">MeanReversion</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">            </span><span class="nt">params</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">rsi_oversold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">25</span>
+<span class="w">              </span><span class="nt">rsi_overbought</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">75</span>
+<span class="w">    </span><span class="nt">default</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">timeframes</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">default</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">MeanReversion</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">            </span><span class="nt">params</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+</code></pre></div>
+<p><strong>Fallback chain:</strong> <code>asset/timeframe</code> → <code>asset/default</code> → <code>default/timeframe</code> → <code>default/default</code>
+<strong>Merge priority:</strong> Specific nodes override general nodes (last-write-wins via <code>dict.update()</code>)</p>
+<hr />
+<h2 id="4-pipeline-flow-top-down-view">4. Pipeline Flow — Top-Down View<a class="headerlink" href="#4-pipeline-flow-top-down-view" title="Permanent link">&para;</a></h2>
+<h3 id="41-boot-sequence">4.1 Boot Sequence<a class="headerlink" href="#41-boot-sequence" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>sequenceDiagram
+    participant Main as main.py
+    participant CFG as ConfigManager
+    participant STW as StrategyWorker
+    participant MM as ModelManager
+    participant MR as ModelRegistry
+    participant VK as Valkey
+
+    Main-&gt;&gt;CFG: register_file("configs/models.yaml")
+    Main-&gt;&gt;CFG: get(models.assets) → discover pairs
+    Note over Main: Filter out "default" keys → [(BTCUSDT, 1h), (BTCUSDT, 4h), ...]
+
+    loop For each (asset, timeframe) pair
+        Main-&gt;&gt;STW: __init__(asset, timeframe)
+        STW-&gt;&gt;MM: __init__(asset, timeframe)
+        MM-&gt;&gt;CFG: register_file("configs/models.yaml")
+        MM-&gt;&gt;CFG: register_file("configs/features.yaml")
+        MM-&gt;&gt;MM: _resolve_config_node("models") → merged model config
+
+        loop For each model entry
+            MM-&gt;&gt;MM: Check enabled == true
+            MM-&gt;&gt;MR: get(model_name) → model class
+            MM-&gt;&gt;MM: model_cls(params) → instantiate
+            Note over MM: models.append(model)
+        end
+
+        STW-&gt;&gt;STW: start()
+        STW-&gt;&gt;MM: validate_feature_coverage()
+        MM-&gt;&gt;MM: _available_features_from_config() → set of indicator names
+
+        loop For each loaded model
+            MM-&gt;&gt;MM: model.validate_features(available)
+            Note over MM: Raises ConfigurationError if missing indicators
+        end
+
+        STW-&gt;&gt;VK: XGROUP CREATE features:{asset}:{tf}
+        STW-&gt;&gt;VK: XREADGROUP (blocking loop)
+    end</code></pre>
+<h3 id="42-live-processing-loop">4.2 Live Processing Loop<a class="headerlink" href="#42-live-processing-loop" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>sequenceDiagram
+    participant VK as Valkey
+    participant STW as StrategyWorker
+    participant MM as ModelManager
+    participant MOD as Models
+    participant SCH as TradeSignal Schema
+
+    loop Every FeatureVector event
+        VK--&gt;&gt;STW: XREADGROUP → payload
+        STW-&gt;&gt;STW: Decode bytes → str
+        STW-&gt;&gt;STW: Reconstruct FeatureVector from payload
+
+        STW-&gt;&gt;MM: evaluate(feature_vec)
+        loop For each active model
+            MM-&gt;&gt;MOD: model.evaluate(features)
+            MOD--&gt;&gt;MM: ModelOutput {direction, conviction, metadata}
+        end
+        MM--&gt;&gt;STW: list[ModelOutput]
+
+        loop For each ModelOutput where direction ≠ 0
+            STW-&gt;&gt;STW: Build TradeSignal from ModelOutput
+            STW-&gt;&gt;STW: _make_idempotency_key(model, asset, tf, ts)
+            STW-&gt;&gt;VK: XADD signals:{asset}:{tf} → TradeSignal.model_dump()
+        end
+
+        STW-&gt;&gt;VK: XACK message_id
+    end</code></pre>
+<h3 id="43-feature-coverage-validation">4.3 Feature Coverage Validation<a class="headerlink" href="#43-feature-coverage-validation" title="Permanent link">&para;</a></h3>
+<p>At boot, <code>ModelManager.validate_feature_coverage()</code> cross-references each model's <code>meta.required_indicators</code> against the indicators configured in <code>features.yaml</code> for the same asset/timeframe. This catches configuration drift before any traffic flows.</p>
+<pre class="mermaid"><code>flowchart TD
+    A[ModelManager boots] --&gt; B[Load models from models.yaml]
+    B --&gt; C[Read features.yaml for same asset/tf]
+    C --&gt; D{For each model: required_indicators ⊆ available?}
+    D -- Yes --&gt; E[Continue — all models valid]
+    D -- No --&gt; F[Raise ConfigurationError]
+    F --&gt; G[Worker refuses to start]</code></pre>
+<hr />
+<h2 id="5-model-architecture">5. Model Architecture<a class="headerlink" href="#5-model-architecture" title="Permanent link">&para;</a></h2>
+<h3 id="51-basemodel-template-method">5.1 BaseModel Template Method<a class="headerlink" href="#51-basemodel-template-method" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart TD
+    subgraph "batch_evaluate() — Template Method"
+        A[batch_evaluate] --&gt; B[_validate_temporal_ordering]
+        B --&gt; C[_batch_evaluate_impl — abstract]
+        C --&gt; D[_validate_result_alignment]
+    end
+
+    subgraph "evaluate() — Direct dispatch"
+        E[evaluate] --&gt; F[Read features from FeatureVector]
+        F --&gt; G[Compute direction + conviction]
+        G --&gt; H[Return ModelOutput]
+    end</code></pre>
+<ul>
+<li><strong><code>evaluate()</code></strong> — Single-tick live inference. Stateless. Used by <code>StrategyWorker</code>.</li>
+<li><strong><code>batch_evaluate()</code></strong> — Vectorized batch over a DataFrame. Used by optimization/backtesting. Template Method enforces temporal ordering and result alignment.</li>
+</ul>
+<h3 id="52-registered-models">5.2 Registered Models<a class="headerlink" href="#52-registered-models" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Registry Key</th>
+<th>Required Indicators</th>
+<th>Hyperparameters</th>
+<th>Signal Logic</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>MeanReversion</strong></td>
+<td><code>MeanReversion</code></td>
+<td>RSI, BollingerBands</td>
+<td><code>rsi_oversold</code>, <code>rsi_overbought</code>, <code>bb_entry_std</code>, <code>holding_period</code></td>
+<td>Long when RSI &lt; oversold AND close &lt; lower band; Short when RSI &gt; overbought AND close &gt; upper band</td>
+</tr>
+<tr>
+<td><strong>TrendFollowing</strong></td>
+<td><code>TrendFollowing</code></td>
+<td>EMA_fast, EMA_slow, MACD, ATR</td>
+<td><code>ema_fast_period</code>, <code>ema_slow_period</code>, <code>require_macd_confirm</code>, <code>atr_conviction_scale</code></td>
+<td>Long when EMA_fast &gt; EMA_slow (+ optional MACD confirm); ATR-scaled conviction</td>
+</tr>
+<tr>
+<td><strong>Momentum</strong></td>
+<td><code>Momentum</code></td>
+<td>RSI, MACD</td>
+<td><code>rsi_long_threshold</code>, <code>rsi_short_threshold</code>, <code>require_macd_positive</code>, <code>histogram_min_abs</code></td>
+<td>Long when RSI &gt; threshold AND MACD histogram positive; Short inverse</td>
+</tr>
+</tbody>
+</table>
+<h3 id="53-model-output-flow">5.3 Model Output Flow<a class="headerlink" href="#53-model-output-flow" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>Model.evaluate(FeatureVector)
+    → ModelOutput(direction=1/-1/0, conviction=0.0-1.0, metadata={...})
+        → if direction ≠ 0:
+            → TradeSignal(direction, conviction, price=close, idempotency_key=sha256)
+                → XADD signals:{asset}:{timeframe}
+</code></pre></div>
+<h3 id="54-hyperparameter-schema">5.4 Hyperparameter Schema<a class="headerlink" href="#54-hyperparameter-schema" title="Permanent link">&para;</a></h3>
+<p>Each model declares its tunable parameters via <code>ModelMeta.hyperparameter_schema: dict[str, ParamDef]</code>. This schema drives:
+1. <strong>Default values</strong> — <code>BaseModel._defaults()</code> extracts defaults at construction
+2. <strong>Config override</strong> — <code>models.yaml</code> <code>params:</code> block overrides defaults
+3. <strong>Optimization</strong> — <code>libs/optimization/objective.py</code> reads the schema to build Optuna search spaces</p>
+<hr />
+<h2 id="6-valkey-stream-protocol">6. Valkey Stream Protocol<a class="headerlink" href="#6-valkey-stream-protocol" title="Permanent link">&para;</a></h2>
+<h3 id="61-input-stream">6.1 Input Stream<a class="headerlink" href="#61-input-stream" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Key:</strong> <code>features:{asset}:{timeframe}</code> (e.g., <code>features:BTCUSDT:1h</code>)</li>
+<li><strong>Consumer group:</strong> <code>strategy_app_group</code></li>
+<li><strong>Consumer name:</strong> <code>strategy_worker_{asset}_{timeframe}</code></li>
+<li><strong>Payload fields:</strong></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>asset</code></td>
+<td>string</td>
+<td>Asset symbol</td>
+</tr>
+<tr>
+<td><code>timeframe</code></td>
+<td>string</td>
+<td>Timeframe</td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>string</td>
+<td>Candle timestamp</td>
+</tr>
+<tr>
+<td><code>features</code></td>
+<td>JSON string</td>
+<td><code>{"EMA_fast": 65432.1, "RSI": 42.5, ...}</code></td>
+</tr>
+<tr>
+<td><code>bar_data</code></td>
+<td>JSON string</td>
+<td><code>{"open": 65000, "high": 65500, ...}</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="62-output-stream">6.2 Output Stream<a class="headerlink" href="#62-output-stream" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Key:</strong> <code>signals:{asset}:{timeframe}</code> (e.g., <code>signals:BTCUSDT:1h</code>)</li>
+<li><strong>Payload fields (Pydantic <code>model_dump()</code>):</strong></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>asset</code></td>
+<td>string</td>
+<td>Asset symbol</td>
+</tr>
+<tr>
+<td><code>timeframe</code></td>
+<td>string</td>
+<td>Timeframe</td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>float</td>
+<td>Signal timestamp</td>
+</tr>
+<tr>
+<td><code>direction</code></td>
+<td>int</td>
+<td><code>1</code> (long) or <code>-1</code> (short) — <code>0</code> never published</td>
+</tr>
+<tr>
+<td><code>conviction</code></td>
+<td>float</td>
+<td><code>[0.0, 1.0]</code> — model confidence</td>
+</tr>
+<tr>
+<td><code>price</code></td>
+<td>float</td>
+<td>Close price at signal time</td>
+</tr>
+<tr>
+<td><code>idempotency_key</code></td>
+<td>string</td>
+<td>SHA-256 hash (first 16 chars) for dedup</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-entrypoint-mainpy">7. Entrypoint — <code>main.py</code><a class="headerlink" href="#7-entrypoint-mainpy" title="Permanent link">&para;</a></h2>
+<h3 id="71-pair-discovery">7.1 Pair Discovery<a class="headerlink" href="#71-pair-discovery" title="Permanent link">&para;</a></h3>
+<p><code>main.py</code> reads <code>models.yaml</code> and discovers all <code>(asset, timeframe)</code> pairs (excluding <code>default</code> keys). Each pair gets its own <code>StrategyWorker</code> instance running as an <code>asyncio.Task</code>.</p>
+<pre class="mermaid"><code>flowchart TD
+    A[main.py] --&gt; B[Read models.yaml]
+    B --&gt; C[Iterate assets — skip 'default']
+    C --&gt; D[Iterate timeframes — skip 'default']
+    D --&gt; E["Pairs: [(BTCUSDT,1h), (BTCUSDT,4h), (ETHUSDT,4h)]"]
+    E --&gt; F[Create StrategyWorker per pair]
+    F --&gt; G[asyncio.gather — run all workers concurrently]</code></pre>
+<h3 id="72-concurrency-model">7.2 Concurrency Model<a class="headerlink" href="#72-concurrency-model" title="Permanent link">&para;</a></h3>
+<ul>
+<li>One <code>StrategyWorker</code> per <code>(asset, timeframe)</code> pair</li>
+<li>All workers run as concurrent <code>asyncio.Task</code>s in a single process</li>
+<li>Each worker has its own <code>ModelManager</code> with its own set of model instances</li>
+<li>Workers are isolated — no shared state between different asset/timeframe workers</li>
+</ul>
+<hr />
+<h2 id="8-error-handling">8. Error Handling<a class="headerlink" href="#8-error-handling" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Model not found in registry</td>
+<td>Logged as warning, skipped during <code>_load_models()</code></td>
+</tr>
+<tr>
+<td>Model disabled (<code>enabled: false</code>)</td>
+<td>Logged as info, skipped</td>
+</tr>
+<tr>
+<td>Feature coverage validation fails</td>
+<td><code>ConfigurationError</code> raised — worker refuses to start</td>
+</tr>
+<tr>
+<td>Feature payload deserialization fails</td>
+<td>Logged as error, message skipped</td>
+</tr>
+<tr>
+<td>Model throws during <code>evaluate()</code></td>
+<td>Logged as error, model output skipped (other models still run)</td>
+</tr>
+<tr>
+<td>direction == 0 (flat)</td>
+<td>Signal not published — only actionable signals reach downstream</td>
+</tr>
+<tr>
+<td>No redis client</td>
+<td>Runs in mock mode — evaluates but doesn't publish</td>
+</tr>
+<tr>
+<td>Consumer group already exists</td>
+<td><code>BUSYGROUP</code> exception silently caught</td>
+</tr>
+<tr>
+<td>Temporal ordering violation (batch)</td>
+<td><code>ValueError</code> raised — prevents look-ahead bias</td>
+</tr>
+<tr>
+<td>Result length mismatch (batch)</td>
+<td><code>ValueError</code> raised — catches subclass bugs</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="9-optimization-integration">9. Optimization Integration<a class="headerlink" href="#9-optimization-integration" title="Permanent link">&para;</a></h2>
+<p>The <code>libs/optimization/</code> layer is designed to drive models in batch mode for hyperparameter tuning:</p>
+<pre class="mermaid"><code>flowchart LR
+    subgraph "Offline Optimization (script/cron)"
+        DB[(TimescaleDB)] --&gt; DF[Historical DataFrame]
+        DF --&gt; OBJ[make_objective]
+        OBJ --&gt; OR[OptunaRunner]
+        OR --&gt; MOD[model.batch_evaluate]
+        MOD --&gt; SCORE[Scoring Function]
+        SCORE --&gt; OR
+        OR --&gt; TR[TrialResult → DB]
+        TR --&gt; CFG[Best params → models.yaml]
+    end
+
+    subgraph "Live Inference (strategy_app)"
+        CFG --&gt; MM[ModelManager]
+        MM --&gt; LIVE[model.evaluate]
+    end</code></pre>
+<ul>
+<li><strong>Single-objective:</strong> <code>TPESampler</code> (e.g., maximize Sharpe)</li>
+<li><strong>Multi-objective:</strong> <code>NSGAIISampler</code> (Pareto front, e.g., Sharpe vs drawdown)</li>
+<li><strong>Schedule:</strong> Configurable cron (daily/weekly/biweekly/monthly) to handle param drift</li>
+</ul>
+<hr />
+<h2 id="10-comparison-signal-app-vs-strategy-app">10. Comparison: Signal App vs Strategy App<a class="headerlink" href="#10-comparison-signal-app-vs-strategy-app" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Signal App</th>
+<th>Strategy App</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Purpose</strong></td>
+<td>Compute features from raw OHLCV</td>
+<td>Generate trade signals from features</td>
+</tr>
+<tr>
+<td><strong>Input</strong></td>
+<td>Raw candle data (OHLCV)</td>
+<td>Computed feature vectors</td>
+</tr>
+<tr>
+<td><strong>Output</strong></td>
+<td><code>FeatureVector</code></td>
+<td><code>TradeSignal</code></td>
+</tr>
+<tr>
+<td><strong>Core logic</strong></td>
+<td><code>FeatureManager</code> + <code>IndicatorRegistry</code></td>
+<td><code>ModelManager</code> + <code>ModelRegistry</code></td>
+</tr>
+<tr>
+<td><strong>Config</strong></td>
+<td><code>features.yaml</code></td>
+<td><code>models.yaml</code></td>
+</tr>
+<tr>
+<td><strong>Stateful</strong></td>
+<td>Yes — indicators maintain internal state</td>
+<td>No — models are stateless per-tick</td>
+</tr>
+<tr>
+<td><strong>Priming</strong></td>
+<td>Required — historical data pre-warms indicators</td>
+<td>Not required — boot-time validation only</td>
+</tr>
+<tr>
+<td><strong>Suppression</strong></td>
+<td>Unprimed indicators skipped</td>
+<td>Flat signals (direction=0) not published</td>
+</tr>
+<tr>
+<td><strong>Valkey streams</strong></td>
+<td>Reads <code>market_data:*</code>, writes <code>features:*</code></td>
+<td>Reads <code>features:*</code>, writes <code>signals:*</code></td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -4,6 +4,7 @@ import asyncio
 from typing import Any
 
 from apps.signal_app.feature_manager import FeatureManager
+from libs.common.config import ConfigManager
 from libs.common.logging.logger_utils import bind_logger
 from libs.features.engineered.manager import EngineeredFeatureManager
 from libs.common.enums import SystemComponent
@@ -11,6 +12,13 @@ from libs.common.stream_consumer import BaseStreamConsumer
 from libs.contracts.schemas import FeatureVector, PriceUpdate, valkey_encode
 
 logger = bind_logger(__name__, system_component=SystemComponent.SIGNAL_APP)
+
+_config = ConfigManager()
+# Short names derived from configured indices ("EXCHANGE:NAME" → "NAME")
+_TV_INDEX_KEYS: list[str] = [
+    sym.split(":")[-1]
+    for sym in _config.get("tradingview.indices", ["CRYPTOCAP:BTC.D", "CRYPTOCAP:TOTAL2", "CRYPTOCAP:TOTAL3"])
+]
 
 
 class SignalWorker(BaseStreamConsumer):
@@ -82,7 +90,7 @@ class SignalWorker(BaseStreamConsumer):
                 # Pre-fetch TV index data from Valkey hashes (O(1) per index)
                 index_data: dict[str, dict[str, float]] = {}
                 if self.redis_client:
-                    for idx_symbol in ("BTC.D", "TOTAL2", "TOTAL3"):
+                    for idx_symbol in _TV_INDEX_KEYS:
                         try:
                             raw = await self.redis_client.hgetall(f"index:latest:{idx_symbol}")
                             if raw:

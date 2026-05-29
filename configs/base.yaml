@@ -1,7 +1,11 @@
 logging:
   level: INFO
+  console_format: json
 
 ingestion:
+  credentials:
+    api_key: ""
+    api_secret: ""
   assets:
     default_binance_asset: BTCUSDT
     historical_backfill_days: 2
@@ -13,12 +17,12 @@ ingestion:
     - BNBUSDT
     - DOGEUSDT
     publish_timeframes:
-      BTCUSDT: ["1h", "4h"]
-      ETHUSDT: ["4h"]
-      XRPUSDT: ["1h"]
-      SOLUSDT: ["1h"]
-      BNBUSDT: ["30m"]
-      DOGEUSDT: ["4h"]
+      BTCUSDT: ["30m","1h", "4h"]
+      ETHUSDT: ["30m","1h", "4h"]
+      XRPUSDT: ["30m","1h", "4h"]
+      SOLUSDT: ["30m","1h", "4h"]
+      BNBUSDT: ["30m","1h", "4h"]
+      DOGEUSDT: ["30m","1h", "4h"]
   concurrency:
     gap_fill_limit: 5
     gap_fill_sleep_seconds: 0.5
@@ -66,14 +70,13 @@ ingestion:
     base_gap_fill: 1m
     binance_stream_interval: 1m
     default: 15m
-  tradingview:
-    cookies_path: secrets/tv_cookies.json
-    load_sleep_seconds: 5
+
   websocket:
     stream_url: wss://fstream.binancefuture.com
     reconnect_sleep_seconds: 5
     verification_sleep_seconds: 10
     warmup_threshold_ms: 300000
+    warmup_timeout_seconds: 600
 postgres:
   database: flipper_db
   host: localhost

@@ -1,0 +1,1273 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A good quant research agent">
+      
+      
+      
+      
+        <link rel="prev" href="../ingestion/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>TradingView Scraper - flipperAgent</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#tradingview-scraper" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="flipperAgent" class="md-header__button md-logo" aria-label="flipperAgent" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            flipperAgent
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              TradingView Scraper
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../best_practices/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../ingestion/" class="md-tabs__link">
+          
+  
+  
+  Components
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="flipperAgent" class="md-nav__button md-logo" aria-label="flipperAgent" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    flipperAgent
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../best_practices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Best Practices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../docker_topology/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Topology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decision Records
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Components
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Components
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ingestion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingestion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TradingView Scraper
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TradingView Scraper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#high-level-design-hld" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-Level Design (HLD)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="High-Level Design (HLD)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#system-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        System Context
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fetch-cadence-and-gap-fill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fetch Cadence and Gap-Fill
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#low-level-design-lld" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Low-Level Design (LLD)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Low-Level Design (LLD)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#component-breakdown" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Component Breakdown
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Component Breakdown">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#interceptorpy-tradingviewinterceptor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        interceptor.py — TradingViewInterceptor
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workerpy-arq-worker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        worker.py — ARQ worker
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        config.py
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration Reference
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#downstream-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Downstream Interface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#db-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DB Table
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#docker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docker
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="tradingview-scraper">TradingView Scraper<a class="headerlink" href="#tradingview-scraper" title="Permanent link">&para;</a></h1>
+<p>The TradingView Scraper is a lightweight sidecar service that periodically fetches proprietary market-cap index data (TOTAL2, TOTAL3, BTC.D) from TradingView, persists it in TimescaleDB, and publishes the latest closed bar to Valkey hashes for real-time consumption by the Signal App.</p>
+<hr />
+<h2 id="high-level-design-hld">High-Level Design (HLD)<a class="headerlink" href="#high-level-design-hld" title="Permanent link">&para;</a></h2>
+<h3 id="system-context">System Context<a class="headerlink" href="#system-context" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart TD
+    subgraph TradingView [TradingView]
+        TVChart[Chart WS\nwss://data.tradingview.com/...]
+    end
+
+    subgraph TVScraper [TV Scraper Container]
+        ARQWorker[ARQ Worker\nfetch_tv_indices]
+        Interceptor[TradingViewInterceptor\npatchright / Chromium]
+    end
+
+    subgraph Infra [Infrastructure]
+        Valkey[(Valkey\nindex:latest:{symbol})]
+        TimescaleDB[(TimescaleDB\ntv_index_ohlcv)]
+    end
+
+    subgraph Downstream [Downstream]
+        SignalApp[Signal App\nEngineeredFeatureManager]
+    end
+
+    ARQWorker --&gt;|every :00:30 and :30:30| Interceptor
+    Interceptor --&gt;|headless Chromium\nWS frame interception| TVChart
+    TVChart --&gt;|~m~ framed OHLCV| Interceptor
+    Interceptor --&gt;|DataFrame ~300 bars| ARQWorker
+    ARQWorker --&gt;|HSET latest bar| Valkey
+    ARQWorker --&gt;|executemany upsert all bars| TimescaleDB
+    Valkey --&gt;|HGETALL index:latest:{sym}| SignalApp</code></pre>
+<h3 id="fetch-cadence-and-gap-fill">Fetch Cadence and Gap-Fill<a class="headerlink" href="#fetch-cadence-and-gap-fill" title="Permanent link">&para;</a></h3>
+<p>The scraper fires at <code>:00:30</code> and <code>:30:30</code> of every hour, covering candle closes for all three relevant timeframes:</p>
+<table>
+<thead>
+<tr>
+<th>Close time</th>
+<th>Fire time</th>
+<th>Timeframes covered</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>On the hour (:00)</td>
+<td>:00:30</td>
+<td>1h, 4h, 30m</td>
+</tr>
+<tr>
+<td>Half-hour (:30)</td>
+<td>:30:30</td>
+<td>30m</td>
+</tr>
+</tbody>
+</table>
+<p>Every successful fetch upserts <strong>all ~300 bars</strong> TV returns on page load (not just the latest). Because the DB upsert uses <code>ON CONFLICT DO UPDATE</code>, already-present bars are updated in place and missing bars are inserted — providing passive gap-fill with no extra architecture:</p>
+<table>
+<thead>
+<tr>
+<th>Timeframe</th>
+<th>~300 bars covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>30m</td>
+<td>~6 days</td>
+</tr>
+<tr>
+<td>1h</td>
+<td>~12 days</td>
+</tr>
+</tbody>
+</table>
+<p>Any missed cycles (e.g. container restart, Chromium crash) are automatically healed on the next successful fetch.</p>
+<hr />
+<h2 id="low-level-design-lld">Low-Level Design (LLD)<a class="headerlink" href="#low-level-design-lld" title="Permanent link">&para;</a></h2>
+<h3 id="component-breakdown">Component Breakdown<a class="headerlink" href="#component-breakdown" title="Permanent link">&para;</a></h3>
+<h4 id="interceptorpy-tradingviewinterceptor"><code>interceptor.py</code> — TradingViewInterceptor<a class="headerlink" href="#interceptorpy-tradingviewinterceptor" title="Permanent link">&para;</a></h4>
+<p>Launches a stealth headless Chromium browser via <code>patchright</code>, navigates to a TradingView chart URL, and intercepts WebSocket frames carrying <code>~m~</code>-framed OHLCV payloads.</p>
+<p><strong>Protocol parsing:</strong></p>
+<p>TradingView encodes WebSocket messages as <code>~m~{len}~m~{payload}</code>. Two module-level helpers handle this:</p>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>parse_tv_messages(raw)</code></td>
+<td>Regex-walks the <code>~m~</code> framing, JSON-decodes each payload, returns <code>list[dict]</code>. Non-JSON heartbeat pings (plain integers) are silently skipped.</td>
+</tr>
+<tr>
+<td><code>extract_ohlcv_from_tv_response(messages)</code></td>
+<td>Finds <code>timescale_update</code> or <code>du</code> message types, navigates <code>sds_*</code> series keys, unpacks <code>v[0..5]</code> → <code>[timestamp_s, open, high, low, close, volume]</code>. Timestamps multiplied by 1000 (TV sends seconds, pipeline expects ms).</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>TradingViewInterceptor(cookies_path, proxy_url)</code></strong></p>
+<p>Reads <code>tradingview.cookies_path</code> from config at construction. Stores <code>_config</code> for use by <code>get_historical_ohlcv</code>.</p>
+<p><strong><code>get_historical_ohlcv(symbol, timeframe, ...)</code></strong></p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Build chart URL: <code>{chart_base_url}?symbol={symbol}&amp;interval={tv_resolution}</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td>Launch Chromium headless with stealth args (<code>--disable-blink-features=AutomationControlled</code>, <code>--no-sandbox</code>)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Set viewport and user-agent from config</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Inject session cookies from <code>cookies_path</code> (strips leading <code>.</code> from domains for Playwright compat)</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Hook <code>page.on("websocket")</code> to capture frames containing <code>~m~</code></td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>page.goto(chart_url, wait_until="networkidle", timeout=page_load_timeout_ms)</code></td>
+</tr>
+<tr>
+<td>7</td>
+<td>Poll up to <code>ws_intercept_timeout_seconds</code> at <code>ws_poll_interval_seconds</code> intervals for <code>timescale_update</code>/<code>du</code> in captured frames</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Close browser, parse all captured frames, return deduplicated <code>pd.DataFrame</code> sorted by timestamp</td>
+</tr>
+</tbody>
+</table>
+<p>Returns an empty DataFrame (columns: <code>timestamp, open, high, low, close, volume</code>) on any error or missing data.</p>
+<p><code>since</code>, <code>until</code>, and <code>limit</code> parameters are accepted but not used — TV determines the available history window (~300 bars).</p>
+<p><strong><code>_map_timeframe(timeframe)</code></strong> — maps standard notation to TradingView resolution strings:</p>
+<table>
+<thead>
+<tr>
+<th>Input</th>
+<th>TV resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>1m</code></td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td><code>5m</code></td>
+<td><code>5</code></td>
+</tr>
+<tr>
+<td><code>15m</code> / <code>30m</code></td>
+<td><code>15</code> / <code>30</code></td>
+</tr>
+<tr>
+<td><code>1h</code> / <code>2h</code> / <code>4h</code></td>
+<td><code>60</code> / <code>120</code> / <code>240</code></td>
+</tr>
+<tr>
+<td><code>1d</code> / <code>1D</code></td>
+<td><code>D</code></td>
+</tr>
+<tr>
+<td><code>1w</code> / <code>1W</code></td>
+<td><code>W</code></td>
+</tr>
+<tr>
+<td>unknown</td>
+<td><code>60</code> (default)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h4 id="workerpy-arq-worker"><code>worker.py</code> — ARQ worker<a class="headerlink" href="#workerpy-arq-worker" title="Permanent link">&para;</a></h4>
+<p>Periodic ARQ task that coordinates index fetching, Valkey publishing, and DB persistence.</p>
+<p><strong>Module-level constants (config-driven):</strong></p>
+<div class="highlight"><pre><span></span><code><span class="n">TV_INDICES</span>  <span class="o">=</span> <span class="n">config_manager</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;tradingview.indices&quot;</span><span class="p">,</span> <span class="p">[</span><span class="o">...</span><span class="p">])</span>
+<span class="n">INDEX_KEY_MAP</span> <span class="o">=</span> <span class="p">{</span><span class="n">sym</span><span class="p">:</span> <span class="n">sym</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">TV_INDICES</span><span class="p">}</span>
+<span class="c1"># e.g. &quot;CRYPTOCAP:TOTAL2&quot; → &quot;TOTAL2&quot;</span>
+</code></pre></div>
+<p><strong><code>fetch_tv_indices(ctx)</code></strong></p>
+<p>For each symbol in <code>TV_INDICES</code>:</p>
+<ol>
+<li>Calls <code>interceptor.get_historical_ohlcv(symbol, timeframe)</code> — returns ~300 bars</li>
+<li>Publishes <code>df.iloc[-1]</code> (latest closed bar) to <code>index:latest:{short_name}</code> Valkey hash</li>
+<li>Upserts <strong>all</strong> returned bars to <code>tv_index_ohlcv</code> via <code>executemany</code> + <code>ON CONFLICT DO UPDATE</code></li>
+<li>Sleeps <code>fetch_delay_seconds</code> between symbols (anti-detection)</li>
+</ol>
+<p>Valkey hash payload:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>symbol</code></td>
+<td>str</td>
+<td>Short name (e.g. <code>TOTAL2</code>)</td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>str(int ms)</td>
+<td>Bar open timestamp in milliseconds</td>
+</tr>
+<tr>
+<td><code>open/high/low/close</code></td>
+<td>str(float)</td>
+<td>OHLCV values</td>
+</tr>
+<tr>
+<td><code>volume</code></td>
+<td>str(float)</td>
+<td>Bar volume</td>
+</tr>
+<tr>
+<td><code>fetched_at</code></td>
+<td>str(float)</td>
+<td>Unix timestamp of fetch (for staleness checks)</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>startup(ctx)</code> / <code>shutdown(ctx)</code></strong></p>
+<ul>
+<li><code>startup</code>: lazy-imports <code>TradingViewInterceptor</code>, creates Valkey client and DB pool (both optional — if DB is unavailable the worker still publishes to Valkey)</li>
+<li><code>shutdown</code>: closes Valkey client</li>
+</ul>
+<p><strong><code>WorkerSettings</code></strong></p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Value</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>redis_settings</code></td>
+<td><code>RedisSettings.from_dsn(valkey.uri)</code></td>
+<td>ConfigManager</td>
+</tr>
+<tr>
+<td><code>cron_jobs</code></td>
+<td><code>minute={0,30}, second=30</code></td>
+<td><code>tradingview.cron_minutes</code> + <code>tradingview.cron_second</code></td>
+</tr>
+<tr>
+<td><code>max_jobs</code></td>
+<td><code>1</code></td>
+<td><code>tradingview.max_concurrent_jobs</code></td>
+</tr>
+<tr>
+<td><code>job_timeout</code></td>
+<td><code>120</code></td>
+<td><code>tradingview.job_timeout_seconds</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h4 id="configpy"><code>config.py</code><a class="headerlink" href="#configpy" title="Permanent link">&para;</a></h4>
+<p>Holds the shared <code>config_manager = ConfigManager()</code> singleton for the tv_scraper package.</p>
+<hr />
+<h3 id="configuration-reference">Configuration Reference<a class="headerlink" href="#configuration-reference" title="Permanent link">&para;</a></h3>
+<p>All config under <code>configs/tradingview.yaml</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tradingview.indices</code></td>
+<td><code>[CRYPTOCAP:TOTAL2, ...]</code></td>
+<td>Symbols to fetch</td>
+</tr>
+<tr>
+<td><code>tradingview.timeframe</code></td>
+<td><code>1h</code></td>
+<td>Candle resolution to request</td>
+</tr>
+<tr>
+<td><code>tradingview.staleness_ttl_seconds</code></td>
+<td><code>1800</code></td>
+<td>Max acceptable age of Valkey hash data (30m — matches fetch cadence)</td>
+</tr>
+<tr>
+<td><code>tradingview.fetch_delay_seconds</code></td>
+<td><code>2</code></td>
+<td>Sleep between sequential index fetches</td>
+</tr>
+<tr>
+<td><code>tradingview.cookies_path</code></td>
+<td><code>secrets/tv_cookies.json</code></td>
+<td>Path to TradingView session cookie JSON</td>
+</tr>
+<tr>
+<td><code>tradingview.chart_base_url</code></td>
+<td><code>https://www.tradingview.com/chart/</code></td>
+<td>Chart base URL</td>
+</tr>
+<tr>
+<td><code>tradingview.user_agent</code></td>
+<td><code>Chrome/125...</code></td>
+<td>Browser user-agent (rotate to avoid detection)</td>
+</tr>
+<tr>
+<td><code>tradingview.viewport_width</code> / <code>viewport_height</code></td>
+<td><code>1920</code> / <code>1080</code></td>
+<td>Headless browser viewport</td>
+</tr>
+<tr>
+<td><code>tradingview.page_load_timeout_ms</code></td>
+<td><code>60000</code></td>
+<td><code>page.goto()</code> timeout</td>
+</tr>
+<tr>
+<td><code>tradingview.ws_intercept_timeout_seconds</code></td>
+<td><code>15</code></td>
+<td>Max wait for <code>timescale_update</code> frames</td>
+</tr>
+<tr>
+<td><code>tradingview.ws_poll_interval_seconds</code></td>
+<td><code>0.5</code></td>
+<td>Poll interval inside WS wait loop</td>
+</tr>
+<tr>
+<td><code>tradingview.cron_minutes</code></td>
+<td><code>[0, 30]</code></td>
+<td>Minutes of the hour to fire at</td>
+</tr>
+<tr>
+<td><code>tradingview.cron_second</code></td>
+<td><code>30</code></td>
+<td>Second offset within each minute</td>
+</tr>
+<tr>
+<td><code>tradingview.max_concurrent_jobs</code></td>
+<td><code>1</code></td>
+<td>ARQ max parallel jobs</td>
+</tr>
+<tr>
+<td><code>tradingview.job_timeout_seconds</code></td>
+<td><code>120</code></td>
+<td>ARQ job timeout</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="downstream-interface">Downstream Interface<a class="headerlink" href="#downstream-interface" title="Permanent link">&para;</a></h3>
+<p>The Signal App reads TV index data from Valkey hashes on each closed bar:</p>
+<ul>
+<li><strong>Hash key</strong>: <code>index:latest:{short_name}</code> (e.g. <code>index:latest:TOTAL2</code>, <code>index:latest:BTC.D</code>)</li>
+<li><strong>Consumer</strong>: <code>signal_worker.py</code> → <code>EngineeredFeatureManager.compute()</code> via <code>index_data</code> kwarg</li>
+<li><strong>Short names</strong> consumed by the signal app are derived from the same <code>tradingview.indices</code> config, so adding a new index in config propagates automatically to both the scraper and the consumer</li>
+</ul>
+<p><strong>Staleness:</strong> the <code>fetched_at</code> field in each hash can be compared against <code>tradingview.staleness_ttl_seconds</code> (1800s) to detect a downed scraper. If data is older than the TTL, consumers should fall back to neutral feature values. This guard is tracked under the regime-overlay implementation plan.</p>
+<hr />
+<h3 id="db-table">DB Table<a class="headerlink" href="#db-table" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="k">CREATE</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">tv_index_ohlcv</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="n">symbol</span><span class="w">      </span><span class="nb">TEXT</span><span class="w">        </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span>
+<span class="w">    </span><span class="n">timeframe</span><span class="w">   </span><span class="nb">TEXT</span><span class="w">        </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span>
+<span class="w">    </span><span class="k">timestamp</span><span class="w">   </span><span class="n">TIMESTAMPTZ</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span>
+<span class="w">    </span><span class="k">open</span><span class="w">        </span><span class="n">DOUBLE</span><span class="w"> </span><span class="k">PRECISION</span><span class="p">,</span>
+<span class="w">    </span><span class="n">high</span><span class="w">        </span><span class="n">DOUBLE</span><span class="w"> </span><span class="k">PRECISION</span><span class="p">,</span>
+<span class="w">    </span><span class="n">low</span><span class="w">         </span><span class="n">DOUBLE</span><span class="w"> </span><span class="k">PRECISION</span><span class="p">,</span>
+<span class="w">    </span><span class="k">close</span><span class="w">       </span><span class="n">DOUBLE</span><span class="w"> </span><span class="k">PRECISION</span><span class="p">,</span>
+<span class="w">    </span><span class="n">volume</span><span class="w">      </span><span class="n">DOUBLE</span><span class="w"> </span><span class="k">PRECISION</span><span class="p">,</span>
+<span class="w">    </span><span class="n">fetched_at</span><span class="w">  </span><span class="n">TIMESTAMPTZ</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="w"> </span><span class="k">DEFAULT</span><span class="w"> </span><span class="n">NOW</span><span class="p">(),</span>
+<span class="w">    </span><span class="k">PRIMARY</span><span class="w"> </span><span class="k">KEY</span><span class="w"> </span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span><span class="w"> </span><span class="n">timeframe</span><span class="p">,</span><span class="w"> </span><span class="k">timestamp</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre></div>
+<p>Upserts use <code>ON CONFLICT (symbol, timeframe, timestamp) DO UPDATE SET ...</code> — fully idempotent.</p>
+<hr />
+<h3 id="docker">Docker<a class="headerlink" href="#docker" title="Permanent link">&para;</a></h3>
+<p>The scraper runs in its own container (<code>Dockerfile.tv-scraper</code>) separate from the ingestion app because it requires headless Chromium:</p>
+<div class="highlight"><pre><span></span><code>CMD [&quot;arq&quot;, &quot;apps.tv_scraper.worker.WorkerSettings&quot;]
+</code></pre></div>
+<p>Python dependencies are installed via the <code>tv-scraper</code> optional extras group:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[project.optional-dependencies]</span>
+<span class="n">tv-scraper</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;patchright&gt;=1.0.0&quot;</span><span class="p">]</span>
+</code></pre></div>
+<p>Chromium binaries are installed at image build time:</p>
+<div class="highlight"><pre><span></span><code><span class="k">RUN</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>patchright<span class="w"> </span>install<span class="w"> </span>chromium
+</code></pre></div>
+<p>The container mounts <code>configs/</code> and <code>secrets/</code> at runtime. It has no inbound ports — it only writes to Valkey and TimescaleDB.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

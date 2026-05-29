@@ -1,6 +1,3 @@
-from libs.common.config import ConfigManager
-config_manager = ConfigManager()
-
 import asyncio
 import pandas as pd
 from binance.um_futures import UMFutures
@@ -8,6 +5,7 @@ from binance.websocket.um_futures.websocket_client import UMFuturesWebsocketClie
 from typing import Dict, Any, List, AsyncGenerator
 
 from apps.ingestion_app.adapters.base import BaseExchangeAdapter
+from libs.common.config import ConfigManager
 from libs.common.exceptions import DataIngestionError
 from apps.ingestion_app.constants import (
     OHLCV_COLUMNS,
@@ -60,7 +58,7 @@ class BinanceNativeAdapter(BaseExchangeAdapter):
         Connect to Binance Websocket using UMFuturesWebsocketClient and bridge via asyncio.Queue.
         """
         ws_client = UMFuturesWebsocketClient(
-            stream_url=config_manager.get("ingestion.websocket.stream_url", "wss://fstream.binance.com"),
+            stream_url=ConfigManager().get("ingestion.websocket.stream_url", "wss://fstream.binance.com"),
             on_message=lambda _ws, msg: loop.call_soon_threadsafe(queue.put_nowait, msg),
             is_combined=True,
         )

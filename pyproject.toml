@@ -6,14 +6,13 @@ authors = [
     {name = "drDisrespect",email = "priyanshugupta221@gmail.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "pyyaml>=6.0.0",
     "watchdog>=5.0.0",
     "pydantic>=2.0.0",
     "ccxt>=4.0.0",
     "binance-futures-connector>=3.0.0",
-    "scrapling[all]",
     "websockets>=11.0",
     "aiohttp>=3.0.0",
     "pandas>=2.0.0",
@@ -37,6 +36,9 @@ dev = [
     "mkdocs>=1.5.0",
     "mkdocs-material>=9.5.0",
 ]
+tv-scraper = [
+    "patchright>=1.0.0",
+]
 
 
 [build-system]
@@ -45,6 +47,11 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 packages = [{ include = "apps", from = "src" }, { include = "libs", from = "src" }]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.13"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

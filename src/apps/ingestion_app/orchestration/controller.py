@@ -1,75 +1,62 @@
 import asyncio
-import os
 import json
-from typing import List, Dict, Any
+import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
-import arq
-from arq.connections import create_pool, RedisSettings
 from datetime import datetime, timezone
-import logging
+from typing import Any, Dict, List
 
+import arq
+from arq.connections import RedisSettings, create_pool
+from fastapi import FastAPI
+
+from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
+from apps.ingestion_app.constants import EXCHANGE_BINANCE
+from apps.ingestion_app.coordination import IngestionCoordinator, IngestionState
+from apps.ingestion_app.models.tick_models import OHLCVRecord
+from apps.ingestion_app.storage.timescale_writer import TimescaleWriter
 from libs.common.config import ConfigManager
 from libs.common.connections import create_valkey_client
-from libs.common.logging.logger_utils import bind_logger
-from libs.common.enums import SystemComponent
 from libs.common.db.pool_manager import DBPoolManager
-from libs.common.db.timescale_reader import TimescaleReader
-from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
-from apps.ingestion_app.storage.timescale_writer import TimescaleWriter
-from apps.ingestion_app.models.tick_models import OHLCVRecord
-from apps.ingestion_app.constants import EXCHANGE_BINANCE
-import json
+from libs.common.enums import SystemComponent
+from libs.common.logging.logger_utils import bind_logger
 
 logger = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_ENGINE)
 config_manager = ConfigManager()
 
-# Global state for lifespan
-app_state: Dict[str, Any] = {}
-
-async def verify_and_launch_ws(symbol: str, publish_timeframes: List[str], arq_pool: arq.connections.ArqRedis):
-    """
-    Periodically checks if the DB is caught up to near-real-time.
-    Once verified, launches the WebSocket stream for the asset.
-    """
-    warmup_threshold_ms = config_manager.get("ingestion.websocket.warmup_threshold_ms", 300000)
-    verification_sleep_seconds = config_manager.get("ingestion.websocket.verification_sleep_seconds", 10)
+async def verify_and_launch_ws(
+    symbol: str,
+    publish_timeframes: List[str],
+    arq_pool: arq.connections.ArqRedis,
+    coordinator: IngestionCoordinator,
+) -> None:
+    """Wait for data to warm up via Valkey state, then launch the WebSocket pipeline."""
     base_timeframe = config_manager.get("ingestion.timeframes.base_gap_fill", "1m")
-    
-    logger.info(f"[{symbol}] Starting Verification Gate loop...")
-    while True:
-        try:
-            ts_pool = DBPoolManager.get_reader_pool()
-            reader = TimescaleReader(ts_pool)
-            max_ts = await reader.get_max_timestamp(symbol, base_timeframe)
-            
-            now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
-            
-            if max_ts == 0 or (now_ms - max_ts) > warmup_threshold_ms:
-                logger.info(f"[{symbol}] Data is stale or missing. max_ts={max_ts}, now={now_ms}. Still waiting for REST gap-fill.")
-                await asyncio.sleep(verification_sleep_seconds)
-                continue
-            
-            logger.info(f"[{symbol}] Data is caught up! Proceeding to launch WebSocket.")
-            break
-            
-        except Exception as e:
-            logger.error(f"[{symbol}] Error in Verification Gate: {e}")
-            await asyncio.sleep(verification_sleep_seconds)
+    logger.info(f"[{symbol}] Starting Verification Gate...")
+    try:
+        ready = await coordinator.wait_until_warmed(symbol, base_timeframe)
+        if not ready:
+            logger.error(f"[{symbol}] Gap-fill entered ERROR state. WebSocket launch aborted.")
+            return
+    except asyncio.TimeoutError:
+        logger.error(f"[{symbol}] Warmup timed out. WebSocket launch aborted.")
+        await coordinator.transition(symbol, base_timeframe, IngestionState.ERROR)
+        return
+    logger.info(f"[{symbol}] Data warmed up. Launching WebSocket pipeline.")
+    asyncio.create_task(run_websocket_pipeline(symbol, publish_timeframes, arq_pool, coordinator))
 
-    # Launch WebSocket pipeline for this asset
-    asyncio.create_task(run_websocket_pipeline(symbol, publish_timeframes, arq_pool))
-
-async def run_websocket_pipeline(symbol: str, publish_timeframes: List[str], arq_pool=None):
-    """
-    Launches the live WebSocket pipeline for the given asset.
-    """
-    logger.info(f"[{symbol}] Launching WebSocket pipeline...")
-    loop = asyncio.get_event_loop()
+async def run_websocket_pipeline(
+    symbol: str,
+    publish_timeframes: List[str],
+    arq_pool=None,
+    coordinator: IngestionCoordinator | None = None,
+) -> None:
+    """Persistent WebSocket pipeline for a single symbol."""
+    base_timeframe = config_manager.get("ingestion.timeframes.base_gap_fill", "1m")
+    loop = asyncio.get_running_loop()
     reconnect_sleep_seconds = config_manager.get("ingestion.websocket.reconnect_sleep_seconds", 5)
-    
+
     redis_client = None
-    
+
     while True:
         try:
             # Close stale client before creating a new one on reconnect
@@ -83,18 +70,22 @@ async def run_websocket_pipeline(symbol: str, publish_timeframes: List[str], arq
 
             queue = asyncio.Queue()
             adapter = BinanceNativeAdapter()
-            
-            # Subscribing to "1m" base plus any configured publish timeframes
+
             symbols_timeframes = {symbol: list(set(["1m"] + publish_timeframes))}
+
+            # Signal LIVE before entering the message loop
+            if coordinator:
+                await coordinator.transition(symbol, base_timeframe, IngestionState.LIVE)
+
             async for msg in adapter.stream_multiplex_socket(symbols_timeframes, loop, queue):
                 if isinstance(msg, str):
                     msg = json.loads(msg)
-                
+
                 if isinstance(msg, dict) and "data" in msg and "k" in msg["data"]:
                     kline = msg["data"]["k"]
                     is_closed = bool(kline.get("x", False))
                     timeframe = kline.get("i", "1m")
-                    
+
                     record = OHLCVRecord(
                         symbol=symbol,
                         timestamp=int(kline["t"]),
@@ -105,20 +96,20 @@ async def run_websocket_pipeline(symbol: str, publish_timeframes: List[str], arq
                         volume=float(kline["v"]),
                         is_closed=is_closed
                     )
-                    
+
                     # 1. Insert closed 1m candles into TimescaleDB
                     if timeframe == "1m" and is_closed:
                         if ts_writer is not None:
                             await ts_writer.insert_ohlcv([record], timeframe=timeframe)
-                    
+
                     # 2. Filter Valkey publish based on config
                     if is_closed and timeframe in publish_timeframes:
                         stream_key = f"stream:ohlcv:{symbol.lower()}:{timeframe}"
                         now_utc = int(datetime.now(timezone.utc).timestamp() * 1000)
-                        
+
                         # TODO: replace with StreamOHLCVPayload schema + valkey_encode
                         payload = {
-                            "exchange": "binance",
+                            "exchange": EXCHANGE_BINANCE,
                             "symbol": symbol,
                             "timeframe": timeframe,
                             "timestamp": str(record.timestamp.timestamp()),
@@ -133,14 +124,18 @@ async def run_websocket_pipeline(symbol: str, publish_timeframes: List[str], arq
                         pipe = redis_client.pipeline(transaction=False)
                         pipe.xadd(stream_key, payload, maxlen=10000, approximate=True)
                         await pipe.execute()
-                        
+
         except asyncio.CancelledError:
             logger.info(f"[{symbol}] WebSocket task canceled.")
             if redis_client is not None:
                 await redis_client.aclose()
+            if coordinator:
+                await coordinator.transition(symbol, base_timeframe, IngestionState.COLD)
             break
         except Exception as e:
             logger.error(f"[{symbol}] WebSocket stream failed: {e}. Reconnecting in {reconnect_sleep_seconds}s...")
+            if coordinator:
+                await coordinator.transition(symbol, base_timeframe, IngestionState.COLD)
             # Trigger gap-fill immediately after WS disconnect to cover missed data
             if arq_pool is not None:
                 try:
@@ -153,51 +148,47 @@ async def run_websocket_pipeline(symbol: str, publish_timeframes: List[str], arq
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # a. Boot: Read target assets list
-    target_assets = config_manager.get("ingestion.assets.target_list", ["BTCUSDT"])
-    publish_timeframes = config_manager.get("ingestion.assets.publish_timeframes", {})
-    base_timeframe = config_manager.get("ingestion.timeframes.base_gap_fill", "1m")
-    redis_settings = RedisSettings.from_dsn(config_manager.get("valkey.uri", "redis://localhost:6379/0"))
+    cfg = config_manager
+    target_assets = cfg.get("ingestion.assets.target_list", ["BTCUSDT"])
+    publish_timeframes = cfg.get("ingestion.assets.publish_timeframes", {})
+    base_timeframe = cfg.get("ingestion.timeframes.base_gap_fill", "1m")
+    redis_settings = RedisSettings.from_dsn(
+        os.getenv("VALKEY_URI") or os.getenv("REDIS_URI")
+        or cfg.get("valkey.uri", "redis://localhost:6379/0")
+    )
 
-    # b. Connect DB
     logger.info("Initializing DB pools...")
     await DBPoolManager.init_pools()
-    
-    # Initialize ARQ pool
+
     logger.info("Connecting to ARQ redis...")
     arq_pool = await create_pool(redis_settings)
-    app_state["arq_pool"] = arq_pool
-    
+
+    redis_client = await create_valkey_client(cfg)
+    coordinator = IngestionCoordinator(redis_client, cfg)
+
     for symbol in target_assets:
         try:
-            ts_pool = DBPoolManager.get_reader_pool()
-            reader = TimescaleReader(ts_pool)
-            
-            # c. Assess DB
-            max_ts = await reader.get_max_timestamp(symbol, base_timeframe)
-            now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
-            
-            warmup_threshold_ms = config_manager.get("ingestion.websocket.warmup_threshold_ms", 300000)
-            
-            # d. REST Handoff if stale
-            if max_ts == 0 or (now_ms - max_ts) > warmup_threshold_ms:
-                logger.info(f"[{symbol}] Stale/missing data. Dispatching REST gap-fill task. Marking BACKFILLING.")
+            stale = await coordinator.is_stale(symbol, base_timeframe)
+
+            if stale:
+                logger.info(f"[{symbol}] Stale/missing data. Dispatching REST gap-fill.")
                 await arq_pool.enqueue_job("run_rest_gap_fill", [symbol], EXCHANGE_BINANCE)
             else:
-                logger.info(f"[{symbol}] Data is up-to-date. Skipping REST gap-fill.")
+                logger.info(f"[{symbol}] Data is up-to-date. Marking WARMING.")
+                await coordinator.transition(symbol, base_timeframe, IngestionState.WARMING)
 
-            # e. Start Verification Gate loop
             asset_publish_timeframes = publish_timeframes.get(symbol, [])
-            asyncio.create_task(verify_and_launch_ws(symbol, asset_publish_timeframes, arq_pool))
-            
+            asyncio.create_task(verify_and_launch_ws(symbol, asset_publish_timeframes, arq_pool, coordinator))
+
         except Exception as e:
             logger.error(f"Error initializing asset {symbol}: {e}")
 
     yield
 
-    logger.info("Shutting down... Cleaning up DB pools.")
+    logger.info("Shutting down... Cleaning up.")
     await DBPoolManager.close_pools()
-    await app_state["arq_pool"].close()
+    await arq_pool.close()
+    await redis_client.aclose()
 
 app = FastAPI(lifespan=lifespan)
 
