@@ -17,6 +17,7 @@ class MomentumModel(BaseModel):
 
     meta = ModelMeta(
         name="Momentum",
+        model_type="direction",
         required_indicators=["RSI", "MACD"],
         required_fields=["RSI", "MACD_histogram", "MACD_line"],
         hyperparameter_schema={

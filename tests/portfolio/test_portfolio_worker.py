@@ -447,3 +447,138 @@ class TestNonFilledStatusSkipped:
         # No DB writes
         execute_calls = [c for c in conn.executed if c[0] == "execute"]
         assert len(execute_calls) == 0
+
+
+# ---------------------------------------------------------------------------
+# Multi-TP partial fills
+# ---------------------------------------------------------------------------
+
+class TestPortfolioMultiTP:
+    """Verify PortfolioWorker handles multi-TP partial fills correctly."""
+
+    @pytest.mark.asyncio
+    async def test_partial_close_creates_closed_trade(self):
+        """A partial sell against an open long creates a ClosedTrade with correct size."""
+        conn = FakeConnection()
+        worker = _make_worker(conn)
+
+        # Open long 1.0 @ 100
+        open_fill = _make_report(side="buy", price=100.0, size=1.0, ts=1000.0)
+        await worker._process_fill(open_fill)
+
+        # TP1 partial close: sell 0.4 @ 101.5
+        tp1_fill = _make_report(
+            side="sell", price=101.5, size=0.4, ts=2000.0,
+            metadata={"close_reason": "tp1", "model_name": "SB", "timeframe": "1h"},
+        )
+        await worker._process_fill(tp1_fill)
+
+        # Should have recorded one ClosedTrade with size=0.4
+        trade_inserts = [
+            c for c in conn.executed
+            if c[0] == "execute" and "closed_trades" in c[1]
+        ]
+        assert len(trade_inserts) == 1
+
+        # Position should remain with size=0.6
+        positions = worker._matcher.open_positions.get("BTCUSDT", [])
+        assert len(positions) == 1
+        assert positions[0].size == pytest.approx(0.6)
+
+    @pytest.mark.asyncio
+    async def test_three_partial_closes_produce_three_closed_trades(self):
+        """Full multi-TP lifecycle: open → TP1 → TP2 → TP3."""
+        conn = FakeConnection()
+        worker = _make_worker(conn)
+
+        # Open long 1.0 @ 100
+        await worker._process_fill(
+            _make_report(side="buy", price=100.0, size=1.0, ts=1000.0),
+        )
+
+        # TP1: sell 0.4 @ 101.5
+        await worker._process_fill(
+            _make_report(side="sell", price=101.5, size=0.4, ts=2000.0,
+                         metadata={"close_reason": "tp1"}),
+        )
+        positions = worker._matcher.open_positions.get("BTCUSDT", [])
+        assert positions[0].size == pytest.approx(0.6)
+
+        # TP2: sell 0.3 @ 103.0
+        await worker._process_fill(
+            _make_report(side="sell", price=103.0, size=0.3, ts=3000.0,
+                         metadata={"close_reason": "tp2"}),
+        )
+        positions = worker._matcher.open_positions.get("BTCUSDT", [])
+        assert positions[0].size == pytest.approx(0.3)
+
+        # TP3: sell 0.3 @ 105.0
+        await worker._process_fill(
+            _make_report(side="sell", price=105.0, size=0.3, ts=4000.0,
+                         metadata={"close_reason": "tp3"}),
+        )
+        positions = worker._matcher.open_positions.get("BTCUSDT", [])
+        assert len(positions) == 0
+
+        # 3 ClosedTrade inserts total
+        trade_inserts = [
+            c for c in conn.executed
+            if c[0] == "execute" and "closed_trades" in c[1]
+        ]
+        assert len(trade_inserts) == 3
+
+    @pytest.mark.asyncio
+    async def test_partial_close_pnl_correct(self):
+        """PnL for partial closes is computed on the closed portion only."""
+        conn = FakeConnection()
+        worker = _make_worker(conn)
+
+        # Open long 1.0 @ 100
+        await worker._process_fill(
+            _make_report(side="buy", price=100.0, size=1.0, ts=1000.0),
+        )
+
+        initial_balance = worker._balance
+
+        # Sell 0.4 @ 102 → PnL = (102 - 100) * 0.4 = 0.8
+        tp1_fill = _make_report(side="sell", price=102.0, size=0.4, ts=2000.0)
+        await worker._process_fill(tp1_fill)
+
+        # Balance should have increased by ~0.8 (minus proportional commission)
+        commission = sum(f.commission for f in tp1_fill.fills)
+        expected_pnl = 0.8  # (102 - 100) * 0.4
+        expected_balance = initial_balance + expected_pnl - commission
+        assert worker._balance == pytest.approx(expected_balance, abs=0.01)
+
+    @pytest.mark.asyncio
+    async def test_sl_full_close_after_partial_tp(self):
+        """SL closes remaining position after one TP partial close."""
+        conn = FakeConnection()
+        worker = _make_worker(conn)
+
+        # Open long 1.0 @ 100
+        await worker._process_fill(
+            _make_report(side="buy", price=100.0, size=1.0, ts=1000.0),
+        )
+
+        # TP1: sell 0.4 @ 101.5
+        await worker._process_fill(
+            _make_report(side="sell", price=101.5, size=0.4, ts=2000.0,
+                         metadata={"close_reason": "tp1"}),
+        )
+
+        # SL: sell remaining 0.6 @ 100.0 (breakeven after trail)
+        await worker._process_fill(
+            _make_report(side="sell", price=100.0, size=0.6, ts=3000.0,
+                         metadata={"close_reason": "sl"}),
+        )
+
+        positions = worker._matcher.open_positions.get("BTCUSDT", [])
+        assert len(positions) == 0
+
+        # 2 ClosedTrade inserts: TP1 + SL
+        trade_inserts = [
+            c for c in conn.executed
+            if c[0] == "execute" and "closed_trades" in c[1]
+        ]
+        assert len(trade_inserts) == 2

@@ -218,3 +218,125 @@ class TestPartialFillFIFO:
         assert len(positions) == 1
         assert positions[0].direction == -1  # short
         assert positions[0].size == pytest.approx(0.2)
+
+
+# ------------------------------------------------------------------
+# Multi-TP fill tests
+# ------------------------------------------------------------------
+
+
+def _make_multi_tp_report(
+    side: str = "buy",
+    price: float = 50_000.0,
+    size: float = 1.0,
+    tp_levels: list | None = None,
+    tp_portions: list | None = None,
+    trail_to_breakeven: bool = False,
+    close_reason: str = "",
+) -> ExecutionReport:
+    metadata = {
+        "model_name": "test_model",
+        "timeframe": "1h",
+    }
+    if tp_levels:
+        metadata["tp_levels"] = tp_levels
+        metadata["tp_portions"] = tp_portions or []
+        metadata["trail_to_breakeven"] = trail_to_breakeven
+    if close_reason:
+        metadata["close_reason"] = close_reason
+
+    return ExecutionReport(
+        order_id="order-mt",
+        idempotency_key="key-mt",
+        asset="BTCUSDT",
+        side=side,
+        requested_size=size,
+        filled_size=size,
+        requested_price=price,
+        average_fill_price=price,
+        status=OrderStatus.FILLED,
+        fills=[],
+        stop_loss_price=49_000.0 if not close_reason else None,
+        take_profit_price=None,
+        timestamp=1_700_000_000.0,
+        metadata=metadata,
+    )
+
+
+class TestFillListenerMultiTP:
+    @pytest.mark.asyncio
+    async def test_new_position_with_multi_tp(self) -> None:
+        """Fill with multi-TP metadata opens position with tp fields."""
+        fl = _make_listener()
+        report = _make_multi_tp_report(
+            tp_levels=[50_750.0, 51_500.0, 52_500.0],
+            tp_portions=[0.4, 0.3, 0.3],
+            trail_to_breakeven=True,
+        )
+        await fl._apply_fill(report)
+
+        positions = fl.positions.positions.get("BTCUSDT", [])
+        assert len(positions) == 1
+        pos = positions[0]
+        assert pos.tp_levels == [50_750.0, 51_500.0, 52_500.0]
+        assert pos.tp_portions == [0.4, 0.3, 0.3]
+        assert pos.tp_levels_hit == [False, False, False]
+        assert pos.trail_to_breakeven is True
+        assert pos.original_size == pytest.approx(1.0)
+
+    @pytest.mark.asyncio
+    async def test_partial_close_fill_reduces_position(self) -> None:
+        """Partial close fill from TP hit reduces existing position size."""
+        fl = _make_listener()
+        # Open a long with multi-TP
+        open_report = _make_multi_tp_report(
+            side="buy", price=100.0, size=1.0,
+            tp_levels=[101.5, 103.0, 105.0],
+            tp_portions=[0.4, 0.3, 0.3],
+            trail_to_breakeven=True,
+        )
+        await fl._apply_fill(open_report)
+
+        # Partial close: TP1 hit → sell 0.4
+        close_report = _make_multi_tp_report(
+            side="sell", price=101.5, size=0.4,
+            close_reason="tp1",
+        )
+        await fl._apply_fill(close_report)
+
+        positions = fl.positions.positions.get("BTCUSDT", [])
+        assert len(positions) == 1
+        pos = positions[0]
+        assert pos.size == pytest.approx(0.6)
+        # Multi-TP fields preserved
+        assert len(pos.tp_levels) == 3
+
+    @pytest.mark.asyncio
+    async def test_partial_close_no_reverse_position(self) -> None:
+        """Partial close fill with close_reason should NOT open reverse position."""
+        fl = _make_listener()
+
+        # Partial close without any open position (edge case)
+        close_report = _make_multi_tp_report(
+            side="sell", price=101.5, size=0.4,
+            close_reason="tp1",
+        )
+        await fl._apply_fill(close_report)
+
+        positions = fl.positions.positions.get("BTCUSDT", [])
+        # Should NOT have opened a short position from unmatched qty
+        assert len(positions) == 0
+
+    @pytest.mark.asyncio
+    async def test_no_multi_tp_backward_compat(self) -> None:
+        """Fill without multi-TP metadata opens position with empty tp fields."""
+        fl = _make_listener()
+        report = _make_report(side="buy", price=50_000.0, size=0.1)
+        await fl._apply_fill(report)
+
+        positions = fl.positions.positions.get("BTCUSDT", [])
+        assert len(positions) == 1
+        pos = positions[0]
+        assert pos.tp_levels == []
+        assert pos.tp_portions == []
+        assert pos.original_size == pytest.approx(0.1)

@@ -1,11 +1,14 @@
-"""Tests for ScoringModelRegistry."""
+"""Tests for ScoringModelRegistry (backward-compat wrapper over ModelRegistry)."""
 
 from __future__ import annotations
+
+import warnings
 
 import pytest
 
 from libs.models.scoring_base import ScoringModel
 from libs.models.scoring_registry import ScoringModelRegistry
+from libs.models.registry import ModelRegistry
 from libs.models.base import ModelMeta
 from libs.contracts.signal import ParamDef, ScoringOutput
 from libs.contracts.schemas import FeatureVector
@@ -23,6 +26,7 @@ class _MockScoringModel(ScoringModel):
         name="MockScorer",
         required_indicators=[],
         required_fields=[],
+        model_type="scoring",
     )
 
     def evaluate(self, features: FeatureVector) -> ScoringOutput:
@@ -46,15 +50,17 @@ class _MockScoringModel(ScoringModel):
 
 class TestScoringModelRegistry:
     def setup_method(self):
-        # Snapshot and restore registry state to avoid side effects
-        self._orig = dict(ScoringModelRegistry._registry)
+        # Snapshot and restore the unified ModelRegistry state
+        self._orig = dict(ModelRegistry._registry)
 
     def teardown_method(self):
-        ScoringModelRegistry._registry = self._orig
+        ModelRegistry._registry = self._orig
 
     def test_register_and_get(self):
         ScoringModelRegistry.register("TestMock")(_MockScoringModel)
-        cls = ScoringModelRegistry.get("TestMock")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            cls = ScoringModelRegistry.get("TestMock")
         assert cls is _MockScoringModel
 
     def test_list_all(self):
@@ -62,8 +68,10 @@ class TestScoringModelRegistry:
         assert "ListMock" in ScoringModelRegistry.list_all()
 
     def test_unknown_raises_key_error(self):
-        with pytest.raises(KeyError, match="not found"):
-            ScoringModelRegistry.get("NoSuchModel_XYZ")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            with pytest.raises(KeyError, match="not found"):
+                ScoringModelRegistry.get("NoSuchModel_XYZ")
 
     def test_decorator_returns_class_unchanged(self):
         decorated = ScoringModelRegistry.register("DecoratorTest")(_MockScoringModel)
@@ -76,4 +84,18 @@ class TestScoringModelRegistry:
             pass
 
         ScoringModelRegistry.register("OverwriteTest")(_AnotherMock)
-        assert ScoringModelRegistry.get("OverwriteTest") is _AnotherMock
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            assert ScoringModelRegistry.get("OverwriteTest") is _AnotherMock
+
+    def test_get_emits_deprecation_warning(self):
+        ScoringModelRegistry.register("DepWarnTest")(_MockScoringModel)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            ScoringModelRegistry.get("DepWarnTest")
+            assert any(issubclass(x.category, DeprecationWarning) for x in w)
+
+    def test_delegates_to_model_registry(self):
+        """Registering via ScoringModelRegistry stores in ModelRegistry."""
+        ScoringModelRegistry.register("DelegateTest")(_MockScoringModel)
+        assert ModelRegistry.get("DelegateTest") is _MockScoringModel

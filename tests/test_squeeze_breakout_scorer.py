@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from libs.models.squeeze_breakout.scoring_model import SqueezeBreakoutScorer
-from libs.models.scoring_registry import ScoringModelRegistry
+from libs.models.squeeze_breakout.scorer import SqueezeBreakoutScorer
+from libs.models.registry import ModelRegistry
 
 
 # ---------------------------------------------------------------------------
@@ -114,10 +114,10 @@ def _make_squeeze_release_df(n: int = 100) -> pd.DataFrame:
 
 class TestRegistration:
     def test_registered_in_scoring_registry(self):
-        assert "SqueezeBreakoutScorer" in ScoringModelRegistry.list_all()
+        assert "SqueezeBreakoutScorer" in ModelRegistry.list_all()
 
     def test_get_returns_correct_class(self):
-        cls = ScoringModelRegistry.get("SqueezeBreakoutScorer")
+        cls = ModelRegistry.get("SqueezeBreakoutScorer")
         assert cls is SqueezeBreakoutScorer
 
 

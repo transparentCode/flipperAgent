@@ -20,6 +20,11 @@ class ModelMeta:
     required_fields: list[str]
     hyperparameter_schema: dict[str, ParamDef] = field(default_factory=dict)
     min_history_bars: int = 0
+    model_type: str = "direction"
+    external_data_sources: list[str] = field(default_factory=list)
+    sub_models: list[str] = field(default_factory=list)
+    artifacts_path: str | None = None
+    trainable: bool = False
 
 
 class BaseModel(ABC):

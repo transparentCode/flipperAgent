@@ -149,7 +149,7 @@ class _DummyScoringModel(ScoringModel):
             edge_score=0.42,
         )
 
-    def batch_evaluate(self, feature_df: pd.DataFrame) -> pd.Series:
+    def _batch_evaluate_impl(self, feature_df: pd.DataFrame) -> pd.Series:
         return pd.Series(0.0, index=feature_df.index)
 
 

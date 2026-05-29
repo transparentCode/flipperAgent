@@ -5,25 +5,28 @@ models:
         1h:
           MeanReversion:
             enabled: true
+            # Optimized 2yr multi-TP: Sharpe +1.14, WR 77%, 13 trades
             params:
-              rsi_oversold: 30
-              rsi_overbought: 70
-              bb_entry_std: 2.0
-              holding_period: 5
+              rsi_oversold: 15
+              rsi_overbought: 76
+              bb_entry_std: 2.6
+              adx_regime_threshold: 26.0
+              holding_period: 3
           TrendFollowing:
-            enabled: true
+            enabled: false  # Deprecated: negative Sharpe even after 300-trial NSGA-II optimization
             params:
-              ema_fast_period: 12
-              ema_slow_period: 26
+              ema_fast_period: 10
+              ema_slow_period: 49
               require_macd_confirm: true
-              atr_conviction_scale: 1.0
+              atr_conviction_scale: 0.9
           Momentum:
             enabled: true
+            # Optimized 2yr multi-TP: Sharpe +0.94, WR 64%, 315 trades
             params:
-              rsi_long_threshold: 55
-              rsi_short_threshold: 45
-              require_macd_positive: false
-              histogram_min_abs: 0.0
+              rsi_long_threshold: 70
+              rsi_short_threshold: 34
+              require_macd_positive: true
+              histogram_min_abs: 0.7
           SqueezeBreakout:
             enabled: true
             migration_mode: adapted
@@ -52,12 +55,20 @@ models:
               bb_entry_std: 2.5
               holding_period: 3
           TrendFollowing:
-            enabled: true
+            enabled: false  # Deprecated: structurally negative for crypto
             params:
-              ema_fast_period: 9
-              ema_slow_period: 21
-              require_macd_confirm: true
-              atr_conviction_scale: 2.0
+              ema_fast_period: 14
+              ema_slow_period: 20
+              require_macd_confirm: false
+              atr_conviction_scale: 1.6
+          Momentum:
+            enabled: true
+            # Optimized 2yr multi-TP: Sharpe +0.28, WR 62%, 225 trades
+            params:
+              rsi_long_threshold: 61
+              rsi_short_threshold: 37
+              require_macd_positive: true
+              histogram_min_abs: 0.35
           SqueezeBreakout:
             enabled: false
     ETHUSDT:
@@ -80,12 +91,13 @@ models:
         1h:
           MeanReversion:
             enabled: true
+            # Optimized 2yr multi-TP: Sharpe +1.64, WR 77%, 26 trades
             params:
-              rsi_oversold: 17
-              rsi_overbought: 61
-              bb_entry_std: 2.1
-              adx_regime_threshold: 15.0
-              holding_period: 13
+              rsi_oversold: 18
+              rsi_overbought: 85
+              bb_entry_std: 2.3
+              adx_regime_threshold: 34.0
+              holding_period: 18
           SqueezeBreakout:
             enabled: true
             params:
@@ -126,12 +138,13 @@ models:
         30m:
           MeanReversion:
             enabled: true
+            # Optimized 2yr multi-TP: Sharpe +0.89, WR 100%, 4 trades
             params:
-              rsi_oversold: 36
-              rsi_overbought: 78
-              bb_entry_std: 2.0
-              adx_regime_threshold: 30.0
-              holding_period: 8
+              rsi_oversold: 15
+              rsi_overbought: 77
+              bb_entry_std: 2.7
+              adx_regime_threshold: 19.0
+              holding_period: 12
           SqueezeBreakout:
             enabled: true
             # 2yr validation: defaults Sharpe +1.22 vs v7 +0.77 — using model defaults

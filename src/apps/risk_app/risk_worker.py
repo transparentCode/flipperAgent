@@ -301,6 +301,12 @@ class RiskWorker(BaseStreamConsumer):
                 continue
 
             # Build and publish OrderExecutionRequest
+            order_metadata: dict[str, Any] = {}
+            if assessment.tp_levels:
+                order_metadata["tp_levels"] = assessment.tp_levels
+                order_metadata["tp_portions"] = assessment.tp_portions
+                order_metadata["trail_to_breakeven"] = assessment.trail_to_breakeven
+
             order = OrderExecutionRequest(
                 asset=signal.asset,
                 side="buy" if signal.direction == 1 else "sell",
@@ -313,6 +319,7 @@ class RiskWorker(BaseStreamConsumer):
                 take_profit_price=assessment.take_profit_price,
                 model_name=signal.model_name,
                 source_timeframe=signal.timeframe,
+                metadata=order_metadata,
             )
 
             if self.redis_client:
@@ -341,6 +348,59 @@ class RiskWorker(BaseStreamConsumer):
         self.positions.update_prices(self.asset, close)
         self.positions.update_trailing_stops(self.asset, close)
 
+        # Multi-TP: check for partial exits first
+        partial_exits = self.positions.check_sl_tp_hlc_multi(
+            self.asset, high, low, close,
+        )
+        for pos, close_reason, close_size in partial_exits:
+            close_side = "sell" if pos.direction == 1 else "buy"
+            order = OrderExecutionRequest(
+                asset=self.asset,
+                side=close_side,
+                size=close_size,
+                order_type="market",
+                timestamp=price_update.timestamp,
+                requested_price=close,
+                idempotency_key=f"{close_reason}_{self.asset}_{int(pos.entry_timestamp)}",
+                close_reason=close_reason,
+                model_name=pos.source_model,
+                source_timeframe=pos.source_timeframe,
+            )
+            if self.redis_client:
+                await self.redis_client.xadd(
+                    self.order_stream_key,
+                    valkey_encode(order),
+                    maxlen=5000,
+                    approximate=True,
+                )
+
+            # Apply partial exit to position state immediately
+            pos_list = self.positions.positions.get(self.asset, [])
+            try:
+                pos_index = pos_list.index(pos)
+            except ValueError:
+                pos_index = -1
+
+            if close_reason == "sl":
+                # SL closes full remaining position — remove it
+                if pos_index >= 0:
+                    await self.positions.close_position(self.asset, pos_index)
+                logger.info(
+                    f"Multi-TP SL triggered for {self.asset}: "
+                    f"closing remaining size={close_size:.6f} @ close={close:.4f}",
+                )
+            elif pos_index >= 0:
+                # Extract tp_level_index from close_reason (e.g. "tp1" -> 0)
+                tp_level_index = int(close_reason[2:]) - 1
+                self.positions.apply_partial_exit(
+                    self.asset, pos_index, close_size, tp_level_index,
+                )
+                logger.info(
+                    f"Multi-TP {close_reason} triggered for {self.asset}: "
+                    f"partial close size={close_size:.6f} @ close={close:.4f}",
+                )
+
+        # Legacy single-TP path (positions where tp_levels is empty)
         hit_positions = self.positions.check_sl_tp_hlc(self.asset, high, low, close)
         for pos in hit_positions:
             close_side = "sell" if pos.direction == 1 else "buy"

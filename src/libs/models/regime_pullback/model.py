@@ -11,14 +11,15 @@ from libs.contracts.signal import ParamDef, ScoringOutput
 from libs.contracts.schemas import FeatureVector
 from libs.models.base import ModelMeta
 from libs.models.scoring_base import ScoringModel
-from libs.models.scoring_registry import ScoringModelRegistry
+from libs.models.registry import ModelRegistry
 
 
-@ScoringModelRegistry.register("RegimePullbackScorer")
+@ModelRegistry.register("RegimePullbackScorer")
 class RegimePullbackScorer(ScoringModel):
 
     meta = ModelMeta(
         name="RegimePullbackScorer",
+        model_type="scoring",
         required_indicators=["KAMA_slow", "ATR", "ADX", "RSI", "BollingerBands", "KeltnerChannel"],
         required_fields=[
             "KAMA_slow", "ATR", "RSI",
@@ -159,7 +160,7 @@ class RegimePullbackScorer(ScoringModel):
     # Batch evaluation
     # ------------------------------------------------------------------
 
-    def batch_evaluate(self, feature_df: pd.DataFrame) -> pd.Series:
+    def _batch_evaluate_impl(self, feature_df: pd.DataFrame) -> pd.Series:
         p = self.params
 
         regime = feature_df.get("eng_regime_score")

@@ -17,6 +17,7 @@ class TrendFollowingModel(BaseModel):
 
     meta = ModelMeta(
         name="TrendFollowing",
+        model_type="direction",
         required_indicators=["EMA", "MACD", "ATR"],
         required_fields=[
             "EMA_fast", "EMA_slow",

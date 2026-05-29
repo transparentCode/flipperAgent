@@ -1,29 +1,36 @@
-"""Decorator-based registry for ScoringModel subclasses."""
+"""Deprecated — thin backward-compat wrapper over ModelRegistry."""
 
 from __future__ import annotations
 
+import warnings
 from typing import Type
 
-from libs.models.scoring_base import ScoringModel
+from libs.models.base import BaseModel
+from libs.models.registry import ModelRegistry
 
 
 class ScoringModelRegistry:
-    _registry: dict[str, Type[ScoringModel]] = {}
+    """Deprecated: use ModelRegistry directly."""
 
     @classmethod
     def register(cls, name: str):
-        """Decorator: @ScoringModelRegistry.register("RegimePullbackScorer")."""
-        def wrapper(model_class: Type[ScoringModel]):
-            cls._registry[name] = model_class
-            return model_class
-        return wrapper
+        """Delegate to ModelRegistry.register."""
+        return ModelRegistry.register(name)
 
     @classmethod
-    def get(cls, name: str) -> Type[ScoringModel]:
-        if name not in cls._registry:
-            raise KeyError(f"Scoring model '{name}' not found in registry.")
-        return cls._registry[name]
+    def get(cls, name: str) -> Type[BaseModel]:
+        warnings.warn(
+            "ScoringModelRegistry is deprecated. Use ModelRegistry.get().",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return ModelRegistry.get(name)
 
     @classmethod
     def list_all(cls) -> list[str]:
-        return list(cls._registry.keys())
+        return ModelRegistry.list_by_type("scoring")
+
+    # Expose _registry for tests that snapshot/restore it directly.
+    @classmethod
+    def _get_registry(cls):
+        return ModelRegistry._registry

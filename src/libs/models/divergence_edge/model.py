@@ -12,7 +12,7 @@ from libs.contracts.signal import ParamDef, ScoringOutput
 from libs.contracts.schemas import FeatureVector
 from libs.models.base import ModelMeta
 from libs.models.scoring_base import ScoringModel
-from libs.models.scoring_registry import ScoringModelRegistry
+from libs.models.registry import ModelRegistry
 
 
 def _ols_slope(values: collections.deque) -> float | None:
@@ -50,11 +50,12 @@ def _np_rolling_slope(arr: np.ndarray, window: int) -> np.ndarray:
     return result
 
 
-@ScoringModelRegistry.register("DivergenceEdgeScorer")
+@ModelRegistry.register("DivergenceEdgeScorer")
 class DivergenceEdgeScorer(ScoringModel):
 
     meta = ModelMeta(
         name="DivergenceEdgeScorer",
+        model_type="scoring",
         required_indicators=["RSI", "MACD", "MFI", "Momentum", "LinReg", "ATR"],
         required_fields=[
             "RSI", "MACD", "MFI", "Momentum", "LinReg", "ATR",
@@ -292,7 +293,7 @@ class DivergenceEdgeScorer(ScoringModel):
     # Batch evaluation
     # ------------------------------------------------------------------
 
-    def batch_evaluate(self, feature_df: pd.DataFrame) -> pd.Series:
+    def _batch_evaluate_impl(self, feature_df: pd.DataFrame) -> pd.Series:
         p = self.params
         lookback = p["divergence_lookback"]
         n = len(feature_df)

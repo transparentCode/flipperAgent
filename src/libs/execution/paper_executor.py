@@ -99,6 +99,8 @@ class PaperExecutor(BaseExecutor):
             metadata={
                 "model_name": order.model_name,
                 "timeframe": order.source_timeframe,
+                "close_reason": order.close_reason,
+                **order.metadata,
             },
         )
 

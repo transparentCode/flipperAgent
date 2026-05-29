@@ -226,11 +226,17 @@ class TestParamWriteback:
 # ---------------------------------------------------------------------------
 
 def _make_feature_df(n: int = 200) -> pd.DataFrame:
-    """Synthetic feature_df with close, ema_5, ema_21, rsi_14, etc."""
+    """Synthetic feature_df with OHLC + indicators."""
     rng = np.random.default_rng(42)
     close = 100 + np.cumsum(rng.normal(0, 0.5, n))
+    high = close + rng.uniform(0.1, 1.0, n)
+    low = close - rng.uniform(0.1, 1.0, n)
     return pd.DataFrame({
+        "open": close + rng.normal(0, 0.2, n),
+        "high": high,
+        "low": low,
         "close": close,
+        "volume": rng.uniform(100, 1000, n),
         "ema_5": close + rng.normal(0, 0.1, n),
         "ema_21": close + rng.normal(0, 0.3, n),
         "rsi_14": rng.uniform(20, 80, n),
@@ -278,6 +284,28 @@ class TestPerModelObjectives:
         study = optuna.create_study(direction="maximize")
         study.optimize(obj, n_trials=3, show_progress_bar=False)
         assert len(study.trials) == 3
+        for trial in study.trials:
+            assert isinstance(trial.value, float)
+
+    def test_squeeze_breakout_multi_tp_objective(self):
+        """SqueezeBreakout optimizer uses multi-TP scoring with v7 params."""
+        from libs.models.squeeze_breakout.optimization.optimizer import (
+            make_objective as sb_obj,
+        )
+
+        feature_df = _make_feature_df()
+        obj = sb_obj(
+            feature_df, timeframe="1h", cost_bps=10.0,
+            tp_pcts=(0.015, 0.03, 0.05),
+            tp_portions=(0.40, 0.30, 0.30),
+            sl_pct=0.02,
+            trail_to_breakeven=True,
+        )
+        import optuna
+
+        study = optuna.create_study(direction="maximize")
+        study.optimize(obj, n_trials=2, show_progress_bar=False)
+        assert len(study.trials) == 2
         for trial in study.trials:
             assert isinstance(trial.value, float)
 

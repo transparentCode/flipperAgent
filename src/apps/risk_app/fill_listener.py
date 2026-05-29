@@ -126,25 +126,45 @@ class FillListener(BaseStreamConsumer):
 
         # Open new position for remaining unmatched fill quantity
         if remaining > 1e-12:
-            new_dir = 1 if report.side == "buy" else -1
-            pos = PositionState(
-                asset=report.asset,
-                direction=new_dir,
-                entry_price=report.average_fill_price,
-                current_price=report.average_fill_price,
-                size=remaining,
-                unrealized_pnl=0.0,
-                entry_timestamp=report.timestamp,
-                source_model=metadata.get("model_name", ""),
-                source_timeframe=metadata.get("timeframe", ""),
-                stop_loss_price=report.stop_loss_price,
-                take_profit_price=report.take_profit_price,
-            )
-            await self.positions.open_position(pos)
-            logger.info(
-                f"Opened {'long' if new_dir == 1 else 'short'} position for {report.asset}: "
-                f"size={remaining:.6f} @ {report.average_fill_price:.4f}",
-            )
+            # Skip opening new position for partial close fills (tp1/tp2/tp3/sl)
+            close_reason = metadata.get("close_reason", "")
+            if close_reason:
+                logger.debug(
+                    f"Partial close fill ({close_reason}) for {report.asset}: "
+                    f"unmatched qty={remaining:.6f} — not opening reverse position",
+                )
+            else:
+                new_dir = 1 if report.side == "buy" else -1
+
+                # Multi-TP fields from order metadata
+                tp_levels = metadata.get("tp_levels", [])
+                tp_portions = metadata.get("tp_portions", [])
+                trail_flag = metadata.get("trail_to_breakeven", False)
+
+                pos = PositionState(
+                    asset=report.asset,
+                    direction=new_dir,
+                    entry_price=report.average_fill_price,
+                    current_price=report.average_fill_price,
+                    size=remaining,
+                    original_size=remaining,
+                    unrealized_pnl=0.0,
+                    entry_timestamp=report.timestamp,
+                    source_model=metadata.get("model_name", ""),
+                    source_timeframe=metadata.get("timeframe", ""),
+                    stop_loss_price=report.stop_loss_price,
+                    take_profit_price=report.take_profit_price,
+                    tp_levels=tp_levels,
+                    tp_portions=tp_portions,
+                    tp_levels_hit=[False] * len(tp_levels),
+                    trail_to_breakeven=trail_flag,
+                )
+                await self.positions.open_position(pos)
+                logger.info(
+                    f"Opened {'long' if new_dir == 1 else 'short'} position for {report.asset}: "
+                    f"size={remaining:.6f} @ {report.average_fill_price:.4f}"
+                    f"{' (multi-TP)' if tp_levels else ''}",
+                )
 
     # ------------------------------------------------------------------
     # Helpers

@@ -14,14 +14,15 @@ from libs.contracts.signal import ParamDef, ScoringOutput
 from libs.contracts.schemas import FeatureVector
 from libs.models.base import ModelMeta
 from libs.models.scoring_base import ScoringModel
-from libs.models.scoring_registry import ScoringModelRegistry
+from libs.models.registry import ModelRegistry
 
 
-@ScoringModelRegistry.register("RegimeRelativeValueScorer")
+@ModelRegistry.register("RegimeRelativeValueScorer")
 class RegimeRelativeValueScorer(ScoringModel):
 
     meta = ModelMeta(
         name="RegimeRelativeValueScorer",
+        model_type="scoring",
         required_indicators=["RSI", "ATR"],
         required_fields=[
             "RSI", "ATR",
@@ -126,7 +127,7 @@ class RegimeRelativeValueScorer(ScoringModel):
     # Batch evaluation
     # ------------------------------------------------------------------
 
-    def batch_evaluate(self, feature_df: pd.DataFrame) -> pd.Series:
+    def _batch_evaluate_impl(self, feature_df: pd.DataFrame) -> pd.Series:
         p = self.params
         n = len(feature_df)
         result = pd.Series(0.0, index=feature_df.index)

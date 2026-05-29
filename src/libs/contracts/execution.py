@@ -18,6 +18,8 @@ class OrderExecutionRequest(BaseModel):
     take_profit_price: Optional[float] = Field(default=None, description="Take-profit price from RiskAssessment")
     model_name: str = Field(default="", description="Model that generated the original signal")
     source_timeframe: str = Field(default="", description="Timeframe of the original signal")
+    close_reason: str = Field(default="", description="Why this close was triggered: 'tp1', 'tp2', 'tp3', 'sl', 'signal', or ''")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Passthrough metadata for downstream consumers")
 
 
 class OrderStatus(str, Enum):

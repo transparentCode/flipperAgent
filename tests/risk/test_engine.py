@@ -158,3 +158,71 @@ class TestRiskEngineSLTP:
         # For long: SL < price < TP
         assert result.stop_loss_price < signal.price
         assert result.take_profit_price > signal.price
+
+
+class TestRiskEngineMultiTP:
+    """Verify multi-TP dispatch in RiskEngine.assess()."""
+
+    @pytest.fixture
+    def multi_tp_config(self):
+        return {
+            "position_sizing": {
+                "default_strategy": "fixed_fractional",
+                "fixed_fractional": {"risk_per_trade_pct": 2.0},
+            },
+            "stop_loss": {
+                "default_method": "fixed_pct",
+                "fixed_pct": {"pct": 2.0},
+            },
+            "take_profit": {
+                "default_method": "multi_level",
+                "multi_level": {
+                    "levels": [
+                        {"pct": 1.5, "portion": 0.40},
+                        {"pct": 3.0, "portion": 0.30},
+                        {"pct": 5.0, "portion": 0.30},
+                    ],
+                    "trail_to_breakeven": True,
+                },
+            },
+            "global_limits": {"max_concurrent_positions": 10},
+        }
+
+    def test_multi_tp_levels_populated(self, multi_tp_config):
+        engine = _build_engine([AlwaysAllowRule()])
+        signal = _make_signal(price=100.0)
+        account = AccountState(10_000)
+        positions = PositionTracker()
+
+        result = engine.assess(signal, account, positions, multi_tp_config)
+        assert result.allowed is True
+        assert len(result.tp_levels) == 3
+        assert result.tp_levels[0] == pytest.approx(101.5)
+        assert result.tp_levels[1] == pytest.approx(103.0)
+        assert result.tp_levels[2] == pytest.approx(105.0)
+        assert result.tp_portions == [0.40, 0.30, 0.30]
+        assert result.trail_to_breakeven is True
+        # Single TP should be None in multi-level mode
+        assert result.take_profit_price is None
+
+    def test_multi_tp_rejected_still_has_levels(self, multi_tp_config):
+        engine = _build_engine([AlwaysRejectRule()])
+        signal = _make_signal(price=100.0)
+        account = AccountState(10_000)
+        positions = PositionTracker()
+
+        result = engine.assess(signal, account, positions, multi_tp_config)
+        assert result.allowed is False
+        assert len(result.tp_levels) == 3
+
+    def test_single_tp_no_multi_fields(self, risk_config):
+        engine = _build_engine([AlwaysAllowRule()])
+        signal = _make_signal()
+        account = AccountState(10_000)
+        positions = PositionTracker()
+
+        result = engine.assess(signal, account, positions, risk_config)
+        assert result.tp_levels == []
+        assert result.tp_portions == []
+        assert result.trail_to_breakeven is False
+        assert result.take_profit_price is not None

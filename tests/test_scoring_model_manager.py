@@ -8,7 +8,7 @@ import pytest
 
 from libs.contracts.schemas import FeatureVector
 from libs.contracts.signal import ScoringOutput
-from libs.models.scoring_registry import ScoringModelRegistry
+from libs.models.registry import ModelRegistry
 
 
 # ---------------------------------------------------------------------------

@@ -8,13 +8,13 @@ import numpy as np
 import optuna
 import pandas as pd
 
-from libs.models.scoring_registry import ScoringModelRegistry
+from libs.models.registry import ModelRegistry
 from libs.optim_utils.cv import purged_kfold_cv
 from libs.optim_utils.objective import build_suggest
 from libs.optim_utils.scoring import compute_sharpe, compute_signal_weighted_returns
 
 # Trigger registration
-import libs.models.squeeze_breakout.scoring_model  # noqa: F401
+import libs.models.squeeze_breakout.scorer  # noqa: F401
 
 MODEL_NAME = "SqueezeBreakoutScorer"
 
@@ -44,7 +44,7 @@ def make_objective(
         c. compute_sharpe → sharpe_i
     4. Objective = mean(sharpe_folds) - λ * std(sharpe_folds)
     """
-    model_cls = ScoringModelRegistry.get(MODEL_NAME)
+    model_cls = ModelRegistry.get(MODEL_NAME)
     schema = model_cls.meta.hyperparameter_schema
     folds = purged_kfold_cv(feature_df, n_splits=n_splits, embargo_bars=embargo_bars)
 

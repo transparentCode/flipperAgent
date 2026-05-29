@@ -1,7 +1,13 @@
-"""LegacyScoringAdapter — wraps a BaseModel to emit ScoringOutput."""
+"""LegacyScoringAdapter — wraps a BaseModel to emit ScoringOutput.
+
+.. deprecated::
+    ``LegacyScoringAdapter`` will be removed once all models migrate to
+    native scoring mode.  Prefer implementing ``ScoringModel`` directly.
+"""
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 import pandas as pd
@@ -17,9 +23,18 @@ class LegacyScoringAdapter(ScoringModel):
 
     Converts ModelOutput(direction, conviction) → ScoringOutput(edge_score)
     where edge_score = direction * conviction.
+
+    .. deprecated::
+        Use native ``ScoringModel`` subclasses instead.
     """
 
     def __init__(self, wrapped: BaseModel) -> None:
+        warnings.warn(
+            "LegacyScoringAdapter is deprecated and will be removed in a "
+            "future version. Implement ScoringModel directly instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         # Do NOT call super().__init__() — we delegate everything to wrapped
         self._wrapped = wrapped
         self.params = wrapped.params
@@ -27,15 +42,6 @@ class LegacyScoringAdapter(ScoringModel):
     @property
     def meta(self) -> ModelMeta:
         return self._wrapped.meta
-
-    def _defaults(self) -> dict[str, Any]:
-        return self._wrapped._defaults()
-
-    def validate_features(self, available: set[str]) -> list[str]:
-        return self._wrapped.validate_features(available)
-
-    def validate_required_fields(self, available: set[str]) -> list[str]:
-        return self._wrapped.validate_required_fields(available)
 
     def evaluate(self, features: FeatureVector) -> ScoringOutput:
         """Evaluate wrapped model, convert ModelOutput → ScoringOutput."""
@@ -55,7 +61,7 @@ class LegacyScoringAdapter(ScoringModel):
             },
         )
 
-    def batch_evaluate(self, feature_df: pd.DataFrame) -> pd.Series:
+    def _batch_evaluate_impl(self, feature_df: pd.DataFrame) -> pd.Series:
         """Batch evaluate via wrapped model's batch_evaluate.
 
         BaseModel.batch_evaluate() returns int directions (-1, 0, 1).

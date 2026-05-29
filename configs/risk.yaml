@@ -39,13 +39,22 @@ risk:
       atr_multiplier: 2.0
 
   take_profit:
-    default_method: fixed_pct
+    default_method: multi_level
     risk_reward:
       ratio: 2.0
     fixed_pct:
       pct: 1.5
     trailing:
       atr_multiplier: 3.0
+    multi_level:
+      levels:
+        - pct: 1.5
+          portion: 0.40
+        - pct: 3.0
+          portion: 0.30
+        - pct: 5.0
+          portion: 0.30
+      trail_to_breakeven: true
 
   mtf:
     default_conflict_resolution: conviction_weighted

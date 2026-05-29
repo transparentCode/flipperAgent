@@ -147,6 +147,9 @@ class TestProcessSignalBatch:
         assessment.proposed_size = 0.01
         assessment.stop_loss_price = 49_000.0
         assessment.take_profit_price = 52_000.0
+        assessment.tp_levels = []
+        assessment.tp_portions = []
+        assessment.trail_to_breakeven = False
         worker.risk_engine.assess.return_value = assessment
 
         await worker._process_signal_batch([signal])
@@ -215,3 +218,157 @@ class TestProcessSignalBatch:
         await worker._process_signal_batch([signal])
 
         worker.account.check_daily_reset.assert_called_once_with(signal.timestamp)
+
+
+# ------------------------------------------------------------------
+# Multi-TP price update tests
+# ------------------------------------------------------------------
+
+
+class TestProcessPriceUpdateMultiTP:
+    """Tests for _process_price_update with multi-TP positions."""
+
+    @pytest.mark.asyncio
+    async def test_tp1_partial_order_emitted(self) -> None:
+        """Multi-TP position with TP1 hit → partial close order published."""
+        from libs.contracts.schemas import PositionState, PriceUpdate, valkey_encode
+
+        worker = _make_worker()
+        worker.redis_client = AsyncMock()
+
+        pos = PositionState(
+            asset="BTCUSDT",
+            direction=1,
+            entry_price=100.0,
+            current_price=100.0,
+            size=1.0,
+            original_size=1.0,
+            unrealized_pnl=0.0,
+            entry_timestamp=1_000_000.0,
+            source_model="test",
+            source_timeframe="1h",
+            stop_loss_price=98.0,
+            tp_levels=[101.5, 103.0, 105.0],
+            tp_portions=[0.4, 0.3, 0.3],
+            tp_levels_hit=[False, False, False],
+            trail_to_breakeven=True,
+        )
+        worker.positions.positions["BTCUSDT"].append(pos)
+
+        price_payload = valkey_encode(PriceUpdate(
+            asset="BTCUSDT", timeframe="1h", timestamp=time.time(),
+            open=100.5, high=102.0, low=100.0, close=101.5, volume=100.0,
+        ))
+
+        await worker._process_price_update(price_payload)
+
+        # Should have published a partial close order
+        assert worker.redis_client.xadd.call_count >= 1
+        # Position should have TP1 marked as hit
+        assert pos.tp_levels_hit[0] is True
+        assert pos.size == pytest.approx(0.6)
+        # Trail-to-breakeven: SL moved to entry
+        assert pos.stop_loss_price == pytest.approx(100.0)
+
+    @pytest.mark.asyncio
+    async def test_sl_closes_remaining_multi_tp(self) -> None:
+        """Multi-TP position with SL hit → full remaining size closed."""
+        from libs.contracts.schemas import PositionState, PriceUpdate, valkey_encode
+
+        worker = _make_worker()
+        worker.redis_client = AsyncMock()
+
+        pos = PositionState(
+            asset="BTCUSDT",
+            direction=1,
+            entry_price=100.0,
+            current_price=100.0,
+            size=1.0,
+            original_size=1.0,
+            unrealized_pnl=0.0,
+            entry_timestamp=1_000_000.0,
+            source_model="test",
+            source_timeframe="1h",
+            stop_loss_price=98.0,
+            tp_levels=[101.5, 103.0, 105.0],
+            tp_portions=[0.4, 0.3, 0.3],
+            tp_levels_hit=[False, False, False],
+            trail_to_breakeven=True,
+        )
+        worker.positions.positions["BTCUSDT"].append(pos)
+
+        price_payload = valkey_encode(PriceUpdate(
+            asset="BTCUSDT", timeframe="1h", timestamp=time.time(),
+            open=99.0, high=99.5, low=97.0, close=97.5, volume=100.0,
+        ))
+
+        await worker._process_price_update(price_payload)
+
+        # Position should be fully closed (removed)
+        assert len(worker.positions.positions.get("BTCUSDT", [])) == 0
+        assert worker.redis_client.xadd.call_count >= 1
+
+    @pytest.mark.asyncio
+    async def test_no_double_order_single_tp_and_multi_tp(self) -> None:
+        """Multi-TP position should only be handled by multi-TP path, not legacy."""
+        from libs.contracts.schemas import PositionState, PriceUpdate, valkey_encode
+
+        worker = _make_worker()
+        worker.redis_client = AsyncMock()
+
+        pos = PositionState(
+            asset="BTCUSDT",
+            direction=1,
+            entry_price=100.0,
+            current_price=100.0,
+            size=1.0,
+            original_size=1.0,
+            unrealized_pnl=0.0,
+            entry_timestamp=1_000_000.0,
+            source_model="test",
+            source_timeframe="1h",
+            stop_loss_price=98.0,
+            tp_levels=[101.5, 103.0, 105.0],
+            tp_portions=[0.4, 0.3, 0.3],
+            tp_levels_hit=[False, False, False],
+            trail_to_breakeven=True,
+        )
+        worker.positions.positions["BTCUSDT"].append(pos)
+
+        # Price doesn't hit any TP or SL
+        price_payload = valkey_encode(PriceUpdate(
+            asset="BTCUSDT", timeframe="1h", timestamp=time.time(),
+            open=100.0, high=101.0, low=99.0, close=100.5, volume=100.0,
+        ))
+
+        await worker._process_price_update(price_payload)
+
+        # No orders should be published
+        worker.redis_client.xadd.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_multi_tp_order_metadata(self) -> None:
+        """Multi-TP signal batch should include tp_levels in order metadata."""
+        worker = _make_worker()
+        worker.redis_client = AsyncMock()
+        worker.account.check_daily_reset = AsyncMock()
+
+        signal = _make_signal(timestamp=time.time())
+        worker.signal_aggregator.aggregate.return_value = signal
+
+        assessment = MagicMock(spec=RiskAssessment)
+        assessment.allowed = True
+        assessment.proposed_size = 0.01
+        assessment.stop_loss_price = 49_000.0
+        assessment.take_profit_price = None
+        assessment.tp_levels = [50_750.0, 51_500.0, 52_500.0]
+        assessment.tp_portions = [0.4, 0.3, 0.3]
+        assessment.trail_to_breakeven = True
+        worker.risk_engine.assess.return_value = assessment
+
+        await worker._process_signal_batch([signal])
+
+        assert worker.redis_client.xadd.call_count >= 1
+        # Verify the order was published with multi-TP metadata
+        call_args = worker.redis_client.xadd.call_args
+        assert call_args[0][0] == "orders:BTCUSDT"

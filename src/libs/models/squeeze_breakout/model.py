@@ -35,6 +35,7 @@ class SqueezeBreakoutModel(BaseModel):
 
     meta = ModelMeta(
         name="SqueezeBreakout",
+        model_type="direction",
         required_indicators=[
             "KAMA_fast", "KAMA_slow",
             "BollingerBands", "KeltnerChannel",

@@ -36,8 +36,8 @@ class TestRegimeRelativeValueScorer:
         self.scorer = RegimeRelativeValueScorer()
 
     def test_registration(self):
-        from libs.models.scoring_registry import ScoringModelRegistry
-        assert ScoringModelRegistry.get("RegimeRelativeValueScorer") is RegimeRelativeValueScorer
+        from libs.models.registry import ModelRegistry
+        assert ModelRegistry.get("RegimeRelativeValueScorer") is RegimeRelativeValueScorer
 
     def test_defaults(self):
         assert self.scorer.params["rs_underperformance_threshold"] == -0.5

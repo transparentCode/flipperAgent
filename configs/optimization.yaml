@@ -2,6 +2,12 @@ optimization:
   defaults:
     n_trials: 200
     write_back: false
+    walk_forward:
+      train_ratio: 0.60
+      val_ratio: 0.20
+      oos_ratio: 0.20
+      purge_bars: 24
+    convergence_patience: 50
 
   schedules:
     MeanReversion:

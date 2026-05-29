@@ -12,7 +12,7 @@ from libs.common.logging.logger_utils import bind_logger
 from libs.contracts.schemas import FeatureVector
 from libs.contracts.signal import ScoringOutput
 from libs.models.scoring_base import ScoringModel
-from libs.models.scoring_registry import ScoringModelRegistry
+from libs.models.registry import ModelRegistry
 
 # Ensure concrete scoring models are registered on import.
 import libs.models  # noqa: F401
@@ -74,7 +74,7 @@ class ScoringModelManager:
                 logger.info(f"Scoring model {model_name} disabled for {self.asset}/{self.timeframe}")
                 continue
             try:
-                model_cls = ScoringModelRegistry.get(model_name)
+                model_cls = ModelRegistry.get(model_name)
             except KeyError:
                 logger.warning(f"Scoring model '{model_name}' not found in registry, skipping.")
                 continue

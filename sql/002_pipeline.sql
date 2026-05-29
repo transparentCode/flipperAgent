@@ -11,13 +11,19 @@ CREATE TABLE IF NOT EXISTS risk_positions (
     entry_price       DOUBLE PRECISION NOT NULL,
     current_price     DOUBLE PRECISION NOT NULL,
     size              DOUBLE PRECISION NOT NULL,
+    original_size     DOUBLE PRECISION DEFAULT 0,
     unrealized_pnl    DOUBLE PRECISION NOT NULL DEFAULT 0,
     entry_timestamp   DOUBLE PRECISION NOT NULL,
     source_model      TEXT,
     source_timeframe  TEXT,
     stop_loss_price   DOUBLE PRECISION,
     take_profit_price DOUBLE PRECISION,
-    trailing_stop_distance DOUBLE PRECISION
+    trailing_stop_distance DOUBLE PRECISION,
+    tp_levels         JSONB DEFAULT '[]',
+    tp_portions       JSONB DEFAULT '[]',
+    tp_levels_hit     JSONB DEFAULT '[]',
+    original_stop_loss DOUBLE PRECISION,
+    trail_to_breakeven BOOLEAN DEFAULT false
 );
 
 -- 2. risk_account_snapshots — AccountState persistence

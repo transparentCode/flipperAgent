@@ -36,6 +36,7 @@ class MeanReversionModel(BaseModel):
 
     meta = ModelMeta(
         name="MeanReversion",
+        model_type="direction",
         required_indicators=["RSI", "BollingerBands", "ADX"],
         required_fields=[
             "RSI",

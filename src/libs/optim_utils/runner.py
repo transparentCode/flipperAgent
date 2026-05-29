@@ -58,6 +58,7 @@ class OptunaRunner:
         backtest_fn: Callable[[BaseModel], dict[str, float]] | None = None,
         objective_fn: Callable[["optuna.Trial"], float | tuple[float, ...]] | None = None,
         study_name: str | None = None,
+        callbacks: list | None = None,
     ) -> list[TrialResult]:
         """Execute the optimization study and return results.
 
@@ -83,7 +84,7 @@ class OptunaRunner:
             f"trials={self.config.n_trials}"
         )
 
-        study.optimize(objective, n_trials=self.config.n_trials, show_progress_bar=False)
+        study.optimize(objective, n_trials=self.config.n_trials, show_progress_bar=False, callbacks=callbacks or [])
 
         return self._extract_results(study)
 

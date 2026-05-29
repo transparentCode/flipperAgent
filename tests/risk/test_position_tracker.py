@@ -281,3 +281,217 @@ class TestExposure:
         await tracker.open_position(_make_position())
         await tracker.open_position(_make_position(asset="ETHUSDT"))
         assert len(tracker.all_positions()) == 2
+
+
+# ---------------------------------------------------------------
+# Multi-TP partial exit tests
+# ---------------------------------------------------------------
+
+
+def _make_multi_tp_position(**overrides) -> PositionState:
+    """Helper: creates a position with multi-TP fields populated."""
+    defaults = dict(
+        asset="BTCUSDT",
+        direction=1,
+        entry_price=100.0,
+        current_price=100.0,
+        size=1.0,
+        original_size=1.0,
+        unrealized_pnl=0.0,
+        entry_timestamp=1_000_000,
+        source_model="test",
+        source_timeframe="1h",
+        stop_loss_price=98.0,
+        tp_levels=[101.5, 103.0, 105.0],
+        tp_portions=[0.4, 0.3, 0.3],
+        tp_levels_hit=[False, False, False],
+        trail_to_breakeven=True,
+    )
+    defaults.update(overrides)
+    return PositionState(**defaults)
+
+
+class TestCheckSlTpHlcMulti:
+    """Tests for check_sl_tp_hlc_multi()."""
+
+    @pytest.mark.asyncio
+    async def test_no_tp_levels_skipped(self):
+        """Positions without tp_levels are ignored by multi check."""
+        tracker = PositionTracker()
+        await tracker.open_position(_make_position(
+            stop_loss_price=49_000, take_profit_price=52_000,
+        ))
+        results = tracker.check_sl_tp_hlc_multi("BTCUSDT", 53_000, 49_500, 52_500)
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_tp1_hit_long(self):
+        tracker = PositionTracker()
+        await tracker.open_position(_make_multi_tp_position())
+        results = tracker.check_sl_tp_hlc_multi("BTCUSDT", 102.0, 99.5, 101.5)
+        assert len(results) == 1
+        pos, reason, size = results[0]
+        assert reason == "tp1"
+        assert size == pytest.approx(0.4)
+
+    @pytest.mark.asyncio
+    async def test_tp2_hit_after_tp1_already_hit(self):
+        tracker = PositionTracker()
+        pos = _make_multi_tp_position(
+            tp_levels_hit=[True, False, False],
+            size=0.6,
+        )
+        await tracker.open_position(pos)
+        results = tracker.check_sl_tp_hlc_multi("BTCUSDT", 103.5, 100.0, 103.0)
+        assert len(results) == 1
+        _, reason, size = results[0]
+        assert reason == "tp2"
+        assert size == pytest.approx(0.3)
+
+    @pytest.mark.asyncio
+    async def test_tp3_hit_long(self):
+        tracker = PositionTracker()
+        pos = _make_multi_tp_position(
+            tp_levels_hit=[True, True, False],
+            size=0.3,
+        )
+        await tracker.open_position(pos)
+        results = tracker.check_sl_tp_hlc_multi("BTCUSDT", 106.0, 100.0, 105.0)
+        assert len(results) == 1
+        _, reason, size = results[0]
+        assert reason == "tp3"
+        assert size == pytest.approx(0.3)
+
+    @pytest.mark.asyncio
+    async def test_only_one_tp_per_bar(self):
+        """Even if bar high exceeds TP2, only TP1 fires if unhit."""
+        tracker = PositionTracker()
+        await tracker.open_position(_make_multi_tp_position())
+        results = tracker.check_sl_tp_hlc_multi("BTCUSDT", 110.0, 99.0, 105.0)
+        assert len(results) == 1
+        _, reason, _ = results[0]
+        assert reason == "tp1"
+
+    @pytest.mark.asyncio
+    async def test_sl_hit_when_no_tp_fires(self):
+        tracker = PositionTracker()
+        await tracker.open_position(_make_multi_tp_position())
+        results = tracker.check_sl_tp_hlc_multi("BTCUSDT", 100.5, 97.5, 98.0)
+        assert len(results) == 1
+        _, reason, size = results[0]
+        assert reason == "sl"
+        assert size == pytest.approx(1.0)
+
+    @pytest.mark.asyncio
+    async def test_tp_priority_over_sl(self):
+        """When bar covers both TP1 and SL, TP fires (SL suppressed)."""
+        tracker = PositionTracker()
+        await tracker.open_position(_make_multi_tp_position())
+        results = tracker.check_sl_tp_hlc_multi("BTCUSDT", 102.0, 97.5, 100.0)
+        assert len(results) == 1
+        _, reason, _ = results[0]
+        assert reason == "tp1"
+
+    @pytest.mark.asyncio
+    async def test_sl_after_breakeven_trail(self):
+        """SL at entry after trail-to-breakeven — only triggers if low <= entry."""
+        tracker = PositionTracker()
+        pos = _make_multi_tp_position(
+            tp_levels_hit=[True, False, False],
+            size=0.6,
+            stop_loss_price=100.0,  # trailed to entry
+        )
+        await tracker.open_position(pos)
+        # Low touches entry exactly
+        results = tracker.check_sl_tp_hlc_multi("BTCUSDT", 101.0, 100.0, 100.5)
+        assert len(results) == 1
+        _, reason, size = results[0]
+        assert reason == "sl"
+        assert size == pytest.approx(0.6)
+
+    @pytest.mark.asyncio
+    async def test_short_tp_hit(self):
+        tracker = PositionTracker()
+        pos = _make_multi_tp_position(
+            direction=-1,
+            entry_price=100.0,
+            stop_loss_price=102.0,
+            tp_levels=[98.5, 97.0, 95.0],
+        )
+        await tracker.open_position(pos)
+        results = tracker.check_sl_tp_hlc_multi("BTCUSDT", 100.0, 98.0, 98.5)
+        assert len(results) == 1
+        _, reason, _ = results[0]
+        assert reason == "tp1"
+
+    @pytest.mark.asyncio
+    async def test_no_hit(self):
+        tracker = PositionTracker()
+        await tracker.open_position(_make_multi_tp_position())
+        results = tracker.check_sl_tp_hlc_multi("BTCUSDT", 101.0, 99.0, 100.5)
+        assert results == []
+
+
+class TestApplyPartialExit:
+    """Tests for apply_partial_exit()."""
+
+    @pytest.mark.asyncio
+    async def test_basic_partial_exit(self):
+        tracker = PositionTracker()
+        await tracker.open_position(_make_multi_tp_position())
+        tracker.apply_partial_exit("BTCUSDT", 0, 0.4, 0)
+        pos = tracker.positions["BTCUSDT"][0]
+        assert pos.size == pytest.approx(0.6)
+        assert pos.tp_levels_hit[0] is True
+        assert pos.tp_levels_hit[1] is False
+
+    @pytest.mark.asyncio
+    async def test_trail_to_breakeven_on_tp1(self):
+        tracker = PositionTracker()
+        pos = _make_multi_tp_position(stop_loss_price=98.0)
+        await tracker.open_position(pos)
+        tracker.apply_partial_exit("BTCUSDT", 0, 0.4, 0)
+        pos = tracker.positions["BTCUSDT"][0]
+        assert pos.stop_loss_price == pytest.approx(100.0)  # entry
+        assert pos.original_stop_loss == pytest.approx(98.0)
+
+    @pytest.mark.asyncio
+    async def test_no_trail_on_tp2(self):
+        tracker = PositionTracker()
+        pos = _make_multi_tp_position(
+            tp_levels_hit=[True, False, False],
+            size=0.6,
+            stop_loss_price=100.0,  # already at entry
+        )
+        await tracker.open_position(pos)
+        tracker.apply_partial_exit("BTCUSDT", 0, 0.3, 1)
+        pos = tracker.positions["BTCUSDT"][0]
+        assert pos.stop_loss_price == pytest.approx(100.0)  # unchanged
+        assert pos.size == pytest.approx(0.3)
+
+    @pytest.mark.asyncio
+    async def test_no_trail_when_disabled(self):
+        tracker = PositionTracker()
+        pos = _make_multi_tp_position(trail_to_breakeven=False, stop_loss_price=98.0)
+        await tracker.open_position(pos)
+        tracker.apply_partial_exit("BTCUSDT", 0, 0.4, 0)
+        pos = tracker.positions["BTCUSDT"][0]
+        assert pos.stop_loss_price == pytest.approx(98.0)  # unchanged
+
+    @pytest.mark.asyncio
+    async def test_full_close_removes_position(self):
+        tracker = PositionTracker()
+        pos = _make_multi_tp_position(
+            tp_levels_hit=[True, True, False],
+            size=0.3,
+        )
+        await tracker.open_position(pos)
+        tracker.apply_partial_exit("BTCUSDT", 0, 0.3, 2)
+        assert len(tracker.positions["BTCUSDT"]) == 0
+
+    @pytest.mark.asyncio
+    async def test_invalid_index_raises(self):
+        tracker = PositionTracker()
+        await tracker.open_position(_make_multi_tp_position())
+        with pytest.raises(IndexError):
+            tracker.apply_partial_exit("BTCUSDT", 5, 0.4, 0)

@@ -58,6 +58,17 @@ class RiskEngine:
         tp_config = risk_config.get("take_profit", {})
         tp_price = self.tp_calc.calculate(tp_method, signal, sl_price, tp_config)
 
+        # Multi-TP: compute levels if method is multi_level
+        tp_levels: list[float] = []
+        tp_portions: list[float] = []
+        trail_to_breakeven = False
+        if tp_method == "multi_level":
+            tp_levels, tp_portions, trail_to_breakeven = self.tp_calc.calculate_multi(
+                signal, sl_price, tp_config,
+            )
+            # In multi-level mode, single tp_price is not used
+            tp_price = None
+
         # 3. Build RiskContext
         context = RiskContext(
             signal=signal,
@@ -89,6 +100,9 @@ class RiskEngine:
                     rejection_reason=rejection_reason,
                     rules_applied=rules_applied,
                     verdicts=verdicts,
+                    tp_levels=tp_levels,
+                    tp_portions=tp_portions,
+                    trail_to_breakeven=trail_to_breakeven,
                 )
 
             if verdict.action == "MODIFY" and verdict.adjusted_size is not None:
@@ -105,4 +119,7 @@ class RiskEngine:
             rejection_reason="",
             rules_applied=rules_applied,
             verdicts=verdicts,
+            tp_levels=tp_levels,
+            tp_portions=tp_portions,
+            trail_to_breakeven=trail_to_breakeven,
         )

@@ -1,0 +1,239 @@
+# Regression V2 — Reference Configuration
+# All tiers populated with defaults extracted from v1 hardcoded values.
+# Comments with [OPT:tier] mark optimization-tunable parameters.
+
+orchestrator:
+  mtf_timeframes: [4h, 1h, 30m]
+  tf_weights:
+    4h: 0.5
+    1h: 0.3
+    30m: 0.2
+  regime_context_enabled: true
+  regime_window_override: true  # allow regime.suggested_window to override window_size
+  regime_window_defaults:
+    CLEAN_TREND: 150
+    VOLATILE_TREND: 60
+    CHOPPY: 30
+    QUIET_MR: 100
+
+# ── Tier 1: Global Defaults ──
+global:
+  # Feature stack
+  features:
+    - name: log_price
+    - name: volume_weighted
+      params:
+        volume_clip_pct: 95.0        # [OPT:global]
+        weight_method: sqrt           # sqrt | log | linear
+
+  # Method stack
+  methods:
+    theil_sen:
+      enabled: true
+      weight: 1.0                    # [OPT:per_tf]
+      params:
+        max_pairs: 300               # deterministic compute cap for subsampling
+    vwr:
+      enabled: true
+      weight: 1.0                    # [OPT:per_tf]
+      params:
+        weight_strategy: volume_weighted
+
+  # Ensemble
+  ensemble:
+    name: simple_weighted
+    params:
+      neutral_slope_atr_fraction: 0.04  # [OPT:global]
+
+  # Uncertainty
+  uncertainty:
+    name: percentile_bands
+    params:
+      mad_scale_factor: 1.4826
+
+  # ATR fractions — all thresholds are ATR-normalized
+  atr_period: 14                     # [OPT:per_tf]
+  trend_atr_fraction: 0.112          # [OPT:global] optimized 2026-05-16
+  spread_atr_fraction: 0.210         # [OPT:global] optimized 2026-05-16
+  momentum_atr_fraction: 0.146       # [OPT:global] optimized 2026-05-16
+  neutral_slope_atr_fraction: 0.034  # [OPT:global] optimized 2026-05-16
+  band_multiplier: 1.95              # [OPT:per_tf] optimized 2026-05-16
+
+  # Window bounds
+  min_window: 15
+  max_window: 300
+  default_window_size: 100
+
+# ── Tier 2: Per-Timeframe Defaults ──
+timeframes:
+  4h:
+    window_size: 150                 # [OPT:per_tf]
+    slope_acceleration_alpha: 0.3
+    methods:
+      theil_sen:
+        enabled: true
+        weight: 1.0
+      vwr:
+        enabled: true
+        weight: 1.0
+    ensemble:
+      name: confidence_weighted
+      params:
+        neutral_slope_atr_fraction: 0.04
+        min_confidence: 0.05         # [OPT:per_tf]
+        max_method_weight: 0.40      # [OPT:per_tf]
+  1h:
+    window_size: 73                  # [OPT:per_tf] optimized 2026-05-16
+    slope_acceleration_alpha: 0.142  # [OPT:per_tf] optimized 2026-05-16
+    methods:
+      theil_sen:
+        enabled: true
+        weight: 0.458                # [OPT:per_tf] optimized 2026-05-16
+      vwr:
+        enabled: true
+        weight: 1.010                # [OPT:per_tf] optimized 2026-05-16
+  30m:
+    window_size: 50                  # [OPT:per_tf]
+    slope_acceleration_alpha: 0.3
+    ensemble:
+      name: confidence_weighted
+      params:
+        neutral_slope_atr_fraction: 0.04
+        min_confidence: 0.05
+        max_method_weight: 0.40
+
+# ── Tier 3: Per-Asset-Class Overrides ──
+asset_classes:
+  crypto:
+    volume_profile: continuous
+    session_gap_handling: false
+    low_liquidity_window_handling: false
+  stock:
+    volume_profile: session
+    session_gap_handling: true
+    low_liquidity_window_handling: false
+    features:
+      - name: log_price
+      - name: volume_weighted
+        params:
+          volume_clip_pct: 95.0
+          weight_method: sqrt
+      - name: session_aware
+  fx:
+    volume_profile: proxy
+    session_gap_handling: false
+    low_liquidity_window_handling: true
+    features:
+      - name: log_price
+      - name: volume_weighted
+        params:
+          volume_clip_pct: 90.0
+          weight_method: log
+      - name: session_aware
+
+# ── Tier 4: Per-Asset Overrides ──
+assets:
+  BTCUSDT:
+    asset_class: crypto
+    mtf_enabled: true
+    mtf_timeframes: [4h, 1h, 30m]
+    timeframes:
+      1h:
+        window_size: 73                        # optimized 2026-05-16
+        band_multiplier: 1.952                 # optimized 2026-05-16
+        trend_atr_fraction: 0.112278           # optimized 2026-05-16
+        spread_atr_fraction: 0.209786          # optimized 2026-05-16
+        momentum_atr_fraction: 0.146180        # optimized 2026-05-16
+        neutral_slope_atr_fraction: 0.034084   # optimized 2026-05-16
+        slope_acceleration_alpha: 0.142159     # optimized 2026-05-16
+        methods:
+          theil_sen:
+            weight: 0.458195                   # optimized 2026-05-16
+          vwr:
+            weight: 1.010399                   # optimized 2026-05-16
+      4h:
+        window_size: 113                       # optimized 2026-05-16
+        band_multiplier: 2.257                 # optimized 2026-05-16
+        trend_atr_fraction: 0.143255           # optimized 2026-05-16
+        spread_atr_fraction: 0.185129          # optimized 2026-05-16
+        momentum_atr_fraction: 0.055455        # optimized 2026-05-16
+        neutral_slope_atr_fraction: 0.032490   # optimized 2026-05-16
+        slope_acceleration_alpha: 0.398344     # optimized 2026-05-16
+        methods:
+          theil_sen:
+            weight: 1.279859                   # optimized 2026-05-16
+          vwr:
+            weight: 1.595506                   # optimized 2026-05-16
+      1d:
+        window_size: 76                        # optimized 2026-05-17 (weak — near coin-flip)
+        band_multiplier: 1.500                 # optimized 2026-05-17
+        trend_atr_fraction: 0.135193           # optimized 2026-05-17
+        spread_atr_fraction: 0.100551          # optimized 2026-05-17
+        momentum_atr_fraction: 0.199155        # optimized 2026-05-17
+        neutral_slope_atr_fraction: 0.030827   # optimized 2026-05-17
+        slope_acceleration_alpha: 0.126127     # optimized 2026-05-17
+        methods:
+          theil_sen:
+            weight: 0.391815                   # optimized 2026-05-17
+          vwr:
+            weight: 1.313891                   # optimized 2026-05-17
+  ETHUSDT:
+    asset_class: crypto
+    mtf_enabled: true
+    mtf_timeframes: [4h, 1h, 30m]
+    timeframes:
+      1h:
+        window_size: 74                        # optimized 2026-05-17 (empty Pareto — rerun recommended)
+        band_multiplier: 2.207                 # optimized 2026-05-17
+        trend_atr_fraction: 0.164987           # optimized 2026-05-17
+        spread_atr_fraction: 0.118937          # optimized 2026-05-17
+        momentum_atr_fraction: 0.070888        # optimized 2026-05-17
+        neutral_slope_atr_fraction: 0.053108   # optimized 2026-05-17
+        slope_acceleration_alpha: 0.265317     # optimized 2026-05-17
+        methods:
+          theil_sen:
+            weight: 0.654852                   # optimized 2026-05-17
+          vwr:
+            weight: 0.592063                   # optimized 2026-05-17
+      4h:
+        window_size: 180                       # optimized 2026-05-17
+        band_multiplier: 2.293                 # optimized 2026-05-17
+        trend_atr_fraction: 0.134562           # optimized 2026-05-17
+        spread_atr_fraction: 0.216222          # optimized 2026-05-17
+        momentum_atr_fraction: 0.103268        # optimized 2026-05-17
+        neutral_slope_atr_fraction: 0.059133   # optimized 2026-05-17
+        slope_acceleration_alpha: 0.261654     # optimized 2026-05-17
+        methods:
+          theil_sen:
+            weight: 1.650767                   # optimized 2026-05-17
+          vwr:
+            weight: 1.165951                   # optimized 2026-05-17
+  SOLUSDT:
+    asset_class: crypto
+    mtf_enabled: false
+    mtf_timeframes: [1h]
+  # Example stock asset:
+  # AAPL:
+  #   asset_class: stock
+  #   mtf_enabled: false
+  #   mtf_timeframes: [1h]
+  #   timeframes:
+  #     1h:
+  #       window_size: 120
+
+# ── Optimization Metadata ──
+optimization:
+  global_tunable:
+    - trend_atr_fraction
+    - spread_atr_fraction
+    - momentum_atr_fraction
+    - neutral_slope_atr_fraction
+    - band_multiplier
+  per_tf_tunable:
+    - window_size
+    - methods.theil_sen.weight
+    - methods.vwr.weight
+    - slope_acceleration_alpha
+  per_asset_tunable:
+    - window_size
+    - ensemble.params

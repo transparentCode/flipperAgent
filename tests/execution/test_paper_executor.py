@@ -129,3 +129,103 @@ class TestPaperExecutorEdgeCases:
     async def test_get_balance(self, executor: PaperExecutor):
         balance = await executor.get_balance()
         assert "USDT" in balance
+
+
+class TestPaperExecutorMultiTP:
+    """Verify PaperExecutor handles partial close orders for multi-TP."""
+
+    @pytest.fixture
+    def executor(self) -> PaperExecutor:
+        return PaperExecutor(
+            slippage_bps=0.0,
+            slippage_jitter_bps=0.0,
+            commission_bps=4.0,
+            fill_delay_ms=0,
+        )
+
+    @pytest.mark.asyncio
+    async def test_partial_close_fills_exact_size(self, executor: PaperExecutor):
+        """Partial close order of 0.4 fills exactly 0.4."""
+        # Open a long position of 1.0
+        buy_order = _make_order(side="buy", size=1.0, requested_price=100.0)
+        await executor.execute_order(buy_order)
+
+        # Partial close: sell 0.4 (TP1 hit)
+        sell_order = _make_order(
+            side="sell", size=0.4, requested_price=101.5,
+            idempotency_key="tp1_BTCUSDT_1000",
+            close_reason="tp1",
+        )
+        report = await executor.execute_order(sell_order)
+
+        assert report.status == OrderStatus.FILLED
+        assert report.filled_size == 0.4
+        assert report.average_fill_price == pytest.approx(101.5, abs=0.01)
+
+    @pytest.mark.asyncio
+    async def test_metadata_forwarded_in_partial_close(self, executor: PaperExecutor):
+        """Multi-TP metadata on order flows through to ExecutionReport."""
+        order = _make_order(
+            side="sell", size=0.4, requested_price=101.5,
+            idempotency_key="tp1_BTCUSDT_1000",
+            close_reason="tp1",
+            metadata={"tp_levels": [101.5, 103.0, 105.0]},
+        )
+        report = await executor.execute_order(order)
+
+        assert report.metadata["close_reason"] == "tp1"
+        assert report.metadata["tp_levels"] == [101.5, 103.0, 105.0]
+
+    @pytest.mark.asyncio
+    async def test_sequential_partial_closes(self, executor: PaperExecutor):
+        """Three sequential partial closes reduce position correctly."""
+        # Open long 1.0
+        await executor.execute_order(
+            _make_order(side="buy", size=1.0, requested_price=100.0),
+        )
+
+        # TP1: sell 0.4
+        await executor.execute_order(
+            _make_order(side="sell", size=0.4, requested_price=101.5,
+                        idempotency_key="tp1"),
+        )
+        positions = await executor.get_positions("BTCUSDT")
+        assert positions[0]["size"] == pytest.approx(0.6)
+
+        # TP2: sell 0.3
+        await executor.execute_order(
+            _make_order(side="sell", size=0.3, requested_price=103.0,
+                        idempotency_key="tp2"),
+        )
+        positions = await executor.get_positions("BTCUSDT")
+        assert positions[0]["size"] == pytest.approx(0.3)
+
+        # TP3: sell 0.3 — fully closes
+        await executor.execute_order(
+            _make_order(side="sell", size=0.3, requested_price=105.0,
+                        idempotency_key="tp3"),
+        )
+        positions = await executor.get_positions("BTCUSDT")
+        assert positions == []
+
+    @pytest.mark.asyncio
+    async def test_balance_updates_on_partial_close(self, executor: PaperExecutor):
+        """Balance updates correctly for each partial close."""
+        initial = (await executor.get_balance())["USDT"]
+
+        # Open long 1.0 @ 100
+        await executor.execute_order(
+            _make_order(side="buy", size=1.0, requested_price=100.0),
+        )
+        after_buy = (await executor.get_balance())["USDT"]
+        # Should have paid 100 + commission
+        assert after_buy < initial
+
+        # Sell 0.4 @ 101.5
+        await executor.execute_order(
+            _make_order(side="sell", size=0.4, requested_price=101.5,
+                        idempotency_key="tp1"),
+        )
+        after_tp1 = (await executor.get_balance())["USDT"]
+        # Should have received 0.4 * 101.5 minus commission
+        assert after_tp1 > after_buy

@@ -130,6 +130,95 @@ class PositionTracker:
                 hit.append(pos)
         return hit
 
+    def check_sl_tp_hlc_multi(
+        self, asset: str, high: float, low: float, close: float,
+    ) -> list[tuple[PositionState, str, float]]:
+        """Check multi-TP positions for partial exits using intrabar H/L.
+
+        Returns list of (position, close_reason, close_size) tuples.
+        Only one TP level fires per position per call (lowest unhit first).
+        TP takes priority over SL when both hit on the same bar.
+        Positions with empty tp_levels are skipped (handled by check_sl_tp_hlc).
+        """
+        results: list[tuple[PositionState, str, float]] = []
+        for pos in self.positions.get(asset, []):
+            if not pos.tp_levels:
+                continue
+
+            # Check each TP level (only the first unhit one fires)
+            tp_fired = False
+            for i, (tp_price, hit_already) in enumerate(
+                zip(pos.tp_levels, pos.tp_levels_hit),
+            ):
+                if hit_already:
+                    continue
+
+                tp_hit = False
+                if pos.direction == 1 and high >= tp_price:
+                    tp_hit = True
+                elif pos.direction == -1 and low <= tp_price:
+                    tp_hit = True
+
+                if tp_hit:
+                    close_size = pos.tp_portions[i] * pos.original_size
+                    close_reason = f"tp{i + 1}"
+                    results.append((pos, close_reason, close_size))
+                    tp_fired = True
+                    break  # one TP per bar
+
+            # SL check only if no TP fired this bar
+            if not tp_fired and pos.stop_loss_price is not None:
+                sl_hit = False
+                if pos.direction == 1 and low <= pos.stop_loss_price:
+                    sl_hit = True
+                elif pos.direction == -1 and high >= pos.stop_loss_price:
+                    sl_hit = True
+
+                if sl_hit:
+                    # SL closes the entire remaining position
+                    results.append((pos, "sl", pos.size))
+
+        return results
+
+    def apply_partial_exit(
+        self, asset: str, pos_index: int, close_size: float, tp_level_index: int,
+    ) -> None:
+        """Reduce position size after a partial TP hit.
+
+        - Decrements pos.size by close_size
+        - Marks tp_levels_hit[tp_level_index] = True
+        - If tp_level_index == 0 and trail_to_breakeven:
+            pos.stop_loss_price = pos.entry_price
+        - Removes position entirely if size reaches ~0
+        """
+        pos_list = self.positions.get(asset, [])
+        if pos_index < 0 or pos_index >= len(pos_list):
+            raise IndexError(f"Invalid position index {pos_index} for {asset}")
+
+        pos = pos_list[pos_index]
+        pos.size = max(0.0, pos.size - close_size)
+        pos.tp_levels_hit[tp_level_index] = True
+
+        # Trail-to-breakeven after TP1
+        if tp_level_index == 0 and pos.trail_to_breakeven:
+            if pos.original_stop_loss is None:
+                pos.original_stop_loss = pos.stop_loss_price
+            pos.stop_loss_price = pos.entry_price
+            logger.info(
+                f"Trail-to-breakeven activated — asset={asset}, "
+                f"SL moved to entry={pos.entry_price:.4f}",
+            )
+
+        logger.info(
+            f"Partial exit — asset={asset}, tp{tp_level_index + 1} hit, "
+            f"closed={close_size:.6f}, remaining={pos.size:.6f}",
+        )
+
+        # Remove position if fully closed
+        if pos.size < 1e-12:
+            pos_list.pop(pos_index)
+            logger.info(f"Position fully closed via partial exits — asset={asset}")
+
     # ------------------------------------------------------------------
     # Exposure queries
     # ------------------------------------------------------------------
@@ -170,8 +259,11 @@ class PositionTracker:
                         (asset, direction, entry_price, current_price, size,
                          unrealized_pnl, entry_timestamp, source_model,
                          source_timeframe, stop_loss_price, take_profit_price,
-                         trailing_stop_distance)
-                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+                         trailing_stop_distance,
+                         original_size, tp_levels, tp_portions, tp_levels_hit,
+                         original_stop_loss, trail_to_breakeven)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,
+                            $13,$14,$15,$16,$17,$18)
                     """,
                     pos.asset,
                     pos.direction,
@@ -185,6 +277,12 @@ class PositionTracker:
                     pos.stop_loss_price,
                     pos.take_profit_price,
                     pos.trailing_stop_distance,
+                    pos.original_size,
+                    json.dumps(pos.tp_levels),
+                    json.dumps(pos.tp_portions),
+                    json.dumps(pos.tp_levels_hit),
+                    pos.original_stop_loss,
+                    pos.trail_to_breakeven,
                 )
 
     @classmethod
@@ -207,6 +305,12 @@ class PositionTracker:
                 stop_loss_price=row["stop_loss_price"],
                 take_profit_price=row["take_profit_price"],
                 trailing_stop_distance=row["trailing_stop_distance"],
+                original_size=row.get("original_size", 0.0) or 0.0,
+                tp_levels=json.loads(row.get("tp_levels", "[]") or "[]"),
+                tp_portions=json.loads(row.get("tp_portions", "[]") or "[]"),
+                tp_levels_hit=json.loads(row.get("tp_levels_hit", "[]") or "[]"),
+                original_stop_loss=row.get("original_stop_loss"),
+                trail_to_breakeven=row.get("trail_to_breakeven", False) or False,
             )
             tracker.positions[pos.asset].append(pos)
         logger.info(f"Restored {tracker.get_position_count()} open positions from DB")
