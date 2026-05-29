@@ -21,8 +21,6 @@ class IngestionScheduler(BaseScheduler):
         
         ohlcv_minutes = set(schedules.get("ohlcv_minutes", [0, 15, 30, 45]))
         ohlcv_timeout = schedules.get("ohlcv_timeout", 120)
-        
-        target_list = self.config_manager.get("ingestion.assets.target_list", ["BTCUSDT"])
 
         return [
             # Gap Fill Task

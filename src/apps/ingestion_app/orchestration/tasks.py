@@ -2,7 +2,6 @@ import asyncio
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List
 
-import ccxt
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 
 from apps.ingestion_app.coordination import IngestionCoordinator, IngestionState
@@ -19,44 +18,98 @@ config_manager = ConfigManager()
 
 logger = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_ENGINE)
 
+@retry(
+    retry=retry_if_exception_type(DataIngestionError),
+    stop=stop_after_attempt(4),
+    wait=wait_exponential(multiplier=1, min=5, max=60),
+    reraise=True,
+)
+async def _top_up_binance_ohlcv(binance_adapter, symbol: str, timeframe: str) -> None:
+    """Fetch recent candles via native Binance adapter with exponential backoff on failure.
+
+    Reads the last known timestamp from TimescaleDB and fetches up to 1000 candles
+    from that point forward. Raises DataIngestionError on any fetch or write failure
+    so tenacity can retry.
+    """
+    try:
+        reader = TimescaleReader(DBPoolManager.get_reader_pool())
+        max_ts = await reader.get_max_timestamp(symbol, timeframe)
+    except RuntimeError:
+        logger.warning(f"[{symbol}:{timeframe}] DB reader pool not ready, defaulting to 1-hour lookback.")
+        max_ts = 0
+
+    since_ms = (max_ts + 1) if max_ts > 0 else int(
+        (datetime.now(timezone.utc) - timedelta(hours=1)).timestamp() * 1000
+    )
+
+    try:
+        ts_writer = TimescaleWriter(DBPoolManager.get_writer_pool())
+    except RuntimeError:
+        raise DataIngestionError(
+            f"[{symbol}:{timeframe}] DB writer pool not initialized — cannot persist top-up",
+            context={"symbol": symbol, "timeframe": timeframe},
+        )
+
+    df = await binance_adapter.get_historical_ohlcv(symbol, timeframe, since=since_ms, limit=1000)
+    if df.empty:
+        logger.info(f"[{symbol}:{timeframe}] No new candles to top-up.")
+        return
+
+    records = [
+        OHLCVRecord(
+            symbol=symbol,
+            timestamp=int(row.timestamp),
+            open=row.open,
+            high=row.high,
+            low=row.low,
+            close=row.close,
+            volume=row.volume,
+        )
+        for row in df.itertuples(index=False)
+    ]
+    await ts_writer.insert_ohlcv(records, timeframe=timeframe)
+    logger.info(f"[{symbol}:{timeframe}] Top-up inserted {len(records)} candle(s).")
+
+
 async def poll_binance_ohlcv(
     ctx: Dict[str, Any],
     symbol: str | None = None,
     timeframe: str | None = None,
 ) -> None:
-    """Placeholder task to poll Binance OHLCV data.
-    Uses the adapter instances setup in ctx.
+    """Top-up recent OHLCV candles for one or all configured assets via the native Binance adapter.
+
+    Runs as a cron job (default: every 15 min). Fetches from the last known timestamp in
+    TimescaleDB to now, covering gaps that the WebSocket stream may have missed.
+
+    When called without symbol/timeframe (cron invocation), iterates all assets in
+    ingestion.assets.target_list using ingestion.timeframes.default as the timeframe.
     """
-    cfg = ConfigManager()
-    if symbol is None:
-        symbol = cfg.get("ingestion.assets.default_binance_asset", "BTCUSDT")
-    if timeframe is None:
-        timeframe = cfg.get("ingestion.timeframes.default", "15m")
-    logger.info(f"Task poll_binance_ohlcv started for {symbol} ({timeframe})")
-    
+    tf = timeframe or config_manager.get("ingestion.timeframes.default", "15m")
+
     binance_adapter = ctx.get("binance_adapter")
     if not binance_adapter:
-        logger.warning("Binance adapter not found in worker context!")
-        return
+        raise DataIngestionError(
+            "Binance adapter not found in worker context",
+            context={"symbol": symbol or "all", "timeframe": tf},
+        )
 
-    # Simulate an IO-bound threaded fetch
-    logger.info("Dispatching synchronous binance_adapter fetch to thread pool...")
-    try:
-        # e.g.: df = await asyncio.to_thread(binance_adapter.fetch_ohlcv, symbol, timeframe)
-        # For now, we mock the delay:
-        await asyncio.sleep(1)
-        logger.info(f"Successfully processed {symbol} OHLCV.")
-    except Exception as e:
-        logger.error(f"Error polling OHLCV for {symbol}: {e}")
-        raise DataIngestionError(f"Error polling OHLCV for {symbol}", context={"symbol": symbol}) from e
+    symbols = [symbol] if symbol is not None else config_manager.get("ingestion.assets.target_list", ["BTCUSDT"])
+
+    for sym in symbols:
+        logger.info(f"[{sym}:{tf}] Starting native Binance top-up.")
+        await _top_up_binance_ohlcv(binance_adapter, sym, tf)
+
+    logger.info(f"poll_binance_ohlcv completed for {len(symbols)} asset(s).")
 
 
 # Exponential backoff layer (Layer 4)
+# Retries on DataIngestionError because CCXTAdapter wraps all ccxt exceptions into
+# DataIngestionError before they propagate — raw ccxt types never reach this decorator.
 @retry(
-    retry=retry_if_exception_type((ccxt.RateLimitExceeded, ccxt.RequestTimeout, ccxt.NetworkError)),
+    retry=retry_if_exception_type(DataIngestionError),
     stop=stop_after_attempt(5),
     wait=wait_exponential(min=4, max=60),
-    reraise=True
+    reraise=True,
 )
 async def _fetch_asset_gap(ctx: Dict[str, Any], ccxt_adapter, symbol: str):
     """
@@ -83,11 +136,12 @@ async def _fetch_asset_gap(ctx: Dict[str, Any], ccxt_adapter, symbol: str):
     sleep_seconds = config_manager.get("ingestion.concurrency.gap_fill_sleep_seconds", 0.5)
 
     try:
-        ts_pool = DBPoolManager.get_writer_pool()
-        ts_writer: TimescaleWriter | None = TimescaleWriter(ts_pool)
-    except RuntimeError:
-        logger.warning("DB writer pool not initialized. TimescaleDB inserts will be skipped.")
-        ts_writer = None
+        ts_writer = TimescaleWriter(DBPoolManager.get_writer_pool())
+    except RuntimeError as e:
+        raise DataIngestionError(
+            f"DB writer pool not initialized — cannot persist gap-fill for {symbol}",
+            context={"symbol": symbol},
+        ) from e
 
     while True:
         try:
@@ -111,7 +165,7 @@ async def _fetch_asset_gap(ctx: Dict[str, Any], ccxt_adapter, symbol: str):
                 )
                 records.append(record)
                 
-            if records and ts_writer is not None:
+            if records:
                 await ts_writer.insert_ohlcv(records, timeframe=base_timeframe)
             
             if len(df) < limit:
@@ -136,22 +190,24 @@ async def run_rest_gap_fill(ctx: Dict[str, Any], assets: List[str], exchange: st
 
     ccxt_adapter = ctx.get("ccxt_adapter")
     coordinator: IngestionCoordinator | None = ctx.get("coordinator")
+    if coordinator is None:
+        raise DataIngestionError(
+            "coordinator not found in worker context — state machine cannot progress",
+            context={"exchange": exchange, "assets": assets},
+        )
     base_timeframe = config_manager.get("ingestion.timeframes.base_gap_fill", "1m")
     concurrency_limit = config_manager.get("ingestion.concurrency.gap_fill_limit", 5)
     semaphore = asyncio.Semaphore(concurrency_limit)
 
     async def process_asset(symbol: str):
         async with semaphore:
-            if coordinator:
-                await coordinator.transition(symbol, base_timeframe, IngestionState.BACKFILLING)
+            await coordinator.transition(symbol, base_timeframe, IngestionState.BACKFILLING)
             try:
                 await _fetch_asset_gap(ctx, ccxt_adapter, symbol)
-                if coordinator:
-                    await coordinator.transition(symbol, base_timeframe, IngestionState.WARMING)
+                await coordinator.transition(symbol, base_timeframe, IngestionState.WARMING)
             except Exception as e:
                 logger.error(f"Failed to gap-fill {symbol}: {e}")
-                if coordinator:
-                    await coordinator.transition(symbol, base_timeframe, IngestionState.ERROR)
+                await coordinator.transition(symbol, base_timeframe, IngestionState.ERROR)
             # Space out calls after each asset completes
             await asyncio.sleep(config_manager.get("ingestion.concurrency.gap_fill_sleep_seconds", 0.5))
 
