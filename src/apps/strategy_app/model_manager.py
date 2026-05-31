@@ -14,6 +14,7 @@ from libs.contracts.signal import ScoringOutput
 from libs.models.base import BaseModel
 from libs.models.legacy_adapter import LegacyScoringAdapter
 from libs.models.registry import ModelRegistry
+from libs.models.scoring_base import ScoringModel
 
 # Ensure concrete models are registered on import.
 import libs.models  # noqa: F401
@@ -26,7 +27,7 @@ KEY_ASSETS = "assets"
 KEY_TIMEFRAMES = "timeframes"
 KEY_DEFAULT = "default"
 
-_VALID_MIGRATION_MODES = {"legacy", "adapted", "native_scoring"}
+_VALID_MIGRATION_MODES = {"legacy", "adapted", "scoring", "native_scoring"}
 
 
 class ModelManager:
@@ -41,6 +42,7 @@ class ModelManager:
 
         self.models: list[BaseModel] = []
         self.adapted_models: list[LegacyScoringAdapter] = []
+        self.scoring_models: list[ScoringModel] = []
         self.shadow_models: list[BaseModel] = []
         self._load_models()
 
@@ -101,6 +103,23 @@ class ModelManager:
                 )
                 continue
 
+            if migration_mode == "scoring":
+                instance = model_cls(params)
+                if not isinstance(instance, ScoringModel):
+                    logger.warning(
+                        f"Model '{model_name}' has migration_mode='scoring' but "
+                        f"does not extend ScoringModel. Falling back to adapted."
+                    )
+                    adapter = LegacyScoringAdapter(instance)
+                    self.adapted_models.append(adapter)
+                else:
+                    self.scoring_models.append(instance)
+                    logger.info(
+                        f"Loaded scoring model {model_name} for "
+                        f"{self.asset}/{self.timeframe}"
+                    )
+                continue
+
             if migration_mode == "adapted":
                 # Adapted: wrap in LegacyScoringAdapter
                 adapted_instance = model_cls(params)
@@ -137,6 +156,7 @@ class ModelManager:
         all_models: list[BaseModel] = [
             *self.models,
             *[a._wrapped for a in self.adapted_models],
+            *self.scoring_models,
             *self.shadow_models,
         ]
         for model in all_models:
@@ -192,6 +212,17 @@ class ModelManager:
                 outputs.append(output)
             except Exception as e:
                 logger.error(f"Adapted model {adapter.meta.name} failed: {e}", exc_info=True)
+        return outputs
+
+    def evaluate_scoring(self, features: FeatureVector) -> list[ScoringOutput]:
+        """Run native scoring-mode models, returning ScoringOutput."""
+        outputs: list[ScoringOutput] = []
+        for model in self.scoring_models:
+            try:
+                output = model.evaluate(features)
+                outputs.append(output)
+            except Exception as e:
+                logger.error(f"Scoring model {model.meta.name} failed: {e}", exc_info=True)
         return outputs
 
     def evaluate_shadow(self, features: FeatureVector) -> list[ModelOutput]:

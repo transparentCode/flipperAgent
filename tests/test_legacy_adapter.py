@@ -13,7 +13,7 @@ from libs.models.scoring_base import ScoringModel
 from libs.models.legacy_adapter import LegacyScoringAdapter
 from libs.models.registry import ModelRegistry
 from libs.models.squeeze_breakout import SqueezeBreakoutModel
-from libs.models.mean_reversion import MeanReversionModel
+from libs.models.momentum import MomentumModel
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────
@@ -35,11 +35,10 @@ SB_PARAMS = {
 }
 
 MR_PARAMS = {
-    "rsi_oversold": 30,
-    "rsi_overbought": 70,
-    "bb_entry_std": 2.0,
-    "adx_regime_threshold": 25.0,
-    "holding_period": 5,
+    "rsi_long_threshold": 55,
+    "rsi_short_threshold": 45,
+    "require_macd_positive": False,
+    "histogram_min_abs": 0.0,
 }
 
 
@@ -71,15 +70,14 @@ def _sb_fv(
     )
 
 
-def _mr_fv(rsi=50, bb_upper=110, bb_lower=90, adx=15.0, close=100):
+def _mr_fv(rsi=50, macd_hist=0.5, macd_line=0.3, close=100):
     return FeatureVector(
         asset="BTCUSDT",
         timeframe="1h",
         timestamp=1000.0,
         features={
-            "RSI": rsi,
-            "BollingerBands": {"upper": bb_upper, "lower": bb_lower},
-            "ADX": {"adx": adx, "plus_di": 20.0, "minus_di": 15.0},
+            "RSI": {"value": rsi},
+            "MACD": {"histogram": macd_hist, "line": macd_line, "signal": 0.2},
         },
         bar_data={"close": close, "high": 110, "low": 90, "volume": 1000},
     )
@@ -95,10 +93,10 @@ class TestAdapterWrapping:
         assert adapter.meta.name == "SqueezeBreakout"
 
     def test_wraps_mean_reversion(self):
-        model = MeanReversionModel(params=MR_PARAMS)
+        model = MomentumModel(params=MR_PARAMS)
         adapter = LegacyScoringAdapter(model)
         assert isinstance(adapter, ScoringModel)
-        assert adapter.meta.name == "MeanReversion"
+        assert adapter.meta.name == "Momentum"
 
     def test_params_delegated(self):
         model = SqueezeBreakoutModel(params=SB_PARAMS)
@@ -110,37 +108,36 @@ class TestAdapterWrapping:
 
 class TestEvaluate:
     def test_returns_scoring_output(self):
-        model = MeanReversionModel(params=MR_PARAMS)
+        model = MomentumModel(params=MR_PARAMS)
         adapter = LegacyScoringAdapter(model)
-        fv = _mr_fv(rsi=20, close=85, bb_lower=90, adx=15.0)
+        fv = _mr_fv(rsi=60, macd_hist=0.5)
         result = adapter.evaluate(fv)
         assert isinstance(result, ScoringOutput)
 
     def test_flat_signal_edge_score_zero(self):
         """Flat signal (direction=0) → edge_score == 0.0."""
-        model = MeanReversionModel(params=MR_PARAMS)
+        model = MomentumModel(params=MR_PARAMS)
         adapter = LegacyScoringAdapter(model)
-        # Neutral RSI, price in middle of BB → flat
-        fv = _mr_fv(rsi=50, close=100, bb_upper=110, bb_lower=90, adx=15.0)
+        # Neutral RSI + negative MACD hist → flat
+        fv = _mr_fv(rsi=50, macd_hist=-0.5)
         result = adapter.evaluate(fv)
+        # direction=0 → edge=0
         assert result.edge_score == 0.0
 
     def test_long_signal_positive_edge_score(self):
         """Long (direction=1) → positive edge_score."""
-        model = MeanReversionModel(params=MR_PARAMS)
+        model = MomentumModel(params=MR_PARAMS)
         adapter = LegacyScoringAdapter(model)
-        # Oversold RSI + price near lower BB → long
-        fv = _mr_fv(rsi=20, close=85, bb_lower=90, adx=15.0)
+        fv = _mr_fv(rsi=60, macd_hist=0.5)
         result = adapter.evaluate(fv)
         if result.edge_score != 0.0:
-            # If the model fires, it should be positive for a long
             assert result.edge_score > 0
 
     def test_edge_score_invariant(self):
         """edge_score == direction * conviction must hold."""
-        model = MeanReversionModel(params=MR_PARAMS)
+        model = MomentumModel(params=MR_PARAMS)
         adapter = LegacyScoringAdapter(model)
-        fv = _mr_fv(rsi=20, close=85, bb_lower=90, adx=15.0)
+        fv = _mr_fv(rsi=60, macd_hist=0.5)
         result = adapter.evaluate(fv)
         model_output = model.evaluate(fv)
         expected = float(model_output.direction) * model_output.conviction
@@ -148,20 +145,20 @@ class TestEvaluate:
 
     def test_metadata_adapted_flag(self):
         """Metadata must include _adapted=True and _original_direction."""
-        model = MeanReversionModel(params=MR_PARAMS)
+        model = MomentumModel(params=MR_PARAMS)
         adapter = LegacyScoringAdapter(model)
-        fv = _mr_fv(rsi=50, close=100)
+        fv = _mr_fv(rsi=50)
         result = adapter.evaluate(fv)
         assert result.metadata["_adapted"] is True
         assert "_original_direction" in result.metadata
 
     def test_model_name_preserved(self):
         """Output model_name must match wrapped model name."""
-        model = MeanReversionModel(params=MR_PARAMS)
+        model = MomentumModel(params=MR_PARAMS)
         adapter = LegacyScoringAdapter(model)
         fv = _mr_fv()
         result = adapter.evaluate(fv)
-        assert result.model_name == "MeanReversion"
+        assert result.model_name == "Momentum"
 
 
 # ── 3. Feature validation delegation ───────────────────────────────────
@@ -188,16 +185,14 @@ class TestFeatureValidation:
 
 class TestBatchEvaluate:
     def test_returns_float_series(self):
-        model = MeanReversionModel(params=MR_PARAMS)
+        model = MomentumModel(params=MR_PARAMS)
         adapter = LegacyScoringAdapter(model)
         idx = pd.RangeIndex(5)
         df = pd.DataFrame(
             {
-                "RSI": [20, 50, 80, 50, 20],
-                "BollingerBands_upper": [110] * 5,
-                "BollingerBands_lower": [90] * 5,
-                "ADX": [15.0] * 5,
-                "close": [85, 100, 115, 100, 85],
+                "RSI": [60, 50, 30, 50, 60],
+                "MACD_histogram": [0.5, -0.5, -0.5, 0.5, 0.5],
+                "MACD_line": [0.3, 0.3, 0.3, 0.3, 0.3],
             },
             index=idx,
         )

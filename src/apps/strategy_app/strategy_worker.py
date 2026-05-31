@@ -90,6 +90,10 @@ class StrategyWorker(BaseStreamConsumer):
         adapted_outputs = self.model_manager.evaluate_adapted(feature_vec)
         scoring_outputs.extend(adapted_outputs)
 
+        # Native scoring models (migration_mode="scoring")
+        native_scoring_outputs = self.model_manager.evaluate_scoring(feature_vec)
+        scoring_outputs.extend(native_scoring_outputs)
+
         # Shadow comparison logging
         shadow_outputs = self.model_manager.evaluate_shadow(feature_vec)
         self._log_migration_comparison(adapted_outputs, shadow_outputs)

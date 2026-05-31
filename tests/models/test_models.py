@@ -4,6 +4,7 @@ import pytest
 import pandas as pd
 
 from libs.contracts.schemas import FeatureVector, ModelOutput, ParamDef
+from libs.contracts.signal import ScoringOutput
 from libs.models.base import BaseModel, ModelMeta
 from libs.models.registry import ModelRegistry
 from libs.models.mean_reversion import MeanReversionModel
@@ -98,7 +99,7 @@ class TestTemporalGuard:
 class TestMeanReversionEvaluate:
     @pytest.fixture
     def model(self):
-        return MeanReversionModel(params={"rsi_oversold": 30, "rsi_overbought": 70})
+        return MeanReversionModel(params={})
 
     def _make_fv(self, rsi, bb_upper, bb_lower, close, adx=15.0):
         return FeatureVector(
@@ -109,6 +110,8 @@ class TestMeanReversionEvaluate:
                 "RSI": {"value": rsi},
                 "BollingerBands": {"upper": bb_upper, "lower": bb_lower},
                 "ADX": {"adx": adx, "plus_di": 20.0, "minus_di": 15.0},
+                "KAMA_fast": 100.0,
+                "ATR": 2.0,
             },
             bar_data={"close": close, "high": close + 10, "low": close - 10, "volume": 100},
         )
@@ -116,45 +119,43 @@ class TestMeanReversionEvaluate:
     def test_long_signal(self, model):
         fv = self._make_fv(rsi=20, bb_upper=110, bb_lower=95, close=90)
         output = model.evaluate(fv)
-        assert output.direction == 1
-        assert output.conviction > 0
+        assert isinstance(output, ScoringOutput)
+        assert output.edge_score > 0
         assert output.model_name == "MeanReversion"
 
     def test_short_signal(self, model):
         fv = self._make_fv(rsi=80, bb_upper=95, bb_lower=80, close=100)
         output = model.evaluate(fv)
-        assert output.direction == -1
-        assert output.conviction > 0
+        assert isinstance(output, ScoringOutput)
+        assert output.edge_score < 0
 
     def test_flat_signal(self, model):
         fv = self._make_fv(rsi=50, bb_upper=110, bb_lower=90, close=100)
         output = model.evaluate(fv)
-        assert output.direction == 0
-        assert output.conviction == 0.0
+        # Neutral RSI at midband → near-zero edge
+        assert abs(output.edge_score) < 0.5
 
     def test_output_fields(self, model):
         fv = self._make_fv(rsi=50, bb_upper=110, bb_lower=90, close=100)
         output = model.evaluate(fv)
-        assert isinstance(output, ModelOutput)
+        assert isinstance(output, ScoringOutput)
         assert output.asset == "BTCUSDT"
         assert output.timeframe == "1h"
         assert output.timestamp == 1000.0
 
     def test_bb_entry_std_default_matches_original(self):
-        """bb_entry_std=2.0 (default) should produce same signals as original logic."""
-        model = MeanReversionModel(params={"bb_entry_std": 2.0})
+        model = MeanReversionModel(params={})
         fv = self._make_fv(rsi=20, bb_upper=110, bb_lower=90, close=85)
         output = model.evaluate(fv)
-        assert output.direction == 1
+        assert output.edge_score > 0  # Oversold + below lower band
 
     def test_bb_entry_std_wider_suppresses_signal(self):
-        """bb_entry_std > indicator num_std widens bands, making entry harder."""
-        model = MeanReversionModel(params={"bb_entry_std": 3.0})
-        # With default bb_entry_std=2.0, close=89 <= bb_lower=90 triggers long.
-        # With bb_entry_std=3.0, model_lower = 100 - 1.5 * 10 = 85, so 89 > 85 = no signal.
-        fv = self._make_fv(rsi=20, bb_upper=110, bb_lower=90, close=89)
+        """Not applicable to v2 (no bb_entry_std) — replaced with attenuation test."""
+        model = MeanReversionModel(params={})
+        # At midband, edge should be near zero
+        fv = self._make_fv(rsi=50, bb_upper=110, bb_lower=90, close=100)
         output = model.evaluate(fv)
-        assert output.direction == 0
+        assert abs(output.edge_score) < 0.5
 
 
 # ---------------------------------------------------------------------------
@@ -164,10 +165,7 @@ class TestMeanReversionEvaluate:
 class TestMeanReversionBatch:
     @pytest.fixture
     def model(self):
-        """Use holding_period=1 to disable cooldown for basic direction tests."""
-        return MeanReversionModel(params={
-            "rsi_oversold": 30, "rsi_overbought": 70, "holding_period": 1,
-        })
+        return MeanReversionModel(params={})
 
     def test_batch_directions(self, model):
         df = pd.DataFrame({
@@ -175,31 +173,29 @@ class TestMeanReversionBatch:
             "BollingerBands_lower": [95, 90, 80],
             "BollingerBands_upper": [105, 110, 95],
             "close": [90, 100, 100],
+            "KAMA_fast": [100.0, 100.0, 100.0],
+            "ATR": [2.0, 2.0, 2.0],
             "ADX_adx": [15.0, 15.0, 15.0],
         })
         result = model.batch_evaluate(df)
-        assert list(result) == [1, 0, -1]
+        # v2: continuous scores — oversold positive, neutral near-zero, overbought negative
+        assert result.iloc[0] > 0   # RSI=20 → positive edge
+        assert result.iloc[2] < 0   # RSI=80 → negative edge
 
-    def test_batch_holding_period_cooldown(self):
-        """Holding period suppresses direction changes."""
-        model = MeanReversionModel(params={
-            "rsi_oversold": 30, "rsi_overbought": 70,
-            "holding_period": 3,
-        })
+    def test_batch_float_output(self):
+        model = MeanReversionModel(params={})
         df = pd.DataFrame({
             "RSI": [20, 80, 80, 80, 80],
             "BollingerBands_lower": [95, 80, 80, 80, 80],
             "BollingerBands_upper": [105, 95, 95, 95, 95],
             "close": [90, 100, 100, 100, 100],
+            "KAMA_fast": [100.0, 100.0, 100.0, 100.0, 100.0],
+            "ATR": [2.0, 2.0, 2.0, 2.0, 2.0],
             "ADX_adx": [15.0, 15.0, 15.0, 15.0, 15.0],
         })
         result = model.batch_evaluate(df)
-        # Bar 0: long signal, first entry — no cooldown (no prior direction)
-        # Bar 1: short signal, direction reversal from 1→-1, cooldown = 2
-        # Bar 2: cooldown active, held at -1
-        # Bar 3: cooldown active, held at -1
-        # Bar 4: short signal, same direction — no cooldown
-        assert list(result) == [1, -1, -1, -1, -1]
+        import numpy as np
+        assert result.dtype == np.float64
 
 
 # ---------------------------------------------------------------------------
@@ -210,7 +206,7 @@ class TestValidateFeatures:
     def test_all_present(self):
         model = MeanReversionModel(params={})
         missing = model.validate_features(
-            {"RSI", "BollingerBands", "ADX"}
+            {"RSI", "BollingerBands", "ADX", "KAMA_fast", "ATR"}
         )
         assert missing == []
 
@@ -221,8 +217,8 @@ class TestValidateFeatures:
 
     def test_defaults_applied(self):
         model = MeanReversionModel(params={})
-        assert model.params["rsi_oversold"] == 30
-        assert model.params["rsi_overbought"] == 70
+        assert model.params["rsi_scale"] == 15.0
+        assert model.params["w_rsi"] == 0.4
 
 
 # ---------------------------------------------------------------------------

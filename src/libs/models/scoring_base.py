@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from abc import abstractmethod
+
+import pandas as pd
+
+from libs.contracts.schemas import FeatureVector
+from libs.contracts.signal import ScoringOutput
 from libs.models.base import BaseModel
 
 
@@ -13,4 +19,10 @@ class ScoringModel(BaseModel):
     Subclasses must implement evaluate() and _batch_evaluate_impl().
     """
 
-    pass
+    @abstractmethod
+    def evaluate(self, features: FeatureVector) -> ScoringOutput:  # type: ignore[override]
+        ...
+
+    @abstractmethod
+    def _batch_evaluate_impl(self, feature_df: pd.DataFrame) -> pd.Series:
+        ...

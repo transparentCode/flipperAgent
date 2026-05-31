@@ -84,6 +84,7 @@ def _make_model_manager(model_configs: dict[str, Any]):
         mgr.config_mgr = MagicMock()
         mgr.models = []
         mgr.adapted_models = []
+        mgr.scoring_models = []
         mgr.shadow_models = []
         mgr._resolve_config_node = mock_resolve
         mgr._load_models()
