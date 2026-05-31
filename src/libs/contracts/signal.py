@@ -5,6 +5,47 @@ from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field
 
 
+class StreamOHLCVPayload(BaseModel):
+    """Pydantic validation for incoming stream:ohlcv:{symbol}:{tf} payloads.
+
+    Published by the ingestion layer, consumed by SignalWorker.
+    """
+    exchange: str = Field(default="", description="Source exchange identifier")
+    symbol: str = Field(default="", description="Trading pair symbol")
+    timeframe: str = Field(default="", description="Candle timeframe")
+    timestamp: float = Field(..., description="Candle open timestamp (seconds or ms)")
+    open: float = Field(..., description="Open price")
+    high: float = Field(..., description="High price")
+    low: float = Field(..., description="Low price")
+    close: float = Field(..., description="Close price")
+    volume: float = Field(..., description="Trade volume")
+    taker_buy_base: float = Field(default=0.0, description="Taker buy base volume")
+    bar_closed: bool = Field(default=True, description="Whether the bar is closed")
+    ingestion_timestamp: float = Field(default=0.0, description="Ingestion timestamp (ms epoch)")
+
+
+class StreamFeaturePayload(BaseModel):
+    """Stream transport wrapper for FeatureVector — published on features:{asset}:{tf}."""
+    asset: str
+    timeframe: str
+    timestamp: float
+    features: dict[str, Any] = Field(default_factory=dict)
+    bar_data: dict[str, float] = Field(default_factory=dict)
+
+
+class StreamSignalPayload(BaseModel):
+    """Stream transport wrapper for TradeSignal — published on signals:{asset}:{tf}."""
+    asset: str
+    timeframe: str
+    timestamp: float
+    direction: int
+    conviction: float = Field(default=1.0)
+    price: float
+    idempotency_key: str
+    model_name: str = Field(default="")
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class TradeSignal(BaseModel):
     asset: str = Field(..., description="The asset symbol")
     timeframe: str = Field(..., description="The timeframe")
@@ -92,6 +133,7 @@ class PriceUpdate(BaseModel):
 
 
 __all__ = [
+    "StreamOHLCVPayload", "StreamFeaturePayload", "StreamSignalPayload",
     "TradeSignal", "FeatureVector", "ModelOutput", "ParamDef",
     "ScoringOutput", "SelectionCandidate", "SelectionResult", "PriceUpdate",
 ]

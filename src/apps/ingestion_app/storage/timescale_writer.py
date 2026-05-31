@@ -16,9 +16,9 @@ class TimescaleWriter:
         if not records:
             return
 
-        columns = ["timestamp", "symbol", "timeframe", "open", "high", "low", "close", "volume"]
+        columns = ["timestamp", "symbol", "timeframe", "open", "high", "low", "close", "volume", "taker_buy_base"]
         tuples = [
-            (r.timestamp, r.symbol, timeframe, r.open, r.high, r.low, r.close, r.volume)
+            (r.timestamp, r.symbol, timeframe, r.open, r.high, r.low, r.close, r.volume, r.taker_buy_base)
             for r in records
         ]
 
@@ -26,14 +26,15 @@ class TimescaleWriter:
             if len(tuples) < _COPY_THRESHOLD:
                 query = f"""
                 INSERT INTO {TABLE_OHLCV} ({', '.join(columns)})
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 ON CONFLICT (timestamp, symbol, timeframe)
                 DO UPDATE SET
                     open = EXCLUDED.open,
                     high = EXCLUDED.high,
                     low = EXCLUDED.low,
                     close = EXCLUDED.close,
-                    volume = EXCLUDED.volume;
+                    volume = EXCLUDED.volume,
+                    taker_buy_base = EXCLUDED.taker_buy_base;
                 """
                 await conn.executemany(query, tuples)
             else:

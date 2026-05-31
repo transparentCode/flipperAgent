@@ -32,7 +32,7 @@ class FeatureManager:
     def indicators(self) -> list[Indicator]:
         return [ind for _, ind in self._indicator_entries]
         
-    async def fetch_historical_db_records(self, max_lookback: int) -> Sequence[Tuple[float, float, float, float, float, float]]:
+    async def fetch_historical_db_records(self, max_lookback: int) -> Sequence[Tuple[float, ...]]:
         """
         Mock DB historical fetch injected dependency or default stub.
         In reality, this queries TimescaleDB to get the last `max_lookback` bars before accepting live updates.
@@ -75,15 +75,24 @@ class FeatureManager:
             except Exception as e:
                 logger.error(f"Error instantiating '{config_key}': {e}", exc_info=True)
 
-    def _get_mapped_input(self, ind: Indicator, data: Tuple[float, float, float, float, float, float]) -> Any:
+    def _get_mapped_input(self, ind: Indicator, data: Tuple[float, float, float, float, float, float, ...]) -> Any:
         hints = get_type_hints(ind.update)
         new_value_type = hints.get("new_value")
+
+        # Dict-input indicators (microstructure: KyleLambda, TFI, VPIN)
+        type_str = str(new_value_type)
+        if "dict" in type_str:
+            return {
+                "open": data[0], "high": data[1], "low": data[2],
+                "close": data[3], "volume": data[4],
+                "taker_buy_base": data[6] if len(data) > 6 else 0.0,
+            }
+
         # Heuristics based on type
         if new_value_type is float:
             return data[3]  # close
         
         # Disambiguate by counting commas in the type string
-        type_str = str(new_value_type)
         comma_count = type_str.count(",")
         if comma_count >= 4:  # 5+ floats = HLCV + timestamp (e.g. VWAP)
             return data[1:6]
@@ -95,14 +104,14 @@ class FeatureManager:
         # fallback to close if undetermined, or just pass full data
         return data[3]
 
-    def _get_mapped_historical_inputs(self, ind: Indicator, historical_data: Sequence[Tuple[float, float, float, float, float, float]]) -> List[Any]:
+    def _get_mapped_historical_inputs(self, ind: Indicator, historical_data: Sequence[Tuple[float, ...]]) -> List[Any]:
         # Maps the entire sequence
         return [self._get_mapped_input(ind, d) for d in historical_data]
 
-    def prime(self, historical_data: Sequence[Tuple[float, float, float, float, float, float]]) -> None:
+    def prime(self, historical_data: Sequence[Tuple[float, ...]]) -> None:
         """
         Pre-warms the live internal state.
-        historical_data: list of (open, high, low, close, volume, timestamp)
+        historical_data: list of (open, high, low, close, volume, timestamp[, taker_buy_base])
         """
         for output_key, ind in self._indicator_entries:
             try:
@@ -113,9 +122,9 @@ class FeatureManager:
                 logger.error(f"Error priming '{output_key}': {e}")
                 ind._is_primed = False
 
-    def process_tick(self, data: Tuple[float, float, float, float, float, float]) -> Dict[str, Any]:
+    def process_tick(self, data: Tuple[float, ...]) -> Dict[str, Any]:
         """
-        Accepts incoming (open, high, low, close, volume, timestamp) tuple.
+        Accepts incoming (open, high, low, close, volume, timestamp[, taker_buy_base]) tuple.
         """
         results = {}
         for output_key, ind in self._indicator_entries:

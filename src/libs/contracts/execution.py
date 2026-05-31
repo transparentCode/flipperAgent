@@ -6,6 +6,13 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 
+def _safe_float(val: Any, default: float = 0.0) -> float:
+    """Convert a value to float, handling None and the string ``"None"``."""
+    if val is None or val == "None":
+        return default
+    return float(val)
+
+
 class OrderExecutionRequest(BaseModel):
     asset: str = Field(..., description="The asset symbol")
     side: str = Field(..., description="buy or sell")
@@ -69,4 +76,29 @@ __all__ = [
     "OrderStatus",
     "OrderFill",
     "ExecutionReport",
+    "decode_execution_report",
 ]
+
+
+def decode_execution_report(payload: dict) -> ExecutionReport:
+    """Shared decoder for Valkey flat-map payloads → ExecutionReport.
+
+    Handles Binance quirks where some numeric fields arrive as the string
+    ``"None"`` by coercing them to ``0.0`` before Pydantic validation.
+    """
+    from libs.contracts.serialization import valkey_decode
+
+    # Pre-fix numeric fields that Binance may send as literal "None".
+    _NUMERIC_FIELDS = (
+        "requested_size", "filled_size", "requested_price",
+        "average_fill_price", "slippage_bps", "timestamp",
+    )
+    coerced: dict[str, Any] = {}
+    for k, v in payload.items():
+        key = k.decode("utf-8") if isinstance(k, bytes) else k
+        val = v.decode("utf-8") if isinstance(v, bytes) else v
+        if key in _NUMERIC_FIELDS:
+            coerced[key] = str(_safe_float(val))
+        else:
+            coerced[key] = val
+    return valkey_decode(coerced, ExecutionReport)

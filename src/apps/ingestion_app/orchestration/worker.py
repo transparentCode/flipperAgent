@@ -41,7 +41,7 @@ async def startup(ctx: Dict[str, Any]) -> None:
         ctx["ccxt_adapter"] = ccxt_gateway
 
         # Initialize Shared DB pools
-        await DBPoolManager.init_pools()
+        await DBPoolManager.init_pools(config_manager=config_manager)
 
         # Valkey client + coordinator for cross-service state management
         valkey_client = await create_valkey_client(config_manager)

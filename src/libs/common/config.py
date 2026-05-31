@@ -172,6 +172,99 @@ class ConfigManager:
             
         return {}
 
+    # ------------------------------------------------------------------
+    # Cross-config validation
+    # ------------------------------------------------------------------
+
+    def validate_feature_model_alignment(self) -> list[str]:
+        """Cross-validate features.yaml vs models.yaml at startup.
+
+        Returns a list of warning strings describing:
+        1. Models whose required_indicators are missing from features.yaml.
+        2. Feature asset/timeframe combos with no active model consumer.
+        """
+        warnings: list[str] = []
+
+        models_config = self.get("models", {})
+        models_assets = models_config.get("assets", {})
+
+        features_config = self.get("features", {})
+        features_assets = features_config.get("assets", {})
+
+        # ---- Helper: resolve available feature names for a given asset/tf ----
+        def _resolve_features(asset: str, timeframe: str) -> set[str]:
+            """Replicate the fallback chain for features."""
+            fa = features_assets.get(asset, {})
+            da = features_assets.get("default", {})
+
+            tf_node = fa.get("timeframes", {}).get(timeframe, {})
+            asset_def_tf = fa.get("timeframes", {}).get("default", {})
+            def_tf = da.get("timeframes", {}).get(timeframe, {})
+            def_def_tf = da.get("timeframes", {}).get("default", {})
+
+            merged: dict[str, Any] = {}
+            for node in (def_def_tf, def_tf, asset_def_tf, tf_node):
+                merged.update(node)
+
+            names = set(merged.keys())
+            for key, cfg in merged.items():
+                if isinstance(cfg, dict) and "type" in cfg:
+                    names.add(cfg["type"])
+            return names
+
+        # ---- 1. Check each enabled model's required_indicators ----
+        # Lazy import to avoid circular dependency at module load time
+        from libs.models.registry import ModelRegistry
+
+        model_consumer_combos: set[tuple[str, str]] = set()
+
+        for asset, asset_node in models_assets.items():
+            if asset == "default":
+                continue
+            for tf, tf_node in asset_node.get("timeframes", {}).items():
+                if tf == "default":
+                    continue
+                has_enabled = False
+                for model_name, model_cfg in tf_node.items():
+                    if not isinstance(model_cfg, dict):
+                        continue
+                    if not model_cfg.get("enabled", True):
+                        continue
+                    has_enabled = True
+
+                    try:
+                        model_cls = ModelRegistry.get(model_name)
+                    except KeyError:
+                        continue  # unknown model — already warned elsewhere
+                    required = getattr(model_cls.meta, "required_indicators", [])
+                    available = _resolve_features(asset, tf)
+                    missing = [ind for ind in required if ind not in available]
+                    if missing:
+                        warnings.append(
+                            f"Model '{model_name}' for {asset}/{tf} requires "
+                            f"{missing} but features.yaml does not provide them."
+                        )
+                if has_enabled:
+                    model_consumer_combos.add((asset, tf))
+
+        # ---- 2. Features with no model consumer ----
+        for asset, asset_node in features_assets.items():
+            if asset == "default":
+                continue
+            for tf in asset_node.get("timeframes", {}).keys():
+                if tf == "default":
+                    continue
+                if (asset, tf) not in model_consumer_combos:
+                    warnings.append(
+                        f"Features configured for {asset}/{tf} but no "
+                        f"enabled model consumes them (standby)."
+                    )
+
+        for w in warnings:
+            logger.warning(w)
+
+        return warnings
+
     def get_parsed(self, key_path: str, model_class: type[T]) -> Optional[T]:
         """Get a value parsed into a Pydantic model. Logs a warning on failure."""
         val = self.get(key_path)

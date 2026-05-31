@@ -16,6 +16,7 @@ from libs.contracts.schemas import (
     EquityPoint,
     ExecutionReport,
     OrderStatus,
+    decode_execution_report,
     valkey_decode,
 )
 from libs.portfolio.equity_curve import EquityCurveBuilder
@@ -223,4 +224,4 @@ class PortfolioWorker(BaseStreamConsumer):
     @staticmethod
     def _decode_report(payload: dict) -> ExecutionReport:
         """Decode a Valkey flat-map payload into an ExecutionReport."""
-        return valkey_decode(payload, ExecutionReport)
+        return decode_execution_report(payload)

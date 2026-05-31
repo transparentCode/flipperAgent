@@ -109,6 +109,7 @@ async def run_websocket_pipeline(
                             low=float(kline["l"]),
                             close=float(kline["c"]),
                             volume=float(kline["v"]),
+                            taker_buy_base=float(kline.get("Q", 0.0)),
                             is_closed=is_closed
                         )
 
@@ -132,6 +133,7 @@ async def run_websocket_pipeline(
                                 "low": str(record.low),
                                 "close": str(record.close),
                                 "volume": str(record.volume),
+                                "taker_buy_base": str(record.taker_buy_base),
                                 "bar_closed": "True",
                                 "ingestion_timestamp": str(now_utc)
                             }
@@ -203,7 +205,7 @@ async def lifespan(app: FastAPI):
     )
 
     logger.info("Initializing DB pools...")
-    await DBPoolManager.init_pools()
+    await DBPoolManager.init_pools(config_manager=config_manager)
 
     logger.info("Connecting to ARQ redis...")
     arq_pool = await create_pool(redis_settings)

@@ -9,6 +9,7 @@ from libs.common.config import ConfigManager
 from libs.common.exceptions import DataIngestionError
 from apps.ingestion_app.constants import (
     OHLCV_COLUMNS,
+    OHLCV_TAKER_COLUMNS,
     BINANCE_KLINE_STREAM_TEMPLATE,
     BINANCE_RAW_KLINE_COLUMNS,
 )
@@ -29,9 +30,10 @@ class BinanceNativeAdapter(BaseExchangeAdapter):
             return pd.DataFrame(columns=OHLCV_COLUMNS)
 
         df.columns = BINANCE_RAW_KLINE_COLUMNS
-        df = df[OHLCV_COLUMNS]
+        df = df[OHLCV_TAKER_COLUMNS].copy()
+        df.rename(columns={'taker_buy_base_asset_volume': 'taker_buy_base'}, inplace=True)
         
-        for col in OHLCV_COLUMNS:
+        for col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
         return df

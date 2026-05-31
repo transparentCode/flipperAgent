@@ -30,6 +30,7 @@ class TestModelManager:
             "RSI", "BollingerBands", "MACD", "EMA", "ATR",
             "KAMA_fast", "KAMA_slow", "KeltnerChannel", "LinReg",
             "CCI", "ADX", "ADLine", "MFI", "Momentum",
+            "KyleLambda", "TFI", "VPIN",
         })
 
     def test_validate_feature_coverage_fail(self):

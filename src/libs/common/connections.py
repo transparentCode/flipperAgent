@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from typing import Any
 
@@ -14,6 +15,9 @@ from libs.common.logging.logger_utils import bind_logger
 
 logger = bind_logger(__name__, system_component=SystemComponent.CORE_INFRASTRUCTURE)
 
+_VALKEY_CONNECT_RETRIES = 3
+_VALKEY_RETRY_DELAYS = [1, 2, 4]  # exponential backoff seconds
+
 
 async def create_valkey_client(
     config_mgr: ConfigManager | None = None,
@@ -25,6 +29,8 @@ async def create_valkey_client(
       2. ``REDIS_URI``  env var  (legacy compat)
       3. ``valkey.uri`` from config YAML
       4. Hardcoded fallback ``redis://localhost:6379/0``
+
+    Retries up to 3 times with exponential backoff (1s, 2s, 4s) on connection failure.
     """
     uri = os.getenv("VALKEY_URI") or os.getenv("REDIS_URI")
     if not uri:
@@ -34,11 +40,26 @@ async def create_valkey_client(
 
     _masked_uri = uri.split('@')[-1] if '@' in uri else uri
     logger.info(f"Connecting Valkey client → ...@{_masked_uri}")
-    client: valkey.Valkey = valkey.Valkey.from_url(uri, decode_responses=True)
-    # Verify connectivity
-    await client.ping()
-    logger.info("Valkey client connected")
-    return client
+
+    last_err: Exception | None = None
+    for attempt in range(_VALKEY_CONNECT_RETRIES):
+        try:
+            client: valkey.Valkey = valkey.Valkey.from_url(uri, decode_responses=True)
+            await client.ping()
+            logger.info("Valkey client connected")
+            return client
+        except Exception as e:
+            last_err = e
+            delay = _VALKEY_RETRY_DELAYS[attempt] if attempt < len(_VALKEY_RETRY_DELAYS) else _VALKEY_RETRY_DELAYS[-1]
+            logger.warning(
+                f"Valkey connection attempt {attempt + 1}/{_VALKEY_CONNECT_RETRIES} failed: {e}. "
+                f"Retrying in {delay}s..."
+            )
+            await asyncio.sleep(delay)
+
+    raise ConnectionError(
+        f"Failed to connect to Valkey after {_VALKEY_CONNECT_RETRIES} attempts: {last_err}"
+    )
 
 
 async def init_db_pools(config_mgr: ConfigManager | None = None) -> None:

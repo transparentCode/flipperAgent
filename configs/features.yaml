@@ -45,6 +45,18 @@ features:
           ADLine: {}
           Momentum:
             period: 10
+          KyleLambda:
+            smooth: 24
+            lookback: 200
+            informed_z: 1.0
+            noise_z: -0.5
+          TFI:
+            smooth: 5
+            zscore_window: 100
+          VPIN:
+            bucket_multiplier: 1.0
+            n_buckets: 50
+            zscore_window: 200
         4h:
           MACD:
             fast_period: 12
@@ -89,6 +101,8 @@ features:
           Momentum:
             period: 10
     ETHUSDT:
+      # Note: ETHUSDT/1d not configured here — no model consumer for that timeframe.
+      # Only 4h has an active model consumer (MeanReversion, Momentum).
       timeframes:
         4h:
           RSI:

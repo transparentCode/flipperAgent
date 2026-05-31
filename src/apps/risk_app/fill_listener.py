@@ -13,6 +13,7 @@ from libs.contracts.schemas import (
     OrderFill,
     OrderStatus,
     PositionState,
+    decode_execution_report,
     valkey_decode,
 )
 from libs.risk.account_state import AccountState
@@ -173,4 +174,4 @@ class FillListener(BaseStreamConsumer):
     @staticmethod
     def _decode_execution_report(payload: dict) -> ExecutionReport:
         """Decode a Valkey flat-map payload into an ExecutionReport."""
-        return valkey_decode(payload, ExecutionReport)
+        return decode_execution_report(payload)

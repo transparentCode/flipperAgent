@@ -11,6 +11,8 @@ from libs.common.logging.logger_utils import bind_logger
 
 logger = bind_logger(__name__)
 
+_DEFAULT_CIRCUIT_BREAKER_THRESHOLD = 50
+
 
 async def ensure_consumer_group(
     client: Any,
@@ -128,6 +130,8 @@ class BaseStreamConsumer(abc.ABC):
             logger.warning(f"PEL drain failed for {self.stream_key} — skipping, proceeding to live stream", exc_info=True)
 
         streams = {self.stream_key: ">"}
+        consecutive_failures = 0
+        circuit_breaker_threshold = _DEFAULT_CIRCUIT_BREAKER_THRESHOLD
 
         while True:
             try:
@@ -177,9 +181,20 @@ class BaseStreamConsumer(abc.ABC):
                             logger.exception(
                                 f"Error processing message {message_id} from {self.stream_key} — not acking, message will remain in PEL for redelivery"
                             )
+
+                # Successful iteration — reset circuit breaker
+                consecutive_failures = 0
+
             except asyncio.CancelledError:
                 logger.info(f"Consumer {self.consumer_name} cancelled")
                 break
             except Exception:
-                logger.exception(f"Stream read error on {self.stream_key}")
+                consecutive_failures += 1
+                logger.exception(f"Stream read error on {self.stream_key} (consecutive failures: {consecutive_failures})")
+                if consecutive_failures >= circuit_breaker_threshold:
+                    logger.critical(
+                        f"Circuit breaker tripped for {self.stream_key}: "
+                        f"{consecutive_failures} consecutive failures. Breaking consumer loop."
+                    )
+                    break
                 await asyncio.sleep(1)

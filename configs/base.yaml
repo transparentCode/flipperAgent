@@ -18,9 +18,9 @@ ingestion:
     - DOGEUSDT
     publish_timeframes:
       BTCUSDT: ["30m","1h", "4h"]
-      ETHUSDT: ["30m","1h", "4h"]
+      ETHUSDT: ["30m","1h", "4h"]  # standby — ETHUSDT/1d not configured; no model consumer for 30m, 1h
       XRPUSDT: ["30m","1h", "4h"]
-      SOLUSDT: ["30m","1h", "4h"]
+      SOLUSDT: ["30m","1h", "4h"]  # standby — SOLUSDT/15m not configured; no model consumer for 30m, 4h
       BNBUSDT: ["30m","1h", "4h"]
       DOGEUSDT: ["30m","1h", "4h"]
   concurrency:

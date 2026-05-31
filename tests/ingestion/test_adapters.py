@@ -21,5 +21,6 @@ async def test_binance_native_adapter_structure():
         
         assert isinstance(df, pd.DataFrame)
         assert not df.empty
-        assert list(df.columns) == ['timestamp', 'open', 'high', 'low', 'close', 'volume']
+        assert list(df.columns) == ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'taker_buy_base']
         assert df.iloc[0]['close'] == 29050.0
+        assert df.iloc[0]['taker_buy_base'] == 700.0

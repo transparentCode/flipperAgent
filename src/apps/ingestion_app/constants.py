@@ -3,6 +3,7 @@ Constants for ingestion adapters.
 """
 
 OHLCV_COLUMNS = ['timestamp', 'open', 'high', 'low', 'close', 'volume']
+OHLCV_TAKER_COLUMNS = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'taker_buy_base_asset_volume']
 BINANCE_RAW_KLINE_COLUMNS = [
     'timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time', 
     'quote_asset_volume', 'number_of_trades', 'taker_buy_base_asset_volume', 

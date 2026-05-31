@@ -10,6 +10,7 @@ class OHLCVRecord(BaseDataModel):
     low: float = Field(gt=0, validation_alias=AliasChoices("low", "l"))
     close: float = Field(gt=0, validation_alias=AliasChoices("close", "c"))
     volume: float = Field(ge=0, validation_alias=AliasChoices("volume", "v", "vol"))
+    taker_buy_base: float = Field(default=0.0, ge=0, validation_alias=AliasChoices("taker_buy_base", "Q"))
     is_closed: bool = False
 
     @model_validator(mode="after")

@@ -78,5 +78,13 @@ async def _run() -> None:
         await DBPoolManager.close_pools()
 
 
+def main() -> None:
+    asyncio.run(_run())
+
+
+if __name__ == "__main__":
+    main()
+
+
 if __name__ == "__main__":
     asyncio.run(_run())

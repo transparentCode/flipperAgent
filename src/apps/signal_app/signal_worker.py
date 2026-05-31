@@ -12,9 +12,23 @@ from libs.common.logging.logger_utils import bind_logger
 from libs.features.engineered.manager import EngineeredFeatureManager
 from libs.common.enums import SystemComponent
 from libs.common.stream_consumer import BaseStreamConsumer
-from libs.contracts.schemas import FeatureVector, PriceUpdate, valkey_encode
+from libs.contracts.schemas import FeatureVector, PriceUpdate, StreamOHLCVPayload, valkey_encode
 
 logger = bind_logger(__name__, system_component=SystemComponent.SIGNAL_APP)
+
+
+def _parse_timeframe_seconds(timeframe: str) -> int:
+    """Convert a timeframe string like '1m', '4h', '1d' to seconds."""
+    units = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
+    if not timeframe:
+        return 60
+    suffix = timeframe[-1].lower()
+    try:
+        value = int(timeframe[:-1])
+    except (ValueError, IndexError):
+        return 60
+    return value * units.get(suffix, 60)
+
 
 _config = ConfigManager()
 # Short names derived from configured indices ("EXCHANGE:NAME" → "NAME")
@@ -71,6 +85,8 @@ class SignalWorker(BaseStreamConsumer):
         self.engineered_manager = EngineeredFeatureManager(asset, timeframe)
         self._price_history: list[dict[str, float]] = []
         self._regime_orchestrator: Any = None
+        self._last_processed_ts: float | None = None
+        self._expected_interval_ms: float = _parse_timeframe_seconds(timeframe) * 1000
 
     async def start(self):
         logger.info(f"Starting signal worker for {self.asset} {self.timeframe}...")
@@ -122,18 +138,38 @@ class SignalWorker(BaseStreamConsumer):
 
         if is_closed in ("true", "True", "1", True):
             try:
-                open_ = float(payload["open"])
-                high = float(payload["high"])
-                low = float(payload["low"])
-                close = float(payload["close"])
-                volume = float(payload["volume"])
-                timestamp = float(payload["timestamp"])
+                # Validate incoming payload via Pydantic contract
+                try:
+                    ohlcv = StreamOHLCVPayload.model_validate(payload)
+                except Exception as val_err:
+                    logger.warning(f"Invalid OHLCV payload, skipping: {val_err}")
+                    return
+
+                open_ = ohlcv.open
+                high = ohlcv.high
+                low = ohlcv.low
+                close = ohlcv.close
+                volume = ohlcv.volume
+                taker_buy_base = ohlcv.taker_buy_base
+                timestamp = ohlcv.timestamp
 
                 # Ensure timestamp is in milliseconds
                 if timestamp < 1e12:
                     timestamp = int(timestamp * 1000)
 
-                data_tuple = (open_, high, low, close, volume, timestamp)
+                # --- Gap detection: re-prime indicators if timestamp jump detected ---
+                if self._last_processed_ts is not None:
+                    gap_ms = timestamp - self._last_processed_ts
+                    if gap_ms > 2 * self._expected_interval_ms:
+                        logger.warning(
+                            f"Gap detected for {self.asset}:{self.timeframe}: "
+                            f"{gap_ms / 1000:.0f}s since last bar (expected ~{self._expected_interval_ms / 1000:.0f}s). "
+                            f"Re-priming indicators from DB."
+                        )
+                        await self._reprime_after_gap()
+                self._last_processed_ts = timestamp
+
+                data_tuple = (open_, high, low, close, volume, timestamp, taker_buy_base)
                 logger.debug(f"Dispatching tick {data_tuple} to FeatureManager")
                 
                 # Update features
@@ -158,7 +194,7 @@ class SignalWorker(BaseStreamConsumer):
 
                 engineered = self.engineered_manager.compute(results, {
                     "open": open_, "high": high, "low": low,
-                    "close": close, "volume": volume,
+                    "close": close, "volume": volume, "taker_buy_base": taker_buy_base,
                 }, index_data=index_data if index_data else None)
                 results.update(engineered)
 
@@ -186,7 +222,7 @@ class SignalWorker(BaseStreamConsumer):
                         timeframe=self.timeframe,
                         timestamp=timestamp,
                         features=results,
-                        bar_data={"open": open_, "high": high, "low": low, "close": close, "volume": volume},
+                        bar_data={"open": open_, "high": high, "low": low, "close": close, "volume": volume, "taker_buy_base": taker_buy_base},
                     )
                     await self.redis_client.xadd(feature_stream, valkey_encode(fv), maxlen=10000, approximate=True)
 
@@ -207,4 +243,28 @@ class SignalWorker(BaseStreamConsumer):
                 
             except Exception as e:
                 logger.error(f"Failed to parse or process payload {payload}: {e}")
+
+    async def _reprime_after_gap(self) -> None:
+        """Re-prime indicators by fetching fresh historical data from DB after a gap."""
+        max_lookback = 1
+        for ind in self.feature_manager.indicators:
+            max_lookback = max(max_lookback, ind.lookback_required)
+        try:
+            history = await self.feature_manager.fetch_historical_db_records(max_lookback)
+            if history:
+                self.feature_manager.prime(history)
+                # Also rebuild regime price history
+                if self._regime_orchestrator is not None:
+                    self._price_history = [
+                        {"open": bar[0], "high": bar[1], "low": bar[2],
+                         "close": bar[3], "volume": bar[4]}
+                        for bar in history
+                    ]
+                logger.info(f"Re-primed {len(self.feature_manager.indicators)} indicators "
+                            f"with {len(history)} bars after gap for {self.asset}:{self.timeframe}")
+            else:
+                logger.warning(f"No history returned for re-priming {self.asset}:{self.timeframe}")
+        except Exception:
+            logger.error(f"Failed to re-prime indicators after gap for {self.asset}:{self.timeframe}",
+                         exc_info=True)
 

@@ -52,6 +52,25 @@ models:
             migration_mode: scoring
             params:
               swing_lookback: 5
+          KyleTFI:
+            enabled: true
+            params:
+              kyle_smooth: 24
+              kyle_lookback: 200
+              informed_z_threshold: 1.25
+              tfi_z_long: 1.0
+              tfi_z_short: -1.0
+              atr_tp_mult: 3.0
+              atr_sl_mult: 2.0
+          VPINKyle:
+            enabled: true
+            params:
+              vpin_z_threshold: 1.25
+              kyle_z_threshold: 1.0
+              buy_ratio_long: 0.58
+              buy_ratio_short: 0.42
+              atr_tp_mult: 2.0
+              atr_sl_mult: 1.5
         4h:
           MeanReversion:
             enabled: true

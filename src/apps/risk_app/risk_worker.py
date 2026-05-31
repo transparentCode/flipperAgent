@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import time
 from typing import Any
 
 from libs.common.enums import SystemComponent
@@ -98,6 +97,8 @@ class RiskWorker(BaseStreamConsumer):
         signal_streams = {key: ">" for key in self.signal_stream_keys}
         price_streams = {key: ">" for key in self.price_stream_keys}
         price_stream_set = set(self.price_stream_keys)
+        consecutive_failures = 0
+        circuit_breaker_threshold = self.risk_config.get("circuit_breaker_threshold", 50)
 
         while True:
             try:
@@ -185,10 +186,20 @@ class RiskWorker(BaseStreamConsumer):
                 for sname, mid in ack_items:
                     await self.redis_client.xack(sname, self.group_name, mid)
 
+                # Successful iteration — reset circuit breaker
+                consecutive_failures = 0
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error in risk worker loop: {e}", exc_info=True)
+                consecutive_failures += 1
+                logger.error(f"Error in risk worker loop: {e} (consecutive failures: {consecutive_failures})", exc_info=True)
+                if consecutive_failures >= circuit_breaker_threshold:
+                    logger.critical(
+                        f"Circuit breaker tripped for risk worker {self.asset}: "
+                        f"{consecutive_failures} consecutive failures. Breaking consumer loop."
+                    )
+                    break
                 await asyncio.sleep(1)
 
     async def process_message(self, message_id: str, data: dict[str, str]) -> None:
@@ -260,7 +271,7 @@ class RiskWorker(BaseStreamConsumer):
         # Drop signals older than signal_timeout_seconds
         timeout_secs = self.risk_config.get("mtf", {}).get("signal_timeout_seconds", 300)
         if timeout_secs > 0:
-            now = time.time()
+            now = max(s.timestamp for s in signals)
             fresh = [s for s in signals if now - s.timestamp <= timeout_secs]
             if len(fresh) < len(signals):
                 logger.warning(
