@@ -1,0 +1,78 @@
+defaults:
+  hmm_retrain_window: 1000
+  vol_lookback: 168
+  vol_high_percentile: 70
+  bcpd_hazard_lambda: 150
+  bcpd_signal_threshold: 0.35
+  hurst_lookback: 100
+  min_dwell_bars: 5
+  bcpd_hazard_shape: 1.0
+  bcpd_multichannel: true
+  bcpd_zscore_max_window: 2000
+  bcpd_zscore_clip: 5.0
+  hmm_n_states: 0
+  hmm_max_states: 4
+  hmm_covariance_type: full
+  hmm_robust_scoring: true
+  hmm_student_df: 5.0
+  hmm_crisis_vol_mult: 2.0
+  hmm_log_vol_lookback: 24
+  vol_hysteresis_band: 2.0
+  vol_rank_window: 1000
+  agg_direction_period: 20
+  agg_bull_roc_thresh: 0.02
+  agg_vol_squeeze_pct: 30.0
+  cp_position_decay: 0.5
+  roc_std_window: 100
+  hilbert_min_period: 10
+  hilbert_max_period: 40
+  hilbert_stability_bars: 10
+  position_scale:
+    CLEAN_TREND_BULL: 1.0
+    CLEAN_TREND_BEAR: -1.0
+    CLEAN_TREND_FLAT: 0.0
+    VOLATILE_TREND_BULL: 0.6
+    VOLATILE_TREND_BEAR: -0.6
+    VOLATILE_TREND_FLAT: 0.0
+    QUIET_MR_RANGE: 0.3
+    QUIET_MR_SQUEEZE: 0.0
+    CHOPPY: 0.0
+  market_structure_gap_attenuation: 0.3
+  market_structure_gap_threshold_mult: 2.0
+  mtf_higher_tf: ''
+  mtf_higher_tf_weight: 0.4
+  mtf_conflict_penalty: 0.5
+  mtf_confirmation_boost: 1.2
+assets:
+  BTCUSDT:
+    1h:
+      bcpd_hazard_lambda: 64.96057148348952
+      bcpd_signal_threshold: 0.4012634857133401
+      vol_high_percentile: 77.82334142722245
+      vol_lookback: 246
+      hmm_retrain_window: 1776
+      hurst_lookback: 182
+      min_dwell_bars: 5
+      agg_direction_period: 12
+      agg_bull_roc_thresh: 0.012279447600155114
+      agg_vol_squeeze_pct: 42.215784524589715
+      hilbert_min_period: 40
+      hilbert_max_period: 134
+    30m:
+      bcpd_hazard_lambda: 274.6661176809605
+      bcpd_signal_threshold: 0.40992128148902884
+      vol_high_percentile: 69.62481593208831
+      vol_lookback: 54
+      hmm_retrain_window: 489
+      hurst_lookback: 82
+      min_dwell_bars: 5
+      agg_direction_period: 12
+      agg_bull_roc_thresh: 0.048172701269984755
+      agg_vol_squeeze_pct: 18.6668119540733
+      hilbert_min_period: 26
+      hilbert_max_period: 146
+  SUIUSDT:
+    1h:
+      vol_high_percentile: 75
+  TAOUSDT:
+    1h: {}

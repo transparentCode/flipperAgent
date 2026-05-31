@@ -1,0 +1,33 @@
+{
+  "BTCUSDT_1h": {
+    "params": {
+      "bcpd_alpha": 0.4672895378325451,
+      "bcpd_beta": 0.036826498377927674,
+      "bcpd_threshold": 0.32093028410380475,
+      "hazard_lambda": 286.24053002694484,
+      "er_period": 14,
+      "hurst_lookback": 155,
+      "ou_lookback": 81,
+      "vr_period": 168,
+      "mean_reverting_threshold": 0.47089992194155395,
+      "trending_threshold": 0.5152697676794292,
+      "vol_scaling_factor": 0.4308776696128141,
+      "base_length": 37,
+      "hilbert_divider": 2.589741311384273,
+      "calibration_length": 19,
+      "fuzzy_mr_vz_weight": 0.25397650355413864,
+      "fuzzy_transition_width": 0.08620417166489333
+    },
+    "oos_metrics": {
+      "sharpe_default": -12.58609096884294,
+      "sharpe_optimized": -9.428386976935933,
+      "flipflop_default": 1.1977755596748896,
+      "flipflop_optimized": 2.6664765435619566,
+      "adaptive_improvement": -0.6053452188995725,
+      "adaptive_gate_passed": false
+    },
+    "optimization_date": "2026-03-14 18:06",
+    "data_range": "2021-01-01 \u2192 2025-01-01",
+    "trials_per_stage": 100
+  }
+}

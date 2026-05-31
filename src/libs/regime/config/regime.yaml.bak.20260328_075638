@@ -1,0 +1,83 @@
+defaults:
+  # --- Core 7 (original optimizable params) ---
+  hmm_retrain_window: 1000
+  vol_lookback: 168
+  vol_high_percentile: 70
+  bcpd_hazard_lambda: 150
+  bcpd_signal_threshold: 0.35
+  hurst_lookback: 100
+  min_dwell_bars: 5
+
+  # --- BCPD enhancements ---
+  bcpd_hazard_shape: 1.0          # Weibull shape: 1.0=constant, >1.0=increasing hazard
+  bcpd_multichannel: true          # Enable multi-channel BCPD (returns + volume + range)
+  bcpd_zscore_max_window: 2000     # Bounded rolling window for z-score standardization
+  bcpd_zscore_clip: 5.0            # Winsorization bound for z-scores (±clip)
+
+  # --- HMM enhancements ---
+  hmm_n_states: 0                  # 0=auto-select via BIC, 2-5=fixed
+  hmm_max_states: 4                # Max states for BIC selection
+  hmm_covariance_type: "full"      # "diag" or "full"
+  hmm_robust_scoring: true         # Student-t log-likelihood for state posteriors
+  hmm_student_df: 5.0              # Student-t degrees of freedom (lower=heavier tails)
+  hmm_crisis_vol_mult: 2.0         # Crisis state: vol > this * median_vol
+  hmm_log_vol_lookback: 24         # Rolling vol feature window (bars)
+
+  # --- Vol overlay ---
+  vol_hysteresis_band: 2.0         # +/- band around vol_high_percentile for hysteresis
+  vol_rank_window: 1000            # History window for percentile ranking
+
+  # --- Aggregator ---
+  agg_direction_period: 20
+  agg_bull_roc_thresh: 0.02
+  agg_vol_squeeze_pct: 30.0
+  cp_position_decay: 0.5           # BCPD decay factor on position_scale
+  roc_std_window: 100              # Rolling window for adaptive ROC threshold std
+
+  # --- Hilbert ---
+  hilbert_min_period: 10
+  hilbert_max_period: 40
+  hilbert_stability_bars: 10
+
+  # --- Market structure (cross-asset robustness) ---
+  market_structure_gap_attenuation: 0.3
+  market_structure_gap_threshold_mult: 2.0
+
+  # --- Multi-timeframe fusion (disabled by default) ---
+  mtf_higher_tf: ""                # e.g., "4h" — empty=disabled
+  mtf_higher_tf_weight: 0.4
+  mtf_conflict_penalty: 0.5
+  mtf_confirmation_boost: 1.2
+assets:
+  BTCUSDT:
+    1h:
+      bcpd_hazard_lambda: 131.74531219812513
+      bcpd_signal_threshold: 0.46343045941008604
+      vol_high_percentile: 84.87837812313998
+      vol_lookback: 148
+      hmm_retrain_window: 822
+      hurst_lookback: 141
+      min_dwell_bars: 5
+      agg_direction_period: 40
+      agg_bull_roc_thresh: 0.04198729224391639
+      agg_vol_squeeze_pct: 33.58781282027245
+      hilbert_min_period: 21
+      hilbert_max_period: 112
+    30m:
+      bcpd_hazard_lambda: 274.6661176809605
+      bcpd_signal_threshold: 0.40992128148902884
+      vol_high_percentile: 69.62481593208831
+      vol_lookback: 54
+      hmm_retrain_window: 489
+      hurst_lookback: 82
+      min_dwell_bars: 5
+      agg_direction_period: 12
+      agg_bull_roc_thresh: 0.048172701269984755
+      agg_vol_squeeze_pct: 18.6668119540733
+      hilbert_min_period: 26
+      hilbert_max_period: 146
+  SUIUSDT:
+    1h:
+      vol_high_percentile: 75
+  TAOUSDT:
+    1h: {}
