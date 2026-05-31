@@ -234,3 +234,41 @@ scoring_models:
               btc_dom_weight: 0.0
           DivergenceEdgeScorer:
             enabled: true
+
+blender:
+  enabled: true
+  transition:
+    entry_threshold: 0.70
+    exit_threshold: 0.30
+    floor: 0.15
+  mtf:
+    confirming_scale: 1.2
+    conflicting_scale: 0.5
+  weights:
+    # SB zeroed: Sharpe -16.66, triple-lagging trap (2026-05-31)
+    # MR zeroed: 3 signals / 4345 bars, RSI overfit, ~0% edge when relaxed (2026-05-31)
+    # Momentum-only until MR continuous z-score redesign
+    CLEAN_TREND:
+      mean_reversion: 0.00
+      momentum: 1.00
+      squeeze_breakout: 0.00
+    VOLATILE_TREND:
+      mean_reversion: 0.00
+      momentum: 1.00
+      squeeze_breakout: 0.00
+    QUIET_RANGE:
+      mean_reversion: 0.00
+      momentum: 1.00
+      squeeze_breakout: 0.00
+    SQUEEZE:
+      mean_reversion: 0.00
+      momentum: 1.00
+      squeeze_breakout: 0.00
+    CHOPPY:
+      mean_reversion: 0.00
+      momentum: 1.00
+      squeeze_breakout: 0.00
+    TRANSITION:
+      mean_reversion: 0.00
+      momentum: 1.00
+      squeeze_breakout: 0.00

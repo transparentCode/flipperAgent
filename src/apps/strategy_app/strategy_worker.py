@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import types
 from typing import Any
 
 from libs.common.enums import SystemComponent
@@ -13,6 +14,7 @@ from libs.contracts.schemas import FeatureVector, TradeSignal, valkey_encode, va
 from libs.contracts.signal import ModelOutput, ScoringOutput
 from apps.strategy_app.model_manager import ModelManager
 from apps.strategy_app.scoring_model_manager import ScoringModelManager
+from libs.models.blender.ensemble import RegimeEnsembleBlender
 from libs.selection.selection_layer import SelectionLayer
 
 logger = bind_logger(__name__, system_component=SystemComponent.MODEL_STRATEGY)
@@ -36,6 +38,20 @@ class StrategyWorker(BaseStreamConsumer):
         self.model_manager = ModelManager(asset, timeframe)
         self.scoring_model_manager = ScoringModelManager(asset, timeframe)
         self.selection_layer = SelectionLayer(asset, timeframe)
+
+        # Regime ensemble blender (optional, config-gated)
+        self.blender: RegimeEnsembleBlender | None = None
+        try:
+            from libs.common.config import ConfigManager
+            from libs.common.constants import CONFIG_FILE_MODELS
+            cfg_mgr = ConfigManager()
+            cfg_mgr.register_file(CONFIG_FILE_MODELS)
+            blender_cfg = cfg_mgr.get("blender", {})
+            if blender_cfg.get("enabled", False):
+                self.blender = RegimeEnsembleBlender(blender_cfg)
+                logger.info(f"Regime ensemble blender enabled for {asset}/{timeframe}")
+        except Exception:
+            logger.debug("Blender config not found or invalid, blender disabled")
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -77,6 +93,20 @@ class StrategyWorker(BaseStreamConsumer):
         # Shadow comparison logging
         shadow_outputs = self.model_manager.evaluate_shadow(feature_vec)
         self._log_migration_comparison(adapted_outputs, shadow_outputs)
+
+        # Regime ensemble blending (if enabled and regime features available)
+        if self.blender and scoring_outputs:
+            regime_snapshot = feature_vec.features.get("regime_snapshot")
+            if regime_snapshot is not None:
+                # Convert dict from Valkey to namespace for attribute access
+                regime_ns = types.SimpleNamespace(**regime_snapshot)
+                blended = self.blender.blend(
+                    scoring_outputs=scoring_outputs,
+                    regime_features=regime_ns,
+                    mtf_agreement=feature_vec.features.get("mtf_agreement"),
+                )
+                if blended is not None:
+                    scoring_outputs = [blended]
 
         # Run selection layer
         selected = self.selection_layer.select(

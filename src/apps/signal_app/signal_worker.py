@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from typing import Any
+
+import pandas as pd
 
 from apps.signal_app.feature_manager import FeatureManager
 from libs.common.config import ConfigManager
@@ -20,6 +23,38 @@ _TV_INDEX_KEYS: list[str] = [
     for sym in _config.get("tradingview.indices", ["CRYPTOCAP:BTC.D", "CRYPTOCAP:TOTAL2", "CRYPTOCAP:TOTAL3"])
 ]
 
+# Minimum bars required before regime analysis can run (HMM min_train_bars default)
+_REGIME_MIN_BARS = 200
+# Maximum price history buffer size
+_REGIME_MAX_HISTORY = 2000
+
+
+def _import_regime_orchestrator():
+    """Lazily import RegimeOrchestrator, patching the legacy app→libs alias."""
+    # The regime module uses legacy 'app.regime.*' imports internally;
+    # alias 'app' → 'libs' in sys.modules so they resolve correctly.
+    if "app" not in sys.modules:
+        import libs
+        sys.modules["app"] = libs
+    from libs.regime.orchestrator import RegimeOrchestrator
+    return RegimeOrchestrator
+
+
+def _regime_features_to_dict(rf) -> dict[str, Any]:
+    """Serialize RegimeFeatures to a JSON-safe flat dict for Valkey transport."""
+    return {
+        "regime": rf.regime,
+        "p_trending": rf.p_trending,
+        "vol_percentile": rf.vol_percentile,
+        "changepoint_prob": rf.changepoint_prob,
+        "adaptive_period": rf.adaptive_period,
+        "position_scale": rf.position_scale,
+        "atr_multiplier": rf.atr_multiplier,
+        "holding_period": rf.holding_period,
+        "hilbert_period": rf.hilbert_period,
+        "hilbert_confidence": rf.hilbert_confidence,
+    }
+
 
 class SignalWorker(BaseStreamConsumer):
     def __init__(self, asset: str, timeframe: str, db_fetcher=None):
@@ -34,6 +69,8 @@ class SignalWorker(BaseStreamConsumer):
         self.timeframe = timeframe
         self.feature_manager = FeatureManager(asset, timeframe, db_fetcher=db_fetcher)
         self.engineered_manager = EngineeredFeatureManager(asset, timeframe)
+        self._price_history: list[dict[str, float]] = []
+        self._regime_orchestrator: Any = None
 
     async def start(self):
         logger.info(f"Starting signal worker for {self.asset} {self.timeframe}...")
@@ -44,6 +81,7 @@ class SignalWorker(BaseStreamConsumer):
             max_lookback = max(max_lookback, ind.lookback_required)
 
         # 2. Fetch history and prime indicators (with retry for transient errors)
+        history = []
         for attempt in range(3):
             try:
                 history = await self.feature_manager.fetch_historical_db_records(max_lookback)
@@ -59,7 +97,23 @@ class SignalWorker(BaseStreamConsumer):
                 else:
                     logger.error(f"Priming failed after 3 attempts for {self.asset}:{self.timeframe}")
 
-        # 3. Listen on stream via base class consumer loop
+        # 3. Initialize regime orchestrator (optional — graceful if unavailable)
+        try:
+            RegimeOrchestrator = _import_regime_orchestrator()
+            self._regime_orchestrator = RegimeOrchestrator.create(self.asset, self.timeframe)
+            if history:
+                for bar in history:
+                    self._price_history.append({
+                        "open": bar[0], "high": bar[1], "low": bar[2],
+                        "close": bar[3], "volume": bar[4],
+                    })
+            logger.info(f"Regime orchestrator initialized for {self.asset}:{self.timeframe} "
+                        f"with {len(self._price_history)} primed bars")
+        except Exception:
+            logger.warning(f"Regime orchestrator unavailable for {self.asset}:{self.timeframe}, "
+                           "regime features will not be published", exc_info=True)
+
+        # 4. Listen on stream via base class consumer loop
         await self.run()
 
     async def process_message(self, message_id: str, payload: dict) -> None:
@@ -107,6 +161,22 @@ class SignalWorker(BaseStreamConsumer):
                     "close": close, "volume": volume,
                 }, index_data=index_data if index_data else None)
                 results.update(engineered)
+
+                # Run regime analysis and inject snapshot into features
+                if self._regime_orchestrator is not None:
+                    self._price_history.append({
+                        "open": open_, "high": high, "low": low,
+                        "close": close, "volume": volume,
+                    })
+                    if len(self._price_history) > _REGIME_MAX_HISTORY:
+                        self._price_history = self._price_history[-_REGIME_MAX_HISTORY:]
+                    if len(self._price_history) >= _REGIME_MIN_BARS:
+                        try:
+                            df_hist = pd.DataFrame(self._price_history)
+                            regime_result = self._regime_orchestrator.analyze(df_hist)
+                            results["regime_snapshot"] = _regime_features_to_dict(regime_result)
+                        except Exception:
+                            logger.warning("Regime analysis failed for current bar", exc_info=True)
 
                 # Publish computed features to Valkey for StrategyWorker consumption
                 if self.redis_client and results:
