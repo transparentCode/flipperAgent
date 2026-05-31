@@ -285,30 +285,27 @@ blender:
     confirming_scale: 1.2
     conflicting_scale: 0.5
   weights:
-    # SB zeroed: Sharpe -16.66, triple-lagging trap (2026-05-31)
-    # MR zeroed: 3 signals / 4345 bars, RSI overfit, ~0% edge when relaxed (2026-05-31)
-    # Momentum-only until MR continuous z-score redesign
-    CLEAN_TREND:
+    # Redesigned 2026-05-31: 9→4 grouping, bull/bear split, data-derived weights
+    # MR zeroed: negative Sharpe in ALL groups across BTC+ETH 12mo backtest
+    # SB activated in TREND_BEAR (Sharpe +0.048) and CHOPPY (+0.074)
+    # See research/backtest_blender_redesign.ipynb for derivation
+    TREND_BULL:
       mean_reversion: 0.00
       momentum: 1.00
       squeeze_breakout: 0.00
-    VOLATILE_TREND:
+    TREND_BEAR:
       mean_reversion: 0.00
-      momentum: 1.00
-      squeeze_breakout: 0.00
-    QUIET_RANGE:
-      mean_reversion: 0.00
-      momentum: 1.00
-      squeeze_breakout: 0.00
-    SQUEEZE:
+      momentum: 0.49
+      squeeze_breakout: 0.51
+    RANGE:
       mean_reversion: 0.00
       momentum: 1.00
       squeeze_breakout: 0.00
     CHOPPY:
       mean_reversion: 0.00
-      momentum: 1.00
-      squeeze_breakout: 0.00
+      momentum: 0.13
+      squeeze_breakout: 0.87
     TRANSITION:
       mean_reversion: 0.00
-      momentum: 1.00
-      squeeze_breakout: 0.00
+      momentum: 0.78
+      squeeze_breakout: 0.22

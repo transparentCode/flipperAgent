@@ -34,9 +34,9 @@ class TestStrategyWorkerBlenderIntegration:
             "transition": {"entry_threshold": 0.70, "exit_threshold": 0.30, "floor": 0.15},
             "mtf": {"confirming_scale": 1.2, "conflicting_scale": 0.5},
             "weights": {
-                "CLEAN_TREND": {"mean_reversion": 0.15, "momentum": 0.55, "squeeze_breakout": 0.30},
-                "CHOPPY": {"mean_reversion": 0.33, "momentum": 0.34, "squeeze_breakout": 0.33},
-                "TRANSITION": {"mean_reversion": 0.33, "momentum": 0.34, "squeeze_breakout": 0.33},
+                "TREND_BULL": {"mean_reversion": 0.00, "momentum": 1.00, "squeeze_breakout": 0.00},
+                "CHOPPY": {"mean_reversion": 0.00, "momentum": 0.13, "squeeze_breakout": 0.87},
+                "TRANSITION": {"mean_reversion": 0.00, "momentum": 0.78, "squeeze_breakout": 0.22},
             },
         }
         with patch("libs.common.config.ConfigManager.get", return_value=blender_cfg):
@@ -46,7 +46,8 @@ class TestStrategyWorkerBlenderIntegration:
 
     def test_blender_disabled_by_default(self):
         """Blender is None when config has enabled: false."""
-        sw = StrategyWorker("BTCUSDT", "1h")
+        with patch("libs.common.config.ConfigManager.get", return_value={"enabled": False}):
+            sw = StrategyWorker("BTCUSDT", "1h")
         assert sw.blender is None
 
     def test_blended_output_is_valid_scoring_output(self):
@@ -57,7 +58,7 @@ class TestStrategyWorkerBlenderIntegration:
             "transition": {"entry_threshold": 0.70, "exit_threshold": 0.30, "floor": 0.15},
             "mtf": {"confirming_scale": 1.2, "conflicting_scale": 0.5},
             "weights": {
-                "CLEAN_TREND": {"mean_reversion": 0.15, "momentum": 0.55, "squeeze_breakout": 0.30},
+                "TREND_BULL": {"mean_reversion": 0.00, "momentum": 1.00, "squeeze_breakout": 0.00},
             },
         }
         blender = RegimeEnsembleBlender(config)
@@ -84,4 +85,4 @@ class TestStrategyWorkerBlenderIntegration:
         assert result.edge_score != 0.0
         assert 0.0 <= result.conviction <= 1.0
         assert "regime_group" in result.metadata
-        assert result.metadata["regime_group"] == "CLEAN_TREND"
+        assert result.metadata["regime_group"] == "TREND_BULL"

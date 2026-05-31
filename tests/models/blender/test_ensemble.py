@@ -9,7 +9,7 @@ from libs.contracts.signal import ScoringOutput
 from libs.models.blender.ensemble import RegimeEnsembleBlender, REGIME_TO_GROUP
 
 # Ensemble groups list (mirrors rule_based.py)
-ENSEMBLE_GROUPS = ["CLEAN_TREND", "VOLATILE_TREND", "QUIET_RANGE", "SQUEEZE", "CHOPPY", "TRANSITION"]
+ENSEMBLE_GROUPS = ["TREND_BULL", "TREND_BEAR", "RANGE", "CHOPPY", "TRANSITION"]
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -35,35 +35,30 @@ def _default_config() -> dict:
             "conflicting_scale": 0.5,
         },
         "weights": {
-            "CLEAN_TREND": {
-                "mean_reversion": 0.15,
-                "momentum": 0.55,
-                "squeeze_breakout": 0.30,
+            "TREND_BULL": {
+                "mean_reversion": 0.00,
+                "momentum": 1.00,
+                "squeeze_breakout": 0.00,
             },
-            "VOLATILE_TREND": {
-                "mean_reversion": 0.50,
-                "momentum": 0.20,
-                "squeeze_breakout": 0.30,
+            "TREND_BEAR": {
+                "mean_reversion": 0.00,
+                "momentum": 0.49,
+                "squeeze_breakout": 0.51,
             },
-            "QUIET_RANGE": {
-                "mean_reversion": 0.60,
-                "momentum": 0.10,
-                "squeeze_breakout": 0.30,
-            },
-            "SQUEEZE": {
-                "mean_reversion": 0.15,
-                "momentum": 0.25,
-                "squeeze_breakout": 0.60,
+            "RANGE": {
+                "mean_reversion": 0.00,
+                "momentum": 1.00,
+                "squeeze_breakout": 0.00,
             },
             "CHOPPY": {
-                "mean_reversion": 0.30,
-                "momentum": 0.10,
-                "squeeze_breakout": 0.60,
+                "mean_reversion": 0.00,
+                "momentum": 0.13,
+                "squeeze_breakout": 0.87,
             },
             "TRANSITION": {
-                "mean_reversion": 0.33,
-                "momentum": 0.34,
-                "squeeze_breakout": 0.33,
+                "mean_reversion": 0.00,
+                "momentum": 0.78,
+                "squeeze_breakout": 0.22,
             },
         },
     }
@@ -90,12 +85,12 @@ class TestRegimeToGroupMapping:
         assert len(REGIME_TO_GROUP) == 9
 
     def test_ensemble_groups_count(self):
-        assert len(ENSEMBLE_GROUPS) == 6
+        assert len(ENSEMBLE_GROUPS) == 5
         assert "TRANSITION" in ENSEMBLE_GROUPS
 
 
-class TestCleanTrendWeights:
-    def test_clean_trend_applies_momentum_heavy_weights(self):
+class TestTrendBullWeights:
+    def test_trend_bull_applies_momentum_only_weights(self):
         blender = RegimeEnsembleBlender(_default_config())
         outputs = _make_scoring_outputs({"mean_reversion": 1.0, "momentum": 1.0, "squeeze_breakout": 1.0})
         regime = FakeRegimeFeatures(regime="CLEAN_TREND_BULL", changepoint_prob=0.1)
@@ -103,14 +98,14 @@ class TestCleanTrendWeights:
         result = blender.blend(outputs, regime)
 
         assert result is not None
-        # CLEAN_TREND weights: MR=0.15, Mom=0.55, SB=0.30 → weighted sum = 1.0
+        # TREND_BULL weights: MR=0.00, Mom=1.00, SB=0.00
         # decay = max(0.15, 1.0 - 0.1) = 0.9
-        expected = (0.15 + 0.55 + 0.30) * 0.9
+        expected = (0.00 + 1.00 + 0.00) * 0.9
         assert abs(result.edge_score - expected) < 1e-9
 
 
-class TestVolatileTrendWeights:
-    def test_volatile_trend_applies_mr_heavy_weights(self):
+class TestTrendBearWeights:
+    def test_trend_bear_applies_mom_sb_split_weights(self):
         blender = RegimeEnsembleBlender(_default_config())
         outputs = _make_scoring_outputs({"mean_reversion": 1.0, "momentum": 1.0, "squeeze_breakout": 1.0})
         regime = FakeRegimeFeatures(regime="VOLATILE_TREND_BEAR", changepoint_prob=0.05)
@@ -118,14 +113,14 @@ class TestVolatileTrendWeights:
         result = blender.blend(outputs, regime)
 
         assert result is not None
-        # VOLATILE_TREND weights: MR=0.50, Mom=0.20, SB=0.30
+        # TREND_BEAR weights: MR=0.00, Mom=0.49, SB=0.51
         # decay = max(0.15, 1.0 - 0.05) = 0.95
-        expected = (0.50 + 0.20 + 0.30) * 0.95
+        expected = (0.00 + 0.49 + 0.51) * 0.95
         assert abs(result.edge_score - expected) < 1e-9
 
 
-class TestQuietRangeWeights:
-    def test_quiet_range_applies_mr_dominant_weights(self):
+class TestRangeWeights:
+    def test_range_applies_momentum_only_weights(self):
         blender = RegimeEnsembleBlender(_default_config())
         outputs = _make_scoring_outputs({"mean_reversion": 2.0, "momentum": -0.5, "squeeze_breakout": 0.3})
         regime = FakeRegimeFeatures(regime="QUIET_MR_RANGE", changepoint_prob=0.0)
@@ -133,14 +128,12 @@ class TestQuietRangeWeights:
         result = blender.blend(outputs, regime)
 
         assert result is not None
-        # QUIET_RANGE weights: MR=0.60, Mom=0.10, SB=0.30
+        # RANGE weights: MR=0.00, Mom=1.00, SB=0.00
         # decay = max(0.15, 1.0) = 1.0
-        expected = (0.60 * 2.0 + 0.10 * (-0.5) + 0.30 * 0.3) * 1.0
+        expected = (0.00 * 2.0 + 1.00 * (-0.5) + 0.00 * 0.3) * 1.0
         assert abs(result.edge_score - expected) < 1e-9
 
-
-class TestSqueezeWeights:
-    def test_squeeze_applies_sb_dominant_weights(self):
+    def test_squeeze_maps_to_range(self):
         blender = RegimeEnsembleBlender(_default_config())
         outputs = _make_scoring_outputs({"mean_reversion": 0.5, "momentum": 0.5, "squeeze_breakout": 2.0})
         regime = FakeRegimeFeatures(regime="QUIET_MR_SQUEEZE", changepoint_prob=0.0)
@@ -148,13 +141,11 @@ class TestSqueezeWeights:
         result = blender.blend(outputs, regime)
 
         assert result is not None
-        # SQUEEZE weights: MR=0.15, Mom=0.25, SB=0.60
-        expected = (0.15 * 0.5 + 0.25 * 0.5 + 0.60 * 2.0) * 1.0
-        assert abs(result.edge_score - expected) < 1e-9
+        assert result.metadata["base_group"] == "RANGE"
 
 
 class TestChoppyWeights:
-    def test_choppy_applies_sb_elevated_weights(self):
+    def test_choppy_applies_sb_dominant_weights(self):
         blender = RegimeEnsembleBlender(_default_config())
         outputs = _make_scoring_outputs({"mean_reversion": 1.0, "momentum": 1.0, "squeeze_breakout": 1.0})
         regime = FakeRegimeFeatures(regime="CHOPPY", changepoint_prob=0.0)
@@ -162,8 +153,8 @@ class TestChoppyWeights:
         result = blender.blend(outputs, regime)
 
         assert result is not None
-        # CHOPPY weights: MR=0.30, Mom=0.10, SB=0.60
-        expected = (0.30 + 0.10 + 0.60) * 1.0
+        # CHOPPY weights: MR=0.00, Mom=0.13, SB=0.87
+        expected = (0.00 + 0.13 + 0.87) * 1.0
         assert abs(result.edge_score - expected) < 1e-9
 
 

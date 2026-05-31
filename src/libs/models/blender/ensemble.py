@@ -26,15 +26,18 @@ logger = logging.getLogger(__name__)
 # Regime → ensemble group mapping (mirrors REGIME_TO_GROUP in
 # libs.regime.aggregation.rule_based — duplicated here to avoid triggering
 # the broken app.regime import chain in libs.regime.__init__).
+# Redesigned 2026-05-31: 9→4 grouping splits BULL/BEAR (opposite return profiles)
+# instead of CLEAN/VOLATILE (no statistical difference). Research:
+#   backtest_blender_redesign.ipynb — 12mo BTC+ETH 1h, 17474 bars.
 REGIME_TO_GROUP: dict[str, str] = {
-    "CLEAN_TREND_BULL":     "CLEAN_TREND",
-    "CLEAN_TREND_BEAR":     "CLEAN_TREND",
-    "CLEAN_TREND_FLAT":     "CLEAN_TREND",
-    "VOLATILE_TREND_BULL":  "VOLATILE_TREND",
-    "VOLATILE_TREND_BEAR":  "VOLATILE_TREND",
-    "VOLATILE_TREND_FLAT":  "VOLATILE_TREND",
-    "QUIET_MR_RANGE":       "QUIET_RANGE",
-    "QUIET_MR_SQUEEZE":     "SQUEEZE",
+    "CLEAN_TREND_BULL":     "TREND_BULL",
+    "CLEAN_TREND_BEAR":     "TREND_BEAR",
+    "CLEAN_TREND_FLAT":     "RANGE",
+    "VOLATILE_TREND_BULL":  "TREND_BULL",
+    "VOLATILE_TREND_BEAR":  "TREND_BEAR",
+    "VOLATILE_TREND_FLAT":  "CHOPPY",
+    "QUIET_MR_RANGE":       "RANGE",
+    "QUIET_MR_SQUEEZE":     "RANGE",
     "CHOPPY":               "CHOPPY",
 }
 

@@ -39,9 +39,9 @@ def _blender_config() -> dict:
         },
         "mtf": {"confirming_scale": 1.2, "conflicting_scale": 0.5},
         "weights": {
-            "CLEAN_TREND": {"mean_reversion": 0.3, "momentum": 0.7},
-            "CHOPPY": {"mean_reversion": 0.5, "momentum": 0.5},
-            "TRANSITION": {"mean_reversion": 0.4, "momentum": 0.6},
+            "TREND_BULL": {"mean_reversion": 0.0, "momentum": 1.0},
+            "CHOPPY": {"mean_reversion": 0.0, "momentum": 0.13, "squeeze_breakout": 0.87},
+            "TRANSITION": {"mean_reversion": 0.0, "momentum": 0.78, "squeeze_breakout": 0.22},
         },
     }
 
@@ -131,7 +131,7 @@ class TestBlenderSimpleNamespaceBridge:
         assert result is not None
         assert result.model_name == "regime_ensemble"
         assert result.edge_score > 0
-        assert result.metadata["regime_group"] == "CLEAN_TREND"
+        assert result.metadata["regime_group"] == "TREND_BULL"
 
     def test_blender_with_mtf_confirming(self) -> None:
         blender = RegimeEnsembleBlender(_blender_config())

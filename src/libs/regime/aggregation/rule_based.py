@@ -69,23 +69,25 @@ BULL_REGIMES     = {CLEAN_TREND_BULL, VOLATILE_TREND_BULL}
 BEAR_REGIMES     = {CLEAN_TREND_BEAR, VOLATILE_TREND_BEAR}
 NON_TREND_REGIMES = {QUIET_MR_RANGE, QUIET_MR_SQUEEZE, CHOPPY}
 
-# ── Ensemble group mapping (9 regimes → 6 groups) ────────────────────────────
+# ── Ensemble group mapping (9 regimes → 4 groups + TRANSITION) ───────────────
 # Used by RegimeEnsembleBlender for regime-conditioned weight lookup.
 # TRANSITION is not mapped from any regime label — it is dynamically activated
 # via changepoint_prob threshold in the blender.
+# Redesigned 2026-05-31: split BULL/BEAR (opposite return profiles) instead of
+# CLEAN/VOLATILE (no statistical difference). See backtest_blender_redesign.ipynb.
 REGIME_TO_GROUP: dict[str, str] = {
-    CLEAN_TREND_BULL:     "CLEAN_TREND",
-    CLEAN_TREND_BEAR:     "CLEAN_TREND",
-    CLEAN_TREND_FLAT:     "CLEAN_TREND",
-    VOLATILE_TREND_BULL:  "VOLATILE_TREND",
-    VOLATILE_TREND_BEAR:  "VOLATILE_TREND",
-    VOLATILE_TREND_FLAT:  "VOLATILE_TREND",
-    QUIET_MR_RANGE:       "QUIET_RANGE",
-    QUIET_MR_SQUEEZE:     "SQUEEZE",
+    CLEAN_TREND_BULL:     "TREND_BULL",
+    CLEAN_TREND_BEAR:     "TREND_BEAR",
+    CLEAN_TREND_FLAT:     "RANGE",
+    VOLATILE_TREND_BULL:  "TREND_BULL",
+    VOLATILE_TREND_BEAR:  "TREND_BEAR",
+    VOLATILE_TREND_FLAT:  "CHOPPY",
+    QUIET_MR_RANGE:       "RANGE",
+    QUIET_MR_SQUEEZE:     "RANGE",
     CHOPPY:               "CHOPPY",
 }
 
-ENSEMBLE_GROUPS = ["CLEAN_TREND", "VOLATILE_TREND", "QUIET_RANGE", "SQUEEZE", "CHOPPY", "TRANSITION"]
+ENSEMBLE_GROUPS = ["TREND_BULL", "TREND_BEAR", "RANGE", "CHOPPY", "TRANSITION"]
 
 _BB_BASE = 20
 _RSI_BASE = 14
