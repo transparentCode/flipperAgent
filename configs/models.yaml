@@ -47,6 +47,11 @@ models:
               mfi_sma_period: 9
               mom_lr_period: 14
               mom_lr_mom_period: 10
+          PriceAction:
+            enabled: true
+            migration_mode: scoring
+            params:
+              swing_lookback: 5
         4h:
           MeanReversion:
             enabled: true

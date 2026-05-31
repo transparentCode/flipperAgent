@@ -4,7 +4,7 @@ stage: architect-to-coder
 date_created: 2026-05-31
 last_updated: 2026-05-31
 owner: Quant Research Architect
-status: Ready
+status: Ready — extensibility updated (soft gates, context multipliers, plugin arch, pattern decay)
 tags: [handoff, quant, price-action, scoring-model, ensemble, kernels, regime-ensemble]
 source_agent: Quant Research Architect
 target_agent: Coder Agent
@@ -104,6 +104,24 @@ All kernels emit a **kernel score** in the range **[-1.0, +1.0]** where:
 - 0 = no signal
 
 Scores represent **normalized signal strength**, not direction probability.
+
+### Design Principle: Soft Gates, Not Binary Detection
+
+Human traders do not apply textbook definitions rigidly — they recognize "close enough"
+patterns with varying degrees of match quality. All kernels use **continuous scoring**
+rather than binary pass/fail thresholds:
+
+- **No hard boolean gates.** Every kernel outputs a continuous float, never a discrete {0, 1}.
+- **Match quality is proportional.** A pin bar with wick/body ratio of 2.1x scores lower
+  than one with 4.0x — both are valid signals, not just one.
+- **Normalization scales compress outliers.** ATR-based scaling with `min(1.0, ...)` means
+  textbook-perfect patterns score near 1.0 and "close enough" patterns score 0.3–0.7.
+- **Minimum thresholds are gates on noise, not on pattern quality.** `pin_min_range_atr`
+  filters tiny candles (noise), but any candle above the noise floor participates with
+  proportional score.
+
+This ensures the model captures definition-drift naturally: an engulfing candle that
+covers 95% of the prior body still scores — just lower than a textbook 100%+ engulf.
 
 ### 4.1 Swing Point Detection (Shared Prerequisite)
 
@@ -337,6 +355,68 @@ edge_score = raw_score * confluence_bonus
 3. **Confluence bonus** rewards agreement without killing individual kernel signals.
 4. **Stacking (ML)** is a non-goal for v1 (deterministic only).
 
+### 5.2 Context Multipliers (Cross-Kernel Awareness)
+
+Human traders don't evaluate patterns in isolation — a pin bar **at a swing level**
+is far more meaningful than one in the middle of nowhere. Context multipliers
+encourage cross-kernel agreement by boosting scores when patterns align spatially
+or structurally with other kernels.
+
+Applied **after** individual kernel scoring, **before** weighted sum:
+
+```
+# Proximity boost: reversal kernel fires near a recent swing point
+if kernel is in {K2_sweep, K3_pin, K4_engulf}:
+    dist_to_swing = min(
+        abs(close[i] - last_swing_high_price),
+        abs(close[i] - last_swing_low_price)
+    ) / (atr[i] + 1e-10)
+    if dist_to_swing < 1.5:  # within 1.5 ATR of a swing
+        k_score *= (1.0 + context_proximity_boost * (1.0 - dist_to_swing / 1.5))
+
+# Alignment boost: FVG fires within N bars of a BOS
+if kernel is K1_fvg and k5_bos != 0 (recent BOS):
+    k1_score *= (1.0 + context_alignment_boost)
+
+# Alignment boost: pin bar/sweep aligns directionally with a recent FVG
+if kernel is in {K2_sweep, K3_pin} and sign(k_score) == sign(k1_fvg):
+    k_score *= (1.0 + context_alignment_boost * 0.5)  # half boost
+```
+
+**Rationale:** These are the combinations human traders look for:
+- Sweep at swing level = "liquidity taken" → high-conviction reversal.
+- FVG after BOS = institutional flow confirming structure break.
+- Pin bar aligning with unfilled FVG = two independent reversal signals at same level.
+
+The multipliers are **multiplicative** (1.0 + boost), so they amplify existing signals
+rather than creating new ones. A kernel that scores 0.0 stays at 0.0 regardless of context.
+
+### 5.3 Pattern Decay (Score Persistence)
+
+Price action signals don't expire instantly on the next bar. An unfilled FVG or a
+recent BOS creates a directional bias that decays over time:
+
+```
+# For each bar i, the effective kernel score includes decayed prior signals:
+effective_k[i] = k_raw[i] + Σ(k_raw[i-j] * decay_rate^j)  for j in 1..decay_window
+
+# In practice (batch mode), this is an EMA-like accumulator:
+decayed_k = 0.0
+for i in range(n):
+    decayed_k = k_raw[i] + pattern_decay_rate * decayed_k
+    effective_k[i] = decayed_k
+```
+
+**Parameters:**
+- `pattern_decay_rate`: float, default 0.3 (signal retains 30% per bar; ~3 bars half-life)
+
+**Why 0.3 default:** At 1h timeframe, a pattern's influence should be meaningful for
+2–4 bars (2–4 hours) before fading. `0.3^3 = 0.027` ≈ gone after 3 bars.
+
+This prevents the model from being "one bar and done" — a sweep followed by
+an FVG 2 bars later contributes a decayed sweep score + fresh FVG score, mimicking
+how traders remember recent events.
+
 **Parameters:**
 - `w_fvg`: float, default 0.20
 - `w_sweep`: float, default 0.25
@@ -346,6 +426,9 @@ edge_score = raw_score * confluence_bonus
 - `w_inside`: float, default 0.10
 - `confluence_scale`: float, default 0.15 (15% bonus per extra agreeing kernel)
 - `confluence_min`: int, default 2 (bonus kicks in at 3+ agreeing kernels)
+- `context_proximity_boost`: float, default 0.3 (30% boost when reversal pattern is near swing level)
+- `context_alignment_boost`: float, default 0.25 (25% boost when kernels align structurally)
+- `pattern_decay_rate`: float, default 0.3 (EMA decay factor for score persistence)
 
 **Weight rationale:**
 - Sweep (0.25): Highest weight — stop-hunt reversal is the most reliable price action pattern in crypto.
@@ -370,7 +453,7 @@ This is the correct behavior — conflicting signals = lower conviction, not for
 
 ---
 
-## 6. Hyperparameter Schema (18 parameters)
+## 6. Hyperparameter Schema (21 parameters)
 
 ```python
 hyperparameter_schema = {
@@ -409,12 +492,20 @@ hyperparameter_schema = {
     "confluence_scale": ParamDef(type="float", default=0.15, low=0.0, high=0.5, step=0.05),
     "confluence_min": ParamDef(type="int", default=2, low=1, high=4, step=1),
     "conviction_scale": ParamDef(type="float", default=1.0, low=0.5, high=2.0, step=0.1),
+
+    # Context multipliers
+    "context_proximity_boost": ParamDef(type="float", default=0.3, low=0.0, high=1.0, step=0.1),
+    "context_alignment_boost": ParamDef(type="float", default=0.25, low=0.0, high=1.0, step=0.05),
+
+    # Pattern decay
+    "pattern_decay_rate": ParamDef(type="float", default=0.3, low=0.0, high=0.8, step=0.05),
 }
 ```
 
-**Optimizability:** 18 parameters (same order of magnitude as MR v2's 6). With Sobol sensitivity
-analysis, expect to reduce to ~8–10 active parameters. Kernel weights (6 params) are the
-primary tuning target; per-kernel normalization scales are secondary.
+**Optimizability:** 21 parameters (same order of magnitude as MR v2's 6). With Sobol sensitivity
+analysis, expect to reduce to ~10–12 active parameters. Kernel weights (6 params) and
+context/decay params (3 params) are the primary tuning targets; per-kernel normalization
+scales are secondary.
 
 ---
 
@@ -481,12 +572,40 @@ def _batch_price_action(
         k5 = _bos_score(close, atr, i, last_sh_price, last_sl_price, bos_displacement_scale)
         k6 = _inside_bar_score(open_, high, low, close, atr, i, ib_breakout_scale)
 
-        # 3. Weighted sum
-        raw = (w_fvg * k1 + w_sweep * k2 + w_pin * k3
-               + w_engulf * k4 + w_bos * k5 + w_inside * k6)
+        # 3. Apply pattern decay (EMA accumulator per kernel)
+        dk1 = k1 + pattern_decay_rate * dk1_prev; dk1_prev = dk1
+        dk2 = k2 + pattern_decay_rate * dk2_prev; dk2_prev = dk2
+        dk3 = k3 + pattern_decay_rate * dk3_prev; dk3_prev = dk3
+        dk4 = k4 + pattern_decay_rate * dk4_prev; dk4_prev = dk4
+        dk5 = k5 + pattern_decay_rate * dk5_prev; dk5_prev = dk5
+        dk6 = k6 + pattern_decay_rate * dk6_prev; dk6_prev = dk6
 
-        # 4. Confluence bonus
-        scores = (k1, k2, k3, k4, k5, k6)
+        # 4. Apply context multipliers
+        # Proximity boost for reversal kernels near swing levels
+        dist_sh = abs(close[i] - last_sh_price) / (atr[i] + 1e-10)
+        dist_sl = abs(close[i] - last_sl_price) / (atr[i] + 1e-10)
+        min_dist = min(dist_sh, dist_sl) if not (np.isnan(dist_sh) or np.isnan(dist_sl)) else 999.0
+        if min_dist < 1.5:
+            prox = 1.0 + context_proximity_boost * (1.0 - min_dist / 1.5)
+            dk2 *= prox  # sweep
+            dk3 *= prox  # pin bar
+            dk4 *= prox  # engulfing
+        # Alignment boost: FVG near BOS
+        if dk1 != 0.0 and dk5 != 0.0:
+            dk1 *= (1.0 + context_alignment_boost)
+        # Alignment boost: sweep/pin aligns with FVG direction
+        if dk1 != 0.0:
+            if dk2 != 0.0 and (dk2 > 0) == (dk1 > 0):
+                dk2 *= (1.0 + context_alignment_boost * 0.5)
+            if dk3 != 0.0 and (dk3 > 0) == (dk1 > 0):
+                dk3 *= (1.0 + context_alignment_boost * 0.5)
+
+        # 5. Weighted sum
+        raw = (w_fvg * dk1 + w_sweep * dk2 + w_pin * dk3
+               + w_engulf * dk4 + w_bos * dk5 + w_inside * dk6)
+
+        # 6. Confluence bonus
+        scores = (dk1, dk2, dk3, dk4, dk5, dk6)
         sign_raw = 1.0 if raw > 0 else (-1.0 if raw < 0 else 0.0)
         n_agree = 0
         for s in scores:
@@ -501,6 +620,10 @@ def _batch_price_action(
 
 This is **fully deterministic** and **Numba-compatible** — no Python objects, no
 dynamic allocation, no dicts. The function receives flat numpy arrays and scalar params.
+
+**Note on decay state:** `dk*_prev` variables are initialized to 0.0 before the loop
+and act as EMA accumulators. They are local to the function, not stored externally.
+This makes batch mode fully stateless from the caller's perspective.
 
 #### Live Mode (`evaluate`)
 
@@ -542,15 +665,73 @@ Set `min_history_bars = 20` in `ModelMeta`.
 
 ## 8. Integration Plan
 
-### 8.1 Module Structure
+### 8.1 Module Structure (Plugin Architecture)
+
+Each kernel lives in its own file for isolation, testability, and extensibility.
+Adding a new kernel in v2 = one new file + one registry entry.
 
 ```
 src/libs/models/price_action/
-├── __init__.py         # Re-export PriceActionModel
-├── model.py            # PriceActionModel class
-├── kernels.py          # @njit kernel functions + _batch_price_action
-└── (no other files)
+├── __init__.py              # Re-export PriceActionModel
+├── model.py                 # PriceActionModel class + ensemble logic
+├── kernel_registry.py       # KernelSpec dataclass + KERNEL_REGISTRY dict
+├── kernels/
+│   ├── __init__.py          # Auto-imports all kernel modules
+│   ├── fvg.py               # K1: Fair Value Gap — @njit score function + KernelSpec
+│   ├── sweep.py             # K2: Liquidity Sweep
+│   ├── pin_bar.py           # K3: Pin Bar / Rejection
+│   ├── engulfing.py         # K4: Engulfing
+│   ├── bos.py               # K5: Break of Structure
+│   └── inside_bar.py        # K6: Inside Bar Breakout
+└── batch.py                 # @njit _batch_price_action orchestrator
 ```
+
+#### KernelSpec Registry
+
+```python
+# kernel_registry.py
+from dataclasses import dataclass
+from typing import Callable
+
+@dataclass(frozen=True)
+class KernelSpec:
+    name: str                      # e.g. "fvg"
+    weight_key: str                # e.g. "w_fvg" — maps to hyperparameter schema
+    category: str                  # "reversal" | "continuation" | "institutional"
+    needs_swings: bool             # True if kernel uses swing high/low state
+    param_keys: tuple[str, ...]    # hyperparameter keys this kernel uses
+
+KERNEL_REGISTRY: dict[str, KernelSpec] = {}
+
+def register_kernel(spec: KernelSpec):
+    """Register a kernel. Called at module import time."""
+    KERNEL_REGISTRY[spec.name] = spec
+```
+
+Each kernel file registers itself:
+```python
+# kernels/fvg.py
+from ..kernel_registry import KernelSpec, register_kernel
+
+register_kernel(KernelSpec(
+    name="fvg",
+    weight_key="w_fvg",
+    category="institutional",
+    needs_swings=False,
+    param_keys=("fvg_atr_scale",),
+))
+
+@njit(cache=True)
+def fvg_score(high, low, close, atr, i, fvg_atr_scale): ...
+```
+
+**Why plugin architecture:** Adding CHoCH, Swing Reclaim, Momentum Exhaustion, or
+user-defined kernels in v2 requires only:
+1. Create `kernels/choch.py` with `@njit` score function + `register_kernel(...)`
+2. Add weight key to hyperparameter schema
+3. Wire into `_batch_price_action` loop
+
+No changes to model.py, no modification of existing kernel files.
 
 ### 8.2 Model Registration
 
@@ -680,7 +861,15 @@ blender:
 |------|---------|
 | `src/libs/models/price_action/__init__.py` | Package init, re-export `PriceActionModel` |
 | `src/libs/models/price_action/model.py` | `PriceActionModel` class |
-| `src/libs/models/price_action/kernels.py` | Numba `@njit` kernel functions |
+| `src/libs/models/price_action/kernel_registry.py` | `KernelSpec` dataclass + `KERNEL_REGISTRY` |
+| `src/libs/models/price_action/kernels/__init__.py` | Auto-imports all kernel modules |
+| `src/libs/models/price_action/kernels/fvg.py` | K1: Fair Value Gap |
+| `src/libs/models/price_action/kernels/sweep.py` | K2: Liquidity Sweep |
+| `src/libs/models/price_action/kernels/pin_bar.py` | K3: Pin Bar / Rejection |
+| `src/libs/models/price_action/kernels/engulfing.py` | K4: Engulfing |
+| `src/libs/models/price_action/kernels/bos.py` | K5: Break of Structure |
+| `src/libs/models/price_action/kernels/inside_bar.py` | K6: Inside Bar Breakout |
+| `src/libs/models/price_action/batch.py` | `@njit _batch_price_action` orchestrator |
 | `tests/unit/models/price_action/test_kernels.py` | Kernel-level unit tests |
 | `tests/unit/models/price_action/test_model.py` | Model integration tests |
 
@@ -706,25 +895,33 @@ blender:
 
 ## 11. Implementation Order
 
-### Step 1: Kernel Functions (`kernels.py`)
+### Step 1: Kernel Registry (`kernel_registry.py`)
 
-Implement the 6 `@njit` kernel functions as module-level functions.
-Each kernel takes numpy arrays + scalar params and returns a float.
+Implement `KernelSpec` dataclass and `KERNEL_REGISTRY` dict with `register_kernel()` function.
 
-Also implement `_detect_swing_points()` helper (called from within batch function).
+### Step 2: Individual Kernel Files (`kernels/*.py`)
 
-Implement `_batch_price_action()` — the main `@njit` function that loops over bars
-and calls all kernels.
+Implement 6 kernel files, each containing:
+- A `@njit(cache=True)` score function
+- A `register_kernel(KernelSpec(...))` call at module scope
 
-### Step 2: Model Class (`model.py`)
+Also implement `_detect_swing_points()` helper (used by sweep, bos).
+
+### Step 3: Batch Orchestrator (`batch.py`)
+
+Implement `_batch_price_action()` — the main `@njit` function that loops over bars,
+calls all kernel score functions, applies pattern decay (EMA accumulators),
+context multipliers (proximity + alignment boosts), and confluence bonus.
+
+### Step 4: Model Class (`model.py`)
 
 Implement `PriceActionModel(ScoringModel)` with:
 - `meta` class attribute with `ModelMeta`
-- `evaluate()` for live single-tick mode (with ring buffer state)
-- `_batch_evaluate_impl()` that calls `_batch_price_action()`
+- `evaluate()` for live single-tick mode (with ring buffer state + decay accumulators)
+- `_batch_evaluate_impl()` that calls `_batch_price_action()` from `batch.py`
 - Column extraction from `feature_df` (OHLCV + ATR)
 
-### Step 3: Package Init (`__init__.py`)
+### Step 5: Package Init (`__init__.py`)
 
 ```python
 from libs.models.price_action.model import PriceActionModel
@@ -732,18 +929,18 @@ from libs.models.price_action.model import PriceActionModel
 __all__ = ["PriceActionModel"]
 ```
 
-### Step 4: Config (`models.yaml`)
+### Step 6: Config (`models.yaml`)
 
 Add `PriceAction` entry under BTCUSDT 1h with `enabled: true`,
 `migration_mode: scoring`, and default params.
 
-### Step 5: Auto-Registration Import
+### Step 7: Auto-Registration Import
 
 Ensure `src/libs/models/__init__.py` imports the `price_action` package
 so that `@ModelRegistry.register("PriceAction")` fires on startup.
 Check how existing models are imported — follow the same pattern.
 
-### Step 6: Unit Tests
+### Step 8: Unit Tests
 
 **Kernel tests** (`test_kernels.py`):
 1. `test_fvg_bullish` — 3-candle bullish gap detected, score > 0
@@ -768,8 +965,12 @@ Check how existing models are imported — follow the same pattern.
 18. `test_opposing_kernels_cancel` — conflicting kernels reduce score
 19. `test_evaluate_returns_scoring_output` — correct output type and fields
 20. `test_model_registry_discovery` — `ModelRegistry.get("PriceAction")` returns class
+21. `test_pattern_decay` — score at bar i persists with decay at bar i+1 (0.3x), i+2 (0.09x)
+22. `test_context_proximity_boost` — pin bar within 1 ATR of swing level scores higher than without
+23. `test_context_alignment_boost` — FVG concurrent with BOS scores higher than FVG alone
+24. `test_kernel_registry_populated` — all 6 kernels registered with correct specs
 
-### Step 7: Integration Test
+### Step 9: Integration Test
 
 Verify `PriceActionModel` can be loaded from `models.yaml` config via `ModelManager`,
 and that `batch_evaluate` produces a valid `pd.Series` aligned with input DataFrame.
@@ -793,9 +994,12 @@ and that `batch_evaluate` produces a valid `pd.Series` aligned with input DataFr
 7. Conviction is in [0.0, 1.0].
 8. All kernel functions are `@njit(cache=True)`.
 9. `min_history_bars = 20` — no signals in warmup period.
-10. All 20+ unit tests pass.
+10. All 24+ unit tests pass.
 11. All existing tests (908+) pass without modification.
 12. No lookahead bias: swing detection uses only confirmed (past) pivots.
+13. Pattern decay: a kernel signal at bar i produces non-zero contribution at bar i+1 (≈0.3x) and i+2 (≈0.09x).
+14. Context multipliers: reversal kernels near swing levels score higher than identical patterns in mid-range.
+15. Plugin architecture: each kernel is in its own file under `kernels/` and registers via `KernelSpec`.
 
 ---
 
@@ -808,6 +1012,10 @@ and that `batch_evaluate` produces a valid `pd.Series` aligned with input DataFr
 - [ ] Signal density per kernel matches acceptance criteria ranges
 - [ ] No lookahead: swing detection confirmation delay = `swing_lookback` bars
 - [ ] Batch and live mode produce identical results on the same input sequence
+- [ ] Pattern decay: non-zero contribution persists for ~3 bars after kernel fires
+- [ ] Context multipliers: reversal kernel near swing level scores > same kernel mid-range
+- [ ] Plugin architecture: `KERNEL_REGISTRY` contains all 6 kernels after import
+- [ ] Each kernel file is independently importable and testable
 - [ ] `edge_score` distribution has reasonable spread (not degenerate)
 - [ ] No changes to any existing model, contract, or pipeline component
 - [ ] Config is additive — removing `PriceAction` entry returns system to pre-change state
