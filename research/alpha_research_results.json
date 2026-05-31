@@ -1,0 +1,38 @@
+{
+  "phase": "3B",
+  "date": "2026-05-31T20:39:50.106609+00:00",
+  "strategies": {
+    "SuperTrend": {
+      "params": {
+        "period": 11,
+        "multiplier": 2.0,
+        "rsi_ob": 83,
+        "rsi_os": 39,
+        "sl_pct": 0.02,
+        "tp_pct": 0.055
+      },
+      "train_sharpe": 3.66,
+      "oos_sharpe": -3.56,
+      "oos_return": -0.1475,
+      "oos_max_dd": -0.2076,
+      "oos_win_rate": 0.083,
+      "oos_trades": 12
+    },
+    "RegimeEnsemble": {
+      "params": {
+        "adx_threshold": 22.0,
+        "st_period": 16,
+        "st_multiplier": 2.8,
+        "vwap_dev": 0.8500000000000001,
+        "sl_pct": 0.034999999999999996,
+        "tp_pct": 0.035
+      },
+      "train_sharpe": 3.4,
+      "oos_sharpe": -4.85,
+      "oos_return": -0.1736,
+      "oos_max_dd": -0.1874,
+      "oos_win_rate": 0.125,
+      "oos_trades": 8
+    }
+  }
+}

@@ -32,11 +32,11 @@ models:
             enabled: true
             migration_mode: adapted
             comparison_logging: true
-            # 2yr validation: defaults Sharpe +0.89 vs v7 +0.26 — using model defaults
+            # 3-param reduced grid: PBO=0.46 GO, Sharpe +1.43 (vs defaults +0.89, v7 +0.26)
             params:
-              kama_fast_period: 5
-              kama_slow_period: 30
-              mom_period: 20
+              kama_fast_period: 10
+              kama_slow_period: 25
+              mom_period: 30
               squeeze_lookback: 1
               ss_threshold: 3
               cci_period: 5
@@ -200,20 +200,21 @@ models:
         4h:
           SqueezeBreakout:
             enabled: true
+            # PBO=0.558 (overfit) with v7 params — reverted to defaults
             params:
-              kama_fast_period: 3
-              kama_slow_period: 29
-              mom_period: 16
+              kama_fast_period: 5
+              kama_slow_period: 30
+              mom_period: 20
               squeeze_lookback: 1
-              ss_threshold: 4
-              cci_period: 7
-              adx_period: 21
-              adx_threshold: 20
-              ad_sma_period: 14
-              mfi_period: 13
-              mfi_sma_period: 7
-              mom_lr_period: 17
-              mom_lr_mom_period: 20
+              ss_threshold: 3
+              cci_period: 5
+              adx_period: 14
+              adx_threshold: 18
+              ad_sma_period: 21
+              mfi_period: 14
+              mfi_sma_period: 9
+              mom_lr_period: 14
+              mom_lr_mom_period: 10
     default:
       timeframes:
         default:

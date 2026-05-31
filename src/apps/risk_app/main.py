@@ -55,6 +55,23 @@ def _build_risk_engine(risk_config: dict) -> RiskEngine:
     )
 
 
+async def _persist_state_loop(
+    account: AccountState,
+    positions: PositionTracker,
+    interval_seconds: int = 60,
+) -> None:
+    """Periodically persist account and position state to TimescaleDB."""
+    while True:
+        await asyncio.sleep(interval_seconds)
+        try:
+            db_pool = DBPoolManager.get_writer_pool()
+            await account.save_snapshot(db_pool)
+            await positions.save_positions(db_pool)
+            logger.debug("Persisted account and position state to DB")
+        except Exception:
+            logger.exception("Failed to persist state to DB")
+
+
 async def _run() -> None:
     config_mgr = ConfigManager()
     config_mgr.register_file(CONFIG_FILE_RISK)
@@ -94,10 +111,11 @@ async def _run() -> None:
     # Load risk config
     risk_config = config_mgr.get(KEY_RISK, {})
 
-    # Bootstrap account and position state
+    # Bootstrap account and position state (restore from DB if available)
     initial_balance = risk_config.get("account", {}).get("initial_balance", 10_000)
-    account = AccountState(initial_balance)
-    positions = PositionTracker()
+    db_pool = DBPoolManager.get_writer_pool()
+    account = await AccountState.load_latest(db_pool, initial_balance)
+    positions = await PositionTracker.load_positions(db_pool)
 
     # Build engine and aggregator
     risk_engine = _build_risk_engine(risk_config)
@@ -105,6 +123,11 @@ async def _run() -> None:
 
     tasks: list[asyncio.Task] = []
     try:
+        # Background state persistence
+        tasks.append(asyncio.create_task(
+            _persist_state_loop(account, positions),
+        ))
+
         # Spawn one RiskWorker per asset
         for asset, timeframes in asset_map.items():
             worker = RiskWorker(
@@ -138,6 +161,14 @@ async def _run() -> None:
             await asyncio.gather(*tasks, return_exceptions=True)
         raise
     finally:
+        # Persist final state before shutdown
+        try:
+            db_pool = DBPoolManager.get_writer_pool()
+            await account.save_snapshot(db_pool)
+            await positions.save_positions(db_pool)
+            logger.info("Final state persisted to DB on shutdown")
+        except Exception:
+            logger.exception("Failed to persist final state on shutdown")
         await redis_client.aclose()
         await DBPoolManager.close_pools()
 
