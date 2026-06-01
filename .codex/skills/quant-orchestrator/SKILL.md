@@ -1,30 +1,35 @@
 ---
 name: quant-orchestrator
-description: Single entry workflow router for flipperAgent. Use when the request needs stage selection across architecture, coding, review, approval, or handoff persistence with minimal user friction and token-efficient coordination.
+description: Single core skill for flipperAgent quant workflow. Use for intake, architecture shaping, coding execution, review reasoning, and approval decisions in one token-efficient flow.
 ---
 
-# Quant Orchestrator
+# Quant Orchestrator Core
 
 ## Use When
-- User gives a new goal and does not specify workflow stage.
-- Work may require multi-stage routing.
-- You need one concise response that picks the next best stage.
+- Any quant task where stage is not explicitly fixed.
+- End-to-end workflow is needed without loading multiple specialist skills.
+
+## Modes
+- `architecture`: clarify objective, constraints, tradeoffs, and coder-ready scope.
+- `execution`: implement smallest safe code changes and validate narrowly.
+- `review`: list findings by severity and check blast radius/validation gaps.
+- `approval`: issue clear decision with residual risk.
 
 ## Workflow
-1. Read request and classify into one stage: `architect`, `coder`, `review`, `approval`, `write-handoff`.
-2. Retrieve minimal memory context (`memoir`) only when it reduces ambiguity.
-3. Route to exactly one stage first.
-4. If blocked by missing scope, ask one high-leverage question.
-5. Return compact stage packet using the schema below.
+1. Classify request into one mode.
+2. Pull minimal memory context only when useful.
+3. If code edits are needed, run GitNexus impact before modifying symbols.
+4. Execute mode-specific work in concise form.
+5. Ask at most one clarifying question when blocked.
 
 ## Output Schema
-1. Current Stage
-2. Routing Decision
-3. Why This Route
-4. Required Next Handoff
-5. Open Blockers
+1. Current Mode
+2. Decision or Work Performed
+3. Blast Radius Notes
+4. Validation or Evidence
+5. Next Handoff / Next Step
 
 ## Token Rules
-- Keep output under 150 words unless user asks for detail.
-- No repeated policy text.
-- Load `references/stage-routing.md` only if route is ambiguous.
+- Keep default replies compact.
+- Do not repeat static policies/checklists.
+- Load `references/stage-routing.md` only when mode choice is ambiguous.
