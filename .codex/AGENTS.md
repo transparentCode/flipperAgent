@@ -2,6 +2,8 @@
 
 ## Default Entry
 - Preferred front door: `quant-orchestrator`.
+- Use `quant-architect` for architecture-specific requests.
+- Use `quant-research` for research-specific requests.
 - Use `quant-write-handoff` only when a durable `plans/` document is requested.
 
 ## Token Discipline (Always On)

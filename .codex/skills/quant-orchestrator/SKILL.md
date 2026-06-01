@@ -10,6 +10,7 @@ description: Single core skill for flipperAgent quant workflow. Use for intake, 
 - End-to-end workflow is needed without loading multiple specialist skills.
 
 ## Modes
+- `research`: define hypotheses, experiment plan, and decision criteria.
 - `architecture`: clarify objective, constraints, tradeoffs, and coder-ready scope.
 - `execution`: implement smallest safe code changes and validate narrowly.
 - `review`: list findings by severity and check blast radius/validation gaps.
