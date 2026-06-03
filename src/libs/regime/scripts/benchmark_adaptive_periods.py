@@ -16,13 +16,13 @@ Metrics:
 
 Usage:
     # Synthetic data (no API key needed)
-    python -m app.regime.scripts.benchmark_adaptive_periods --mode synthetic --bars 2000
+    python -m libs.regime.scripts.benchmark_adaptive_periods --mode synthetic --bars 2000
 
     # Live Binance data (single asset)
-    python -m app.regime.scripts.benchmark_adaptive_periods --mode live --symbol BTCUSDT --timeframe 1h --start 2024-01-01 --end 2025-01-01
+    python -m libs.regime.scripts.benchmark_adaptive_periods --mode live --symbol BTCUSDT --timeframe 1h --start 2024-01-01 --end 2025-01-01
 
     # Cross-asset validation
-    python -m app.regime.scripts.benchmark_adaptive_periods --mode cross-asset --perf-runs 100
+    python -m libs.regime.scripts.benchmark_adaptive_periods --mode cross-asset --perf-runs 100
 """
 
 import sys
@@ -30,6 +30,7 @@ import os
 import argparse
 import time
 import logging
+from pathlib import Path
 from typing import Dict, Any, Tuple, List as TypingList
 
 import numpy as np
@@ -37,8 +38,9 @@ import pandas as pd
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
-from app.regime.orchestrator import RegimeOrchestrator
-from app.regime.aggregation.rule_based import FeatureAggregator, AggregatorConfig
+from libs.regime.config_loader import load_yaml_config
+from libs.regime.orchestrator import RegimeOrchestrator
+from libs.regime.aggregation.rule_based import FeatureAggregator, AggregatorConfig
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger("AdaptivePeriodBenchmark")
@@ -772,9 +774,8 @@ def print_cross_asset_summary(results: Dict[str, Dict]):
 
 def load_asset_profile(profile_name: str) -> Dict[str, Any]:
     """Load an asset-class profile from aggregator.yaml."""
-    from app.utils.ConfigLoader import ConfigLoader
     try:
-        cfg = ConfigLoader.load("app/regime/config/aggregator.yaml")
+        cfg = load_yaml_config(Path(__file__).resolve().parents[1] / "config" / "aggregator.yaml")
     except (FileNotFoundError, OSError):
         return {}
     profiles = cfg.get('asset_class_profiles', {})
@@ -783,9 +784,8 @@ def load_asset_profile(profile_name: str) -> Dict[str, Any]:
 
 def load_timeframe_profile(timeframe: str) -> Dict[str, Any]:
     """Load a timeframe BB stddev multiplier from aggregator.yaml."""
-    from app.utils.ConfigLoader import ConfigLoader
     try:
-        cfg = ConfigLoader.load("app/regime/config/aggregator.yaml")
+        cfg = load_yaml_config(Path(__file__).resolve().parents[1] / "config" / "aggregator.yaml")
     except (FileNotFoundError, OSError):
         return {}
     profiles = cfg.get('timeframe_profiles', {})

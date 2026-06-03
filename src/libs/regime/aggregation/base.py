@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 
 import pandas as pd
 
-from app.regime.models import ChangePointSignal, HMMState, RegimeFeatures, VolState
+from libs.regime.models import ChangePointSignal, HMMState, RegimeFeatures, VolState
 
 
 class BaseAggregator(ABC):

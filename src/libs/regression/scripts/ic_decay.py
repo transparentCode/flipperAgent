@@ -25,11 +25,11 @@ from scipy import stats
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from app.regression.api import compute_single_tf_series
-from app.regression.config.resolver import ConfigResolver
+from libs.regression.api import compute_single_tf_series
+from libs.regression.config.resolver import ConfigResolver
 
 ROOT = Path(__file__).resolve().parents[3]
-CSV_DIR = ROOT / "app" / "trendlines" / "optimization" / "results"
+CSV_DIR = ROOT / "src" / "libs" / "trendlines" / "optimization" / "results"
 DEFAULT_YAML = Path(__file__).parent.parent / "config" / "regression.yaml"
 WINDOW_BARS = 2500
 

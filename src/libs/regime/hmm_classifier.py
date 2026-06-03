@@ -28,7 +28,7 @@ import pandas as pd
 from hmmlearn.hmm import GaussianHMM
 from scipy.stats import t as student_t
 
-from app.regime.models import HMMState
+from libs.regime.models import HMMState
 
 logger = logging.getLogger("app.regime")
 
@@ -82,6 +82,7 @@ class HMMClassifier:
         self._state_labels: dict[int, str] = {}  # state_idx -> label mapping
         self._crisis_indices: list[int] = []      # state indices labeled CRISIS
         self._trending_indices: list[int] = []    # state indices labeled TRENDING
+        self._diag = self._empty_diagnostics()
 
     # ------------------------------------------------------------------
     # Public API
@@ -316,6 +317,20 @@ class HMMClassifier:
         self._model = None
         self._model_age = 0
         self._force_retrain_flag = False
+        self._diag = self._empty_diagnostics()
+
+    def diagnostics(self) -> dict:
+        """Return HMM fit-health diagnostics for the current run."""
+        fit_attempts = max(int(self._diag["fit_attempts"]), 1)
+        fit_successes = max(int(self._diag["fit_successes"]), 1)
+        return {
+            **self._diag,
+            "fit_failure_rate": float(self._diag["fit_failures"] / fit_attempts),
+            "unstable_fit_rate": float(self._diag["unstable_fits"] / fit_successes),
+            "zero_transition_fit_rate": float(
+                self._diag["zero_transition_row_fits"] / fit_successes
+            ),
+        }
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -580,15 +595,29 @@ class HMMClassifier:
             model_kwargs["tol"] = tol
 
         model = GaussianHMM(**model_kwargs)
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore",
-                message="invalid value encountered in divide",
-                category=RuntimeWarning,
-            )
-            model.fit(X)
+        self._diag["fit_attempts"] += 1
+        try:
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message="invalid value encountered in divide",
+                    category=RuntimeWarning,
+                )
+                model.fit(X)
 
-        self._validate_fitted_model(model)
+            self._validate_fitted_model(model)
+        except Exception:
+            self._diag["fit_failures"] += 1
+            raise
+
+        self._diag["fit_successes"] += 1
+        if self._is_unstable_fit(model):
+            self._diag["unstable_fits"] += 1
+
+        zero_rows = int(np.sum(np.isclose(model.transmat_.sum(axis=1), 0.0)))
+        self._diag["zero_transition_rows"] += zero_rows
+        if zero_rows > 0:
+            self._diag["zero_transition_row_fits"] += 1
         return model
 
     @staticmethod
@@ -749,7 +778,7 @@ class HMMClassifier:
 
         # Optionally add Hurst exponent
         if self.config.use_hurst:
-            from app.regime.kernels.hurst import rolling_hurst
+            from libs.regime.kernels.hurst import rolling_hurst
             hurst = rolling_hurst(
                 close,
                 lookback=self.config.hurst_lookback,
@@ -795,4 +824,26 @@ class HMMClassifier:
             "n_states": self._n_states,
             "state_labels": self._state_labels,
             "covariance_type": self._model.covariance_type,
+            "diagnostics": self.diagnostics(),
         }
+
+    @staticmethod
+    def _empty_diagnostics() -> dict:
+        return {
+            "fit_attempts": 0,
+            "fit_successes": 0,
+            "fit_failures": 0,
+            "unstable_fits": 0,
+            "zero_transition_rows": 0,
+            "zero_transition_row_fits": 0,
+        }
+
+    @staticmethod
+    def _is_unstable_fit(model: GaussianHMM) -> bool:
+        monitor = getattr(model, "monitor_", None)
+        if monitor is None:
+            return False
+        converged = bool(getattr(monitor, "converged", True))
+        history = list(getattr(monitor, "history", []))
+        decreasing_ll = len(history) >= 2 and history[-1] < history[-2] - 1e-8
+        return (not converged) or decreasing_ll

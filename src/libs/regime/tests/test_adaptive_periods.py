@@ -8,7 +8,7 @@ Validates the 2-tier adaptive period logic:
 """
 
 import pytest
-from app.regime.aggregation.rule_based import FeatureAggregator, AggregatorConfig
+from libs.regime.aggregation.rule_based import FeatureAggregator, AggregatorConfig
 
 BB_BASE = 20   # default bb_base
 THRESHOLD = 0.70  # default hilbert_high_threshold

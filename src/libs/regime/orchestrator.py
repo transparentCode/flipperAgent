@@ -26,18 +26,19 @@ from typing import Any, Optional
 
 import pandas as pd
 
-from app.regime.aggregation.rule_based import AggregatorConfig, FeatureAggregator
-from app.regime.change_detector import ChangeDetector, ChangeDetectorConfig
-from app.regime.hmm_classifier import HMMClassifier, HMMConfig
-from app.regime.kernels.hilbert_cycle import HilbertCycle
-from app.regime.market_structure import (
+from libs.regime.aggregation.rule_based import AggregatorConfig, FeatureAggregator
+from libs.regime.change_detector import ChangeDetector, ChangeDetectorConfig
+from libs.regime.config_loader import load_regime_config
+from libs.regime.hmm_classifier import HMMClassifier, HMMConfig
+from libs.regime.kernels.hilbert_cycle import HilbertCycle
+from libs.regime.market_structure import (
     MarketStructure,
     MarketStructureConfig,
     infer_asset_type,
 )
-from app.regime.models import RegimeFeatures
-from app.regime.mtf_fusion import MTFConfig, MTFFusion
-from app.regime.vol_overlay import VolConfig, VolOverlay
+from libs.regime.models import RegimeFeatures
+from libs.regime.mtf_fusion import MTFConfig, MTFFusion
+from libs.regime.vol_overlay import VolConfig, VolOverlay
 
 logger = logging.getLogger("app.regime")
 
@@ -102,11 +103,7 @@ class RegimeOrchestrator:
         **overrides : runtime param overrides (highest priority)
         """
         # 1. Single-pass YAML load
-        try:
-            from app.utils.ConfigLoader import ConfigLoader
-            raw = ConfigLoader.load("app/regime/config/regime.yaml")
-        except Exception:
-            raw = {}
+        raw = load_regime_config()
 
         defaults = raw.get("defaults", {})
         asset_cfg = raw.get("assets", {}).get(asset or "", {}).get(timeframe or "", {})

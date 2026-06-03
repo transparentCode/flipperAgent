@@ -37,8 +37,8 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from app.regime.aggregation.base import BaseAggregator
-from app.regime.models import ChangePointSignal, HMMState, RegimeFeatures, VolState
+from libs.regime.aggregation.base import BaseAggregator
+from libs.regime.models import ChangePointSignal, HMMState, RegimeFeatures, VolState
 
 logger = logging.getLogger("app.regime")
 

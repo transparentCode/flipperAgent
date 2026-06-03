@@ -18,7 +18,7 @@ import pandas as pd
 from dataclasses import dataclass
 from typing import Optional
 
-from app.regime.aggregation.rule_based import CHOPPY, TREND_REGIMES
+from libs.regime.aggregation.rule_based import CHOPPY, TREND_REGIMES
 
 # Agreement classifications
 CONFIRMING = "CONFIRMING"

@@ -15,20 +15,20 @@ Layers:
 
 Usage
 -----
-    from app.regime import RegimeOrchestrator
+    from libs.regime import RegimeOrchestrator
 
     orch = RegimeOrchestrator.create("BTCUSDT", "1h")
     features = orch.analyze(df)
     # features.regime, features.p_trending, features.position_scale, ...
 """
 
-from app.regime.models import ChangePointSignal, HMMState, RegimeFeatures, VolState
-from app.regime.change_detector import ChangeDetector, ChangeDetectorConfig
-from app.regime.hmm_classifier import HMMClassifier, HMMConfig
-from app.regime.vol_overlay import VolOverlay, VolConfig
-from app.regime.orchestrator import RegimeOrchestrator
-from app.regime.aggregation.rule_based import FeatureAggregator, AggregatorConfig
-from app.regime.aggregation.base import BaseAggregator
+from .aggregation.base import BaseAggregator
+from .aggregation.rule_based import AggregatorConfig, FeatureAggregator
+from .change_detector import ChangeDetector, ChangeDetectorConfig
+from .hmm_classifier import HMMClassifier, HMMConfig
+from .models import ChangePointSignal, HMMState, RegimeFeatures, VolState
+from .orchestrator import RegimeOrchestrator
+from .vol_overlay import VolConfig, VolOverlay
 
 __all__ = [
     # Data contracts

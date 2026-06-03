@@ -46,6 +46,28 @@ class BenchmarkResults:
     detection_lag: float = 999.0
     cp_recall: float = 0.0
 
+    # Supplemental truthfulness diagnostics (reporting-only)
+    baseline_sharpe_lift: float = 0.0
+    baseline_ic_lift: float = 0.0
+    persistence_sharpe_lift: float = 0.0
+    persistence_ic_lift: float = 0.0
+    vol_baseline_sharpe_lift: float = 0.0
+    vol_baseline_ic_lift: float = 0.0
+    adx_baseline_sharpe_lift: float = 0.0
+    adx_baseline_ic_lift: float = 0.0
+    shuffled_sharpe_lift: float = 0.0
+    shuffled_ic_lift: float = 0.0
+    proxy_trend_brier_score: float = 1.0
+    proxy_trend_ece: float = 1.0
+    passed_baseline_gate: bool = False
+    passed_strict_baseline_gate: bool = False
+    strict_baseline_failure_count: int = 0
+
+    # HMM health diagnostics (reporting-only)
+    hmm_fit_failure_rate: float = 0.0
+    hmm_unstable_fit_rate: float = 0.0
+    hmm_zero_transition_fit_rate: float = 0.0
+
     # Meta
     computation_time_ms: float = 0.0
     n_bars: int = 0
@@ -67,6 +89,24 @@ class BenchmarkResults:
             "cp_precision": self.cp_precision,
             "detection_lag": self.detection_lag,
             "cp_recall": self.cp_recall,
+            "baseline_sharpe_lift": self.baseline_sharpe_lift,
+            "baseline_ic_lift": self.baseline_ic_lift,
+            "persistence_sharpe_lift": self.persistence_sharpe_lift,
+            "persistence_ic_lift": self.persistence_ic_lift,
+            "vol_baseline_sharpe_lift": self.vol_baseline_sharpe_lift,
+            "vol_baseline_ic_lift": self.vol_baseline_ic_lift,
+            "adx_baseline_sharpe_lift": self.adx_baseline_sharpe_lift,
+            "adx_baseline_ic_lift": self.adx_baseline_ic_lift,
+            "shuffled_sharpe_lift": self.shuffled_sharpe_lift,
+            "shuffled_ic_lift": self.shuffled_ic_lift,
+            "proxy_trend_brier_score": self.proxy_trend_brier_score,
+            "proxy_trend_ece": self.proxy_trend_ece,
+            "passed_baseline_gate": self.passed_baseline_gate,
+            "passed_strict_baseline_gate": self.passed_strict_baseline_gate,
+            "strict_baseline_failure_count": self.strict_baseline_failure_count,
+            "hmm_fit_failure_rate": self.hmm_fit_failure_rate,
+            "hmm_unstable_fit_rate": self.hmm_unstable_fit_rate,
+            "hmm_zero_transition_fit_rate": self.hmm_zero_transition_fit_rate,
             "computation_time_ms": self.computation_time_ms,
             "n_bars": self.n_bars,
             "n_regime_changes": self.n_regime_changes,
@@ -94,7 +134,7 @@ class WalkForwardConfig:
     def purge_bars_for_timeframe(self, timeframe: str) -> int:
         """Compute purge_bars so the gap represents purge_hours regardless of bar size."""
         import math
-        from app.regime.orchestrator import timeframe_to_hours
+        from libs.regime.orchestrator import timeframe_to_hours
         bar_hours = timeframe_to_hours(timeframe)
         return max(1, math.ceil(self.purge_hours / bar_hours))
 
@@ -325,7 +365,7 @@ class OptimizationConfig:
 
 # Alias: SearchSpace was the original name for the search-space portion of
 # OptimizationConfig.  Kept for backward compatibility with scripts that
-# import ``from app.regime.optimization.models import SearchSpace``.
+# import ``from libs.regime.optimization.models import SearchSpace``.
 SearchSpace = OptimizationConfig
 
 

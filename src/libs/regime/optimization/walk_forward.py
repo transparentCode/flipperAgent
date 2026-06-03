@@ -73,7 +73,7 @@ class WalkForwardValidator:
         # Compute purge_bars from purge_hours + timeframe if both provided
         if purge_hours is not None and timeframe is not None:
             import math
-            from app.regime.orchestrator import timeframe_to_hours
+            from libs.regime.orchestrator import timeframe_to_hours
             bar_hours = timeframe_to_hours(timeframe)
             self.purge_bars = max(1, math.ceil(purge_hours / bar_hours))
         else:
@@ -218,7 +218,7 @@ class CombinatorialPurgedCV:
         # Compute bar counts from hours + timeframe if provided
         if timeframe is not None:
             import math
-            from app.regime.orchestrator import timeframe_to_hours
+            from libs.regime.orchestrator import timeframe_to_hours
             bar_hours = timeframe_to_hours(timeframe)
             self.purge_bars = (
                 max(1, math.ceil(purge_hours / bar_hours))

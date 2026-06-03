@@ -8,7 +8,7 @@ pair. Reports gaps so you know which pairs still use default values.
 
 Usage
 -----
-    from app.regime.config_validator import RegimeConfigValidator
+    from libs.regime.config_validator import RegimeConfigValidator
 
     validator = RegimeConfigValidator()
 

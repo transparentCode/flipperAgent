@@ -4,9 +4,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from app.regime import RegimeOrchestrator
-from app.regime.models import RegimeFeatures
-from app.regime.aggregation.rule_based import ALL_REGIMES
+from libs.regime import RegimeOrchestrator
+from libs.regime.models import RegimeFeatures
+from libs.regime.aggregation.rule_based import ALL_REGIMES
 
 _VALID_REGIMES = set(ALL_REGIMES)
 
@@ -26,6 +26,22 @@ class TestRegimeOrchestrator:
         orch = RegimeOrchestrator.create("BTCUSDT", "1h")
         assert orch is not None
         assert orch.asset == "BTCUSDT"
+
+    def test_create_loads_asset_specific_1h_config(self):
+        orch = RegimeOrchestrator.create("BTCUSDT", "1h")
+        assert orch.hmm_classifier.config.retrain_window == 446
+        assert orch.vol_overlay.config.lookback == 24
+        assert orch.change_detector.config.signal_threshold == pytest.approx(
+            0.49610764976231736,
+        )
+
+    def test_create_loads_asset_specific_30m_config(self):
+        orch = RegimeOrchestrator.create("BTCUSDT", "30m")
+        assert orch.hmm_classifier.config.retrain_window == 489
+        assert orch.vol_overlay.config.lookback == 54
+        assert orch.change_detector.config.signal_threshold == pytest.approx(
+            0.40992128148902884,
+        )
 
     def test_analyze_returns_regime_features(self):
         orch = RegimeOrchestrator.create("BTCUSDT", "1h")

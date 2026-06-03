@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import sys
 from typing import Any
 
 import pandas as pd
@@ -39,15 +38,8 @@ _STARTUP_WARMING_RETRY_DELAY_SEC = 5
 _REGIME_MIN_BARS = 200
 # Maximum price history buffer size
 _REGIME_MAX_HISTORY = 2000
-
-
 def _import_regime_orchestrator():
-    """Lazily import RegimeOrchestrator, patching the legacy app→libs alias."""
-    # The regime module uses legacy 'app.regime.*' imports internally;
-    # alias 'app' → 'libs' in sys.modules so they resolve correctly.
-    if "app" not in sys.modules:
-        import libs
-        sys.modules["app"] = libs
+    """Lazily import RegimeOrchestrator."""
     from libs.regime.orchestrator import RegimeOrchestrator
     return RegimeOrchestrator
 

@@ -14,8 +14,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from app.regime.kernels.hilbert_cycle import HilbertCycle
-from app.regime import RegimeOrchestrator
+from libs.regime.kernels.hilbert_cycle import HilbertCycle
+from libs.regime import RegimeOrchestrator
 
 
 def _make_df(n=300, seed=42):

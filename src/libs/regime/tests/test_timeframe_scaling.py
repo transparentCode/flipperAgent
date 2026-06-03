@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from app.regime.orchestrator import RegimeOrchestrator, timeframe_to_hours
+from libs.regime.orchestrator import RegimeOrchestrator, timeframe_to_hours
 
 
 class TestTimeframeToHours:
@@ -89,34 +89,34 @@ class TestWalkForwardPurgeScaling:
     """Test timeframe-aware purge in walk-forward validators."""
 
     def test_purge_hours_at_1h(self):
-        from app.regime.optimization.walk_forward import WalkForwardValidator
+        from libs.regime.optimization.walk_forward import WalkForwardValidator
         wf = WalkForwardValidator(purge_hours=24.0, timeframe="1h")
         assert wf.purge_bars == 24
 
     def test_purge_hours_at_15m(self):
-        from app.regime.optimization.walk_forward import WalkForwardValidator
+        from libs.regime.optimization.walk_forward import WalkForwardValidator
         wf = WalkForwardValidator(purge_hours=24.0, timeframe="15m")
         assert wf.purge_bars == 96  # 24 / 0.25
 
     def test_purge_hours_at_4h(self):
-        from app.regime.optimization.walk_forward import WalkForwardValidator
+        from libs.regime.optimization.walk_forward import WalkForwardValidator
         wf = WalkForwardValidator(purge_hours=24.0, timeframe="4h")
         assert wf.purge_bars == 6  # 24 / 4
 
     def test_default_purge_without_timeframe(self):
-        from app.regime.optimization.walk_forward import WalkForwardValidator
+        from libs.regime.optimization.walk_forward import WalkForwardValidator
         wf = WalkForwardValidator(purge_bars=30)
         assert wf.purge_bars == 30
 
     def test_config_purge_bars_for_timeframe(self):
-        from app.regime.optimization.models import WalkForwardConfig
+        from libs.regime.optimization.models import WalkForwardConfig
         cfg = WalkForwardConfig(purge_hours=24.0)
         assert cfg.purge_bars_for_timeframe("1h") == 24
         assert cfg.purge_bars_for_timeframe("15m") == 96
         assert cfg.purge_bars_for_timeframe("4h") == 6
 
     def test_combinatorial_purge_scaling(self):
-        from app.regime.optimization.walk_forward import CombinatorialPurgedCV
+        from libs.regime.optimization.walk_forward import CombinatorialPurgedCV
         cv = CombinatorialPurgedCV(
             purge_hours=24.0, embargo_hours=12.0, timeframe="15m",
         )

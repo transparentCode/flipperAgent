@@ -16,9 +16,10 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from app.regime.kernels.changepoint.core import bcpd_detect
-from app.regime.market_structure import MarketStructure
-from app.regime.models import ChangePointSignal
+from libs.regime.config_loader import load_regime_config
+from libs.regime.kernels.changepoint.core import bcpd_detect
+from libs.regime.market_structure import MarketStructure
+from libs.regime.models import ChangePointSignal
 
 logger = logging.getLogger("app.regime")
 
@@ -47,15 +48,11 @@ class ChangeDetectorConfig:
         **overrides,
     ) -> "ChangeDetectorConfig":
         """
-        Load from app/regime/config/regime.yaml with per-asset/TF overrides.
+        Load from regime.yaml with per-asset/TF overrides.
 
         Priority: overrides > assets.{asset}.{tf} > defaults
         """
-        try:
-            from app.utils.ConfigLoader import ConfigLoader
-            raw = ConfigLoader.load("app/regime/config/regime.yaml")
-        except Exception:
-            raw = {}
+        raw = load_regime_config()
 
         defaults = raw.get("defaults", {})
         asset_cfg: dict = {}
@@ -75,7 +72,7 @@ class ChangeDetectorConfig:
             alpha=float(_get("bcpd_alpha", 1.0)),
             beta=float(_get("bcpd_beta", 1.0)),
             signal_threshold=float(_get("bcpd_signal_threshold", 0.35)),
-            zscore_max_window=int(_get("zscore_max_window", 2000)),
+            zscore_max_window=int(_get("bcpd_zscore_max_window", 2000)),
             zscore_clip=float(_get("bcpd_zscore_clip", 5.0)),
             min_periods=int(_get("min_periods", 20)),
             truncation=int(_get("truncation", 500)),

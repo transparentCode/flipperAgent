@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from app.regime.hmm_classifier import HMMClassifier, HMMConfig
-from app.regime.models import HMMState
+from libs.regime.hmm_classifier import HMMClassifier, HMMConfig
+from libs.regime.models import HMMState
 
 
 def _make_df(n=500, seed=42):
@@ -67,3 +67,22 @@ class TestHMMClassifier:
         clf.classify(df)
         age2 = clf._model_age
         assert age2 > age1
+
+    def test_diagnostics_have_bounded_rates(self):
+        clf = HMMClassifier()
+        clf.classify_series(_make_df())
+        diag = clf.diagnostics()
+
+        assert diag["fit_attempts"] >= 1
+        assert 0.0 <= diag["fit_failure_rate"] <= 1.0
+        assert 0.0 <= diag["unstable_fit_rate"] <= 1.0
+        assert 0.0 <= diag["zero_transition_fit_rate"] <= 1.0
+
+    def test_reset_clears_diagnostics(self):
+        clf = HMMClassifier()
+        clf.classify_series(_make_df())
+        assert clf.diagnostics()["fit_attempts"] >= 1
+        clf.reset()
+        diag = clf.diagnostics()
+        assert diag["fit_attempts"] == 0
+        assert diag["fit_failures"] == 0

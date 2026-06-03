@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from app.regime.vol_overlay import VolConfig, VolOverlay
-from app.regime.models import VolState
+from libs.regime.vol_overlay import VolConfig, VolOverlay
+from libs.regime.models import VolState
 
 
 def _make_df(n=500, seed=42):

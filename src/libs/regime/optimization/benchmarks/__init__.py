@@ -14,6 +14,7 @@ from . import (
     stability,
     statistical_validity,
     strategy_utility,
+    truthfulness,
 )
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "statistical_validity",
     "stability",
     "changepoint_quality",
+    "truthfulness",
 ]

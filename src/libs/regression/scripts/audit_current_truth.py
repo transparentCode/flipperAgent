@@ -6,14 +6,15 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from app.regime.orchestrator import RegimeOrchestrator
-from app.regression.api import compute_single_tf_series, compute_universe
-from app.regression.config.resolver import ConfigResolver
-from app.utils.ConfigLoader import ConfigLoader
+from libs.regime.orchestrator import RegimeOrchestrator
+from libs.common.config import ConfigManager
+from libs.regression.api import compute_single_tf_series, compute_universe
+from libs.regression.config.resolver import ConfigResolver
 
 
 ROOT = Path(__file__).resolve().parents[3]
-CSV_DIR = ROOT / "app" / "trendlines" / "optimization" / "results"
+CSV_DIR = ROOT / "src" / "libs" / "trendlines" / "optimization" / "results"
+REGRESSION_CONFIG_PATH = ROOT / "src" / "libs" / "regression" / "config" / "regression.yaml"
 ASSETS = {
     "BTCUSDT": CSV_DIR / "BTCUSDT_1h_2023-01-01_2026-03-01.csv",
     "ETHUSDT": CSV_DIR / "ETHUSDT_1h_2023-01-01_2026-03-01.csv",
@@ -186,7 +187,13 @@ def _mr_fit_summary(frame: pd.DataFrame) -> dict:
 
 
 def main() -> None:
-    raw = ConfigLoader.load(str(ROOT / "app" / "regression" / "config" / "regression.yaml"))
+    config_mgr = ConfigManager()
+    config_mgr.register_file(REGRESSION_CONFIG_PATH)
+    raw = {}
+    for entry in config_mgr.get_all_file_states():
+        if entry.get("filePath") and Path(entry["filePath"]).resolve() == REGRESSION_CONFIG_PATH.resolve():
+            raw = entry.get("contents") or {}
+            break
     resolver = ConfigResolver.from_dict(raw)
 
     audit_assets: dict[str, dict[str, pd.DataFrame]] = {}

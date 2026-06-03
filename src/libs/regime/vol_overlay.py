@@ -14,7 +14,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from app.regime.models import VolState
+from libs.regime.models import VolState
 
 _EPS = 1e-10
 _LOW_VOL = "LOW_VOL"

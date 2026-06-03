@@ -33,15 +33,15 @@ sys.path.insert(0, str(project_root))
 import pandas as pd
 
 from app.connectors.BinanceConnector import BinanceConnector
-from app.regression.config.resolver import ConfigResolver
-from app.regression.config.schema import OrchestratorConfig
-from app.regression.optimization.models import (
+from libs.regression.config.resolver import ConfigResolver
+from libs.regression.config.schema import OrchestratorConfig
+from libs.regression.optimization.models import (
     RegressionOptimizationConfig,
     RegressionOptimizationResult,
 )
-from app.regression.optimization.optimizer import RegressionMOTPEOptimizer
-from app.regression.optimization.pipeline_factory import build_pipeline_factory
-from app.regression.pipeline import RegressionPipeline
+from libs.regression.optimization.optimizer import RegressionMOTPEOptimizer
+from libs.regression.optimization.pipeline_factory import build_pipeline_factory
+from libs.regression.pipeline import RegressionPipeline
 
 logger = logging.getLogger("app.regression.scripts.run_optimization")
 
@@ -528,7 +528,7 @@ def main(argv=None) -> int:
     # Resolve orchestrator config for search space building
     orch_config = OrchestratorConfig()
     try:
-        from app.regression.config.schema import OrchestratorConfig as OC
+        from libs.regression.config.schema import OrchestratorConfig as OC
         resolved = resolver.resolve(args.asset, args.timeframe)
         if hasattr(resolved, "orchestrator"):
             orch_config = resolved.orchestrator

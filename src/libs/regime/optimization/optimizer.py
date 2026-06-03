@@ -17,21 +17,22 @@ from typing import Callable, List, Optional
 import numpy as np
 import pandas as pd
 
-from app.regime.optimization.benchmarks import (
+from libs.regime.optimization.benchmarks import (
     changepoint_quality,
     predictive_power,
     stability,
     statistical_validity,
     strategy_utility,
+    truthfulness,
 )
-from app.regime.optimization.models import (
+from libs.regime.optimization.models import (
     BenchmarkResults,
     OptimizationConfig,
     OptimizationResult,
     OptimizationWeights,
     TrialResult,
 )
-from app.regime.optimization.walk_forward import WalkForwardValidator
+from libs.regime.optimization.walk_forward import WalkForwardValidator
 
 try:
     import optuna
@@ -48,7 +49,7 @@ logger = logging.getLogger("app.regime")
 
 def _default_orchestrator_factory(params: dict, asset: str, timeframe: str):
     """Create RegimeOrchestrator with the given trial params."""
-    from app.regime.orchestrator import RegimeOrchestrator
+    from libs.regime.orchestrator import RegimeOrchestrator
     _INT_KEYS = {
         "vol_lookback", "hmm_retrain_window", "hurst_lookback", "min_dwell_bars",
         "agg_direction_period", "hilbert_min_period", "hilbert_max_period",
@@ -67,7 +68,7 @@ class RegimeOptimizer:
     config = OptimizationConfig(n_trials=100, timeout_seconds=3600)
     optimizer = RegimeOptimizer(config)
     result = optimizer.optimize(df, asset="BTCUSDT", timeframe="1h")
-    result.apply_to_config("app/regime/config/regime.yaml")
+    result.apply_to_config("src/libs/regime/config/regime.yaml")
     """
 
     def __init__(
@@ -251,6 +252,7 @@ class RegimeOptimizer:
             # Reset only HMM model age; keep state for test continuity
             # (simulate live bar-by-bar continuation)
             features_df = orch.analyze_series(test_df)
+            hmm_diag = orch.hmm_classifier.diagnostics()
         except Exception as exc:
             logger.debug("Fold eval failed: %s", exc)
             return 0.0, BenchmarkResults()
@@ -263,12 +265,15 @@ class RegimeOptimizer:
         )
         returns = returns[1:]  # drop first NaN
 
-        return self._compute_fold_score(features_df, returns)
+        return self._compute_fold_score(features_df, returns, price_df=test_df, hmm_diag=hmm_diag)
 
     def _compute_fold_score(
         self,
         features_df: pd.DataFrame,
         returns: np.ndarray,
+        *,
+        price_df: Optional[pd.DataFrame] = None,
+        hmm_diag: Optional[dict] = None,
     ) -> tuple:
         """Compute composite score for one fold."""
         w = self.config.weights
@@ -283,6 +288,9 @@ class RegimeOptimizer:
         t4 = stability.compute(features_df)
         # Tier 5
         t5 = changepoint_quality.compute(features_df, returns)
+        # Supplemental truthfulness metrics (reporting-only)
+        t6 = truthfulness.compute(features_df, returns, price_df=price_df)
+        diag = hmm_diag or {}
 
         passed_gate = t3["passed_validity_gate"]
         gate_mult = statistical_validity.gate_penalty(
@@ -327,6 +335,24 @@ class RegimeOptimizer:
             cp_precision=t5["cp_precision"],
             detection_lag=t5["detection_lag"],
             cp_recall=t5["cp_recall"],
+            baseline_sharpe_lift=t6["baseline_sharpe_lift"],
+            baseline_ic_lift=t6["baseline_ic_lift"],
+            persistence_sharpe_lift=t6["persistence_sharpe_lift"],
+            persistence_ic_lift=t6["persistence_ic_lift"],
+            vol_baseline_sharpe_lift=t6["vol_baseline_sharpe_lift"],
+            vol_baseline_ic_lift=t6["vol_baseline_ic_lift"],
+            adx_baseline_sharpe_lift=t6["adx_baseline_sharpe_lift"],
+            adx_baseline_ic_lift=t6["adx_baseline_ic_lift"],
+            shuffled_sharpe_lift=t6["shuffled_sharpe_lift"],
+            shuffled_ic_lift=t6["shuffled_ic_lift"],
+            proxy_trend_brier_score=t6["proxy_trend_brier_score"],
+            proxy_trend_ece=t6["proxy_trend_ece"],
+            passed_baseline_gate=t6["passed_baseline_gate"],
+            passed_strict_baseline_gate=t6["passed_strict_baseline_gate"],
+            strict_baseline_failure_count=t6["strict_baseline_failure_count"],
+            hmm_fit_failure_rate=float(diag.get("fit_failure_rate", 0.0)),
+            hmm_unstable_fit_rate=float(diag.get("unstable_fit_rate", 0.0)),
+            hmm_zero_transition_fit_rate=float(diag.get("zero_transition_fit_rate", 0.0)),
         )
         return float(score), bench
 
@@ -345,7 +371,13 @@ class RegimeOptimizer:
                 df["close"].values / (df["close"].shift(1).values + 1e-10)
             )
             returns = returns[1:]
-            _, bench = self._compute_fold_score(features_df, returns)
+            hmm_diag = orch.hmm_classifier.diagnostics()
+            _, bench = self._compute_fold_score(
+                features_df,
+                returns,
+                price_df=df,
+                hmm_diag=hmm_diag,
+            )
             bench.n_bars = len(df)
             return bench
         except Exception as exc:

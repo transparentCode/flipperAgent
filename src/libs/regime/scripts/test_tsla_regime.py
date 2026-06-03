@@ -14,7 +14,7 @@ _ROOT = Path(__file__).resolve().parents[3]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from app.regime import RegimeOrchestrator
+from libs.regime import RegimeOrchestrator
 
 def main():
     print("Downloading 2 years of TSLA 1h data...")

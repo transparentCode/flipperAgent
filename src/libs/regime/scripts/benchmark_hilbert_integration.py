@@ -16,13 +16,14 @@ Metrics:
   6. Success Criteria   — MUST / SHOULD / NICE pass / fail
 
 Usage:
-    python -m app.regime.scripts.benchmark_hilbert_integration
+    python -m libs.regime.scripts.benchmark_hilbert_integration
 """
 
 import sys
 import os
 import time
 import logging
+from pathlib import Path
 from typing import Dict, Any, Tuple
 
 import numpy as np
@@ -30,7 +31,8 @@ import pandas as pd
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
-from app.regime.orchestrator import RegimeOrchestrator
+from libs.regime.config_loader import load_yaml_config
+from libs.regime.orchestrator import RegimeOrchestrator
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger("HilbertBenchmark")
@@ -113,18 +115,16 @@ def fetch_live_data(symbol: str, timeframe: str, start: str, end: str) -> pd.Dat
 # ═══════════════════════════════════════════════════════════════════════════
 
 def _load_profile(profile_name: str) -> Dict[str, Any]:
-    from app.utils.ConfigLoader import ConfigLoader
     try:
-        cfg = ConfigLoader.load("app/regime/config/aggregator.yaml")
+        cfg = load_yaml_config(Path(__file__).resolve().parents[1] / "config" / "aggregator.yaml")
     except (FileNotFoundError, OSError):
         return {}
     return cfg.get('asset_class_profiles', {}).get(profile_name, {})
 
 
 def _load_tf_profile(timeframe: str) -> Dict[str, Any]:
-    from app.utils.ConfigLoader import ConfigLoader
     try:
-        cfg = ConfigLoader.load("app/regime/config/aggregator.yaml")
+        cfg = load_yaml_config(Path(__file__).resolve().parents[1] / "config" / "aggregator.yaml")
     except (FileNotFoundError, OSError):
         return {}
     return cfg.get('timeframe_profiles', {}).get(timeframe, {})

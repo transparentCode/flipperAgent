@@ -32,8 +32,8 @@ python app/regime/scripts/monitor_optimization.py \
 
 Output
 ------
-- Results JSON saved to app/regime/optimization/results/
-- Best params written to app/regime/config/regime.yaml
+- Results JSON saved to src/libs/regime/optimization/results/
+- Best params written to src/libs/regime/config/regime.yaml
 - Status file at .optimization_status.json (for monitoring)
 """
 
@@ -63,12 +63,12 @@ if str(_ROOT) not in sys.path:
 import pandas as pd
 import yaml
 
-from app.regime.optimization import (
+from libs.regime.optimization import (
     OptimizationConfig,
     RegimeOptimizer,
     WalkForwardConfig,
 )
-from app.regime.optimization.models import OptimizationResult, OptimizationWeights
+from libs.regime.optimization.models import OptimizationResult, OptimizationWeights
 
 logger = logging.getLogger("app.regime.optimization")
 
@@ -313,7 +313,7 @@ def _print_comparison(yaml_path: str, new_params: Dict[str, Any],
 
 def _print_full_metrics(result: OptimizationResult, df: pd.DataFrame,
                         asset: str, timeframe: str) -> None:
-    """Print comprehensive 5-tier metrics + regime distribution."""
+    """Print comprehensive benchmark metrics + regime distribution."""
     b = result.best_benchmarks
     divider = "=" * 70
     thin = "-" * 55
@@ -354,9 +354,36 @@ def _print_full_metrics(result: OptimizationResult, df: pd.DataFrame,
     print(f"    CP recall:                {b.cp_recall:.4f}")
     print(f"    Detection lag:            {b.detection_lag:.1f} bars")
 
+    print(f"\n  Supplemental -- Truthfulness (reporting only)")
+    print(f"  {thin}")
+    print(f"    Baseline Sharpe lift:     {b.baseline_sharpe_lift:+.4f}")
+    print(f"    Baseline IC lift:         {b.baseline_ic_lift:+.4f}")
+    print(f"    Persistence Sharpe lift:  {b.persistence_sharpe_lift:+.4f}")
+    print(f"    Persistence IC lift:      {b.persistence_ic_lift:+.4f}")
+    print(f"    Vol-only Sharpe lift:     {b.vol_baseline_sharpe_lift:+.4f}")
+    print(f"    Vol-only IC lift:         {b.vol_baseline_ic_lift:+.4f}")
+    print(f"    ADX Sharpe lift:          {b.adx_baseline_sharpe_lift:+.4f}")
+    print(f"    ADX IC lift:              {b.adx_baseline_ic_lift:+.4f}")
+    print(f"    Shuffled Sharpe lift:     {b.shuffled_sharpe_lift:+.4f}")
+    print(f"    Shuffled IC lift:         {b.shuffled_ic_lift:+.4f}")
+    print(f"    Trend Brier score:        {b.proxy_trend_brier_score:.4f}  (lower=better)")
+    print(f"    Trend calibration ECE:    {b.proxy_trend_ece:.4f}  (lower=better)")
+    print(f"    Baseline gate:            {'PASS' if b.passed_baseline_gate else 'FAIL'}")
+    print(
+        f"    Strict baseline gate:     "
+        f"{'PASS' if b.passed_strict_baseline_gate else 'FAIL'} "
+        f"({b.strict_baseline_failure_count:.0f} failed checks)"
+    )
+
+    print(f"\n  Supplemental -- HMM Health (reporting only)")
+    print(f"  {thin}")
+    print(f"    Fit failure rate:         {b.hmm_fit_failure_rate:.4f}")
+    print(f"    Unstable fit rate:        {b.hmm_unstable_fit_rate:.4f}")
+    print(f"    Zero-transition fit rate: {b.hmm_zero_transition_fit_rate:.4f}")
+
     # Regime distribution on full dataset
     try:
-        from app.regime import RegimeOrchestrator
+        from libs.regime import RegimeOrchestrator
         orch = RegimeOrchestrator.create(asset, timeframe, **{
             k: int(v) if isinstance(v, float) and v == int(v) else v
             for k, v in result.best_params.items()
@@ -414,6 +441,12 @@ def _print_summary(result: OptimizationResult) -> None:
     print(f"    Avg regime duration: {b.avg_regime_duration:.1f} bars")
     print(f"    Flip-flop rate:      {b.flip_flop_rate:.3f}")
     print(f"    CP precision:        {b.cp_precision:.3f}")
+    print(f"    Baseline Sharpe lift:{b.baseline_sharpe_lift:+.3f}")
+    print(f"    Baseline IC lift:    {b.baseline_ic_lift:+.3f}")
+    print(f"    Strict baseline gate:{'PASS' if b.passed_strict_baseline_gate else 'FAIL'}")
+    print(f"    Baseline failures:   {b.strict_baseline_failure_count:.0f}")
+    print(f"    Trend Brier / ECE:   {b.proxy_trend_brier_score:.3f} / {b.proxy_trend_ece:.3f}")
+    print(f"    HMM unstable / zero: {b.hmm_unstable_fit_rate:.3f} / {b.hmm_zero_transition_fit_rate:.3f}")
     print(f"{'='*60}\n")
 
 
@@ -733,7 +766,7 @@ def main():
     parser.add_argument("--csv", type=str, default=None,
                         help="Load data from CSV instead of Binance")
     parser.add_argument("--cache-dir", type=str,
-                        default="app/regime/optimization/results",
+                        default="src/libs/regime/optimization/results",
                         help="Directory for data caching")
 
     # Optimization settings
@@ -781,10 +814,10 @@ def main():
 
     # Output
     parser.add_argument("--output-dir", type=str,
-                        default="app/regime/optimization/results",
+                        default="src/libs/regime/optimization/results",
                         help="Directory to save result JSONs")
     parser.add_argument("--config-yaml", type=str,
-                        default="app/regime/config/regime.yaml",
+                        default="src/libs/regime/config/regime.yaml",
                         help="Target YAML to write best params")
     parser.add_argument("--no-apply", action="store_true",
                         help="Skip writing to regime.yaml")
