@@ -728,17 +728,19 @@ class HMMClassifier:
 
         for k in range(n_states):
             mean = model.means_[k]
-            if model.covariance_type == "diag":
-                scale = np.sqrt(model.covars_[k])
+            covars = np.asarray(model.covars_[k], dtype=float)
+            if covars.ndim == 2:
+                scale = np.sqrt(np.diag(covars))
             else:
-                scale = np.sqrt(np.diag(model.covars_[k]))
+                scale = np.sqrt(covars)
+            scale = np.maximum(scale, _EPS)
 
             for d in range(X.shape[1]):
                 log_prob[:, k] += student_t.logpdf(
                     X[:, d],
                     df=self.config.hmm_student_df,
                     loc=mean[d],
-                    scale=max(scale[d], _EPS),
+                    scale=float(scale[d]),
                 )
 
         # Incorporate transition matrix priors (forward algorithm approximation)

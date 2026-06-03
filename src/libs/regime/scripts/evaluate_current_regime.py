@@ -22,6 +22,36 @@ from libs.regime.optimization.ablations import DEFAULT_VARIANTS, build_variants
 from libs.regime.optimization.models import BenchmarkResults, OptimizationConfig
 from libs.regime.optimization.optimizer import RegimeOptimizer
 
+HMM_VARIANT_PRESETS: dict[str, dict[str, Any]] = {
+    "current": {},
+    "fixed2_diag": {
+        "hmm_n_states": 2,
+        "hmm_covariance_type": "diag",
+        "hmm_robust_scoring": False,
+    },
+    "fixed2_full": {
+        "hmm_n_states": 2,
+        "hmm_covariance_type": "full",
+        "hmm_robust_scoring": True,
+    },
+    "fixed3_diag": {
+        "hmm_n_states": 3,
+        "hmm_covariance_type": "diag",
+        "hmm_robust_scoring": True,
+    },
+    "fixed3_full": {
+        "hmm_n_states": 3,
+        "hmm_covariance_type": "full",
+        "hmm_robust_scoring": True,
+    },
+}
+
+HMM_HEALTH_THRESHOLDS = {
+    "fit_failure_rate": 0.05,
+    "unstable_fit_rate": 0.15,
+    "zero_transition_fit_rate": 0.05,
+}
+
 
 def _load_frame(asset: str, timeframe: str, *, start: datetime, end: datetime) -> pd.DataFrame:
     seconds_per_bar = {
@@ -65,11 +95,34 @@ def _evaluate_current_params(
     if frame.empty:
         return {"asset": asset, "timeframe": timeframe, "error": "no_data"}
 
+    params = _load_params(asset, timeframe)
+    return _evaluate_params_on_frame(
+        frame,
+        params=params,
+        asset=asset,
+        timeframe=timeframe,
+        include_ablations=include_ablations,
+        variant_name="current",
+    )
+
+
+def _load_params(asset: str, timeframe: str) -> dict[str, Any]:
     raw_cfg = load_regime_config()
     params = dict(raw_cfg.get("assets", {}).get(asset, {}).get(timeframe, {}))
-    if not params:
-        params = dict(raw_cfg.get("defaults", {}))
+    if params:
+        return params
+    return dict(raw_cfg.get("defaults", {}))
 
+
+def _evaluate_params_on_frame(
+    frame: pd.DataFrame,
+    *,
+    params: dict[str, Any],
+    asset: str,
+    timeframe: str,
+    include_ablations: bool,
+    variant_name: str,
+) -> dict[str, Any]:
     optimizer = RegimeOptimizer(OptimizationConfig(n_trials=1, timeout_seconds=1))
     optimizer._walk_forward.purge_bars = optimizer.config.walk_forward.purge_bars_for_timeframe(
         timeframe
@@ -129,6 +182,7 @@ def _evaluate_current_params(
     result = {
         "asset": asset,
         "timeframe": timeframe,
+        "hmm_variant": variant_name,
         "date_from": frame.index[0].isoformat(),
         "date_to": frame.index[-1].isoformat(),
         "bars": int(len(frame)),
@@ -138,10 +192,76 @@ def _evaluate_current_params(
         "fold_details": fold_rows,
         "full_sample": full_sample,
         "params": params,
+        "hmm_health": {
+            "walk_forward": _hmm_health_from_metrics(walk_forward, has_data=bool(fold_rows)),
+            "full_sample": _hmm_health_from_metrics(full_sample, has_data=True),
+        },
     }
     if ablations is not None:
         result["ablations"] = ablations
     return result
+
+
+def _evaluate_hmm_variant_matrix(
+    asset: str,
+    timeframe: str,
+    *,
+    days: int,
+    include_ablations: bool,
+    variant_names: list[str],
+) -> dict[str, Any]:
+    end = datetime.now(timezone.utc)
+    start = end - timedelta(days=days)
+    frame = _load_frame(asset, timeframe, start=start, end=end)
+    if frame.empty:
+        return {"asset": asset, "timeframe": timeframe, "error": "no_data"}
+
+    base_params = _load_params(asset, timeframe)
+    variants: dict[str, Any] = {}
+    ranking: list[dict[str, Any]] = []
+    for name in variant_names:
+        params = _params_for_hmm_variant(base_params, name)
+        result = _evaluate_params_on_frame(
+            frame,
+            params=params,
+            asset=asset,
+            timeframe=timeframe,
+            include_ablations=include_ablations,
+            variant_name=name,
+        )
+        variants[name] = result
+        walk = result["walk_forward"]
+        health = result["hmm_health"]["walk_forward"]
+        ranking.append(
+            {
+                "variant": name,
+                "mean_fold_score": result["mean_fold_score"],
+                "forward_return_ic": walk["forward_return_ic"],
+                "sharpe_improvement": walk["sharpe_improvement"],
+                "strict_pass": bool(walk["passed_strict_baseline_gate"]),
+                "has_walk_forward_data": bool(result["folds"] > 0),
+                "hmm_health_pass": bool(health["passed"]),
+                "hmm_unstable_fit_rate": health["unstable_fit_rate"],
+                "hmm_fit_failure_rate": health["fit_failure_rate"],
+                "hmm_zero_transition_fit_rate": health["zero_transition_fit_rate"],
+            }
+        )
+
+    ranking = _rank_hmm_variants(ranking)
+    best_variant = ranking[0]["variant"] if ranking else None
+    best_healthy = next((row["variant"] for row in ranking if row["hmm_health_pass"]), None)
+    return {
+        "asset": asset,
+        "timeframe": timeframe,
+        "date_from": frame.index[0].isoformat(),
+        "date_to": frame.index[-1].isoformat(),
+        "bars": int(len(frame)),
+        "variant_names": variant_names,
+        "hmm_variants": variants,
+        "hmm_variant_ranking": ranking,
+        "best_variant": best_variant,
+        "best_healthy_variant": best_healthy,
+    }
 
 
 def _evaluate_fold_ablations(
@@ -248,6 +368,48 @@ def _log_returns(frame: pd.DataFrame) -> Any:
     return returns[1:]
 
 
+def _params_for_hmm_variant(base_params: dict[str, Any], variant_name: str) -> dict[str, Any]:
+    if variant_name not in HMM_VARIANT_PRESETS:
+        raise ValueError(f"Unknown HMM variant: {variant_name}")
+    params = dict(base_params)
+    params.update(HMM_VARIANT_PRESETS[variant_name])
+    return params
+
+
+def _hmm_health_from_metrics(metrics: dict[str, Any], *, has_data: bool) -> dict[str, Any]:
+    fit_failure_rate = float(metrics.get("hmm_fit_failure_rate", 1.0))
+    unstable_fit_rate = float(metrics.get("hmm_unstable_fit_rate", 1.0))
+    zero_transition_fit_rate = float(metrics.get("hmm_zero_transition_fit_rate", 1.0))
+    passed = (
+        has_data
+        and fit_failure_rate <= HMM_HEALTH_THRESHOLDS["fit_failure_rate"]
+        and unstable_fit_rate <= HMM_HEALTH_THRESHOLDS["unstable_fit_rate"]
+        and zero_transition_fit_rate <= HMM_HEALTH_THRESHOLDS["zero_transition_fit_rate"]
+    )
+    return {
+        "has_data": has_data,
+        "passed": passed,
+        "fit_failure_rate": fit_failure_rate,
+        "unstable_fit_rate": unstable_fit_rate,
+        "zero_transition_fit_rate": zero_transition_fit_rate,
+    }
+
+
+def _rank_hmm_variants(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(
+        rows,
+        key=lambda row: (
+            row.get("has_walk_forward_data", False),
+            row["strict_pass"] and row["hmm_health_pass"],
+            row["hmm_health_pass"],
+            row["strict_pass"],
+            row["mean_fold_score"] is not None,
+            row["mean_fold_score"] if row["mean_fold_score"] is not None else float("-inf"),
+        ),
+        reverse=True,
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Evaluate current regime config on live Binance OHLCV",
@@ -256,18 +418,31 @@ def main() -> None:
     parser.add_argument("--timeframes", nargs="+", default=["1h", "30m"])
     parser.add_argument("--days", type=int, default=300)
     parser.add_argument("--ablations", action="store_true")
+    parser.add_argument("--hmm-variants", nargs="+", choices=sorted(HMM_VARIANT_PRESETS.keys()))
     parser.add_argument("--output", type=str, default=None)
     args = parser.parse_args()
 
-    results = [
-        _evaluate_current_params(
-            args.asset,
-            timeframe,
-            days=args.days,
-            include_ablations=args.ablations,
-        )
-        for timeframe in args.timeframes
-    ]
+    if args.hmm_variants:
+        results = [
+            _evaluate_hmm_variant_matrix(
+                args.asset,
+                timeframe,
+                days=args.days,
+                include_ablations=args.ablations,
+                variant_names=args.hmm_variants,
+            )
+            for timeframe in args.timeframes
+        ]
+    else:
+        results = [
+            _evaluate_current_params(
+                args.asset,
+                timeframe,
+                days=args.days,
+                include_ablations=args.ablations,
+            )
+            for timeframe in args.timeframes
+        ]
     payload = json.dumps(results, indent=2)
     print(payload)
 

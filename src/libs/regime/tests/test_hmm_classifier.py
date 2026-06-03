@@ -86,3 +86,22 @@ class TestHMMClassifier:
         diag = clf.diagnostics()
         assert diag["fit_attempts"] == 0
         assert diag["fit_failures"] == 0
+
+    @pytest.mark.parametrize("covariance_type", ["diag", "full"])
+    def test_robust_state_probs_supports_covariance_shapes(self, covariance_type):
+        clf = HMMClassifier(
+            HMMConfig(
+                hmm_n_states=3,
+                hmm_covariance_type=covariance_type,
+                hmm_robust_scoring=True,
+            )
+        )
+        X = clf._build_features(_make_df())
+        assert X is not None
+        window = X[-clf.config.retrain_window :]
+        model = clf._fit_gaussian_hmm(window, 3, covariance_type)
+
+        probs = clf._robust_state_probs(window[:50], model)
+
+        assert probs.shape == (50, 3)
+        assert np.isfinite(probs).all()
