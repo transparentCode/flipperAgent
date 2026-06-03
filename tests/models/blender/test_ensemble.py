@@ -6,7 +6,11 @@ from typing import Any, Dict
 import pytest
 
 from libs.contracts.signal import ScoringOutput
-from libs.models.blender.ensemble import RegimeEnsembleBlender, REGIME_TO_GROUP
+from libs.models.blender.ensemble import (
+    REGIME_TO_GROUP,
+    RegimeEnsembleBlender,
+    _normalize_model_name,
+)
 
 # Ensemble groups list (mirrors rule_based.py)
 ENSEMBLE_GROUPS = ["TREND_BULL", "TREND_BEAR", "RANGE", "CHOPPY", "TRANSITION"]
@@ -87,6 +91,14 @@ class TestRegimeToGroupMapping:
     def test_ensemble_groups_count(self):
         assert len(ENSEMBLE_GROUPS) == 5
         assert "TRANSITION" in ENSEMBLE_GROUPS
+
+
+class TestModelNameNormalization:
+    def test_runtime_model_names_normalize_to_config_aliases(self):
+        assert _normalize_model_name("MeanReversion") == "mean_reversion"
+        assert _normalize_model_name("SqueezeBreakout") == "squeeze_breakout"
+        assert _normalize_model_name("SqueezeBreakoutScorer") == "squeeze_breakout"
+        assert _normalize_model_name("Momentum") == "momentum"
 
 
 class TestTrendBullWeights:
@@ -249,6 +261,18 @@ class TestOutputCompatibility:
         assert result.model_name == "regime_ensemble"
         assert result.asset == "BTCUSDT"
         assert result.timeframe == "1h"
+
+    def test_runtime_meta_names_match_alias_weights(self):
+        blender = RegimeEnsembleBlender(_default_config())
+        outputs = _make_scoring_outputs({"MeanReversion": 0.5, "Momentum": 0.8, "SqueezeBreakout": 0.2})
+        regime = FakeRegimeFeatures(regime="CLEAN_TREND_BULL", changepoint_prob=0.1)
+
+        result = blender.blend(outputs, regime)
+
+        assert result is not None
+        assert abs(result.edge_score - (0.8 * 0.9)) < 1e-9
+        assert result.metadata["weights_used"]["Momentum"] == 1.0
+        assert result.metadata["weights_used"]["MeanReversion"] == 0.0
 
 
 class TestUnknownRegimeFallback:

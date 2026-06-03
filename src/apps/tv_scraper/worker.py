@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import os
 import time
 from typing import Any
@@ -47,13 +46,22 @@ async def fetch_tv_indices(ctx: dict[str, Any]) -> None:
         return
 
     timeframe = config_manager.get("tradingview.timeframe", "1h")
+    ttl_seconds = int(config_manager.get("tradingview.staleness_ttl_seconds", 1800))
+    try:
+        symbol_frames = await interceptor.get_historical_ohlcv_batch(
+            TV_INDICES, timeframe
+        )
+    except Exception as e:
+        logger.error(f"Failed to fetch TradingView batch: {e}", exc_info=True)
+        return
 
     for tv_symbol in TV_INDICES:
         short_name = INDEX_KEY_MAP.get(tv_symbol, tv_symbol)
         try:
-            # limit param is intentionally omitted — TV returns ~300 bars naturally,
-            # giving us passive gap-fill coverage of ~6d (30m) / ~12d (1h) on every fetch.
-            df = await interceptor.get_historical_ohlcv(tv_symbol, timeframe)
+            df = symbol_frames.get(tv_symbol)
+            if df is None:
+                logger.warning(f"No batch result returned for {tv_symbol}")
+                continue
 
             if df.empty:
                 logger.warning(f"No data returned for {tv_symbol}")
@@ -79,6 +87,8 @@ async def fetch_tv_indices(ctx: dict[str, Any]) -> None:
                         "fetched_at": str(fetched_at),
                     },
                 )
+                if ttl_seconds > 0:
+                    await redis_client.expire(hash_key, ttl_seconds)
                 logger.info(f"Published {short_name} to Valkey hash: close={latest['close']}")
 
             # 2. Upsert ALL returned bars into TimescaleDB.
@@ -121,9 +131,6 @@ async def fetch_tv_indices(ctx: dict[str, Any]) -> None:
         except Exception as e:
             logger.error(f"Failed to fetch {tv_symbol}: {e}", exc_info=True)
             continue
-
-        # Small delay between index fetches to avoid detection
-        await asyncio.sleep(config_manager.get("tradingview.fetch_delay_seconds", 2))
 
 
 async def startup(ctx: dict[str, Any]) -> None:

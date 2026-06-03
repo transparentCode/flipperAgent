@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections import OrderedDict
 from typing import Any
 
@@ -15,9 +16,27 @@ class IdempotencyStore:
     def __init__(self, max_size: int = 10_000) -> None:
         self._seen: OrderedDict[str, float] = OrderedDict()
         self._max_size = max_size
+        self._lock = asyncio.Lock()
 
     def is_duplicate(self, key: str) -> bool:
         return key in self._seen
+
+    async def check_duplicate(self, key: str, db_pool: Any | None = None) -> bool:
+        if self.is_duplicate(key):
+            return True
+        if db_pool is None:
+            return False
+
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT ts FROM execution_idempotency_keys WHERE key = $1",
+                key,
+            )
+        if row is None:
+            return False
+
+        self.mark_processed(key, row["ts"])
+        return True
 
     def mark_processed(self, key: str, timestamp: float) -> None:
         if key in self._seen:
@@ -25,6 +44,24 @@ class IdempotencyStore:
         self._seen[key] = timestamp
         while len(self._seen) > self._max_size:
             self._seen.popitem(last=False)
+
+    async def upsert_key(self, db_pool: Any, key: str, timestamp: float) -> None:
+        """Persist a single processed key immediately after execution."""
+        if db_pool is None:
+            logger.debug("No db_pool provided — skipping idempotency upsert")
+            return
+        async with self._lock:
+            async with db_pool.acquire() as conn:
+                await conn.execute(
+                    "CREATE TABLE IF NOT EXISTS execution_idempotency_keys "
+                    "(key TEXT PRIMARY KEY, ts DOUBLE PRECISION NOT NULL)"
+                )
+                await conn.execute(
+                    "INSERT INTO execution_idempotency_keys (key, ts) VALUES ($1, $2) "
+                    "ON CONFLICT (key) DO UPDATE SET ts = EXCLUDED.ts",
+                    key,
+                    timestamp,
+                )
 
     async def save(self, db_pool: Any) -> None:
         """Persist current state to database. Requires asyncpg pool."""
@@ -44,14 +81,6 @@ class IdempotencyStore:
                         key,
                         ts,
                     )
-                # Prune keys no longer in the in-memory store
-                if self._seen:
-                    await conn.execute(
-                        "DELETE FROM execution_idempotency_keys WHERE key != ALL($1::text[])",
-                        list(self._seen.keys()),
-                    )
-                else:
-                    await conn.execute("DELETE FROM execution_idempotency_keys")
 
     @classmethod
     async def load(cls, db_pool: Any, max_size: int = 10_000) -> IdempotencyStore:

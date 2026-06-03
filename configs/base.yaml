@@ -73,6 +73,8 @@ ingestion:
 
   websocket:
     stream_url: wss://fstream.binancefuture.com
+    queue_drop_warning_every: 100
+    queue_maxsize: 1000
     reconnect_sleep_seconds: 5
     verification_sleep_seconds: 10
     warmup_threshold_ms: 300000

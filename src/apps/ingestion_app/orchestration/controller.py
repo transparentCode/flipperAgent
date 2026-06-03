@@ -3,7 +3,7 @@ import json
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Set
 
 import arq
 from arq.connections import RedisSettings, create_pool
@@ -13,6 +13,7 @@ from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
 from apps.ingestion_app.constants import EXCHANGE_BINANCE
 from apps.ingestion_app.coordination import IngestionCoordinator, IngestionState
 from apps.ingestion_app.models.tick_models import OHLCVRecord
+from apps.ingestion_app.storage.bootstrap import apply_ingestion_schema
 from apps.ingestion_app.storage.timescale_writer import TimescaleWriter
 from libs.common.config import ConfigManager
 from libs.common.connections import create_valkey_client
@@ -34,11 +35,17 @@ except ImportError:
 logger = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_ENGINE)
 config_manager = ConfigManager()
 
+def _track_task(task_registry: Set[asyncio.Task[Any]], task: asyncio.Task[Any]) -> asyncio.Task[Any]:
+    task_registry.add(task)
+    task.add_done_callback(task_registry.discard)
+    return task
+
 async def verify_and_launch_ws(
     symbol: str,
     publish_timeframes: List[str],
     arq_pool: arq.connections.ArqRedis,
     coordinator: IngestionCoordinator,
+    task_registry: Set[asyncio.Task[Any]] | None = None,
 ) -> None:
     """Wait for data to warm up via Valkey state, then launch the WebSocket pipeline."""
     base_timeframe = config_manager.get("ingestion.timeframes.base_gap_fill", "1m")
@@ -53,7 +60,11 @@ async def verify_and_launch_ws(
         await coordinator.transition(symbol, base_timeframe, IngestionState.ERROR)
         return
     logger.info(f"[{symbol}] Data warmed up. Launching WebSocket pipeline.")
-    asyncio.create_task(run_websocket_pipeline(symbol, publish_timeframes, arq_pool, coordinator))
+    websocket_task = asyncio.create_task(
+        run_websocket_pipeline(symbol, publish_timeframes, arq_pool, coordinator)
+    )
+    if task_registry is not None:
+        _track_task(task_registry, websocket_task)
 
 async def run_websocket_pipeline(
     symbol: str,
@@ -65,8 +76,10 @@ async def run_websocket_pipeline(
     base_timeframe = config_manager.get("ingestion.timeframes.base_gap_fill", "1m")
     loop = asyncio.get_running_loop()
     reconnect_sleep_seconds = config_manager.get("ingestion.websocket.reconnect_sleep_seconds", 5)
+    queue_maxsize = max(1, int(config_manager.get("ingestion.websocket.queue_maxsize", 1000)))
 
     redis_client = None
+    live_confirmed = False
 
     try:
         while True:
@@ -83,14 +96,10 @@ async def run_websocket_pipeline(
                     logger.error(f"[{symbol}] DB writer pool not initialized — cannot persist WS candles. Aborting.")
                     break
 
-                queue = asyncio.Queue()
+                queue = asyncio.Queue(maxsize=queue_maxsize)
                 adapter = BinanceNativeAdapter()
 
                 symbols_timeframes = {symbol: list(set(["1m"] + publish_timeframes))}
-
-                # Signal LIVE before entering the message loop
-                if coordinator:
-                    await coordinator.transition(symbol, base_timeframe, IngestionState.LIVE)
 
                 async for msg in adapter.stream_multiplex_socket(symbols_timeframes, loop, queue):
                     if isinstance(msg, str):
@@ -100,6 +109,10 @@ async def run_websocket_pipeline(
                         kline = msg["data"]["k"]
                         is_closed = bool(kline.get("x", False))
                         timeframe = kline.get("i", "1m")
+
+                        if coordinator and not live_confirmed:
+                            await coordinator.transition(symbol, base_timeframe, IngestionState.LIVE)
+                            live_confirmed = True
 
                         record = OHLCVRecord(
                             symbol=symbol,
@@ -176,6 +189,7 @@ async def run_websocket_pipeline(
 
                 # Circuit breaker: escalate sleep if disconnect rate exceeds threshold
                 sleep_s = reconnect_sleep_seconds
+                live_confirmed = False
                 if coordinator:
                     cb_threshold = config_manager.get("ingestion.observability.circuit_breaker_threshold", 5)
                     cb_sleep = config_manager.get("ingestion.observability.circuit_breaker_sleep_seconds", 300)
@@ -206,12 +220,14 @@ async def lifespan(app: FastAPI):
 
     logger.info("Initializing DB pools...")
     await DBPoolManager.init_pools(config_manager=config_manager)
+    await apply_ingestion_schema(DBPoolManager.get_writer_pool())
 
     logger.info("Connecting to ARQ redis...")
     arq_pool = await create_pool(redis_settings)
 
     redis_client = await create_valkey_client(cfg)
     coordinator = IngestionCoordinator(redis_client, cfg)
+    background_tasks: Set[asyncio.Task[Any]] = set()
 
     for symbol in target_assets:
         try:
@@ -229,7 +245,18 @@ async def lifespan(app: FastAPI):
                 await coordinator.transition(symbol, base_timeframe, IngestionState.WARMING)
 
             asset_publish_timeframes = publish_timeframes.get(symbol, [])
-            asyncio.create_task(verify_and_launch_ws(symbol, asset_publish_timeframes, arq_pool, coordinator))
+            _track_task(
+                background_tasks,
+                asyncio.create_task(
+                    verify_and_launch_ws(
+                        symbol,
+                        asset_publish_timeframes,
+                        arq_pool,
+                        coordinator,
+                        background_tasks,
+                    )
+                ),
+            )
 
         except Exception as e:
             logger.error(f"Error initializing asset {symbol}: {e}")
@@ -237,6 +264,10 @@ async def lifespan(app: FastAPI):
     yield
 
     logger.info("Shutting down... Cleaning up.")
+    for task in list(background_tasks):
+        task.cancel()
+    if background_tasks:
+        await asyncio.gather(*background_tasks, return_exceptions=True)
     await DBPoolManager.close_pools()
     await arq_pool.close()
     await redis_client.aclose()

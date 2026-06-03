@@ -145,3 +145,69 @@ def test_feature_manager_backward_compat_no_type_key(monkeypatch):
     assert "EMA" in res
     assert "RSI" in res
 
+
+def test_feature_manager_flattens_microstructure_leaf_fields():
+    ConfigManager.reset_singleton()
+    fm = FeatureManager("BTCUSDT", "1h")
+
+    history = []
+    base_ts = 1_700_000_000
+    for i in range(260):
+        close = 100.0 + i * 0.1
+        history.append(
+            (
+                close,
+                close + 1,
+                close - 1,
+                close,
+                1000.0,
+                base_ts + i * 3600,
+                550.0 + (i % 20),
+            )
+        )
+
+    fm.prime(history)
+
+    tick = (126.0, 127.0, 125.0, 126.0, 1000.0, base_ts + 261 * 3600, 560.0)
+    res = fm.process_tick(tick)
+
+    assert "KyleLambda" in res
+    assert "TFI" in res
+    assert "VPIN" in res
+    assert "kyle_z" in res
+    assert "kyle_regime" in res
+    assert "tfi_zscore" in res
+    assert "vpin_z" in res
+    assert "net_taker_buy_ratio" in res
+
+
+def test_feature_manager_snapshot_features_uses_primed_history():
+    ConfigManager.reset_singleton()
+    fm = FeatureManager("BTCUSDT", "1h")
+
+    history = []
+    base_ts = 1_700_000_000
+    for i in range(260):
+        close = 100.0 + i * 0.1
+        history.append(
+            (
+                close,
+                close + 1,
+                close - 1,
+                close,
+                1000.0,
+                base_ts + i * 3600,
+                550.0 + (i % 20),
+            )
+        )
+
+    fm.prime(history)
+    snapshot = fm.snapshot_features(history)
+
+    assert snapshot
+    assert "KyleLambda" in snapshot
+    assert "TFI" in snapshot
+    assert "VPIN" in snapshot
+    assert "kyle_z" in snapshot
+    assert "tfi_zscore" in snapshot
+    assert "vpin_z" in snapshot

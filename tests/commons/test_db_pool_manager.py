@@ -73,3 +73,33 @@ class TestDBPoolManager:
 
         # No additional create_pool calls on the second init
         assert call_count_after_second == call_count_after_first
+
+    @pytest.mark.asyncio
+    @patch("libs.common.db.pool_manager.asyncpg")
+    async def test_reader_init_failure_resets_partial_state(self, mock_asyncpg) -> None:
+        """A reader-pool failure should not leave a poisoned writer-only state."""
+        writer_pool = AsyncMock()
+        writer_pool.close = AsyncMock()
+        replacement_writer_pool = MagicMock()
+        replacement_reader_pool = MagicMock()
+
+        mock_asyncpg.create_pool = AsyncMock(
+            side_effect=[writer_pool, *([Exception("reader fail")] * 30), replacement_writer_pool, replacement_reader_pool]
+        )
+
+        mock_cfg = MagicMock()
+        mock_cfg.get.return_value = None
+
+        with patch("libs.common.db.pool_manager.os.getenv", return_value="postgres://host/db"):
+            with patch("libs.common.db.pool_manager.asyncio.sleep", new_callable=AsyncMock):
+                with pytest.raises(RuntimeError, match="Failed to connect to reader database"):
+                    await DBPoolManager.init_pools(config_manager=mock_cfg)
+
+                assert DBPoolManager._writer_pool is None
+                assert DBPoolManager._reader_pool is None
+                writer_pool.close.assert_awaited_once()
+
+                await DBPoolManager.init_pools(config_manager=mock_cfg)
+
+        assert DBPoolManager._writer_pool is replacement_writer_pool
+        assert DBPoolManager._reader_pool is replacement_reader_pool

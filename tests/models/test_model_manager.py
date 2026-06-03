@@ -33,6 +33,18 @@ class TestModelManager:
             "KyleLambda", "TFI", "VPIN",
         })
 
+    def test_available_features_from_config_expands_composite_and_microstructure_fields(self):
+        mm = ModelManager("BTCUSDT", "1h")
+        available = mm._available_features_from_config()
+
+        assert "MACD_histogram" in available
+        assert "MACD_line" in available
+        assert "BollingerBands_upper" in available
+        assert "KeltnerChannel_upper" in available
+        assert "kyle_z" in available
+        assert "tfi_zscore" in available
+        assert "vpin_z" in available
+
     def test_validate_feature_coverage_fail(self):
         mm = ModelManager("BTCUSDT", "1h")
         with pytest.raises(ConfigurationError, match="requires"):

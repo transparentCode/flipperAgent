@@ -33,13 +33,13 @@ class ConfigManager:
                 cls._instance._initialized = False
             return cls._instance
 
-    def __init__(self, config_dir: Optional[str] = None, env: str = DEFAULT_ENV):
+    def __init__(self, config_dir: Optional[str] = None, env: Optional[str] = None):
         with self._lock:
             if getattr(self, "_initialized", False):
                 return
             
             self._config_dir = Path(config_dir) if config_dir else Path(os.getcwd()) / DEFAULT_CONFIG_DIR_NAME
-            self._env = env
+            self._env = env or os.getenv("FLIPPER_ENV") or DEFAULT_ENV
             self._state: Dict[str, Any] = {}
             self._file_states: Dict[str, Dict[str, Any]] = {}
             self._file_paths: Dict[str, str] = {}

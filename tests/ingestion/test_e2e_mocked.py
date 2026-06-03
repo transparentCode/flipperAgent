@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock
 
 from apps.ingestion_app.orchestration.tasks import run_rest_gap_fill, _fetch_asset_gap
 from apps.ingestion_app.constants import EXCHANGE_BINANCE
+from libs.common.exceptions import DataIngestionError
 DEFAULT_ASSET = 'BTCUSDT'
 BASE_GAP_FILL_TIMEFRAME = '1m'
 
@@ -102,11 +103,10 @@ async def test_invalid_payload_rejection(base_worker_ctx, mock_ccxt_adapter, moc
     
     mock_ccxt_adapter.get_historical_ohlcv.return_value = mock_df
     
-    # Pydantic ValidationError isn't caught gracefully inside process_asset right now, 
-    # we expect the task to either suppress it (log it) or bubble it depending on our change. 
-    # The current code in run_rest_gap_fill catches Exception and logs it.
-    await run_rest_gap_fill(base_worker_ctx, [symbol], EXCHANGE_BINANCE)
+    with pytest.raises(DataIngestionError) as exc_info:
+        await run_rest_gap_fill(base_worker_ctx, [symbol], EXCHANGE_BINANCE)
     
     # Database is not called
     conn = mock_asyncpg_pool.acquire.return_value.__aenter__.return_value
     conn.executemany.assert_not_called()
+    assert exc_info.value.context["failed_assets"] == [symbol]

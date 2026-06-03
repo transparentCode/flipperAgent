@@ -130,3 +130,24 @@ def test_hot_reload_triggers_callback(config_manager, temp_config_dir):
     assert callback_event.is_set(), "Subscriber callback not triggered"
     assert received_val["val"] == "new-db-host.example.com"
     assert config_manager.get("db.host") == "new-db-host.example.com"
+
+
+def test_uses_flipper_env_when_env_not_explicit(temp_config_dir):
+    ConfigManager.reset_singleton()
+    path = Path(temp_config_dir) / "prod.yaml"
+    with open(path, "w") as f:
+        yaml.dump({"app": {"port": 9100}}, f)
+
+    original_env = os.environ.get("FLIPPER_ENV")
+    os.environ["FLIPPER_ENV"] = "prod"
+    try:
+        manager = ConfigManager(config_dir=temp_config_dir)
+        assert manager.get("app.port") == 9100
+        assert manager._env == "prod"
+    finally:
+        manager.shutdown()
+        ConfigManager.reset_singleton()
+        if original_env is not None:
+            os.environ["FLIPPER_ENV"] = original_env
+        else:
+            os.environ.pop("FLIPPER_ENV", None)

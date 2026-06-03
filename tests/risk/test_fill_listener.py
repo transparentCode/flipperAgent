@@ -219,6 +219,40 @@ class TestPartialFillFIFO:
         assert positions[0].direction == -1  # short
         assert positions[0].size == pytest.approx(0.2)
 
+    @pytest.mark.asyncio
+    async def test_targeted_close_matches_requested_position_not_fifo(self) -> None:
+        fl = _make_listener()
+        await fl._apply_fill(_make_report(side="buy", price=50_000.0, size=0.1))
+        await fl._apply_fill(_make_report(side="buy", price=52_000.0, size=0.1))
+
+        positions = fl.positions.positions["BTCUSDT"]
+        first_ts = positions[0].entry_timestamp
+        second_ts = positions[1].entry_timestamp
+
+        targeted_close = ExecutionReport(
+            order_id="targeted-close",
+            idempotency_key="targeted-close",
+            asset="BTCUSDT",
+            side="sell",
+            requested_size=0.1,
+            filled_size=0.1,
+            requested_price=53_000.0,
+            average_fill_price=53_000.0,
+            status=OrderStatus.FILLED,
+            fills=[],
+            timestamp=1_700_000_010.0,
+            metadata={
+                "close_reason": "tp",
+                "position_entry_timestamp": second_ts,
+            },
+        )
+
+        await fl._apply_fill(targeted_close)
+
+        remaining = fl.positions.positions["BTCUSDT"]
+        assert len(remaining) == 1
+        assert remaining[0].entry_timestamp == pytest.approx(first_ts)
+
 
 # ------------------------------------------------------------------
 # Multi-TP fill tests
@@ -302,6 +336,7 @@ class TestFillListenerMultiTP:
             side="sell", price=101.5, size=0.4,
             close_reason="tp1",
         )
+        close_report.metadata["position_entry_timestamp"] = open_report.timestamp
         await fl._apply_fill(close_report)
 
         positions = fl.positions.positions.get("BTCUSDT", [])
@@ -310,6 +345,8 @@ class TestFillListenerMultiTP:
         assert pos.size == pytest.approx(0.6)
         # Multi-TP fields preserved
         assert len(pos.tp_levels) == 3
+        assert pos.tp_levels_hit == [True, False, False]
+        assert pos.stop_loss_price == pytest.approx(100.0)
 
     @pytest.mark.asyncio
     async def test_partial_close_no_reverse_position(self) -> None:
@@ -326,6 +363,41 @@ class TestFillListenerMultiTP:
         positions = fl.positions.positions.get("BTCUSDT", [])
         # Should NOT have opened a short position from unmatched qty
         assert len(positions) == 0
+
+    @pytest.mark.asyncio
+    async def test_rejected_close_clears_pending_marker(self) -> None:
+        fl = _make_listener()
+        report = _make_multi_tp_report(
+            tp_levels=[50_750.0, 51_500.0, 52_500.0],
+            tp_portions=[0.4, 0.3, 0.3],
+            trail_to_breakeven=True,
+        )
+        await fl._apply_fill(report)
+        pos = fl.positions.positions["BTCUSDT"][0]
+        pos.pending_close_reason = "tp1"
+
+        rejected = ExecutionReport(
+            order_id="rej-1",
+            idempotency_key="rej-1",
+            asset="BTCUSDT",
+            side="sell",
+            requested_size=0.4,
+            filled_size=0.0,
+            requested_price=101.5,
+            average_fill_price=0.0,
+            status=OrderStatus.REJECTED,
+            fills=[],
+            timestamp=1_700_000_010.0,
+            error_message="Exchange down",
+            metadata={
+                "close_reason": "tp1",
+                "position_entry_timestamp": pos.entry_timestamp,
+            },
+        )
+
+        await fl._apply_fill(rejected)
+
+        assert pos.pending_close_reason == ""
 
     @pytest.mark.asyncio
     async def test_no_multi_tp_backward_compat(self) -> None:

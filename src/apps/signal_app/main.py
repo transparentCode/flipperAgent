@@ -60,11 +60,11 @@ async def _run() -> None:
 
     async def db_fetcher(
         asset: str, timeframe: str, max_lookback: int
-    ) -> Sequence[Tuple[float, float, float, float, float]]:
+    ) -> Sequence[Tuple[float, ...]]:
         df = await reader.get_ohlcv_aggregated(asset, timeframe, max_lookback)
         if df.empty:
             return []
-        # Return (open, high, low, close, volume, timestamp_as_float)
+        # Return (open, high, low, close, volume, timestamp_as_float, taker_buy_base).
         return [
             (
                 float(row["open"]),
@@ -73,6 +73,7 @@ async def _run() -> None:
                 float(row["close"]),
                 float(row["volume"]),
                 float(row["timestamp"].timestamp()) if hasattr(row["timestamp"], "timestamp") else float(row["timestamp"]),
+                0.0 if row.get("taker_buy_base", 0.0) != row.get("taker_buy_base", 0.0) else float(row.get("taker_buy_base", 0.0)),
             )
             for _, row in df.iterrows()
         ]

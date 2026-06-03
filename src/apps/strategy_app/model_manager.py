@@ -15,6 +15,7 @@ from libs.models.base import BaseModel
 from libs.models.legacy_adapter import LegacyScoringAdapter
 from libs.models.registry import ModelRegistry
 from libs.models.scoring_base import ScoringModel
+from apps.strategy_app.feature_contracts import build_available_feature_contract
 
 # Ensure concrete models are registered on import.
 import libs.models  # noqa: F401
@@ -23,6 +24,7 @@ logger = bind_logger(__name__, system_component=SystemComponent.MODEL_STRATEGY)
 
 KEY_MODELS = "models"
 KEY_FEATURES = "features"
+KEY_ENGINEERED_FEATURES = "engineered_features"
 KEY_ASSETS = "assets"
 KEY_TIMEFRAMES = "timeframes"
 KEY_DEFAULT = "default"
@@ -167,6 +169,15 @@ class ModelManager:
                     f"{missing} but features.yaml only provides {sorted(available_features)}"
                 )
             missing_fields = model.validate_required_fields(available_features)
+            missing_engineered_fields = sorted(
+                field for field in missing_fields if field.startswith("eng_")
+            )
+            if missing_engineered_fields:
+                raise ConfigurationError(
+                    f"Model '{model.meta.name}' for {self.asset}/{self.timeframe} requires "
+                    f"engineered fields {missing_engineered_fields} but features.yaml engineered_features "
+                    "does not configure them"
+                )
             if missing_fields:
                 logger.warning(
                     f"Model '{model.meta.name}' for {self.asset}/{self.timeframe}: "
@@ -182,11 +193,8 @@ class ModelManager:
         declare a requirement like ``"EMA"`` satisfied by ``EMA_fast``.
         """
         features_node = self._resolve_config_node(KEY_FEATURES)
-        available = set(features_node.keys())
-        for key, cfg in features_node.items():
-            if isinstance(cfg, dict) and "type" in cfg:
-                available.add(cfg["type"])
-        return available
+        engineered_node = self._resolve_config_node(KEY_ENGINEERED_FEATURES)
+        return build_available_feature_contract(features_node, engineered_node)
 
     # ------------------------------------------------------------------
     # Evaluation

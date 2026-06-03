@@ -88,7 +88,10 @@ class TrialStore:
         study_name: str,
         objective_key: str = "sharpe",
         limit: int = 5,
+        direction: str = "maximize",
     ) -> list[dict[str, Any]]:
+        order = "DESC" if direction.lower() != "minimize" else "ASC"
+        query = QUERY_BEST_TRIALS_SQL.replace("DESC", order)
         async with self.pool.acquire() as conn:
-            rows = await conn.fetch(QUERY_BEST_TRIALS_SQL, study_name, objective_key, limit)
+            rows = await conn.fetch(query, study_name, objective_key, limit)
             return [dict(r) for r in rows]

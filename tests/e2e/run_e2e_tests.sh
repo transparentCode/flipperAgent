@@ -10,7 +10,12 @@ SECONDS=0
 COMPOSE_FILE="docker-compose.yml"
 
 # Parse arguments
-PYTEST_ARGS=(-v --timeout=300)
+PYTEST_ARGS=(-v)
+if PYTHONPATH=src .venv/bin/python -m pytest --help 2>/dev/null | grep -q -- "--timeout"; then
+    PYTEST_ARGS+=(--timeout=300)
+else
+    echo "pytest-timeout plugin not available; running without --timeout"
+fi
 if [[ "${1:-}" != "--slow" ]]; then
     PYTEST_ARGS+=(-m "not slow")
 fi

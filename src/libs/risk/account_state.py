@@ -98,7 +98,7 @@ class AccountState:
     # Serialization
     # ------------------------------------------------------------------
 
-    def snapshot(self) -> AccountSnapshot:
+    def snapshot(self, open_position_count: int = 0) -> AccountSnapshot:
         return AccountSnapshot(
             timestamp=time.time(),
             balance=self.balance,
@@ -107,7 +107,7 @@ class AccountState:
             realized_pnl=self.realized_pnl,
             drawdown_pct=self.current_drawdown_pct,
             peak_equity=self.peak_equity,
-            open_position_count=0,  # caller should override if needed
+            open_position_count=open_position_count,
             daily_pnl=self.daily_pnl,
         )
 
@@ -115,9 +115,9 @@ class AccountState:
     # DB persistence (TimescaleDB)
     # ------------------------------------------------------------------
 
-    async def save_snapshot(self, db_pool: Any) -> None:
+    async def save_snapshot(self, db_pool: Any, open_position_count: int = 0) -> None:
         """Persist current account snapshot to TimescaleDB."""
-        snap = self.snapshot()
+        snap = self.snapshot(open_position_count=open_position_count)
         async with db_pool.acquire() as conn:
             await conn.execute(
                 """

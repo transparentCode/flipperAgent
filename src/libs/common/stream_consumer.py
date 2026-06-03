@@ -12,6 +12,7 @@ from libs.common.logging.logger_utils import bind_logger
 logger = bind_logger(__name__)
 
 _DEFAULT_CIRCUIT_BREAKER_THRESHOLD = 50
+_DEFAULT_PEL_RECLAIM_IDLE_MS = 30_000
 
 
 async def ensure_consumer_group(
@@ -42,12 +43,14 @@ class BaseStreamConsumer(abc.ABC):
         consumer_name: str,
         batch_size: int = 10,
         block_ms: int = 2000,
+        pel_reclaim_idle_ms: int = _DEFAULT_PEL_RECLAIM_IDLE_MS,
     ) -> None:
         self.stream_key = stream_key
         self.group_name = group_name
         self.consumer_name = consumer_name
         self.batch_size = batch_size
         self.block_ms = block_ms
+        self.pel_reclaim_idle_ms = max(0, int(pel_reclaim_idle_ms))
         self.redis_client: Any = None
 
     async def connect(self, redis_client: Any) -> None:
@@ -97,8 +100,8 @@ class BaseStreamConsumer(abc.ABC):
             pass
 
         # Drain any messages left in the Pending Entry List (PEL) from previous
-        # runs before reading new messages.  We use XAUTOCLAIM to atomically
-        # re-assign idle PEL entries (min-idle-time = 0 ms → claim immediately).
+        # runs before reading new messages. We only reclaim entries that have
+        # been idle long enough to suggest their previous consumer is gone.
         try:
             next_id = "0-0"
             while True:
@@ -106,7 +109,7 @@ class BaseStreamConsumer(abc.ABC):
                     self.stream_key,
                     self.group_name,
                     self.consumer_name,
-                    min_idle_time=0,
+                    min_idle_time=self.pel_reclaim_idle_ms,
                     start_id=next_id,
                     count=self.batch_size,
                 )

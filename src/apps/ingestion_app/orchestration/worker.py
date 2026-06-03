@@ -8,6 +8,7 @@ from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
 from apps.ingestion_app.adapters.crypto_ccxt import CCXTAdapter
 from apps.ingestion_app.constants import EXCHANGE_BINANCE
 from apps.ingestion_app.coordination import IngestionCoordinator
+from apps.ingestion_app.storage.bootstrap import apply_ingestion_schema
 from libs.common.config import ConfigManager
 from libs.common.connections import create_valkey_client
 from libs.common.db.pool_manager import DBPoolManager
@@ -42,6 +43,7 @@ async def startup(ctx: Dict[str, Any]) -> None:
 
         # Initialize Shared DB pools
         await DBPoolManager.init_pools(config_manager=config_manager)
+        await apply_ingestion_schema(DBPoolManager.get_writer_pool())
 
         # Valkey client + coordinator for cross-service state management
         valkey_client = await create_valkey_client(config_manager)

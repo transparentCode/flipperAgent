@@ -52,6 +52,8 @@ class PositionState(BaseModel):
     tp_levels_hit: list[bool] = Field(default_factory=list)
     original_stop_loss: Optional[float] = None
     trail_to_breakeven: bool = False
+    pending_close_reason: str = ""
+    pending_close_requested_at: float = 0.0
 
 
 class AccountSnapshot(BaseModel):

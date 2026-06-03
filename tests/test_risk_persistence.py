@@ -93,7 +93,7 @@ class TestAccountStateSaveLoadRoundtrip:
         # Save
         save_conn = FakeConnection()
         save_pool = FakePool(save_conn)
-        await account.save_snapshot(save_pool)
+        await account.save_snapshot(save_pool, open_position_count=1)
 
         # Verify INSERT was issued
         assert any("INSERT INTO risk_account_snapshots" in q for _, q, _ in save_conn.executed)
@@ -219,7 +219,9 @@ class TestPersistStateLoop:
 
         save_snap = AsyncMock()
         save_pos = AsyncMock()
+        update_unrealized = AsyncMock()
         account.save_snapshot = save_snap
+        account.update_unrealized = update_unrealized
         positions.save_positions = save_pos
 
         with patch(
@@ -234,6 +236,7 @@ class TestPersistStateLoop:
             with pytest.raises(asyncio.CancelledError):
                 await task
 
+        assert update_unrealized.call_count >= 1
         assert save_snap.call_count >= 1
         assert save_pos.call_count >= 1
 
@@ -248,13 +251,13 @@ class TestPersistStateLoop:
         call_count = 0
         original_save = account.save_snapshot
 
-        async def failing_save(pool):
+        async def failing_save(pool, open_position_count=0):
             nonlocal call_count
             call_count += 1
             if call_count <= 2:
                 raise RuntimeError("DB unavailable")
             # Third call succeeds — verifies loop continued
-            await original_save(pool)
+            await original_save(pool, open_position_count=open_position_count)
 
         account.save_snapshot = failing_save
         positions.save_positions = AsyncMock()
@@ -276,6 +279,41 @@ class TestPersistStateLoop:
 
         # Loop continued past failures
         assert call_count >= 3
+
+
+class TestSuperviseConsumer:
+    @pytest.mark.asyncio
+    async def test_restarts_consumer_after_unexpected_return(self):
+        from apps.risk_app.main import _supervise_consumer
+
+        starts = 0
+        connects = 0
+
+        class FakeConsumer:
+            async def connect(self, redis_client):
+                nonlocal connects
+                connects += 1
+
+            async def start(self):
+                nonlocal starts
+                starts += 1
+                return None
+
+        task = asyncio.create_task(
+            _supervise_consumer(
+                label="fake",
+                build_consumer=FakeConsumer,
+                redis_client=object(),
+                restart_delay_seconds=0,
+            ),
+        )
+        await asyncio.sleep(0.05)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+        assert starts >= 2
+        assert connects >= 2
 
 
 # ---------------------------------------------------------------------------

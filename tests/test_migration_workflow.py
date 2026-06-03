@@ -357,8 +357,8 @@ class TestComparisonLogging:
             # Verify logger.info was called with match=True
             call_kwargs = mock_logger.info.call_args
             assert call_kwargs is not None
-            # structlog-style: positional args + kwargs
-            assert call_kwargs[1].get("match") is True
+            assert call_kwargs.args[0] == "legacy_migration_comparison"
+            assert call_kwargs.kwargs["extra"]["match"] is True
 
     def test_mismatch_logs_warning(self):
         """Mismatched edge scores should trigger a warning."""

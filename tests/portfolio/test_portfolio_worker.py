@@ -1,7 +1,9 @@
 """Tests for apps/portfolio_app/portfolio_worker.py — mock Valkey + DB."""
 
+import asyncio
 import pytest
 
+from libs.portfolio.state import PortfolioState
 from libs.contracts.schemas import (
     ClosedTrade,
     ExecutionReport,
@@ -27,6 +29,7 @@ class FakeConnection:
     def __init__(self):
         self.executed: list[tuple] = []
         self.fetchrow_result: dict | None = None
+        self.fetchrow_results: list = []
 
     async def fetch(self, query, *args):
         self.executed.append(("fetch", query, args))
@@ -34,10 +37,15 @@ class FakeConnection:
 
     async def fetchrow(self, query, *args):
         self.executed.append(("fetchrow", query, args))
+        if self.fetchrow_results:
+            return self.fetchrow_results.pop(0)
         return self.fetchrow_result
 
     async def execute(self, query, *args):
         self.executed.append(("execute", query, args))
+
+    def transaction(self):
+        return _TxCtx()
 
 
 class FakePool:
@@ -54,6 +62,14 @@ class _Ctx:
 
     async def __aenter__(self):
         return self._conn
+
+    async def __aexit__(self, *args):
+        pass
+
+
+class _TxCtx:
+    async def __aenter__(self):
+        return self
 
     async def __aexit__(self, *args):
         pass
@@ -92,10 +108,12 @@ def _make_report(
     asset: str = "BTCUSDT",
     metadata: dict | None = None,
     fills: list | None = None,
+    order_id: str | None = None,
+    idempotency_key: str | None = None,
 ) -> ExecutionReport:
     return ExecutionReport(
-        order_id="ord-1",
-        idempotency_key="idem-1",
+        order_id=order_id or f"ord-{asset}-{side}-{int(ts * 1000)}",
+        idempotency_key=idempotency_key or f"idem-{asset}-{side}-{int(ts * 1000)}",
         asset=asset,
         side=side,
         requested_size=size,
@@ -119,15 +137,20 @@ def _make_worker(conn: FakeConnection) -> PortfolioWorker:
     return PortfolioWorker(asset="BTCUSDT", db_pool=pool, config_mgr=cfg)
 
 
+def _make_shared_worker(
+    conn: FakeConnection,
+    asset: str,
+    state: PortfolioState,
+) -> PortfolioWorker:
+    pool = FakePool(conn)
+    cfg = FakeConfigManager({"portfolio": {"consumer": {"group_name": "test_group"}}})
+    return PortfolioWorker(asset=asset, db_pool=pool, config_mgr=cfg, shared_state=state)
+
+
 def _set_snapshot(conn: FakeConnection, equity: float = 10000.0):
-    """Configure the mock to return an account snapshot for _snapshot_equity."""
-    conn.fetchrow_result = FakeRecord(
-        equity=equity,
-        balance=equity,
-        unrealized_pnl=0.0,
-        drawdown_pct=0.0,
-        open_position_count=0,
-    )
+    """Legacy helper retained for backwards compatibility with older tests."""
+    conn.fetchrow_result = None
+    conn.fetchrow_results = []
 
 
 # ---------------------------------------------------------------------------
@@ -218,6 +241,17 @@ class TestProcessFillOpen:
         await worker._process_fill(report)
 
         assert len(worker._matcher.open_positions.get("BTCUSDT", [])) == 0
+
+    @pytest.mark.asyncio
+    async def test_entry_commission_reduces_balance(self):
+        conn = FakeConnection()
+        worker = _make_worker(conn)
+
+        report = _make_report(side="buy", price=100.0, size=1.0, ts=1000)
+        report.fills[0].commission = 0.25
+        await worker._process_fill(report)
+
+        assert worker._balance == pytest.approx(9999.75)
 
 
 # ---------------------------------------------------------------------------
@@ -376,6 +410,25 @@ class TestSnapshotEquity:
         assert net_exposure == pytest.approx(500.0)
         assert gross_exposure == pytest.approx(500.0)
 
+    @pytest.mark.asyncio
+    async def test_uses_mark_to_market_price_for_equity(self):
+        conn = FakeConnection()
+        worker = _make_worker(conn)
+
+        pos = OpenPosition(
+            asset="BTCUSDT", side="buy", size=1.0,
+            entry_price=100.0, timestamp=900.0,
+        )
+        worker._matcher.open_positions.setdefault("BTCUSDT", []).append(pos)
+        worker._position_marks[("BTCUSDT", 900.0, 100.0)] = 110.0
+
+        await worker._snapshot_equity(1000.0)
+
+        execute_calls = [c for c in conn.executed if c[0] == "execute" and "portfolio_equity_curve" in c[1]]
+        args = execute_calls[0][2]
+        assert args[1] == pytest.approx(10010.0)
+        assert args[3] == pytest.approx(10.0)
+
 
 # ---------------------------------------------------------------------------
 # Consumer group config
@@ -447,6 +500,52 @@ class TestNonFilledStatusSkipped:
         # No DB writes
         execute_calls = [c for c in conn.executed if c[0] == "execute"]
         assert len(execute_calls) == 0
+
+
+class TestReplaySafety:
+    @pytest.mark.asyncio
+    async def test_duplicate_fill_is_skipped_in_memory(self):
+        conn = FakeConnection()
+        worker = _make_worker(conn)
+
+        report = _make_report(side="buy", price=100.0, size=1.0, ts=1000.0)
+        await worker._process_fill(report)
+        await worker._process_fill(report)
+
+        positions = worker._matcher.open_positions.get("BTCUSDT", [])
+        assert len(positions) == 1
+
+    @pytest.mark.asyncio
+    async def test_close_reason_without_open_position_does_not_open_reverse(self):
+        conn = FakeConnection()
+        worker = _make_worker(conn)
+
+        report = _make_report(
+            side="sell",
+            price=101.0,
+            size=1.0,
+            ts=2000.0,
+            metadata={"close_reason": "sl"},
+        )
+        await worker._process_fill(report)
+
+        assert worker._matcher.open_positions.get("BTCUSDT", []) == []
+
+
+class TestSharedState:
+    @pytest.mark.asyncio
+    async def test_workers_share_balance(self):
+        conn = FakeConnection()
+        shared_state = PortfolioState(balance=10000.0, peak_equity=10000.0)
+        btc_worker = _make_shared_worker(conn, "BTCUSDT", shared_state)
+        eth_worker = _make_shared_worker(conn, "ETHUSDT", shared_state)
+
+        report = _make_report(side="buy", price=100.0, size=1.0, ts=1000.0, asset="BTCUSDT")
+        report.fills[0].commission = 0.5
+        await btc_worker._process_fill(report)
+
+        assert shared_state.balance == pytest.approx(9999.5)
+        assert eth_worker._balance == pytest.approx(9999.5)
 
 
 # ---------------------------------------------------------------------------

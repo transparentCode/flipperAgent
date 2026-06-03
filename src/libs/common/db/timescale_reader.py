@@ -7,6 +7,7 @@ TF_INTERVAL_MAP: dict[str, str] = {
     "1m": "1 minute",
     "5m": "5 minutes",
     "15m": "15 minutes",
+    "30m": "30 minutes",
     "1h": "1 hour",
     "4h": "4 hours",
     "1d": "1 day",
@@ -17,6 +18,7 @@ TF_SECONDS_MAP: dict[str, int] = {
     "1m": 60,
     "5m": 300,
     "15m": 900,
+    "30m": 1800,
     "1h": 3600,
     "4h": 14400,
     "1d": 86400,
@@ -53,7 +55,7 @@ class TimescaleReader:
         end_dt = datetime.fromtimestamp(end_time / 1000.0, tz=timezone.utc)
         
         query = """
-            SELECT timestamp, symbol, timeframe, open, high, low, close, volume
+            SELECT timestamp, symbol, timeframe, open, high, low, close, volume, taker_buy_base
             FROM ohlcv
             WHERE symbol = $1 
               AND timeframe = $2
@@ -65,7 +67,7 @@ class TimescaleReader:
         async with self.pool.acquire() as conn:
             records = await conn.fetch(query, symbol, timeframe, start_dt, end_dt)
             
-        columns = ['timestamp', 'symbol', 'timeframe', 'open', 'high', 'low', 'close', 'volume']
+        columns = ['timestamp', 'symbol', 'timeframe', 'open', 'high', 'low', 'close', 'volume', 'taker_buy_base']
         if not records:
             return pd.DataFrame(columns=columns)
             
@@ -145,7 +147,7 @@ class TimescaleReader:
 
         if timeframe == "1m":
             query = """
-                SELECT timestamp, open, high, low, close, volume
+                SELECT timestamp, open, high, low, close, volume, taker_buy_base
                 FROM ohlcv
                 WHERE symbol = $1 AND timeframe = '1m'
                   AND timestamp >= $2
@@ -163,7 +165,8 @@ class TimescaleReader:
                     MAX(high) AS high,
                     MIN(low) AS low,
                     LAST(close, timestamp) AS close,
-                    SUM(volume) AS volume
+                    SUM(volume) AS volume,
+                    SUM(taker_buy_base) AS taker_buy_base
                 FROM ohlcv
                 WHERE symbol = $1 AND timeframe = '1m'
                   AND timestamp >= $3
@@ -174,7 +177,7 @@ class TimescaleReader:
             async with self.pool.acquire() as conn:
                 records = await conn.fetch(agg_query, symbol, interval_td, since, max_lookback)
 
-        columns = ["timestamp", "open", "high", "low", "close", "volume"]
+        columns = ["timestamp", "open", "high", "low", "close", "volume", "taker_buy_base"]
         if not records:
             return pd.DataFrame(columns=columns)
         return pd.DataFrame([dict(r) for r in records])

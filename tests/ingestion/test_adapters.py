@@ -1,8 +1,10 @@
+import asyncio
 import pytest
 import pandas as pd
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
+from apps.ingestion_app.adapters.crypto_ccxt import CCXTAdapter
 DEFAULT_BINANCE_ASSET = 'BTCUSDT'
 BASE_GAP_FILL_TIMEFRAME = '1m'
 
@@ -24,3 +26,23 @@ async def test_binance_native_adapter_structure():
         assert list(df.columns) == ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'taker_buy_base']
         assert df.iloc[0]['close'] == 29050.0
         assert df.iloc[0]['taker_buy_base'] == 700.0
+
+
+def test_ccxt_adapter_defaults_binance_to_linear_futures():
+    adapter = CCXTAdapter("binance")
+
+    assert adapter.exchange.options["defaultType"] == "future"
+    assert adapter.exchange.options["defaultSubType"] == "linear"
+
+
+@pytest.mark.asyncio
+async def test_binance_native_adapter_queue_overflow_keeps_latest_message():
+    queue = asyncio.Queue(maxsize=1)
+    state = {"dropped": 0}
+
+    BinanceNativeAdapter._enqueue_ws_message(queue, "first", state, 100)
+    BinanceNativeAdapter._enqueue_ws_message(queue, "second", state, 100)
+
+    assert state["dropped"] == 1
+    assert queue.qsize() == 1
+    assert await queue.get() == "second"

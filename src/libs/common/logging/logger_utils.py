@@ -179,6 +179,29 @@ class JsonFormatter(logging.Formatter):
             
         return json.dumps(log_data)
 
+
+class SizeAndTimeRotatingFileHandler(TimedRotatingFileHandler):
+    """Timed rotation with optional size-based rollover between intervals."""
+
+    def __init__(self, *args: object, maxBytes: int = 0, **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)
+        self.maxBytes = max(0, int(maxBytes))
+
+    def shouldRollover(self, record: logging.LogRecord) -> int:  # noqa: N802
+        if super().shouldRollover(record):
+            return 1
+        if self.maxBytes <= 0:
+            return 0
+
+        if self.stream is None:
+            self.stream = self._open()
+
+        msg = f"{self.format(record)}\n"
+        self.stream.seek(0, 2)
+        if self.stream.tell() + len(msg.encode("utf-8")) >= self.maxBytes:
+            return 1
+        return 0
+
 class _LoggerConfigurator:
     """Namespace class to encapsulate logging configuration builder methods."""
 
@@ -225,8 +248,12 @@ class _LoggerConfigurator:
         file_max_bytes: int,
         file_backup_count: int,
     ) -> logging.Handler:
-        # Use TimedRotatingFileHandler for time-based, runtime log cleanup automatically at midnight
-        handler = TimedRotatingFileHandler(log_file, when="midnight", backupCount=file_backup_count)
+        handler = SizeAndTimeRotatingFileHandler(
+            log_file,
+            when="midnight",
+            backupCount=file_backup_count,
+            maxBytes=file_max_bytes,
+        )
         handler.setLevel(level)
         handler.setFormatter(cls.build_formatter(format_type))
         handler.addFilter(_LogContextFilter())
@@ -234,6 +261,8 @@ class _LoggerConfigurator:
 
     @classmethod
     def validate_file_logging_settings(cls, file_max_bytes: int, file_backup_count: int) -> None:
+        if file_max_bytes < 0:
+            raise LoggingConfigurationError("file_max_bytes must be zero or greater.")
         if file_backup_count < 0:
             raise LoggingConfigurationError("file_backup_count must be zero or greater.")
 

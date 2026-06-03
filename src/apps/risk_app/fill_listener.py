@@ -72,7 +72,17 @@ class FillListener(BaseStreamConsumer):
         Handles partial fills: a single fill can close multiple positions
         in FIFO order and open a new position with any remaining quantity.
         """
+        metadata = report.metadata or {}
+        position_entry_timestamp = metadata.get("position_entry_timestamp")
+        if position_entry_timestamp is not None:
+            try:
+                position_entry_timestamp = float(position_entry_timestamp)
+            except (TypeError, ValueError):
+                position_entry_timestamp = None
+
         if report.status != OrderStatus.FILLED:
+            if position_entry_timestamp is not None:
+                self.positions.clear_pending_close(report.asset, position_entry_timestamp)
             logger.debug(
                 f"Skipping non-FILLED report: status={report.status.value}",
             )
@@ -81,7 +91,49 @@ class FillListener(BaseStreamConsumer):
         opposite_dir = -1 if report.side == "buy" else 1
         remaining = report.filled_size
         pos_list = self.positions.positions.get(report.asset, [])
-        metadata = report.metadata or {}
+
+        # Exit orders should target the exact position that raised the close signal
+        if position_entry_timestamp is not None and remaining > 1e-12:
+            idx = self.positions.find_position_index(report.asset, position_entry_timestamp)
+            if idx >= 0:
+                pos = pos_list[idx]
+                if pos.direction == opposite_dir:
+                    match_qty = min(remaining, pos.size)
+                    pnl = pos.direction * (report.average_fill_price - pos.entry_price) * match_qty
+                    await self.account.record_trade_close(pnl, report.timestamp)
+                    logger.info(
+                        f"Closed targeted {'short' if opposite_dir == -1 else 'long'} position "
+                        f"for {report.asset}: pnl={pnl:.4f}",
+                    )
+                    remaining -= match_qty
+
+                    close_reason = metadata.get("close_reason", "")
+                    if close_reason.startswith("tp") and pos.tp_levels:
+                        tp_level_index = int(close_reason[2:]) - 1
+                        self.positions.apply_partial_exit(
+                            report.asset,
+                            idx,
+                            match_qty,
+                            tp_level_index,
+                        )
+                        self.positions.clear_pending_close(
+                            report.asset, position_entry_timestamp,
+                        )
+                    elif match_qty >= pos.size - 1e-12:
+                        pos.current_price = report.average_fill_price
+                        pos.unrealized_pnl = 0.0
+                        await self.positions.close_position(report.asset, idx)
+                    else:
+                        pos.size -= match_qty
+                        pos.current_price = report.average_fill_price
+                        pos.unrealized_pnl = (
+                            pos.direction
+                            * (pos.current_price - pos.entry_price)
+                            * pos.size
+                        )
+                        self.positions.clear_pending_close(
+                            report.asset, position_entry_timestamp,
+                        )
 
         # FIFO match against opposite-side positions
         indices_to_remove: list[int] = []
@@ -166,6 +218,7 @@ class FillListener(BaseStreamConsumer):
                     f"size={remaining:.6f} @ {report.average_fill_price:.4f}"
                     f"{' (multi-TP)' if tp_levels else ''}",
                 )
+        await self.account.update_unrealized(self.positions.all_positions())
 
     # ------------------------------------------------------------------
     # Helpers

@@ -100,14 +100,17 @@ async def portfolio_summary() -> dict[str, Any]:
         async with reader_pool.acquire() as conn:
             rows = await conn.fetch(
                 """
-                SELECT realized_pnl, duration_seconds, slippage_bps
+                SELECT realized_pnl, commission_total, duration_seconds, slippage_bps
                 FROM portfolio_closed_trades
                 ORDER BY exit_timestamp DESC
                 LIMIT 200
                 """
             )
         if rows:
-            pnls = [float(r["realized_pnl"]) for r in rows]
+            pnls = [
+                float(r["realized_pnl"]) - float(r["commission_total"])
+                for r in rows
+            ]
             wins = [p for p in pnls if p > 0]
             losses = [p for p in pnls if p <= 0]
             trades_result = {

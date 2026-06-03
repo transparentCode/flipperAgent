@@ -78,20 +78,23 @@ TradingView encodes WebSocket messages as `~m~{len}~m~{payload}`. Two module-lev
 
 Reads `tradingview.cookies_path` from config at construction. Stores `_config` for use by `get_historical_ohlcv`.
 
-**`get_historical_ohlcv(symbol, timeframe, ...)`**
+**`get_historical_ohlcv_batch(symbols, timeframe, ...)`**
 
 | Step | Detail |
 |---|---|
-| 1 | Build chart URL: `{chart_base_url}?symbol={symbol}&interval={tv_resolution}` |
-| 2 | Launch Chromium headless with stealth args (`--disable-blink-features=AutomationControlled`, `--no-sandbox`) |
-| 3 | Set viewport and user-agent from config |
-| 4 | Inject session cookies from `cookies_path` (strips leading `.` from domains for Playwright compat) |
-| 5 | Hook `page.on("websocket")` to capture frames containing `~m~` |
-| 6 | `page.goto(chart_url, wait_until="networkidle", timeout=page_load_timeout_ms)` |
-| 7 | Poll up to `ws_intercept_timeout_seconds` at `ws_poll_interval_seconds` intervals for `timescale_update`/`du` in captured frames |
-| 8 | Close browser, parse all captured frames, return deduplicated `pd.DataFrame` sorted by timestamp |
+| 1 | Launch one Chromium instance for the whole fetch batch; when `tradingview.proxy_url` is set, pass it into browser launch |
+| 2 | Create one browser context with configured viewport and user-agent |
+| 3 | Inject session cookies from `cookies_path` (strips leading `.` from domains for Playwright compat) |
+| 4 | For each symbol, open a page, hook `page.on("websocket")`, navigate to the chart URL, and capture `~m~` framed OHLCV messages |
+| 5 | Poll up to `ws_intercept_timeout_seconds` at `ws_poll_interval_seconds` intervals for `timescale_update`/`du` frames |
+| 6 | Parse messages into a deduplicated, timestamp-sorted `pd.DataFrame` per symbol |
+| 7 | Close page / context / browser in `finally` blocks so browser resources are cleaned up on both success and failure |
 
-Returns an empty DataFrame (columns: `timestamp, open, high, low, close, volume`) on any error or missing data.
+Returns a `dict[symbol, DataFrame]`. Per-symbol failures degrade to empty DataFrames; batch-level launch failures return no symbol data.
+
+**`get_historical_ohlcv(symbol, timeframe, ...)`**
+
+Thin compatibility wrapper around `get_historical_ohlcv_batch([symbol], timeframe)` that returns a single DataFrame.
 
 `since`, `until`, and `limit` parameters are accepted but not used — TV determines the available history window (~300 bars).
 
@@ -123,12 +126,13 @@ INDEX_KEY_MAP = {sym: sym.split(":")[-1] for sym in TV_INDICES}
 
 **`fetch_tv_indices(ctx)`**
 
-For each symbol in `TV_INDICES`:
+For each job run:
 
-1. Calls `interceptor.get_historical_ohlcv(symbol, timeframe)` — returns ~300 bars
+1. Calls `interceptor.get_historical_ohlcv_batch(TV_INDICES, timeframe)` — one browser/context session, ~300 bars per symbol
 2. Publishes `df.iloc[-1]` (latest closed bar) to `index:latest:{short_name}` Valkey hash
-3. Upserts **all** returned bars to `tv_index_ohlcv` via `executemany` + `ON CONFLICT DO UPDATE`
-4. Sleeps `fetch_delay_seconds` between symbols (anti-detection)
+3. Applies `EXPIRE index:latest:{short_name} tradingview.staleness_ttl_seconds`
+4. Upserts **all** returned bars to `tv_index_ohlcv` via `executemany` + `ON CONFLICT DO UPDATE`
+5. Continues per symbol even if one symbol returns no data
 
 Valkey hash payload:
 
@@ -139,6 +143,8 @@ Valkey hash payload:
 | `open/high/low/close` | str(float) | OHLCV values |
 | `volume` | str(float) | Bar volume |
 | `fetched_at` | str(float) | Unix timestamp of fetch (for staleness checks) |
+
+Hash expiry is now part of the producer contract. If the scraper stops running, `index:latest:*` keys disappear automatically after the configured TTL instead of persisting stale context indefinitely.
 
 **`startup(ctx)` / `shutdown(ctx)`**
 
@@ -194,7 +200,7 @@ The Signal App reads TV index data from Valkey hashes on each closed bar:
 - **Consumer**: `signal_worker.py` → `EngineeredFeatureManager.compute()` via `index_data` kwarg
 - **Short names** consumed by the signal app are derived from the same `tradingview.indices` config, so adding a new index in config propagates automatically to both the scraper and the consumer
 
-**Staleness:** the `fetched_at` field in each hash can be compared against `tradingview.staleness_ttl_seconds` (1800s) to detect a downed scraper. If data is older than the TTL, consumers should fall back to neutral feature values. This guard is tracked under the regime-overlay implementation plan.
+**Staleness:** the producer now sets Redis key expiry using `tradingview.staleness_ttl_seconds` (default `1800`). Consumers can still inspect `fetched_at`, but a downed scraper will naturally age out `index:latest:*` keys instead of serving stale hashes forever.
 
 ---
 
@@ -218,6 +224,88 @@ CREATE TABLE tv_index_ohlcv (
 Upserts use `ON CONFLICT (symbol, timeframe, timestamp) DO UPDATE SET ...` — fully idempotent.
 
 ---
+
+## Docker Validation
+
+Focused runtime validation for the scraper can stay narrow; you do not need the full app stack to prove the core path.
+
+### Preconditions
+
+- `secrets/tv_cookies.json` exists and contains a valid TradingView session
+- local `.venv` is available for the helper enqueue script
+
+### Focused Validation Steps
+
+1. Bring up only the required services:
+
+```bash
+docker-compose down -v
+docker-compose up -d --build db broker tv-scraper
+```
+
+2. Verify readiness:
+
+```bash
+docker-compose exec -T -e PGPASSWORD=flipperpass db pg_isready -U flipper -h localhost
+docker-compose exec -T broker redis-cli ping
+docker-compose ps
+```
+
+3. Enqueue one real scraper job onto the dedicated ARQ queue:
+
+```bash
+cat <<'PY' > /tmp/enqueue_tv_job.py
+import asyncio
+from arq import create_pool
+from arq.connections import RedisSettings
+
+async def main():
+    pool = await create_pool(RedisSettings.from_dsn("redis://127.0.0.1:6380/0"))
+    job = await pool.enqueue_job("fetch_tv_indices", _queue_name="arq:tv-scraper")
+    print(job.job_id if job else "NO_JOB")
+    await pool.aclose()
+
+asyncio.run(main())
+PY
+.venv/bin/python /tmp/enqueue_tv_job.py
+```
+
+4. Wait for the job to finish, then inspect the outputs:
+
+```bash
+docker-compose logs --tail=250 tv-scraper
+docker-compose exec -T broker redis-cli KEYS 'index:latest:*'
+docker-compose exec -T broker redis-cli HGETALL index:latest:TOTAL2
+docker-compose exec -T broker redis-cli TTL index:latest:TOTAL2
+docker-compose exec -T -e PGPASSWORD=flipperpass db \
+  psql -U flipper -d flipper_db -Atc \
+  "select symbol, timeframe, count(*) from tv_index_ohlcv group by symbol, timeframe order by symbol;"
+```
+
+5. Validate browser cleanup in-container:
+
+```bash
+docker-compose exec -T tv-scraper sh -lc \
+  "ps -eo pid,ppid,stat,comm,args | grep -E 'chromium|chrome|headless' | grep -v grep || true"
+```
+
+6. Tear down:
+
+```bash
+docker-compose down -v
+```
+
+### Expected Results
+
+- ARQ log line shows `fetch_tv_indices` completed successfully
+- `index:latest:TOTAL2`, `index:latest:TOTAL3`, and `index:latest:BTC.D` exist in Valkey
+- `TTL index:latest:*` is close to `1800` seconds immediately after a run
+- `tv_index_ohlcv` contains rows for `TOTAL2`, `TOTAL3`, and `BTC.D`
+- no lingering Chromium/headless browser processes remain in the container after the job finishes
+
+### Container Note
+
+The `tv-scraper` service now runs with `init: true` in Docker Compose. This is important because the worker process is PID 1 inside the container, and the init shim reaps any orphaned browser child processes that Patchright/Chromium might leave behind.
 
 ### Docker
 

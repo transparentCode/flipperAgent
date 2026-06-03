@@ -92,6 +92,7 @@ class EquityCurveBuilder:
         point: EquityPoint,
         net_exposure_pct: float = 0.0,
         gross_exposure_pct: float = 0.0,
+        conn: Any | None = None,
     ) -> None:
         """Persist a single equity point with optional exposure data.
 
@@ -112,8 +113,8 @@ class EquityCurveBuilder:
                 net_exposure_pct = EXCLUDED.net_exposure_pct,
                 gross_exposure_pct = EXCLUDED.gross_exposure_pct
         """
-        async with self.db_pool.acquire() as conn:
-            await conn.execute(
+        async def _execute(target_conn: Any) -> None:
+            await target_conn.execute(
                 query,
                 point.timestamp,
                 point.equity,
@@ -124,6 +125,13 @@ class EquityCurveBuilder:
                 net_exposure_pct,
                 gross_exposure_pct,
             )
+
+        if conn is not None:
+            await _execute(conn)
+            return
+
+        async with self.db_pool.acquire() as pooled_conn:
+            await _execute(pooled_conn)
 
     async def build_from_account_snapshots(
         self,

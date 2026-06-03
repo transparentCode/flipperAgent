@@ -22,6 +22,14 @@ logger = bind_logger(__name__, system_component=SystemComponent.OPTIMIZATION)
 _WARMUP_BARS = 100
 
 
+def _required_warmup_bars(fm: FeatureManager, n_bars: int) -> int:
+    indicator_lookback = max(
+        (getattr(ind, "lookback_required", 0) for ind in fm.indicators),
+        default=0,
+    )
+    return min(max(_WARMUP_BARS, indicator_lookback), n_bars)
+
+
 def _flatten_indicators(raw: dict[str, Any]) -> dict[str, Any]:
     """Flatten composite indicator outputs into scalar columns.
 
@@ -93,7 +101,7 @@ def build_scoring_feature_df(
         for r in ohlcv_df.itertuples(index=False)
     ]
 
-    warmup = min(_WARMUP_BARS, len(bar_tuples))
+    warmup = _required_warmup_bars(fm, len(bar_tuples))
     fm.prime(bar_tuples[:warmup])
 
     rows: list[dict[str, Any]] = []

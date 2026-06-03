@@ -156,6 +156,15 @@ class TestSLTPCheck:
         hit = tracker.check_sl_tp("BTCUSDT", 50_500)
         assert len(hit) == 0
 
+    @pytest.mark.asyncio
+    async def test_pending_close_position_skipped(self):
+        tracker = PositionTracker()
+        pos = _make_position(direction=1, stop_loss_price=49_000, pending_close_reason="sl")
+        await tracker.open_position(pos)
+
+        hit = tracker.check_sl_tp("BTCUSDT", 48_500)
+        assert hit == []
+
 
 class TestSLTPCheckHLC:
     """Tests for check_sl_tp_hlc — intrabar high/low SL/TP detection."""

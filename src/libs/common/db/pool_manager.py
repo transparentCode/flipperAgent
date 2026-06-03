@@ -16,13 +16,27 @@ class DBPoolManager:
     _init_lock: ClassVar[asyncio.Lock] = asyncio.Lock()
 
     @classmethod
+    async def _reset_partial_state(cls) -> None:
+        """Close any partially initialized pools before retrying init."""
+        if cls._writer_pool is not None:
+            await cls._writer_pool.close()
+            cls._writer_pool = None
+        if cls._reader_pool is not None:
+            await cls._reader_pool.close()
+            cls._reader_pool = None
+
+    @classmethod
     async def init_pools(cls, config_manager: Optional[ConfigManager] = None) -> None:
         """
         Initialize the reader and writer connection pools using asyncpg.
         """
         async with cls._init_lock:
-            if cls._writer_pool is not None:
+            if cls._writer_pool is not None and cls._reader_pool is not None:
                 return  # already initialized
+
+            if cls._writer_pool is not None or cls._reader_pool is not None:
+                logger.warning("Partial DB pool state detected; resetting pools before re-initialization")
+                await cls._reset_partial_state()
 
             if config_manager is None:
                 config_manager = ConfigManager()
@@ -67,6 +81,7 @@ class DBPoolManager:
                     logger.warning(f"Waiting for reader DB pool... {type(e).__name__}")
                     await asyncio.sleep(1)
             if cls._reader_pool is None:
+                await cls._reset_partial_state()
                 raise RuntimeError("Failed to connect to reader database after 30 retries")
 
     @classmethod

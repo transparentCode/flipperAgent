@@ -36,10 +36,25 @@ class PaperExecutor(BaseExecutor):
         self.commission_bps = commission_bps
         self.fill_delay_ms = fill_delay_ms
         self._rng = random.Random(seed)
+        self._state_lock = asyncio.Lock()
 
         # Paper state
         self._positions: dict[str, dict] = {}
         self._balance: dict[str, float] = {"USDT": 10_000.0}
+
+    @staticmethod
+    def _weighted_avg_price(
+        current_size: float,
+        current_avg_price: float,
+        added_size: float,
+        added_price: float,
+    ) -> float:
+        total_size = current_size + added_size
+        if total_size <= 0:
+            return 0.0
+        return (
+            (current_size * current_avg_price) + (added_size * added_price)
+        ) / total_size
 
     async def execute_order(self, order: OrderExecutionRequest) -> ExecutionReport:
         # Simulate network/exchange delay
@@ -104,35 +119,65 @@ class PaperExecutor(BaseExecutor):
             },
         )
 
-        # Update paper state tracking
+        # Keep shared paper account state consistent while still allowing
+        # per-order delay/slippage simulation to happen outside the lock.
         notional = order.size * fill_price
-        if order.side == "buy":
-            self._balance["USDT"] -= notional + commission
-            pos = self._positions.get(order.asset, {"asset": order.asset, "size": 0.0, "avg_price": 0.0})
-            old_notional = pos["size"] * pos["avg_price"]
-            pos["size"] += order.size
-            pos["avg_price"] = (old_notional + notional) / pos["size"] if pos["size"] > 0 else 0.0
-            self._positions[order.asset] = pos
-        else:  # sell
-            self._balance["USDT"] += notional - commission
+        tolerance = 1e-12
+        async with self._state_lock:
+            self._balance["USDT"] += (
+                -(notional + commission) if order.side == "buy" else (notional - commission)
+            )
+
             pos = self._positions.get(order.asset)
-            if pos:
-                # Close or reduce an existing long
-                pos["size"] -= order.size
-                if pos["size"] <= 1e-12:
-                    del self._positions[order.asset]
+            current_size = float(pos["size"]) if pos else 0.0
+            current_avg_price = float(pos["avg_price"]) if pos else 0.0
+
+            if order.side == "buy":
+                if current_size >= 0:
+                    new_size = current_size + order.size
+                    new_avg_price = self._weighted_avg_price(
+                        current_size, current_avg_price, order.size, fill_price,
+                    )
+                else:
+                    short_size = abs(current_size)
+                    if order.size < short_size - tolerance:
+                        new_size = current_size + order.size
+                        new_avg_price = current_avg_price
+                    elif abs(order.size - short_size) <= tolerance:
+                        new_size = 0.0
+                        new_avg_price = 0.0
+                    else:
+                        residual_long = order.size - short_size
+                        new_size = residual_long
+                        new_avg_price = fill_price
             else:
-                # Opening or increasing a short position (size stored as negative)
-                short_pos = self._positions.get(
-                    order.asset, {"asset": order.asset, "size": 0.0, "avg_price": 0.0}
-                )
-                old_notional = abs(short_pos["size"]) * short_pos["avg_price"]
-                short_pos["size"] -= order.size  # goes more negative
-                total_short = abs(short_pos["size"])
-                short_pos["avg_price"] = (
-                    (old_notional + notional) / total_short if total_short > 0 else 0.0
-                )
-                self._positions[order.asset] = short_pos
+                if current_size <= 0:
+                    short_size = abs(current_size)
+                    new_short_size = short_size + order.size
+                    new_size = -new_short_size
+                    new_avg_price = self._weighted_avg_price(
+                        short_size, current_avg_price, order.size, fill_price,
+                    )
+                else:
+                    if order.size < current_size - tolerance:
+                        new_size = current_size - order.size
+                        new_avg_price = current_avg_price
+                    elif abs(order.size - current_size) <= tolerance:
+                        new_size = 0.0
+                        new_avg_price = 0.0
+                    else:
+                        residual_short = order.size - current_size
+                        new_size = -residual_short
+                        new_avg_price = fill_price
+
+            if abs(new_size) <= tolerance:
+                self._positions.pop(order.asset, None)
+            else:
+                self._positions[order.asset] = {
+                    "asset": order.asset,
+                    "size": new_size,
+                    "avg_price": new_avg_price,
+                }
 
         logger.info(
             f"Paper fill: {order.asset} {order.side} {order.size:.6f} "

@@ -327,8 +327,12 @@ class TwoStageOptimizer:
                 study_name=name, directions=directions, sampler=sampler
             )
         else:
+            direction = study_defaults.get(
+                "direction",
+                (study_defaults.get("directions") or ["maximize"])[0],
+            )
             return optuna.create_study(
-                study_name=name, direction="maximize", sampler=sampler
+                study_name=name, direction=direction, sampler=sampler
             )
 
     def _compute_importances(

@@ -16,13 +16,36 @@ from libs.execution.fill_tracker import FillTracker
 from libs.execution.idempotency import IdempotencyStore
 from libs.execution.order_manager import OrderManager
 from libs.execution.paper_executor import PaperExecutor
-from libs.execution.binance_executor import BinanceExecutor
 
 from apps.execution_app.execution_worker import ExecutionWorker
 
 KEY_EXECUTION = "execution"
 
 logger = bind_logger(__name__, system_component=SystemComponent.TRADE_EXECUTION)
+
+
+async def _supervise_worker(
+    label: str,
+    build_worker,
+    redis_client,
+    restart_delay_seconds: int = 5,
+) -> None:
+    """Restart a worker if it exits or crashes unexpectedly."""
+    while True:
+        worker = build_worker()
+        await worker.connect(redis_client)
+        try:
+            await worker.start()
+            logger.error(
+                f"{label} exited unexpectedly; restarting in {restart_delay_seconds}s",
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception(
+                f"{label} crashed; restarting in {restart_delay_seconds}s",
+            )
+        await asyncio.sleep(restart_delay_seconds)
 
 
 async def _run() -> None:
@@ -105,23 +128,32 @@ async def _run() -> None:
         idempotency_store = IdempotencyStore(max_size=max_memory_keys)
 
     fill_tracker = FillTracker()
-    order_manager = OrderManager(
-        executor=executor,
-        idempotency_store=idempotency_store,
-        fill_tracker=fill_tracker,
-    )
+    writer_pool = DBPoolManager.get_writer_pool()
+    restart_delay_seconds = exec_config.get("consumer_restart_delay_seconds", 5)
 
     tasks: list[asyncio.Task] = []
     try:
         # Spawn one ExecutionWorker per asset
         for asset in assets:
-            worker = ExecutionWorker(
-                asset=asset,
-                order_manager=order_manager,
-                exec_config=exec_config,
+            tasks.append(
+                asyncio.create_task(
+                    _supervise_worker(
+                        label=f"ExecutionWorker[{asset}]",
+                        build_worker=lambda asset=asset: ExecutionWorker(
+                            asset=asset,
+                            order_manager=OrderManager(
+                                executor=executor,
+                                idempotency_store=idempotency_store,
+                                fill_tracker=fill_tracker,
+                                db_pool=writer_pool,
+                            ),
+                            exec_config=exec_config,
+                        ),
+                        redis_client=redis_client,
+                        restart_delay_seconds=restart_delay_seconds,
+                    ),
+                ),
             )
-            await worker.connect(redis_client)
-            tasks.append(asyncio.create_task(worker.start()))
 
         await asyncio.gather(*tasks)
     except BaseException:

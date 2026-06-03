@@ -286,11 +286,41 @@ The Signal App consumes Valkey streams published by `worker-streams`:
 ### E2E Docker Testing Strategy
 
 ```
-db (TimescaleDB) + broker (Valkey) → worker-queue (ARQ) + worker-streams (FastAPI)
+db (TimescaleDB) + broker (Valkey)
+  -> worker-streams (FastAPI) + worker-queue (ARQ)
+  -> signal-worker + strategy-worker + risk-worker + execution-worker + portfolio-worker
 ```
 
-- **`docker-compose.yml`**: four containers matching production topology
-- **`run_e2e_tests.sh`**: waits for `pg_isready`, applies `schema.sql`, then runs `pytest tests/e2e/`
+- **`docker-compose.yml`**: local multi-service topology for ingestion plus downstream consumers
+- **`run_e2e_tests.sh`**:
+  - tears down any previous Docker state with `docker-compose down -v`
+  - boots `db` and `broker`
+  - waits for PostgreSQL readiness via `pg_isready`
+  - waits for Valkey readiness via `redis-cli ping`
+  - relies on `docker-entrypoint-initdb.d` for initial SQL bootstrap
+  - boots `worker-streams`, `worker-queue`, `signal-worker`, `strategy-worker`, `risk-worker`, `execution-worker`, and `portfolio-worker`
+  - waits 15 seconds for worker stabilization
+  - runs `PYTHONPATH=src .venv/bin/python -m pytest tests/e2e/test_docker_integration.py`
+  - passes `--timeout=300` only when the `pytest-timeout` plugin is available
+  - dumps targeted service logs on failure, then cleans up with `docker-compose down -v`
 - **Assertions**:
   - Gap-fill check: polls `ohlcv` hypertable for inserted rows from the ARQ worker
   - WS handoff check: `MAX(timestamp)` lag falls below `warmup_threshold_ms`, confirming `LIVE` state reached
+
+### Docker Validation Notes
+
+- Validation command used: `bash tests/e2e/run_e2e_tests.sh`
+- Validation environment: local `.venv` test runner against Docker Compose services
+- Most recent observed harness issue: the script previously hard-coded `--timeout=300`, which fails in environments where `pytest-timeout` is not installed. The runner now detects support before adding that flag.
+- Focused ingestion validation steps used on `2026-06-02`:
+  - `docker-compose down -v`
+  - `docker-compose up -d --build db broker`
+  - wait for `pg_isready` on `db`
+  - wait for `redis-cli ping` on `broker`
+  - `docker-compose up -d --build worker-streams worker-queue`
+  - wait 15 seconds for ingestion startup and warmup
+  - run:
+    - `PYTHONPATH=src .venv/bin/python -m pytest tests/e2e/test_docker_integration.py::test_timescaledb_initialization_and_gap_fill tests/e2e/test_docker_integration.py::test_websocket_live_streaming tests/e2e/test_docker_integration.py::test_continuous_aggregates_exist -vv -s`
+  - `docker-compose down -v`
+- Focused ingestion validation result on `2026-06-02`: `3 passed`
+- Additional E2E harness issue found during Docker validation: session-scoped async fixtures in `tests/e2e/conftest.py` shared `asyncpg` and Valkey clients across different pytest event loops, which caused false-negative `RuntimeError` and `InterfaceError` failures. The fixtures were narrowed to function scope to keep Docker validation stable and truthful.

@@ -16,6 +16,20 @@ from apps.strategy_app.strategy_worker import StrategyWorker
 logger = bind_logger(__name__, system_component=SystemComponent.MODEL_STRATEGY)
 
 
+async def _run_worker(asset: str, tf: str, redis_client) -> None:
+    """Run one worker in isolation so a single pair crash does not stop others."""
+    try:
+        worker = StrategyWorker(asset, tf)
+        await worker.connect(redis_client)
+        await worker.start()
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        logger.exception(
+            f"Strategy worker crashed for {asset}/{tf}; other workers will continue running"
+        )
+
+
 async def _run() -> None:
     config_mgr = ConfigManager()
     config_mgr.register_file(CONFIG_FILE_MODELS)
@@ -52,9 +66,7 @@ async def _run() -> None:
     tasks: list[asyncio.Task] = []
     try:
         for asset, tf in pairs:
-            worker = StrategyWorker(asset, tf)
-            await worker.connect(redis_client)
-            tasks.append(asyncio.create_task(worker.start()))
+            tasks.append(asyncio.create_task(_run_worker(asset, tf, redis_client)))
 
         await asyncio.gather(*tasks)
     except BaseException:

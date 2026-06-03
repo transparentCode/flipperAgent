@@ -26,9 +26,9 @@ def _reset_singletons():
     DBPoolManager._reader_pool = None
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture
 async def db_pools():
-    """Session-scoped DB pools pointing at the Docker TimescaleDB."""
+    """Function-scoped DB pools pointing at the Docker TimescaleDB."""
     class E2EConfigManager(ConfigManager):
         def get(self, key_path: str, default=None):
             mapping = {
@@ -52,9 +52,9 @@ async def db_pools():
     DBPoolManager._reader_pool = None
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture
 async def valkey_client():
-    """Session-scoped Valkey client pointing at Docker broker."""
+    """Function-scoped Valkey client pointing at Docker broker."""
     uri = os.getenv("VALKEY_URI", "redis://localhost:6380/0")
     client = avalkey.Valkey.from_url(uri, decode_responses=True)
     yield client

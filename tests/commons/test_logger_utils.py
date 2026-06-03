@@ -130,6 +130,30 @@ class LoggerUtilsTests(unittest.TestCase):
             ]
             self.assertTrue(len(rotated_files) >= 1)
 
+    def test_file_logging_honors_size_limit(self) -> None:
+        import re
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_file = Path(temp_dir) / "logs" / "app.log"
+            configure_logging(
+                level="INFO",
+                enable_file_logging=True,
+                log_file=log_file,
+                file_max_bytes=256,
+                file_backup_count=2,
+            )
+            logger = get_logger("commons.jobs")
+
+            for _ in range(8):
+                logger.info("x" * 120)
+            self._flush_namespace_handlers()
+
+            rotated_files = [
+                f for f in log_file.parent.iterdir()
+                if re.match(r"app\.log\.\d{4}-\d{2}-\d{2}$", f.name)
+            ]
+            self.assertTrue(rotated_files)
+
     def test_default_log_file_points_to_top_level_logs_directory(self) -> None:
         log_file = default_log_file()
         self.assertEqual(log_file.name, "app.log")

@@ -60,6 +60,15 @@ class TestConvergenceCallbackSingleObjective:
         cb(study, _make_trial(value=1.5))
         assert cb._stale_count == 0
 
+    def test_single_objective_minimize_uses_lower_is_better(self):
+        cb = ConvergenceCallback(patience=3)
+        study = optuna.create_study(direction="minimize")
+
+        cb(study, _make_trial(value=5.0))
+        cb(study, _make_trial(value=4.0))
+        assert cb._best_value == 4.0
+        assert cb._stale_count == 0
+
 
 class TestConvergenceCallbackMultiObjective:
     def test_multi_objective_early_stop(self):

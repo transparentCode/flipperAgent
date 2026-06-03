@@ -33,6 +33,7 @@ from libs.optim_utils.scoring import (
     compute_win_rate,
     split_temporal,
 )
+from libs.optim_utils.scoring_feature_pipeline import _required_warmup_bars
 
 
 # ---------------------------------------------------------------------------
@@ -257,6 +258,38 @@ class TestPerModelObjectives:
         study = optuna.create_study(direction="maximize")
         study.optimize(obj, n_trials=1, show_progress_bar=False)
         assert isinstance(study.best_value, float)
+
+
+class TestScoringFeatureWarmup:
+    def test_required_warmup_uses_max_indicator_lookback(self):
+        class _Indicator:
+            def __init__(self, lookback_required):
+                self.lookback_required = lookback_required
+
+        class _FeatureManager:
+            indicators = [_Indicator(40), _Indicator(180), _Indicator(60)]
+
+        assert _required_warmup_bars(_FeatureManager(), 500) == 180
+
+    def test_required_warmup_keeps_minimum_floor(self):
+        class _Indicator:
+            def __init__(self, lookback_required):
+                self.lookback_required = lookback_required
+
+        class _FeatureManager:
+            indicators = [_Indicator(20)]
+
+        assert _required_warmup_bars(_FeatureManager(), 500) == 100
+
+    def test_required_warmup_caps_at_available_bars(self):
+        class _Indicator:
+            def __init__(self, lookback_required):
+                self.lookback_required = lookback_required
+
+        class _FeatureManager:
+            indicators = [_Indicator(180)]
+
+        assert _required_warmup_bars(_FeatureManager(), 120) == 120
 
     def test_trend_following_returns_two_tuple(self):
         from libs.models.trend_following.optimization.optimizer import (

@@ -65,11 +65,40 @@ async def _persist_state_loop(
         await asyncio.sleep(interval_seconds)
         try:
             db_pool = DBPoolManager.get_writer_pool()
-            await account.save_snapshot(db_pool)
+            await account.update_unrealized(positions.all_positions())
+            await account.save_snapshot(
+                db_pool,
+                open_position_count=positions.get_position_count(),
+            )
             await positions.save_positions(db_pool)
             logger.debug("Persisted account and position state to DB")
         except Exception:
             logger.exception("Failed to persist state to DB")
+
+
+async def _supervise_consumer(
+    label: str,
+    build_consumer,
+    redis_client,
+    restart_delay_seconds: int = 5,
+) -> None:
+    """Restart a long-running consumer when it exits unexpectedly."""
+    while True:
+        consumer = build_consumer()
+        await consumer.connect(redis_client)
+        try:
+            await consumer.start()
+            logger.error(
+                f"{label} exited its consumer loop unexpectedly; "
+                f"restarting in {restart_delay_seconds}s",
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception(
+                f"{label} crashed; restarting in {restart_delay_seconds}s",
+            )
+        await asyncio.sleep(restart_delay_seconds)
 
 
 async def _run() -> None:
@@ -120,6 +149,7 @@ async def _run() -> None:
     # Build engine and aggregator
     risk_engine = _build_risk_engine(risk_config)
     signal_aggregator = SignalAggregator()
+    restart_delay_seconds = risk_config.get("consumer_restart_delay_seconds", 5)
 
     tasks: list[asyncio.Task] = []
     try:
@@ -130,28 +160,42 @@ async def _run() -> None:
 
         # Spawn one RiskWorker per asset
         for asset, timeframes in asset_map.items():
-            worker = RiskWorker(
-                asset=asset,
-                timeframes=timeframes,
-                risk_engine=risk_engine,
-                signal_aggregator=signal_aggregator,
-                account=account,
-                positions=positions,
-                risk_config=risk_config,
+            tasks.append(
+                asyncio.create_task(
+                    _supervise_consumer(
+                        label=f"RiskWorker[{asset}]",
+                        build_consumer=lambda asset=asset, timeframes=timeframes: RiskWorker(
+                            asset=asset,
+                            timeframes=timeframes,
+                            risk_engine=risk_engine,
+                            signal_aggregator=signal_aggregator,
+                            account=account,
+                            positions=positions,
+                            risk_config=risk_config,
+                        ),
+                        redis_client=redis_client,
+                        restart_delay_seconds=restart_delay_seconds,
+                    ),
+                ),
             )
-            await worker.connect(redis_client)
-            tasks.append(asyncio.create_task(worker.start()))
 
         # Spawn one FillListener per asset
         unique_assets = list(asset_map.keys())
         for asset in unique_assets:
-            listener = FillListener(
-                asset=asset,
-                account=account,
-                positions=positions,
+            tasks.append(
+                asyncio.create_task(
+                    _supervise_consumer(
+                        label=f"FillListener[{asset}]",
+                        build_consumer=lambda asset=asset: FillListener(
+                            asset=asset,
+                            account=account,
+                            positions=positions,
+                        ),
+                        redis_client=redis_client,
+                        restart_delay_seconds=restart_delay_seconds,
+                    ),
+                ),
             )
-            await listener.connect(redis_client)
-            tasks.append(asyncio.create_task(listener.start()))
 
         await asyncio.gather(*tasks)
     except BaseException:
@@ -164,7 +208,11 @@ async def _run() -> None:
         # Persist final state before shutdown
         try:
             db_pool = DBPoolManager.get_writer_pool()
-            await account.save_snapshot(db_pool)
+            await account.update_unrealized(positions.all_positions())
+            await account.save_snapshot(
+                db_pool,
+                open_position_count=positions.get_position_count(),
+            )
             await positions.save_positions(db_pool)
             logger.info("Final state persisted to DB on shutdown")
         except Exception:

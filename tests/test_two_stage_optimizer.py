@@ -237,6 +237,14 @@ class TestMultiObjective:
         )
         assert len(study.directions) == 1
 
+    def test_create_study_single_objective_honors_minimize_direction(self):
+        opt = TwoStageOptimizer()
+        study_defaults = {"direction": "minimize"}
+        study = opt._create_study(
+            "TestModel", "screening", study_defaults, is_multi=False
+        )
+        assert study.direction.name.lower() == "minimize"
+
     def test_partial_fixed_sampler_applied(self):
         opt = TwoStageOptimizer()
         study_defaults = {"direction": "maximize"}

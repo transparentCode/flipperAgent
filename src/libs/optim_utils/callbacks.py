@@ -46,7 +46,16 @@ class ConvergenceCallback:
         else:
             if trial.value is None:
                 return  # pruned or failed trial
-            if self._best_value is None or trial.value > self._best_value:
+            direction = study.direction.name.lower()
+            improved = False
+            if self._best_value is None:
+                improved = True
+            elif direction == "minimize":
+                improved = trial.value < self._best_value
+            else:
+                improved = trial.value > self._best_value
+
+            if improved:
                 self._best_value = trial.value
                 self._stale_count = 0
             else:

@@ -120,8 +120,9 @@ class TestSnapshot:
         state = AccountState(10_000)
         state.realized_pnl = 200
         state.daily_pnl = 50
-        snap = state.snapshot()
+        snap = state.snapshot(open_position_count=3)
         assert snap.balance == 10_200
         assert snap.equity == 10_200
         assert snap.daily_pnl == 50
         assert snap.drawdown_pct == 0.0
+        assert snap.open_position_count == 3

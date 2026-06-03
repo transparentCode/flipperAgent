@@ -76,7 +76,11 @@ class OptunaRunner:
         if objective_fn is not None:
             objective = objective_fn
         else:
-            objective = make_objective(self.config.model_name, backtest_fn)
+            objective = make_objective(
+                self.config.model_name,
+                backtest_fn,
+                objective_names=self.config.objectives,
+            )
 
         logger.info(
             f"Starting optimization: model={self.config.model_name} "

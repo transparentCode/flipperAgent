@@ -13,6 +13,7 @@ from libs.contracts.schemas import FeatureVector
 from libs.contracts.signal import ScoringOutput
 from libs.models.scoring_base import ScoringModel
 from libs.models.registry import ModelRegistry
+from apps.strategy_app.feature_contracts import build_available_feature_contract
 
 # Ensure concrete scoring models are registered on import.
 import libs.models  # noqa: F401
@@ -21,6 +22,7 @@ logger = bind_logger(__name__, system_component=SystemComponent.MODEL_STRATEGY)
 
 KEY_SCORING_MODELS = "scoring_models"
 KEY_FEATURES = "features"
+KEY_ENGINEERED_FEATURES = "engineered_features"
 KEY_ASSETS = "assets"
 KEY_TIMEFRAMES = "timeframes"
 KEY_DEFAULT = "default"
@@ -80,6 +82,11 @@ class ScoringModelManager:
                 continue
             params = model_cfg.get("params", {}) or {}
             model = model_cls(params)
+            if not isinstance(model, ScoringModel):
+                raise ConfigurationError(
+                    f"Scoring model '{model_name}' for {self.asset}/{self.timeframe} "
+                    f"must extend ScoringModel, got {type(model).__name__}"
+                )
             self.models.append(model)
             logger.info(f"Loaded scoring model {model_name} for {self.asset}/{self.timeframe}")
 
@@ -100,6 +107,15 @@ class ScoringModelManager:
                     f"{missing} but features.yaml only provides {sorted(available_features)}"
                 )
             missing_fields = model.validate_required_fields(available_features)
+            missing_engineered_fields = sorted(
+                field for field in missing_fields if field.startswith("eng_")
+            )
+            if missing_engineered_fields:
+                raise ConfigurationError(
+                    f"Scoring model '{model.meta.name}' for {self.asset}/{self.timeframe} requires "
+                    f"engineered fields {missing_engineered_fields} but features.yaml engineered_features "
+                    "does not configure them"
+                )
             if missing_fields:
                 logger.warning(
                     f"Scoring model '{model.meta.name}' for {self.asset}/{self.timeframe}: "
@@ -110,11 +126,8 @@ class ScoringModelManager:
     def _available_features_from_config(self) -> set[str]:
         """Read configured indicator names from features.yaml for this asset/timeframe."""
         features_node = self._resolve_config_node(KEY_FEATURES)
-        available = set(features_node.keys())
-        for key, cfg in features_node.items():
-            if isinstance(cfg, dict) and "type" in cfg:
-                available.add(cfg["type"])
-        return available
+        engineered_node = self._resolve_config_node(KEY_ENGINEERED_FEATURES)
+        return build_available_feature_contract(features_node, engineered_node)
 
     # ------------------------------------------------------------------
     # Evaluation

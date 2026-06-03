@@ -211,6 +211,24 @@ class TestSaveClosedTrade:
         assert args[0] == "t1"
 
 
+class TestProcessedFills:
+    @pytest.mark.asyncio
+    async def test_mark_and_lookup_processed_fill(self):
+        conn = FakeConnection()
+        pool = FakePool(conn)
+        journal = TradeJournal(pool)
+
+        await journal.mark_fill_processed("ord-1", 1234.0)
+        conn.fetchrow_results = [FakeRecord({"exists": 1})]
+        processed = await journal.is_fill_processed("ord-1")
+
+        assert processed is True
+        executed_queries = [
+            query for op, query, _args in conn.executed if op in ("execute", "fetchrow")
+        ]
+        assert any("portfolio_processed_fills" in q for q in executed_queries)
+
+
 # ---------------------------------------------------------------------------
 # get_journal_entries
 # ---------------------------------------------------------------------------

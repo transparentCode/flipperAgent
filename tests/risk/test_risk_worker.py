@@ -220,6 +220,26 @@ class TestProcessSignalBatch:
         worker.account.check_daily_reset.assert_called_once_with(signal.timestamp)
 
 
+class TestRunLoop:
+    @pytest.mark.asyncio
+    async def test_price_stream_poll_is_non_blocking(self) -> None:
+        worker = _make_worker()
+        worker.redis_client = AsyncMock()
+        worker._drain_signal_pel = AsyncMock()
+        worker.redis_client.xreadgroup = AsyncMock(
+            side_effect=[[], asyncio.CancelledError()],
+        )
+
+        await worker.run()
+
+        assert worker.redis_client.xreadgroup.await_count == 2
+        signal_call = worker.redis_client.xreadgroup.await_args_list[0]
+        price_call = worker.redis_client.xreadgroup.await_args_list[1]
+
+        assert signal_call.kwargs["block"] == worker.block_ms
+        assert price_call.kwargs["block"] is None
+
+
 # ------------------------------------------------------------------
 # Multi-TP price update tests
 # ------------------------------------------------------------------
@@ -230,7 +250,7 @@ class TestProcessPriceUpdateMultiTP:
 
     @pytest.mark.asyncio
     async def test_tp1_partial_order_emitted(self) -> None:
-        """Multi-TP position with TP1 hit → partial close order published."""
+        """Multi-TP position with TP1 hit queues a close order without mutating size yet."""
         from libs.contracts.schemas import PositionState, PriceUpdate, valkey_encode
 
         worker = _make_worker()
@@ -264,15 +284,18 @@ class TestProcessPriceUpdateMultiTP:
 
         # Should have published a partial close order
         assert worker.redis_client.xadd.call_count >= 1
-        # Position should have TP1 marked as hit
-        assert pos.tp_levels_hit[0] is True
-        assert pos.size == pytest.approx(0.6)
-        # Trail-to-breakeven: SL moved to entry
-        assert pos.stop_loss_price == pytest.approx(100.0)
+        # Position is left unchanged until the fill listener confirms execution
+        assert pos.tp_levels_hit == [False, False, False]
+        assert pos.size == pytest.approx(1.0)
+        assert pos.stop_loss_price == pytest.approx(98.0)
+        assert pos.pending_close_reason == "tp1"
+        call_args = worker.redis_client.xadd.call_args
+        payload = call_args[0][1]
+        assert payload["close_reason"] == "tp1"
 
     @pytest.mark.asyncio
     async def test_sl_closes_remaining_multi_tp(self) -> None:
-        """Multi-TP position with SL hit → full remaining size closed."""
+        """Multi-TP SL queues a close order and leaves state unchanged until fill."""
         from libs.contracts.schemas import PositionState, PriceUpdate, valkey_encode
 
         worker = _make_worker()
@@ -304,8 +327,9 @@ class TestProcessPriceUpdateMultiTP:
 
         await worker._process_price_update(price_payload)
 
-        # Position should be fully closed (removed)
-        assert len(worker.positions.positions.get("BTCUSDT", [])) == 0
+        positions = worker.positions.positions.get("BTCUSDT", [])
+        assert len(positions) == 1
+        assert positions[0].pending_close_reason == "sl"
         assert worker.redis_client.xadd.call_count >= 1
 
     @pytest.mark.asyncio
@@ -345,6 +369,85 @@ class TestProcessPriceUpdateMultiTP:
 
         # No orders should be published
         worker.redis_client.xadd.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_pending_multi_tp_position_does_not_requeue(self) -> None:
+        from libs.contracts.schemas import PositionState, PriceUpdate, valkey_encode
+
+        worker = _make_worker()
+        worker.redis_client = AsyncMock()
+
+        pos = PositionState(
+            asset="BTCUSDT",
+            direction=1,
+            entry_price=100.0,
+            current_price=100.0,
+            size=1.0,
+            original_size=1.0,
+            unrealized_pnl=0.0,
+            entry_timestamp=1_000_000.0,
+            source_model="test",
+            source_timeframe="1h",
+            stop_loss_price=98.0,
+            tp_levels=[101.5, 103.0, 105.0],
+            tp_portions=[0.4, 0.3, 0.3],
+            tp_levels_hit=[False, False, False],
+            trail_to_breakeven=True,
+            pending_close_reason="tp1",
+        )
+        worker.positions.positions["BTCUSDT"].append(pos)
+
+        price_payload = valkey_encode(PriceUpdate(
+            asset="BTCUSDT", timeframe="1h", timestamp=time.time(),
+            open=100.5, high=102.0, low=100.0, close=101.5, volume=100.0,
+        ))
+
+        await worker._process_price_update(price_payload)
+
+        worker.redis_client.xadd.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_stale_signal_dropped_against_wall_clock(self) -> None:
+        worker = _make_worker({"mtf": {"signal_timeout_seconds": 300}})
+        worker.redis_client = AsyncMock()
+        worker.account.check_daily_reset = AsyncMock()
+
+        stale_signal = _make_signal(timestamp=time.time() - 3600)
+        worker.signal_aggregator.aggregate.return_value = stale_signal
+
+        await worker._process_signal_batch([stale_signal])
+
+        worker.signal_aggregator.aggregate.assert_not_called()
+        worker.redis_client.xadd.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_price_update_refreshes_account_unrealized(self) -> None:
+        from libs.contracts.schemas import PositionState, PriceUpdate, valkey_encode
+
+        worker = _make_worker()
+        worker.redis_client = AsyncMock()
+
+        pos = PositionState(
+            asset="BTCUSDT",
+            direction=1,
+            entry_price=100.0,
+            current_price=100.0,
+            size=2.0,
+            unrealized_pnl=0.0,
+            entry_timestamp=1_000_000.0,
+            source_model="test",
+            source_timeframe="1h",
+        )
+        worker.positions.positions["BTCUSDT"].append(pos)
+
+        price_payload = valkey_encode(PriceUpdate(
+            asset="BTCUSDT", timeframe="1h", timestamp=time.time(),
+            open=100.0, high=101.0, low=99.5, close=103.0, volume=100.0,
+        ))
+
+        await worker._process_price_update(price_payload)
+
+        assert worker.account.unrealized_pnl == pytest.approx(6.0)
 
     @pytest.mark.asyncio
     async def test_multi_tp_order_metadata(self) -> None:

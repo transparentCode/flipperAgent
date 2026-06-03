@@ -189,16 +189,18 @@ class StrategyWorker(BaseStreamConsumer):
             match = abs(implied_edge - adapted_out.edge_score) < 1e-9
             logger.info(
                 "legacy_migration_comparison",
-                model_name=name,
-                asset=self.asset,
-                timeframe=self.timeframe,
-                timestamp=adapted_out.timestamp,
-                legacy_direction=shadow_out.direction,
-                legacy_conviction=shadow_out.conviction,
-                legacy_edge_implied=implied_edge,
-                adapted_edge=adapted_out.edge_score,
-                adapted_conviction=adapted_out.conviction,
-                match=match,
+                extra={
+                    "model_name": name,
+                    "asset": self.asset,
+                    "timeframe": self.timeframe,
+                    "timestamp": adapted_out.timestamp,
+                    "legacy_direction": shadow_out.direction,
+                    "legacy_conviction": shadow_out.conviction,
+                    "legacy_edge_implied": implied_edge,
+                    "adapted_edge": adapted_out.edge_score,
+                    "adapted_conviction": adapted_out.conviction,
+                    "match": match,
+                },
             )
             if not match:
                 logger.warning(

@@ -15,13 +15,19 @@ from libs.models.registry import ModelRegistry
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _mock_config_get(scoring_node: dict):
+def _mock_config_get(
+    scoring_node: dict,
+    engineered_node: dict | None = None,
+    features_node: dict | None = None,
+):
     """Return a side_effect function for ConfigManager.get that returns scoring_node."""
     def _get(key, default=None):
         if key == "scoring_models":
             return scoring_node
         if key == "features":
-            return {}
+            return features_node or {}
+        if key == "engineered_features":
+            return engineered_node or {}
         return default
     return _get
 
@@ -46,13 +52,20 @@ def _make_feature_vec(**overrides) -> FeatureVector:
 class TestScoringModelManager:
     """Ensures ScoringModelManager loads, validates, and evaluates correctly."""
 
-    def _make_manager(self, scoring_node: dict, asset: str = "BTCUSDT", timeframe: str = "1h"):
+    def _make_manager(
+        self,
+        scoring_node: dict,
+        asset: str = "BTCUSDT",
+        timeframe: str = "1h",
+        engineered_node: dict | None = None,
+        features_node: dict | None = None,
+    ):
         """Construct a ScoringModelManager with mocked config."""
         from apps.strategy_app.scoring_model_manager import ScoringModelManager
 
         with patch("apps.strategy_app.scoring_model_manager.ConfigManager") as MockCM:
             instance = MockCM.return_value
-            instance.get.side_effect = _mock_config_get(scoring_node)
+            instance.get.side_effect = _mock_config_get(scoring_node, engineered_node, features_node)
             instance.register_file = MagicMock()
             mgr = ScoringModelManager(asset, timeframe)
         return mgr
@@ -203,6 +216,7 @@ class TestScoringModelManager:
             "KAMA_slow", "ATR", "ADX", "RSI", "BollingerBands", "KeltnerChannel",
             "eng_regime_score", "eng_mean_reversion_z", "eng_squeeze_intensity",
             "eng_btc_dominance_regime", "eng_market_cap_breadth",
+            "eng_cross_asset_regime_state", "eng_regime_alignment_score",
         }
         mgr.validate_feature_coverage(available)  # Should not raise
 
@@ -222,3 +236,104 @@ class TestScoringModelManager:
         mgr = self._make_manager(node)
         with pytest.raises(ConfigurationError):
             mgr.validate_feature_coverage({"RSI"})  # Missing many required
+
+    def test_non_scoring_model_in_scoring_config_raises(self):
+        from libs.common.exceptions import ConfigurationError
+
+        node = {
+            "assets": {
+                "default": {
+                    "timeframes": {
+                        "default": {
+                            "Momentum": {"enabled": True, "params": {}},
+                        }
+                    }
+                }
+            }
+        }
+
+        with pytest.raises(ConfigurationError, match="must extend ScoringModel"):
+            self._make_manager(node)
+
+    def test_validate_feature_coverage_uses_engineered_features_config(self):
+        node = {
+            "assets": {
+                "default": {
+                    "timeframes": {
+                        "default": {
+                            "RegimePullbackScorer": {"enabled": True, "params": {}},
+                        }
+                    }
+                }
+            }
+        }
+        engineered = {
+            "assets": {
+                "default": {
+                    "timeframes": {
+                        "default": {
+                            "regime_score": {"enabled": True},
+                            "mean_reversion_z": {"enabled": True},
+                            "squeeze_intensity": {"enabled": True},
+                            "btc_dominance_regime": {"enabled": True},
+                            "market_cap_breadth": {"enabled": True},
+                            "cross_asset_regime_state": {"enabled": True},
+                            "regime_alignment_score": {"enabled": True},
+                        }
+                    }
+                }
+            }
+        }
+        features = {
+            "assets": {
+                "default": {
+                    "timeframes": {
+                        "default": {
+                            "KAMA_slow": {},
+                            "ATR": {},
+                            "ADX": {},
+                            "RSI": {},
+                            "BollingerBands": {},
+                            "KeltnerChannel": {},
+                        }
+                    }
+                }
+            }
+        }
+        mgr = self._make_manager(node, engineered_node=engineered, features_node=features)
+        mgr.validate_feature_coverage()
+
+    def test_available_features_from_config_expands_flattened_indicator_fields(self):
+        node = {
+            "assets": {
+                "default": {
+                    "timeframes": {
+                        "default": {
+                            "RegimePullbackScorer": {"enabled": True, "params": {}},
+                        }
+                    }
+                }
+            }
+        }
+        features = {
+            "assets": {
+                "default": {
+                    "timeframes": {
+                        "default": {
+                            "MACD": {},
+                            "BollingerBands": {},
+                            "KeltnerChannel": {},
+                            "ADX": {},
+                        }
+                    }
+                }
+            }
+        }
+        mgr = self._make_manager(node, features_node=features)
+        available = mgr._available_features_from_config()
+
+        assert "MACD_histogram" in available
+        assert "MACD_line" in available
+        assert "BollingerBands_upper" in available
+        assert "KeltnerChannel_upper" in available
+        assert "ADX_plus_di" in available

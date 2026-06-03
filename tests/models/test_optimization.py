@@ -1,6 +1,7 @@
 """Tests for the optimization module: OptunaRunner, objective, schemas."""
 
 import pytest
+import optuna
 
 from libs.contracts.schemas import StudyConfig, TrialResult, ParamDef
 from libs.models.mean_reversion import MeanReversionModel
@@ -65,6 +66,26 @@ class TestOptunaRunner:
             assert isinstance(r.params, dict)
             assert isinstance(r.values, dict)
 
+    def test_legacy_objective_respects_configured_objective_order(self):
+        def multi_backtest(model):
+            return {"max_drawdown": -0.2, "sharpe": 1.5}
+
+        config = StudyConfig(
+            model_name="MeanReversion",
+            asset="BTCUSDT",
+            timeframe="1h",
+            objectives=["sharpe", "max_drawdown"],
+            directions=["maximize", "minimize"],
+            n_trials=1,
+            sampler="NSGA-II",
+        )
+        runner = OptunaRunner(config)
+        results = runner.run(multi_backtest)
+        completed = [r for r in results if r.state == "COMPLETE"]
+        assert completed
+        assert completed[0].values["sharpe"] == pytest.approx(1.5)
+        assert completed[0].values["max_drawdown"] == pytest.approx(-0.2)
+
 
 class TestObjective:
     def test_make_objective_callable(self):
@@ -73,6 +94,28 @@ class TestObjective:
 
         obj = make_objective("MeanReversion", dummy_bt)
         assert callable(obj)
+
+    def test_make_objective_maps_metrics_by_objective_name(self):
+        class _Trial:
+            def suggest_float(self, name, low, high, step=None):
+                return low
+
+            def suggest_int(self, name, low, high, step=1):
+                return low
+
+            def suggest_categorical(self, name, choices):
+                return choices[0]
+
+        def dummy_bt(model):
+            return {"max_drawdown": -0.3, "sharpe": 1.1}
+
+        obj = make_objective(
+            "MeanReversion",
+            dummy_bt,
+            objective_names=["sharpe", "max_drawdown"],
+        )
+        values = obj(_Trial())
+        assert values == (1.1, -0.3)
 
 
 class TestSchemas:

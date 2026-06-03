@@ -5,8 +5,9 @@ import pandas as pd
 import asyncio
 
 from apps.ingestion_app.coordination import IngestionState
+from libs.common.exceptions import DataIngestionError
 from apps.ingestion_app.orchestration.tasks import _fetch_asset_gap
-from apps.ingestion_app.orchestration.controller import lifespan, app
+from apps.ingestion_app.orchestration.controller import lifespan, app, run_websocket_pipeline
 from apps.ingestion_app.constants import EXCHANGE_BINANCE
 
 @pytest.mark.asyncio
@@ -83,6 +84,7 @@ async def test_lifespan_cold_start():
     mock_coordinator.transition = AsyncMock()
 
     with patch('apps.ingestion_app.orchestration.controller.DBPoolManager') as mock_db_pool, \
+         patch('apps.ingestion_app.orchestration.controller.apply_ingestion_schema', new=AsyncMock()) as mock_apply_schema, \
          patch('apps.ingestion_app.orchestration.controller.create_pool') as mock_create_pool, \
          patch('apps.ingestion_app.orchestration.controller.create_valkey_client') as mock_create_valkey, \
          patch('apps.ingestion_app.orchestration.controller.IngestionCoordinator') as mock_coordinator_class, \
@@ -108,10 +110,14 @@ async def test_lifespan_cold_start():
 
         async with lifespan(app):
             # In the lifespan block
-            pass
+            await asyncio.sleep(0)
 
+        mock_apply_schema.assert_awaited_once_with(mock_db_pool.get_writer_pool.return_value)
         mock_arq_pool.enqueue_job.assert_called_once_with("run_rest_gap_fill", ["BTCUSDT"], EXCHANGE_BINANCE)
-        mock_verify_ws.assert_called_once_with("BTCUSDT", [], mock_arq_pool, mock_coordinator)
+        mock_verify_ws.assert_called_once()
+        args = mock_verify_ws.call_args.args
+        assert args[:4] == ("BTCUSDT", [], mock_arq_pool, mock_coordinator)
+        assert isinstance(args[4], set)
 
 @pytest.mark.asyncio
 async def test_lifespan_caught_up():
@@ -122,6 +128,7 @@ async def test_lifespan_caught_up():
     mock_coordinator.transition = AsyncMock()
 
     with patch('apps.ingestion_app.orchestration.controller.DBPoolManager') as mock_db_pool, \
+         patch('apps.ingestion_app.orchestration.controller.apply_ingestion_schema', new=AsyncMock()) as mock_apply_schema, \
          patch('apps.ingestion_app.orchestration.controller.create_pool') as mock_create_pool, \
          patch('apps.ingestion_app.orchestration.controller.create_valkey_client') as mock_create_valkey, \
          patch('apps.ingestion_app.orchestration.controller.IngestionCoordinator') as mock_coordinator_class, \
@@ -145,10 +152,108 @@ async def test_lifespan_caught_up():
         mock_verify_ws.return_value = None
 
         async with lifespan(app):
-            pass
+            await asyncio.sleep(0)
 
+        mock_apply_schema.assert_awaited_once_with(mock_db_pool.get_writer_pool.return_value)
         # Gap-fill shouldn't be called
         mock_arq_pool.enqueue_job.assert_not_called()
         # Coordinator should be set to WARMING since data is caught up
         mock_coordinator.transition.assert_called_once_with("BTCUSDT", "1m", IngestionState.WARMING)
-        mock_verify_ws.assert_called_once_with("BTCUSDT", [], mock_arq_pool, mock_coordinator)
+        mock_verify_ws.assert_called_once()
+        args = mock_verify_ws.call_args.args
+        assert args[:4] == ("BTCUSDT", [], mock_arq_pool, mock_coordinator)
+        assert isinstance(args[4], set)
+
+
+@pytest.mark.asyncio
+async def test_run_rest_gap_fill_logs_partial_failures():
+    ctx = {
+        "ccxt_adapter": AsyncMock(),
+        "coordinator": MagicMock(transition=AsyncMock()),
+    }
+
+    with patch("apps.ingestion_app.orchestration.tasks._fetch_asset_gap", new=AsyncMock(side_effect=[None, RuntimeError("boom")])), \
+         patch("apps.ingestion_app.orchestration.tasks.config_manager") as mock_config, \
+         patch("apps.ingestion_app.orchestration.tasks.logger") as mock_logger:
+        mock_config.get.side_effect = lambda k, default=None: {
+            "ingestion.timeframes.base_gap_fill": "1m",
+            "ingestion.concurrency.gap_fill_limit": 5,
+            "ingestion.concurrency.gap_fill_sleep_seconds": 0.0,
+        }.get(k, default)
+
+        from apps.ingestion_app.orchestration.tasks import run_rest_gap_fill
+
+        with pytest.raises(DataIngestionError) as exc_info:
+            await run_rest_gap_fill(ctx, ["BTCUSDT", "ETHUSDT"], EXCHANGE_BINANCE)
+
+    mock_logger.warning.assert_called_once_with(
+        "Gap fill completed with failures for %s. succeeded=%s failed=%s failed_assets=%s",
+        EXCHANGE_BINANCE,
+        1,
+        1,
+        ["ETHUSDT"],
+    )
+    mock_logger.error.assert_any_call("Failed to gap-fill ETHUSDT: boom")
+    assert exc_info.value.context["failed_assets"] == ["ETHUSDT"]
+    assert exc_info.value.context["successful_assets"] == ["BTCUSDT"]
+
+
+@pytest.mark.asyncio
+async def test_run_websocket_pipeline_transitions_live_after_first_valid_payload():
+    mock_coordinator = MagicMock()
+    mock_coordinator.transition = AsyncMock()
+    mock_arq_pool = AsyncMock()
+    mock_redis_client = AsyncMock()
+    mock_writer = MagicMock()
+    mock_writer.insert_ohlcv = AsyncMock()
+
+    valid_message = {
+        "data": {
+            "k": {
+                "t": 1704067200000,
+                "o": "100.0",
+                "h": "110.0",
+                "l": "95.0",
+                "c": "105.0",
+                "v": "42.0",
+                "Q": "21.0",
+                "i": "1m",
+                "x": True,
+            }
+        }
+    }
+
+    async def fake_stream(_symbols_timeframes, _loop, _queue):
+        mock_coordinator.transition.assert_not_awaited()
+        yield {"event": "ping"}
+        mock_coordinator.transition.assert_not_awaited()
+        yield valid_message
+        raise asyncio.CancelledError()
+
+    mock_adapter = MagicMock()
+    mock_adapter.stream_multiplex_socket = fake_stream
+
+    with patch("apps.ingestion_app.orchestration.controller.create_valkey_client", new=AsyncMock(return_value=mock_redis_client)), \
+         patch("apps.ingestion_app.orchestration.controller.DBPoolManager") as mock_db_pool, \
+         patch("apps.ingestion_app.orchestration.controller.TimescaleWriter", return_value=mock_writer), \
+         patch("apps.ingestion_app.orchestration.controller.BinanceNativeAdapter", return_value=mock_adapter), \
+         patch("apps.ingestion_app.orchestration.controller.config_manager") as mock_config:
+        mock_db_pool.get_writer_pool.return_value = MagicMock()
+        mock_config.get.side_effect = lambda k, default=None: {
+            "ingestion.timeframes.base_gap_fill": "1m",
+            "ingestion.websocket.reconnect_sleep_seconds": 5,
+            "ingestion.websocket.queue_maxsize": 10,
+        }.get(k, default)
+
+        await run_websocket_pipeline(
+            "BTCUSDT",
+            [],
+            arq_pool=mock_arq_pool,
+            coordinator=mock_coordinator,
+        )
+
+    assert mock_coordinator.transition.await_args_list == [
+        (( "BTCUSDT", "1m", IngestionState.LIVE),),
+        (( "BTCUSDT", "1m", IngestionState.COLD),),
+    ]
+    mock_writer.insert_ohlcv.assert_awaited_once()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -119,6 +120,15 @@ class TestOrderManagerValidation:
         assert result.status == OrderStatus.REJECTED
         assert "Invalid order side" in result.error_message
 
+    @pytest.mark.asyncio
+    async def test_unsupported_order_type_rejected(self, manager: OrderManager):
+        order = _make_order(order_type="limit")
+        result = await manager.process_order(order)
+
+        assert result is not None
+        assert result.status == OrderStatus.REJECTED
+        assert "Unsupported order type" in result.error_message
+
 
 class TestOrderManagerExecution:
     @pytest.mark.asyncio
@@ -135,15 +145,15 @@ class TestOrderManagerExecution:
         manager.executor.execute_order.assert_awaited_once_with(order)
 
     @pytest.mark.asyncio
-    async def test_executor_exception_returns_rejection(self, manager: OrderManager):
+    async def test_executor_exception_bubbles_for_retry(self, manager: OrderManager):
         order = _make_order()
         manager.executor.execute_order.side_effect = RuntimeError("Exchange down")
 
-        result = await manager.process_order(order)
+        with pytest.raises(RuntimeError, match="Exchange down"):
+            await manager.process_order(order)
 
-        assert result is not None
-        assert result.status == OrderStatus.REJECTED
-        assert "Exchange down" in result.error_message
+        assert manager.fill_tracker.get_fill_history() == []
+        assert manager.idempotency_store.is_duplicate(order.idempotency_key) is False
 
     @pytest.mark.asyncio
     async def test_fill_tracker_records_result(self, manager: OrderManager):
@@ -156,3 +166,143 @@ class TestOrderManagerExecution:
         history = manager.fill_tracker.get_fill_history()
         assert len(history) == 1
         assert history[0].order_id == "test-order-123"
+
+    @pytest.mark.asyncio
+    async def test_persists_fill_and_idempotency_immediately(self):
+        class _Conn:
+            def __init__(self) -> None:
+                self.execute = AsyncMock()
+                self.fetchrow = AsyncMock(return_value=None)
+
+        class _Acquire:
+            def __init__(self, conn):
+                self.conn = conn
+
+            async def __aenter__(self):
+                return self.conn
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        class _Pool:
+            def __init__(self, conn) -> None:
+                self.conn = conn
+
+            def acquire(self):
+                return _Acquire(self.conn)
+
+        executor = AsyncMock()
+        idempotency_store = IdempotencyStore(max_size=100)
+        fill_tracker = FillTracker()
+        conn = _Conn()
+        order = _make_order()
+        report = _make_report(order)
+        executor.execute_order.return_value = report
+
+        manager = OrderManager(
+            executor=executor,
+            idempotency_store=idempotency_store,
+            fill_tracker=fill_tracker,
+            db_pool=_Pool(conn),
+        )
+
+        await manager.process_order(order)
+
+        executed_queries = " ".join(call.args[0] for call in conn.execute.await_args_list)
+        assert "execution_fills" in executed_queries
+        assert "execution_idempotency_keys" in executed_queries
+
+    @pytest.mark.asyncio
+    async def test_duplicate_inflight_order_returns_none(self, manager: OrderManager):
+        order = _make_order()
+        started = asyncio.Event()
+        release = asyncio.Event()
+
+        async def _slow_execute(_order):
+            started.set()
+            await release.wait()
+            return _make_report(_order)
+
+        manager.executor.execute_order.side_effect = _slow_execute
+
+        first_task = asyncio.create_task(manager.process_order(order))
+        await started.wait()
+        second_result = await manager.process_order(order)
+        release.set()
+        first_result = await first_task
+
+        assert first_result is not None
+        assert second_result is None
+
+    @pytest.mark.asyncio
+    async def test_duplicate_found_in_db_returns_none(self):
+        class _Conn:
+            def __init__(self) -> None:
+                self.fetchrow = AsyncMock(return_value={"ts": 1700000000.0})
+                self.execute = AsyncMock()
+
+        class _Acquire:
+            def __init__(self, conn):
+                self.conn = conn
+
+            async def __aenter__(self):
+                return self.conn
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        class _Pool:
+            def __init__(self, conn) -> None:
+                self.conn = conn
+
+            def acquire(self):
+                return _Acquire(self.conn)
+
+        executor = AsyncMock()
+        idempotency_store = IdempotencyStore(max_size=100)
+        fill_tracker = FillTracker()
+        conn = _Conn()
+        manager = OrderManager(
+            executor=executor,
+            idempotency_store=idempotency_store,
+            fill_tracker=fill_tracker,
+            db_pool=_Pool(conn),
+        )
+        order = _make_order(idempotency_key="persisted-key")
+
+        result = await manager.process_order(order)
+
+        assert result is None
+        executor.execute_order.assert_not_called()
+        assert idempotency_store.is_duplicate("persisted-key") is True
+
+    @pytest.mark.asyncio
+    async def test_different_orders_can_execute_concurrently(self, manager: OrderManager):
+        active = 0
+        max_active = 0
+        gate = asyncio.Event()
+
+        async def _blocking_execute(order):
+            nonlocal active, max_active
+            active += 1
+            max_active = max(max_active, active)
+            if max_active >= 2:
+                gate.set()
+            await gate.wait()
+            active -= 1
+            return _make_report(order)
+
+        manager.executor.execute_order.side_effect = _blocking_execute
+        order1 = _make_order(idempotency_key="key-1", asset="BTCUSDT")
+        order2 = _make_order(idempotency_key="key-2", asset="ETHUSDT")
+
+        results = await asyncio.wait_for(
+            asyncio.gather(
+                manager.process_order(order1),
+                manager.process_order(order2),
+            ),
+            timeout=1.0,
+        )
+
+        assert all(result is not None for result in results)
+        assert max_active == 2

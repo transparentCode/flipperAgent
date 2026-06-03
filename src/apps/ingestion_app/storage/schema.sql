@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS ohlcv (
     volume FLOAT,
     PRIMARY KEY(timestamp, symbol, timeframe)
 );
+ALTER TABLE ohlcv ADD COLUMN IF NOT EXISTS taker_buy_base FLOAT DEFAULT 0;
 SELECT create_hypertable('ohlcv', 'timestamp', if_not_exists => true, migrate_data => true);
 
 CREATE TABLE IF NOT EXISTS ticks (
@@ -50,4 +51,3 @@ SELECT add_continuous_aggregate_policy('market_1m_bars',
 
 -- 3. Add 30-day retention on raw ticks
 SELECT add_retention_policy('ticks', INTERVAL '30 days');
-

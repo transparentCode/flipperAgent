@@ -25,6 +25,12 @@ services:
 
   broker:
     image: valkey/valkey:latest
+    command:
+      - valkey-server
+      - --maxmemory
+      - 192mb
+      - --maxmemory-policy
+      - noeviction
     volumes:
       - valkey-data:/data
     ports:
@@ -320,6 +326,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.tv-scraper
+    init: true
     command: arq apps.tv_scraper.worker.WorkerSettings
     volumes:
       - ./secrets:/app/secrets:ro

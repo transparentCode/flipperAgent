@@ -49,6 +49,39 @@ class PositionTracker:
             )
             return pnl
 
+    def find_position_index(self, asset: str, entry_timestamp: float) -> int:
+        """Find a position by entry timestamp, returning -1 when absent."""
+        for idx, pos in enumerate(self.positions.get(asset, [])):
+            if abs(pos.entry_timestamp - entry_timestamp) <= 1e-9:
+                return idx
+        return -1
+
+    def mark_pending_close(
+        self,
+        asset: str,
+        entry_timestamp: float,
+        close_reason: str,
+        requested_at: float,
+    ) -> bool:
+        """Mark a position as awaiting close execution."""
+        idx = self.find_position_index(asset, entry_timestamp)
+        if idx < 0:
+            return False
+        pos = self.positions[asset][idx]
+        pos.pending_close_reason = close_reason
+        pos.pending_close_requested_at = requested_at
+        return True
+
+    def clear_pending_close(self, asset: str, entry_timestamp: float) -> bool:
+        """Clear pending-close markers when execution confirms or rejects an exit."""
+        idx = self.find_position_index(asset, entry_timestamp)
+        if idx < 0:
+            return False
+        pos = self.positions[asset][idx]
+        pos.pending_close_reason = ""
+        pos.pending_close_requested_at = 0.0
+        return True
+
     # ------------------------------------------------------------------
     # Price updates
     # ------------------------------------------------------------------
@@ -87,6 +120,8 @@ class PositionTracker:
         """
         hit: list[PositionState] = []
         for pos in self.positions.get(asset, []):
+            if pos.pending_close_reason:
+                continue
             if pos.tp_levels:
                 continue
             if pos.stop_loss_price is not None:
@@ -117,6 +152,8 @@ class PositionTracker:
         """
         hit: list[PositionState] = []
         for pos in self.positions.get(asset, []):
+            if pos.pending_close_reason:
+                continue
             if pos.tp_levels:
                 continue
             tp_hit = False
@@ -150,6 +187,8 @@ class PositionTracker:
         """
         results: list[tuple[PositionState, str, float]] = []
         for pos in self.positions.get(asset, []):
+            if pos.pending_close_reason:
+                continue
             if not pos.tp_levels:
                 continue
 

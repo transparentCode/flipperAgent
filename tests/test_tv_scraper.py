@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
@@ -155,6 +157,151 @@ class TestInterceptorNoPatchright:
         assert df.empty
         assert list(df.columns) == ["timestamp", "open", "high", "low", "close", "volume"]
 
+    @pytest.mark.asyncio
+    async def test_batch_returns_empty_frames_when_patchright_missing(self):
+        interceptor = TradingViewInterceptor()
+        import unittest.mock as _mock
+
+        with _mock.patch.dict("sys.modules", {"patchright": None, "patchright.async_api": None}):
+            result = await interceptor.get_historical_ohlcv_batch(
+                ["CRYPTOCAP:TOTAL2", "CRYPTOCAP:TOTAL3"], "1h"
+            )
+
+        assert set(result) == {"CRYPTOCAP:TOTAL2", "CRYPTOCAP:TOTAL3"}
+        assert all(df.empty for df in result.values())
+
+
+class TestInterceptorPatchrightSession:
+    @pytest.mark.asyncio
+    async def test_batch_uses_proxy_and_closes_browser_on_failure(self):
+        payload = json.dumps(
+            {
+                "m": "timescale_update",
+                "p": [{"sds_1": {"s": [{"v": [1700000000, 1.0, 2.0, 0.5, 1.5, 10.0]}]}}],
+            }
+        )
+        framed = f"~m~{len(payload)}~m~{payload}"
+
+        class FakeWs:
+            def __init__(self):
+                self.url = "wss://data.tradingview.com/socket.io/websocket"
+                self._frame_cb = None
+
+            def on(self, event, cb):
+                if event == "framereceived":
+                    self._frame_cb = cb
+
+            def emit(self, frame):
+                if self._frame_cb:
+                    self._frame_cb(frame)
+
+        class FakePage:
+            def __init__(self, frame=None, should_fail=False):
+                self._ws_cb = None
+                self._frame = frame
+                self._should_fail = should_fail
+                self.closed = False
+
+            def on(self, event, cb):
+                if event == "websocket":
+                    self._ws_cb = cb
+
+            async def goto(self, *args, **kwargs):
+                ws = FakeWs()
+                if self._ws_cb:
+                    self._ws_cb(ws)
+                if self._frame is not None:
+                    ws.emit(self._frame)
+                if self._should_fail:
+                    raise RuntimeError("browser boom")
+
+            async def close(self):
+                self.closed = True
+
+        class FakeContext:
+            def __init__(self, pages):
+                self._pages = list(pages)
+                self.cookies = None
+                self.closed = False
+
+            async def add_cookies(self, cookies):
+                self.cookies = cookies
+
+            async def new_page(self):
+                return self._pages.pop(0)
+
+            async def close(self):
+                self.closed = True
+
+        class FakeBrowser:
+            def __init__(self, context):
+                self._context = context
+                self.closed = False
+                self.context_kwargs = None
+
+            async def new_context(self, **kwargs):
+                self.context_kwargs = kwargs
+                return self._context
+
+            async def close(self):
+                self.closed = True
+
+        class FakeChromium:
+            def __init__(self, browser):
+                self._browser = browser
+                self.launch_kwargs = None
+
+            async def launch(self, **kwargs):
+                self.launch_kwargs = kwargs
+                return self._browser
+
+        class FakePlaywright:
+            def __init__(self, chromium):
+                self.chromium = chromium
+
+        class FakePlaywrightCm:
+            def __init__(self, chromium):
+                self._playwright = FakePlaywright(chromium)
+
+            async def __aenter__(self):
+                return self._playwright
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        good_page = FakePage(frame=framed)
+        bad_page = FakePage(should_fail=True)
+        context = FakeContext([good_page, bad_page])
+        browser = FakeBrowser(context)
+        chromium = FakeChromium(browser)
+        fake_cm = FakePlaywrightCm(chromium)
+
+        fake_async_api = types.ModuleType("patchright.async_api")
+        fake_async_api.async_playwright = lambda: fake_cm
+        fake_patchright = types.ModuleType("patchright")
+        fake_patchright.async_api = fake_async_api
+
+        interceptor = TradingViewInterceptor(
+            cookies_path="/nonexistent/path.json",
+            proxy_url="http://proxy.example:8080",
+        )
+
+        with patch.dict(
+            sys.modules,
+            {"patchright": fake_patchright, "patchright.async_api": fake_async_api},
+        ):
+            result = await interceptor.get_historical_ohlcv_batch(
+                ["CRYPTOCAP:TOTAL2", "CRYPTOCAP:TOTAL3"], "1h"
+            )
+
+        assert chromium.launch_kwargs["proxy"] == {"server": "http://proxy.example:8080"}
+        assert len(result["CRYPTOCAP:TOTAL2"]) == 1
+        assert result["CRYPTOCAP:TOTAL3"].empty
+        assert good_page.closed is True
+        assert bad_page.closed is True
+        assert context.closed is True
+        assert browser.closed is True
+
 
 # ---------------------------------------------------------------------------
 # Worker — fetch_tv_indices
@@ -184,7 +331,9 @@ class TestFetchTvIndices:
         )
 
         mock_interceptor = AsyncMock()
-        mock_interceptor.get_historical_ohlcv = AsyncMock(return_value=sample_df)
+        mock_interceptor.get_historical_ohlcv_batch = AsyncMock(
+            return_value={tv_symbol: sample_df for tv_symbol in TV_INDICES}
+        )
 
         mock_redis = AsyncMock()
 
@@ -194,11 +343,11 @@ class TestFetchTvIndices:
             "tv_interceptor": mock_interceptor,
         }
 
-        with patch("apps.tv_scraper.worker.asyncio.sleep", new_callable=AsyncMock):
-            await fetch_tv_indices(ctx)
+        await fetch_tv_indices(ctx)
 
         # Should be called once per index (3 total)
         assert mock_redis.hset.call_count == 3
+        assert mock_redis.expire.call_count == 3
 
         # Check one of the calls has the right key pattern
         call_args_list = mock_redis.hset.call_args_list
@@ -213,7 +362,9 @@ class TestFetchTvIndices:
             columns=["timestamp", "open", "high", "low", "close", "volume"]
         )
         mock_interceptor = AsyncMock()
-        mock_interceptor.get_historical_ohlcv = AsyncMock(return_value=empty_df)
+        mock_interceptor.get_historical_ohlcv_batch = AsyncMock(
+            return_value={tv_symbol: empty_df for tv_symbol in TV_INDICES}
+        )
 
         mock_redis = AsyncMock()
 
@@ -223,8 +374,7 @@ class TestFetchTvIndices:
             "tv_interceptor": mock_interceptor,
         }
 
-        with patch("apps.tv_scraper.worker.asyncio.sleep", new_callable=AsyncMock):
-            await fetch_tv_indices(ctx)
+        await fetch_tv_indices(ctx)
 
         # No Valkey writes when data is empty
         mock_redis.hset.assert_not_called()
@@ -232,7 +382,7 @@ class TestFetchTvIndices:
     @pytest.mark.asyncio
     async def test_handles_interceptor_exception(self):
         mock_interceptor = AsyncMock()
-        mock_interceptor.get_historical_ohlcv = AsyncMock(
+        mock_interceptor.get_historical_ohlcv_batch = AsyncMock(
             side_effect=RuntimeError("Browser crashed")
         )
         mock_redis = AsyncMock()
@@ -243,9 +393,8 @@ class TestFetchTvIndices:
             "tv_interceptor": mock_interceptor,
         }
 
-        with patch("apps.tv_scraper.worker.asyncio.sleep", new_callable=AsyncMock):
-            # Should not raise
-            await fetch_tv_indices(ctx)
+        # Should not raise
+        await fetch_tv_indices(ctx)
 
         mock_redis.hset.assert_not_called()
 
@@ -262,7 +411,9 @@ class TestFetchTvIndices:
         )
 
         mock_interceptor = AsyncMock()
-        mock_interceptor.get_historical_ohlcv = AsyncMock(return_value=multi_bar_df)
+        mock_interceptor.get_historical_ohlcv_batch = AsyncMock(
+            return_value={tv_symbol: multi_bar_df for tv_symbol in TV_INDICES}
+        )
 
         mock_redis = AsyncMock()
 
@@ -278,8 +429,7 @@ class TestFetchTvIndices:
             "tv_interceptor": mock_interceptor,
         }
 
-        with patch("apps.tv_scraper.worker.asyncio.sleep", new_callable=AsyncMock):
-            await fetch_tv_indices(ctx)
+        await fetch_tv_indices(ctx)
 
         # executemany called once per index (3 indices × 1 executemany each)
         assert mock_conn.executemany.call_count == 3

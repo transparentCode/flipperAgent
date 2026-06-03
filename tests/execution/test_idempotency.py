@@ -68,3 +68,77 @@ class TestIdempotencyLRUEviction:
         store.mark_processed("key-2", 2.0)
         assert store.is_duplicate("key-1") is False
         assert store.is_duplicate("key-2") is True
+
+
+class TestIdempotencyPersistence:
+    @pytest.mark.asyncio
+    async def test_check_duplicate_uses_db_fallback(self):
+        class _Conn:
+            def __init__(self) -> None:
+                self.fetchrow = AsyncMock(return_value={"ts": 123.0})
+
+        class _Acquire:
+            def __init__(self, conn):
+                self.conn = conn
+
+            async def __aenter__(self):
+                return self.conn
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        class _Pool:
+            def __init__(self, conn):
+                self.conn = conn
+
+            def acquire(self):
+                return _Acquire(self.conn)
+
+        from unittest.mock import AsyncMock
+
+        store = IdempotencyStore(max_size=2)
+        found = await store.check_duplicate("persisted-key", _Pool(_Conn()))
+
+        assert found is True
+        assert store.is_duplicate("persisted-key") is True
+
+    @pytest.mark.asyncio
+    async def test_save_does_not_prune_existing_db_rows(self):
+        executed = []
+
+        class _Tx:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        class _Conn:
+            async def execute(self, query, *args):
+                executed.append(query)
+
+            def transaction(self):
+                return _Tx()
+
+        class _Acquire:
+            def __init__(self, conn):
+                self.conn = conn
+
+            async def __aenter__(self):
+                return self.conn
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        class _Pool:
+            def __init__(self, conn):
+                self.conn = conn
+
+            def acquire(self):
+                return _Acquire(self.conn)
+
+        store = IdempotencyStore(max_size=2)
+        store.mark_processed("key-1", 1.0)
+        await store.save(_Pool(_Conn()))
+
+        assert not any("DELETE FROM execution_idempotency_keys" in query for query in executed)

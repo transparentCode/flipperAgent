@@ -26,18 +26,31 @@ class OrderManager:
         executor: BaseExecutor,
         idempotency_store: IdempotencyStore,
         fill_tracker: FillTracker,
+        db_pool=None,
     ) -> None:
         self.executor = executor
         self.idempotency_store = idempotency_store
         self.fill_tracker = fill_tracker
-        self._lock = asyncio.Lock()
+        self.db_pool = db_pool
+        self._claim_lock = asyncio.Lock()
+        self._inflight_keys: set[str] = set()
 
     async def process_order(
         self, order: OrderExecutionRequest
     ) -> ExecutionReport | None:
-        async with self._lock:
-            # 1. Idempotency check
-            if self.idempotency_store.is_duplicate(order.idempotency_key):
+        claimed = False
+        try:
+            # 1. Idempotency / in-flight check
+            async with self._claim_lock:
+                if order.idempotency_key in self._inflight_keys:
+                    logger.info(f"Duplicate in-flight order skipped: {order.idempotency_key}")
+                    return None
+                self._inflight_keys.add(order.idempotency_key)
+                claimed = True
+
+            if await self.idempotency_store.check_duplicate(
+                order.idempotency_key, self.db_pool,
+            ):
                 logger.info(f"Duplicate order skipped: {order.idempotency_key}")
                 return None
 
@@ -49,6 +62,7 @@ class OrderManager:
                 self.idempotency_store.mark_processed(
                     order.idempotency_key, report.timestamp
                 )
+                await self._persist_report(report)
                 return report
 
             # 3. Execute
@@ -56,12 +70,7 @@ class OrderManager:
                 report = await self.executor.execute_order(order)
             except Exception as exc:
                 logger.error(f"Executor error for {order.idempotency_key}: {exc}")
-                report = self._rejection_report(order, str(exc))
-                self.fill_tracker.record_fill(report)
-                self.idempotency_store.mark_processed(
-                    order.idempotency_key, report.timestamp
-                )
-                return report
+                raise
 
             # 4. Record fill
             self.fill_tracker.record_fill(report)
@@ -70,11 +79,25 @@ class OrderManager:
             self.idempotency_store.mark_processed(
                 order.idempotency_key, report.timestamp
             )
+            await self._persist_report(report)
 
             # 6. Return
             return report
+        finally:
+            if claimed:
+                async with self._claim_lock:
+                    self._inflight_keys.discard(order.idempotency_key)
 
     # ------------------------------------------------------------------
+
+    async def _persist_report(self, report: ExecutionReport) -> None:
+        """Best-effort durable persistence for fills and dedup keys."""
+        if self.db_pool is None:
+            return
+        await self.fill_tracker.save_report(self.db_pool, report)
+        await self.idempotency_store.upsert_key(
+            self.db_pool, report.idempotency_key, report.timestamp,
+        )
 
     @staticmethod
     def _validate(order: OrderExecutionRequest) -> str:
@@ -82,6 +105,8 @@ class OrderManager:
             return f"Invalid order size: {order.size}"
         if order.side not in {"buy", "sell"}:
             return f"Invalid order side: {order.side}"
+        if order.order_type != "market":
+            return f"Unsupported order type: {order.order_type}"
         if order.requested_price <= 0:
             return f"Invalid order price: {order.requested_price}"
         return ""
@@ -106,5 +131,7 @@ class OrderManager:
             metadata={
                 "model_name": order.model_name,
                 "timeframe": order.source_timeframe,
+                "close_reason": order.close_reason,
+                **order.metadata,
             },
         )

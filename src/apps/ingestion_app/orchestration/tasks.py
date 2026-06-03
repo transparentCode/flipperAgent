@@ -198,6 +198,8 @@ async def run_rest_gap_fill(ctx: Dict[str, Any], assets: List[str], exchange: st
     base_timeframe = config_manager.get("ingestion.timeframes.base_gap_fill", "1m")
     concurrency_limit = config_manager.get("ingestion.concurrency.gap_fill_limit", 5)
     semaphore = asyncio.Semaphore(concurrency_limit)
+    successful_assets: list[str] = []
+    failed_assets: list[str] = []
 
     async def process_asset(symbol: str):
         async with semaphore:
@@ -205,13 +207,33 @@ async def run_rest_gap_fill(ctx: Dict[str, Any], assets: List[str], exchange: st
             try:
                 await _fetch_asset_gap(ctx, ccxt_adapter, symbol)
                 await coordinator.transition(symbol, base_timeframe, IngestionState.WARMING)
+                successful_assets.append(symbol)
             except Exception as e:
                 logger.error(f"Failed to gap-fill {symbol}: {e}")
                 await coordinator.transition(symbol, base_timeframe, IngestionState.ERROR)
+                failed_assets.append(symbol)
             # Space out calls after each asset completes
             await asyncio.sleep(config_manager.get("ingestion.concurrency.gap_fill_sleep_seconds", 0.5))
 
     await asyncio.gather(*(process_asset(symbol) for symbol in assets))
+    if failed_assets:
+        logger.warning(
+            "Gap fill completed with failures for %s. succeeded=%s failed=%s failed_assets=%s",
+            exchange,
+            len(successful_assets),
+            len(failed_assets),
+            failed_assets,
+        )
+        raise DataIngestionError(
+            f"Gap fill incomplete for {exchange}",
+            context={
+                "exchange": exchange,
+                "successful_assets": successful_assets,
+                "failed_assets": failed_assets,
+                "asset_count": len(assets),
+            },
+        )
+
     logger.info(f"Gap fill task completed successfully for {exchange}.")
 
 async def scheduled_gap_fill(ctx: Dict[str, Any]) -> None:

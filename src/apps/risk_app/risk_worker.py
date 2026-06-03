@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any
 
 from libs.common.enums import SystemComponent
@@ -51,6 +52,7 @@ class RiskWorker(BaseStreamConsumer):
             consumer_name=f"risk_worker_{asset}",
             batch_size=10,
             block_ms=1000,
+            pel_reclaim_idle_ms=risk_config.get("signal_pel_reclaim_idle_ms", 30_000),
         )
         self.asset = asset
         self.timeframes = timeframes
@@ -111,13 +113,16 @@ class RiskWorker(BaseStreamConsumer):
                     block=self.block_ms,
                 )
 
-                # Read price update streams (non-blocking)
+                # Read price update streams with a non-blocking poll.
+                # Valkey/Redis interpret BLOCK 0 as "block forever", which
+                # can stall the risk loop and strand already-delivered signals
+                # in the PEL until the client socket times out.
                 price_response = await self.redis_client.xreadgroup(
                     self.price_group_name,
                     self.consumer_name,
                     price_streams,
                     count=self.batch_size,
-                    block=0,
+                    block=None,
                 )
 
                 # Process price updates first (SL/TP on every bar)
@@ -220,7 +225,7 @@ class RiskWorker(BaseStreamConsumer):
                         stream_key,
                         self.group_name,
                         self.consumer_name,
-                        min_idle_time=0,
+                        min_idle_time=self.pel_reclaim_idle_ms,
                         start_id=next_id,
                         count=self.batch_size,
                     )
@@ -271,8 +276,8 @@ class RiskWorker(BaseStreamConsumer):
         # Drop signals older than signal_timeout_seconds
         timeout_secs = self.risk_config.get("mtf", {}).get("signal_timeout_seconds", 300)
         if timeout_secs > 0:
-            now = max(s.timestamp for s in signals)
-            fresh = [s for s in signals if now - s.timestamp <= timeout_secs]
+            wall_now = time.time()
+            fresh = [s for s in signals if wall_now - s.timestamp <= timeout_secs]
             if len(fresh) < len(signals):
                 logger.warning(
                     f"Dropped {len(signals) - len(fresh)} stale signal(s) for {self.asset} "
@@ -358,6 +363,7 @@ class RiskWorker(BaseStreamConsumer):
 
         self.positions.update_prices(self.asset, close)
         self.positions.update_trailing_stops(self.asset, close)
+        await self.account.update_unrealized(self.positions.all_positions())
 
         # Multi-TP: check for partial exits first
         partial_exits = self.positions.check_sl_tp_hlc_multi(
@@ -372,10 +378,14 @@ class RiskWorker(BaseStreamConsumer):
                 order_type="market",
                 timestamp=price_update.timestamp,
                 requested_price=close,
-                idempotency_key=f"{close_reason}_{self.asset}_{int(pos.entry_timestamp)}",
+                idempotency_key=(
+                    f"{close_reason}_{self.asset}_{int(pos.entry_timestamp)}_"
+                    f"{int(price_update.timestamp)}"
+                ),
                 close_reason=close_reason,
                 model_name=pos.source_model,
                 source_timeframe=pos.source_timeframe,
+                metadata={"position_entry_timestamp": pos.entry_timestamp},
             )
             if self.redis_client:
                 await self.redis_client.xadd(
@@ -384,36 +394,27 @@ class RiskWorker(BaseStreamConsumer):
                     maxlen=5000,
                     approximate=True,
                 )
-
-            # Apply partial exit to position state immediately
-            pos_list = self.positions.positions.get(self.asset, [])
-            try:
-                pos_index = pos_list.index(pos)
-            except ValueError:
-                pos_index = -1
-
-            if close_reason == "sl":
-                # SL closes full remaining position — remove it
-                if pos_index >= 0:
-                    await self.positions.close_position(self.asset, pos_index)
-                logger.info(
-                    f"Multi-TP SL triggered for {self.asset}: "
-                    f"closing remaining size={close_size:.6f} @ close={close:.4f}",
-                )
-            elif pos_index >= 0:
-                # Extract tp_level_index from close_reason (e.g. "tp1" -> 0)
-                tp_level_index = int(close_reason[2:]) - 1
-                self.positions.apply_partial_exit(
-                    self.asset, pos_index, close_size, tp_level_index,
+                self.positions.mark_pending_close(
+                    self.asset,
+                    pos.entry_timestamp,
+                    close_reason,
+                    price_update.timestamp,
                 )
                 logger.info(
-                    f"Multi-TP {close_reason} triggered for {self.asset}: "
-                    f"partial close size={close_size:.6f} @ close={close:.4f}",
+                    f"Queued {close_reason} exit for {self.asset}: "
+                    f"size={close_size:.6f} @ close={close:.4f}",
                 )
 
         # Legacy single-TP path (positions where tp_levels is empty)
         hit_positions = self.positions.check_sl_tp_hlc(self.asset, high, low, close)
         for pos in hit_positions:
+            tp_hit = False
+            if pos.take_profit_price is not None:
+                if pos.direction == 1 and high >= pos.take_profit_price:
+                    tp_hit = True
+                elif pos.direction == -1 and low <= pos.take_profit_price:
+                    tp_hit = True
+            close_reason = "tp" if tp_hit else "sl"
             close_side = "sell" if pos.direction == 1 else "buy"
             order = OrderExecutionRequest(
                 asset=self.asset,
@@ -422,11 +423,16 @@ class RiskWorker(BaseStreamConsumer):
                 order_type="market",
                 timestamp=price_update.timestamp,
                 requested_price=close,
-                idempotency_key=f"sl_tp_{self.asset}_{int(pos.entry_timestamp)}",
+                idempotency_key=(
+                    f"{close_reason}_{self.asset}_{int(pos.entry_timestamp)}_"
+                    f"{int(price_update.timestamp)}"
+                ),
                 stop_loss_price=None,
                 take_profit_price=None,
+                close_reason=close_reason,
                 model_name=pos.source_model,
                 source_timeframe=pos.source_timeframe,
+                metadata={"position_entry_timestamp": pos.entry_timestamp},
             )
             if self.redis_client:
                 await self.redis_client.xadd(
@@ -434,6 +440,12 @@ class RiskWorker(BaseStreamConsumer):
                     valkey_encode(order),
                     maxlen=5000,
                     approximate=True,
+                )
+                self.positions.mark_pending_close(
+                    self.asset,
+                    pos.entry_timestamp,
+                    close_reason,
+                    price_update.timestamp,
                 )
                 logger.info(
                     f"Price heartbeat SL/TP triggered for {self.asset}: "

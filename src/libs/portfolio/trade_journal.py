@@ -173,6 +173,14 @@ class TradeJournal:
 
         Uses ON CONFLICT (trade_id) DO NOTHING for idempotency.
         """
+        await self._save_closed_trade(trade)
+
+    async def _save_closed_trade(
+        self,
+        trade: ClosedTrade,
+        conn: Any | None = None,
+    ) -> None:
+        """Persist a ClosedTrade, optionally inside an existing transaction."""
         query = """
             INSERT INTO portfolio_closed_trades
                 (trade_id, asset, direction, entry_price, exit_price, size,
@@ -184,8 +192,9 @@ class TradeJournal:
                     $11, $12, $13, $14, $15, $16, $17, $18, $19)
             ON CONFLICT (trade_id) DO NOTHING
         """
-        async with self.db_pool.acquire() as conn:
-            await conn.execute(
+
+        async def _execute(target_conn: Any) -> None:
+            await target_conn.execute(
                 query,
                 trade.trade_id,
                 trade.asset,
@@ -207,6 +216,85 @@ class TradeJournal:
                 trade.mae_pct,
                 trade.mfe_pct,
             )
+
+        if conn is not None:
+            await _execute(conn)
+            return
+
+        async with self.db_pool.acquire() as pooled_conn:
+            await _execute(pooled_conn)
+
+    async def load_processed_fills(self) -> set[str]:
+        """Return all processed execution order IDs for replay safety."""
+        async with self.db_pool.acquire() as conn:
+            await conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS portfolio_processed_fills (
+                    order_id TEXT PRIMARY KEY,
+                    ts DOUBLE PRECISION NOT NULL
+                )
+                """,
+            )
+            rows = await conn.fetch("SELECT order_id FROM portfolio_processed_fills")
+        return {str(row["order_id"]) for row in rows}
+
+    async def is_fill_processed(
+        self,
+        order_id: str,
+        conn: Any | None = None,
+    ) -> bool:
+        """Check whether a fill report was already applied to portfolio state."""
+        query = "SELECT 1 FROM portfolio_processed_fills WHERE order_id = $1"
+
+        async def _fetch(target_conn: Any) -> Any:
+            await target_conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS portfolio_processed_fills (
+                    order_id TEXT PRIMARY KEY,
+                    ts DOUBLE PRECISION NOT NULL
+                )
+                """,
+            )
+            return await target_conn.fetchrow(query, order_id)
+
+        if conn is not None:
+            row = await _fetch(conn)
+            return row is not None
+
+        async with self.db_pool.acquire() as pooled_conn:
+            row = await _fetch(pooled_conn)
+        return row is not None
+
+    async def mark_fill_processed(
+        self,
+        order_id: str,
+        timestamp: float,
+        conn: Any | None = None,
+    ) -> None:
+        """Persist a processed execution order ID for idempotent fill replay."""
+        query = """
+            INSERT INTO portfolio_processed_fills (order_id, ts)
+            VALUES ($1, $2)
+            ON CONFLICT (order_id) DO NOTHING
+        """
+
+        async def _execute(target_conn: Any) -> None:
+            await target_conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS portfolio_processed_fills (
+                    order_id TEXT PRIMARY KEY,
+                    ts DOUBLE PRECISION NOT NULL
+                )
+                """,
+            )
+            await target_conn.execute(query, order_id, timestamp)
+
+        if conn is not None:
+            await _execute(conn)
+            return
+
+        async with self.db_pool.acquire() as pooled_conn:
+            await _execute(pooled_conn)
 
     # ------------------------------------------------------------------
     # Private helpers

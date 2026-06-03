@@ -17,6 +17,7 @@ Blending formula:
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from libs.contracts.signal import ScoringOutput
@@ -42,6 +43,24 @@ REGIME_TO_GROUP: dict[str, str] = {
 }
 
 
+def _normalize_model_name(name: str) -> str:
+    """Normalize model identifiers to a config-friendly alias.
+
+    Accepts runtime ``meta.name`` values like ``MeanReversion`` or
+    ``SqueezeBreakoutScorer`` and converts them into the lowercase snake_case
+    aliases used by blender config keys.
+    """
+    if not name:
+        return ""
+    snake = re.sub(r"(?<!^)(?=[A-Z])", "_", name)
+    snake = re.sub(r"[^a-zA-Z0-9]+", "_", snake).strip("_").lower()
+    for suffix in ("_scorer", "_model"):
+        if snake.endswith(suffix):
+            snake = snake[: -len(suffix)]
+            break
+    return snake
+
+
 class RegimeEnsembleBlender:
     """Regime-conditioned model weight blender.
 
@@ -63,6 +82,19 @@ class RegimeEnsembleBlender:
 
         # Hysteresis state
         self._in_transition: bool = False
+
+    @staticmethod
+    def _lookup_weight(weights: dict[str, float], model_name: str) -> float:
+        """Resolve blender weights against exact or normalized model names."""
+        if model_name in weights:
+            return weights[model_name]
+        normalized_name = _normalize_model_name(model_name)
+        if normalized_name in weights:
+            return weights[normalized_name]
+        for configured_name, weight in weights.items():
+            if _normalize_model_name(configured_name) == normalized_name:
+                return weight
+        return 0.0
 
     def blend(
         self,
@@ -106,8 +138,10 @@ class RegimeEnsembleBlender:
         # 4. Weighted sum
         blended_score = 0.0
         total_conviction = 0.0
+        weights_used: dict[str, float] = {}
         for so in scoring_outputs:
-            w = weights.get(so.model_name, 0.0)
+            w = self._lookup_weight(weights, so.model_name)
+            weights_used[so.model_name] = w
             blended_score += w * so.edge_score
             total_conviction += so.conviction
 
@@ -138,7 +172,7 @@ class RegimeEnsembleBlender:
                 "transition_decay": decay,
                 "mtf_scale": mtf_scale,
                 "in_transition": self._in_transition,
-                "weights_used": weights,
+                "weights_used": weights_used,
                 "input_scores": {so.model_name: so.edge_score for so in scoring_outputs},
             },
         )

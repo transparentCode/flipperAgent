@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import re
 import time
@@ -95,7 +96,7 @@ class TradingViewInterceptor(BaseExchangeAdapter):
         self.cookies_path = cookies_path or config.get(
             "tradingview.cookies_path", "secrets/tv_cookies.json"
         )
-        self.proxy_url = proxy_url
+        self.proxy_url = proxy_url or config.get("tradingview.proxy_url")
         self._session = None
         self._config = config
 
@@ -123,7 +124,17 @@ class TradingViewInterceptor(BaseExchangeAdapter):
         Returns:
             DataFrame with columns [timestamp, open, high, low, close, volume]
         """
-        empty = pd.DataFrame(columns=["timestamp", "open", "high", "low", "close", "volume"])
+        return (await self.get_historical_ohlcv_batch([symbol], timeframe)).get(
+            symbol, self._empty_frame()
+        )
+
+    async def get_historical_ohlcv_batch(
+        self, symbols: list[str], timeframe: str
+    ) -> dict[str, pd.DataFrame]:
+        """Fetch multiple TradingView symbols through one browser session."""
+        results = {symbol: self._empty_frame() for symbol in symbols}
+        if not symbols:
+            return results
 
         try:
             from patchright.async_api import async_playwright
@@ -131,25 +142,24 @@ class TradingViewInterceptor(BaseExchangeAdapter):
             logger.error(
                 "Patchright is not installed. Install with: pip install patchright"
             )
-            return empty
+            return results
 
-        intercepted_messages: list[str] = []
-
-        tv_resolution = self._map_timeframe(timeframe)
-        chart_base = self._config.get("tradingview.chart_base_url", "https://www.tradingview.com/chart/")
-        chart_url = f"{chart_base}?symbol={symbol}&interval={tv_resolution}"
-
-        logger.info(f"Fetching TV data for {symbol} ({timeframe}) via WS interception...")
+        browser = None
+        context = None
 
         try:
             async with async_playwright() as p:
-                browser = await p.chromium.launch(
-                    headless=True,
-                    args=[
+                launch_kwargs: dict[str, Any] = {
+                    "headless": True,
+                    "args": [
                         "--disable-blink-features=AutomationControlled",
                         "--no-sandbox",
                     ],
-                )
+                }
+                if self.proxy_url:
+                    launch_kwargs["proxy"] = {"server": self.proxy_url}
+
+                browser = await p.chromium.launch(**launch_kwargs)
                 context = await browser.new_context(
                     viewport={
                         "width": self._config.get("tradingview.viewport_width", 1920),
@@ -162,49 +172,91 @@ class TradingViewInterceptor(BaseExchangeAdapter):
                         "Chrome/125.0.0.0 Safari/537.36",
                     ),
                 )
+                await self._apply_cookies(context)
 
-                cookies = self._load_cookies()
-                if cookies:
-                    pw_cookies = []
-                    for c in cookies:
-                        cookie = dict(c)
-                        # Playwright requires domain without leading dot
-                        if "domain" in cookie and cookie["domain"].startswith("."):
-                            cookie["domain"] = cookie["domain"][1:]
-                        pw_cookies.append(cookie)
-                    await context.add_cookies(pw_cookies)
+                fetch_delay = self._config.get("tradingview.fetch_delay_seconds", 2)
+                for idx, symbol in enumerate(symbols):
+                    results[symbol] = await self._fetch_symbol_ohlcv(
+                        context, symbol, timeframe
+                    )
+                    if idx < len(symbols) - 1 and fetch_delay > 0:
+                        await asyncio.sleep(fetch_delay)
+        except Exception as e:
+            logger.error(
+                f"TradingView browser session failed for {symbols}: {e}",
+                exc_info=True,
+            )
+        finally:
+            await self._close_quietly(context, "browser context")
+            await self._close_quietly(browser, "browser")
 
-                page = await context.new_page()
+        return results
 
-                def on_websocket(ws):
-                    if "tradingview.com" in ws.url:
-                        def on_frame(data):
-                            payload = data if isinstance(data, str) else str(data)
-                            if "~m~" in payload:
-                                intercepted_messages.append(payload)
-                        ws.on("framereceived", on_frame)
+    async def _apply_cookies(self, context: Any) -> None:
+        cookies = self._load_cookies()
+        if not cookies:
+            return
 
-                page.on("websocket", on_websocket)
+        pw_cookies = []
+        for c in cookies:
+            cookie = dict(c)
+            if "domain" in cookie and cookie["domain"].startswith("."):
+                cookie["domain"] = cookie["domain"][1:]
+            pw_cookies.append(cookie)
+        await context.add_cookies(pw_cookies)
 
-                await page.goto(chart_url, wait_until="domcontentloaded", timeout=self._config.get("tradingview.page_load_timeout_ms", 30000))
+    async def _fetch_symbol_ohlcv(
+        self, context: Any, symbol: str, timeframe: str
+    ) -> pd.DataFrame:
+        intercepted_messages: list[str] = []
+        chart_url = self._build_chart_url(symbol, timeframe)
+        page = None
 
-                # Wait for WebSocket chart data to arrive
-                _timeout = self._config.get("tradingview.ws_intercept_timeout_seconds", 15)
-                _poll = self._config.get("tradingview.ws_poll_interval_seconds", 0.5)
-                deadline = time.monotonic() + _timeout
-                while time.monotonic() < deadline:
-                    has_data = any("timescale_update" in m or '"du"' in m for m in intercepted_messages)
-                    if has_data:
-                        break
-                    await asyncio.sleep(_poll)
+        logger.info(f"Fetching TV data for {symbol} ({timeframe}) via WS interception...")
 
-                await browser.close()
+        try:
+            page = await context.new_page()
 
+            def on_websocket(ws):
+                if "tradingview.com" in ws.url:
+
+                    def on_frame(data):
+                        payload = data if isinstance(data, str) else str(data)
+                        if "~m~" in payload:
+                            intercepted_messages.append(payload)
+
+                    ws.on("framereceived", on_frame)
+
+            page.on("websocket", on_websocket)
+
+            await page.goto(
+                chart_url,
+                wait_until="domcontentloaded",
+                timeout=self._config.get("tradingview.page_load_timeout_ms", 30000),
+            )
+
+            timeout_s = self._config.get("tradingview.ws_intercept_timeout_seconds", 15)
+            poll_s = self._config.get("tradingview.ws_poll_interval_seconds", 0.5)
+            deadline = time.monotonic() + timeout_s
+            while time.monotonic() < deadline:
+                has_data = any(
+                    "timescale_update" in m or '"du"' in m
+                    for m in intercepted_messages
+                )
+                if has_data:
+                    break
+                await asyncio.sleep(poll_s)
         except Exception as e:
             logger.error(f"WS interception failed for {symbol}: {e}", exc_info=True)
-            return empty
+            return self._empty_frame()
+        finally:
+            await self._close_quietly(page, "page")
 
-        # Parse intercepted messages
+        return self._messages_to_frame(symbol, intercepted_messages)
+
+    def _messages_to_frame(
+        self, symbol: str, intercepted_messages: list[str]
+    ) -> pd.DataFrame:
         all_bars = []
         for raw_msg in intercepted_messages:
             parsed = parse_tv_messages(raw_msg)
@@ -213,13 +265,37 @@ class TradingViewInterceptor(BaseExchangeAdapter):
 
         if not all_bars:
             logger.warning(f"No OHLCV data extracted for {symbol}")
-            return empty
+            return self._empty_frame()
 
         df = pd.DataFrame(all_bars)
-        df = df.drop_duplicates(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
+        df = (
+            df.drop_duplicates(subset=["timestamp"])
+            .sort_values("timestamp")
+            .reset_index(drop=True)
+        )
 
         logger.info(f"Extracted {len(df)} bars for {symbol}")
         return df
+
+    def _build_chart_url(self, symbol: str, timeframe: str) -> str:
+        tv_resolution = self._map_timeframe(timeframe)
+        chart_base = self._config.get(
+            "tradingview.chart_base_url", "https://www.tradingview.com/chart/"
+        )
+        return f"{chart_base}?symbol={symbol}&interval={tv_resolution}"
+
+    @staticmethod
+    def _empty_frame() -> pd.DataFrame:
+        return pd.DataFrame(
+            columns=["timestamp", "open", "high", "low", "close", "volume"]
+        )
+
+    @staticmethod
+    async def _close_quietly(resource: Any, label: str) -> None:
+        if resource is None:
+            return
+        with contextlib.suppress(Exception):
+            await resource.close()
 
     def _load_cookies(self) -> list[dict] | None:
         """Load TradingView session cookies from JSON file."""

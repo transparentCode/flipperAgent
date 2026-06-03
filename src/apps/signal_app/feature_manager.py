@@ -1,5 +1,7 @@
 from typing import Dict, Any, List, Sequence, Tuple, get_type_hints
 
+import pandas as pd
+
 from libs.common.config import ConfigManager
 from libs.common.constants import CONFIG_FILE_FEATURES
 from libs.common.logging.logger_utils import bind_logger
@@ -17,6 +19,7 @@ KEY_DEFAULT = "default"
 
 TYPE_HINT_FULL_CANDLE = "float, float, float, float, float"
 TYPE_HINT_HLC_CANDLE = "float, float, float"
+MICROSTRUCTURE_INDICATORS = {"KyleLambda", "TFI", "VPIN"}
 
 class FeatureManager:
     def __init__(self, asset: str, timeframe: str, db_fetcher=None):
@@ -31,6 +34,13 @@ class FeatureManager:
     @property
     def indicators(self) -> list[Indicator]:
         return [ind for _, ind in self._indicator_entries]
+
+    def get_unprimed_indicator_keys(self) -> list[str]:
+        return [
+            output_key
+            for output_key, ind in self._indicator_entries
+            if not ind.is_primed
+        ]
         
     async def fetch_historical_db_records(self, max_lookback: int) -> Sequence[Tuple[float, ...]]:
         """
@@ -108,6 +118,22 @@ class FeatureManager:
         # Maps the entire sequence
         return [self._get_mapped_input(ind, d) for d in historical_data]
 
+    def _extract_latest_batch_output(self, batch_output: Any) -> Any:
+        """Normalize a batch indicator output to the latest live-shaped value."""
+        if isinstance(batch_output, dict):
+            return {
+                key: self._extract_latest_batch_output(value)
+                for key, value in batch_output.items()
+            }
+
+        if isinstance(batch_output, (str, bytes)):
+            return batch_output
+
+        try:
+            return batch_output[-1]
+        except (TypeError, KeyError, IndexError):
+            return batch_output
+
     def prime(self, historical_data: Sequence[Tuple[float, ...]]) -> None:
         """
         Pre-warms the live internal state.
@@ -136,7 +162,43 @@ class FeatureManager:
                 mapped_input = self._get_mapped_input(ind, data)
                 res = ind.update(mapped_input)
                 results[output_key] = res
+                if isinstance(res, dict) and ind.__class__.__name__ in MICROSTRUCTURE_INDICATORS:
+                    for nested_key, nested_val in res.items():
+                        results.setdefault(nested_key, nested_val)
             except Exception as e:
                 logger.error(f"Indicator '{output_key}' failed during update: {e}. Un-priming.", exc_info=True)
                 ind._is_primed = False
+        return results
+
+    def snapshot_features(self, historical_data: Sequence[Tuple[float, ...]]) -> Dict[str, Any]:
+        """Compute a read-only feature snapshot from historical bars without mutating state."""
+        results: Dict[str, Any] = {}
+        for output_key, ind in self._indicator_entries:
+            if not ind.is_primed:
+                continue
+
+            try:
+                mapped_data = self._get_mapped_historical_inputs(ind, historical_data)
+                if not mapped_data:
+                    continue
+
+                if isinstance(mapped_data[0], dict):
+                    batch_input = pd.DataFrame(mapped_data)
+                else:
+                    batch_input = mapped_data
+
+                batch_results = ind.batch(batch_input)
+                if not batch_results:
+                    continue
+
+                res = self._extract_latest_batch_output(batch_results)
+                results[output_key] = res
+                if isinstance(res, dict) and ind.__class__.__name__ in MICROSTRUCTURE_INDICATORS:
+                    for nested_key, nested_val in res.items():
+                        results.setdefault(nested_key, nested_val)
+            except Exception as e:
+                logger.error(
+                    f"Indicator '{output_key}' failed during snapshot: {e}",
+                    exc_info=True,
+                )
         return results

@@ -28,6 +28,7 @@ def build_suggest(trial: optuna.Trial, name: str, pdef: ParamDef) -> Any:
 def make_objective(
     model_name: str,
     backtest_fn: Callable[[BaseModel], dict[str, float]],
+    objective_names: list[str] | None = None,
 ) -> Callable[[optuna.Trial], float | tuple[float, ...]]:
     """
     Return an Optuna-compatible objective function.
@@ -45,7 +46,15 @@ def make_objective(
         model = model_cls(params)
         metrics = backtest_fn(model)
 
-        values = list(metrics.values())
+        if objective_names:
+            missing = [name for name in objective_names if name not in metrics]
+            if missing:
+                raise KeyError(
+                    f"Backtest metrics missing objective keys: {missing}"
+                )
+            values = [metrics[name] for name in objective_names]
+        else:
+            values = list(metrics.values())
         if len(values) == 1:
             return values[0]
         return tuple(values)

@@ -11,12 +11,27 @@ class CCXTAdapter(BaseExchangeAdapter):
     """
     Adapter for fetching data via CCXT async_support.
     """
-    
+
     def __init__(self, exchange_id: str, config: Dict[str, Any] = None):
         self.exchange_id = exchange_id
-        config = config or {}
+        config = self._build_exchange_config(exchange_id, config)
         exchange_class = getattr(ccxt, exchange_id)
         self.exchange = exchange_class(config)
+
+    @staticmethod
+    def _build_exchange_config(exchange_id: str, config: Dict[str, Any] | None) -> Dict[str, Any]:
+        config = dict(config or {})
+        options = dict(config.get("options", {}))
+
+        if exchange_id == "binance":
+            # Keep REST gap-fill aligned with the USD-M futures WebSocket pipeline.
+            options.setdefault("defaultType", "future")
+            options.setdefault("defaultSubType", "linear")
+
+        if options:
+            config["options"] = options
+
+        return config
 
     @staticmethod
     def _parse_ohlcv_sync(ohlcv: list) -> pd.DataFrame:

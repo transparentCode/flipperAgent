@@ -229,3 +229,33 @@ class TestPaperExecutorMultiTP:
         after_tp1 = (await executor.get_balance())["USDT"]
         # Should have received 0.4 * 101.5 minus commission
         assert after_tp1 > after_buy
+
+    @pytest.mark.asyncio
+    async def test_sell_beyond_long_opens_short_residual(self, executor: PaperExecutor):
+        await executor.execute_order(
+            _make_order(side="buy", size=0.3, requested_price=100.0),
+        )
+
+        await executor.execute_order(
+            _make_order(side="sell", size=1.0, requested_price=110.0, idempotency_key="flip-short"),
+        )
+
+        positions = await executor.get_positions("BTCUSDT")
+        assert len(positions) == 1
+        assert positions[0]["size"] == pytest.approx(-0.7)
+        assert positions[0]["avg_price"] == pytest.approx(110.0)
+
+    @pytest.mark.asyncio
+    async def test_buy_beyond_short_opens_long_residual(self, executor: PaperExecutor):
+        await executor.execute_order(
+            _make_order(side="sell", size=0.4, requested_price=100.0, idempotency_key="open-short"),
+        )
+
+        await executor.execute_order(
+            _make_order(side="buy", size=1.0, requested_price=95.0, idempotency_key="flip-long"),
+        )
+
+        positions = await executor.get_positions("BTCUSDT")
+        assert len(positions) == 1
+        assert positions[0]["size"] == pytest.approx(0.6)
+        assert positions[0]["avg_price"] == pytest.approx(95.0)

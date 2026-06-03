@@ -1,5 +1,5 @@
 execution:
-  mode: paper   # "paper" or "live"
+  mode: paper   # currently only "paper" is implemented; "live" is reserved for future Binance execution
 
   paper:
     slippage_bps: 5.0

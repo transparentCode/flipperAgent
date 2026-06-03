@@ -173,6 +173,7 @@ class TestSignalWorkerRegimeIntegration:
 
         worker = SignalWorker("BTCUSDT", "4h")
         worker.redis_client = AsyncMock()
+        worker.redis_client.hgetall.return_value = {}
 
         # Pre-fill price history to exceed _REGIME_MIN_BARS
         worker._price_history = [
@@ -232,6 +233,7 @@ class TestSignalWorkerRegimeIntegration:
 
         worker = SignalWorker("BTCUSDT", "4h")
         worker.redis_client = AsyncMock()
+        worker.redis_client.hgetall.return_value = {}
         worker._price_history = []  # empty history
 
         mock_regime = MagicMock()
@@ -261,6 +263,7 @@ class TestSignalWorkerRegimeIntegration:
 
         worker = SignalWorker("BTCUSDT", "4h")
         worker.redis_client = AsyncMock()
+        worker.redis_client.hgetall.return_value = {}
         worker._price_history = [
             {"open": 49000, "high": 51000, "low": 48500, "close": 50000, "volume": 100}
         ] * 200
