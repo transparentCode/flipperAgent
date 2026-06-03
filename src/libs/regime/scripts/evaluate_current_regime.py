@@ -19,6 +19,11 @@ import pandas as pd
 from libs.optim_utils.data_fetcher import fetch_historical_ohlcv
 from libs.regime.config_loader import load_regime_config
 from libs.regime.optimization.ablations import DEFAULT_VARIANTS, build_variants
+from libs.regime.optimization.breadth_overlays import (
+    DEFAULT_BREADTH_VARIANTS,
+    build_breadth_variants,
+    compute_breadth_features,
+)
 from libs.regime.optimization.models import BenchmarkResults, OptimizationConfig
 from libs.regime.optimization.optimizer import RegimeOptimizer
 
@@ -88,6 +93,7 @@ def _evaluate_current_params(
     *,
     days: int,
     include_ablations: bool = False,
+    breadth_variant_names: list[str] | None = None,
 ) -> dict[str, Any]:
     end = datetime.now(timezone.utc)
     start = end - timedelta(days=days)
@@ -102,6 +108,7 @@ def _evaluate_current_params(
         asset=asset,
         timeframe=timeframe,
         include_ablations=include_ablations,
+        breadth_variant_names=breadth_variant_names,
         variant_name="current",
     )
 
@@ -121,6 +128,7 @@ def _evaluate_params_on_frame(
     asset: str,
     timeframe: str,
     include_ablations: bool,
+    breadth_variant_names: list[str] | None,
     variant_name: str,
 ) -> dict[str, Any]:
     optimizer = RegimeOptimizer(OptimizationConfig(n_trials=1, timeout_seconds=1))
@@ -133,6 +141,17 @@ def _evaluate_params_on_frame(
     fold_scores: list[float] = []
     ablation_fold_scores: dict[str, list[float]] = {name: [] for name in DEFAULT_VARIANTS}
     ablation_fold_benches: dict[str, list[BenchmarkResults]] = {name: [] for name in DEFAULT_VARIANTS}
+    breadth_fold_scores: dict[str, list[float]] = {}
+    breadth_fold_benches: dict[str, list[BenchmarkResults]] = {}
+    breadth_features = None
+    breadth_error = None
+    if breadth_variant_names:
+        breadth_fold_scores = {name: [] for name in breadth_variant_names}
+        breadth_fold_benches = {name: [] for name in breadth_variant_names}
+        try:
+            breadth_features = compute_breadth_features(frame)
+        except Exception as exc:
+            breadth_error = str(exc)
 
     for fold_idx, (_, train_df, test_df) in enumerate(
         optimizer._walk_forward.iterate_splits(frame),
@@ -163,6 +182,21 @@ def _evaluate_params_on_frame(
             for name, result in ablation_rows.items():
                 ablation_fold_scores[name].append(float(result["score"]))
                 ablation_fold_benches[name].append(BenchmarkResults.from_dict(result["benchmarks"]))
+        if breadth_features is not None and breadth_variant_names:
+            breadth_rows = _evaluate_fold_breadth_variants(
+                optimizer,
+                train_df=train_df,
+                test_df=test_df,
+                params=params,
+                asset=asset,
+                timeframe=timeframe,
+                breadth_features=breadth_features.reindex(test_df.index),
+                variant_names=breadth_variant_names,
+            )
+            row["breadth_variants"] = breadth_rows
+            for name, result in breadth_rows.items():
+                breadth_fold_scores[name].append(float(result["score"]))
+                breadth_fold_benches[name].append(BenchmarkResults.from_dict(result["benchmarks"]))
         fold_rows.append(row)
 
     walk_forward = optimizer._aggregate_benchmarks(fold_benches).to_dict()
@@ -178,6 +212,22 @@ def _evaluate_params_on_frame(
             fold_scores=ablation_fold_scores,
             fold_benches=ablation_fold_benches,
         )
+    breadth_variants = None
+    if breadth_variant_names:
+        if breadth_features is None:
+            breadth_variants = {"error": breadth_error or "breadth_unavailable"}
+        else:
+            breadth_variants = _evaluate_full_breadth_variants(
+                optimizer,
+                frame=frame,
+                params=params,
+                asset=asset,
+                timeframe=timeframe,
+                breadth_features=breadth_features,
+                fold_scores=breadth_fold_scores,
+                fold_benches=breadth_fold_benches,
+                variant_names=breadth_variant_names,
+            )
 
     result = {
         "asset": asset,
@@ -199,6 +249,8 @@ def _evaluate_params_on_frame(
     }
     if ablations is not None:
         result["ablations"] = ablations
+    if breadth_variants is not None:
+        result["breadth_variants"] = breadth_variants
     return result
 
 
@@ -208,6 +260,7 @@ def _evaluate_hmm_variant_matrix(
     *,
     days: int,
     include_ablations: bool,
+    breadth_variant_names: list[str] | None,
     variant_names: list[str],
 ) -> dict[str, Any]:
     end = datetime.now(timezone.utc)
@@ -227,6 +280,7 @@ def _evaluate_hmm_variant_matrix(
             asset=asset,
             timeframe=timeframe,
             include_ablations=include_ablations,
+            breadth_variant_names=breadth_variant_names,
             variant_name=name,
         )
         variants[name] = result
@@ -286,6 +340,45 @@ def _evaluate_fold_ablations(
     )
     rows: dict[str, dict[str, Any]] = {}
     for name, variant_df in ablation_frames.items():
+        score, bench = optimizer._compute_fold_score(
+            variant_df,
+            returns,
+            price_df=test_df,
+            hmm_diag=hmm_diag,
+        )
+        rows[name] = {
+            "score": float(score),
+            "benchmarks": bench.to_dict(),
+        }
+    return rows
+
+
+def _evaluate_fold_breadth_variants(
+    optimizer: RegimeOptimizer,
+    *,
+    train_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    params: dict[str, Any],
+    asset: str,
+    timeframe: str,
+    breadth_features: pd.DataFrame,
+    variant_names: list[str],
+) -> dict[str, dict[str, Any]]:
+    orch = optimizer.orchestrator_factory(params, asset, timeframe)
+    orch.analyze_series(train_df)
+    features_df = orch.analyze_series(test_df)
+    returns = _log_returns(test_df)
+    hmm_diag = orch.hmm_classifier.diagnostics()
+    breadth_frames = build_breadth_variants(
+        features_df,
+        breadth_features,
+        position_scale_cfg=orch.aggregator.config.position_scale,
+        cp_position_decay=orch.aggregator.config.cp_position_decay,
+        vol_squeeze_pct=orch.aggregator.config.vol_squeeze_pct,
+        variants=tuple(variant_names),
+    )
+    rows: dict[str, dict[str, Any]] = {}
+    for name, variant_df in breadth_frames.items():
         score, bench = optimizer._compute_fold_score(
             variant_df,
             returns,
@@ -363,6 +456,74 @@ def _evaluate_full_ablations(
     }
 
 
+def _evaluate_full_breadth_variants(
+    optimizer: RegimeOptimizer,
+    *,
+    frame: pd.DataFrame,
+    params: dict[str, Any],
+    asset: str,
+    timeframe: str,
+    breadth_features: pd.DataFrame,
+    fold_scores: dict[str, list[float]],
+    fold_benches: dict[str, list[BenchmarkResults]],
+    variant_names: list[str],
+) -> dict[str, Any]:
+    orch = optimizer.orchestrator_factory(params, asset, timeframe)
+    features_df = orch.analyze_series(frame)
+    returns = _log_returns(frame)
+    hmm_diag = orch.hmm_classifier.diagnostics()
+    breadth_frames = build_breadth_variants(
+        features_df,
+        breadth_features,
+        position_scale_cfg=orch.aggregator.config.position_scale,
+        cp_position_decay=orch.aggregator.config.cp_position_decay,
+        vol_squeeze_pct=orch.aggregator.config.vol_squeeze_pct,
+        variants=tuple(variant_names),
+    )
+    walk_forward = {}
+    full_sample = {}
+    ranking = []
+    for name, variant_df in breadth_frames.items():
+        score, bench = optimizer._compute_fold_score(
+            variant_df,
+            returns,
+            price_df=frame,
+            hmm_diag=hmm_diag,
+        )
+        full_sample[name] = {
+            "score": float(score),
+            "benchmarks": bench.to_dict(),
+        }
+        agg = optimizer._aggregate_benchmarks(fold_benches[name]).to_dict()
+        mean_score = float(sum(fold_scores[name]) / len(fold_scores[name])) if fold_scores[name] else None
+        walk_forward[name] = {
+            "score": mean_score,
+            "benchmarks": agg,
+        }
+        ranking.append(
+            {
+                "variant": name,
+                "walk_forward_score": mean_score,
+                "walk_forward_forward_ic": agg["forward_return_ic"],
+                "walk_forward_sharpe_improvement": agg["sharpe_improvement"],
+                "strict_pass": bool(agg["passed_strict_baseline_gate"]),
+            }
+        )
+    ranking.sort(
+        key=lambda row: (
+            row["walk_forward_score"] is not None,
+            row["walk_forward_score"] if row["walk_forward_score"] is not None else float("-inf"),
+        ),
+        reverse=True,
+    )
+    return {
+        "variants": list(breadth_frames.keys()),
+        "walk_forward": walk_forward,
+        "full_sample": full_sample,
+        "ranking": ranking,
+    }
+
+
 def _log_returns(frame: pd.DataFrame) -> Any:
     returns = np.log(frame["close"].values / (frame["close"].shift(1).values + 1e-10))
     return returns[1:]
@@ -418,6 +579,7 @@ def main() -> None:
     parser.add_argument("--timeframes", nargs="+", default=["1h", "30m"])
     parser.add_argument("--days", type=int, default=300)
     parser.add_argument("--ablations", action="store_true")
+    parser.add_argument("--breadth-variants", nargs="+", choices=sorted(DEFAULT_BREADTH_VARIANTS))
     parser.add_argument("--hmm-variants", nargs="+", choices=sorted(HMM_VARIANT_PRESETS.keys()))
     parser.add_argument("--output", type=str, default=None)
     args = parser.parse_args()
@@ -429,6 +591,7 @@ def main() -> None:
                 timeframe,
                 days=args.days,
                 include_ablations=args.ablations,
+                breadth_variant_names=args.breadth_variants,
                 variant_names=args.hmm_variants,
             )
             for timeframe in args.timeframes
@@ -440,6 +603,7 @@ def main() -> None:
                 timeframe,
                 days=args.days,
                 include_ablations=args.ablations,
+                breadth_variant_names=args.breadth_variants,
             )
             for timeframe in args.timeframes
         ]
