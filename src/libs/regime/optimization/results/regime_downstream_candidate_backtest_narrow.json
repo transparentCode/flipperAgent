@@ -1,0 +1,849 @@
+{
+  "results": [
+    {
+      "asset": "BTCUSDT",
+      "timeframe": "1h",
+      "date_from": "2026-02-04T04:00:00+00:00",
+      "date_to": "2026-06-04T03:00:00+00:00",
+      "bars": 2880,
+      "model_names": [
+        "Momentum",
+        "KyleTFI",
+        "VPINKyle",
+        "SqueezeBreakout",
+        "MeanReversion",
+        "PriceAction",
+        "RegimePullbackScorer",
+        "DivergenceEdgeScorer",
+        "RegimeRelativeValueScorer"
+      ],
+      "candidate_names": [
+        "no_regime",
+        "regime_only",
+        "breadth_gate",
+        "breadth_blend"
+      ],
+      "folds": [],
+      "candidates": {
+        "no_regime": {
+          "walk_forward": {
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "turnover": 0.0,
+            "trade_count": 0.0,
+            "active_ratio": 0.0,
+            "model_selection_counts": {},
+            "decision": "baseline",
+            "sharpe_lift_vs_no_regime": 0.0,
+            "cumulative_return_lift_vs_no_regime": 0.0
+          },
+          "full_sample": {
+            "sharpe": -9.597440675098552,
+            "cumulative_return": -0.554464238414859,
+            "max_drawdown": -0.5873074466761565,
+            "turnover": 777.213620370901,
+            "trade_count": 2274,
+            "active_ratio": 0.9433831191385897,
+            "model_selection_counts": {
+              "MeanReversion": 1336,
+              "PriceAction": 872,
+              "Momentum": 338,
+              "DivergenceEdgeScorer": 266,
+              "SqueezeBreakout": 24,
+              "RegimePullbackScorer": 12,
+              "RegimeRelativeValueScorer": 1
+            }
+          }
+        },
+        "regime_only": {
+          "walk_forward": {
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "turnover": 0.0,
+            "trade_count": 0.0,
+            "active_ratio": 0.0,
+            "model_selection_counts": {},
+            "decision": "reject",
+            "sharpe_lift_vs_no_regime": 0.0,
+            "cumulative_return_lift_vs_no_regime": 0.0
+          },
+          "full_sample": {
+            "sharpe": -9.889852633340203,
+            "cumulative_return": -0.3104669520551233,
+            "max_drawdown": -0.31950570167481096,
+            "turnover": 345.420567461773,
+            "trade_count": 2159,
+            "active_ratio": 0.7822160472386245,
+            "model_selection_counts": {
+              "MeanReversion": 1141,
+              "PriceAction": 736,
+              "DivergenceEdgeScorer": 234,
+              "Momentum": 227,
+              "SqueezeBreakout": 23,
+              "RegimePullbackScorer": 9,
+              "RegimeRelativeValueScorer": 1
+            }
+          }
+        },
+        "breadth_gate": {
+          "walk_forward": {
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "turnover": 0.0,
+            "trade_count": 0.0,
+            "active_ratio": 0.0,
+            "model_selection_counts": {},
+            "decision": "reject",
+            "sharpe_lift_vs_no_regime": 0.0,
+            "cumulative_return_lift_vs_no_regime": 0.0
+          },
+          "full_sample": {
+            "sharpe": -9.755361096259433,
+            "cumulative_return": -0.3058494972005308,
+            "max_drawdown": -0.31494877476508726,
+            "turnover": 335.17105586065725,
+            "trade_count": 2166,
+            "active_ratio": 0.7822160472386245,
+            "model_selection_counts": {
+              "MeanReversion": 1141,
+              "PriceAction": 736,
+              "DivergenceEdgeScorer": 234,
+              "Momentum": 227,
+              "SqueezeBreakout": 23,
+              "RegimePullbackScorer": 9,
+              "RegimeRelativeValueScorer": 1
+            }
+          }
+        },
+        "breadth_blend": {
+          "walk_forward": {
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "turnover": 0.0,
+            "trade_count": 0.0,
+            "active_ratio": 0.0,
+            "model_selection_counts": {},
+            "decision": "reject",
+            "sharpe_lift_vs_no_regime": 0.0,
+            "cumulative_return_lift_vs_no_regime": 0.0
+          },
+          "full_sample": {
+            "sharpe": -9.992169342394606,
+            "cumulative_return": -0.3262875736051679,
+            "max_drawdown": -0.3288989143019322,
+            "turnover": 330.9728777897766,
+            "trade_count": 2242,
+            "active_ratio": 0.8082667592914207,
+            "model_selection_counts": {
+              "MeanReversion": 1187,
+              "PriceAction": 753,
+              "DivergenceEdgeScorer": 241,
+              "Momentum": 238,
+              "SqueezeBreakout": 24,
+              "RegimePullbackScorer": 12,
+              "RegimeRelativeValueScorer": 1
+            }
+          }
+        }
+      },
+      "candidate_ranking": [
+        {
+          "candidate": "no_regime",
+          "decision": "baseline",
+          "walk_forward_sharpe": 0.0,
+          "walk_forward_cumulative_return": 0.0,
+          "walk_forward_max_drawdown": 0.0,
+          "sharpe_lift_vs_no_regime": 0.0
+        },
+        {
+          "candidate": "regime_only",
+          "decision": "reject",
+          "walk_forward_sharpe": 0.0,
+          "walk_forward_cumulative_return": 0.0,
+          "walk_forward_max_drawdown": 0.0,
+          "sharpe_lift_vs_no_regime": 0.0
+        },
+        {
+          "candidate": "breadth_gate",
+          "decision": "reject",
+          "walk_forward_sharpe": 0.0,
+          "walk_forward_cumulative_return": 0.0,
+          "walk_forward_max_drawdown": 0.0,
+          "sharpe_lift_vs_no_regime": 0.0
+        },
+        {
+          "candidate": "breadth_blend",
+          "decision": "reject",
+          "walk_forward_sharpe": 0.0,
+          "walk_forward_cumulative_return": 0.0,
+          "walk_forward_max_drawdown": 0.0,
+          "sharpe_lift_vs_no_regime": 0.0
+        }
+      ]
+    },
+    {
+      "asset": "BTCUSDT",
+      "timeframe": "30m",
+      "date_from": "2026-02-04T03:30:00+00:00",
+      "date_to": "2026-06-04T03:00:00+00:00",
+      "bars": 5760,
+      "model_names": [
+        "MeanReversion",
+        "RegimePullbackScorer",
+        "DivergenceEdgeScorer",
+        "RegimeRelativeValueScorer"
+      ],
+      "candidate_names": [
+        "no_regime",
+        "regime_only",
+        "breadth_gate",
+        "breadth_blend"
+      ],
+      "folds": [
+        {
+          "fold": 0,
+          "train_start": 0,
+          "train_end": 4320,
+          "test_start": "2026-05-06T03:30:00+00:00",
+          "test_end": "2026-05-21T03:00:00+00:00",
+          "candidates": {
+            "no_regime": {
+              "sharpe": 0.0,
+              "cumulative_return": 0.0,
+              "max_drawdown": 0.0,
+              "turnover": 0.0,
+              "trade_count": 0,
+              "active_ratio": 0.0,
+              "model_selection_counts": {}
+            },
+            "regime_only": {
+              "sharpe": 0.0,
+              "cumulative_return": 0.0,
+              "max_drawdown": 0.0,
+              "turnover": 0.0,
+              "trade_count": 0,
+              "active_ratio": 0.0,
+              "model_selection_counts": {}
+            },
+            "breadth_gate": {
+              "sharpe": 0.0,
+              "cumulative_return": 0.0,
+              "max_drawdown": 0.0,
+              "turnover": 0.0,
+              "trade_count": 0,
+              "active_ratio": 0.0,
+              "model_selection_counts": {}
+            },
+            "breadth_blend": {
+              "sharpe": 0.0,
+              "cumulative_return": 0.0,
+              "max_drawdown": 0.0,
+              "turnover": 0.0,
+              "trade_count": 0,
+              "active_ratio": 0.0,
+              "model_selection_counts": {}
+            }
+          }
+        }
+      ],
+      "candidates": {
+        "no_regime": {
+          "walk_forward": {
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "turnover": 0.0,
+            "trade_count": 0.0,
+            "active_ratio": 0.0,
+            "model_selection_counts": {},
+            "decision": "baseline",
+            "sharpe_lift_vs_no_regime": 0.0,
+            "cumulative_return_lift_vs_no_regime": 0.0
+          },
+          "full_sample": {
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "turnover": 0.0,
+            "trade_count": 0,
+            "active_ratio": 0.0,
+            "model_selection_counts": {}
+          }
+        },
+        "regime_only": {
+          "walk_forward": {
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "turnover": 0.0,
+            "trade_count": 0.0,
+            "active_ratio": 0.0,
+            "model_selection_counts": {},
+            "decision": "reject",
+            "sharpe_lift_vs_no_regime": 0.0,
+            "cumulative_return_lift_vs_no_regime": 0.0
+          },
+          "full_sample": {
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "turnover": 0.0,
+            "trade_count": 0,
+            "active_ratio": 0.0,
+            "model_selection_counts": {}
+          }
+        },
+        "breadth_gate": {
+          "walk_forward": {
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "turnover": 0.0,
+            "trade_count": 0.0,
+            "active_ratio": 0.0,
+            "model_selection_counts": {},
+            "decision": "reject",
+            "sharpe_lift_vs_no_regime": 0.0,
+            "cumulative_return_lift_vs_no_regime": 0.0
+          },
+          "full_sample": {
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "turnover": 0.0,
+            "trade_count": 0,
+            "active_ratio": 0.0,
+            "model_selection_counts": {}
+          }
+        },
+        "breadth_blend": {
+          "walk_forward": {
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "turnover": 0.0,
+            "trade_count": 0.0,
+            "active_ratio": 0.0,
+            "model_selection_counts": {},
+            "decision": "reject",
+            "sharpe_lift_vs_no_regime": 0.0,
+            "cumulative_return_lift_vs_no_regime": 0.0
+          },
+          "full_sample": {
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "turnover": 0.0,
+            "trade_count": 0,
+            "active_ratio": 0.0,
+            "model_selection_counts": {}
+          }
+        }
+      },
+      "candidate_ranking": [
+        {
+          "candidate": "no_regime",
+          "decision": "baseline",
+          "walk_forward_sharpe": 0.0,
+          "walk_forward_cumulative_return": 0.0,
+          "walk_forward_max_drawdown": 0.0,
+          "sharpe_lift_vs_no_regime": 0.0
+        },
+        {
+          "candidate": "regime_only",
+          "decision": "reject",
+          "walk_forward_sharpe": 0.0,
+          "walk_forward_cumulative_return": 0.0,
+          "walk_forward_max_drawdown": 0.0,
+          "sharpe_lift_vs_no_regime": 0.0
+        },
+        {
+          "candidate": "breadth_gate",
+          "decision": "reject",
+          "walk_forward_sharpe": 0.0,
+          "walk_forward_cumulative_return": 0.0,
+          "walk_forward_max_drawdown": 0.0,
+          "sharpe_lift_vs_no_regime": 0.0
+        },
+        {
+          "candidate": "breadth_blend",
+          "decision": "reject",
+          "walk_forward_sharpe": 0.0,
+          "walk_forward_cumulative_return": 0.0,
+          "walk_forward_max_drawdown": 0.0,
+          "sharpe_lift_vs_no_regime": 0.0
+        }
+      ]
+    },
+    {
+      "asset": "ETHUSDT",
+      "timeframe": "1h",
+      "date_from": "2026-02-04T04:00:00+00:00",
+      "date_to": "2026-06-04T03:00:00+00:00",
+      "bars": 2880,
+      "model_names": [
+        "MeanReversion",
+        "RegimePullbackScorer",
+        "DivergenceEdgeScorer",
+        "RegimeRelativeValueScorer"
+      ],
+      "candidate_names": [
+        "no_regime",
+        "regime_only",
+        "breadth_gate",
+        "breadth_blend"
+      ],
+      "folds": [],
+      "candidates": {
+        "no_regime": {
+          "walk_forward": {
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "turnover": 0.0,
+            "trade_count": 0.0,
+            "active_ratio": 0.0,
+            "model_selection_counts": {},
+            "decision": "baseline",
+            "sharpe_lift_vs_no_regime": 0.0,
+            "cumulative_return_lift_vs_no_regime": 0.0
+          },
+          "full_sample": {
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "turnover": 0.0,
+            "trade_count": 0,
+            "active_ratio": 0.0,
+            "model_selection_counts": {}
+          }
+        },
+        "regime_only": {
+          "walk_forward": {
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "turnover": 0.0,
+            "trade_count": 0.0,
+            "active_ratio": 0.0,
+            "model_selection_counts": {},
+            "decision": "reject",
+            "sharpe_lift_vs_no_regime": 0.0,
+            "cumulative_return_lift_vs_no_regime": 0.0
+          },
+          "full_sample": {
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "turnover": 0.0,
+            "trade_count": 0,
+            "active_ratio": 0.0,
+            "model_selection_counts": {}
+          }
+        },
+        "breadth_gate": {
+          "walk_forward": {
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "turnover": 0.0,
+            "trade_count": 0.0,
+            "active_ratio": 0.0,
+            "model_selection_counts": {},
+            "decision": "reject",
+            "sharpe_lift_vs_no_regime": 0.0,
+            "cumulative_return_lift_vs_no_regime": 0.0
+          },
+          "full_sample": {
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "turnover": 0.0,
+            "trade_count": 0,
+            "active_ratio": 0.0,
+            "model_selection_counts": {}
+          }
+        },
+        "breadth_blend": {
+          "walk_forward": {
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "turnover": 0.0,
+            "trade_count": 0.0,
+            "active_ratio": 0.0,
+            "model_selection_counts": {},
+            "decision": "reject",
+            "sharpe_lift_vs_no_regime": 0.0,
+            "cumulative_return_lift_vs_no_regime": 0.0
+          },
+          "full_sample": {
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "turnover": 0.0,
+            "trade_count": 0,
+            "active_ratio": 0.0,
+            "model_selection_counts": {}
+          }
+        }
+      },
+      "candidate_ranking": [
+        {
+          "candidate": "no_regime",
+          "decision": "baseline",
+          "walk_forward_sharpe": 0.0,
+          "walk_forward_cumulative_return": 0.0,
+          "walk_forward_max_drawdown": 0.0,
+          "sharpe_lift_vs_no_regime": 0.0
+        },
+        {
+          "candidate": "regime_only",
+          "decision": "reject",
+          "walk_forward_sharpe": 0.0,
+          "walk_forward_cumulative_return": 0.0,
+          "walk_forward_max_drawdown": 0.0,
+          "sharpe_lift_vs_no_regime": 0.0
+        },
+        {
+          "candidate": "breadth_gate",
+          "decision": "reject",
+          "walk_forward_sharpe": 0.0,
+          "walk_forward_cumulative_return": 0.0,
+          "walk_forward_max_drawdown": 0.0,
+          "sharpe_lift_vs_no_regime": 0.0
+        },
+        {
+          "candidate": "breadth_blend",
+          "decision": "reject",
+          "walk_forward_sharpe": 0.0,
+          "walk_forward_cumulative_return": 0.0,
+          "walk_forward_max_drawdown": 0.0,
+          "sharpe_lift_vs_no_regime": 0.0
+        }
+      ]
+    }
+  ],
+  "panel_summary": {
+    "candidate_summary": {
+      "no_regime": {
+        "candidate": "no_regime",
+        "evaluated_slices": 3,
+        "median_sharpe": 0.0,
+        "median_cumulative_return": 0.0,
+        "median_max_drawdown": 0.0,
+        "median_turnover": 0.0,
+        "positive_sharpe_lift_slices": 0,
+        "per_slice": [
+          {
+            "asset": "BTCUSDT",
+            "timeframe": "1h",
+            "decision": "baseline",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          },
+          {
+            "asset": "BTCUSDT",
+            "timeframe": "30m",
+            "decision": "baseline",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          },
+          {
+            "asset": "ETHUSDT",
+            "timeframe": "1h",
+            "decision": "baseline",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          }
+        ],
+        "panel_decision": "baseline"
+      },
+      "regime_only": {
+        "candidate": "regime_only",
+        "evaluated_slices": 3,
+        "median_sharpe": 0.0,
+        "median_cumulative_return": 0.0,
+        "median_max_drawdown": 0.0,
+        "median_turnover": 0.0,
+        "positive_sharpe_lift_slices": 0,
+        "per_slice": [
+          {
+            "asset": "BTCUSDT",
+            "timeframe": "1h",
+            "decision": "reject",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          },
+          {
+            "asset": "BTCUSDT",
+            "timeframe": "30m",
+            "decision": "reject",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          },
+          {
+            "asset": "ETHUSDT",
+            "timeframe": "1h",
+            "decision": "reject",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          }
+        ],
+        "panel_decision": "reject"
+      },
+      "breadth_gate": {
+        "candidate": "breadth_gate",
+        "evaluated_slices": 3,
+        "median_sharpe": 0.0,
+        "median_cumulative_return": 0.0,
+        "median_max_drawdown": 0.0,
+        "median_turnover": 0.0,
+        "positive_sharpe_lift_slices": 0,
+        "per_slice": [
+          {
+            "asset": "BTCUSDT",
+            "timeframe": "1h",
+            "decision": "reject",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          },
+          {
+            "asset": "BTCUSDT",
+            "timeframe": "30m",
+            "decision": "reject",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          },
+          {
+            "asset": "ETHUSDT",
+            "timeframe": "1h",
+            "decision": "reject",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          }
+        ],
+        "panel_decision": "reject"
+      },
+      "breadth_blend": {
+        "candidate": "breadth_blend",
+        "evaluated_slices": 3,
+        "median_sharpe": 0.0,
+        "median_cumulative_return": 0.0,
+        "median_max_drawdown": 0.0,
+        "median_turnover": 0.0,
+        "positive_sharpe_lift_slices": 0,
+        "per_slice": [
+          {
+            "asset": "BTCUSDT",
+            "timeframe": "1h",
+            "decision": "reject",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          },
+          {
+            "asset": "BTCUSDT",
+            "timeframe": "30m",
+            "decision": "reject",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          },
+          {
+            "asset": "ETHUSDT",
+            "timeframe": "1h",
+            "decision": "reject",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          }
+        ],
+        "panel_decision": "reject"
+      }
+    },
+    "panel_ranking": [
+      {
+        "candidate": "no_regime",
+        "evaluated_slices": 3,
+        "median_sharpe": 0.0,
+        "median_cumulative_return": 0.0,
+        "median_max_drawdown": 0.0,
+        "median_turnover": 0.0,
+        "positive_sharpe_lift_slices": 0,
+        "per_slice": [
+          {
+            "asset": "BTCUSDT",
+            "timeframe": "1h",
+            "decision": "baseline",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          },
+          {
+            "asset": "BTCUSDT",
+            "timeframe": "30m",
+            "decision": "baseline",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          },
+          {
+            "asset": "ETHUSDT",
+            "timeframe": "1h",
+            "decision": "baseline",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          }
+        ],
+        "panel_decision": "baseline"
+      },
+      {
+        "candidate": "regime_only",
+        "evaluated_slices": 3,
+        "median_sharpe": 0.0,
+        "median_cumulative_return": 0.0,
+        "median_max_drawdown": 0.0,
+        "median_turnover": 0.0,
+        "positive_sharpe_lift_slices": 0,
+        "per_slice": [
+          {
+            "asset": "BTCUSDT",
+            "timeframe": "1h",
+            "decision": "reject",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          },
+          {
+            "asset": "BTCUSDT",
+            "timeframe": "30m",
+            "decision": "reject",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          },
+          {
+            "asset": "ETHUSDT",
+            "timeframe": "1h",
+            "decision": "reject",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          }
+        ],
+        "panel_decision": "reject"
+      },
+      {
+        "candidate": "breadth_gate",
+        "evaluated_slices": 3,
+        "median_sharpe": 0.0,
+        "median_cumulative_return": 0.0,
+        "median_max_drawdown": 0.0,
+        "median_turnover": 0.0,
+        "positive_sharpe_lift_slices": 0,
+        "per_slice": [
+          {
+            "asset": "BTCUSDT",
+            "timeframe": "1h",
+            "decision": "reject",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          },
+          {
+            "asset": "BTCUSDT",
+            "timeframe": "30m",
+            "decision": "reject",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          },
+          {
+            "asset": "ETHUSDT",
+            "timeframe": "1h",
+            "decision": "reject",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          }
+        ],
+        "panel_decision": "reject"
+      },
+      {
+        "candidate": "breadth_blend",
+        "evaluated_slices": 3,
+        "median_sharpe": 0.0,
+        "median_cumulative_return": 0.0,
+        "median_max_drawdown": 0.0,
+        "median_turnover": 0.0,
+        "positive_sharpe_lift_slices": 0,
+        "per_slice": [
+          {
+            "asset": "BTCUSDT",
+            "timeframe": "1h",
+            "decision": "reject",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          },
+          {
+            "asset": "BTCUSDT",
+            "timeframe": "30m",
+            "decision": "reject",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          },
+          {
+            "asset": "ETHUSDT",
+            "timeframe": "1h",
+            "decision": "reject",
+            "sharpe": 0.0,
+            "cumulative_return": 0.0,
+            "max_drawdown": 0.0,
+            "best_model_counts": {}
+          }
+        ],
+        "panel_decision": "reject"
+      }
+    ]
+  }
+}
