@@ -53,8 +53,8 @@ class TestL2DepthFeatureRecord:
             timestamp=datetime.now(timezone.utc),
             symbol="ETHUSDT",
         )
-        assert r.bid_ask_imbalance == 0.0
-        assert r.depth_ratio == 1.0
+        assert r.bid_ask_imbalance is None
+        assert r.depth_ratio is None
         assert r.snapshot_levels == 20
 
     def test_timestamp_coercion_from_ms(self):

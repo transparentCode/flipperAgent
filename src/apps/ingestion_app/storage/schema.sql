@@ -51,3 +51,22 @@ SELECT add_continuous_aggregate_policy('market_1m_bars',
 
 -- 3. Add 30-day retention on raw ticks
 SELECT add_retention_policy('ticks', INTERVAL '30 days');
+
+-- 4. L2 orderbook depth features (pre-aggregated)
+CREATE TABLE IF NOT EXISTS l2_depth_features (
+    timestamp       TIMESTAMPTZ NOT NULL,
+    symbol          TEXT        NOT NULL,
+    bid_ask_imbalance FLOAT,
+    depth_ratio     FLOAT,
+    spread_bps      FLOAT,
+    depth_decay_bid FLOAT,
+    depth_decay_ask FLOAT,
+    best_bid        FLOAT,
+    best_ask        FLOAT,
+    bid_depth_total FLOAT,
+    ask_depth_total FLOAT,
+    snapshot_levels INT DEFAULT 20,
+    PRIMARY KEY(timestamp, symbol)
+);
+SELECT create_hypertable('l2_depth_features', 'timestamp', if_not_exists => true, migrate_data => true);
+SELECT add_retention_policy('l2_depth_features', INTERVAL '90 days', if_not_exists => true);

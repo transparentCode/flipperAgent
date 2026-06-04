@@ -182,21 +182,30 @@ class TimescaleReader:
             return pd.DataFrame(columns=columns)
         return pd.DataFrame([dict(r) for r in records])
 
-    async def get_latest_l2_features(self, symbol: str) -> dict[str, float] | None:
+    async def get_latest_l2_features(
+        self, symbol: str, *, max_age_seconds: int = 600,
+    ) -> dict[str, float] | None:
         """Fetch the most recent L2 depth feature row for a symbol.
 
-        Returns a flat dict of feature values, or None if no data exists.
+        Args:
+            symbol: Asset symbol (e.g. "BTCUSDT").
+            max_age_seconds: Maximum age of the snapshot in seconds.
+                Rows older than this are treated as stale and ignored.
+                Default 600 (10 min, 2× the 5-min poll interval).
+
+        Returns a flat dict of feature values, or None if no fresh data exists.
         """
         query = """
             SELECT bid_ask_imbalance, depth_ratio, spread_bps,
                    depth_decay_bid, depth_decay_ask
             FROM l2_depth_features
             WHERE symbol = $1
+              AND timestamp >= now() - make_interval(secs => $2::double precision)
             ORDER BY timestamp DESC
             LIMIT 1
         """
         async with self.pool.acquire() as conn:
-            record = await conn.fetchrow(query, symbol)
+            record = await conn.fetchrow(query, symbol, float(max_age_seconds))
 
         if not record:
             return None

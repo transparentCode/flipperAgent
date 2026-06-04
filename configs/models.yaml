@@ -228,15 +228,9 @@ models:
               w_kama: 0.2
               adx_center: 25.0
               adx_steepness: 5.0
-          RegimeClassification:
-            enabled: true
-            migration_mode: legacy  # feature_producer — direction=0 always
-            params:
-              bcpd_hazard_lambda: 150.0
-              hurst_lookback: 100
-              hmm_student_df: 5.0
-              hilbert_min_period: 10
-              hilbert_max_period: 40
+          # RegimeClassification is a feature_producer, NOT a signal model.
+          # It runs in SignalWorker via _maybe_attach_regime_classification(),
+          # not through ModelManager. Do NOT add it here.
 
 scoring_models:
   assets:

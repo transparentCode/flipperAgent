@@ -253,10 +253,12 @@ class RegimeClassificationModel(BaseModel):
             )
             hmm_n = int(hmm_df.iloc[i].get("hmm_n_states", 2))
             hmm_crisis = float(hmm_df.iloc[i].get("hmm_crisis_prob", 0.0))
+            hmm_trans = float(hmm_df.iloc[i].get("hmm_transition_prob", 0.5))
 
             output = RegimeFeatureOutput(
                 hmm_posteriors=hmm_posteriors,
                 hmm_n_states=hmm_n,
+                hmm_transition_prob=hmm_trans,
                 hmm_crisis_prob=hmm_crisis,
                 vol_percentile=float(vol_pcts[i]),
                 realized_vol=float(vol_rolling[i]) if np.isfinite(vol_rolling[i]) else 0.0,

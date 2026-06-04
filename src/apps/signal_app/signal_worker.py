@@ -38,6 +38,8 @@ _STARTUP_WARMING_RETRY_DELAY_SEC = 5
 _REGIME_MIN_BARS = 200
 # Maximum price history buffer size
 _REGIME_MAX_HISTORY = 2000
+# Re-run full batch_evaluate every N new bars (avoid per-bar HMM refit)
+_REGIME_REEVAL_INTERVAL = 10
 def _import_regime_orchestrator():
     """Lazily import RegimeOrchestrator."""
     from libs.regime.orchestrator import RegimeOrchestrator
@@ -87,6 +89,8 @@ class SignalWorker(BaseStreamConsumer):
         self._price_history: list[dict[str, float]] = []
         self._regime_orchestrator: Any = None
         self._regime_classifier: Any = None
+        self._regime_cache: dict[str, Any] | None = None
+        self._regime_cache_bar_count: int = 0
         self._last_processed_ts: float | None = None
         self._expected_interval_ms: float = _parse_timeframe_seconds(timeframe) * 1000
 
@@ -117,33 +121,35 @@ class SignalWorker(BaseStreamConsumer):
                 )
         return index_data
 
-    def _maybe_attach_regime_snapshot(
+    def _append_price_bar(
         self,
-        results: dict[str, Any],
         *,
         open_: float,
         high: float,
         low: float,
         close: float,
         volume: float,
-        append_current_bar: bool,
+    ) -> None:
+        """Maintain the rolling price history buffer independently of any regime pipeline."""
+        self._price_history.append(
+            {
+                "open": open_,
+                "high": high,
+                "low": low,
+                "close": close,
+                "volume": volume,
+            }
+        )
+        if len(self._price_history) > _REGIME_MAX_HISTORY:
+            self._price_history = self._price_history[-_REGIME_MAX_HISTORY:]
+
+    def _maybe_attach_regime_snapshot(
+        self,
+        results: dict[str, Any],
     ) -> None:
         """Attach a regime snapshot when the optional regime pipeline is available."""
         if self._regime_orchestrator is None:
             return
-
-        if append_current_bar:
-            self._price_history.append(
-                {
-                    "open": open_,
-                    "high": high,
-                    "low": low,
-                    "close": close,
-                    "volume": volume,
-                }
-            )
-            if len(self._price_history) > _REGIME_MAX_HISTORY:
-                self._price_history = self._price_history[-_REGIME_MAX_HISTORY:]
 
         if len(self._price_history) < _REGIME_MIN_BARS:
             return
@@ -161,41 +167,53 @@ class SignalWorker(BaseStreamConsumer):
     async def _maybe_attach_regime_classification(
         self,
         results: dict[str, Any],
-        *,
-        close: float,
-        volume: float,
     ) -> None:
-        """Attach regime_classification probability matrix features when model is available."""
+        """Attach regime_classification probability matrix features when model is available.
+
+        Uses a cached result and only re-evaluates every _REGIME_REEVAL_INTERVAL
+        new bars to avoid running full HMM/BCPD refit on every closed candle.
+        """
         if self._regime_classifier is None:
             return
 
         if len(self._price_history) < _REGIME_MIN_BARS:
             return
 
-        try:
-            import pandas as pd
+        bars_since_cache = len(self._price_history) - self._regime_cache_bar_count
+        need_reeval = (
+            self._regime_cache is None
+            or bars_since_cache >= _REGIME_REEVAL_INTERVAL
+        )
 
-            df_hist = pd.DataFrame(self._price_history)
-            regime_output = self._regime_classifier.batch_evaluate(df_hist)
-            last_features = regime_output.iloc[-1]  # dict from RegimeFeatureOutput.to_dict()
-
-            # Fetch latest L2 features from TimescaleDB (if available)
+        if need_reeval:
             try:
-                from libs.common.db.pool_manager import DBPoolManager
-                from libs.common.db.timescale_reader import TimescaleReader
-                reader = TimescaleReader(DBPoolManager.get_reader_pool())
-                l2 = await reader.get_latest_l2_features(self.asset)
-                if l2:
-                    last_features.update(l2)
+                df_hist = pd.DataFrame(self._price_history)
+                regime_output = self._regime_classifier.batch_evaluate(df_hist)
+                self._regime_cache = regime_output.iloc[-1]  # dict from RegimeFeatureOutput.to_dict()
+                self._regime_cache_bar_count = len(self._price_history)
             except Exception:
-                pass  # L2 features are optional
+                logger.warning(
+                    "RegimeClassification batch_evaluate failed",
+                    exc_info=True,
+                )
 
-            results["regime_classification"] = last_features
+        if self._regime_cache is None:
+            return
+
+        last_features = dict(self._regime_cache)
+
+        # Fetch latest L2 features from TimescaleDB (if available)
+        try:
+            from libs.common.db.pool_manager import DBPoolManager
+            from libs.common.db.timescale_reader import TimescaleReader
+            reader = TimescaleReader(DBPoolManager.get_reader_pool())
+            l2 = await reader.get_latest_l2_features(self.asset)
+            if l2:
+                last_features.update(l2)
         except Exception:
-            logger.warning(
-                "RegimeClassification failed for current bar",
-                exc_info=True,
-            )
+            pass  # L2 features are optional
+
+        results["regime_classification"] = last_features
 
     async def _publish_bar_outputs(
         self,
@@ -228,21 +246,15 @@ class SignalWorker(BaseStreamConsumer):
         )
         results.update(engineered)
 
-        self._maybe_attach_regime_snapshot(
-            results,
-            open_=open_,
-            high=high,
-            low=low,
-            close=close,
-            volume=volume,
-            append_current_bar=append_current_bar,
-        )
+        # Maintain price history buffer independently of any regime pipeline
+        if append_current_bar:
+            self._append_price_bar(
+                open_=open_, high=high, low=low, close=close, volume=volume,
+            )
 
-        await self._maybe_attach_regime_classification(
-            results,
-            close=close,
-            volume=volume,
-        )
+        self._maybe_attach_regime_snapshot(results)
+
+        await self._maybe_attach_regime_classification(results)
 
         if self.redis_client and results:
             feature_stream = f"features:{self.asset}:{self.timeframe}"
@@ -402,16 +414,20 @@ class SignalWorker(BaseStreamConsumer):
                 break
             await asyncio.sleep(_STARTUP_WARMING_RETRY_DELAY_SEC)
 
-        # 3. Initialize regime orchestrator (optional — graceful if unavailable)
+        # 3. Prime price history buffer for regime pipelines (independent of orchestrator)
+        if history:
+            for bar in history:
+                self._price_history.append({
+                    "open": bar[0], "high": bar[1], "low": bar[2],
+                    "close": bar[3], "volume": bar[4],
+                })
+            if len(self._price_history) > _REGIME_MAX_HISTORY:
+                self._price_history = self._price_history[-_REGIME_MAX_HISTORY:]
+
+        # 3a. Initialize regime orchestrator (optional — graceful if unavailable)
         try:
             RegimeOrchestrator = _import_regime_orchestrator()
             self._regime_orchestrator = RegimeOrchestrator.create(self.asset, self.timeframe)
-            if history:
-                for bar in history:
-                    self._price_history.append({
-                        "open": bar[0], "high": bar[1], "low": bar[2],
-                        "close": bar[3], "volume": bar[4],
-                    })
             logger.info(f"Regime orchestrator initialized for {self.asset}:{self.timeframe} "
                         f"with {len(self._price_history)} primed bars")
         except Exception:
@@ -512,18 +528,17 @@ class SignalWorker(BaseStreamConsumer):
                     f"Indicators failed to re-prime after gap: {', '.join(unprimed)}"
                 )
 
-            # Also rebuild regime price history
-            if self._regime_orchestrator is not None:
-                self._price_history = [
-                    {
-                        "open": bar[0],
-                        "high": bar[1],
-                        "low": bar[2],
-                        "close": bar[3],
-                        "volume": bar[4],
-                    }
-                    for bar in history
-                ]
+            # Rebuild regime price history (independent of orchestrator availability)
+            self._price_history = [
+                {
+                    "open": bar[0],
+                    "high": bar[1],
+                    "low": bar[2],
+                    "close": bar[3],
+                    "volume": bar[4],
+                }
+                for bar in history
+            ]
             logger.info(
                 f"Re-primed {len(self.feature_manager.indicators)} indicators "
                 f"with {len(history)} bars after gap for {self.asset}:{self.timeframe}"

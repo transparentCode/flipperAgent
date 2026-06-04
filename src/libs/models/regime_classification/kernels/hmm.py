@@ -127,6 +127,7 @@ class HMMClassifier:
         all_proba[:, 1] = 0.5
         all_n_states = np.full(n, 2, dtype=int)
         all_crisis = np.zeros(n)
+        all_transition = np.full(n, 0.5)  # P(stay in current state)
 
         current_model = None
         current_trending_indices: list[int] = []
@@ -156,6 +157,9 @@ class HMMClassifier:
                             if current_crisis_indices
                             else 0.0
                         )
+                        self._fill_transition_probs(
+                            proba, current_model, all_transition, seg_start
+                        )
                     except Exception:
                         pass
                 continue
@@ -179,6 +183,9 @@ class HMMClassifier:
                         if current_crisis_indices
                         else 0.0
                     )
+                    self._fill_transition_probs(
+                        proba, model, all_transition, seg_start
+                    )
                 except Exception as exc:
                     logger.warning("HMM warm-up failed: %s", exc)
             else:
@@ -195,6 +202,9 @@ class HMMClassifier:
                             proba[:, current_crisis_indices].sum(axis=1)
                             if current_crisis_indices
                             else 0.0
+                        )
+                        self._fill_transition_probs(
+                            proba, current_model, all_transition, seg_start
                         )
                     except Exception as exc:
                         logger.warning("HMM OOS classify failed: %s", exc)
@@ -223,6 +233,8 @@ class HMMClassifier:
         result["hmm_n_states"] = np.concatenate([pad_ns, all_n_states])
         pad_crisis = np.full(feature_offset, 0.0)
         result["hmm_crisis_prob"] = np.concatenate([pad_crisis, all_crisis])
+        pad_trans = np.full(feature_offset, 0.5)
+        result["hmm_transition_prob"] = np.concatenate([pad_trans, all_transition])
 
         return result
 
@@ -246,6 +258,20 @@ class HMMClassifier:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _fill_transition_probs(
+        proba: np.ndarray,
+        model: GaussianHMM,
+        out: np.ndarray,
+        offset: int,
+    ) -> None:
+        """Write per-bar P(stay in current state) into *out* starting at *offset*."""
+        if not hasattr(model, "transmat_"):
+            return
+        for i in range(len(proba)):
+            state = int(np.argmax(proba[i]))
+            out[offset + i] = float(model.transmat_[state, state])
 
     def _get_proba(
         self, X: np.ndarray, model: GaussianHMM, use_robust: bool
@@ -316,7 +342,8 @@ class HMMClassifier:
                 else:
                     n_cov_params = n * d * (d + 1) // 2
                 k = n * (n - 1) + n * d + n_cov_params
-                log_likelihood = model.score(X) * len(X)
+                # hmmlearn score() returns total log-likelihood, not per-sample
+                log_likelihood = model.score(X)
                 bic = -2 * log_likelihood + k * np.log(len(X))
                 if bic < best_bic:
                     best_bic = bic

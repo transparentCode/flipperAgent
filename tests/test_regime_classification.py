@@ -122,8 +122,8 @@ class TestSingleBarEvaluate:
     def test_l2_features_nan_when_absent(self, model, feature_vector):
         result = model.evaluate(feature_vector)
         meta = result.metadata
-        assert math.isnan(meta["bid_ask_imbalance"])
-        assert math.isnan(meta["spread_bps"])
+        assert meta["bid_ask_imbalance"] is None
+        assert meta["spread_bps"] is None
 
     def test_l2_features_present_when_provided(self, model):
         fv = FeatureVector(
@@ -272,7 +272,7 @@ class TestContracts:
         d = r.to_dict()
         assert d["hmm_n_states"] == 2.0
         assert d["hurst"] == 0.5
-        assert math.isnan(d["bid_ask_imbalance"])
+        assert d["bid_ask_imbalance"] is None
 
     def test_regime_feature_output_with_hmm(self):
         r = RegimeFeatureOutput(

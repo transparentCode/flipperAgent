@@ -281,17 +281,24 @@ async def _fetch_l2_depth_snapshot(binance_adapter, symbol: str, depth_limit: in
         logger.warning(f"[{symbol}] Empty L2 snapshot, skipping.")
         return
 
-    features = compute_l2_features(bids, asks, top_n=min(5, len(bids)))
+    features = compute_l2_features(
+        bids, asks,
+        top_n=min(config_manager.get("ingestion.l2_depth.top_n_imbalance", 5), len(bids)),
+    )
+
+    # Preserve NaN as SQL NULL — don't mask bad data as plausible neutral values
+    def _finite_or_none(v: float):
+        return float(v) if np.isfinite(v) else None
 
     now = datetime.now(timezone.utc)
     record = L2DepthFeatureRecord(
         timestamp=now,
         symbol=symbol,
-        bid_ask_imbalance=features.bid_ask_imbalance if np.isfinite(features.bid_ask_imbalance) else 0.0,
-        depth_ratio=features.depth_ratio if np.isfinite(features.depth_ratio) else 1.0,
-        spread_bps=features.spread_bps if np.isfinite(features.spread_bps) else 0.0,
-        depth_decay_bid=features.depth_decay_bid if np.isfinite(features.depth_decay_bid) else 0.0,
-        depth_decay_ask=features.depth_decay_ask if np.isfinite(features.depth_decay_ask) else 0.0,
+        bid_ask_imbalance=_finite_or_none(features.bid_ask_imbalance),
+        depth_ratio=_finite_or_none(features.depth_ratio),
+        spread_bps=_finite_or_none(features.spread_bps),
+        depth_decay_bid=_finite_or_none(features.depth_decay_bid),
+        depth_decay_ask=_finite_or_none(features.depth_decay_ask),
         best_bid=float(bids[0, 0]),
         best_ask=float(asks[0, 0]),
         bid_depth_total=float(bids[:, 1].sum()),
@@ -330,12 +337,25 @@ async def poll_l2_depth(ctx: Dict[str, Any]) -> None:
     symbols = config_manager.get("ingestion.assets.target_list", ["BTCUSDT"])
     depth_limit = config_manager.get("ingestion.l2_depth.snapshot_levels", 20)
 
+    failures = 0
     for sym in symbols:
         try:
             await _fetch_l2_depth_snapshot(binance_adapter, sym, depth_limit)
         except Exception as e:
+            failures += 1
             logger.error(f"[{sym}] L2 depth poll failed: {e}", exc_info=True)
         # Small delay between assets to be respectful to rate limits
         await asyncio.sleep(0.2)
 
-    logger.info(f"poll_l2_depth completed for {len(symbols)} asset(s).")
+    succeeded = len(symbols) - failures
+    if failures > 0:
+        logger.warning(
+            f"poll_l2_depth: {failures}/{len(symbols)} asset(s) failed."
+        )
+    if succeeded == 0:
+        raise DataIngestionError(
+            f"poll_l2_depth: all {len(symbols)} asset(s) failed",
+            context={"symbols": symbols},
+        )
+
+    logger.info(f"poll_l2_depth completed: {succeeded}/{len(symbols)} asset(s) stored.")

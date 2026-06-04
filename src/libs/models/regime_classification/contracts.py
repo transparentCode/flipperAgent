@@ -102,12 +102,12 @@ class RegimeFeatureOutput:
         d["hilbert_period"] = self.hilbert_period
         d["hilbert_confidence"] = self.hilbert_confidence
 
-        # L2 orderbook
-        d["bid_ask_imbalance"] = self.bid_ask_imbalance
-        d["depth_ratio"] = self.depth_ratio
-        d["spread_bps"] = self.spread_bps
-        d["depth_decay_bid"] = self.depth_decay_bid
-        d["depth_decay_ask"] = self.depth_decay_ask
+        # L2 orderbook (None instead of NaN for JSON/Valkey safety)
+        d["bid_ask_imbalance"] = None if math.isnan(self.bid_ask_imbalance) else self.bid_ask_imbalance
+        d["depth_ratio"] = None if math.isnan(self.depth_ratio) else self.depth_ratio
+        d["spread_bps"] = None if math.isnan(self.spread_bps) else self.spread_bps
+        d["depth_decay_bid"] = None if math.isnan(self.depth_decay_bid) else self.depth_decay_bid
+        d["depth_decay_ask"] = None if math.isnan(self.depth_decay_ask) else self.depth_decay_ask
 
         # Composite
         d["condition_scale"] = self.condition_scale

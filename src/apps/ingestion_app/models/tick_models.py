@@ -1,4 +1,4 @@
-from typing import Literal, Any
+from typing import Literal, Any, Optional
 from pydantic import Field, AliasChoices, model_validator
 from .base_models import BaseDataModel
 
@@ -52,11 +52,11 @@ class OIRecord(BaseDataModel):
 class L2DepthFeatureRecord(BaseDataModel):
     """Pre-aggregated L2 orderbook features for a single snapshot."""
     symbol: str = Field(validation_alias=AliasChoices("symbol", "s", "sym"))
-    bid_ask_imbalance: float = Field(default=0.0)
-    depth_ratio: float = Field(default=1.0, gt=0)
-    spread_bps: float = Field(default=0.0, ge=0)
-    depth_decay_bid: float = Field(default=0.0)
-    depth_decay_ask: float = Field(default=0.0)
+    bid_ask_imbalance: Optional[float] = Field(default=None)
+    depth_ratio: Optional[float] = Field(default=None)
+    spread_bps: Optional[float] = Field(default=None)
+    depth_decay_bid: Optional[float] = Field(default=None)
+    depth_decay_ask: Optional[float] = Field(default=None)
     best_bid: float = Field(default=0.0, ge=0)
     best_ask: float = Field(default=0.0, ge=0)
     bid_depth_total: float = Field(default=0.0, ge=0)
