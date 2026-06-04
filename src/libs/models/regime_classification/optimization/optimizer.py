@@ -15,6 +15,7 @@ from typing import Any, Callable
 import optuna
 import pandas as pd
 
+from libs.contracts.schemas import ParamDef
 from libs.models.regime_classification.model import RegimeClassificationModel
 from libs.models.regime_classification.optimization.calibration import (
     calibrate_frozen_overrides,
@@ -41,7 +42,6 @@ from libs.models.regime_classification.optimization.constants import (
 from libs.models.regime_classification.optimization.quality import (
     compute_regime_quality,
 )
-from libs.models.registry import ModelRegistry
 from libs.optim_utils.objective import build_suggest
 from libs.optim_utils.walk_forward import WalkForwardSplit, WalkForwardSplitter
 
@@ -50,6 +50,42 @@ logger = logging.getLogger("app.optimization.regime_classification")
 MODEL_NAME = "RegimeClassification"
 
 QUALITY_BASED_GATING: bool = True
+OOS_GATE_RATIO: float = OOS_QUALITY_RATIO
+
+KERNEL_PARAM_SCHEMA: dict[str, ParamDef] = {
+    "retrain_window": ParamDef(
+        type="int",
+        default=500,
+        low=RETRAIN_WINDOW_LOW,
+        high=RETRAIN_WINDOW_HIGH,
+        step=RETRAIN_WINDOW_STEP,
+    ),
+    "vol_lookback": ParamDef(
+        type="int",
+        default=168,
+        low=VOL_LOOKBACK_LOW,
+        high=VOL_LOOKBACK_HIGH,
+        step=VOL_LOOKBACK_STEP,
+    ),
+    "trend_lookback": ParamDef(
+        type="int",
+        default=20,
+        low=TREND_LOOKBACK_LOW,
+        high=TREND_LOOKBACK_HIGH,
+        step=TREND_LOOKBACK_STEP,
+    ),
+}
+
+OPTIMIZATION_PARAM_SCHEMA: dict[str, ParamDef] = {
+    **RegimeClassificationModel.meta.hyperparameter_schema,
+    **KERNEL_PARAM_SCHEMA,
+}
+
+_KERNEL_KEY_MAP: dict[str, str] = {
+    "retrain_window": "hmm_retrain_window",
+    "vol_lookback": "vol_lookback",
+    "trend_lookback": "trend_lookback",
+}
 
 STUDY_DEFAULTS: dict[str, Any] = {
     "n_trials": MAIN_TRIALS,
@@ -57,6 +93,29 @@ STUDY_DEFAULTS: dict[str, Any] = {
     "pruner": STUDY_PRUNER,
     "direction": STUDY_DIRECTION,
 }
+
+
+def split_model_config(
+    params: dict[str, Any],
+    calibrated_overrides: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Split flat optimizer params into live ``params`` and ``frozen_overrides``."""
+    schema_keys = set(RegimeClassificationModel.meta.hyperparameter_schema.keys())
+    model_params = {k: v for k, v in params.items() if k in schema_keys}
+    frozen = dict(calibrated_overrides or {})
+    for trial_key, override_key in _KERNEL_KEY_MAP.items():
+        if trial_key in params:
+            frozen[override_key] = params[trial_key]
+    return model_params, frozen
+
+
+def format_deploy_params(params: dict[str, Any]) -> dict[str, Any]:
+    """Shape optimized params exactly like ``feature_producers`` YAML expects."""
+    model_params, frozen = split_model_config(params)
+    return {
+        "params": model_params,
+        "frozen_overrides": frozen,
+    }
 
 
 def make_objective(
@@ -91,52 +150,43 @@ def make_objective(
     )
     split = splitter.split(len(feature_df))
 
+    train_df = feature_df.iloc[split.train_start : split.train_end]
+    score_df = feature_df.iloc[split.train_start : split.val_end]
     val_df = feature_df.iloc[split.val_start : split.val_end]
-    val_input = val_df[["close", "volume"]].copy()
+    score_input = score_df[["close", "volume"]].copy()
 
     # Auto-calibrate if not provided
     if calibrated_overrides is None:
-        calibrated_overrides = calibrate_frozen_overrides(feature_df["close"])
+        calibrated_overrides = calibrate_frozen_overrides(
+            train_df["close"],
+            timeframe=timeframe,
+        )
 
-    model_cls = ModelRegistry.get(MODEL_NAME)
-    schema = model_cls.meta.hyperparameter_schema
+    schema = OPTIMIZATION_PARAM_SCHEMA
     base_overrides = dict(calibrated_overrides)
 
     def objective(trial: optuna.Trial) -> float:
-        # Suggest tunable params from hyperparameter_schema
+        # Suggest tunable params from the full optimization schema. Kernel
+        # params are split back into frozen_overrides before model creation.
         params: dict[str, Any] = {}
         for pname, pdef in schema.items():
             params[pname] = build_suggest(trial, pname, pdef)
 
-        # Suggest kernel params (not in hyperparameter_schema)
-        retrain_window = trial.suggest_int(
-            "retrain_window", RETRAIN_WINDOW_LOW, RETRAIN_WINDOW_HIGH, step=RETRAIN_WINDOW_STEP
-        )
-        vol_lookback = trial.suggest_int(
-            "vol_lookback", VOL_LOOKBACK_LOW, VOL_LOOKBACK_HIGH, step=VOL_LOOKBACK_STEP
-        )
-        trend_lookback = trial.suggest_int(
-            "trend_lookback", TREND_LOOKBACK_LOW, TREND_LOOKBACK_HIGH, step=TREND_LOOKBACK_STEP
-        )
-
-        # Build frozen_overrides merging calibrated + kernel trial params
-        frozen = dict(base_overrides)
-        frozen["hmm_retrain_window"] = retrain_window
-        frozen["vol_lookback"] = vol_lookback
-        frozen["trend_lookback"] = trend_lookback
+        model_params, frozen = split_model_config(params, base_overrides)
 
         # Enforce hilbert constraint
-        if params.get("hilbert_min_period", 10) >= params.get("hilbert_max_period", 40):
+        if model_params.get("hilbert_min_period", 10) >= model_params.get("hilbert_max_period", 40):
             return 0.0
 
         try:
             model = RegimeClassificationModel(
-                params=params,
+                params=model_params,
                 timeframe=timeframe,
                 frozen_overrides=frozen,
             )
-            regime_series = model.batch_evaluate(val_input)
-            regime_df = pd.DataFrame(regime_series.tolist(), index=val_input.index)
+            regime_series = model.batch_evaluate(score_input)
+            regime_df = pd.DataFrame(regime_series.tolist(), index=score_input.index)
+            regime_df = regime_df.loc[val_df.index]
             quality = compute_regime_quality(regime_df, val_df)
             return quality["composite_quality"]
         except Exception:
@@ -166,27 +216,17 @@ def evaluate_oos(
     are accepted for interface compatibility with TwoStageOptimizer but
     are unused — regime is scored on quality, not returns.
     """
-    # Auto-calibrate if not provided
+    train_df = feature_df.iloc[split.train_start : split.train_end]
+
+    # Auto-calibrate on train only; validation and OOS must not influence
+    # frozen asset/timeframe thresholds.
     if calibrated_overrides is None:
-        calibrated_overrides = calibrate_frozen_overrides(feature_df["close"])
+        calibrated_overrides = calibrate_frozen_overrides(
+            train_df["close"],
+            timeframe=timeframe,
+        )
 
-    # Separate schema params from kernel params
-    model_cls = ModelRegistry.get(MODEL_NAME)
-    schema_keys = set(model_cls.meta.hyperparameter_schema.keys())
-    schema_params = {k: v for k, v in params.items() if k in schema_keys}
-    kernel_params = {k: v for k, v in params.items() if k not in schema_keys}
-
-    # Build frozen overrides
-    frozen = dict(calibrated_overrides)
-    # Map kernel trial params to their frozen_overrides keys
-    kernel_key_map = {
-        "retrain_window": "hmm_retrain_window",
-        "vol_lookback": "vol_lookback",
-        "trend_lookback": "trend_lookback",
-    }
-    for trial_key, override_key in kernel_key_map.items():
-        if trial_key in kernel_params:
-            frozen[override_key] = kernel_params[trial_key]
+    schema_params, frozen = split_model_config(params, calibrated_overrides)
 
     segments = {
         "train": feature_df.iloc[split.train_start : split.train_end],
@@ -201,10 +241,13 @@ def evaluate_oos(
         frozen_overrides=frozen,
     )
 
+    full_df = feature_df.iloc[split.train_start : split.oos_end]
+    full_input = full_df[["close", "volume"]].copy()
+    regime_series = model.batch_evaluate(full_input)
+    regime_all = pd.DataFrame(regime_series.tolist(), index=full_input.index)
+
     for seg_name, seg_df in segments.items():
-        seg_input = seg_df[["close", "volume"]].copy()
-        regime_series = model.batch_evaluate(seg_input)
-        regime_df = pd.DataFrame(regime_series.tolist(), index=seg_input.index)
+        regime_df = regime_all.loc[seg_df.index]
         quality = compute_regime_quality(regime_df, seg_df)
         results[seg_name] = quality
 

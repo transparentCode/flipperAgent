@@ -21,6 +21,7 @@ from libs.models.regime_classification.optimization.constants import (
     CALIBRATION_VOL_LOOKBACK,
     CALIBRATION_VOL_QUANTILE,
 )
+from libs.models.regime_classification.config import scale_bars_for_timeframe
 
 logger = logging.getLogger("app.optimization.regime_calibration")
 
@@ -115,12 +116,23 @@ def calibrate_crisis_vol_mult(
     return clamped
 
 
-def calibrate_frozen_overrides(close: pd.Series) -> dict[str, float]:
+def calibrate_frozen_overrides(
+    close: pd.Series,
+    timeframe: str = "1h",
+) -> dict[str, float]:
     """Run all calibrations and return a frozen_overrides dict.
 
     This dict can be passed directly to RegimeClassificationModel(frozen_overrides=...).
     """
+    vol_lookback = scale_bars_for_timeframe(
+        CALIBRATION_VOL_LOOKBACK,
+        timeframe,
+        floor=30,
+    )
     return {
         "bcpd_hazard_lambda": calibrate_hazard_lambda(close),
-        "hmm_crisis_vol_mult": calibrate_crisis_vol_mult(close),
+        "hmm_crisis_vol_mult": calibrate_crisis_vol_mult(
+            close,
+            vol_lookback=vol_lookback,
+        ),
     }

@@ -153,7 +153,11 @@ class TwoStageOptimizer:
 
         mod = _resolve_optimizer_module(model_name)
         model_cls = ModelRegistry.get(model_name)
-        schema = model_cls.meta.hyperparameter_schema
+        schema = getattr(
+            mod,
+            "OPTIMIZATION_PARAM_SCHEMA",
+            model_cls.meta.hyperparameter_schema,
+        )
         default_params = {k: v.default for k, v in schema.items()}
         study_defaults = getattr(mod, "STUDY_DEFAULTS", {})
         is_multi = (
@@ -257,7 +261,11 @@ class TwoStageOptimizer:
         # Route to appropriate OOS gate
         quality_gating = getattr(mod, "QUALITY_BASED_GATING", False)
         if quality_gating:
-            deployed, rejection_reason = self._apply_quality_oos_gate(oos_results)
+            quality_ratio = getattr(mod, "OOS_GATE_RATIO", self.oos_sharpe_ratio)
+            deployed, rejection_reason = self._apply_quality_oos_gate(
+                oos_results,
+                quality_ratio=quality_ratio,
+            )
         else:
             deployed, rejection_reason = self._apply_oos_gate(oos_results)
 
@@ -272,6 +280,11 @@ class TwoStageOptimizer:
                 f"— falling back to defaults"
             )
             final_params = default_params
+
+        deploy_formatter = getattr(mod, "format_deploy_params", None)
+        if deploy_formatter is not None:
+            final_params = deploy_formatter(final_params)
+            default_params = deploy_formatter(default_params)
 
         # Remove internal degradation_warning key from oos_metrics
         oos_metrics = {
@@ -448,11 +461,16 @@ class TwoStageOptimizer:
         return True, None
 
     def _apply_quality_oos_gate(
-        self, oos_results: dict[str, Any]
+        self,
+        oos_results: dict[str, Any],
+        quality_ratio: float | None = None,
     ) -> tuple[bool, str | None]:
         """Apply quality-based OOS gating for feature-producer models."""
         val_quality = oos_results.get("validate", {}).get("composite_quality", 0.0)
         oos_quality = oos_results.get("oos", {}).get("composite_quality", 0.0)
+        threshold_ratio = (
+            self.oos_sharpe_ratio if quality_ratio is None else quality_ratio
+        )
 
         # Rule 1: OOS quality near zero → REJECT
         if oos_quality <= 0.01:
@@ -462,10 +480,10 @@ class TwoStageOptimizer:
             )
 
         # Rule 2: OOS quality < threshold fraction of validate → REJECT
-        if val_quality > 0 and oos_quality < self.oos_sharpe_ratio * val_quality:
+        if val_quality > 0 and oos_quality < threshold_ratio * val_quality:
             return False, (
                 f"OOS quality ({oos_quality:.4f}) < "
-                f"{self.oos_sharpe_ratio:.0%} of validate quality "
+                f"{threshold_ratio:.0%} of validate quality "
                 f"({val_quality:.4f}) — excessive degradation"
             )
 

@@ -40,6 +40,8 @@ _REGIME_MIN_BARS = 200
 _REGIME_MAX_HISTORY = 2000
 # Re-run full batch_evaluate every N new bars (avoid per-bar HMM refit)
 _REGIME_REEVAL_INTERVAL = 10
+
+
 def _import_regime_orchestrator():
     """Lazily import RegimeOrchestrator."""
     from libs.regime.orchestrator import RegimeOrchestrator
@@ -166,7 +168,7 @@ class SignalWorker(BaseStreamConsumer):
             )
 
     def _resolve_feature_producer_config(self, producer_name: str) -> dict[str, Any] | None:
-        """Resolve feature_producer config with 4-level fallback chain."""
+        """Resolve feature_producer config with deep-merged fallback chain."""
         fp_config = self._config.get("feature_producers", {})
         assets_config = fp_config.get("assets", {})
 
@@ -178,11 +180,28 @@ class SignalWorker(BaseStreamConsumer):
         default_tf_node = default_asset_node.get("timeframes", {}).get(self.timeframe, {})
         default_default_tf = default_asset_node.get("timeframes", {}).get("default", {})
 
-        # Priority: asset/tf → asset/default → default/tf → default/default
-        for node in (tf_node, asset_default_tf, default_tf_node, default_default_tf):
+        def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+            merged = dict(base)
+            for key, value in override.items():
+                if (
+                    key in merged
+                    and isinstance(merged[key], dict)
+                    and isinstance(value, dict)
+                ):
+                    merged[key] = _deep_merge(merged[key], value)
+                else:
+                    merged[key] = value
+            return merged
+
+        # Merge from lowest to highest priority:
+        # default/default → default/tf → asset/default → asset/tf.
+        merged: dict[str, Any] = {}
+        found = False
+        for node in (default_default_tf, default_tf_node, asset_default_tf, tf_node):
             if producer_name in node:
-                return node[producer_name]
-        return None
+                merged = _deep_merge(merged, node[producer_name])
+                found = True
+        return merged if found else None
 
     async def _maybe_attach_regime_classification(
         self,
@@ -232,7 +251,12 @@ class SignalWorker(BaseStreamConsumer):
             if l2:
                 last_features.update(l2)
         except Exception:
-            pass  # L2 features are optional
+            logger.debug(
+                "Optional L2 regime features unavailable for %s:%s",
+                self.asset,
+                self.timeframe,
+                exc_info=True,
+            )
 
         results["regime_classification"] = last_features
 
@@ -551,7 +575,7 @@ class SignalWorker(BaseStreamConsumer):
 
     async def _reprime_after_gap(self) -> None:
         """Re-prime indicators by fetching fresh historical data from DB after a gap."""
-        max_lookback = 1
+        max_lookback = _REGIME_MIN_BARS
         for ind in self.feature_manager.indicators:
             max_lookback = max(max_lookback, ind.lookback_required)
         try:

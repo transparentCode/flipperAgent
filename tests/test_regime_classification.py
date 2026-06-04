@@ -27,11 +27,18 @@ from libs.models.regime_classification.contracts import (
     HMMStateLocal,
     VolStateLocal,
 )
+from libs.models.regime_classification.config import timeframe_scaled_config
 from libs.models.regime_classification.l2_features import (
     L2Features,
     compute_l2_features,
 )
 from libs.models.regime_classification.model import RegimeClassificationModel
+from libs.models.regime_classification.optimization import optimizer as regime_optimizer
+from libs.models.regime_classification.optimization.optimizer import (
+    format_deploy_params,
+    split_model_config,
+)
+from libs.optim_utils.walk_forward import WalkForwardSplit
 
 
 # ------------------------------------------------------------------
@@ -90,6 +97,117 @@ class TestInstantiation:
     def test_meta_required_fields(self, model):
         assert "close" in model.meta.required_fields
         assert model.meta.required_indicators == []
+
+    def test_daily_hmm_retrain_window_covers_min_train_bars(self):
+        cfg = timeframe_scaled_config("1d")
+        assert cfg.hmm.retrain_window >= cfg.hmm.min_train_bars
+
+
+class TestOptimizationParamContract:
+    def test_split_model_config_routes_kernel_params_to_frozen_overrides(self):
+        params = {
+            "bcpd_hazard_lambda": 180.0,
+            "hurst_lookback": 80,
+            "hmm_student_df": 7.0,
+            "hilbert_min_period": 8,
+            "hilbert_max_period": 45,
+            "retrain_window": 400,
+            "vol_lookback": 120,
+            "trend_lookback": 25,
+        }
+        model_params, frozen = split_model_config(
+            params,
+            calibrated_overrides={"hmm_crisis_vol_mult": 2.4},
+        )
+
+        assert "retrain_window" not in model_params
+        assert model_params["hmm_student_df"] == 7.0
+        assert frozen["hmm_retrain_window"] == 400
+        assert frozen["vol_lookback"] == 120
+        assert frozen["trend_lookback"] == 25
+        assert frozen["hmm_crisis_vol_mult"] == 2.4
+
+    def test_format_deploy_params_matches_feature_producer_yaml_shape(self):
+        deploy = format_deploy_params(
+            {
+                "bcpd_hazard_lambda": 180.0,
+                "hurst_lookback": 80,
+                "hmm_student_df": 7.0,
+                "hilbert_min_period": 8,
+                "hilbert_max_period": 45,
+                "retrain_window": 400,
+            }
+        )
+
+        assert set(deploy) == {"params", "frozen_overrides"}
+        assert deploy["params"]["bcpd_hazard_lambda"] == 180.0
+        assert deploy["frozen_overrides"]["hmm_retrain_window"] == 400
+
+    def test_evaluate_oos_calibrates_from_train_slice_only(
+        self,
+        monkeypatch,
+        sample_df,
+    ):
+        calls: list[tuple[int, str]] = []
+
+        def fake_calibrate(close, timeframe="1h"):
+            calls.append((len(close), timeframe))
+            return {"hmm_crisis_vol_mult": 2.0}
+
+        class FakeRegimeClassificationModel:
+            meta = RegimeClassificationModel.meta
+
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+            def batch_evaluate(self, feature_df):
+                rows = [
+                    {
+                        "hmm_p_state_0": 0.6,
+                        "hmm_p_state_1": 0.4,
+                        "hurst": 0.5,
+                        "vol_percentile": 50.0,
+                    }
+                    for _ in range(len(feature_df))
+                ]
+                return pd.Series(rows, index=feature_df.index)
+
+        def fake_quality(regime_df, price_df):
+            return {"composite_quality": len(price_df) / 1000.0}
+
+        monkeypatch.setattr(regime_optimizer, "calibrate_frozen_overrides", fake_calibrate)
+        monkeypatch.setattr(
+            regime_optimizer,
+            "RegimeClassificationModel",
+            FakeRegimeClassificationModel,
+        )
+        monkeypatch.setattr(regime_optimizer, "compute_regime_quality", fake_quality)
+
+        split = WalkForwardSplit(
+            train_start=0,
+            train_end=300,
+            val_start=324,
+            val_end=424,
+            oos_start=448,
+            oos_end=500,
+        )
+        results = regime_optimizer.evaluate_oos(
+            feature_df=sample_df,
+            params={
+                "bcpd_hazard_lambda": 150.0,
+                "hurst_lookback": 100,
+                "hmm_student_df": 5.0,
+                "hilbert_min_period": 10,
+                "hilbert_max_period": 40,
+                "retrain_window": 300,
+            },
+            split=split,
+            timeframe="30m",
+        )
+
+        assert calls == [(300, "30m")]
+        assert results["validate"]["composite_quality"] == 0.1
+        assert results["oos"]["composite_quality"] == 0.052
 
 
 # ------------------------------------------------------------------

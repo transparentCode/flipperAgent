@@ -160,6 +160,54 @@ class TestBlenderSimpleNamespaceBridge:
 
 
 class TestSignalWorkerRegimeIntegration:
+    @patch("apps.signal_app.signal_worker.FeatureManager")
+    def test_feature_producer_config_deep_merges_fallbacks(self, MockFM) -> None:
+        from apps.signal_app.signal_worker import SignalWorker
+
+        MockFM.return_value.indicators = []
+        worker = SignalWorker("BTCUSDT", "30m")
+        worker._config = {
+            "feature_producers": {
+                "assets": {
+                    "default": {
+                        "timeframes": {
+                            "default": {
+                                "RegimeClassification": {
+                                    "enabled": False,
+                                    "params": {
+                                        "bcpd_hazard_lambda": 150.0,
+                                        "hurst_lookback": 100,
+                                    },
+                                    "frozen_overrides": {
+                                        "hmm_crisis_vol_mult": 2.0,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    "BTCUSDT": {
+                        "timeframes": {
+                            "30m": {
+                                "RegimeClassification": {
+                                    "enabled": True,
+                                    "params": {
+                                        "hurst_lookback": 80,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        }
+
+        resolved = worker._resolve_feature_producer_config("RegimeClassification")
+
+        assert resolved["enabled"] is True
+        assert resolved["params"]["bcpd_hazard_lambda"] == 150.0
+        assert resolved["params"]["hurst_lookback"] == 80
+        assert resolved["frozen_overrides"]["hmm_crisis_vol_mult"] == 2.0
+
     @pytest.mark.asyncio
     @patch("apps.signal_app.signal_worker.FeatureManager")
     async def test_regime_snapshot_injected_when_history_sufficient(self, MockFM) -> None:

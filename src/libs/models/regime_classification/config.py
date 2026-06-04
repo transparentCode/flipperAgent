@@ -90,6 +90,21 @@ _BARS_PER_HOUR: dict[str, float] = {
 }
 
 
+def scale_bars_for_timeframe(
+    base_1h: int,
+    timeframe: str = "1h",
+    *,
+    floor: int = 1,
+    overrides: dict[str, Any] | None = None,
+    key: str | None = None,
+) -> int:
+    """Scale a 1h bar-count window to an equivalent clock-time window."""
+    if overrides is not None and key is not None and key in overrides:
+        return int(overrides[key])
+    ratio = _BARS_PER_HOUR.get(timeframe, 1.0)
+    return max(int(base_1h * ratio), floor)
+
+
 def timeframe_scaled_config(
     timeframe: str = "1h",
     frozen_overrides: dict[str, Any] | None = None,
@@ -105,12 +120,22 @@ def timeframe_scaled_config(
     overrides = frozen_overrides or {}
 
     def _scaled(base_1h: int, key: str, floor: int = 20) -> int:
-        if key in overrides:
-            return int(overrides[key])
-        return max(int(base_1h * ratio), floor)
+        return scale_bars_for_timeframe(
+            base_1h,
+            timeframe,
+            floor=floor,
+            overrides=overrides,
+            key=key,
+        )
 
     def _raw(default, key: str):
         return overrides.get(key, default)
+
+    hmm_min_train_bars = _scaled(200, "hmm_min_train_bars", floor=30)
+    hmm_retrain_window = max(
+        _scaled(500, "hmm_retrain_window", floor=hmm_min_train_bars),
+        hmm_min_train_bars,
+    )
 
     return RegimeClassificationConfig(
         bcpd=BCPDConfig(
@@ -119,8 +144,8 @@ def timeframe_scaled_config(
             truncation=_scaled(500, "bcpd_truncation"),
         ),
         hmm=HMMConfig(
-            retrain_window=_scaled(500, "hmm_retrain_window"),
-            min_train_bars=_scaled(200, "hmm_min_train_bars", floor=30),
+            retrain_window=hmm_retrain_window,
+            min_train_bars=hmm_min_train_bars,
             log_vol_lookback=_scaled(24, "hmm_log_vol_lookback", floor=6),
             hurst_lookback=_raw(100, "hurst_lookback"),
             hmm_student_df=_raw(5.0, "hmm_student_df"),

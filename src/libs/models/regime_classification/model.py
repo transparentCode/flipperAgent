@@ -97,14 +97,14 @@ class RegimeClassificationModel(BaseModel):
                 retrain_window=self._cfg.hmm.retrain_window,
                 min_train_bars=self._cfg.hmm.min_train_bars,
                 log_vol_lookback=self._cfg.hmm.log_vol_lookback,
-                hurst_lookback=self.params["hurst_lookback"],
+                hurst_lookback=self._cfg.hmm.hurst_lookback,
                 use_hurst=self._cfg.hmm.use_hurst,
                 use_volume=self._cfg.hmm.use_volume,
                 hmm_n_states=self._cfg.hmm.hmm_n_states,
                 hmm_max_states=self._cfg.hmm.hmm_max_states,
                 hmm_covariance_type=self._cfg.hmm.hmm_covariance_type,
                 hmm_robust_scoring=self._cfg.hmm.hmm_robust_scoring,
-                hmm_student_df=self.params["hmm_student_df"],
+                hmm_student_df=self._cfg.hmm.hmm_student_df,
                 hmm_crisis_vol_mult=self._cfg.hmm.hmm_crisis_vol_mult,
             )
         )
@@ -185,8 +185,6 @@ class RegimeClassificationModel(BaseModel):
         """
         n = len(feature_df)
         close = feature_df["close"].values.astype(float)
-        has_volume = "volume" in feature_df.columns
-
         # ----- 1. BCPD -----
         returns = np.diff(np.log(close + 1e-10))
         cp_probs = np.zeros(n)
@@ -211,8 +209,8 @@ class RegimeClassificationModel(BaseModel):
         # ----- 2. Hurst -----
         hurst_arr = rolling_hurst(
             close,
-            lookback=self.params["hurst_lookback"],
-            min_periods=min(50, self.params["hurst_lookback"] // 2),
+            lookback=self._cfg.hmm.hurst_lookback,
+            min_periods=min(50, self._cfg.hmm.hurst_lookback // 2),
         )
 
         # ----- 3. Hilbert -----
