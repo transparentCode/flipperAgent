@@ -142,6 +142,138 @@ def run_alpha_ladder(
     }
 
 
+def run_rolling_alpha_ladder(
+    price_df: pd.DataFrame,
+    *,
+    asset: str = "",
+    timeframe: str = "1h",
+    params: dict[str, Any] | None = None,
+    frozen_overrides: dict[str, Any] | None = None,
+    regime_df: pd.DataFrame | None = None,
+    settings: dict[str, Any] | None = None,
+    fold_bars: int | None = None,
+    step_bars: int | None = None,
+) -> dict[str, Any]:
+    """Run repeated chronological alpha-ladder folds over one price frame."""
+    cfg = settings or load_regime_optimization_settings()
+    rolling_cfg = cfg.get("rolling_alpha_ladder", {})
+    frame = _clean_price_frame(price_df)
+    fold_size = int(fold_bars or rolling_cfg.get("fold_bars", 2160))
+    step_size = int(step_bars or rolling_cfg.get("step_bars", 720))
+    min_folds = int(rolling_cfg.get("min_folds", 2))
+
+    if len(frame) < fold_size:
+        return {
+            "asset": asset,
+            "timeframe": timeframe,
+            "status": "insufficient_data",
+            "bars": int(len(frame)),
+            "fold_bars": fold_size,
+        }
+
+    regime = (
+        regime_df.copy()
+        if regime_df is not None
+        else build_regime_feature_frame(
+            frame,
+            timeframe=timeframe,
+            params=params,
+            frozen_overrides=frozen_overrides,
+        )
+    )
+    regime = regime.reindex(frame.index)
+
+    folds: list[dict[str, Any]] = []
+    fold_idx = 0
+    for start in range(0, len(frame) - fold_size + 1, step_size):
+        end = start + fold_size
+        fold_frame = frame.iloc[start:end]
+        fold_report = run_alpha_ladder(
+            fold_frame,
+            asset=asset,
+            timeframe=timeframe,
+            params=params,
+            frozen_overrides=frozen_overrides,
+            regime_df=regime.loc[fold_frame.index],
+            settings=cfg,
+        )
+        fold_report["fold_index"] = fold_idx
+        fold_report["fold_start"] = _index_value(fold_frame, 0)
+        fold_report["fold_end"] = _index_value(fold_frame, -1)
+        folds.append(fold_report)
+        fold_idx += 1
+
+    if len(folds) < min_folds:
+        return {
+            "asset": asset,
+            "timeframe": timeframe,
+            "status": "insufficient_folds",
+            "bars": int(len(frame)),
+            "fold_bars": fold_size,
+            "step_bars": step_size,
+            "folds": folds,
+        }
+
+    summary = summarize_rolling_alpha_ladder(folds, settings=cfg)
+    return {
+        "asset": asset,
+        "timeframe": timeframe,
+        "status": "ok",
+        "bars": int(len(frame)),
+        "fold_bars": fold_size,
+        "step_bars": step_size,
+        "folds": folds,
+        "summary": summary,
+        "panel_decision": summary["decision"],
+    }
+
+
+def summarize_rolling_alpha_ladder(
+    folds: list[dict[str, Any]],
+    *,
+    settings: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Aggregate fold-level alpha-ladder outcomes into one decision."""
+    cfg = settings or load_regime_optimization_settings()
+    rolling_cfg = cfg.get("rolling_alpha_ladder", {})
+    usable = [fold for fold in folds if fold.get("status") == "ok"]
+    promoted = [
+        fold
+        for fold in usable
+        if fold.get("panel_decision") == "promote_to_downstream_research"
+    ]
+    best_rows = [_best_fold_row(fold) for fold in usable]
+    pass_rate = len(promoted) / len(usable) if usable else 0.0
+    min_pass_rate = float(rolling_cfg.get("min_pass_rate", 0.60))
+    min_promoted_folds = int(rolling_cfg.get("min_promoted_folds", 2))
+    median_oos_sharpe = _median_metric(best_rows, "oos_sharpe")
+    median_oos_return = _median_metric(best_rows, "oos_total_return")
+    median_sharpe_lift = _median_metric(best_rows, "sharpe_vs_baseline")
+
+    decision = "reject"
+    if (
+        len(promoted) >= min_promoted_folds
+        and pass_rate >= min_pass_rate
+        and median_oos_sharpe >= float(rolling_cfg.get("min_median_oos_sharpe", 0.0))
+        and median_oos_return >= float(rolling_cfg.get("min_median_oos_return", 0.0))
+        and median_sharpe_lift >= float(rolling_cfg.get("min_median_sharpe_lift", 0.10))
+    ):
+        decision = "promote_to_downstream_research"
+
+    return {
+        "usable_folds": len(usable),
+        "total_folds": len(folds),
+        "promoted_folds": len(promoted),
+        "rejected_folds": len(usable) - len(promoted),
+        "pass_rate": pass_rate,
+        "median_oos_sharpe": median_oos_sharpe,
+        "median_oos_total_return": median_oos_return,
+        "median_sharpe_lift": median_sharpe_lift,
+        "decision": decision,
+        "best_rows": best_rows,
+    }
+
+
 def optimize_overlay_policy(
     base_positions: np.ndarray,
     frame: pd.DataFrame,
@@ -380,6 +512,47 @@ def _drawdown_penalty(
     if metrics["max_drawdown"] < baseline["max_drawdown"]:
         return abs(metrics["max_drawdown"] - baseline["max_drawdown"])
     return 0.0
+
+
+def _best_fold_row(fold: dict[str, Any]) -> dict[str, Any]:
+    rows: list[dict[str, Any]] = []
+    for strategy_name, payload in fold.get("strategies", {}).items():
+        ranking = payload.get("ranking") or []
+        if not ranking:
+            continue
+        row = dict(ranking[0])
+        row["strategy"] = strategy_name
+        row["fold_index"] = fold.get("fold_index")
+        rows.append(row)
+    if not rows:
+        return {
+            "fold_index": fold.get("fold_index"),
+            "strategy": "",
+            "decision": "reject",
+            "oos_sharpe": 0.0,
+            "oos_calmar": 0.0,
+            "oos_total_return": 0.0,
+            "sharpe_vs_baseline": 0.0,
+            "calmar_vs_baseline": 0.0,
+            "total_return_vs_baseline": 0.0,
+            "sharpe_vs_shuffled": 0.0,
+        }
+    return sorted(
+        rows,
+        key=lambda row: (
+            row["decision"] == "promote_to_downstream_research",
+            row["oos_sharpe"],
+            row["oos_total_return"],
+        ),
+        reverse=True,
+    )[0]
+
+
+def _median_metric(rows: list[dict[str, Any]], key: str) -> float:
+    values = [float(row.get(key, 0.0)) for row in rows]
+    if not values:
+        return 0.0
+    return float(np.median(values))
 
 
 def _shuffle_regime(regime_df: pd.DataFrame, cfg: dict[str, Any]) -> pd.DataFrame:

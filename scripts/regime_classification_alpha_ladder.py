@@ -17,7 +17,10 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from libs.models.regime_classification.optimization.alpha_ladder import run_alpha_ladder
+from libs.models.regime_classification.optimization.alpha_ladder import (
+    run_alpha_ladder,
+    run_rolling_alpha_ladder,
+)
 from libs.models.regime_classification.optimization.settings import (
     load_regime_optimization_settings,
 )
@@ -39,6 +42,9 @@ def main() -> None:
     parser.add_argument("--alpha-trials", type=int, default=None)
     parser.add_argument("--regime-screening-trials", type=int, default=0)
     parser.add_argument("--regime-main-trials", type=int, default=0)
+    parser.add_argument("--rolling", action="store_true")
+    parser.add_argument("--fold-bars", type=int, default=None)
+    parser.add_argument("--step-bars", type=int, default=None)
     parser.add_argument("--show-hmm-warnings", action="store_true")
     args = parser.parse_args()
 
@@ -97,14 +103,26 @@ def _run_one(
         params = regime_result.best_params.get("params", {})
         frozen_overrides = regime_result.best_params.get("frozen_overrides", {})
 
-    report = run_alpha_ladder(
-        frame,
-        asset=asset,
-        timeframe=timeframe,
-        params=params,
-        frozen_overrides=frozen_overrides,
-        settings=settings,
-    )
+    if args.rolling:
+        report = run_rolling_alpha_ladder(
+            frame,
+            asset=asset,
+            timeframe=timeframe,
+            params=params,
+            frozen_overrides=frozen_overrides,
+            settings=settings,
+            fold_bars=args.fold_bars,
+            step_bars=args.step_bars,
+        )
+    else:
+        report = run_alpha_ladder(
+            frame,
+            asset=asset,
+            timeframe=timeframe,
+            params=params,
+            frozen_overrides=frozen_overrides,
+            settings=settings,
+        )
     if regime_result is not None:
         report["regime_optimizer"] = regime_result.model_dump()
     return report
@@ -152,7 +170,10 @@ def _summarize(reports: list[dict[str, Any]]) -> dict[str, Any]:
     usable = [row for row in reports if row.get("status") == "ok"]
     decisions: dict[str, int] = {}
     for row in usable:
-        decision = row.get("panel_decision", "reject")
+        decision = row.get("panel_decision") or row.get("summary", {}).get(
+            "decision",
+            "reject",
+        )
         decisions[decision] = decisions.get(decision, 0) + 1
     return {
         "usable_slices": len(usable),

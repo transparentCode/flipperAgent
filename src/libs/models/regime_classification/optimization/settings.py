@@ -116,6 +116,16 @@ DEFAULT_REGIME_OPTIMIZATION_SETTINGS: dict[str, Any] = {
         "min_position_scale_low": 0.0,
         "min_position_scale_high": 0.50,
     },
+    "rolling_alpha_ladder": {
+        "fold_bars": 2160,
+        "step_bars": 720,
+        "min_folds": 2,
+        "min_pass_rate": 0.60,
+        "min_promoted_folds": 2,
+        "min_median_oos_sharpe": 0.0,
+        "min_median_oos_return": 0.0,
+        "min_median_sharpe_lift": 0.10,
+    },
 }
 
 

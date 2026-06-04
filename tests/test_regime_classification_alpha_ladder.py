@@ -7,6 +7,7 @@ import pandas as pd
 
 from libs.models.regime_classification.optimization.alpha_ladder import (
     run_alpha_ladder,
+    run_rolling_alpha_ladder,
 )
 from libs.models.regime_classification.optimization.settings import (
     load_regime_optimization_settings,
@@ -82,3 +83,36 @@ def test_alpha_ladder_rejects_insufficient_data():
 
     assert report["status"] == "insufficient_data"
     assert report["bars"] == 100
+
+
+def test_rolling_alpha_ladder_returns_fold_summary():
+    report = run_rolling_alpha_ladder(
+        _price_frame(900),
+        asset="BTCUSDT",
+        timeframe="1h",
+        regime_df=_regime_frame(900),
+        settings=_settings(n_trials=4),
+        fold_bars=500,
+        step_bars=200,
+    )
+
+    assert report["status"] == "ok"
+    assert report["summary"]["total_folds"] == 3
+    assert report["summary"]["usable_folds"] == 3
+    assert report["panel_decision"] in {"promote_to_downstream_research", "reject"}
+    assert "best_rows" in report["summary"]
+
+
+def test_rolling_alpha_ladder_rejects_insufficient_data():
+    report = run_rolling_alpha_ladder(
+        _price_frame(300),
+        asset="BTCUSDT",
+        timeframe="1h",
+        regime_df=_regime_frame(300),
+        settings=_settings(n_trials=4),
+        fold_bars=500,
+        step_bars=100,
+    )
+
+    assert report["status"] == "insufficient_data"
+    assert report["bars"] == 300
