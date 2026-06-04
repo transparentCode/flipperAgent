@@ -1,0 +1,267 @@
+{
+  "reports": [
+    {
+      "path": "research/regime_classification_alpha_ladder_bnbusdt_30m_rolling_90d.json",
+      "asset": "BNBUSDT",
+      "timeframe": "30m",
+      "folds": 4,
+      "policy_stability": {
+        "best_policy_kind_counts": {
+          "confidence_scaled": 1,
+          "combined": 1,
+          "risk_filtered": 2
+        },
+        "best_strategy_counts": {
+          "buy_and_hold": 1,
+          "sma_cross": 2,
+          "ema_cross": 1
+        },
+        "policy_kind_churn_rate": 0.6666666666666666,
+        "strategy_churn_rate": 0.6666666666666666,
+        "numeric_policy_summary": {
+          "max_vol_percentile": {
+            "median": 68.73819056786569,
+            "iqr": 9.360987926770548,
+            "min": 64.56018909551301,
+            "max": 89.4964788547053
+          },
+          "max_changepoint_prob": {
+            "median": 0.5488632408889058,
+            "iqr": 0.517454207674014,
+            "min": 0.23161358031461698,
+            "max": 0.8443279343095064
+          },
+          "max_crisis_prob": {
+            "median": 0.5342143835217994,
+            "iqr": 0.03168644224488881,
+            "min": 0.4455490098488728,
+            "max": 0.5426765952984314
+          },
+          "min_trend_strength": {
+            "median": 0.5110077013858269,
+            "iqr": 0.1909110517855247,
+            "min": 0.30226104088767636,
+            "max": 0.7846321946750413
+          },
+          "min_confidence": {
+            "median": 0.5669561071408553,
+            "iqr": 0.3406931514892893,
+            "min": 0.34910305394127006,
+            "max": 0.910916494291874
+          },
+          "trend_power": {
+            "median": 2.1272215108665886,
+            "iqr": 0.48383253889404965,
+            "min": 1.886365089395411,
+            "max": 2.7518569217630464
+          },
+          "min_position_scale": {
+            "median": 0.2238438968697466,
+            "iqr": 0.1132233932076438,
+            "min": 0.08970143283889341,
+            "max": 0.4198135588384271
+          }
+        }
+      },
+      "failure_counts": {
+        "return_lift_low": 2,
+        "avg_position_low": 2
+      },
+      "shuffled_best_rows": {
+        "rows": 4,
+        "real_beats_shuffled_rate": 1.0,
+        "shuffled_positive_sharpe_rate": 0.0,
+        "median_real_oos_sharpe": 4.141489622431247,
+        "median_shuffled_oos_sharpe": -8.93335456415791,
+        "median_sharpe_vs_shuffled": 13.526038672320952,
+        "median_calmar_vs_shuffled": 3.65876343864975
+      },
+      "validation_oos_decay": {
+        "all_rows_validation_oos_corr": -0.1226772464255608,
+        "best_rows_validation_oos_corr": 0.5132337015469114,
+        "median_validation_score_best_rows": 10.791720207786753,
+        "median_oos_sharpe_best_rows": 4.141489622431247,
+        "median_oos_return_best_rows": 0.02068639613397316
+      }
+    },
+    {
+      "path": "research/regime_classification_alpha_ladder_bnbusdt_30m_rolling_180d.json",
+      "asset": "BNBUSDT",
+      "timeframe": "30m",
+      "folds": 10,
+      "policy_stability": {
+        "best_policy_kind_counts": {
+          "confidence_scaled": 2,
+          "combined": 2,
+          "risk_filtered": 2,
+          "trend_scaled": 2,
+          "soft_scaled": 2
+        },
+        "best_strategy_counts": {
+          "sma_cross": 3,
+          "buy_and_hold": 3,
+          "ema_cross": 4
+        },
+        "policy_kind_churn_rate": 0.7777777777777778,
+        "strategy_churn_rate": 0.8888888888888888,
+        "numeric_policy_summary": {
+          "max_vol_percentile": {
+            "median": 63.888983055254215,
+            "iqr": 8.623356030804487,
+            "min": 55.1728905450651,
+            "max": 78.54431160509849
+          },
+          "max_changepoint_prob": {
+            "median": 0.4786921429823351,
+            "iqr": 0.38574638339445433,
+            "min": 0.15333723466841398,
+            "max": 0.8656061741399724
+          },
+          "max_crisis_prob": {
+            "median": 0.2778479096181122,
+            "iqr": 0.28898591379315464,
+            "min": 0.18245665768830144,
+            "max": 0.8394918446696369
+          },
+          "min_trend_strength": {
+            "median": 0.2382194981990134,
+            "iqr": 0.43713223967490245,
+            "min": 0.01813429596022373,
+            "max": 0.6768761234249014
+          },
+          "min_confidence": {
+            "median": 0.856388476054483,
+            "iqr": 0.20723029924491532,
+            "min": 0.03659056699329254,
+            "max": 0.9467341035457515
+          },
+          "trend_power": {
+            "median": 1.7484321039818245,
+            "iqr": 0.4934848821405742,
+            "min": 0.8189792154309607,
+            "max": 2.8414619607155345
+          },
+          "min_position_scale": {
+            "median": 0.1787122605878142,
+            "iqr": 0.17893719052110313,
+            "min": 0.06966235188230926,
+            "max": 0.45574125829650014
+          }
+        }
+      },
+      "failure_counts": {
+        "avg_position_low": 3,
+        "oos_sharpe_low": 4,
+        "oos_return_low": 4,
+        "sharpe_lift_low": 3,
+        "calmar_lift_low": 3,
+        "return_lift_low": 3
+      },
+      "shuffled_best_rows": {
+        "rows": 10,
+        "real_beats_shuffled_rate": 1.0,
+        "shuffled_positive_sharpe_rate": 0.0,
+        "median_real_oos_sharpe": 0.40024622517023445,
+        "median_shuffled_oos_sharpe": -15.817379600299397,
+        "median_sharpe_vs_shuffled": 15.56905742327768,
+        "median_calmar_vs_shuffled": 0.9700722633251131
+      },
+      "validation_oos_decay": {
+        "all_rows_validation_oos_corr": -0.0967862719474425,
+        "best_rows_validation_oos_corr": -0.17938343309605656,
+        "median_validation_score_best_rows": 11.518755339028058,
+        "median_oos_sharpe_best_rows": 0.40024622517023445,
+        "median_oos_return_best_rows": 7.025350821920906e-05
+      }
+    },
+    {
+      "path": "research/regime_classification_alpha_ladder_bnbusdt_30m_rolling_365d.json",
+      "asset": "BNBUSDT",
+      "timeframe": "30m",
+      "folds": 22,
+      "policy_stability": {
+        "best_policy_kind_counts": {
+          "trend_scaled": 6,
+          "risk_filtered": 7,
+          "confidence_scaled": 5,
+          "combined": 4
+        },
+        "best_strategy_counts": {
+          "buy_and_hold": 13,
+          "sma_cross": 7,
+          "ema_cross": 2
+        },
+        "policy_kind_churn_rate": 0.7619047619047619,
+        "strategy_churn_rate": 0.42857142857142855,
+        "numeric_policy_summary": {
+          "max_vol_percentile": {
+            "median": 69.19196565343483,
+            "iqr": 11.56756252378463,
+            "min": 55.32258792793172,
+            "max": 97.7638665602281
+          },
+          "max_changepoint_prob": {
+            "median": 0.6878036844818006,
+            "iqr": 0.45111794989773707,
+            "min": 0.21696929403983375,
+            "max": 0.9147894052396097
+          },
+          "max_crisis_prob": {
+            "median": 0.3736659628550758,
+            "iqr": 0.4404412347342784,
+            "min": 0.006242506361001199,
+            "max": 0.8931997829564897
+          },
+          "min_trend_strength": {
+            "median": 0.2703388721668767,
+            "iqr": 0.2896312996518525,
+            "min": 0.025553525817732927,
+            "max": 0.6928010668590517
+          },
+          "min_confidence": {
+            "median": 0.802655144291929,
+            "iqr": 0.51065945106082,
+            "min": 0.02585807507163701,
+            "max": 0.9496894703965153
+          },
+          "trend_power": {
+            "median": 1.9153238888063555,
+            "iqr": 0.5277288810923539,
+            "min": 0.7199097102391059,
+            "max": 2.921126589624163
+          },
+          "min_position_scale": {
+            "median": 0.3650926034025961,
+            "iqr": 0.3279793359745625,
+            "min": 0.0010586313247298368,
+            "max": 0.4962689740873059
+          }
+        }
+      },
+      "failure_counts": {
+        "sharpe_lift_low": 13,
+        "calmar_lift_low": 13,
+        "return_lift_low": 12,
+        "oos_sharpe_low": 10,
+        "oos_return_low": 10,
+        "avg_position_low": 6
+      },
+      "shuffled_best_rows": {
+        "rows": 22,
+        "real_beats_shuffled_rate": 1.0,
+        "shuffled_positive_sharpe_rate": 0.0,
+        "median_real_oos_sharpe": 0.0,
+        "median_shuffled_oos_sharpe": -14.634021024735297,
+        "median_sharpe_vs_shuffled": 12.285252974600345,
+        "median_calmar_vs_shuffled": 0.9835710826094893
+      },
+      "validation_oos_decay": {
+        "all_rows_validation_oos_corr": -0.06469787341600595,
+        "best_rows_validation_oos_corr": -0.16473867234206713,
+        "median_validation_score_best_rows": 13.848656702978763,
+        "median_oos_sharpe_best_rows": 0.0,
+        "median_oos_return_best_rows": 0.0
+      }
+    }
+  ]
+}
