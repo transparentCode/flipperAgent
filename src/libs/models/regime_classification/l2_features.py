@@ -1,80 +1,139 @@
-"""NaN-safe L2 orderbook feature helpers for regime classification."""
+"""
+L2 Orderbook Feature Aggregation.
+
+Computes microstructure features from L2 depth snapshots.
+All features return NaN when input is unavailable — downstream
+consumers must be NaN-safe.
+
+Designed for 5m REST snapshots (20 levels), not streaming.
+"""
 
 from __future__ import annotations
 
 import math
-from typing import Iterable
+from dataclasses import dataclass
+from typing import Optional
 
 import numpy as np
-import pandas as pd
-
-from libs.models.regime_classification.config import DEFAULT_L2_COLUMNS
-
-_EPS = 1e-12
 
 
-def empty_l2_feature_row() -> dict[str, float]:
-    """Return the optional L2 feature set as NaN values."""
-    return {name: math.nan for name in DEFAULT_L2_COLUMNS}
+@dataclass(frozen=True)
+class L2Features:
+    """Aggregated L2 features for a single snapshot."""
+
+    bid_ask_imbalance: float = math.nan  # -1 to +1
+    depth_ratio: float = math.nan  # top-N bid/ask quantity ratio
+    spread_bps: float = math.nan  # spread in basis points
+    depth_decay_bid: float = math.nan  # exponential decay rate
+    depth_decay_ask: float = math.nan  # exponential decay rate
+
+    def to_dict(self) -> dict[str, float]:
+        return {
+            "bid_ask_imbalance": self.bid_ask_imbalance,
+            "depth_ratio": self.depth_ratio,
+            "spread_bps": self.spread_bps,
+            "depth_decay_bid": self.depth_decay_bid,
+            "depth_decay_ask": self.depth_decay_ask,
+        }
 
 
-def compute_l2_snapshot_features(
-    bids: Iterable[tuple[float, float]],
-    asks: Iterable[tuple[float, float]],
-) -> dict[str, float]:
-    """Compute compact L2 descriptors from one orderbook snapshot."""
-    bid_arr = np.array(list(bids), dtype=float)
-    ask_arr = np.array(list(asks), dtype=float)
-    if bid_arr.size == 0 or ask_arr.size == 0:
-        return empty_l2_feature_row()
+def compute_l2_features(
+    bids: Optional[np.ndarray],
+    asks: Optional[np.ndarray],
+    top_n: int = 5,
+) -> L2Features:
+    """
+    Compute L2 features from bid/ask arrays.
 
-    bid_px, bid_qty = bid_arr[:, 0], bid_arr[:, 1]
-    ask_px, ask_qty = ask_arr[:, 0], ask_arr[:, 1]
-    bid_depth = float(np.nansum(bid_qty))
-    ask_depth = float(np.nansum(ask_qty))
-    best_bid = float(bid_px[0])
-    best_ask = float(ask_px[0])
+    Parameters
+    ----------
+    bids : (N, 2) array of [price, quantity], sorted descending by price
+    asks : (N, 2) array of [price, quantity], sorted ascending by price
+    top_n : number of top levels for imbalance/ratio computation
+
+    Returns
+    -------
+    L2Features with NaN for any field that can't be computed
+    """
+    if bids is None or asks is None:
+        return L2Features()
+
+    bids = np.asarray(bids, dtype=float)
+    asks = np.asarray(asks, dtype=float)
+
+    if bids.ndim != 2 or asks.ndim != 2 or len(bids) == 0 or len(asks) == 0:
+        return L2Features()
+
+    best_bid = bids[0, 0]
+    best_ask = asks[0, 0]
+    if best_bid <= 0 or best_ask <= 0 or best_ask <= best_bid:
+        return L2Features()
+
     mid = (best_bid + best_ask) / 2.0
-    top = min(5, len(bid_qty), len(ask_qty))
-    bid_top = float(np.nansum(bid_qty[:top]))
-    ask_top = float(np.nansum(ask_qty[:top]))
-    weighted_mid = ((best_bid * ask_top) + (best_ask * bid_top)) / max(bid_top + ask_top, _EPS)
 
-    return {
-        "l2_bid_ask_imbalance": (bid_depth - ask_depth) / max(bid_depth + ask_depth, _EPS),
-        "l2_spread_bps": ((best_ask - best_bid) / max(mid, _EPS)) * 10_000.0,
-        "l2_depth_ratio_5": bid_top / max(ask_top, _EPS),
-        "l2_depth_decay_bid": _depth_decay(bid_qty),
-        "l2_depth_decay_ask": _depth_decay(ask_qty),
-        "l2_wall_bid": float(np.nanmax(bid_qty) / max(np.nanmean(bid_qty), _EPS)),
-        "l2_wall_ask": float(np.nanmax(ask_qty) / max(np.nanmean(ask_qty), _EPS)),
-        "l2_microprice_deviation_bps": ((weighted_mid - mid) / max(mid, _EPS)) * 10_000.0,
-    }
+    # Spread in basis points
+    spread_bps = (best_ask - best_bid) / mid * 10_000
+
+    # Top-N bid/ask imbalance: (bid_qty - ask_qty) / (bid_qty + ask_qty)
+    bid_qty = bids[:top_n, 1].sum()
+    ask_qty = asks[:top_n, 1].sum()
+    total_qty = bid_qty + ask_qty
+    if total_qty > 1e-10:
+        imbalance = (bid_qty - ask_qty) / total_qty
+    else:
+        imbalance = 0.0
+
+    # Depth ratio: total bid qty / total ask qty
+    total_bid = bids[:, 1].sum()
+    total_ask = asks[:, 1].sum()
+    if total_ask > 1e-10:
+        depth_ratio = total_bid / total_ask
+    else:
+        depth_ratio = math.nan
+
+    # Depth decay: fit exponential decay to quantity vs distance from mid
+    decay_bid = _fit_depth_decay(bids, mid, side="bid")
+    decay_ask = _fit_depth_decay(asks, mid, side="ask")
+
+    return L2Features(
+        bid_ask_imbalance=imbalance,
+        depth_ratio=depth_ratio,
+        spread_bps=spread_bps,
+        depth_decay_bid=decay_bid,
+        depth_decay_ask=decay_ask,
+    )
 
 
-def aggregate_l2_features(snapshot_df: pd.DataFrame, *, rule: str = "1h") -> pd.DataFrame:
-    """Aggregate precomputed 5m L2 features into bar-level mean/std/trend columns."""
-    if snapshot_df.empty:
-        return pd.DataFrame()
-    numeric = snapshot_df[[col for col in DEFAULT_L2_COLUMNS if col in snapshot_df.columns]].astype(float)
-    grouped = numeric.resample(rule)
-    mean = grouped.mean().add_suffix("_mean")
-    std = grouped.std().add_suffix("_std")
-    trend = grouped.apply(_last_minus_first).add_suffix("_trend")
-    return pd.concat([mean, std, trend], axis=1)
+def _fit_depth_decay(
+    levels: np.ndarray, mid: float, side: str
+) -> float:
+    """
+    Fit exponential decay rate to order book depth.
 
-
-def _depth_decay(qty: np.ndarray) -> float:
-    valid = np.asarray(qty, dtype=float)
-    valid = valid[np.isfinite(valid) & (valid > 0.0)]
-    if len(valid) < 2:
+    Models quantity ~ exp(-decay * distance_from_mid).
+    Returns decay coefficient. Higher = thinner book.
+    """
+    if len(levels) < 3:
         return math.nan
-    levels = np.arange(1, len(valid) + 1, dtype=float)
-    slope, _ = np.polyfit(levels, np.log(valid), deg=1)
-    return float(-slope)
 
+    prices = levels[:, 0]
+    quantities = levels[:, 1]
 
-def _last_minus_first(frame: pd.DataFrame) -> pd.Series:
-    if frame.empty:
-        return pd.Series(dtype=float)
-    return frame.iloc[-1] - frame.iloc[0]
+    distances = np.abs(prices - mid) / mid * 10_000  # in bps
+    log_qty = np.log(quantities + 1e-10)
+
+    # Simple OLS: log(qty) = a - decay * distance
+    if distances.std() < 1e-10:
+        return math.nan
+
+    n = len(distances)
+    mean_d = distances.mean()
+    mean_q = log_qty.mean()
+    cov = ((distances - mean_d) * (log_qty - mean_q)).sum()
+    var = ((distances - mean_d) ** 2).sum()
+
+    if var < 1e-10:
+        return math.nan
+
+    slope = cov / var
+    return float(-slope)  # negate so positive = decay

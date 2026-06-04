@@ -1,175 +1,329 @@
-"""Regime classification feature producer.
+"""
+RegimeClassificationModel — feature-producing model.
 
-This model emits continuous descriptors and probability-style fields. It does
-not emit a trade direction, position size, or hard regime label.
+Orchestrates BCPD, HMM, Vol, Hilbert, and Hurst kernels to emit
+a continuous probability matrix plus descriptors per bar.
+Direction is always 0 (flat) — this model produces features, not signals.
 """
 
 from __future__ import annotations
 
+import logging
+import math
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
-from libs.contracts.schemas import FeatureVector, ModelOutput
+from libs.contracts.schemas import FeatureVector, ModelOutput, ParamDef
 from libs.models.base import BaseModel, ModelMeta
-from libs.models.registry import ModelRegistry
 from libs.models.regime_classification.config import (
-    DEFAULT_L2_COLUMNS,
-    REGIME_CLASSIFICATION_PARAMS,
+    BCPDConfig,
+    EWMAVolConfig,
+    HilbertConfig,
+    HMMConfig,
+    RegimeClassificationConfig,
+    TrendStrengthConfig,
+    VolConfig,
 )
-from libs.models.regime_classification.contracts import RegimeFeatureOutput
+from libs.models.regime_classification.contracts import (
+    RegimeFeatureOutput,
+)
+from libs.models.regime_classification.kernels.bcpd import bcpd_detect
+from libs.models.regime_classification.kernels.hilbert import HilbertCycle
+from libs.models.regime_classification.kernels.hmm import (
+    HMMClassifier,
+    HMMClassifierConfig,
+)
+from libs.models.regime_classification.kernels.hurst import rolling_hurst
+from libs.models.regime_classification.kernels.vol_percentile import (
+    VolPercentile,
+    VolPercentileConfig,
+)
 
-_EPS = 1e-12
+logger = logging.getLogger(__name__)
 
 
-@ModelRegistry.register("RegimeClassification")
 class RegimeClassificationModel(BaseModel):
-    """Feature-only regime descriptor model."""
+    """
+    Feature-producing model that emits regime probability matrix.
+
+    Output is packed into ModelOutput.metadata via RegimeFeatureOutput.to_dict().
+    direction=0 and conviction=0.0 always (not a signal model).
+    """
 
     meta = ModelMeta(
         name="RegimeClassification",
-        model_type="feature_producer",
         required_indicators=[],
         required_fields=["close"],
-        hyperparameter_schema=REGIME_CLASSIFICATION_PARAMS,
-        min_history_bars=240,
-        external_data_sources=["ohlcv", "optional_l2"],
+        hyperparameter_schema={
+            "bcpd_hazard_lambda": ParamDef(
+                type="float", default=150.0, low=50.0, high=500.0, step=10.0
+            ),
+            "hurst_lookback": ParamDef(
+                type="int", default=100, low=30, high=300, step=10
+            ),
+            "hmm_student_df": ParamDef(
+                type="float", default=5.0, low=2.5, high=20.0, step=0.5
+            ),
+            "hilbert_min_period": ParamDef(
+                type="int", default=10, low=5, high=20, step=1
+            ),
+            "hilbert_max_period": ParamDef(
+                type="int", default=40, low=20, high=80, step=5
+            ),
+        },
+        min_history_bars=200,
+        model_type="feature_producer",
+        external_data_sources=["l2_orderbook"],
+        sub_models=[],
     )
 
+    def __init__(self, params: dict[str, Any] | None = None) -> None:
+        super().__init__(params or {})
+        self._cfg = self._build_config()
+        self._hmm = HMMClassifier(
+            HMMClassifierConfig(
+                retrain_window=self._cfg.hmm.retrain_window,
+                min_train_bars=self._cfg.hmm.min_train_bars,
+                log_vol_lookback=self._cfg.hmm.log_vol_lookback,
+                hurst_lookback=self.params["hurst_lookback"],
+                use_hurst=self._cfg.hmm.use_hurst,
+                use_volume=self._cfg.hmm.use_volume,
+                hmm_n_states=self._cfg.hmm.hmm_n_states,
+                hmm_max_states=self._cfg.hmm.hmm_max_states,
+                hmm_covariance_type=self._cfg.hmm.hmm_covariance_type,
+                hmm_robust_scoring=self._cfg.hmm.hmm_robust_scoring,
+                hmm_student_df=self.params["hmm_student_df"],
+                hmm_crisis_vol_mult=self._cfg.hmm.hmm_crisis_vol_mult,
+            )
+        )
+        self._vol = VolPercentile(
+            VolPercentileConfig(
+                lookback=self._cfg.vol.lookback,
+                rank_window=self._cfg.vol.rank_window,
+            )
+        )
+        self._hilbert = HilbertCycle(
+            min_period=self.params["hilbert_min_period"],
+            max_period=self.params["hilbert_max_period"],
+            stability_bars=self._cfg.hilbert.stability_bars,
+        )
+        self._ewma_var: float = 0.0
+        self._ewma_bars: int = 0
+
+    def _build_config(self) -> RegimeClassificationConfig:
+        return RegimeClassificationConfig(
+            bcpd=BCPDConfig(
+                hazard_lambda=self.params["bcpd_hazard_lambda"],
+            ),
+            hmm=HMMConfig(
+                hurst_lookback=self.params["hurst_lookback"],
+                hmm_student_df=self.params["hmm_student_df"],
+            ),
+            vol=VolConfig(),
+            hilbert=HilbertConfig(
+                min_period=self.params["hilbert_min_period"],
+                max_period=self.params["hilbert_max_period"],
+            ),
+            ewma_vol=EWMAVolConfig(),
+            trend=TrendStrengthConfig(),
+        )
+
+    # ------------------------------------------------------------------
+    # Single-bar evaluation
+    # ------------------------------------------------------------------
+
     def evaluate(self, features: FeatureVector) -> ModelOutput:
-        output = self._evaluate_single(features)
+        """Single-bar: uses bar_data for OHLCV, features dict for L2."""
+        bar = features.bar_data
+        close = bar.get("close", 0.0)
+        if close <= 0:
+            return self._empty_output(features)
+
+        output = RegimeFeatureOutput()
+
+        # L2 orderbook (from features dict, NaN if absent)
+        output.bid_ask_imbalance = features.features.get(
+            "bid_ask_imbalance", math.nan
+        )
+        output.depth_ratio = features.features.get("depth_ratio", math.nan)
+        output.spread_bps = features.features.get("spread_bps", math.nan)
+        output.depth_decay_bid = features.features.get(
+            "depth_decay_bid", math.nan
+        )
+        output.depth_decay_ask = features.features.get(
+            "depth_decay_ask", math.nan
+        )
+
+        # Note: BCPD, HMM, Hurst, Hilbert, Vol require history — single-bar
+        # evaluation returns defaults for those fields. Use batch_evaluate
+        # for full pipeline with history.
+
         return ModelOutput(
             model_name=self.meta.name,
             asset=features.asset,
             timeframe=features.timeframe,
             timestamp=features.timestamp,
             direction=0,
-            conviction=float(output.descriptors.get("confidence", 0.0)),
-            metadata={
-                "probabilities": output.probabilities,
-                "descriptors": output.descriptors,
-                **output.flatten(),
-            },
+            conviction=0.0,
+            metadata=output.to_dict(),
         )
 
-    def emit_frame(self, feature_df: pd.DataFrame) -> pd.DataFrame:
-        """Return the full descriptor matrix for offline research and validation."""
-        self._validate_temporal_ordering(feature_df)
-        close = _extract_close(feature_df)
-        returns = np.log(close / close.shift(1)).replace([np.inf, -np.inf], np.nan).fillna(0.0)
-        short_window = int(self.params["short_vol_window"])
-        long_window = int(self.params["long_vol_window"])
-        trend_window = int(self.params["trend_window"])
-        rank_window = int(self.params["vol_rank_window"])
-        ewma_lambda = float(self.params["ewma_lambda"])
-
-        realized_vol_short = returns.rolling(short_window, min_periods=max(3, short_window // 4)).std()
-        realized_vol_long = returns.rolling(long_window, min_periods=max(5, long_window // 4)).std()
-        vol_ratio = realized_vol_short / realized_vol_long.replace(0.0, np.nan)
-        vol_percentile = realized_vol_long.rolling(rank_window, min_periods=20).rank(pct=True) * 100.0
-        ewma_fwd_vol = _ewma_vol(returns, ewma_lambda)
-        trend_strength = _trend_efficiency(close, trend_window)
-        trend_abs = trend_strength.abs().clip(0.0, 1.0)
-        high_vol = (vol_percentile / 100.0).clip(0.0, 1.0)
-        low_vol = (1.0 - high_vol).clip(0.0, 1.0)
-        mean_reversion = (1.0 - trend_abs).clip(0.0, 1.0)
-        risk_off = (high_vol * (-trend_strength).clip(0.0, 1.0)).clip(0.0, 1.0)
-
-        probs = pd.DataFrame(
-            {
-                "regime_prob_trend": trend_abs,
-                "regime_prob_mean_reversion": mean_reversion,
-                "regime_prob_high_vol": high_vol,
-                "regime_prob_low_vol": low_vol,
-                "regime_prob_risk_off": risk_off,
-            },
-            index=feature_df.index,
-        ).fillna(0.0)
-        entropy = _normalized_entropy(probs)
-        confidence = (1.0 - entropy).clip(0.0, 1.0)
-
-        descriptors = pd.DataFrame(
-            {
-                "regime_trend_strength": trend_strength,
-                "regime_realized_vol_short": realized_vol_short,
-                "regime_realized_vol_long": realized_vol_long,
-                "regime_vol_ratio": vol_ratio,
-                "regime_vol_percentile": vol_percentile,
-                "regime_ewma_fwd_vol": ewma_fwd_vol,
-                "regime_state_entropy": entropy,
-                "regime_confidence": confidence,
-            },
-            index=feature_df.index,
-        )
-        l2 = _extract_l2_columns(feature_df)
-        return pd.concat([probs, descriptors, l2], axis=1).replace([np.inf, -np.inf], np.nan)
+    # ------------------------------------------------------------------
+    # Batch evaluation
+    # ------------------------------------------------------------------
 
     def _batch_evaluate_impl(self, feature_df: pd.DataFrame) -> pd.Series:
-        emitted = self.emit_frame(feature_df)
-        return emitted["regime_confidence"].fillna(0.0).astype(float)
+        """
+        Run all 5 kernels over the full history and emit per-bar features.
 
-    def _evaluate_single(self, features: FeatureVector) -> RegimeFeatureOutput:
-        data = {**features.bar_data, **features.features}
-        probabilities = {
-            "trend": _float_feature(data, "regime_prob_trend"),
-            "mean_reversion": _float_feature(data, "regime_prob_mean_reversion"),
-            "high_vol": _float_feature(data, "regime_prob_high_vol"),
-            "low_vol": _float_feature(data, "regime_prob_low_vol"),
-            "risk_off": _float_feature(data, "regime_prob_risk_off"),
-        }
-        descriptors = {
-            "trend_strength": _float_feature(data, "regime_trend_strength"),
-            "realized_vol_short": _float_feature(data, "regime_realized_vol_short"),
-            "realized_vol_long": _float_feature(data, "regime_realized_vol_long"),
-            "vol_ratio": _float_feature(data, "regime_vol_ratio"),
-            "vol_percentile": _float_feature(data, "regime_vol_percentile"),
-            "ewma_fwd_vol": _float_feature(data, "regime_ewma_fwd_vol"),
-            "state_entropy": _float_feature(data, "regime_state_entropy"),
-            "confidence": _float_feature(data, "regime_confidence"),
-        }
-        for col in DEFAULT_L2_COLUMNS:
-            descriptors[col] = _float_feature(data, col)
-        return RegimeFeatureOutput(probabilities=probabilities, descriptors=descriptors)
+        Returns a Series of dicts (RegimeFeatureOutput.to_dict()).
+        """
+        n = len(feature_df)
+        close = feature_df["close"].values.astype(float)
+        has_volume = "volume" in feature_df.columns
 
+        # ----- 1. BCPD -----
+        returns = np.diff(np.log(close + 1e-10))
+        cp_probs = np.zeros(n)
+        run_lengths = np.zeros(n, dtype=int)
+        cp_entropies = np.zeros(n)
 
-def _extract_close(feature_df: pd.DataFrame) -> pd.Series:
-    if "close" in feature_df.columns:
-        return feature_df["close"].astype(float)
-    if "Close" in feature_df.columns:
-        return feature_df["Close"].astype(float)
-    raise ValueError("RegimeClassification requires a close column")
+        if len(returns) >= 20:
+            rl_post, changepoint_probs = bcpd_detect(
+                returns,
+                hazard_lambda=self._cfg.bcpd.hazard_lambda,
+                hazard_shape=self._cfg.bcpd.hazard_shape,
+                truncation=self._cfg.bcpd.truncation,
+            )
+            cp_probs[1:] = changepoint_probs
+            run_lengths[1:] = np.argmax(rl_post, axis=1)
+            # Entropy of run-length posterior per bar
+            for t in range(rl_post.shape[0]):
+                row = rl_post[t]
+                row = row[row > 1e-30]
+                cp_entropies[t + 1] = -np.sum(row * np.log(row))
 
+        # ----- 2. Hurst -----
+        hurst_arr = rolling_hurst(
+            close,
+            lookback=self.params["hurst_lookback"],
+            min_periods=min(50, self.params["hurst_lookback"] // 2),
+        )
 
-def _trend_efficiency(close: pd.Series, window: int) -> pd.Series:
-    directional_move = close.diff(window)
-    path_length = close.diff().abs().rolling(window, min_periods=max(3, window // 4)).sum()
-    return (directional_move / path_length.replace(0.0, np.nan)).clip(-1.0, 1.0)
+        # ----- 3. Hilbert -----
+        try:
+            periods, confidences = self._hilbert.calculate_series(close)
+        except Exception:
+            periods = np.full(n, 40.0)
+            confidences = np.zeros(n)
 
+        # ----- 4. Vol percentile -----
+        vol_df = self._vol.compute_series(feature_df)
+        vol_pcts = vol_df["vol_percentile"].values
+        vol_rolling = vol_df["vol_rolling"].values
 
-def _ewma_vol(returns: pd.Series, lam: float) -> pd.Series:
-    variance = returns.pow(2).ewm(alpha=1.0 - lam, adjust=False).mean()
-    return np.sqrt(variance)
+        # ----- 5. HMM -----
+        hmm_df = self._hmm.classify_series(feature_df)
 
+        # ----- 6. EWMA forward vol -----
+        fwd_vol = self._compute_ewma_vol(returns)
 
-def _normalized_entropy(probabilities: pd.DataFrame) -> pd.Series:
-    clipped = probabilities.clip(lower=_EPS)
-    total = clipped.sum(axis=1).replace(0.0, np.nan)
-    normalized = clipped.div(total, axis=0).fillna(0.0)
-    entropy = -(normalized * np.log(normalized.clip(lower=_EPS))).sum(axis=1)
-    return (entropy / np.log(max(len(probabilities.columns), 2))).clip(0.0, 1.0)
+        # ----- 7. Trend strength -----
+        trend_str = self._compute_trend_strength(close)
 
+        # ----- 8. L2 features (from feature_df if present) -----
+        l2_cols = [
+            "bid_ask_imbalance",
+            "depth_ratio",
+            "spread_bps",
+            "depth_decay_bid",
+            "depth_decay_ask",
+        ]
 
-def _extract_l2_columns(feature_df: pd.DataFrame) -> pd.DataFrame:
-    l2 = pd.DataFrame(index=feature_df.index)
-    for col in DEFAULT_L2_COLUMNS:
-        l2[col] = feature_df[col].astype(float) if col in feature_df.columns else np.nan
-    return l2
+        # ----- Assemble per-bar output -----
+        results = []
+        max_states = self._cfg.hmm.hmm_max_states
+        for i in range(n):
+            hmm_posteriors = tuple(
+                float(hmm_df.iloc[i].get(f"hmm_p_state_{s}", 0.0))
+                for s in range(max_states)
+                if f"hmm_p_state_{s}" in hmm_df.columns
+            )
+            hmm_n = int(hmm_df.iloc[i].get("hmm_n_states", 2))
+            hmm_crisis = float(hmm_df.iloc[i].get("hmm_crisis_prob", 0.0))
 
+            output = RegimeFeatureOutput(
+                hmm_posteriors=hmm_posteriors,
+                hmm_n_states=hmm_n,
+                hmm_crisis_prob=hmm_crisis,
+                vol_percentile=float(vol_pcts[i]),
+                realized_vol=float(vol_rolling[i]) if np.isfinite(vol_rolling[i]) else 0.0,
+                fwd_vol_ewma=float(fwd_vol[i]),
+                trend_strength=float(trend_str[i]),
+                hurst=float(hurst_arr[i]) if np.isfinite(hurst_arr[i]) else 0.5,
+                changepoint_prob=float(cp_probs[i]),
+                run_length=int(run_lengths[i]),
+                cp_entropy=float(cp_entropies[i]),
+                hilbert_period=float(periods[i]) if np.isfinite(periods[i]) else 40.0,
+                hilbert_confidence=float(confidences[i]) if np.isfinite(confidences[i]) else 0.0,
+            )
 
-def _float_feature(data: dict[str, Any], key: str) -> float:
-    value = data.get(key, np.nan)
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return float("nan")
+            # L2 features
+            for col in l2_cols:
+                if col in feature_df.columns:
+                    setattr(output, col, float(feature_df.iloc[i][col]))
+
+            results.append(output.to_dict())
+
+        return pd.Series(results, index=feature_df.index)
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    def _compute_ewma_vol(self, returns: np.ndarray) -> np.ndarray:
+        """EWMA forward vol: σ²_t = λ*σ²_{t-1} + (1-λ)*r²_t."""
+        decay = self._cfg.ewma_vol.decay_factor
+        n = len(returns) + 1  # +1 because returns has one fewer element
+        result = np.zeros(n)
+
+        if len(returns) == 0:
+            return result
+
+        var = float(returns[0] ** 2)
+        result[0] = 0.0  # no estimate for first bar
+        for t in range(len(returns)):
+            var = decay * var + (1 - decay) * (returns[t] ** 2)
+            result[t + 1] = math.sqrt(max(var, 0.0))
+
+        return result
+
+    def _compute_trend_strength(self, close: np.ndarray) -> np.ndarray:
+        """Directional efficiency ratio: |net move| / sum(|bar moves|)."""
+        lookback = self._cfg.trend.lookback
+        n = len(close)
+        result = np.zeros(n)
+
+        for i in range(lookback, n):
+            window = close[i - lookback : i + 1]
+            net_move = abs(window[-1] - window[0])
+            bar_moves = np.sum(np.abs(np.diff(window)))
+            if bar_moves > 1e-10:
+                result[i] = net_move / bar_moves
+            else:
+                result[i] = 0.0
+
+        return result
+
+    def _empty_output(self, features: FeatureVector) -> ModelOutput:
+        return ModelOutput(
+            model_name=self.meta.name,
+            asset=features.asset,
+            timeframe=features.timeframe,
+            timestamp=features.timestamp,
+            direction=0,
+            conviction=0.0,
+            metadata=RegimeFeatureOutput().to_dict(),
+        )
