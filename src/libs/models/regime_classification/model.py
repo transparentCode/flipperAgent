@@ -17,6 +17,7 @@ import pandas as pd
 
 from libs.contracts.schemas import FeatureVector, ModelOutput, ParamDef
 from libs.models.base import BaseModel, ModelMeta
+from libs.models.registry import ModelRegistry
 from libs.models.regime_classification.config import (
     BCPDConfig,
     EWMAVolConfig,
@@ -25,6 +26,7 @@ from libs.models.regime_classification.config import (
     RegimeClassificationConfig,
     TrendStrengthConfig,
     VolConfig,
+    timeframe_scaled_config,
 )
 from libs.models.regime_classification.contracts import (
     RegimeFeatureOutput,
@@ -44,6 +46,7 @@ from libs.models.regime_classification.kernels.vol_percentile import (
 logger = logging.getLogger(__name__)
 
 
+@ModelRegistry.register("RegimeClassification")
 class RegimeClassificationModel(BaseModel):
     """
     Feature-producing model that emits regime probability matrix.
@@ -79,8 +82,15 @@ class RegimeClassificationModel(BaseModel):
         sub_models=[],
     )
 
-    def __init__(self, params: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        params: dict[str, Any] | None = None,
+        timeframe: str = "1h",
+        frozen_overrides: dict[str, Any] | None = None,
+    ) -> None:
         super().__init__(params or {})
+        self._timeframe = timeframe
+        self._frozen_overrides = frozen_overrides or {}
         self._cfg = self._build_config()
         self._hmm = HMMClassifier(
             HMMClassifierConfig(
@@ -113,22 +123,15 @@ class RegimeClassificationModel(BaseModel):
         self._ewma_bars: int = 0
 
     def _build_config(self) -> RegimeClassificationConfig:
-        return RegimeClassificationConfig(
-            bcpd=BCPDConfig(
-                hazard_lambda=self.params["bcpd_hazard_lambda"],
-            ),
-            hmm=HMMConfig(
-                hurst_lookback=self.params["hurst_lookback"],
-                hmm_student_df=self.params["hmm_student_df"],
-            ),
-            vol=VolConfig(),
-            hilbert=HilbertConfig(
-                min_period=self.params["hilbert_min_period"],
-                max_period=self.params["hilbert_max_period"],
-            ),
-            ewma_vol=EWMAVolConfig(),
-            trend=TrendStrengthConfig(),
-        )
+        # Merge tunable hyperparams into frozen_overrides so timeframe_scaled_config
+        # picks them up. Tunable params (from self.params) take precedence.
+        merged_overrides = dict(self._frozen_overrides)
+        merged_overrides["bcpd_hazard_lambda"] = self.params["bcpd_hazard_lambda"]
+        merged_overrides["hurst_lookback"] = self.params["hurst_lookback"]
+        merged_overrides["hmm_student_df"] = self.params["hmm_student_df"]
+        merged_overrides["hilbert_min_period"] = self.params["hilbert_min_period"]
+        merged_overrides["hilbert_max_period"] = self.params["hilbert_max_period"]
+        return timeframe_scaled_config(self._timeframe, merged_overrides)
 
     # ------------------------------------------------------------------
     # Single-bar evaluation

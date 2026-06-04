@@ -35,6 +35,11 @@ optimization:
       assets: ["BTCUSDT"]
       timeframes: ["1h"]
       write_back: false
+    RegimeClassification:
+      cron: "0 6 1 * *"           # monthly 1st 6am UTC
+      assets: ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
+      timeframes: ["1h", "4h"]
+      write_back: false
     DivergenceEdgeScorer:
       cron: "0 5 1 * *"           # monthly 1st 5am UTC
       assets: ["BTCUSDT"]

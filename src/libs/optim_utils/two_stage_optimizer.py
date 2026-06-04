@@ -31,6 +31,7 @@ logger = logging.getLogger("app.optimization.two_stage")
 _MODEL_MODULE_MAP: dict[str, str] = {
     "MeanReversion": "libs.models.mean_reversion.optimization.optimizer",
     "Momentum": "libs.models.momentum.optimization.optimizer",
+    "RegimeClassification": "libs.models.regime_classification.optimization.optimizer",
     "SqueezeBreakout": "libs.models.squeeze_breakout.optimization.optimizer",
     "TrendFollowing": "libs.models.trend_following.optimization.optimizer",
 }
@@ -253,7 +254,12 @@ class TwoStageOptimizer:
             trail_to_breakeven=trail_to_breakeven,
         )
 
-        deployed, rejection_reason = self._apply_oos_gate(oos_results)
+        # Route to appropriate OOS gate
+        quality_gating = getattr(mod, "QUALITY_BASED_GATING", False)
+        if quality_gating:
+            deployed, rejection_reason = self._apply_quality_oos_gate(oos_results)
+        else:
+            deployed, rejection_reason = self._apply_oos_gate(oos_results)
 
         if deployed:
             logger.info(
@@ -437,6 +443,30 @@ class TwoStageOptimizer:
             return False, (
                 f"Both validate ({val_sharpe:.3f}) and OOS "
                 f"({oos_sharpe:.3f}) Sharpe non-positive — no edge detected"
+            )
+
+        return True, None
+
+    def _apply_quality_oos_gate(
+        self, oos_results: dict[str, Any]
+    ) -> tuple[bool, str | None]:
+        """Apply quality-based OOS gating for feature-producer models."""
+        val_quality = oos_results.get("validate", {}).get("composite_quality", 0.0)
+        oos_quality = oos_results.get("oos", {}).get("composite_quality", 0.0)
+
+        # Rule 1: OOS quality near zero → REJECT
+        if oos_quality <= 0.01:
+            return False, (
+                f"OOS composite_quality near zero ({oos_quality:.4f}) — "
+                f"regime features carry no signal out of sample"
+            )
+
+        # Rule 2: OOS quality < threshold fraction of validate → REJECT
+        if val_quality > 0 and oos_quality < self.oos_sharpe_ratio * val_quality:
+            return False, (
+                f"OOS quality ({oos_quality:.4f}) < "
+                f"{self.oos_sharpe_ratio:.0%} of validate quality "
+                f"({val_quality:.4f}) — excessive degradation"
             )
 
         return True, None

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 
 
 @dataclass(frozen=True)
@@ -73,8 +73,11 @@ class RegimeFeatureOutput:
     # Composite
     condition_scale: float = 0.0  # blended regime score
 
-    def to_dict(self) -> Dict[str, float]:
-        """Flatten to dict for ModelOutput.metadata packing."""
+    def to_dict(self) -> Dict[str, Any]:
+        """Flatten to dict for ModelOutput.metadata packing.
+
+        Returns Dict[str, Any] because L2 fields may be None when absent.
+        """
         d: Dict[str, float] = {}
 
         # Flatten HMM posteriors into separate keys

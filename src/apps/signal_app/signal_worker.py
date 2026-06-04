@@ -7,7 +7,7 @@ import pandas as pd
 
 from apps.signal_app.feature_manager import FeatureManager
 from libs.common.config import ConfigManager
-from libs.common.constants import CONFIG_FILE_TRADINGVIEW
+from libs.common.constants import CONFIG_FILE_TRADINGVIEW, CONFIG_FILE_MODELS
 from libs.common.logging.logger_utils import bind_logger
 from libs.features.engineered.manager import EngineeredFeatureManager
 from libs.common.enums import SystemComponent
@@ -83,6 +83,7 @@ class SignalWorker(BaseStreamConsumer):
         self.timeframe = timeframe
         self._config = ConfigManager()
         self._config.register_file(CONFIG_FILE_TRADINGVIEW)
+        self._config.register_file(CONFIG_FILE_MODELS)
         self._tv_index_keys = _resolve_tv_index_keys(self._config)
         self.feature_manager = FeatureManager(asset, timeframe, db_fetcher=db_fetcher)
         self.engineered_manager = EngineeredFeatureManager(asset, timeframe)
@@ -164,6 +165,25 @@ class SignalWorker(BaseStreamConsumer):
                 exc_info=True,
             )
 
+    def _resolve_feature_producer_config(self, producer_name: str) -> dict[str, Any] | None:
+        """Resolve feature_producer config with 4-level fallback chain."""
+        fp_config = self._config.get("feature_producers", {})
+        assets_config = fp_config.get("assets", {})
+
+        asset_node = assets_config.get(self.asset, {})
+        default_asset_node = assets_config.get("default", {})
+
+        tf_node = asset_node.get("timeframes", {}).get(self.timeframe, {})
+        asset_default_tf = asset_node.get("timeframes", {}).get("default", {})
+        default_tf_node = default_asset_node.get("timeframes", {}).get(self.timeframe, {})
+        default_default_tf = default_asset_node.get("timeframes", {}).get("default", {})
+
+        # Priority: asset/tf → asset/default → default/tf → default/default
+        for node in (tf_node, asset_default_tf, default_tf_node, default_default_tf):
+            if producer_name in node:
+                return node[producer_name]
+        return None
+
     async def _maybe_attach_regime_classification(
         self,
         results: dict[str, Any],
@@ -201,6 +221,7 @@ class SignalWorker(BaseStreamConsumer):
             return
 
         last_features = dict(self._regime_cache)
+        last_features["_regime_staleness_bars"] = bars_since_cache
 
         # Fetch latest L2 features from TimescaleDB (if available)
         try:
@@ -399,7 +420,9 @@ class SignalWorker(BaseStreamConsumer):
         logger.info(f"Starting signal worker for {self.asset} {self.timeframe}...")
 
         # 1. Boot up requirements state. Find max lookback for priming.
-        max_lookback = 1
+        # Include regime classification minimum so the classifier doesn't
+        # start cold when indicator lookback is smaller than _REGIME_MIN_BARS.
+        max_lookback = _REGIME_MIN_BARS
         for ind in self.feature_manager.indicators:
             max_lookback = max(max_lookback, ind.lookback_required)
 
@@ -435,13 +458,30 @@ class SignalWorker(BaseStreamConsumer):
                            "regime features will not be published", exc_info=True)
 
         # 3b. Initialize regime classification model (new probability-matrix pipeline)
-        try:
-            from libs.models.regime_classification.model import RegimeClassificationModel
-            self._regime_classifier = RegimeClassificationModel()
-            logger.info(f"RegimeClassificationModel initialized for {self.asset}:{self.timeframe}")
-        except Exception:
-            logger.warning(f"RegimeClassificationModel unavailable for {self.asset}:{self.timeframe}, "
-                           "regime_classification features will not be published", exc_info=True)
+        # Config lives in models.yaml under feature_producers section.
+        regime_cfg = self._resolve_feature_producer_config("RegimeClassification")
+        if regime_cfg and regime_cfg.get("enabled", False):
+            try:
+                from libs.models.regime_classification.model import RegimeClassificationModel
+                regime_params = regime_cfg.get("params") or {}
+                frozen_overrides = regime_cfg.get("frozen_overrides") or {}
+                self._regime_classifier = RegimeClassificationModel(
+                    params=regime_params,
+                    timeframe=self.timeframe,
+                    frozen_overrides=frozen_overrides,
+                )
+                logger.info(f"RegimeClassificationModel initialized for {self.asset}:{self.timeframe}")
+            except Exception:
+                logger.warning(
+                    f"RegimeClassificationModel unavailable for {self.asset}:{self.timeframe}, "
+                    "regime_classification features will not be published",
+                    exc_info=True,
+                )
+        else:
+            logger.info(
+                f"RegimeClassificationModel disabled for {self.asset}:{self.timeframe} "
+                "(not enabled in feature_producers config)"
+            )
 
         # 4. Emit one bootstrap snapshot so higher-timeframe workers do not wait
         # until the next candle close to seed downstream consumers.

@@ -8,6 +8,7 @@ Everything else is either adaptive (computed from data) or fixed.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -80,3 +81,65 @@ class RegimeClassificationConfig:
     hilbert: HilbertConfig = HilbertConfig()
     ewma_vol: EWMAVolConfig = EWMAVolConfig()
     trend: TrendStrengthConfig = TrendStrengthConfig()
+
+
+# Bars-per-hour for each supported timeframe (1h = 1.0 baseline)
+_BARS_PER_HOUR: dict[str, float] = {
+    "1m": 60.0, "5m": 12.0, "15m": 4.0, "30m": 2.0,
+    "1h": 1.0, "4h": 0.25, "1d": 1 / 24,
+}
+
+
+def timeframe_scaled_config(
+    timeframe: str = "1h",
+    frozen_overrides: dict[str, Any] | None = None,
+) -> RegimeClassificationConfig:
+    """Build a RegimeClassificationConfig with bar counts scaled to timeframe.
+
+    All bar-denominated defaults are calibrated for 1h. This function scales
+    them proportionally so they represent equivalent clock-time windows on
+    other timeframes. Any key in frozen_overrides takes precedence over
+    the scaled default.
+    """
+    ratio = _BARS_PER_HOUR.get(timeframe, 1.0)
+    overrides = frozen_overrides or {}
+
+    def _scaled(base_1h: int, key: str, floor: int = 20) -> int:
+        if key in overrides:
+            return int(overrides[key])
+        return max(int(base_1h * ratio), floor)
+
+    def _raw(default, key: str):
+        return overrides.get(key, default)
+
+    return RegimeClassificationConfig(
+        bcpd=BCPDConfig(
+            hazard_lambda=_raw(150.0, "bcpd_hazard_lambda"),
+            hazard_shape=_raw(1.0, "bcpd_hazard_shape"),
+            truncation=_scaled(500, "bcpd_truncation"),
+        ),
+        hmm=HMMConfig(
+            retrain_window=_scaled(500, "hmm_retrain_window"),
+            min_train_bars=_scaled(200, "hmm_min_train_bars", floor=30),
+            log_vol_lookback=_scaled(24, "hmm_log_vol_lookback", floor=6),
+            hurst_lookback=_raw(100, "hurst_lookback"),
+            hmm_student_df=_raw(5.0, "hmm_student_df"),
+            hmm_crisis_vol_mult=_raw(2.0, "hmm_crisis_vol_mult"),
+        ),
+        vol=VolConfig(
+            lookback=_scaled(168, "vol_lookback"),
+            rank_window=_scaled(1000, "vol_rank_window", floor=100),
+        ),
+        hilbert=HilbertConfig(
+            min_period=_raw(10, "hilbert_min_period"),
+            max_period=_raw(40, "hilbert_max_period"),
+            stability_bars=_scaled(10, "hilbert_stability_bars", floor=3),
+        ),
+        ewma_vol=EWMAVolConfig(
+            decay_factor=_raw(0.94, "ewma_decay_factor"),
+            min_periods=_scaled(20, "ewma_min_periods", floor=5),
+        ),
+        trend=TrendStrengthConfig(
+            lookback=_scaled(20, "trend_lookback", floor=5),
+        ),
+    )

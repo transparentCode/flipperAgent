@@ -210,10 +210,11 @@ class TimescaleReader:
         if not record:
             return None
 
-        return {
-            "bid_ask_imbalance": float(record["bid_ask_imbalance"]),
-            "depth_ratio": float(record["depth_ratio"]),
-            "spread_bps": float(record["spread_bps"]),
-            "depth_decay_bid": float(record["depth_decay_bid"]),
-            "depth_decay_ask": float(record["depth_decay_ask"]),
-        }
+        result: dict[str, float] = {}
+        for col in ("bid_ask_imbalance", "depth_ratio", "spread_bps",
+                    "depth_decay_bid", "depth_decay_ask"):
+            val = record[col]
+            if val is not None:
+                result[col] = float(val)
+            # Skip NULL columns — downstream sees absence, not TypeError
+        return result if result else None

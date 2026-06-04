@@ -115,6 +115,7 @@ class HMMClassifier:
             result["hmm_p_state_1"] = 0.5
             result["hmm_n_states"] = 2
             result["hmm_crisis_prob"] = 0.0
+            result["hmm_transition_prob"] = 0.5
             return result
 
         n = len(X)
