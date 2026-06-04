@@ -346,6 +346,9 @@ def _overlay_decision(
         and lifts["total_return_vs_baseline"]
         >= float(cfg.get("min_total_return_lift", 0.0))
         and lifts["sharpe_vs_shuffled"] >= 0
+        and overlay["sharpe"] >= float(cfg.get("min_oos_sharpe", 0.0))
+        and overlay["total_return"] >= float(cfg.get("min_oos_total_return", 0.0))
+        and overlay["avg_position"] >= float(cfg.get("min_avg_position", 0.05))
     ):
         return "promote_to_downstream_research"
     return "reject"

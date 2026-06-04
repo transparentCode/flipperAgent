@@ -71,7 +71,7 @@ optimization:
       rolling_vol_window: 5
       min_samples_for_metric: 50
       min_samples_per_state: 10
-      min_bars_for_quality: 500
+      min_bars_for_quality: 200
       oos_quality_ratio: 0.70
     calibration:
       vol_lookback: 168
@@ -87,7 +87,7 @@ optimization:
         default: 500
       vol_lookback:
         low: 72
-        high: 500
+        high: 480
         step: 24
         default: 168
       trend_lookback:
@@ -113,3 +113,26 @@ optimization:
       min_sharpe_lift: 0.10
       min_calmar_lift: 0.05
       min_total_return_lift: 0.0
+      min_oos_sharpe: 0.0
+      min_oos_total_return: 0.0
+      min_avg_position: 0.05
+    alpha_ladder:
+      n_trials: 80
+      seed: 42
+      min_bars: 500
+      shuffle_seed: 42
+      turnover_penalty: 0.05
+      max_vol_percentile_low: 55.0
+      max_vol_percentile_high: 100.0
+      max_changepoint_prob_low: 0.05
+      max_changepoint_prob_high: 0.95
+      max_crisis_prob_low: 0.0
+      max_crisis_prob_high: 0.95
+      min_trend_strength_low: 0.0
+      min_trend_strength_high: 0.80
+      min_confidence_low: 0.0
+      min_confidence_high: 0.95
+      trend_power_low: 0.50
+      trend_power_high: 3.0
+      min_position_scale_low: 0.0
+      min_position_scale_high: 0.50

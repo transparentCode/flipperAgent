@@ -50,7 +50,9 @@ def compute_regime_quality(
         return {"composite_quality": 0.0}
 
     # Forward 1-bar log returns
-    returns = np.log(price_df["close"] / price_df["close"].shift(1)).values
+    returns = np.log(price_df["close"] / price_df["close"].shift(1)).to_numpy(
+        copy=True
+    )
     returns[0] = 0.0
 
     # Forward N-bar returns
