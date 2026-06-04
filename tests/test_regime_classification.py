@@ -150,7 +150,7 @@ class TestOptimizationParamContract:
     ):
         calls: list[tuple[int, str]] = []
 
-        def fake_calibrate(close, timeframe="1h"):
+        def fake_calibrate(close, timeframe="1h", **kwargs):
             calls.append((len(close), timeframe))
             return {"hmm_crisis_vol_mult": 2.0}
 
@@ -172,7 +172,7 @@ class TestOptimizationParamContract:
                 ]
                 return pd.Series(rows, index=feature_df.index)
 
-        def fake_quality(regime_df, price_df):
+        def fake_quality(regime_df, price_df, **kwargs):
             return {"composite_quality": len(price_df) / 1000.0}
 
         monkeypatch.setattr(regime_optimizer, "calibrate_frozen_overrides", fake_calibrate)

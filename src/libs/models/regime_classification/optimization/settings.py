@@ -1,0 +1,129 @@
+"""YAML-backed settings for RegimeClassification optimization.
+
+The constants module remains the safe import-time fallback. Runtime callers use
+this module so experiment knobs can be moved into ``configs/optimization.yaml``
+without making optimization code depend on hardcoded values only.
+"""
+
+from __future__ import annotations
+
+from copy import deepcopy
+from typing import Any
+
+from libs.common.config import ConfigManager
+from libs.common.constants import CONFIG_FILE_OPTIMIZATION
+from libs.models.regime_classification.optimization import constants as c
+
+
+DEFAULT_REGIME_OPTIMIZATION_SETTINGS: dict[str, Any] = {
+    "study": {
+        "screening_trials": c.SCREENING_TRIALS,
+        "main_trials": c.MAIN_TRIALS,
+        "convergence_patience": c.CONVERGENCE_PATIENCE,
+        "seed": c.SEED,
+        "direction": c.STUDY_DIRECTION,
+        "sampler": c.STUDY_SAMPLER,
+        "pruner": c.STUDY_PRUNER,
+    },
+    "quality": {
+        "weights": {
+            "ch_score": c.WEIGHT_CH_SCORE,
+            "avg_run_length": c.WEIGHT_AVG_RUN_LENGTH,
+            "return_spread": c.WEIGHT_RETURN_SPREAD,
+            "hurst_fwd_corr": c.WEIGHT_HURST_FWD_CORR,
+            "vol_calibration": c.WEIGHT_VOL_CALIBRATION,
+        },
+        "normalizers": {
+            "ch_score": c.CH_SCORE_NORMALIZER,
+            "avg_run_length": c.AVG_RUN_LENGTH_NORMALIZER,
+            "return_spread_bps": c.RETURN_SPREAD_NORMALIZER_BPS,
+        },
+        "forward_return_horizon_short": c.FORWARD_RETURN_HORIZON_SHORT,
+        "forward_return_horizon_long": c.FORWARD_RETURN_HORIZON_LONG,
+        "rolling_vol_window": c.ROLLING_VOL_WINDOW,
+        "min_samples_for_metric": c.MIN_SAMPLES_FOR_METRIC,
+        "min_samples_per_state": c.MIN_SAMPLES_PER_STATE,
+        "min_bars_for_quality": c.MIN_BARS_FOR_QUALITY,
+        "oos_quality_ratio": c.OOS_QUALITY_RATIO,
+    },
+    "calibration": {
+        "vol_lookback": c.CALIBRATION_VOL_LOOKBACK,
+        "vol_quantile": c.CALIBRATION_VOL_QUANTILE,
+        "cp_min_distance": c.CALIBRATION_CP_MIN_DISTANCE,
+        "cp_penalty": c.CALIBRATION_CP_PENALTY,
+        "cp_model": c.CALIBRATION_CP_MODEL,
+    },
+    "kernel_search": {
+        "retrain_window": {
+            "low": c.RETRAIN_WINDOW_LOW,
+            "high": c.RETRAIN_WINDOW_HIGH,
+            "step": c.RETRAIN_WINDOW_STEP,
+            "default": 500,
+        },
+        "vol_lookback": {
+            "low": c.VOL_LOOKBACK_LOW,
+            "high": c.VOL_LOOKBACK_HIGH,
+            "step": c.VOL_LOOKBACK_STEP,
+            "default": 168,
+        },
+        "trend_lookback": {
+            "low": c.TREND_LOOKBACK_LOW,
+            "high": c.TREND_LOOKBACK_HIGH,
+            "step": c.TREND_LOOKBACK_STEP,
+            "default": 20,
+        },
+    },
+    "benchmark_ladder": {
+        "cost_bps": 10.0,
+        "train_ratio": 0.60,
+        "val_ratio": 0.20,
+        "purge_bars": 24,
+        "shuffle_seed": 42,
+        "min_bars": 500,
+        "sma_fast": 20,
+        "sma_slow": 50,
+        "ema_fast": 20,
+        "ema_slow": 50,
+        "trend_strength_threshold": 0.35,
+        "max_vol_percentile": 85.0,
+        "max_changepoint_prob": 0.65,
+        "max_crisis_prob": 0.50,
+        "min_sharpe_lift": 0.10,
+        "min_calmar_lift": 0.05,
+        "min_total_return_lift": 0.0,
+    },
+}
+
+
+def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Return ``base`` recursively merged with ``override``."""
+    merged = deepcopy(base)
+    for key, value in override.items():
+        if (
+            key in merged
+            and isinstance(merged[key], dict)
+            and isinstance(value, dict)
+        ):
+            merged[key] = deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def load_regime_optimization_settings(
+    overrides: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Load regime optimization settings from YAML with safe defaults."""
+    settings = deepcopy(DEFAULT_REGIME_OPTIMIZATION_SETTINGS)
+    try:
+        manager = ConfigManager()
+        manager.register_file(CONFIG_FILE_OPTIMIZATION)
+        yaml_settings = manager.get("optimization.regime_classification", {}) or {}
+        if isinstance(yaml_settings, dict):
+            settings = deep_merge(settings, yaml_settings)
+    except Exception:
+        # Optimization scripts should remain runnable in isolated test contexts.
+        pass
+    if overrides:
+        settings = deep_merge(settings, overrides)
+    return settings

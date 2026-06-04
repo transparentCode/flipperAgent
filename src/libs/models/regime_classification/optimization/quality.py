@@ -13,21 +13,8 @@ import pandas as pd
 from scipy import stats
 from sklearn.metrics import calinski_harabasz_score
 
-from libs.models.regime_classification.optimization.constants import (
-    AVG_RUN_LENGTH_NORMALIZER,
-    CH_SCORE_NORMALIZER,
-    FORWARD_RETURN_HORIZON_LONG,
-    FORWARD_RETURN_HORIZON_SHORT,
-    MIN_BARS_FOR_QUALITY,
-    MIN_SAMPLES_FOR_METRIC,
-    MIN_SAMPLES_PER_STATE,
-    RETURN_SPREAD_NORMALIZER_BPS,
-    ROLLING_VOL_WINDOW,
-    WEIGHT_AVG_RUN_LENGTH,
-    WEIGHT_CH_SCORE,
-    WEIGHT_HURST_FWD_CORR,
-    WEIGHT_RETURN_SPREAD,
-    WEIGHT_VOL_CALIBRATION,
+from libs.models.regime_classification.optimization.settings import (
+    load_regime_optimization_settings,
 )
 
 logger = logging.getLogger("app.optimization.regime_quality")
@@ -36,6 +23,7 @@ logger = logging.getLogger("app.optimization.regime_quality")
 def compute_regime_quality(
     regime_df: pd.DataFrame,
     price_df: pd.DataFrame,
+    settings: dict | None = None,
 ) -> dict[str, float]:
     """Compute regime quality metrics from model output and price data.
 
@@ -53,8 +41,12 @@ def compute_regime_quality(
     """
     metrics: dict[str, float] = {}
     n = len(regime_df)
+    cfg = settings or load_regime_optimization_settings()
+    quality_cfg = cfg.get("quality", {})
+    weights = quality_cfg.get("weights", {})
+    normalizers = quality_cfg.get("normalizers", {})
 
-    if n < MIN_BARS_FOR_QUALITY:
+    if n < int(quality_cfg.get("min_bars_for_quality", 500)):
         return {"composite_quality": 0.0}
 
     # Forward 1-bar log returns
@@ -62,12 +54,15 @@ def compute_regime_quality(
     returns[0] = 0.0
 
     # Forward N-bar returns
-    fwd_short = price_df["close"].pct_change(FORWARD_RETURN_HORIZON_SHORT).shift(
-        -FORWARD_RETURN_HORIZON_SHORT
+    fwd_short_horizon = int(quality_cfg.get("forward_return_horizon_short", 10))
+    fwd_long_horizon = int(quality_cfg.get("forward_return_horizon_long", 20))
+    fwd_short = price_df["close"].pct_change(fwd_short_horizon).shift(
+        -fwd_short_horizon
     ).values
-    fwd_long = price_df["close"].pct_change(FORWARD_RETURN_HORIZON_LONG).shift(
-        -FORWARD_RETURN_HORIZON_LONG
+    fwd_long = price_df["close"].pct_change(fwd_long_horizon).shift(
+        -fwd_long_horizon
     ).values
+    _ = fwd_long  # retained for future multi-horizon diagnostics
 
     # --- 1. HMM State Separation (Calinski-Harabasz) ---
     hmm_cols = [c for c in regime_df.columns if c.startswith("hmm_p_state_")]
@@ -112,7 +107,7 @@ def compute_regime_quality(
         state_returns: dict[int, float] = {}
         for s in unique_states:
             mask = hard_state == s
-            if mask.sum() > MIN_SAMPLES_PER_STATE:
+            if mask.sum() > int(quality_cfg.get("min_samples_per_state", 10)):
                 state_returns[int(s)] = float(np.nanmean(returns[mask]))
         if len(state_returns) >= 2:
             spreads = []
@@ -129,7 +124,8 @@ def compute_regime_quality(
     # --- 4. Hurst-Return Rank Correlation ---
     hurst = regime_df.get("hurst", pd.Series(np.full(n, 0.5)))
     valid_hurst = ~np.isnan(fwd_short) & ~np.isnan(hurst.values) & np.isfinite(fwd_short)
-    if valid_hurst.sum() > MIN_SAMPLES_FOR_METRIC:
+    min_samples_for_metric = int(quality_cfg.get("min_samples_for_metric", 50))
+    if valid_hurst.sum() > min_samples_for_metric:
         rho, _ = stats.spearmanr(hurst.values[valid_hurst], np.abs(fwd_short[valid_hurst]))
         metrics["hurst_fwd_corr"] = abs(float(rho))
     else:
@@ -137,11 +133,12 @@ def compute_regime_quality(
 
     # --- 5. Vol Percentile Calibration ---
     vol_pct = regime_df.get("vol_percentile", pd.Series(np.full(n, 50.0)))
-    fwd_vol = price_df["close"].pct_change().rolling(ROLLING_VOL_WINDOW).std().shift(
-        -ROLLING_VOL_WINDOW
+    rolling_vol_window = int(quality_cfg.get("rolling_vol_window", 5))
+    fwd_vol = price_df["close"].pct_change().rolling(rolling_vol_window).std().shift(
+        -rolling_vol_window
     ).values
     valid_vol = ~np.isnan(fwd_vol) & ~np.isnan(vol_pct.values) & np.isfinite(fwd_vol)
-    if valid_vol.sum() > MIN_SAMPLES_FOR_METRIC:
+    if valid_vol.sum() > min_samples_for_metric:
         rho, _ = stats.spearmanr(vol_pct.values[valid_vol], fwd_vol[valid_vol])
         metrics["vol_calibration"] = float(rho)
     else:
@@ -149,11 +146,23 @@ def compute_regime_quality(
 
     # --- 6. Composite quality score ---
     metrics["composite_quality"] = (
-        WEIGHT_CH_SCORE * min(metrics["ch_score"] / CH_SCORE_NORMALIZER, 1.0)
-        + WEIGHT_AVG_RUN_LENGTH * min(metrics["avg_run_length"] / AVG_RUN_LENGTH_NORMALIZER, 1.0)
-        + WEIGHT_RETURN_SPREAD * min(metrics["return_spread"] / RETURN_SPREAD_NORMALIZER_BPS, 1.0)
-        + WEIGHT_HURST_FWD_CORR * metrics["hurst_fwd_corr"]
-        + WEIGHT_VOL_CALIBRATION * max(metrics["vol_calibration"], 0.0)
+        float(weights.get("ch_score", 0.25))
+        * min(metrics["ch_score"] / float(normalizers.get("ch_score", 100.0)), 1.0)
+        + float(weights.get("avg_run_length", 0.20))
+        * min(
+            metrics["avg_run_length"]
+            / float(normalizers.get("avg_run_length", 20.0)),
+            1.0,
+        )
+        + float(weights.get("return_spread", 0.20))
+        * min(
+            metrics["return_spread"]
+            / float(normalizers.get("return_spread_bps", 5.0)),
+            1.0,
+        )
+        + float(weights.get("hurst_fwd_corr", 0.20)) * metrics["hurst_fwd_corr"]
+        + float(weights.get("vol_calibration", 0.15))
+        * max(metrics["vol_calibration"], 0.0)
     )
 
     return metrics

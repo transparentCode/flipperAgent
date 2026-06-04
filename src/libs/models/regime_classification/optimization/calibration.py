@@ -10,6 +10,7 @@ These are computed offline and frozen before Optuna runs.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -20,6 +21,9 @@ from libs.models.regime_classification.optimization.constants import (
     CALIBRATION_CP_PENALTY,
     CALIBRATION_VOL_LOOKBACK,
     CALIBRATION_VOL_QUANTILE,
+)
+from libs.models.regime_classification.optimization.settings import (
+    load_regime_optimization_settings,
 )
 from libs.models.regime_classification.config import scale_bars_for_timeframe
 
@@ -119,20 +123,33 @@ def calibrate_crisis_vol_mult(
 def calibrate_frozen_overrides(
     close: pd.Series,
     timeframe: str = "1h",
+    settings: dict[str, Any] | None = None,
 ) -> dict[str, float]:
     """Run all calibrations and return a frozen_overrides dict.
 
     This dict can be passed directly to RegimeClassificationModel(frozen_overrides=...).
     """
+    cfg = settings or load_regime_optimization_settings()
+    calibration_cfg = cfg.get("calibration", {})
     vol_lookback = scale_bars_for_timeframe(
-        CALIBRATION_VOL_LOOKBACK,
+        int(calibration_cfg.get("vol_lookback", CALIBRATION_VOL_LOOKBACK)),
         timeframe,
         floor=30,
     )
     return {
-        "bcpd_hazard_lambda": calibrate_hazard_lambda(close),
+        "bcpd_hazard_lambda": calibrate_hazard_lambda(
+            close,
+            min_distance=int(
+                calibration_cfg.get("cp_min_distance", CALIBRATION_CP_MIN_DISTANCE)
+            ),
+            penalty=str(calibration_cfg.get("cp_penalty", CALIBRATION_CP_PENALTY)),
+            model=str(calibration_cfg.get("cp_model", CALIBRATION_CP_MODEL)),
+        ),
         "hmm_crisis_vol_mult": calibrate_crisis_vol_mult(
             close,
             vol_lookback=vol_lookback,
+            quantile=float(
+                calibration_cfg.get("vol_quantile", CALIBRATION_VOL_QUANTILE)
+            ),
         ),
     }

@@ -1,0 +1,1338 @@
+{
+  "reports": [
+    {
+      "asset": "BTCUSDT",
+      "timeframe": "1h",
+      "status": "ok",
+      "bars": 2160,
+      "date_from": "2026-03-06T17:00:00+00:00",
+      "date_to": "2026-06-04T16:00:00+00:00",
+      "information_metrics": {
+        "trend_strength_fwd_abs_return_spearman": 0.04931372071678288,
+        "vol_percentile_fwd_vol_spearman": 0.17226617474155634,
+        "changepoint_fwd_abs_return_spearman": 0.07374727827832513,
+        "crisis_prob_fwd_abs_return_spearman": 0.0
+      },
+      "strategies": {
+        "buy_and_hold": {
+          "baseline": {
+            "train": {
+              "total_return": 0.12059554387958205,
+              "sharpe": 2.130321250249772,
+              "max_drawdown": -0.13204656497942005,
+              "calmar": 0.9132804317808442,
+              "turnover": 0.0,
+              "avg_position": 1.0,
+              "trades": 1
+            },
+            "validate": {
+              "total_return": 0.00648484214378775,
+              "sharpe": 0.5817594177136377,
+              "max_drawdown": -0.058159383357538674,
+              "calmar": 0.11150121905388426,
+              "turnover": 0.0,
+              "avg_position": 1.0,
+              "trades": 1
+            },
+            "oos": {
+              "total_return": -0.17079913380246892,
+              "sharpe": -9.519662156013371,
+              "max_drawdown": -0.2037286437183409,
+              "calmar": -0.8383658315548513,
+              "turnover": 0.0,
+              "avg_position": 1.0,
+              "trades": 1
+            },
+            "full": {
+              "total_return": -0.06241882596505999,
+              "sharpe": -0.47916822232733225,
+              "max_drawdown": -0.2466509224662771,
+              "calmar": -0.25306544707366374,
+              "turnover": 0.0,
+              "avg_position": 1.0,
+              "trades": 1
+            }
+          },
+          "overlays": {
+            "risk_filtered": {
+              "metrics": {
+                "train": {
+                  "total_return": 0.050188243895551876,
+                  "sharpe": 1.0795844913085466,
+                  "max_drawdown": -0.13204656497942058,
+                  "calmar": 0.3800798900249598,
+                  "turnover": 0.012628255722178374,
+                  "avg_position": 0.9076558800315706,
+                  "trades": 17
+                },
+                "validate": {
+                  "total_return": 0.00648484214378775,
+                  "sharpe": 0.5817594177136377,
+                  "max_drawdown": -0.058159383357538674,
+                  "calmar": 0.11150121905388426,
+                  "turnover": 0.0,
+                  "avg_position": 1.0,
+                  "trades": 1
+                },
+                "oos": {
+                  "total_return": -0.1378446381373375,
+                  "sharpe": -9.792002394851274,
+                  "max_drawdown": -0.15058162126421207,
+                  "calmar": -0.9154147563298835,
+                  "turnover": 0.002364066193853428,
+                  "avg_position": 0.8983451536643026,
+                  "trades": 2
+                },
+                "full": {
+                  "total_return": -0.0864066576859317,
+                  "sharpe": -0.859415658415196,
+                  "max_drawdown": -0.19636874161972862,
+                  "calmar": -0.44002246474268114,
+                  "turnover": 0.00787037037037037,
+                  "avg_position": 0.9259259259259259,
+                  "trades": 18
+                }
+              },
+              "shuffled_control": {
+                "train": {
+                  "total_return": -0.05092484563483257,
+                  "sharpe": -0.7306239339250022,
+                  "max_drawdown": -0.17704277709898422,
+                  "calmar": -0.28764147551956104,
+                  "turnover": 0.12943962115232832,
+                  "avg_position": 0.9281767955801105,
+                  "trades": 165
+                },
+                "validate": {
+                  "total_return": -0.06293527368652285,
+                  "sharpe": -4.225366191037914,
+                  "max_drawdown": -0.08251966628736561,
+                  "calmar": -0.7626699975658859,
+                  "turnover": 0.16113744075829384,
+                  "avg_position": 0.9123222748815166,
+                  "trades": 69
+                },
+                "oos": {
+                  "total_return": -0.20651034853463113,
+                  "sharpe": -11.913442533560307,
+                  "max_drawdown": -0.2283317422067979,
+                  "calmar": -0.9044311865653645,
+                  "turnover": 0.10874704491725769,
+                  "avg_position": 0.9456264775413712,
+                  "trades": 47
+                },
+                "full": {
+                  "total_return": -0.30962232047751415,
+                  "sharpe": -3.8278764329013772,
+                  "max_drawdown": -0.38675861614800366,
+                  "calmar": -0.8005570077824169,
+                  "turnover": 0.1361111111111111,
+                  "avg_position": 0.9259259259259259,
+                  "trades": 295
+                }
+              },
+              "oos_lifts": {
+                "sharpe_vs_baseline": -0.27234023883790215,
+                "calmar_vs_baseline": -0.07704892477503211,
+                "total_return_vs_baseline": 0.03295449566513142,
+                "sharpe_vs_shuffled": 2.1214401387090334,
+                "calmar_vs_shuffled": -0.010983569764518974
+              },
+              "decision": "reject"
+            },
+            "trend_scaled": {
+              "metrics": {
+                "train": {
+                  "total_return": -0.08655874277138254,
+                  "sharpe": -5.390876289409747,
+                  "max_drawdown": -0.09755010341186135,
+                  "calmar": -0.8873259970410001,
+                  "turnover": 0.06390811955479042,
+                  "avg_position": 0.22929929020115755,
+                  "trades": 1246
+                },
+                "validate": {
+                  "total_return": -0.04736355838461681,
+                  "sharpe": -11.315284085076856,
+                  "max_drawdown": -0.056474871534582145,
+                  "calmar": -0.8386660668296331,
+                  "turnover": 0.0710592473292801,
+                  "avg_position": 0.2347098050572187,
+                  "trades": 421
+                },
+                "oos": {
+                  "total_return": -0.07351306505831223,
+                  "sharpe": -10.358090168471048,
+                  "max_drawdown": -0.09016735165485679,
+                  "calmar": -0.815295821703914,
+                  "turnover": 0.06357915276256708,
+                  "avg_position": 0.2544616425268614,
+                  "trades": 422
+                },
+                "full": {
+                  "total_return": -0.19833393992361048,
+                  "sharpe": -7.543140452144995,
+                  "max_drawdown": -0.22011311874992534,
+                  "calmar": -0.9010546079670126,
+                  "turnover": 0.06575703569132876,
+                  "avg_position": 0.2345823969297602,
+                  "trades": 2139
+                }
+              },
+              "shuffled_control": {
+                "train": {
+                  "total_return": -0.2068825407953665,
+                  "sharpe": -14.066092864329429,
+                  "max_drawdown": -0.2074709453179008,
+                  "calmar": -0.9971639184386386,
+                  "turnover": 0.19133694013538277,
+                  "avg_position": 0.23197283914055414,
+                  "trades": 1266
+                },
+                "validate": {
+                  "total_return": -0.05717586332069324,
+                  "sharpe": -14.868970018513643,
+                  "max_drawdown": -0.056767813023499314,
+                  "calmar": -1.0071880573772503,
+                  "turnover": 0.1900463769219572,
+                  "avg_position": 0.24432532152676617,
+                  "trades": 421
+                },
+                "oos": {
+                  "total_return": -0.10759342633781499,
+                  "sharpe": -21.862708633350476,
+                  "max_drawdown": -0.10804747980681154,
+                  "calmar": -0.9957976486836306,
+                  "turnover": 0.1805627956556658,
+                  "avg_position": 0.23783404354899831,
+                  "trades": 422
+                },
+                "full": {
+                  "total_return": -0.3409775336074675,
+                  "sharpe": -15.92091573978908,
+                  "max_drawdown": -0.34146645463067377,
+                  "calmar": -0.9985681726079504,
+                  "turnover": 0.1892263579634159,
+                  "avg_position": 0.2345823969297602,
+                  "trades": 2159
+                }
+              },
+              "oos_lifts": {
+                "sharpe_vs_baseline": -0.8384280124576762,
+                "calmar_vs_baseline": 0.023070009850937323,
+                "total_return_vs_baseline": 0.09728606874415668,
+                "sharpe_vs_shuffled": 11.504618464879428,
+                "calmar_vs_shuffled": 0.18050182697971662
+              },
+              "decision": "reject"
+            },
+            "confidence_scaled": {
+              "metrics": {
+                "train": {
+                  "total_return": 0.013471515686376945,
+                  "sharpe": 0.43485178755665993,
+                  "max_drawdown": -0.13204656496678424,
+                  "calmar": 0.10202094760863827,
+                  "turnover": 0.02802678480573092,
+                  "avg_position": 0.8759480085758606,
+                  "trades": 670
+                },
+                "validate": {
+                  "total_return": -0.0012001836692869805,
+                  "sharpe": 0.058675134678803996,
+                  "max_drawdown": -0.055396380025243226,
+                  "calmar": -0.02166538081983112,
+                  "turnover": 0.042564466572549885,
+                  "avg_position": 0.9135495373980713,
+                  "trades": 421
+                },
+                "oos": {
+                  "total_return": -0.13482311196240027,
+                  "sharpe": -10.309106568502873,
+                  "max_drawdown": -0.14533397505470957,
+                  "calmar": -0.9276778668693773,
+                  "turnover": 0.028225653644234183,
+                  "avg_position": 0.8256976153562713,
+                  "trades": 381
+                },
+                "full": {
+                  "total_return": -0.12215099026908893,
+                  "sharpe": -1.387505069352824,
+                  "max_drawdown": -0.19118462370956102,
+                  "calmar": -0.6389163934786678,
+                  "turnover": 0.03067084289212753,
+                  "avg_position": 0.8754869740563993,
+                  "trades": 1522
+                }
+              },
+              "shuffled_control": {
+                "train": {
+                  "total_return": -0.1269856716214619,
+                  "sharpe": -2.3239753823959717,
+                  "max_drawdown": -0.19342522326707204,
+                  "calmar": -0.6565104047786278,
+                  "turnover": 0.19689759931248127,
+                  "avg_position": 0.8807976522188192,
+                  "trades": 1133
+                },
+                "validate": {
+                  "total_return": -0.08766680318828568,
+                  "sharpe": -6.3306330232546415,
+                  "max_drawdown": -0.09075224874933434,
+                  "calmar": -0.9660014423491485,
+                  "turnover": 0.22937587474989338,
+                  "avg_position": 0.8604935569611409,
+                  "trades": 386
+                },
+                "oos": {
+                  "total_return": -0.22424165233658577,
+                  "sharpe": -13.834391296191372,
+                  "max_drawdown": -0.2440339701434175,
+                  "calmar": -0.9188952349740495,
+                  "turnover": 0.19522237052600216,
+                  "avg_position": 0.8855231846258119,
+                  "trades": 387
+                },
+                "full": {
+                  "total_return": -0.39518103408077565,
+                  "sharpe": -5.524224895414477,
+                  "max_drawdown": -0.4460820352488241,
+                  "calmar": -0.8858931829889631,
+                  "turnover": 0.20659851845959676,
+                  "avg_position": 0.8754869740563993,
+                  "trades": 1952
+                }
+              },
+              "oos_lifts": {
+                "sharpe_vs_baseline": -0.7894444124895017,
+                "calmar_vs_baseline": -0.08931203531452592,
+                "total_return_vs_baseline": 0.03597602184006865,
+                "sharpe_vs_shuffled": 3.525284727688499,
+                "calmar_vs_shuffled": -0.008782631895327797
+              },
+              "decision": "reject"
+            },
+            "combined": {
+              "metrics": {
+                "train": {
+                  "total_return": -0.16999147637150602,
+                  "sharpe": -7.134258683707097,
+                  "max_drawdown": -0.17384634823951606,
+                  "calmar": -0.9778259830761644,
+                  "turnover": 0.08190823798195589,
+                  "avg_position": 0.21451063424387612,
+                  "trades": 233
+                },
+                "validate": {
+                  "total_return": -0.07765893969539028,
+                  "sharpe": -11.117870514994259,
+                  "max_drawdown": -0.09340443945766576,
+                  "calmar": -0.8314266446680846,
+                  "turnover": 0.1366898022307359,
+                  "avg_position": 0.22163232546026684,
+                  "trades": 133
+                },
+                "oos": {
+                  "total_return": -0.11040167528200451,
+                  "sharpe": -13.822457584270703,
+                  "max_drawdown": -0.11772628962302557,
+                  "calmar": -0.9377826790899857,
+                  "turnover": 0.08448138836006407,
+                  "avg_position": 0.21792760654857693,
+                  "trades": 125
+                },
+                "full": {
+                  "total_return": -0.32265618911036686,
+                  "sharpe": -9.159847213891934,
+                  "max_drawdown": -0.32410404862962156,
+                  "calmar": -0.9955327323883286,
+                  "turnover": 0.09397292680230052,
+                  "avg_position": 0.21402375675721733,
+                  "trades": 500
+                }
+              },
+              "shuffled_control": {
+                "train": {
+                  "total_return": -0.3298234289515337,
+                  "sharpe": -15.381919068592325,
+                  "max_drawdown": -0.33327494978435585,
+                  "calmar": -0.989643623575503,
+                  "turnover": 0.3317479791001436,
+                  "avg_position": 0.2132455698717634,
+                  "trades": 505
+                },
+                "validate": {
+                  "total_return": -0.091875827108574,
+                  "sharpe": -15.513525285552394,
+                  "max_drawdown": -0.09238035729347262,
+                  "calmar": -0.9945385556012104,
+                  "turnover": 0.337032404312564,
+                  "avg_position": 0.23014992342105225,
+                  "trades": 177
+                },
+                "oos": {
+                  "total_return": -0.15733216679017814,
+                  "sharpe": -21.049694826426066,
+                  "max_drawdown": -0.16781529965856545,
+                  "calmar": -0.9375317215431719,
+                  "turnover": 0.3152239694331391,
+                  "avg_position": 0.20484123615082198,
+                  "trades": 168
+                },
+                "full": {
+                  "total_return": -0.49344908840829205,
+                  "sharpe": -16.51717279463378,
+                  "max_drawdown": -0.5023136112827453,
+                  "calmar": -0.9823526126401071,
+                  "turnover": 0.32989270240517066,
+                  "avg_position": 0.21402375675721735,
+                  "trades": 868
+                }
+              },
+              "oos_lifts": {
+                "sharpe_vs_baseline": -4.3027954282573315,
+                "calmar_vs_baseline": -0.09941684753513436,
+                "total_return_vs_baseline": 0.06039745852046441,
+                "sharpe_vs_shuffled": 7.227237242155363,
+                "calmar_vs_shuffled": -0.00025095754681381255
+              },
+              "decision": "reject"
+            }
+          },
+          "ranking": [
+            {
+              "overlay": "trend_scaled",
+              "decision": "reject",
+              "oos_sharpe": -10.358090168471048,
+              "oos_calmar": -0.815295821703914,
+              "oos_total_return": -0.07351306505831223,
+              "sharpe_vs_baseline": -0.8384280124576762,
+              "calmar_vs_baseline": 0.023070009850937323,
+              "total_return_vs_baseline": 0.09728606874415668,
+              "sharpe_vs_shuffled": 11.504618464879428,
+              "calmar_vs_shuffled": 0.18050182697971662
+            },
+            {
+              "overlay": "risk_filtered",
+              "decision": "reject",
+              "oos_sharpe": -9.792002394851274,
+              "oos_calmar": -0.9154147563298835,
+              "oos_total_return": -0.1378446381373375,
+              "sharpe_vs_baseline": -0.27234023883790215,
+              "calmar_vs_baseline": -0.07704892477503211,
+              "total_return_vs_baseline": 0.03295449566513142,
+              "sharpe_vs_shuffled": 2.1214401387090334,
+              "calmar_vs_shuffled": -0.010983569764518974
+            },
+            {
+              "overlay": "confidence_scaled",
+              "decision": "reject",
+              "oos_sharpe": -10.309106568502873,
+              "oos_calmar": -0.9276778668693773,
+              "oos_total_return": -0.13482311196240027,
+              "sharpe_vs_baseline": -0.7894444124895017,
+              "calmar_vs_baseline": -0.08931203531452592,
+              "total_return_vs_baseline": 0.03597602184006865,
+              "sharpe_vs_shuffled": 3.525284727688499,
+              "calmar_vs_shuffled": -0.008782631895327797
+            },
+            {
+              "overlay": "combined",
+              "decision": "reject",
+              "oos_sharpe": -13.822457584270703,
+              "oos_calmar": -0.9377826790899857,
+              "oos_total_return": -0.11040167528200451,
+              "sharpe_vs_baseline": -4.3027954282573315,
+              "calmar_vs_baseline": -0.09941684753513436,
+              "total_return_vs_baseline": 0.06039745852046441,
+              "sharpe_vs_shuffled": 7.227237242155363,
+              "calmar_vs_shuffled": -0.00025095754681381255
+            }
+          ]
+        },
+        "sma_cross": {
+          "baseline": {
+            "train": {
+              "total_return": -0.045064621573619346,
+              "sharpe": -0.8339336001613488,
+              "max_drawdown": -0.13302028767837662,
+              "calmar": -0.3387800640048151,
+              "turnover": 0.025256511444356748,
+              "avg_position": 0.5824782951854776,
+              "trades": 32
+            },
+            "validate": {
+              "total_return": 0.005342212721834105,
+              "sharpe": 0.5559199668179992,
+              "max_drawdown": -0.0537792802050828,
+              "calmar": 0.09933589109898874,
+              "turnover": 0.018957345971563982,
+              "avg_position": 0.6137440758293838,
+              "trades": 8
+            },
+            "oos": {
+              "total_return": 0.000641870452376736,
+              "sharpe": 0.16411749002556772,
+              "max_drawdown": -0.015312558626980782,
+              "calmar": 0.041917909868162594,
+              "turnover": 0.014184397163120567,
+              "avg_position": 0.34278959810874704,
+              "trades": 6
+            },
+            "full": {
+              "total_return": -0.03934693436159309,
+              "sharpe": -0.444497350749188,
+              "max_drawdown": -0.13302028767837662,
+              "calmar": -0.29579649125949986,
+              "turnover": 0.021296296296296296,
+              "avg_position": 0.5287037037037037,
+              "trades": 46
+            }
+          },
+          "overlays": {
+            "risk_filtered": {
+              "metrics": {
+                "train": {
+                  "total_return": -0.04576737327967839,
+                  "sharpe": -0.9399694735501337,
+                  "max_drawdown": -0.13302028767837698,
+                  "calmar": -0.34406310554926034,
+                  "turnover": 0.025256511444356748,
+                  "avg_position": 0.5327545382794001,
+                  "trades": 32
+                },
+                "validate": {
+                  "total_return": 0.005342212721834105,
+                  "sharpe": 0.5559199668179992,
+                  "max_drawdown": -0.0537792802050828,
+                  "calmar": 0.09933589109898874,
+                  "turnover": 0.018957345971563982,
+                  "avg_position": 0.6137440758293838,
+                  "trades": 8
+                },
+                "oos": {
+                  "total_return": 0.000641870452376736,
+                  "sharpe": 0.16411749002556772,
+                  "max_drawdown": -0.015312558626980782,
+                  "calmar": 0.041917909868162594,
+                  "turnover": 0.014184397163120567,
+                  "avg_position": 0.34278959810874704,
+                  "trades": 6
+                },
+                "full": {
+                  "total_return": -0.04005389380205393,
+                  "sharpe": -0.4978923358506857,
+                  "max_drawdown": -0.13302028767837698,
+                  "calmar": -0.301111165079557,
+                  "turnover": 0.021296296296296296,
+                  "avg_position": 0.49953703703703706,
+                  "trades": 46
+                }
+              },
+              "shuffled_control": {
+                "train": {
+                  "total_return": -0.1324531372612967,
+                  "sharpe": -3.0013552234823706,
+                  "max_drawdown": -0.18305277126262062,
+                  "calmar": -0.7235789786065022,
+                  "turnover": 0.0931333859510655,
+                  "avg_position": 0.5438042620363063,
+                  "trades": 118
+                },
+                "validate": {
+                  "total_return": -0.03828541266654284,
+                  "sharpe": -3.1183001364161647,
+                  "max_drawdown": -0.06318389560404951,
+                  "calmar": -0.6059362484779919,
+                  "turnover": 0.11848341232227488,
+                  "avg_position": 0.5545023696682464,
+                  "trades": 50
+                },
+                "oos": {
+                  "total_return": -0.018724823247635136,
+                  "sharpe": -2.7357389033272317,
+                  "max_drawdown": -0.022508182786861793,
+                  "calmar": -0.8319118173575952,
+                  "turnover": 0.05673758865248227,
+                  "avg_position": 0.3215130023640662,
+                  "trades": 24
+                },
+                "full": {
+                  "total_return": -0.1812902549972073,
+                  "sharpe": -2.870362790342835,
+                  "max_drawdown": -0.227800047426706,
+                  "calmar": -0.7958306288568131,
+                  "turnover": 0.08888888888888889,
+                  "avg_position": 0.49027777777777776,
+                  "trades": 192
+                }
+              },
+              "oos_lifts": {
+                "sharpe_vs_baseline": 0.0,
+                "calmar_vs_baseline": 0.0,
+                "total_return_vs_baseline": 0.0,
+                "sharpe_vs_shuffled": 2.8998563933527994,
+                "calmar_vs_shuffled": 0.8738297272257578
+              },
+              "decision": "reject"
+            },
+            "trend_scaled": {
+              "metrics": {
+                "train": {
+                  "total_return": -0.06594460627417409,
+                  "sharpe": -5.439292398075981,
+                  "max_drawdown": -0.07397034989811052,
+                  "calmar": -0.8915005318348314,
+                  "turnover": 0.043424036814637655,
+                  "avg_position": 0.13088141509067602,
+                  "trades": 754
+                },
+                "validate": {
+                  "total_return": -0.03823450557054331,
+                  "sharpe": -10.980223970394691,
+                  "max_drawdown": -0.04729502867757645,
+                  "calmar": -0.8084254654162221,
+                  "turnover": 0.05065363839588146,
+                  "avg_position": 0.13095700918633166,
+                  "trades": 263
+                },
+                "oos": {
+                  "total_return": -0.010676835427694709,
+                  "sharpe": -7.387549523441351,
+                  "max_drawdown": -0.010676835427694709,
+                  "calmar": -1.0,
+                  "turnover": 0.02526232366215656,
+                  "avg_position": 0.06322132934126898,
+                  "trades": 148
+                },
+                "full": {
+                  "total_return": -0.11124920476384392,
+                  "sharpe": -6.365299655234365,
+                  "max_drawdown": -0.11826826875349816,
+                  "calmar": -0.9406513339238626,
+                  "turnover": 0.040314839331620424,
+                  "avg_position": 0.11473760792031262,
+                  "trades": 1165
+                }
+              },
+              "shuffled_control": {
+                "train": {
+                  "total_return": -0.15362657227019416,
+                  "sharpe": -13.129026367396767,
+                  "max_drawdown": -0.16112404176815143,
+                  "calmar": -0.9534677170726283,
+                  "turnover": 0.12175973905797872,
+                  "avg_position": 0.13891722701860487,
+                  "trades": 754
+                },
+                "validate": {
+                  "total_return": -0.031889264668578776,
+                  "sharpe": -10.225537882471068,
+                  "max_drawdown": -0.03314456924734365,
+                  "calmar": -0.9621263873005235,
+                  "turnover": 0.1188074210393632,
+                  "avg_position": 0.14612773117983427,
+                  "trades": 263
+                },
+                "oos": {
+                  "total_return": -0.022758886375074283,
+                  "sharpe": -10.579554315312999,
+                  "max_drawdown": -0.023619523074500996,
+                  "calmar": -0.9635624861386032,
+                  "turnover": 0.06630452052084052,
+                  "avg_position": 0.08126321335686323,
+                  "trades": 148
+                },
+                "full": {
+                  "total_return": -0.19926504769575226,
+                  "sharpe": -11.850436854397758,
+                  "max_drawdown": -0.20633100448375064,
+                  "calmar": -0.9657542655517153,
+                  "turnover": 0.10761719131730826,
+                  "avg_position": 0.1259483187224146,
+                  "trades": 1165
+                }
+              },
+              "oos_lifts": {
+                "sharpe_vs_baseline": -7.551667013466918,
+                "calmar_vs_baseline": -1.0419179098681626,
+                "total_return_vs_baseline": -0.011318705880071445,
+                "sharpe_vs_shuffled": 3.192004791871648,
+                "calmar_vs_shuffled": -0.03643751386139682
+              },
+              "decision": "reject"
+            },
+            "confidence_scaled": {
+              "metrics": {
+                "train": {
+                  "total_return": -0.0694705664695997,
+                  "sharpe": -1.5810159668290804,
+                  "max_drawdown": -0.13390175556972553,
+                  "calmar": -0.5188174432367684,
+                  "turnover": 0.03452199928894593,
+                  "avg_position": 0.5112123974258967,
+                  "trades": 413
+                },
+                "validate": {
+                  "total_return": 0.008282668773036184,
+                  "sharpe": 0.8428259666222754,
+                  "max_drawdown": -0.045394969637930445,
+                  "calmar": 0.18245785467197395,
+                  "turnover": 0.03861381628194052,
+                  "avg_position": 0.5614755641364529,
+                  "trades": 263
+                },
+                "oos": {
+                  "total_return": 0.0001775047596890289,
+                  "sharpe": 0.09728260895174766,
+                  "max_drawdown": -0.014348058673419525,
+                  "calmar": 0.01237134331056682,
+                  "turnover": 0.016460153737637328,
+                  "avg_position": 0.32822046526787657,
+                  "trades": 148
+                },
+                "full": {
+                  "total_return": -0.061596757908034205,
+                  "sharpe": -0.8945521052635177,
+                  "max_drawdown": -0.14064847530757868,
+                  "calmar": -0.4379482804440692,
+                  "turnover": 0.031017152130136103,
+                  "avg_position": 0.4738361353761602,
+                  "trades": 824
+                }
+              },
+              "shuffled_control": {
+                "train": {
+                  "total_return": -0.17258517448408395,
+                  "sharpe": -4.25633784652847,
+                  "max_drawdown": -0.204643869739098,
+                  "calmar": -0.8433439746038524,
+                  "turnover": 0.1313400427211305,
+                  "avg_position": 0.5149047483698692,
+                  "trades": 672
+                },
+                "validate": {
+                  "total_return": -0.05953861810852579,
+                  "sharpe": -5.188692572613062,
+                  "max_drawdown": -0.06632451951144928,
+                  "calmar": -0.8976863842677054,
+                  "turnover": 0.1581824867138339,
+                  "avg_position": 0.5229435604565703,
+                  "trades": 243
+                },
+                "oos": {
+                  "total_return": -0.03218654141988464,
+                  "sharpe": -5.4651011866586225,
+                  "max_drawdown": -0.03218654141988464,
+                  "calmar": -1.0,
+                  "turnover": 0.08619494093767813,
+                  "avg_position": 0.29574243772386244,
+                  "trades": 137
+                },
+                "full": {
+                  "total_return": -0.2468943214054543,
+                  "sharpe": -4.343757366931851,
+                  "max_drawdown": -0.27455234654957306,
+                  "calmar": -0.8992613776873154,
+                  "turnover": 0.12482467756367968,
+                  "avg_position": 0.4621136804881901,
+                  "trades": 1052
+                }
+              },
+              "oos_lifts": {
+                "sharpe_vs_baseline": -0.06683488107382006,
+                "calmar_vs_baseline": -0.02954656655759577,
+                "total_return_vs_baseline": -0.0004643656926877071,
+                "sharpe_vs_shuffled": 5.56238379561037,
+                "calmar_vs_shuffled": 1.0123713433105668
+              },
+              "decision": "reject"
+            },
+            "combined": {
+              "metrics": {
+                "train": {
+                  "total_return": -0.0974133309866434,
+                  "sharpe": -5.636285231551571,
+                  "max_drawdown": -0.10065076835280358,
+                  "calmar": -0.9678349463283555,
+                  "turnover": 0.0539237475082234,
+                  "avg_position": 0.1063208056857545,
+                  "trades": 139
+                },
+                "validate": {
+                  "total_return": -0.06437770684707111,
+                  "sharpe": -10.307540951390987,
+                  "max_drawdown": -0.08100644193295574,
+                  "calmar": -0.7947232999117867,
+                  "turnover": 0.0914296489448391,
+                  "avg_position": 0.11702988564597495,
+                  "trades": 75
+                },
+                "oos": {
+                  "total_return": -0.012879497272232143,
+                  "sharpe": -9.559390641438192,
+                  "max_drawdown": -0.012879497272232143,
+                  "calmar": -1.0,
+                  "turnover": 0.022511033290707944,
+                  "avg_position": 0.0327967445375667,
+                  "trades": 21
+                },
+                "full": {
+                  "total_return": -0.16639627151713543,
+                  "sharpe": -6.489776963160178,
+                  "max_drawdown": -0.1681781451744512,
+                  "calmar": -0.9894048441581548,
+                  "turnover": 0.05390132732852343,
+                  "avg_position": 0.09165189605826068,
+                  "trades": 235
+                }
+              },
+              "shuffled_control": {
+                "train": {
+                  "total_return": -0.24746885701604504,
+                  "sharpe": -14.071221146943266,
+                  "max_drawdown": -0.25720864349276334,
+                  "calmar": -0.9621327403913923,
+                  "turnover": 0.222332144689439,
+                  "avg_position": 0.13482766242130464,
+                  "trades": 331
+                },
+                "validate": {
+                  "total_return": -0.03403979327097639,
+                  "sharpe": -6.927445883514126,
+                  "max_drawdown": -0.034576455652899324,
+                  "calmar": -0.984478964897088,
+                  "turnover": 0.20106263920044426,
+                  "avg_position": 0.13441564116953147,
+                  "trades": 102
+                },
+                "oos": {
+                  "total_return": -0.04145535189821892,
+                  "sharpe": -13.916750362904041,
+                  "max_drawdown": -0.04264941406456054,
+                  "calmar": -0.9720028471074863,
+                  "turnover": 0.11956700857432312,
+                  "avg_position": 0.06785213005719655,
+                  "trades": 63
+                },
+                "full": {
+                  "total_return": -0.3032193844176452,
+                  "sharpe": -12.221881973637553,
+                  "max_drawdown": -0.3122376084209449,
+                  "calmar": -0.9711174318529184,
+                  "turnover": 0.19311116004215065,
+                  "avg_position": 0.11863495364607843,
+                  "trades": 496
+                }
+              },
+              "oos_lifts": {
+                "sharpe_vs_baseline": -9.72350813146376,
+                "calmar_vs_baseline": -1.0419179098681626,
+                "total_return_vs_baseline": -0.01352136772460888,
+                "sharpe_vs_shuffled": 4.3573597214658495,
+                "calmar_vs_shuffled": -0.0279971528925137
+              },
+              "decision": "reject"
+            }
+          },
+          "ranking": [
+            {
+              "overlay": "risk_filtered",
+              "decision": "reject",
+              "oos_sharpe": 0.16411749002556772,
+              "oos_calmar": 0.041917909868162594,
+              "oos_total_return": 0.000641870452376736,
+              "sharpe_vs_baseline": 0.0,
+              "calmar_vs_baseline": 0.0,
+              "total_return_vs_baseline": 0.0,
+              "sharpe_vs_shuffled": 2.8998563933527994,
+              "calmar_vs_shuffled": 0.8738297272257578
+            },
+            {
+              "overlay": "confidence_scaled",
+              "decision": "reject",
+              "oos_sharpe": 0.09728260895174766,
+              "oos_calmar": 0.01237134331056682,
+              "oos_total_return": 0.0001775047596890289,
+              "sharpe_vs_baseline": -0.06683488107382006,
+              "calmar_vs_baseline": -0.02954656655759577,
+              "total_return_vs_baseline": -0.0004643656926877071,
+              "sharpe_vs_shuffled": 5.56238379561037,
+              "calmar_vs_shuffled": 1.0123713433105668
+            },
+            {
+              "overlay": "trend_scaled",
+              "decision": "reject",
+              "oos_sharpe": -7.387549523441351,
+              "oos_calmar": -1.0,
+              "oos_total_return": -0.010676835427694709,
+              "sharpe_vs_baseline": -7.551667013466918,
+              "calmar_vs_baseline": -1.0419179098681626,
+              "total_return_vs_baseline": -0.011318705880071445,
+              "sharpe_vs_shuffled": 3.192004791871648,
+              "calmar_vs_shuffled": -0.03643751386139682
+            },
+            {
+              "overlay": "combined",
+              "decision": "reject",
+              "oos_sharpe": -9.559390641438192,
+              "oos_calmar": -1.0,
+              "oos_total_return": -0.012879497272232143,
+              "sharpe_vs_baseline": -9.72350813146376,
+              "calmar_vs_baseline": -1.0419179098681626,
+              "total_return_vs_baseline": -0.01352136772460888,
+              "sharpe_vs_shuffled": 4.3573597214658495,
+              "calmar_vs_shuffled": -0.0279971528925137
+            }
+          ]
+        },
+        "ema_cross": {
+          "baseline": {
+            "train": {
+              "total_return": 0.0475148037837374,
+              "sharpe": 1.1201285301772728,
+              "max_drawdown": -0.11279878913892433,
+              "calmar": 0.42123505178072085,
+              "turnover": 0.017363851617995266,
+              "avg_position": 0.6203630623520127,
+              "trades": 22
+            },
+            "validate": {
+              "total_return": -0.0019185461736525022,
+              "sharpe": -0.027949733201360898,
+              "max_drawdown": -0.07109403614141133,
+              "calmar": -0.026986035366403607,
+              "turnover": 0.018957345971563982,
+              "avg_position": 0.5781990521327014,
+              "trades": 8
+            },
+            "oos": {
+              "total_return": -0.036308179569883636,
+              "sharpe": -5.507712884229074,
+              "max_drawdown": -0.04088730178667858,
+              "calmar": -0.8880062509214816,
+              "turnover": 0.018912529550827423,
+              "avg_position": 0.29550827423167847,
+              "trades": 8
+            },
+            "full": {
+              "total_return": 0.007544711416054284,
+              "sharpe": 0.2498694166897176,
+              "max_drawdown": -0.11279878913892433,
+              "calmar": 0.06688645750232414,
+              "turnover": 0.017592592592592594,
+              "avg_position": 0.5347222222222222,
+              "trades": 38
+            }
+          },
+          "overlays": {
+            "risk_filtered": {
+              "metrics": {
+                "train": {
+                  "total_return": 0.016002214429916117,
+                  "sharpe": 0.5069483817761998,
+                  "max_drawdown": -0.11279878913892591,
+                  "calmar": 0.14186512596520318,
+                  "turnover": 0.02367797947908445,
+                  "avg_position": 0.5611681136543015,
+                  "trades": 30
+                },
+                "validate": {
+                  "total_return": -0.0019185461736525022,
+                  "sharpe": -0.027949733201360898,
+                  "max_drawdown": -0.07109403614141133,
+                  "calmar": -0.026986035366403607,
+                  "turnover": 0.018957345971563982,
+                  "avg_position": 0.5781990521327014,
+                  "trades": 8
+                },
+                "oos": {
+                  "total_return": -0.036308179569883636,
+                  "sharpe": -5.507712884229074,
+                  "max_drawdown": -0.04088730178667858,
+                  "calmar": -0.8880062509214816,
+                  "turnover": 0.018912529550827423,
+                  "avg_position": 0.29550827423167847,
+                  "trades": 8
+                },
+                "full": {
+                  "total_return": -0.022765449959977313,
+                  "sharpe": -0.2067818744673358,
+                  "max_drawdown": -0.11279878913892591,
+                  "calmar": -0.20182353138506473,
+                  "turnover": 0.021296296296296296,
+                  "avg_position": 0.5,
+                  "trades": 46
+                }
+              },
+              "shuffled_control": {
+                "train": {
+                  "total_return": -0.05454456301237487,
+                  "sharpe": -1.0202773398785292,
+                  "max_drawdown": -0.13105563431241102,
+                  "calmar": -0.4161939568530971,
+                  "turnover": 0.0931333859510655,
+                  "avg_position": 0.5769534333070244,
+                  "trades": 118
+                },
+                "validate": {
+                  "total_return": -0.045274640070707584,
+                  "sharpe": -3.8038086993093447,
+                  "max_drawdown": -0.08432342401534151,
+                  "calmar": -0.5369165282291012,
+                  "turnover": 0.11374407582938388,
+                  "avg_position": 0.5213270142180095,
+                  "trades": 48
+                },
+                "oos": {
+                  "total_return": -0.050161758282746716,
+                  "sharpe": -8.087744441013795,
+                  "max_drawdown": -0.050161758282746716,
+                  "calmar": -1.0,
+                  "turnover": 0.06619385342789598,
+                  "avg_position": 0.2718676122931442,
+                  "trades": 28
+                },
+                "full": {
+                  "total_return": -0.14262824290323906,
+                  "sharpe": -2.0941976014990575,
+                  "max_drawdown": -0.20654922138808418,
+                  "calmar": -0.6905290755623602,
+                  "turnover": 0.08981481481481482,
+                  "avg_position": 0.4935185185185185,
+                  "trades": 194
+                }
+              },
+              "oos_lifts": {
+                "sharpe_vs_baseline": 0.0,
+                "calmar_vs_baseline": 0.0,
+                "total_return_vs_baseline": 0.0,
+                "sharpe_vs_shuffled": 2.5800315567847214,
+                "calmar_vs_shuffled": 0.11199374907851845
+              },
+              "decision": "reject"
+            },
+            "trend_scaled": {
+              "metrics": {
+                "train": {
+                  "total_return": -0.04933842112042097,
+                  "sharpe": -3.7769134249590066,
+                  "max_drawdown": -0.060279761651747026,
+                  "calmar": -0.81849064708422,
+                  "turnover": 0.042834882918060695,
+                  "avg_position": 0.13758931536716337,
+                  "trades": 780
+                },
+                "validate": {
+                  "total_return": -0.041226497845821886,
+                  "sharpe": -11.834677127319551,
+                  "max_drawdown": -0.05134787636502597,
+                  "calmar": -0.802886132091376,
+                  "turnover": 0.047793034480937205,
+                  "avg_position": 0.12432182280098934,
+                  "trades": 248
+                },
+                "oos": {
+                  "total_return": -0.017014854503243915,
+                  "sharpe": -12.281656020816817,
+                  "max_drawdown": -0.017014854503243915,
+                  "calmar": -1.0,
+                  "turnover": 0.02396640022934846,
+                  "avg_position": 0.055646463324050204,
+                  "trades": 129
+                },
+                "full": {
+                  "total_return": -0.10403938330825346,
+                  "sharpe": -5.644821024424213,
+                  "max_drawdown": -0.11435116031457239,
+                  "calmar": -0.9098235909635555,
+                  "turnover": 0.03915659467831148,
+                  "avg_position": 0.11589255823068831,
+                  "trades": 1157
+                }
+              },
+              "shuffled_control": {
+                "train": {
+                  "total_return": -0.13849724644771177,
+                  "sharpe": -10.855188535745677,
+                  "max_drawdown": -0.14500241796859456,
+                  "calmar": -0.9551374962430509,
+                  "turnover": 0.12571708382471344,
+                  "avg_position": 0.14726152007074547,
+                  "trades": 797
+                },
+                "validate": {
+                  "total_return": -0.03224091672790386,
+                  "sharpe": -10.367423395606792,
+                  "max_drawdown": -0.03642027124227187,
+                  "calmar": -0.8852464747841534,
+                  "turnover": 0.11020296524849325,
+                  "avg_position": 0.1388274543208793,
+                  "trades": 248
+                },
+                "oos": {
+                  "total_return": -0.025090207950883125,
+                  "sharpe": -12.769316816607835,
+                  "max_drawdown": -0.02515569712999935,
+                  "calmar": -0.9973966462238041,
+                  "turnover": 0.05880497350632006,
+                  "avg_position": 0.06818777213847643,
+                  "trades": 129
+                },
+                "full": {
+                  "total_return": -0.18719127167584537,
+                  "sharpe": -10.449736655241677,
+                  "max_drawdown": -0.19332875663409665,
+                  "calmar": -0.9682536366285778,
+                  "turnover": 0.10678875015460625,
+                  "avg_position": 0.12685599966093572,
+                  "trades": 1174
+                }
+              },
+              "oos_lifts": {
+                "sharpe_vs_baseline": -6.773943136587743,
+                "calmar_vs_baseline": -0.11199374907851845,
+                "total_return_vs_baseline": 0.01929332506663972,
+                "sharpe_vs_shuffled": 0.48766079579101884,
+                "calmar_vs_shuffled": -0.002603353776195916
+              },
+              "decision": "reject"
+            },
+            "confidence_scaled": {
+              "metrics": {
+                "train": {
+                  "total_return": -0.012460773754267906,
+                  "sharpe": -0.1325560140838579,
+                  "max_drawdown": -0.11279878912883559,
+                  "calmar": -0.11046903828050461,
+                  "turnover": 0.03516577089591885,
+                  "avg_position": 0.5360651034741796,
+                  "trades": 451
+                },
+                "validate": {
+                  "total_return": 0.0024082711117099365,
+                  "sharpe": 0.3307785005336441,
+                  "max_drawdown": -0.06165818011039933,
+                  "calmar": 0.03905842026796628,
+                  "turnover": 0.0414964413245271,
+                  "avg_position": 0.5261532240528164,
+                  "trades": 248
+                },
+                "oos": {
+                  "total_return": -0.03663893280363306,
+                  "sharpe": -5.708008202050336,
+                  "max_drawdown": -0.041212936419272976,
+                  "calmar": -0.8890153429227404,
+                  "turnover": 0.022021436169314627,
+                  "avg_position": 0.2824275351207282,
+                  "trades": 129
+                },
+                "full": {
+                  "total_return": -0.04635203190396675,
+                  "sharpe": -0.6043949794743895,
+                  "max_drawdown": -0.11279878912883559,
+                  "calmar": -0.41092667981590447,
+                  "turnover": 0.03304703586282394,
+                  "avg_position": 0.47254536759636206,
+                  "trades": 828
+                }
+              },
+              "shuffled_control": {
+                "train": {
+                  "total_return": -0.10148076102989012,
+                  "sharpe": -2.2048919425299816,
+                  "max_drawdown": -0.14959851288500292,
+                  "calmar": -0.6783540763396415,
+                  "turnover": 0.13654420877911533,
+                  "avg_position": 0.5449229604146613,
+                  "trades": 715
+                },
+                "validate": {
+                  "total_return": -0.06274784445620729,
+                  "sharpe": -5.646365461431405,
+                  "max_drawdown": -0.08658091675996837,
+                  "calmar": -0.7247306543330508,
+                  "turnover": 0.15019924655011666,
+                  "avg_position": 0.4889112849061835,
+                  "trades": 231
+                },
+                "oos": {
+                  "total_return": -0.06169930238517862,
+                  "sharpe": -10.845704907778238,
+                  "max_drawdown": -0.06169930238517862,
+                  "calmar": -1.0,
+                  "turnover": 0.09011073857770828,
+                  "avg_position": 0.25328434705348113,
+                  "trades": 120
+                },
+                "full": {
+                  "total_return": -0.2098203010593106,
+                  "sharpe": -3.4474846855556898,
+                  "max_drawdown": -0.2521362237747291,
+                  "calmar": -0.8321703955032433,
+                  "turnover": 0.1270844615674347,
+                  "avg_position": 0.464757977721948,
+                  "trades": 1066
+                }
+              },
+              "oos_lifts": {
+                "sharpe_vs_baseline": -0.2002953178212623,
+                "calmar_vs_baseline": -0.001009092001258871,
+                "total_return_vs_baseline": -0.00033075323374942567,
+                "sharpe_vs_shuffled": 5.137696705727902,
+                "calmar_vs_shuffled": 0.11098465707725957
+              },
+              "decision": "reject"
+            },
+            "combined": {
+              "metrics": {
+                "train": {
+                  "total_return": -0.1050675844777802,
+                  "sharpe": -5.5231031599352,
+                  "max_drawdown": -0.10827756723252974,
+                  "calmar": -0.970354129328968,
+                  "turnover": 0.05861586250885926,
+                  "avg_position": 0.12045219358540389,
+                  "trades": 154
+                },
+                "validate": {
+                  "total_return": -0.06509538745374277,
+                  "sharpe": -10.496996374881466,
+                  "max_drawdown": -0.08158220027552678,
+                  "calmar": -0.7979116429061333,
+                  "turnover": 0.08120305991555951,
+                  "avg_position": 0.10904486937377653,
+                  "trades": 70
+                },
+                "oos": {
+                  "total_return": -0.00821189143119061,
+                  "sharpe": -6.352530368183572,
+                  "max_drawdown": -0.011241663643780798,
+                  "calmar": -0.7304872029091225,
+                  "turnover": 0.014076410609708323,
+                  "avg_position": 0.032277531312510224,
+                  "trades": 19
+                },
+                "full": {
+                  "total_return": -0.1701942529256154,
+                  "sharpe": -6.193147458121287,
+                  "max_drawdown": -0.17196800818951294,
+                  "calmar": -0.9896855509197803,
+                  "turnover": 0.053003847579165465,
+                  "avg_position": 0.0982792869877927,
+                  "trades": 243
+                }
+              },
+              "shuffled_control": {
+                "train": {
+                  "total_return": -0.23286854056718553,
+                  "sharpe": -11.788579526876495,
+                  "max_drawdown": -0.24158438672673785,
+                  "calmar": -0.963922146304053,
+                  "turnover": 0.23071746973035934,
+                  "avg_position": 0.1426937128623377,
+                  "trades": 345
+                },
+                "validate": {
+                  "total_return": -0.03750313088066126,
+                  "sharpe": -7.586576694123274,
+                  "max_drawdown": -0.03858875658295518,
+                  "calmar": -0.9718667871570279,
+                  "turnover": 0.1928493298057105,
+                  "avg_position": 0.13030898647216457,
+                  "trades": 100
+                },
+                "oos": {
+                  "total_return": -0.032233894649012274,
+                  "sharpe": -11.491978574343797,
+                  "max_drawdown": -0.032233894649012274,
+                  "calmar": -1.0,
+                  "turnover": 0.10347060079603458,
+                  "avg_position": 0.06125482750001497,
+                  "trades": 54
+                },
+                "full": {
+                  "total_return": -0.28543864301979516,
+                  "sharpe": -10.441967165068373,
+                  "max_drawdown": -0.29355720833532156,
+                  "calmar": -0.9723441799928387,
+                  "turnover": 0.19327292382550823,
+                  "avg_position": 0.12115468450015819,
+                  "trades": 499
+                }
+              },
+              "oos_lifts": {
+                "sharpe_vs_baseline": -0.8448174839544986,
+                "calmar_vs_baseline": 0.15751904801235905,
+                "total_return_vs_baseline": 0.028096288138693026,
+                "sharpe_vs_shuffled": 5.139448206160225,
+                "calmar_vs_shuffled": 0.2695127970908775
+              },
+              "decision": "reject"
+            }
+          },
+          "ranking": [
+            {
+              "overlay": "combined",
+              "decision": "reject",
+              "oos_sharpe": -6.352530368183572,
+              "oos_calmar": -0.7304872029091225,
+              "oos_total_return": -0.00821189143119061,
+              "sharpe_vs_baseline": -0.8448174839544986,
+              "calmar_vs_baseline": 0.15751904801235905,
+              "total_return_vs_baseline": 0.028096288138693026,
+              "sharpe_vs_shuffled": 5.139448206160225,
+              "calmar_vs_shuffled": 0.2695127970908775
+            },
+            {
+              "overlay": "risk_filtered",
+              "decision": "reject",
+              "oos_sharpe": -5.507712884229074,
+              "oos_calmar": -0.8880062509214816,
+              "oos_total_return": -0.036308179569883636,
+              "sharpe_vs_baseline": 0.0,
+              "calmar_vs_baseline": 0.0,
+              "total_return_vs_baseline": 0.0,
+              "sharpe_vs_shuffled": 2.5800315567847214,
+              "calmar_vs_shuffled": 0.11199374907851845
+            },
+            {
+              "overlay": "confidence_scaled",
+              "decision": "reject",
+              "oos_sharpe": -5.708008202050336,
+              "oos_calmar": -0.8890153429227404,
+              "oos_total_return": -0.03663893280363306,
+              "sharpe_vs_baseline": -0.2002953178212623,
+              "calmar_vs_baseline": -0.001009092001258871,
+              "total_return_vs_baseline": -0.00033075323374942567,
+              "sharpe_vs_shuffled": 5.137696705727902,
+              "calmar_vs_shuffled": 0.11098465707725957
+            },
+            {
+              "overlay": "trend_scaled",
+              "decision": "reject",
+              "oos_sharpe": -12.281656020816817,
+              "oos_calmar": -1.0,
+              "oos_total_return": -0.017014854503243915,
+              "sharpe_vs_baseline": -6.773943136587743,
+              "calmar_vs_baseline": -0.11199374907851845,
+              "total_return_vs_baseline": 0.01929332506663972,
+              "sharpe_vs_shuffled": 0.48766079579101884,
+              "calmar_vs_shuffled": -0.002603353776195916
+            }
+          ]
+        }
+      },
+      "panel_decision": "reject"
+    }
+  ],
+  "panel_summary": {
+    "usable_slices": 1,
+    "total_slices": 1,
+    "decision_counts": {
+      "reject": 1
+    },
+    "promoted_slices": 0,
+    "rejected_slices": 1
+  }
+}

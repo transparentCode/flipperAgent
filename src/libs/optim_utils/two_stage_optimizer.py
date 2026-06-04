@@ -153,13 +153,23 @@ class TwoStageOptimizer:
 
         mod = _resolve_optimizer_module(model_name)
         model_cls = ModelRegistry.get(model_name)
-        schema = getattr(
-            mod,
-            "OPTIMIZATION_PARAM_SCHEMA",
-            model_cls.meta.hyperparameter_schema,
+        schema_factory = getattr(mod, "get_optimization_param_schema", None)
+        schema = (
+            schema_factory()
+            if schema_factory is not None
+            else getattr(
+                mod,
+                "OPTIMIZATION_PARAM_SCHEMA",
+                model_cls.meta.hyperparameter_schema,
+            )
         )
         default_params = {k: v.default for k, v in schema.items()}
-        study_defaults = getattr(mod, "STUDY_DEFAULTS", {})
+        study_defaults_factory = getattr(mod, "get_study_defaults", None)
+        study_defaults = (
+            study_defaults_factory()
+            if study_defaults_factory is not None
+            else getattr(mod, "STUDY_DEFAULTS", {})
+        )
         is_multi = (
             study_defaults.get("directions") is not None
             and len(study_defaults.get("directions", [])) > 1

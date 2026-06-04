@@ -42,6 +42,9 @@ from libs.models.regime_classification.optimization.constants import (
 from libs.models.regime_classification.optimization.quality import (
     compute_regime_quality,
 )
+from libs.models.regime_classification.optimization.settings import (
+    load_regime_optimization_settings,
+)
 from libs.optim_utils.objective import build_suggest
 from libs.optim_utils.walk_forward import WalkForwardSplit, WalkForwardSplitter
 
@@ -50,36 +53,12 @@ logger = logging.getLogger("app.optimization.regime_classification")
 MODEL_NAME = "RegimeClassification"
 
 QUALITY_BASED_GATING: bool = True
-OOS_GATE_RATIO: float = OOS_QUALITY_RATIO
-
-KERNEL_PARAM_SCHEMA: dict[str, ParamDef] = {
-    "retrain_window": ParamDef(
-        type="int",
-        default=500,
-        low=RETRAIN_WINDOW_LOW,
-        high=RETRAIN_WINDOW_HIGH,
-        step=RETRAIN_WINDOW_STEP,
-    ),
-    "vol_lookback": ParamDef(
-        type="int",
-        default=168,
-        low=VOL_LOOKBACK_LOW,
-        high=VOL_LOOKBACK_HIGH,
-        step=VOL_LOOKBACK_STEP,
-    ),
-    "trend_lookback": ParamDef(
-        type="int",
-        default=20,
-        low=TREND_LOOKBACK_LOW,
-        high=TREND_LOOKBACK_HIGH,
-        step=TREND_LOOKBACK_STEP,
-    ),
-}
-
-OPTIMIZATION_PARAM_SCHEMA: dict[str, ParamDef] = {
-    **RegimeClassificationModel.meta.hyperparameter_schema,
-    **KERNEL_PARAM_SCHEMA,
-}
+OOS_GATE_RATIO: float = float(
+    load_regime_optimization_settings()["quality"].get(
+        "oos_quality_ratio",
+        OOS_QUALITY_RATIO,
+    )
+)
 
 _KERNEL_KEY_MAP: dict[str, str] = {
     "retrain_window": "hmm_retrain_window",
@@ -87,12 +66,64 @@ _KERNEL_KEY_MAP: dict[str, str] = {
     "trend_lookback": "trend_lookback",
 }
 
-STUDY_DEFAULTS: dict[str, Any] = {
-    "n_trials": MAIN_TRIALS,
-    "sampler": STUDY_SAMPLER,
-    "pruner": STUDY_PRUNER,
-    "direction": STUDY_DIRECTION,
-}
+def get_kernel_param_schema(settings: dict[str, Any] | None = None) -> dict[str, ParamDef]:
+    """Build kernel-search schema from YAML-backed settings."""
+    cfg = settings or load_regime_optimization_settings()
+    search = cfg.get("kernel_search", {})
+
+    def _param(name: str, defaults: tuple[int, int, int, int]) -> ParamDef:
+        default, low, high, step = defaults
+        node = search.get(name, {})
+        return ParamDef(
+            type="int",
+            default=int(node.get("default", default)),
+            low=float(node.get("low", low)),
+            high=float(node.get("high", high)),
+            step=float(node.get("step", step)),
+        )
+
+    return {
+        "retrain_window": _param(
+            "retrain_window",
+            (500, RETRAIN_WINDOW_LOW, RETRAIN_WINDOW_HIGH, RETRAIN_WINDOW_STEP),
+        ),
+        "vol_lookback": _param(
+            "vol_lookback",
+            (168, VOL_LOOKBACK_LOW, VOL_LOOKBACK_HIGH, VOL_LOOKBACK_STEP),
+        ),
+        "trend_lookback": _param(
+            "trend_lookback",
+            (20, TREND_LOOKBACK_LOW, TREND_LOOKBACK_HIGH, TREND_LOOKBACK_STEP),
+        ),
+    }
+
+
+def get_optimization_param_schema(
+    settings: dict[str, Any] | None = None,
+) -> dict[str, ParamDef]:
+    """Return full optimization schema: structural params + kernel knobs."""
+    return {
+        **RegimeClassificationModel.meta.hyperparameter_schema,
+        **get_kernel_param_schema(settings),
+    }
+
+
+OPTIMIZATION_PARAM_SCHEMA: dict[str, ParamDef] = get_optimization_param_schema()
+
+
+def get_study_defaults(settings: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Return Optuna study defaults from YAML-backed settings."""
+    cfg = settings or load_regime_optimization_settings()
+    study = cfg.get("study", {})
+    return {
+        "n_trials": int(study.get("main_trials", MAIN_TRIALS)),
+        "sampler": str(study.get("sampler", STUDY_SAMPLER)),
+        "pruner": str(study.get("pruner", STUDY_PRUNER)),
+        "direction": str(study.get("direction", STUDY_DIRECTION)),
+    }
+
+
+STUDY_DEFAULTS: dict[str, Any] = get_study_defaults()
 
 
 def split_model_config(
@@ -149,6 +180,7 @@ def make_objective(
         purge_bars=purge_bars,
     )
     split = splitter.split(len(feature_df))
+    settings = load_regime_optimization_settings()
 
     train_df = feature_df.iloc[split.train_start : split.train_end]
     score_df = feature_df.iloc[split.train_start : split.val_end]
@@ -160,9 +192,10 @@ def make_objective(
         calibrated_overrides = calibrate_frozen_overrides(
             train_df["close"],
             timeframe=timeframe,
+            settings=settings,
         )
 
-    schema = OPTIMIZATION_PARAM_SCHEMA
+    schema = get_optimization_param_schema(settings)
     base_overrides = dict(calibrated_overrides)
 
     def objective(trial: optuna.Trial) -> float:
@@ -187,7 +220,7 @@ def make_objective(
             regime_series = model.batch_evaluate(score_input)
             regime_df = pd.DataFrame(regime_series.tolist(), index=score_input.index)
             regime_df = regime_df.loc[val_df.index]
-            quality = compute_regime_quality(regime_df, val_df)
+            quality = compute_regime_quality(regime_df, val_df, settings=settings)
             return quality["composite_quality"]
         except Exception:
             return 0.0
@@ -216,6 +249,7 @@ def evaluate_oos(
     are accepted for interface compatibility with TwoStageOptimizer but
     are unused — regime is scored on quality, not returns.
     """
+    settings = load_regime_optimization_settings()
     train_df = feature_df.iloc[split.train_start : split.train_end]
 
     # Auto-calibrate on train only; validation and OOS must not influence
@@ -224,6 +258,7 @@ def evaluate_oos(
         calibrated_overrides = calibrate_frozen_overrides(
             train_df["close"],
             timeframe=timeframe,
+            settings=settings,
         )
 
     schema_params, frozen = split_model_config(params, calibrated_overrides)
@@ -248,7 +283,7 @@ def evaluate_oos(
 
     for seg_name, seg_df in segments.items():
         regime_df = regime_all.loc[seg_df.index]
-        quality = compute_regime_quality(regime_df, seg_df)
+        quality = compute_regime_quality(regime_df, seg_df, settings=settings)
         results[seg_name] = quality
 
     # Degradation flag for OOS gate compatibility
