@@ -183,6 +183,40 @@ optimization:
       min_promoted_folds: 2
       min_median_abs_oos_ic: 0.02
       min_median_ic_lift_vs_null: 0.0
+    volatility_ladder:
+      min_bars: 500
+      train_ratio: 0.60
+      val_ratio: 0.20
+      purge_bars: 24
+      forecast_column: fwd_vol_ewma
+      shuffle_seed: 42
+      null_controls: ["circular_shift", "block_shuffle"]
+      null_shift_bars: 720
+      null_block_bars: 96
+      policy_kinds:
+        - inverse_vol
+        - high_vol_throttle
+        - vol_rank_scaled
+      target_vol_multipliers: [0.75, 1.0, 1.25]
+      min_position_scales: [0.25, 0.50]
+      high_vol_quantiles: [0.60, 0.75, 0.90]
+      high_vol_scales: [0.25, 0.50]
+      rank_powers: [1.0, 2.0]
+      turnover_penalty: 0.05
+      drawdown_improvement_weight: 1.0
+      min_sharpe_lift: 0.05
+      min_calmar_lift: 0.0
+      min_drawdown_improvement: 0.0
+      min_avg_position: 0.05
+    rolling_volatility_ladder:
+      fold_bars: 2160
+      step_bars: 720
+      min_folds: 2
+      min_pass_rate: 0.60
+      min_promoted_folds: 2
+      min_median_sharpe_lift: 0.05
+      min_median_null_sharpe_lift: 0.0
+      min_median_drawdown_improvement: 0.0
     rolling_alpha_ladder:
       fold_bars: 2160
       step_bars: 720
