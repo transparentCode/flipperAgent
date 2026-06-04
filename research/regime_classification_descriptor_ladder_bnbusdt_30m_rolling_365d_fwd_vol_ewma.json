@@ -1,0 +1,1156 @@
+{
+  "reports": [
+    {
+      "asset": "BNBUSDT",
+      "timeframe": "30m",
+      "status": "ok",
+      "bars": 17520,
+      "fold_bars": 2160,
+      "step_bars": 720,
+      "folds": [
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-06-04T17:30:00+00:00",
+          "date_to": "2025-07-19T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.41679146828571356,
+                "validate": 0.16982786103279549,
+                "oos": 0.506411282799593,
+                "full": 0.519969126462784
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.053128750442691414,
+                  "validate": 0.14184948053803018,
+                  "oos": 0.22449968449034038,
+                  "full": -0.1607986270231689
+                },
+                "block_shuffle": {
+                  "train": 0.18038688370137956,
+                  "validate": -0.14248021044982143,
+                  "oos": -0.15049913455630537,
+                  "full": 0.0813815922892345
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.2819115983092526,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 1,
+            "stable_rows": 1,
+            "median_abs_oos_ic": 0.506411282799593,
+            "median_oos_ic_lift_vs_null": 0.2819115983092526,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 0,
+          "fold_start": "2025-06-04T17:30:00+00:00",
+          "fold_end": "2025-07-19T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-06-19T17:30:00+00:00",
+          "date_to": "2025-08-03T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.46558186362186627,
+                "validate": 0.17592023294532266,
+                "oos": 0.3154211805442309,
+                "full": 0.6833979442734104
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.07339067979381027,
+                  "validate": -0.07113811060942803,
+                  "oos": 0.09721764103602183,
+                  "full": -0.28845680767778664
+                },
+                "block_shuffle": {
+                  "train": 0.1434147337209953,
+                  "validate": -0.21045708677350597,
+                  "oos": 0.19715973119119212,
+                  "full": 0.1534250660838806
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.11826144935303878,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 1,
+            "stable_rows": 1,
+            "median_abs_oos_ic": 0.3154211805442309,
+            "median_oos_ic_lift_vs_null": 0.11826144935303878,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 1,
+          "fold_start": "2025-06-19T17:30:00+00:00",
+          "fold_end": "2025-08-03T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-07-04T17:30:00+00:00",
+          "date_to": "2025-08-18T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.6877351745535466,
+                "validate": 0.34880857115643377,
+                "oos": 0.17600624824962174,
+                "full": 0.5919168340419135
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.30400309730877734,
+                  "validate": 0.07526659715863361,
+                  "oos": -0.12939477927427273,
+                  "full": -0.0872758045303962
+                },
+                "block_shuffle": {
+                  "train": -0.0033724373620794956,
+                  "validate": 0.10336138324977762,
+                  "oos": -0.22947702291969624,
+                  "full": -0.032285001350916595
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.053470774670074495,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 0,
+            "stable_rows": 1,
+            "median_abs_oos_ic": 0.17600624824962174,
+            "median_oos_ic_lift_vs_null": -0.053470774670074495,
+            "decision": "reject"
+          },
+          "panel_decision": "reject",
+          "fold_index": 2,
+          "fold_start": "2025-07-04T17:30:00+00:00",
+          "fold_end": "2025-08-18T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-07-19T17:30:00+00:00",
+          "date_to": "2025-09-02T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.4029312522271745,
+                "validate": 0.1511458007239981,
+                "oos": 0.38974377132339644,
+                "full": 0.4019286638098514
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.1834667992922696,
+                  "validate": -0.06394603315196257,
+                  "oos": 0.08085813040994731,
+                  "full": -0.12281712459839562
+                },
+                "block_shuffle": {
+                  "train": 0.13389952206379382,
+                  "validate": -0.16372686648349952,
+                  "oos": 0.29802867461543436,
+                  "full": 0.05968852166702232
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.09171509670796207,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 1,
+            "stable_rows": 1,
+            "median_abs_oos_ic": 0.38974377132339644,
+            "median_oos_ic_lift_vs_null": 0.09171509670796207,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 3,
+          "fold_start": "2025-07-19T17:30:00+00:00",
+          "fold_end": "2025-09-02T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-08-03T17:30:00+00:00",
+          "date_to": "2025-09-17T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.23359635788092886,
+                "validate": 0.1837053561983306,
+                "oos": 0.12499497838095444,
+                "full": 0.4425095796491683
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.03732715270270116,
+                  "validate": -0.1572183725076488,
+                  "oos": -0.040762566432220385,
+                  "full": -0.19127859804342096
+                },
+                "block_shuffle": {
+                  "train": -0.05039295798262826,
+                  "validate": -0.08246697789595049,
+                  "oos": -0.02151388936697532,
+                  "full": -0.06464020144334943
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.08423241194873406,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 1,
+            "stable_rows": 1,
+            "median_abs_oos_ic": 0.12499497838095444,
+            "median_oos_ic_lift_vs_null": 0.08423241194873406,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 4,
+          "fold_start": "2025-08-03T17:30:00+00:00",
+          "fold_end": "2025-09-17T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-08-18T17:30:00+00:00",
+          "date_to": "2025-10-02T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.4582478271585496,
+                "validate": 0.36209333988334375,
+                "oos": 0.23909207813203823,
+                "full": 0.4710812264488138
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.017770255100106463,
+                  "validate": 0.006261231882582681,
+                  "oos": -0.11133798194911769,
+                  "full": -0.20041867922743517
+                },
+                "block_shuffle": {
+                  "train": 0.07244767173143117,
+                  "validate": 0.23251171580811156,
+                  "oos": -0.0945798636239174,
+                  "full": 0.026005956838943176
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.12775409618292055,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 1,
+            "stable_rows": 1,
+            "median_abs_oos_ic": 0.23909207813203823,
+            "median_oos_ic_lift_vs_null": 0.12775409618292055,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 5,
+          "fold_start": "2025-08-18T17:30:00+00:00",
+          "fold_end": "2025-10-02T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-09-02T17:30:00+00:00",
+          "date_to": "2025-10-17T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.5345842448482037,
+                "validate": 0.4950092098543007,
+                "oos": 0.28883358695419115,
+                "full": 0.6960279994476187
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.4141575215459867,
+                  "validate": 0.41925359741595547,
+                  "oos": 0.03317160365414489,
+                  "full": -0.27269701094849763
+                },
+                "block_shuffle": {
+                  "train": -0.20499445465333757,
+                  "validate": -0.171994218681725,
+                  "oos": -0.0006650307758497956,
+                  "full": -0.2447573554629855
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.25566198330004625,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 1,
+            "stable_rows": 1,
+            "median_abs_oos_ic": 0.28883358695419115,
+            "median_oos_ic_lift_vs_null": 0.25566198330004625,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 6,
+          "fold_start": "2025-09-02T17:30:00+00:00",
+          "fold_end": "2025-10-17T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-09-17T17:30:00+00:00",
+          "date_to": "2025-11-01T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.5450840890352255,
+                "validate": 0.3026340319026383,
+                "oos": 0.36509811689080407,
+                "full": 0.5009280430704801
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.08312748347768242,
+                  "validate": -0.29864989468008063,
+                  "oos": -0.0016150512689846982,
+                  "full": -0.20935133209321352
+                },
+                "block_shuffle": {
+                  "train": 0.05217616078780703,
+                  "validate": 0.1835675536884886,
+                  "oos": 0.1325097029181419,
+                  "full": 0.08618712630741034
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.23258841397266217,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 1,
+            "stable_rows": 1,
+            "median_abs_oos_ic": 0.36509811689080407,
+            "median_oos_ic_lift_vs_null": 0.23258841397266217,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 7,
+          "fold_start": "2025-09-17T17:30:00+00:00",
+          "fold_end": "2025-11-01T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-10-02T17:30:00+00:00",
+          "date_to": "2025-11-16T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.46258010526984167,
+                "validate": 0.5701090228628417,
+                "oos": 0.27174406231030296,
+                "full": 0.4912487271569464
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.40232548200100804,
+                  "validate": -0.36283392857470775,
+                  "oos": 0.01322675972113563,
+                  "full": -0.2732370370550673
+                },
+                "block_shuffle": {
+                  "train": 0.023670510084927016,
+                  "validate": 0.07110266199160076,
+                  "oos": -0.010265462704918,
+                  "full": 0.06199608361886558
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.25851730258916733,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 1,
+            "stable_rows": 1,
+            "median_abs_oos_ic": 0.27174406231030296,
+            "median_oos_ic_lift_vs_null": 0.25851730258916733,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 8,
+          "fold_start": "2025-10-02T17:30:00+00:00",
+          "fold_end": "2025-11-16T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-10-17T17:30:00+00:00",
+          "date_to": "2025-12-01T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.36580368456835793,
+                "validate": 0.3708785293230728,
+                "oos": 0.22003416097556686,
+                "full": 0.3697823512869727
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.11434995815546274,
+                  "validate": -0.0815631978198142,
+                  "oos": -0.303028358736085,
+                  "full": -0.10444577401118006
+                },
+                "block_shuffle": {
+                  "train": -0.12889547047796301,
+                  "validate": 0.01821092901645814,
+                  "oos": -0.17197745155441801,
+                  "full": -0.11924548769096333
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.08299419776051817,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 0,
+            "stable_rows": 1,
+            "median_abs_oos_ic": 0.22003416097556686,
+            "median_oos_ic_lift_vs_null": -0.08299419776051817,
+            "decision": "reject"
+          },
+          "panel_decision": "reject",
+          "fold_index": 9,
+          "fold_start": "2025-10-17T17:30:00+00:00",
+          "fold_end": "2025-12-01T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-11-01T17:30:00+00:00",
+          "date_to": "2025-12-16T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.4128986395306842,
+                "validate": 0.28352690753683124,
+                "oos": 0.12765822330887275,
+                "full": 0.4291787517036639
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.09129089999225803,
+                  "validate": -0.3056722339359679,
+                  "oos": 0.13700973080917936,
+                  "full": -0.12788291375101676
+                },
+                "block_shuffle": {
+                  "train": -0.026420409433955742,
+                  "validate": -0.06127716739356294,
+                  "oos": 0.11977643793085799,
+                  "full": -0.028754127555903564
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.00935150750030661,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 0,
+            "stable_rows": 1,
+            "median_abs_oos_ic": 0.12765822330887275,
+            "median_oos_ic_lift_vs_null": -0.00935150750030661,
+            "decision": "reject"
+          },
+          "panel_decision": "reject",
+          "fold_index": 10,
+          "fold_start": "2025-11-01T17:30:00+00:00",
+          "fold_end": "2025-12-16T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-11-16T17:30:00+00:00",
+          "date_to": "2025-12-31T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.33710144601924896,
+                "validate": 0.4617903420240731,
+                "oos": 0.18757885174200684,
+                "full": 0.4671719329352075
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.134149852967985,
+                  "validate": 0.026841070672807586,
+                  "oos": -0.13723910275805803,
+                  "full": -0.08475844732350346
+                },
+                "block_shuffle": {
+                  "train": -0.15323863313674116,
+                  "validate": -0.391592018983214,
+                  "oos": 0.015698423207512028,
+                  "full": -0.14288656050039777
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0503397489839488,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 1,
+            "stable_rows": 1,
+            "median_abs_oos_ic": 0.18757885174200684,
+            "median_oos_ic_lift_vs_null": 0.0503397489839488,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 11,
+          "fold_start": "2025-11-16T17:30:00+00:00",
+          "fold_end": "2025-12-31T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-12-01T17:30:00+00:00",
+          "date_to": "2026-01-15T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.3520032885630277,
+                "validate": 0.2873342807056288,
+                "oos": 0.24790630320194862,
+                "full": 0.37043569179561786
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.12749226867554744,
+                  "validate": -0.36062110449430196,
+                  "oos": -0.03571211158649561,
+                  "full": -0.15010409665802552
+                },
+                "block_shuffle": {
+                  "train": -0.15175827709467568,
+                  "validate": 0.02619309548747878,
+                  "oos": -0.034804646490752954,
+                  "full": -0.04545751072037123
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.212194191615453,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 1,
+            "stable_rows": 1,
+            "median_abs_oos_ic": 0.24790630320194862,
+            "median_oos_ic_lift_vs_null": 0.212194191615453,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 12,
+          "fold_start": "2025-12-01T17:30:00+00:00",
+          "fold_end": "2026-01-15T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-12-16T17:30:00+00:00",
+          "date_to": "2026-01-30T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.4048343842385447,
+                "validate": 0.17386469214671801,
+                "oos": 0.4943257142467501,
+                "full": 0.3926585965472387
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.15491434392600018,
+                  "validate": 0.03010394029750173,
+                  "oos": -0.03373041024306772,
+                  "full": -0.06972729782351766
+                },
+                "block_shuffle": {
+                  "train": 0.14549507209375462,
+                  "validate": -0.023921829091195647,
+                  "oos": -0.05193984835655245,
+                  "full": 0.04601565576422076
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.4423858658901976,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 1,
+            "stable_rows": 1,
+            "median_abs_oos_ic": 0.4943257142467501,
+            "median_oos_ic_lift_vs_null": 0.4423858658901976,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 13,
+          "fold_start": "2025-12-16T17:30:00+00:00",
+          "fold_end": "2026-01-30T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-12-31T17:30:00+00:00",
+          "date_to": "2026-02-14T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.3500264833092848,
+                "validate": 0.3904613358172915,
+                "oos": 0.2148496319820735,
+                "full": 0.5928461097421021
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.14201524891567233,
+                  "validate": 0.21062411044128662,
+                  "oos": -0.06553933749461588,
+                  "full": -0.11957944640801209
+                },
+                "block_shuffle": {
+                  "train": 0.06385420455324119,
+                  "validate": 0.2157025241411874,
+                  "oos": -0.06708201172672305,
+                  "full": -0.0804459424066239
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.14776762025535045,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 1,
+            "stable_rows": 1,
+            "median_abs_oos_ic": 0.2148496319820735,
+            "median_oos_ic_lift_vs_null": 0.14776762025535045,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 14,
+          "fold_start": "2025-12-31T17:30:00+00:00",
+          "fold_end": "2026-02-14T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2026-01-15T17:30:00+00:00",
+          "date_to": "2026-03-01T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.6238987348864097,
+                "validate": 0.05822890561733649,
+                "oos": 0.39619050326193694,
+                "full": 0.5275234774891778
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.18379080343883356,
+                  "validate": -0.2941035296045061,
+                  "oos": -0.4378502656302976,
+                  "full": -0.1816053313680963
+                },
+                "block_shuffle": {
+                  "train": -0.10272786994626014,
+                  "validate": 0.1659294711425497,
+                  "oos": 0.11464366550176058,
+                  "full": -0.034783096920031266
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.041659762368360664,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 0,
+            "stable_rows": 1,
+            "median_abs_oos_ic": 0.39619050326193694,
+            "median_oos_ic_lift_vs_null": -0.041659762368360664,
+            "decision": "reject"
+          },
+          "panel_decision": "reject",
+          "fold_index": 15,
+          "fold_start": "2026-01-15T17:30:00+00:00",
+          "fold_end": "2026-03-01T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2026-01-30T17:30:00+00:00",
+          "date_to": "2026-03-16T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.3955809317765952,
+                "validate": 0.09682366811598822,
+                "oos": 0.259053024107304,
+                "full": 0.3775432121546018
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.40672028236339514,
+                  "validate": 0.014916762413862455,
+                  "oos": -0.12079037367335808,
+                  "full": -0.2293673500443309
+                },
+                "block_shuffle": {
+                  "train": -0.20630446602864672,
+                  "validate": 0.06678176289968418,
+                  "oos": -0.07840158312650561,
+                  "full": -0.09778599800038203
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.13826265043394592,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 1,
+            "stable_rows": 1,
+            "median_abs_oos_ic": 0.259053024107304,
+            "median_oos_ic_lift_vs_null": 0.13826265043394592,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 16,
+          "fold_start": "2026-01-30T17:30:00+00:00",
+          "fold_end": "2026-03-16T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2026-02-14T17:30:00+00:00",
+          "date_to": "2026-03-31T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.19521878769986425,
+                "validate": 0.3724901640065434,
+                "oos": 0.22075234492151857,
+                "full": 0.3271610196058748
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.16047658227521736,
+                  "validate": 0.15591252207255296,
+                  "oos": -0.1283542258700833,
+                  "full": -0.15774209264145123
+                },
+                "block_shuffle": {
+                  "train": -0.0655549431229235,
+                  "validate": -0.2541558115254475,
+                  "oos": 0.24320532839581185,
+                  "full": -0.058531828183744944
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.02245298347429328,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 0,
+            "stable_rows": 1,
+            "median_abs_oos_ic": 0.22075234492151857,
+            "median_oos_ic_lift_vs_null": -0.02245298347429328,
+            "decision": "reject"
+          },
+          "panel_decision": "reject",
+          "fold_index": 17,
+          "fold_start": "2026-02-14T17:30:00+00:00",
+          "fold_end": "2026-03-31T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2026-03-01T17:30:00+00:00",
+          "date_to": "2026-04-15T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.2898275795968672,
+                "validate": 0.42272261193080723,
+                "oos": 0.10282312341993577,
+                "full": 0.3312345826111368
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.10891585000602214,
+                  "validate": -0.035220357470568675,
+                  "oos": -0.037294712311136805,
+                  "full": -0.057136877449904006
+                },
+                "block_shuffle": {
+                  "train": -0.18447019970740983,
+                  "validate": -0.34657530823331684,
+                  "oos": -0.21294252581399725,
+                  "full": -0.23877398860184432
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.11011940239406148,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 0,
+            "stable_rows": 1,
+            "median_abs_oos_ic": 0.10282312341993577,
+            "median_oos_ic_lift_vs_null": -0.11011940239406148,
+            "decision": "reject"
+          },
+          "panel_decision": "reject",
+          "fold_index": 18,
+          "fold_start": "2026-03-01T17:30:00+00:00",
+          "fold_end": "2026-04-15T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2026-03-16T17:30:00+00:00",
+          "date_to": "2026-04-30T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.3026122146967256,
+                "validate": 0.03000430093928459,
+                "oos": 0.20035598657911208,
+                "full": 0.27748884814842534
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.0706292164538269,
+                  "validate": -0.12378585489970559,
+                  "oos": 0.18602664772978866,
+                  "full": -0.056283350922087964
+                },
+                "block_shuffle": {
+                  "train": -0.23059317173002108,
+                  "validate": -0.03537364879090274,
+                  "oos": -0.04168268313259317,
+                  "full": -0.17792920391269762
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.014329338849323414,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 1,
+            "stable_rows": 1,
+            "median_abs_oos_ic": 0.20035598657911208,
+            "median_oos_ic_lift_vs_null": 0.014329338849323414,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 19,
+          "fold_start": "2026-03-16T17:30:00+00:00",
+          "fold_end": "2026-04-30T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2026-03-31T17:30:00+00:00",
+          "date_to": "2026-05-15T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.282744888836948,
+                "validate": 0.3366070610932178,
+                "oos": 0.3187055042449009,
+                "full": 0.3551569408005961
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.05089424519052142,
+                  "validate": -0.1693722983901777,
+                  "oos": -0.046874770227553895,
+                  "full": -0.1060969966149806
+                },
+                "block_shuffle": {
+                  "train": 0.1247511603196424,
+                  "validate": -0.3623997628455532,
+                  "oos": -0.2662504726894165,
+                  "full": -0.036177536855958016
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.05245503155548442,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 1,
+            "stable_rows": 1,
+            "median_abs_oos_ic": 0.3187055042449009,
+            "median_oos_ic_lift_vs_null": 0.05245503155548442,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 20,
+          "fold_start": "2026-03-31T17:30:00+00:00",
+          "fold_end": "2026-05-15T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2026-04-15T17:30:00+00:00",
+          "date_to": "2026-05-30T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.3307051194224556,
+                "validate": 0.2595553386057564,
+                "oos": -0.03242680204650385,
+                "full": 0.2743913480138013
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.16011297735962912,
+                  "validate": 0.0934245927660389,
+                  "oos": 0.12294311813912312,
+                  "full": -0.057329672487049024
+                },
+                "block_shuffle": {
+                  "train": -0.03276951836768273,
+                  "validate": 0.07145906431137747,
+                  "oos": -0.06727671499278406,
+                  "full": -0.012416163943396348
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.09051631609261927,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 1,
+            "promoted_rows": 0,
+            "stable_rows": 0,
+            "median_abs_oos_ic": 0.03242680204650385,
+            "median_oos_ic_lift_vs_null": -0.09051631609261927,
+            "decision": "reject"
+          },
+          "panel_decision": "reject",
+          "fold_index": 21,
+          "fold_start": "2026-04-15T17:30:00+00:00",
+          "fold_end": "2026-05-30T17:00:00+00:00"
+        }
+      ],
+      "summary": {
+        "total_folds": 22,
+        "usable_folds": 22,
+        "promoted_folds": 15,
+        "rejected_folds": 7,
+        "pass_rate": 0.6818181818181818,
+        "median_abs_oos_ic": 0.24349919066699344,
+        "median_oos_ic_lift_vs_null": 0.08797375432834806,
+        "decision": "promote_to_alpha_research"
+      },
+      "panel_decision": "promote_to_alpha_research"
+    }
+  ],
+  "panel_summary": {
+    "usable_slices": 1,
+    "total_slices": 1,
+    "decision_counts": {
+      "promote_to_alpha_research": 1
+    },
+    "promoted_slices": 1,
+    "rejected_slices": 0
+  }
+}

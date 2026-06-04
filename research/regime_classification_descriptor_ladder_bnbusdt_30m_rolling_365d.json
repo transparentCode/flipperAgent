@@ -1,0 +1,4984 @@
+{
+  "reports": [
+    {
+      "asset": "BNBUSDT",
+      "timeframe": "30m",
+      "status": "ok",
+      "bars": 17520,
+      "fold_bars": 2160,
+      "step_bars": 720,
+      "folds": [
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-06-04T17:30:00+00:00",
+          "date_to": "2025-07-19T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.10848182648293735,
+                "validate": -0.07623337342992663,
+                "oos": 0.03273865723010278,
+                "full": 0.07030370740601388
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.020237160801842607,
+                  "validate": -0.13837615470479406,
+                  "oos": 0.22736052672742144,
+                  "full": -0.010336178117552717
+                },
+                "block_shuffle": {
+                  "train": -0.07611436761928034,
+                  "validate": 0.0011218211010309677,
+                  "oos": -0.02719938904251095,
+                  "full": -0.0463808003143484
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.19462186949731866,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.027619067429942076,
+                "validate": -0.22785325645454269,
+                "oos": 0.45845478155681896,
+                "full": 0.26177854977904036
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.14554874484278138,
+                  "validate": 0.2193966852827798,
+                  "oos": -0.37408354938960525,
+                  "full": -0.051088243424419824
+                },
+                "block_shuffle": {
+                  "train": -0.0968560635751905,
+                  "validate": -0.049547885870678585,
+                  "oos": -0.40942620280838293,
+                  "full": -0.17491110948179495
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.049028578748436025,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.41679146828571356,
+                "validate": 0.16982786103279549,
+                "oos": 0.506411282799593,
+                "full": 0.519969126462784
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.053128750442691414,
+                  "validate": 0.14184948053803018,
+                  "oos": 0.22449968449034038,
+                  "full": -0.1607986270231689
+                },
+                "block_shuffle": {
+                  "train": 0.18038688370137956,
+                  "validate": -0.14248021044982143,
+                  "oos": -0.15049913455630537,
+                  "full": 0.0813815922892345
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.2819115983092526,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": 0.012838697155249735,
+                "validate": -0.007311756754129621,
+                "oos": 0.2167966495945107,
+                "full": 0.01796920231377486
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.02877776233142551,
+                  "validate": 0.001992228369266512,
+                  "oos": -0.26493914793415413,
+                  "full": 0.01536864071139912
+                },
+                "block_shuffle": {
+                  "train": -0.03200610420621438,
+                  "validate": 0.03349439434776559,
+                  "oos": -0.018507692170737337,
+                  "full": -0.0512948971268912
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.04814249833964343,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0,
+                "validate": 0.0,
+                "oos": 0.0,
+                "full": 0.0
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                },
+                "block_shuffle": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.175743127133726,
+                "validate": -0.06288241493868628,
+                "oos": -0.3318685951765018,
+                "full": -0.09406952413277023
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.14572084131715793,
+                  "validate": 0.06685345852763208,
+                  "oos": 0.31011243579618725,
+                  "full": 0.21458849880659395
+                },
+                "block_shuffle": {
+                  "train": 0.0010273307964218511,
+                  "validate": 0.030258509045505252,
+                  "oos": -0.1739880708512862,
+                  "full": -0.0484622374981228
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.021756159380314555,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": -0.06145556138353439,
+                "validate": -0.04886839664178627,
+                "oos": -0.2190526953782565,
+                "full": -0.1257081863593086
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.07571761675150485,
+                  "validate": -0.023392256416788916,
+                  "oos": 0.133983103654924,
+                  "full": 0.07416706245493176
+                },
+                "block_shuffle": {
+                  "train": -0.019352985298906108,
+                  "validate": 0.056928646200864144,
+                  "oos": 0.06677089615757134,
+                  "full": 0.01779112484804748
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0850695917233325,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 3,
+            "stable_rows": 3,
+            "median_abs_oos_ic": 0.2190526953782565,
+            "median_oos_ic_lift_vs_null": 0.021756159380314555,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 0,
+          "fold_start": "2025-06-04T17:30:00+00:00",
+          "fold_end": "2025-07-19T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-06-19T17:30:00+00:00",
+          "date_to": "2025-08-03T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.03905012262779087,
+                "validate": 0.03086943882841999,
+                "oos": 0.0063500375317245145,
+                "full": 0.03211700702025516
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.03343575474587038,
+                  "validate": -0.00797027074401902,
+                  "oos": 0.047479995368198094,
+                  "full": 0.011998386416965932
+                },
+                "block_shuffle": {
+                  "train": 0.09533603740939284,
+                  "validate": 0.11747241285058765,
+                  "oos": 0.025900545736002582,
+                  "full": 0.08959584394096956
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.04112995783647358,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.12853141716272548,
+                "validate": -0.10028093250558762,
+                "oos": -0.3879017083392893,
+                "full": 0.5197072357619071
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.08117313021880601,
+                  "validate": -0.08818011346910953,
+                  "oos": 0.2954733953890616,
+                  "full": -0.28990156870188694
+                },
+                "block_shuffle": {
+                  "train": -0.03307362871726117,
+                  "validate": -0.24320919594164378,
+                  "oos": -0.005822387602865896,
+                  "full": 0.0353955648244971
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.09242831295022769,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.46558186362186627,
+                "validate": 0.17592023294532266,
+                "oos": 0.3154211805442309,
+                "full": 0.6833979442734104
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.07339067979381027,
+                  "validate": -0.07113811060942803,
+                  "oos": 0.09721764103602183,
+                  "full": -0.28845680767778664
+                },
+                "block_shuffle": {
+                  "train": 0.1434147337209953,
+                  "validate": -0.21045708677350597,
+                  "oos": 0.19715973119119212,
+                  "full": 0.1534250660838806
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.11826144935303878,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": -0.23020645071692256,
+                "validate": -0.08751648979482995,
+                "oos": -0.14419228288380256,
+                "full": 0.015009896632570829
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.19546660644698424,
+                  "validate": -0.0576449614939389,
+                  "oos": 0.018281027859819242,
+                  "full": 0.04688709399928198
+                },
+                "block_shuffle": {
+                  "train": -0.10164297814218139,
+                  "validate": -0.1959680231112214,
+                  "oos": 0.006570848413965767,
+                  "full": -0.16341312141103082
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.12591125502398332,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0,
+                "validate": 0.0,
+                "oos": 0.0,
+                "full": 0.0
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                },
+                "block_shuffle": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.009291908631869067,
+                "validate": 0.05907807566060377,
+                "oos": 0.12134671566397634,
+                "full": 0.07685478846245643
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.00048513892052433637,
+                  "validate": 0.05910873392467058,
+                  "oos": -0.03078883001328665,
+                  "full": 0.07056581936284051
+                },
+                "block_shuffle": {
+                  "train": 0.15188383489646434,
+                  "validate": -0.05957307888251586,
+                  "oos": -0.08667885437912702,
+                  "full": 0.003947249635609837
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.03466786128484932,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": -0.050618594829447264,
+                "validate": 0.020375210845424787,
+                "oos": 0.11161113535711986,
+                "full": -0.09205586318698418
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.08896952091419097,
+                  "validate": 0.07868563231591807,
+                  "oos": -0.11059569888296879,
+                  "full": 0.03456217850776575
+                },
+                "block_shuffle": {
+                  "train": 0.11296656347068247,
+                  "validate": -0.03935187791048921,
+                  "oos": 0.024513736925467544,
+                  "full": 0.03844536709816442
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.001015436474151074,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 5,
+            "stable_rows": 6,
+            "median_abs_oos_ic": 0.12134671566397634,
+            "median_oos_ic_lift_vs_null": 0.03466786128484932,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 1,
+          "fold_start": "2025-06-19T17:30:00+00:00",
+          "fold_end": "2025-08-03T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-07-04T17:30:00+00:00",
+          "date_to": "2025-08-18T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.0033025224216381827,
+                "validate": -0.021950758197233397,
+                "oos": -0.10285105553405423,
+                "full": -0.025825513886330725
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.01976513796886266,
+                  "validate": 0.12069927029339561,
+                  "oos": 0.14899540097741037,
+                  "full": 0.051596997703602765
+                },
+                "block_shuffle": {
+                  "train": 0.044791528980133534,
+                  "validate": 0.08310952401368414,
+                  "oos": -0.11731183962628802,
+                  "full": 0.020740816815967587
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.04614434544335615,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.6088926390047056,
+                "validate": 0.19750883522576906,
+                "oos": -0.17842251024654376,
+                "full": 0.47106742582020733
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.36158759568202553,
+                  "validate": -0.24349194821195877,
+                  "oos": 0.15131942894758132,
+                  "full": -0.04611457913311209
+                },
+                "block_shuffle": {
+                  "train": 0.056818791555047696,
+                  "validate": 0.332169839206341,
+                  "oos": -0.3119111256107665,
+                  "full": 0.03904157105851644
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.13348861536422274,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.6877351745535466,
+                "validate": 0.34880857115643377,
+                "oos": 0.17600624824962174,
+                "full": 0.5919168340419135
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.30400309730877734,
+                  "validate": 0.07526659715863361,
+                  "oos": -0.12939477927427273,
+                  "full": -0.0872758045303962
+                },
+                "block_shuffle": {
+                  "train": -0.0033724373620794956,
+                  "validate": 0.10336138324977762,
+                  "oos": -0.22947702291969624,
+                  "full": -0.032285001350916595
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.053470774670074495,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": 0.2576439906211194,
+                "validate": -0.10508271703436226,
+                "oos": 0.09557721806752181,
+                "full": 0.10491521974952948
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.060543192936126596,
+                  "validate": 0.15040361524804732,
+                  "oos": 0.08555595767914068,
+                  "full": 0.021829941718095894
+                },
+                "block_shuffle": {
+                  "train": -0.01523396235869559,
+                  "validate": 0.15619435455212552,
+                  "oos": -0.014472696620269699,
+                  "full": -0.014540622404229707
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.010021260388381137,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0,
+                "validate": 0.0,
+                "oos": 0.0,
+                "full": 0.0
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                },
+                "block_shuffle": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.15049027368650794,
+                "validate": 0.044195564276128446,
+                "oos": -0.10355379466396393,
+                "full": -0.08712006392504
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.19560656489654496,
+                  "validate": -0.15040585074646887,
+                  "oos": -0.09967632430466083,
+                  "full": 0.10448120971718448
+                },
+                "block_shuffle": {
+                  "train": 0.16811417350109348,
+                  "validate": -0.1915541911563523,
+                  "oos": -0.02077681016735526,
+                  "full": 0.06736684910265815
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.003877470359303095,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": -0.16793821228643924,
+                "validate": 0.1247705919543933,
+                "oos": -0.043821679747587126,
+                "full": -0.09114506911193568
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.09866799181743209,
+                  "validate": -0.15464738964442085,
+                  "oos": -0.016250731213062454,
+                  "full": 0.02765492643828157
+                },
+                "block_shuffle": {
+                  "train": -0.00441759795107084,
+                  "validate": -0.06016851985493851,
+                  "oos": -0.1018403913067327,
+                  "full": -0.03200588193831122
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.05801871155914557,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 0,
+            "stable_rows": 2,
+            "median_abs_oos_ic": 0.10285105553405423,
+            "median_oos_ic_lift_vs_null": -0.04614434544335615,
+            "decision": "reject"
+          },
+          "panel_decision": "reject",
+          "fold_index": 2,
+          "fold_start": "2025-07-04T17:30:00+00:00",
+          "fold_end": "2025-08-18T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-07-19T17:30:00+00:00",
+          "date_to": "2025-09-02T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.06651308467346519,
+                "validate": 0.007770352995579862,
+                "oos": -0.027457597919418906,
+                "full": -0.034383738094431855
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.1262186366717824,
+                  "validate": 0.09557402449834818,
+                  "oos": 0.005987331060508073,
+                  "full": 0.09823610272002051
+                },
+                "block_shuffle": {
+                  "train": 0.04588216961096694,
+                  "validate": 0.031226000826655387,
+                  "oos": 0.009049512426443553,
+                  "full": 0.04897760201775776
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.018408085492975353,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.1372185446100153,
+                "validate": -0.08733851774903835,
+                "oos": 0.2891751354638152,
+                "full": 0.2513426492221531
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.25531544536762435,
+                  "validate": -0.007585134863927712,
+                  "oos": -0.36656461426960674,
+                  "full": -0.16361314665400778
+                },
+                "block_shuffle": {
+                  "train": -0.11776261784704659,
+                  "validate": -0.07195759655306845,
+                  "oos": 0.16955370368747796,
+                  "full": -0.08156107888734046
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.07738947880579156,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.4029312522271745,
+                "validate": 0.1511458007239981,
+                "oos": 0.38974377132339644,
+                "full": 0.4019286638098514
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.1834667992922696,
+                  "validate": -0.06394603315196257,
+                  "oos": 0.08085813040994731,
+                  "full": -0.12281712459839562
+                },
+                "block_shuffle": {
+                  "train": 0.13389952206379382,
+                  "validate": -0.16372686648349952,
+                  "oos": 0.29802867461543436,
+                  "full": 0.05968852166702232
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.09171509670796207,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": -0.003028302431261839,
+                "validate": -0.020145593221841045,
+                "oos": -0.0403257568299866,
+                "full": 0.02272750519862121
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.07749928908005609,
+                  "validate": -0.007599656723249529,
+                  "oos": 0.1703589515863696,
+                  "full": -0.009082151103279567
+                },
+                "block_shuffle": {
+                  "train": -0.09766073560977262,
+                  "validate": -0.053073367221892626,
+                  "oos": 0.20821200764444656,
+                  "full": -0.05231789798960153
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.16788625081445996,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0,
+                "validate": 0.0,
+                "oos": 0.0,
+                "full": 0.0
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                },
+                "block_shuffle": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.05050889289194398,
+                "validate": 0.07475402930626657,
+                "oos": 0.11886207684231719,
+                "full": 0.0970369668458451
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.024857636356356842,
+                  "validate": -0.04817044014808262,
+                  "oos": -0.1301679291092774,
+                  "full": 0.00197197012092756
+                },
+                "block_shuffle": {
+                  "train": 0.1309457601742264,
+                  "validate": -0.04542333194492914,
+                  "oos": -0.04088891985154741,
+                  "full": 0.11625422996017006
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.011305852266960223,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": 0.06228550788027574,
+                "validate": 0.0030395593002283164,
+                "oos": -0.13762358224728818,
+                "full": 0.00548242683408683
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.017562126862904367,
+                  "validate": -0.1214141507529119,
+                  "oos": 0.11628919549017425,
+                  "full": 0.012106468112634756
+                },
+                "block_shuffle": {
+                  "train": -0.05930655301041424,
+                  "validate": -0.055292418762186976,
+                  "oos": -0.06371799995298433,
+                  "full": -0.011543126800681461
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.021334386757113938,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 1,
+            "stable_rows": 3,
+            "median_abs_oos_ic": 0.11886207684231719,
+            "median_oos_ic_lift_vs_null": 0.0,
+            "decision": "reject"
+          },
+          "panel_decision": "reject",
+          "fold_index": 3,
+          "fold_start": "2025-07-19T17:30:00+00:00",
+          "fold_end": "2025-09-02T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-08-03T17:30:00+00:00",
+          "date_to": "2025-09-17T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.06822543748469533,
+                "validate": -0.05453618375893571,
+                "oos": -0.0022714559507684986,
+                "full": -0.014230168022984161
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.024509241701173405,
+                  "validate": 0.12090525550509451,
+                  "oos": 0.0013659625336694934,
+                  "full": 0.023995170295403878
+                },
+                "block_shuffle": {
+                  "train": -0.019854894628073362,
+                  "validate": 0.03242630380056288,
+                  "oos": -0.09022475411318864,
+                  "full": -0.03421291817956239
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.08795329816242015,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.01400039153138196,
+                "validate": 0.031511852236405444,
+                "oos": 0.2046380946739029,
+                "full": 0.4053058223456787
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.08135929162937351,
+                  "validate": 0.05069052807341871,
+                  "oos": -0.20307459171900247,
+                  "full": -0.11670234090174873
+                },
+                "block_shuffle": {
+                  "train": -0.10142957572680114,
+                  "validate": -0.06294565182123818,
+                  "oos": -0.0529587405490017,
+                  "full": -0.11025022543555889
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.001563502954900431,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.23359635788092886,
+                "validate": 0.1837053561983306,
+                "oos": 0.12499497838095444,
+                "full": 0.4425095796491683
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.03732715270270116,
+                  "validate": -0.1572183725076488,
+                  "oos": -0.040762566432220385,
+                  "full": -0.19127859804342096
+                },
+                "block_shuffle": {
+                  "train": -0.05039295798262826,
+                  "validate": -0.08246697789595049,
+                  "oos": -0.02151388936697532,
+                  "full": -0.06464020144334943
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.08423241194873406,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": -0.04407214254177652,
+                "validate": 0.035170058756084054,
+                "oos": -0.006365582009442512,
+                "full": 0.046099197238798774
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.013031951125629958,
+                  "validate": 0.04096590777084002,
+                  "oos": -0.025575460230261957,
+                  "full": -0.018443139967285485
+                },
+                "block_shuffle": {
+                  "train": 0.0399574179042449,
+                  "validate": 0.03173904771439847,
+                  "oos": 0.011625710005304928,
+                  "full": 0.009414347722226367
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.019209878220819446,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0,
+                "validate": 0.0,
+                "oos": 0.0,
+                "full": 0.0
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                },
+                "block_shuffle": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.05260741217807813,
+                "validate": -0.04050076442070133,
+                "oos": -0.0006392346469286299,
+                "full": 0.04128187688717609
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.042651116851206795,
+                  "validate": -0.048843963886800436,
+                  "oos": 0.05014808538913008,
+                  "full": -0.0308456328000449
+                },
+                "block_shuffle": {
+                  "train": -0.020527476373686012,
+                  "validate": -0.08084464475574825,
+                  "oos": -0.02572490203016356,
+                  "full": 0.02913595440997676
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.049508850742201446,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": -0.04973495509731812,
+                "validate": -0.0762490987148998,
+                "oos": -0.14921073279387953,
+                "full": -0.0871203786644008
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.010844563217382653,
+                  "validate": -0.036492036715506715,
+                  "oos": 0.055913908157935885,
+                  "full": 0.018308034196966156
+                },
+                "block_shuffle": {
+                  "train": 0.033190925538058046,
+                  "validate": -0.029662269680789194,
+                  "oos": -0.031219433420176065,
+                  "full": -0.023232214516886434
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.09329682463594365,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 3,
+            "stable_rows": 5,
+            "median_abs_oos_ic": 0.006365582009442512,
+            "median_oos_ic_lift_vs_null": 0.0,
+            "decision": "reject"
+          },
+          "panel_decision": "reject",
+          "fold_index": 4,
+          "fold_start": "2025-08-03T17:30:00+00:00",
+          "fold_end": "2025-09-17T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-08-18T17:30:00+00:00",
+          "date_to": "2025-10-02T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.033360987103450805,
+                "validate": 0.16702151212147126,
+                "oos": 0.12938820701212722,
+                "full": 0.09872185061225949
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.05875140188131177,
+                  "validate": 0.1727459917611502,
+                  "oos": -0.06815296184333551,
+                  "full": -0.04884787436500344
+                },
+                "block_shuffle": {
+                  "train": -0.011840615223200587,
+                  "validate": 0.1698879001332597,
+                  "oos": -0.14851579014734106,
+                  "full": -0.013139317708825891
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.019127583135213844,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.4576455820753978,
+                "validate": 0.43647429551367634,
+                "oos": 0.18166909647420307,
+                "full": 0.4709523761523419
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.2085494549761269,
+                  "validate": -0.29078264681746496,
+                  "oos": -0.30241051335664665,
+                  "full": -0.1820739542199442
+                },
+                "block_shuffle": {
+                  "train": 0.15807144783273824,
+                  "validate": 0.2218022600189094,
+                  "oos": 0.16652243897594318,
+                  "full": 0.14349434440450476
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.12074141688244358,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.4582478271585496,
+                "validate": 0.36209333988334375,
+                "oos": 0.23909207813203823,
+                "full": 0.4710812264488138
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.017770255100106463,
+                  "validate": 0.006261231882582681,
+                  "oos": -0.11133798194911769,
+                  "full": -0.20041867922743517
+                },
+                "block_shuffle": {
+                  "train": 0.07244767173143117,
+                  "validate": 0.23251171580811156,
+                  "oos": -0.0945798636239174,
+                  "full": 0.026005956838943176
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.12775409618292055,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": -0.0074722025993291235,
+                "validate": 0.12755442620304347,
+                "oos": 0.12443414944195175,
+                "full": 0.09350107077533773
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.13891089636347118,
+                  "validate": -0.2651753816375042,
+                  "oos": 0.13062903492495234,
+                  "full": -0.002656082230018906
+                },
+                "block_shuffle": {
+                  "train": 0.10005244092929011,
+                  "validate": 0.03543065400065198,
+                  "oos": 0.1102582152371413,
+                  "full": 0.03793957090381433
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.006194885483000595,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0,
+                "validate": 0.0,
+                "oos": 0.0,
+                "full": 0.0
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                },
+                "block_shuffle": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.12377351356692363,
+                "validate": 0.037080930871123435,
+                "oos": -0.06197125637581312,
+                "full": 0.0215569801617463
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.16931946610805984,
+                  "validate": 0.31162728237402915,
+                  "oos": -0.0899045206401482,
+                  "full": -0.09090803459513648
+                },
+                "block_shuffle": {
+                  "train": -0.06646985255532437,
+                  "validate": 0.13780658164267778,
+                  "oos": -0.06848913305207885,
+                  "full": 0.005649841606273011
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.02793326426433508,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": -0.08815367774619327,
+                "validate": -0.15450128385472742,
+                "oos": -0.0423401747961206,
+                "full": -0.06614099631007506
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.03964460008999381,
+                  "validate": -0.058088548252155606,
+                  "oos": -0.0045428048805001104,
+                  "full": 0.010518652859758629
+                },
+                "block_shuffle": {
+                  "train": -0.027807327249108626,
+                  "validate": -0.07357352646123554,
+                  "oos": -0.09084621750339247,
+                  "full": -0.0028309923993242014
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.04850604270727187,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 1,
+            "stable_rows": 5,
+            "median_abs_oos_ic": 0.12443414944195175,
+            "median_oos_ic_lift_vs_null": -0.019127583135213844,
+            "decision": "reject"
+          },
+          "panel_decision": "reject",
+          "fold_index": 5,
+          "fold_start": "2025-08-18T17:30:00+00:00",
+          "fold_end": "2025-10-02T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-09-02T17:30:00+00:00",
+          "date_to": "2025-10-17T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.13787098341403617,
+                "validate": 0.10765098536379265,
+                "oos": 0.194069289223815,
+                "full": 0.11308536983111052
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.10133909393151105,
+                  "validate": 0.15454248089706724,
+                  "oos": 0.12395541081608683,
+                  "full": 0.022939674144588064
+                },
+                "block_shuffle": {
+                  "train": 0.024768337012740085,
+                  "validate": -0.07033987799448009,
+                  "oos": -0.04475759996914327,
+                  "full": -0.010651695290106115
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.07011387840772818,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.5517701272002459,
+                "validate": 0.289949041793836,
+                "oos": 0.15805788589073488,
+                "full": 0.6549677655689862
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.4553181085937136,
+                  "validate": 0.4779443257211734,
+                  "oos": 0.17128325910780712,
+                  "full": -0.1809875667693753
+                },
+                "block_shuffle": {
+                  "train": -0.22503108991096976,
+                  "validate": -0.360451990758448,
+                  "oos": 0.017754483931943697,
+                  "full": -0.24920447434189452
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.013225373217072234,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.5345842448482037,
+                "validate": 0.4950092098543007,
+                "oos": 0.28883358695419115,
+                "full": 0.6960279994476187
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.4141575215459867,
+                  "validate": 0.41925359741595547,
+                  "oos": 0.03317160365414489,
+                  "full": -0.27269701094849763
+                },
+                "block_shuffle": {
+                  "train": -0.20499445465333757,
+                  "validate": -0.171994218681725,
+                  "oos": -0.0006650307758497956,
+                  "full": -0.2447573554629855
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.25566198330004625,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": 0.22909115428399368,
+                "validate": 0.00025716215770627004,
+                "oos": 0.13893103734871168,
+                "full": 0.3191466860278095
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.030251268033664354,
+                  "validate": 0.17663351662025215,
+                  "oos": 0.05930929006877433,
+                  "full": -0.00804677483597045
+                },
+                "block_shuffle": {
+                  "train": 0.04387855247540491,
+                  "validate": -0.1681589017826583,
+                  "oos": -0.10446045008088115,
+                  "full": 0.04070404741227129
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.03447058726783053,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0,
+                "validate": 0.0,
+                "oos": 0.0,
+                "full": 0.0
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                },
+                "block_shuffle": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.14373035123612155,
+                "validate": -0.05065711278512685,
+                "oos": -0.14049565865116315,
+                "full": -0.09654816261869956
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.054574323142461564,
+                  "validate": -0.05873476697443892,
+                  "oos": -0.14031985063877048,
+                  "full": -0.08817013736308267
+                },
+                "block_shuffle": {
+                  "train": 0.03138106365001909,
+                  "validate": 0.1836734205065943,
+                  "oos": 0.01927767717196217,
+                  "full": 0.05743974046185309
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.00017580801239266974,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": -0.07245554822527017,
+                "validate": -0.030658343906043283,
+                "oos": 0.02055539145493428,
+                "full": 0.002812821617977434
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.012623193526138023,
+                  "validate": -0.26951895507055357,
+                  "oos": -0.0754981532717973,
+                  "full": -0.01552799037922994
+                },
+                "block_shuffle": {
+                  "train": -0.047241209947925585,
+                  "validate": 0.023290460465569693,
+                  "oos": 0.0669211986545339,
+                  "full": -0.02435110190095152
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.05494276181686303,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 4,
+            "stable_rows": 5,
+            "median_abs_oos_ic": 0.14049565865116315,
+            "median_oos_ic_lift_vs_null": 0.00017580801239266974,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 6,
+          "fold_start": "2025-09-02T17:30:00+00:00",
+          "fold_end": "2025-10-17T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-09-17T17:30:00+00:00",
+          "date_to": "2025-11-01T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.07987963041815309,
+                "validate": 0.15606932631897805,
+                "oos": 0.10143522596135558,
+                "full": 0.13238959981393525
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.16952716339585278,
+                  "validate": -0.005148113347115182,
+                  "oos": -0.12528875849885918,
+                  "full": 0.09630894669381314
+                },
+                "block_shuffle": {
+                  "train": 0.04964008907152233,
+                  "validate": -0.01641598346242139,
+                  "oos": 0.009093464057818162,
+                  "full": 0.03679704479665333
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.023853532537503594,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.37646534113983426,
+                "validate": 0.3119642581225255,
+                "oos": -0.1698650135764734,
+                "full": 0.3584285612551406
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.3771461339704267,
+                  "validate": -0.3084003517148172,
+                  "oos": 0.061461328221395016,
+                  "full": 0.06090536556129409
+                },
+                "block_shuffle": {
+                  "train": 0.13219421445091734,
+                  "validate": 0.236729895596277,
+                  "oos": 0.1612766276717761,
+                  "full": 0.1884589034729181
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.008588385904697293,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.5450840890352255,
+                "validate": 0.3026340319026383,
+                "oos": 0.36509811689080407,
+                "full": 0.5009280430704801
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.08312748347768242,
+                  "validate": -0.29864989468008063,
+                  "oos": -0.0016150512689846982,
+                  "full": -0.20935133209321352
+                },
+                "block_shuffle": {
+                  "train": 0.05217616078780703,
+                  "validate": 0.1835675536884886,
+                  "oos": 0.1325097029181419,
+                  "full": 0.08618712630741034
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.23258841397266217,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": 0.22097194305574616,
+                "validate": 0.18244494156786142,
+                "oos": 0.18006692283881795,
+                "full": 0.23277798815692216
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.09221715796773904,
+                  "validate": 0.19491303531556733,
+                  "oos": 0.1196768491224591,
+                  "full": -0.10793119045454297
+                },
+                "block_shuffle": {
+                  "train": 0.060819612726898925,
+                  "validate": 0.17554834882287645,
+                  "oos": 0.11802289964743795,
+                  "full": 0.10088485329411001
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.06039007371635885,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0,
+                "validate": 0.0,
+                "oos": 0.19047816329664227,
+                "full": -0.06988986293817465
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.1473994695857198,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": -0.09213676788756947
+                },
+                "block_shuffle": {
+                  "train": -0.06349220519720748,
+                  "validate": 0.0006312911243406283,
+                  "oos": -0.16095205556045053,
+                  "full": -0.06761314161893617
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.029526107736191742,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.10084820221653623,
+                "validate": 0.017473374215809113,
+                "oos": -0.1592686682436262,
+                "full": -0.059066246304763786
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.01828338359873735,
+                  "validate": 0.008246833516284928,
+                  "oos": 0.07314820968703792,
+                  "full": 0.028039088414694425
+                },
+                "block_shuffle": {
+                  "train": -0.08822395849121967,
+                  "validate": 0.06318340883330058,
+                  "oos": 0.11211465902816453,
+                  "full": -0.014158810980442903
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.04715400921546167,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": 0.04490958487172271,
+                "validate": -0.0908195983911118,
+                "oos": 0.11741740145700912,
+                "full": 0.07251394779377793
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.015700129619358613,
+                  "validate": -0.011278329054349839,
+                  "oos": -0.01968832692659524,
+                  "full": -0.026454988353551256
+                },
+                "block_shuffle": {
+                  "train": -0.030767042234019566,
+                  "validate": -0.08406951090727625,
+                  "oos": 0.07994760817950179,
+                  "full": -0.006150978527636946
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.037469793277507324,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 2,
+            "stable_rows": 3,
+            "median_abs_oos_ic": 0.1698650135764734,
+            "median_oos_ic_lift_vs_null": 0.037469793277507324,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 7,
+          "fold_start": "2025-09-17T17:30:00+00:00",
+          "fold_end": "2025-11-01T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-10-02T17:30:00+00:00",
+          "date_to": "2025-11-16T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.11450816063171676,
+                "validate": 0.263494925538342,
+                "oos": 0.06122333294365296,
+                "full": 0.13981468419541251
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.14748456233757534,
+                  "validate": -0.14034674656338028,
+                  "oos": 0.017014354395598754,
+                  "full": -0.09460690809094423
+                },
+                "block_shuffle": {
+                  "train": 0.009700365312374254,
+                  "validate": 0.06953765341806513,
+                  "oos": -0.10583223364326205,
+                  "full": 0.003727935073892014
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.04460890069960909,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.42682491918433396,
+                "validate": 0.31262456844901465,
+                "oos": 0.11698371767740483,
+                "full": 0.37025660841318375
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.3724995743926776,
+                  "validate": -0.30700871595525525,
+                  "oos": 0.027990541525758764,
+                  "full": -0.2589357940232874
+                },
+                "block_shuffle": {
+                  "train": -0.035276754401670156,
+                  "validate": 0.1262703606913333,
+                  "oos": -0.04621513839876697,
+                  "full": 0.03813465400188054
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.07076857927863786,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.46258010526984167,
+                "validate": 0.5701090228628417,
+                "oos": 0.27174406231030296,
+                "full": 0.4912487271569464
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.40232548200100804,
+                  "validate": -0.36283392857470775,
+                  "oos": 0.01322675972113563,
+                  "full": -0.2732370370550673
+                },
+                "block_shuffle": {
+                  "train": 0.023670510084927016,
+                  "validate": 0.07110266199160076,
+                  "oos": -0.010265462704918,
+                  "full": 0.06199608361886558
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.25851730258916733,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": 0.22768894948754495,
+                "validate": 0.17420400887141585,
+                "oos": 0.09851258717346055,
+                "full": 0.20985766387418112
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.19202284603296352,
+                  "validate": -0.16484924636957055,
+                  "oos": 0.14311844524917067,
+                  "full": -0.17696544726219204
+                },
+                "block_shuffle": {
+                  "train": -0.06175269708812557,
+                  "validate": -0.046045758576868934,
+                  "oos": 0.017169506108938554,
+                  "full": -0.043008649377324466
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.04460585807571012,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.015045312918111025,
+                "validate": 0.2833482273415669,
+                "oos": 0.09447667910823275,
+                "full": -0.10588868235814987
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.1694294873723957,
+                  "validate": 0.0,
+                  "oos": 0.04457006109517572,
+                  "full": 0.16433583326164714
+                },
+                "block_shuffle": {
+                  "train": 0.15327871466478354,
+                  "validate": -0.12629168052689327,
+                  "oos": 0.019590187934943964,
+                  "full": 0.0616747219200483
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.04990661801305703,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.23159451304677192,
+                "validate": 0.17906749536593156,
+                "oos": 0.10778781024466148,
+                "full": -0.04873580214115694
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.06999130305280277,
+                  "validate": 0.14223270883886538,
+                  "oos": -0.1338972717636148,
+                  "full": 0.0022482842136189968
+                },
+                "block_shuffle": {
+                  "train": -0.13742335920744844,
+                  "validate": 0.2583353951814311,
+                  "oos": -0.048822788727486,
+                  "full": -0.0178821141004793
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.02610946151895331,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": 0.09826726693534381,
+                "validate": 0.07098386121834185,
+                "oos": -0.08993332972198403,
+                "full": 0.060291431911814415
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.13179531230970673,
+                  "validate": -0.03206686759007123,
+                  "oos": -0.039079058228237956,
+                  "full": -0.08954666034691987
+                },
+                "block_shuffle": {
+                  "train": -0.015389394562415575,
+                  "validate": 0.19864407440026172,
+                  "oos": -0.00097693812770617,
+                  "full": 0.019835345782987002
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.05085427149374608,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 3,
+            "stable_rows": 6,
+            "median_abs_oos_ic": 0.09851258717346055,
+            "median_oos_ic_lift_vs_null": 0.04990661801305703,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 8,
+          "fold_start": "2025-10-02T17:30:00+00:00",
+          "fold_end": "2025-11-16T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-10-17T17:30:00+00:00",
+          "date_to": "2025-12-01T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.11167485894792532,
+                "validate": 0.2318381920693937,
+                "oos": -0.059754845575041585,
+                "full": 0.10087948552388505
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.06888266452158176,
+                  "validate": 0.050154285318739375,
+                  "oos": -0.26623026298331903,
+                  "full": -0.07725241228729071
+                },
+                "block_shuffle": {
+                  "train": -0.05577743840315941,
+                  "validate": 0.07320291275863619,
+                  "oos": -0.045945288053623745,
+                  "full": -0.05099560810047902
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.20647541740827746,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.1648042388443928,
+                "validate": 0.24018093496536091,
+                "oos": 0.2880622306511113,
+                "full": 0.12983427501008035
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.03538915152328672,
+                  "validate": 0.13005858007855745,
+                  "oos": 0.1615496789447705,
+                  "full": 0.11221525581801961
+                },
+                "block_shuffle": {
+                  "train": 0.16180848942636686,
+                  "validate": 0.08540074662671399,
+                  "oos": 0.055988092901276515,
+                  "full": 0.12145041821762288
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.12651255170634082,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.36580368456835793,
+                "validate": 0.3708785293230728,
+                "oos": 0.22003416097556686,
+                "full": 0.3697823512869727
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.11434995815546274,
+                  "validate": -0.0815631978198142,
+                  "oos": -0.303028358736085,
+                  "full": -0.10444577401118006
+                },
+                "block_shuffle": {
+                  "train": -0.12889547047796301,
+                  "validate": 0.01821092901645814,
+                  "oos": -0.17197745155441801,
+                  "full": -0.11924548769096333
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.08299419776051817,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": 0.05121128446806993,
+                "validate": 0.006038959468098281,
+                "oos": 0.15430503902900808,
+                "full": 0.10160926732262392
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.05803009204445639,
+                  "validate": -0.029451494115329848,
+                  "oos": -0.0701651897606827,
+                  "full": 0.03279505598884542
+                },
+                "block_shuffle": {
+                  "train": -0.02915438473844298,
+                  "validate": 0.07798304709772028,
+                  "oos": 0.003193169977479749,
+                  "full": -0.012430719555733558
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.08413984926832538,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.05047028454445804,
+                "validate": -0.025634813979438197,
+                "oos": 0.0,
+                "full": 0.0538542936316106
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.045371640861038745,
+                  "validate": -0.012478632028257343,
+                  "oos": -0.15179649910383097,
+                  "full": -0.012925478698436375
+                },
+                "block_shuffle": {
+                  "train": -0.10802765788115609,
+                  "validate": -0.05306887090184711,
+                  "oos": -0.07226137968712867,
+                  "full": -0.0944731475757652
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.15179649910383097,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.01787098572131497,
+                "validate": -0.004773028647672754,
+                "oos": -0.03466219270874881,
+                "full": 0.011074831402814983
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.002866017158201379,
+                  "validate": 0.009794277459365626,
+                  "oos": -0.1443284376278767,
+                  "full": -0.05999082050584077
+                },
+                "block_shuffle": {
+                  "train": 0.1444697767957406,
+                  "validate": 0.0039233795690294376,
+                  "oos": -0.14809582259624235,
+                  "full": 0.06296708647260718
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.11343362988749353,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": 0.07523887694815046,
+                "validate": -0.10873711823974302,
+                "oos": -0.02079540990688511,
+                "full": 0.031829522475603236
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.01305098449151993,
+                  "validate": 0.06611271015780944,
+                  "oos": -0.25579050903331335,
+                  "full": -0.04816501143846701
+                },
+                "block_shuffle": {
+                  "train": -0.03557907847004482,
+                  "validate": 0.21064598639012597,
+                  "oos": -0.09792429180928942,
+                  "full": 0.0009808653938758196
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.23499509912642824,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 2,
+            "stable_rows": 5,
+            "median_abs_oos_ic": 0.059754845575041585,
+            "median_oos_ic_lift_vs_null": -0.11343362988749353,
+            "decision": "reject"
+          },
+          "panel_decision": "reject",
+          "fold_index": 9,
+          "fold_start": "2025-10-17T17:30:00+00:00",
+          "fold_end": "2025-12-01T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-11-01T17:30:00+00:00",
+          "date_to": "2025-12-16T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.10899939115145035,
+                "validate": 0.1471977508331024,
+                "oos": -0.00749591143679591,
+                "full": 0.053697266247751584
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.030721801069407206,
+                  "validate": -0.1652682426451503,
+                  "oos": 0.0369327464905454,
+                  "full": -0.008947843113809122
+                },
+                "block_shuffle": {
+                  "train": -0.07721326910378092,
+                  "validate": 0.2515890701847135,
+                  "oos": 0.07214659693606068,
+                  "full": 0.030347473536769597
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.06465068549926477,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.1049906897772003,
+                "validate": 0.08617821405931332,
+                "oos": -0.04038206756877245,
+                "full": 0.30906786002225445
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.05464891618797487,
+                  "validate": -0.2883469748240756,
+                  "oos": 0.03424054510845039,
+                  "full": -0.02110074291636438
+                },
+                "block_shuffle": {
+                  "train": 0.15485003661777672,
+                  "validate": -0.3308879861042402,
+                  "oos": 0.02471293978275602,
+                  "full": -0.028702758563506424
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.006141522460322062,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.4128986395306842,
+                "validate": 0.28352690753683124,
+                "oos": 0.12765822330887275,
+                "full": 0.4291787517036639
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.09129089999225803,
+                  "validate": -0.3056722339359679,
+                  "oos": 0.13700973080917936,
+                  "full": -0.12788291375101676
+                },
+                "block_shuffle": {
+                  "train": -0.026420409433955742,
+                  "validate": -0.06127716739356294,
+                  "oos": 0.11977643793085799,
+                  "full": -0.028754127555903564
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.00935150750030661,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": 0.13669544727682115,
+                "validate": 0.14469990070395047,
+                "oos": 0.08163538551855173,
+                "full": 0.15287113397044388
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.009786263345184811,
+                  "validate": -0.02959025469592392,
+                  "oos": 0.06906773074279565,
+                  "full": 0.004394047385947193
+                },
+                "block_shuffle": {
+                  "train": -0.004182347428567841,
+                  "validate": -0.08640656482853609,
+                  "oos": 0.16504264333679064,
+                  "full": 0.07412888594777017
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.0834072578182389,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0758075559608043,
+                "validate": 0.0,
+                "oos": 0.0,
+                "full": 0.12090462112943572
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.008270330952184794,
+                  "validate": 0.04091686655984958,
+                  "oos": 0.0,
+                  "full": 0.03641924429837834
+                },
+                "block_shuffle": {
+                  "train": -0.008054674212075865,
+                  "validate": -0.14566438946221927,
+                  "oos": 0.022847110153135182,
+                  "full": -0.018013467012821468
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.022847110153135182,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.009190829910932846,
+                "validate": -0.027960416668163655,
+                "oos": -0.05454345000550016,
+                "full": -0.005398475672727291
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.04207653098773746,
+                  "validate": -0.029709694183017544,
+                  "oos": -0.06160468845464674,
+                  "full": 0.038005485957009894
+                },
+                "block_shuffle": {
+                  "train": -0.14071191633513905,
+                  "validate": 0.1547562903532415,
+                  "oos": -0.14300149790069622,
+                  "full": -0.051748325782421695
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.08845804789519605,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": -0.027347104009095246,
+                "validate": 0.12437506841223965,
+                "oos": 0.06454145573490788,
+                "full": -0.01511578567914163
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.09101196591044028,
+                  "validate": -0.18731009740306143,
+                  "oos": -0.10136103578949378,
+                  "full": -0.1137021827471486
+                },
+                "block_shuffle": {
+                  "train": -0.053286610719213104,
+                  "validate": 0.2185010488080363,
+                  "oos": 0.016095034360625936,
+                  "full": 0.030213852763634245
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.036819580054585896,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 0,
+            "stable_rows": 4,
+            "median_abs_oos_ic": 0.05454345000550016,
+            "median_oos_ic_lift_vs_null": -0.036819580054585896,
+            "decision": "reject"
+          },
+          "panel_decision": "reject",
+          "fold_index": 10,
+          "fold_start": "2025-11-01T17:30:00+00:00",
+          "fold_end": "2025-12-16T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-11-16T17:30:00+00:00",
+          "date_to": "2025-12-31T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.03034593015293393,
+                "validate": -0.032593487146802234,
+                "oos": 0.02811983551105935,
+                "full": 0.01971222872688428
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.026102187398371193,
+                  "validate": 0.12606223100666653,
+                  "oos": 0.009249062364113346,
+                  "full": -0.008574305964431409
+                },
+                "block_shuffle": {
+                  "train": 0.011792308993449562,
+                  "validate": 0.03461493935810863,
+                  "oos": -0.1003269782570673,
+                  "full": -0.01691892313296931
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.07220714274600795,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.27488547286384096,
+                "validate": -0.08728055154003504,
+                "oos": 0.062208229481145044,
+                "full": 0.3020743083089858
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.07363928439989767,
+                  "validate": 0.00040980944967859744,
+                  "oos": -0.06935586487824584,
+                  "full": 0.11885518893804214
+                },
+                "block_shuffle": {
+                  "train": 0.16033468777965776,
+                  "validate": -0.2246457369168646,
+                  "oos": 0.1335956311829022,
+                  "full": 0.04475007349158548
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.07138740170175717,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.33710144601924896,
+                "validate": 0.4617903420240731,
+                "oos": 0.18757885174200684,
+                "full": 0.4671719329352075
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.134149852967985,
+                  "validate": 0.026841070672807586,
+                  "oos": -0.13723910275805803,
+                  "full": -0.08475844732350346
+                },
+                "block_shuffle": {
+                  "train": -0.15323863313674116,
+                  "validate": -0.391592018983214,
+                  "oos": 0.015698423207512028,
+                  "full": -0.14288656050039777
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0503397489839488,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": 0.12189420886393773,
+                "validate": 0.05607835837444294,
+                "oos": -0.007397344116100292,
+                "full": 0.13049853109126047
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.08078539499798094,
+                  "validate": 0.035462910464971346,
+                  "oos": 0.025533623453124914,
+                  "full": -0.01884444174070819
+                },
+                "block_shuffle": {
+                  "train": -0.021323052434011388,
+                  "validate": -0.13816809918874967,
+                  "oos": -0.00865513133513307,
+                  "full": -0.05392574760005719
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.01813627933702462,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0619587619679905,
+                "validate": 0.0,
+                "oos": 0.0,
+                "full": 0.08131856248760676
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.04224502913200415,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.06464309369874065
+                },
+                "block_shuffle": {
+                  "train": -0.13963597191989205,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": -0.06599601299773906
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.0771509239663449,
+                "validate": -0.06194222817397065,
+                "oos": 0.023673041788332246,
+                "full": -0.08403751854450855
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.046185237692030305,
+                  "validate": -0.08890840691915504,
+                  "oos": 0.005692811317172525,
+                  "full": 0.05550402626789068
+                },
+                "block_shuffle": {
+                  "train": 0.032583001861635874,
+                  "validate": 0.04864372709961406,
+                  "oos": -0.10813991918910772,
+                  "full": 0.027009154989961974
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.08446687740077546,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": -0.015960508215690474,
+                "validate": 0.12724784356237534,
+                "oos": 0.040515762006629215,
+                "full": 0.08121380556210882
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.06841147898854115,
+                  "validate": 0.08274465873559732,
+                  "oos": 0.005060318050852568,
+                  "full": -0.11030113328168237
+                },
+                "block_shuffle": {
+                  "train": -0.024752864238309594,
+                  "validate": -0.14513454546848106,
+                  "oos": -0.22874593169575677,
+                  "full": -0.11734899243109467
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.18823016968912756,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 1,
+            "stable_rows": 2,
+            "median_abs_oos_ic": 0.02811983551105935,
+            "median_oos_ic_lift_vs_null": -0.07138740170175717,
+            "decision": "reject"
+          },
+          "panel_decision": "reject",
+          "fold_index": 11,
+          "fold_start": "2025-11-16T17:30:00+00:00",
+          "fold_end": "2025-12-31T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-12-01T17:30:00+00:00",
+          "date_to": "2026-01-15T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.022026181403609523,
+                "validate": 0.09907035193933528,
+                "oos": -0.020857898878665376,
+                "full": 0.02366374583995004
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.01837805803732882,
+                  "validate": -0.12981611189180572,
+                  "oos": 0.04587258428793053,
+                  "full": -0.02535054684299731
+                },
+                "block_shuffle": {
+                  "train": -0.07231941194509825,
+                  "validate": 0.06891108064800741,
+                  "oos": -0.029490647567123055,
+                  "full": -0.03296413366575571
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.02501468540926515,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.05170799260590605,
+                "validate": 0.17702300291945458,
+                "oos": -0.29462692639005117,
+                "full": 0.083702212530405
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.03929238934527463,
+                  "validate": 0.03852468422911174,
+                  "oos": 0.03721067988342677,
+                  "full": 0.05343854950729056
+                },
+                "block_shuffle": {
+                  "train": 0.12063513453422635,
+                  "validate": 0.19233029879186464,
+                  "oos": 0.3026783206918956,
+                  "full": 0.16607865701650254
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.008051394301844428,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.3520032885630277,
+                "validate": 0.2873342807056288,
+                "oos": 0.24790630320194862,
+                "full": 0.37043569179561786
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.12749226867554744,
+                  "validate": -0.36062110449430196,
+                  "oos": -0.03571211158649561,
+                  "full": -0.15010409665802552
+                },
+                "block_shuffle": {
+                  "train": -0.15175827709467568,
+                  "validate": 0.02619309548747878,
+                  "oos": -0.034804646490752954,
+                  "full": -0.04545751072037123
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.212194191615453,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": 0.07562216775605388,
+                "validate": -0.044700467562478786,
+                "oos": 0.011802393755741939,
+                "full": 0.05182824580173365
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.040068724503750534,
+                  "validate": -0.005806307953799593,
+                  "oos": 0.05772192651102329,
+                  "full": 0.009002917078890284
+                },
+                "block_shuffle": {
+                  "train": -0.052252026263823755,
+                  "validate": 0.047305461937405896,
+                  "oos": -0.027575431904282986,
+                  "full": -0.06223141717251591
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.04591953275528135,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0,
+                "validate": 0.0,
+                "oos": 0.0,
+                "full": 0.0
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                },
+                "block_shuffle": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.10356000249811706,
+                "validate": 0.15963574469362538,
+                "oos": -0.019485196349206965,
+                "full": -0.001252141351266453
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.011190839863031548,
+                  "validate": 0.05031939284501586,
+                  "oos": -0.08100962105240155,
+                  "full": 0.009010928462936366
+                },
+                "block_shuffle": {
+                  "train": 0.03388378859607915,
+                  "validate": -0.028837530441700163,
+                  "oos": -0.1525810628974524,
+                  "full": -0.040010500913990284
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.13309586654824546,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": 0.164118979826134,
+                "validate": -0.0712998648880722,
+                "oos": -0.03053225497080088,
+                "full": 0.08214052806441047
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.013318802982032307,
+                  "validate": -0.03957878100027536,
+                  "oos": 0.04778905359140172,
+                  "full": 0.002909735671669835
+                },
+                "block_shuffle": {
+                  "train": -0.06458975107789672,
+                  "validate": 0.05735897737444065,
+                  "oos": 0.17444605819519074,
+                  "full": 0.02558330884114496
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.14391380322438985,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 1,
+            "stable_rows": 2,
+            "median_abs_oos_ic": 0.020857898878665376,
+            "median_oos_ic_lift_vs_null": -0.02501468540926515,
+            "decision": "reject"
+          },
+          "panel_decision": "reject",
+          "fold_index": 12,
+          "fold_start": "2025-12-01T17:30:00+00:00",
+          "fold_end": "2026-01-15T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-12-16T17:30:00+00:00",
+          "date_to": "2026-01-30T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.014678819833180905,
+                "validate": 0.08391056105069084,
+                "oos": 0.3100187810606136,
+                "full": 0.07307826201103539
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.01556871609511413,
+                  "validate": -0.11212574807869875,
+                  "oos": -0.06909108146345007,
+                  "full": -0.02135931345544115
+                },
+                "block_shuffle": {
+                  "train": -0.13774863541255508,
+                  "validate": -0.043534179576005756,
+                  "oos": 0.09275106095835577,
+                  "full": -0.06535025584169489
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.2172677201022578,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.18878186741177033,
+                "validate": 0.23957309250372105,
+                "oos": -0.37573138644091375,
+                "full": 0.0951397823445942
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.1462255545301965,
+                  "validate": 0.10729469058632375,
+                  "oos": -0.35396038204391544,
+                  "full": -0.09279032227532188
+                },
+                "block_shuffle": {
+                  "train": 0.28516408329210763,
+                  "validate": -0.045099698014556086,
+                  "oos": -0.4732521279840845,
+                  "full": 0.02969506494597235
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.09752074154317075,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.4048343842385447,
+                "validate": 0.17386469214671801,
+                "oos": 0.4943257142467501,
+                "full": 0.3926585965472387
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.15491434392600018,
+                  "validate": 0.03010394029750173,
+                  "oos": -0.03373041024306772,
+                  "full": -0.06972729782351766
+                },
+                "block_shuffle": {
+                  "train": 0.14549507209375462,
+                  "validate": -0.023921829091195647,
+                  "oos": -0.05193984835655245,
+                  "full": 0.04601565576422076
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.4423858658901976,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": -0.05516457638163611,
+                "validate": 0.171630950188225,
+                "oos": 0.18959222950298374,
+                "full": 0.03092637654173418
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.15099444031486559,
+                  "validate": 0.053123027222542515,
+                  "oos": 0.2684424934574745,
+                  "full": 0.1318537855711599
+                },
+                "block_shuffle": {
+                  "train": -0.02173679842953805,
+                  "validate": 0.14201059610283967,
+                  "oos": -0.008083402936510931,
+                  "full": 0.015253432488718778
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.07885026395449077,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0,
+                "validate": 0.0,
+                "oos": 0.0,
+                "full": 0.0
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                },
+                "block_shuffle": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.020165284506458252,
+                "validate": -0.021263902156062487,
+                "oos": 0.2767010267270077,
+                "full": -0.013066457693483816
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.13478784621775877,
+                  "validate": -0.030848681860258936,
+                  "oos": 0.3178415803858723,
+                  "full": 0.09917807372463767
+                },
+                "block_shuffle": {
+                  "train": -0.1049645613015429,
+                  "validate": 0.14400594387118335,
+                  "oos": -0.08514948897786453,
+                  "full": -0.037377651882358705
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.0411405536588646,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": 0.020178078616706906,
+                "validate": -0.008170666891493938,
+                "oos": 0.005023352824398821,
+                "full": 0.020487421942516477
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.07307435744123762,
+                  "validate": -0.018012608370775937,
+                  "oos": 0.01626606241297415,
+                  "full": -0.05055462434175027
+                },
+                "block_shuffle": {
+                  "train": -0.02543005980860722,
+                  "validate": -0.11965768770741736,
+                  "oos": -0.04407072657281929,
+                  "full": -0.054913795873536786
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.03904737374842047,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 2,
+            "stable_rows": 3,
+            "median_abs_oos_ic": 0.2767010267270077,
+            "median_oos_ic_lift_vs_null": -0.03904737374842047,
+            "decision": "reject"
+          },
+          "panel_decision": "reject",
+          "fold_index": 13,
+          "fold_start": "2025-12-16T17:30:00+00:00",
+          "fold_end": "2026-01-30T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2025-12-31T17:30:00+00:00",
+          "date_to": "2026-02-14T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.10574623523907609,
+                "validate": 0.04540688506368497,
+                "oos": 0.14402578495607554,
+                "full": 0.131132346042958
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.023769456132831154,
+                  "validate": 0.04865610606482802,
+                  "oos": -0.020719631486689236,
+                  "full": 0.0012561737785660478
+                },
+                "block_shuffle": {
+                  "train": -0.05239751727838002,
+                  "validate": 0.018170690044870447,
+                  "oos": -0.10476719856258054,
+                  "full": -0.07682301368209597
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.039258586393495,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.008295256442094667,
+                "validate": 0.40772920103564664,
+                "oos": 0.229478503310056,
+                "full": 0.4614944157432378
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.14102001328571728,
+                  "validate": 0.05645159399346861,
+                  "oos": 0.11105581017538424,
+                  "full": -0.044689999242442234
+                },
+                "block_shuffle": {
+                  "train": 0.055794185240625,
+                  "validate": -0.08651201252052852,
+                  "oos": -0.03056363973066905,
+                  "full": -0.15734026951642258
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.11842269313467177,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.3500264833092848,
+                "validate": 0.3904613358172915,
+                "oos": 0.2148496319820735,
+                "full": 0.5928461097421021
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.14201524891567233,
+                  "validate": 0.21062411044128662,
+                  "oos": -0.06553933749461588,
+                  "full": -0.11957944640801209
+                },
+                "block_shuffle": {
+                  "train": 0.06385420455324119,
+                  "validate": 0.2157025241411874,
+                  "oos": -0.06708201172672305,
+                  "full": -0.0804459424066239
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.14776762025535045,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": 0.08384977910741649,
+                "validate": 0.2839701749381306,
+                "oos": 0.05551389278437796,
+                "full": 0.24522566250468283
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.05492662686045957,
+                  "validate": 0.0077507125451620595,
+                  "oos": 0.14166042124295153,
+                  "full": 0.014294252596536257
+                },
+                "block_shuffle": {
+                  "train": 0.006917703329786906,
+                  "validate": 0.1743384581336255,
+                  "oos": -0.056122746747329845,
+                  "full": -0.07039950525537683
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.08614652845857357,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0,
+                "validate": 0.0,
+                "oos": 0.0,
+                "full": 0.0
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                },
+                "block_shuffle": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.013487619629560884,
+                "validate": 0.2855546642836254,
+                "oos": 0.17283693913649842,
+                "full": 0.1066969204997327
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.04338825361769872,
+                  "validate": -0.03561572133426363,
+                  "oos": -0.14892113441516602,
+                  "full": -0.03006885667403681
+                },
+                "block_shuffle": {
+                  "train": 0.03280041683703642,
+                  "validate": 0.14462485182837026,
+                  "oos": 0.008958075457620451,
+                  "full": -0.08835083040614854
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.023915804721332395,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": -0.06593844282295003,
+                "validate": 0.05885628228149541,
+                "oos": -0.0027103857977215113,
+                "full": -0.09318070133377439
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.09766484200656059,
+                  "validate": 0.07626841980840023,
+                  "oos": 0.01592877601491692,
+                  "full": 0.04890477198656461
+                },
+                "block_shuffle": {
+                  "train": -0.04009154834039089,
+                  "validate": -0.11718506677473706,
+                  "oos": -0.037662114663066217,
+                  "full": -0.11750389263696336
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.03495172886534471,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 4,
+            "stable_rows": 5,
+            "median_abs_oos_ic": 0.14402578495607554,
+            "median_oos_ic_lift_vs_null": 0.023915804721332395,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 14,
+          "fold_start": "2025-12-31T17:30:00+00:00",
+          "fold_end": "2026-02-14T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2026-01-15T17:30:00+00:00",
+          "date_to": "2026-03-01T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.16037912048801117,
+                "validate": -0.11072225409803915,
+                "oos": -0.00861344316898736,
+                "full": 0.08314463129878177
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.03643901491988782,
+                  "validate": -0.020536486088692924,
+                  "oos": -0.09949755877430269,
+                  "full": 0.006937522994880386
+                },
+                "block_shuffle": {
+                  "train": -0.03543224259621263,
+                  "validate": 0.12515925431913294,
+                  "oos": -0.015735720795187855,
+                  "full": 0.009090220857210984
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.09088411560531533,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.512134310737988,
+                "validate": 0.20479215378197468,
+                "oos": 0.25283215681675936,
+                "full": 0.38303095573087875
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.015166654751631644,
+                  "validate": -0.14998770179816703,
+                  "oos": -0.36207844699918224,
+                  "full": -0.04168234785006157
+                },
+                "block_shuffle": {
+                  "train": -0.15574296074947852,
+                  "validate": 0.17096820781677585,
+                  "oos": 0.14655013376095305,
+                  "full": -0.05035952259226537
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.10924629018242288,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.6238987348864097,
+                "validate": 0.05822890561733649,
+                "oos": 0.39619050326193694,
+                "full": 0.5275234774891778
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.18379080343883356,
+                  "validate": -0.2941035296045061,
+                  "oos": -0.4378502656302976,
+                  "full": -0.1816053313680963
+                },
+                "block_shuffle": {
+                  "train": -0.10272786994626014,
+                  "validate": 0.1659294711425497,
+                  "oos": 0.11464366550176058,
+                  "full": -0.034783096920031266
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.041659762368360664,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": 0.27828629813492994,
+                "validate": 0.11312109032283874,
+                "oos": 0.18124910954305987,
+                "full": 0.2442789740817374
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.06748704421117742,
+                  "validate": -0.06442522820646522,
+                  "oos": 0.005874810247094047,
+                  "full": -0.047283421900579076
+                },
+                "block_shuffle": {
+                  "train": 0.04277382200540782,
+                  "validate": 0.034151948903531945,
+                  "oos": 0.04765196609499252,
+                  "full": 0.03408039061770887
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.13359714344806733,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0,
+                "validate": 0.0,
+                "oos": 0.0,
+                "full": 0.0
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                },
+                "block_shuffle": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.198207914454126,
+                "validate": -0.06444854126143269,
+                "oos": 0.17802820469869093,
+                "full": 0.133127354034223
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.1862819056650592,
+                  "validate": -0.1015830442554437,
+                  "oos": -0.18378123436777177,
+                  "full": -0.15666187514641147
+                },
+                "block_shuffle": {
+                  "train": 0.05104643564677153,
+                  "validate": 0.017792571454713076,
+                  "oos": 0.05787460107395693,
+                  "full": 0.04120593349236806
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.005753029669080839,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": -0.10156716385416444,
+                "validate": -0.041941383474924224,
+                "oos": 0.03537674379622995,
+                "full": -0.0631815623811643
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.05958446049303501,
+                  "validate": 0.025555339723505575,
+                  "oos": 0.07868840562675479,
+                  "full": -0.04039810180005415
+                },
+                "block_shuffle": {
+                  "train": 0.03142766471728066,
+                  "validate": 0.07453782467321206,
+                  "oos": 0.08850667639686821,
+                  "full": 0.05595562679738534
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.05312993260063826,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 1,
+            "stable_rows": 4,
+            "median_abs_oos_ic": 0.17802820469869093,
+            "median_oos_ic_lift_vs_null": -0.041659762368360664,
+            "decision": "reject"
+          },
+          "panel_decision": "reject",
+          "fold_index": 15,
+          "fold_start": "2026-01-15T17:30:00+00:00",
+          "fold_end": "2026-03-01T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2026-01-30T17:30:00+00:00",
+          "date_to": "2026-03-16T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0492307565321637,
+                "validate": -0.1393716756191065,
+                "oos": 0.06677919474836821,
+                "full": 0.011065295925473695
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.0379545464119538,
+                  "validate": 0.20215039804451493,
+                  "oos": -0.08514949597317494,
+                  "full": -0.03741370563462874
+                },
+                "block_shuffle": {
+                  "train": -0.0248027074724902,
+                  "validate": 0.06562354043897231,
+                  "oos": 0.06367881485020771,
+                  "full": 0.03019442483950188
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.01837030122480672,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.4312544929718351,
+                "validate": 0.10902915114131659,
+                "oos": 0.143571626751814,
+                "full": 0.3940892635189647
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.2896094560190842,
+                  "validate": 0.16787272718563562,
+                  "oos": -0.19250951126669907,
+                  "full": -0.16241301879637252
+                },
+                "block_shuffle": {
+                  "train": -0.10951291847402148,
+                  "validate": -0.05638276772444171,
+                  "oos": -0.1964166206961608,
+                  "full": -0.13342268305162752
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.0528449939443468,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.3955809317765952,
+                "validate": 0.09682366811598822,
+                "oos": 0.259053024107304,
+                "full": 0.3775432121546018
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.40672028236339514,
+                  "validate": 0.014916762413862455,
+                  "oos": -0.12079037367335808,
+                  "full": -0.2293673500443309
+                },
+                "block_shuffle": {
+                  "train": -0.20630446602864672,
+                  "validate": 0.06678176289968418,
+                  "oos": -0.07840158312650561,
+                  "full": -0.09778599800038203
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.13826265043394592,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": 0.1513866186853869,
+                "validate": 0.06288537150053172,
+                "oos": 0.05720616508948262,
+                "full": 0.17238670353551924
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.061839745528951044,
+                  "validate": -0.018003826774254307,
+                  "oos": -0.009745735207926506,
+                  "full": -0.06119944934903881
+                },
+                "block_shuffle": {
+                  "train": -0.03566790290056635,
+                  "validate": -0.027530643195635564,
+                  "oos": -0.08300876690625622,
+                  "full": -0.024918657852865657
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.0258026018167736,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0,
+                "validate": 0.0,
+                "oos": 0.0,
+                "full": 0.0
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                },
+                "block_shuffle": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.16539327262938217,
+                "validate": -0.019548076429455538,
+                "oos": -0.10416435781728273,
+                "full": 0.12402743867304485
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.24306325447592234,
+                  "validate": -0.21811798018565978,
+                  "oos": -0.08540383552289615,
+                  "full": -0.22892740076008886
+                },
+                "block_shuffle": {
+                  "train": -0.02154823454497094,
+                  "validate": -0.1160716288823522,
+                  "oos": -0.06590130483228039,
+                  "full": -0.09297928650908006
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.018760522294386572,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": -0.0278381813160359,
+                "validate": 0.03112540339768615,
+                "oos": -0.161865275547656,
+                "full": 0.014585917054194413
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.06603061264824994,
+                  "validate": 0.04430047302348208,
+                  "oos": -0.02240723005760102,
+                  "full": -0.07365631027024397
+                },
+                "block_shuffle": {
+                  "train": -0.028358758559608226,
+                  "validate": -0.05407838344083287,
+                  "oos": 0.005161163276938366,
+                  "full": -0.030051639699767842
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.13945804549005497,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 2,
+            "stable_rows": 4,
+            "median_abs_oos_ic": 0.10416435781728273,
+            "median_oos_ic_lift_vs_null": 0.0,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 16,
+          "fold_start": "2026-01-30T17:30:00+00:00",
+          "fold_end": "2026-03-16T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2026-02-14T17:30:00+00:00",
+          "date_to": "2026-03-31T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.06863742866800435,
+                "validate": 0.16823770981800223,
+                "oos": -0.15011261572111573,
+                "full": -0.032467254383833924
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.0050941121179822095,
+                  "validate": 0.03581891360281286,
+                  "oos": -0.021051202111930716,
+                  "full": -0.0001231160868330437
+                },
+                "block_shuffle": {
+                  "train": -0.03911413185108614,
+                  "validate": -0.02598096369227072,
+                  "oos": -0.018870526307185012,
+                  "full": -0.031078123264787774
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.12906141360918502,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.11905572378907606,
+                "validate": -0.02621410660296123,
+                "oos": -0.35105479632640246,
+                "full": 0.2014566925250337
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.017845973124729117,
+                  "validate": 0.19406398953132353,
+                  "oos": 0.22350532997588182,
+                  "full": -0.01976013020737762
+                },
+                "block_shuffle": {
+                  "train": 0.04341748597524073,
+                  "validate": -0.26730136413247363,
+                  "oos": 0.3484637390695648,
+                  "full": 0.044191293863583295
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.00259105725683767,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.19521878769986425,
+                "validate": 0.3724901640065434,
+                "oos": 0.22075234492151857,
+                "full": 0.3271610196058748
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.16047658227521736,
+                  "validate": 0.15591252207255296,
+                  "oos": -0.1283542258700833,
+                  "full": -0.15774209264145123
+                },
+                "block_shuffle": {
+                  "train": -0.0655549431229235,
+                  "validate": -0.2541558115254475,
+                  "oos": 0.24320532839581185,
+                  "full": -0.058531828183744944
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.02245298347429328,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": 0.1028382190768088,
+                "validate": 0.2511758921295366,
+                "oos": 0.15947271298731172,
+                "full": 0.1510471367562654
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.06374304663039888,
+                  "validate": 0.06113185999616294,
+                  "oos": 0.07749043905268839,
+                  "full": -0.0037165813078564383
+                },
+                "block_shuffle": {
+                  "train": 4.055951887259725e-05,
+                  "validate": -0.03938173778226262,
+                  "oos": 0.1647108051458938,
+                  "full": 0.04802400647853353
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.005238092158582092,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0,
+                "validate": 0.0,
+                "oos": 0.0,
+                "full": 0.0
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                },
+                "block_shuffle": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.07973295063288603,
+                "validate": 0.17393143774244682,
+                "oos": -0.03495860173151175,
+                "full": 0.026946190129790867
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.08653870740942306,
+                  "validate": -0.10043926745590939,
+                  "oos": -0.11200013736027885,
+                  "full": -0.036961486974552156
+                },
+                "block_shuffle": {
+                  "train": 0.00930254042355288,
+                  "validate": 0.12840343656785205,
+                  "oos": -0.05679264241825071,
+                  "full": 0.03478877507122289
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.07704153562876709,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": 0.07444882626612809,
+                "validate": -0.07736062046578049,
+                "oos": -0.05183666071475417,
+                "full": 0.015251192960199072
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.026116701271516267,
+                  "validate": 0.12423598847472822,
+                  "oos": -0.20533007903063208,
+                  "full": 0.005623745743939486
+                },
+                "block_shuffle": {
+                  "train": 0.07019547829309689,
+                  "validate": 0.11756478214948125,
+                  "oos": 0.16696698783827016,
+                  "full": 0.061917246562725986
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.1534934183158779,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 1,
+            "stable_rows": 4,
+            "median_abs_oos_ic": 0.15011261572111573,
+            "median_oos_ic_lift_vs_null": -0.005238092158582092,
+            "decision": "reject"
+          },
+          "panel_decision": "reject",
+          "fold_index": 17,
+          "fold_start": "2026-02-14T17:30:00+00:00",
+          "fold_end": "2026-03-31T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2026-03-01T17:30:00+00:00",
+          "date_to": "2026-04-15T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.04831750206985482,
+                "validate": 0.1245316381122318,
+                "oos": 0.06408046486928448,
+                "full": 0.015679087094579672
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.048944409032262264,
+                  "validate": 0.024501063678135183,
+                  "oos": 0.03567802090768217,
+                  "full": -0.01837489893264468
+                },
+                "block_shuffle": {
+                  "train": 0.020006217798682297,
+                  "validate": -0.14686019057145008,
+                  "oos": 0.07175505736619793,
+                  "full": -0.015019867612313604
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.007674592496913449,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.14671203260339277,
+                "validate": -0.1372227084551794,
+                "oos": 0.10674841029558241,
+                "full": 0.09961198156063467
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.1723574281938216,
+                  "validate": -0.07190096289096765,
+                  "oos": 0.04376111063711544,
+                  "full": -0.032341900674286474
+                },
+                "block_shuffle": {
+                  "train": -0.08479142292942539,
+                  "validate": -0.40446863201386135,
+                  "oos": -0.2748550655985619,
+                  "full": -0.20662556697628712
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.16810665530297947,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.2898275795968672,
+                "validate": 0.42272261193080723,
+                "oos": 0.10282312341993577,
+                "full": 0.3312345826111368
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.10891585000602214,
+                  "validate": -0.035220357470568675,
+                  "oos": -0.037294712311136805,
+                  "full": -0.057136877449904006
+                },
+                "block_shuffle": {
+                  "train": -0.18447019970740983,
+                  "validate": -0.34657530823331684,
+                  "oos": -0.21294252581399725,
+                  "full": -0.23877398860184432
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.11011940239406148,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": 0.1038934028475514,
+                "validate": 0.13111988650693873,
+                "oos": 0.09274496213244544,
+                "full": 0.13364463464235501
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.052180727692101095,
+                  "validate": 0.09427488055851695,
+                  "oos": 0.08841432075289599,
+                  "full": 0.006920290092635201
+                },
+                "block_shuffle": {
+                  "train": 0.005099708241096493,
+                  "validate": -0.0411533702813319,
+                  "oos": -0.08609858288899289,
+                  "full": -0.02807341537807157
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0043306413795494575,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0,
+                "validate": 0.0,
+                "oos": 0.0,
+                "full": 0.0
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                },
+                "block_shuffle": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.11081069842387169,
+                "validate": -0.012557672865304594,
+                "oos": 0.027604240390674977,
+                "full": -0.07399189567369631
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.07016936491352278,
+                  "validate": 0.07203662129642784,
+                  "oos": -0.10283084582795674,
+                  "full": 0.01011597439124129
+                },
+                "block_shuffle": {
+                  "train": 0.1262308850622017,
+                  "validate": 0.0528170832957091,
+                  "oos": 0.11993482944856503,
+                  "full": 0.13621629758546194
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.09233058905789004,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": -0.024475245855462693,
+                "validate": -0.04703305048689555,
+                "oos": 0.07614811421761462,
+                "full": -0.016909093529402782
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.025576521294045047,
+                  "validate": -0.11775527855068807,
+                  "oos": 0.002091005410338094,
+                  "full": -0.03523110567397291
+                },
+                "block_shuffle": {
+                  "train": 0.03560761084772679,
+                  "validate": 0.06087988738836381,
+                  "oos": -0.06151175773193972,
+                  "full": 0.03144168756903954
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.014636356485674906,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 1,
+            "stable_rows": 3,
+            "median_abs_oos_ic": 0.07614811421761462,
+            "median_oos_ic_lift_vs_null": -0.007674592496913449,
+            "decision": "reject"
+          },
+          "panel_decision": "reject",
+          "fold_index": 18,
+          "fold_start": "2026-03-01T17:30:00+00:00",
+          "fold_end": "2026-04-15T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2026-03-16T17:30:00+00:00",
+          "date_to": "2026-04-30T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.02406878657190537,
+                "validate": 0.01581607212452718,
+                "oos": 0.15855419422087796,
+                "full": 0.05863918539180835
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.07309873539409299,
+                  "validate": 0.021015202946738348,
+                  "oos": 0.049346768408035695,
+                  "full": 0.05249391624243077
+                },
+                "block_shuffle": {
+                  "train": 0.15159168594297198,
+                  "validate": -0.001888676960073203,
+                  "oos": 0.03060489134078102,
+                  "full": 0.06779546587363285
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.10920742581284226,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.06027162372875454,
+                "validate": 0.02515473856173345,
+                "oos": 0.058444826808078824,
+                "full": 0.04708235574523727
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.029244731569005988,
+                  "validate": 0.0009941452762593746,
+                  "oos": 0.09785499626777813,
+                  "full": 0.03234118878700043
+                },
+                "block_shuffle": {
+                  "train": -0.05413651685341225,
+                  "validate": -0.13740481804792137,
+                  "oos": 0.1710130310695216,
+                  "full": -0.019298488460772003
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.11256820426144276,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.3026122146967256,
+                "validate": 0.03000430093928459,
+                "oos": 0.20035598657911208,
+                "full": 0.27748884814842534
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.0706292164538269,
+                  "validate": -0.12378585489970559,
+                  "oos": 0.18602664772978866,
+                  "full": -0.056283350922087964
+                },
+                "block_shuffle": {
+                  "train": -0.23059317173002108,
+                  "validate": -0.03537364879090274,
+                  "oos": -0.04168268313259317,
+                  "full": -0.17792920391269762
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.014329338849323414,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": 0.16150462792395737,
+                "validate": 0.06521135129067872,
+                "oos": -0.007628399150334927,
+                "full": 0.10960823831858983
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.01365468389986889,
+                  "validate": 0.0016227329841378246,
+                  "oos": 0.048364611084535776,
+                  "full": -0.0305700199221407
+                },
+                "block_shuffle": {
+                  "train": -0.03678332674510345,
+                  "validate": -0.026846031421861143,
+                  "oos": -0.009921062551603597,
+                  "full": -0.04561832904229414
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.04073621193420085,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0,
+                "validate": 0.0,
+                "oos": 0.0,
+                "full": 0.0
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                },
+                "block_shuffle": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0020634112890432215,
+                "validate": -0.11219160201485474,
+                "oos": -0.15211986064996316,
+                "full": -0.06446087499748909
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.05822889828924338,
+                  "validate": -0.019312231345983224,
+                  "oos": 0.14756495418291038,
+                  "full": -0.023110247729405092
+                },
+                "block_shuffle": {
+                  "train": 0.11636954739738513,
+                  "validate": 0.14401919143459202,
+                  "oos": -0.12007326265221112,
+                  "full": 0.08726177643470567
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.004554906467052783,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": -0.0037720263495209898,
+                "validate": 0.027839540074941892,
+                "oos": -0.028442101382840163,
+                "full": 0.006114343558598028
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.01167339456907077,
+                  "validate": 0.03818271223602456,
+                  "oos": 0.09921551953518529,
+                  "full": 0.028752277902942314
+                },
+                "block_shuffle": {
+                  "train": 0.0649445886003428,
+                  "validate": -0.04316036882849744,
+                  "oos": -0.10070571216660176,
+                  "full": 0.0003160718608930249
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.0722636107837616,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 3,
+            "stable_rows": 4,
+            "median_abs_oos_ic": 0.058444826808078824,
+            "median_oos_ic_lift_vs_null": 0.0,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 19,
+          "fold_start": "2026-03-16T17:30:00+00:00",
+          "fold_end": "2026-04-30T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2026-03-31T17:30:00+00:00",
+          "date_to": "2026-05-15T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0870261778550326,
+                "validate": 0.32705963197221893,
+                "oos": 0.0006111382262565324,
+                "full": 0.12434987175494938
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.04036769804118307,
+                  "validate": 0.11766380627933352,
+                  "oos": 0.20055078023640197,
+                  "full": 0.07493469820296256
+                },
+                "block_shuffle": {
+                  "train": -0.05903463150849165,
+                  "validate": -0.04424156050275923,
+                  "oos": -0.0006166425717922218,
+                  "full": -0.04798896580567641
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.19993964201014544,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.1627683143164061,
+                "validate": 0.14182357723467448,
+                "oos": 0.33624094748470634,
+                "full": 0.2450375330276656
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.08385781074327668,
+                  "validate": -0.26286171254552243,
+                  "oos": 0.14059140894808045,
+                  "full": -0.05208703434889479
+                },
+                "block_shuffle": {
+                  "train": 0.1794307922519497,
+                  "validate": -0.3728366264810815,
+                  "oos": -0.21562585210319088,
+                  "full": -0.009638164187816503
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.12061509538151546,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.282744888836948,
+                "validate": 0.3366070610932178,
+                "oos": 0.3187055042449009,
+                "full": 0.3551569408005961
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.05089424519052142,
+                  "validate": -0.1693722983901777,
+                  "oos": -0.046874770227553895,
+                  "full": -0.1060969966149806
+                },
+                "block_shuffle": {
+                  "train": 0.1247511603196424,
+                  "validate": -0.3623997628455532,
+                  "oos": -0.2662504726894165,
+                  "full": -0.036177536855958016
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.05245503155548442,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": 0.08866954265103659,
+                "validate": 0.1916115157230189,
+                "oos": 0.19788145798095141,
+                "full": 0.0580867983407391
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.06041562850096535,
+                  "validate": 0.028480808765006086,
+                  "oos": 0.1678883333364605,
+                  "full": -0.0025897125484552115
+                },
+                "block_shuffle": {
+                  "train": -0.05739990174973172,
+                  "validate": 0.01058069386837114,
+                  "oos": 0.08666660465819614,
+                  "full": -0.02717578444059141
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.029993124644490915,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0,
+                "validate": 0.0,
+                "oos": 0.0,
+                "full": 0.0
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                },
+                "block_shuffle": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.07349795394353835,
+                "validate": -0.09458594929936795,
+                "oos": 0.11260527839732758,
+                "full": -0.11194544805319227
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.023885399857764094,
+                  "validate": 0.07426861865097484,
+                  "oos": 0.14602210958277717,
+                  "full": 0.13717353967075246
+                },
+                "block_shuffle": {
+                  "train": -0.09775949030930768,
+                  "validate": 0.20501256310394156,
+                  "oos": 0.16986299051565065,
+                  "full": -0.02668167980889911
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.057257712118323076,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": 0.019046984629542928,
+                "validate": -0.04588128976442717,
+                "oos": 0.10046518267465389,
+                "full": 0.04585479267365759
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.06315875154038371,
+                  "validate": -0.1138428369560783,
+                  "oos": -0.11689358546002628,
+                  "full": -0.003584675940490209
+                },
+                "block_shuffle": {
+                  "train": -0.004440961932829996,
+                  "validate": -0.04590348507018387,
+                  "oos": -0.07525813481984647,
+                  "full": -0.027965189325291035
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.016428402785372387,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 3,
+            "stable_rows": 4,
+            "median_abs_oos_ic": 0.11260527839732758,
+            "median_oos_ic_lift_vs_null": 0.0,
+            "decision": "promote_to_alpha_research"
+          },
+          "panel_decision": "promote_to_alpha_research",
+          "fold_index": 20,
+          "fold_start": "2026-03-31T17:30:00+00:00",
+          "fold_end": "2026-05-15T17:00:00+00:00"
+        },
+        {
+          "asset": "BNBUSDT",
+          "timeframe": "30m",
+          "status": "ok",
+          "bars": 2160,
+          "date_from": "2026-04-15T17:30:00+00:00",
+          "date_to": "2026-05-30T17:00:00+00:00",
+          "descriptor_rows": [
+            {
+              "descriptor": "trend_strength",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.15313748337639396,
+                "validate": 0.1188131530824272,
+                "oos": 0.1938499399747083,
+                "full": 0.14771576506187623
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.08620128819911518,
+                  "validate": -0.028860126095688703,
+                  "oos": -0.03165521847061981,
+                  "full": 0.027431676659204367
+                },
+                "block_shuffle": {
+                  "train": 0.026482445443232066,
+                  "validate": -0.0018625693812882877,
+                  "oos": -0.10140417202271802,
+                  "full": -0.0014862912389493898
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": 0.09244576795199029,
+              "validate_oos_sign_stable": true,
+              "decision": "promote_to_alpha_research"
+            },
+            {
+              "descriptor": "vol_percentile",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.20771981435081674,
+                "validate": 0.06983264390746326,
+                "oos": 0.14258923180804545,
+                "full": 0.22389196554921403
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.02165344529272165,
+                  "validate": -0.16073237611640992,
+                  "oos": 0.2247230475757271,
+                  "full": -0.012746765783469274
+                },
+                "block_shuffle": {
+                  "train": -0.05536280058006479,
+                  "validate": 0.10498492155170548,
+                  "oos": -0.05173408972221685,
+                  "full": -0.03291478697048518
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.08213381576768164,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "fwd_vol_ewma",
+              "target": "fwd_vol_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.3307051194224556,
+                "validate": 0.2595553386057564,
+                "oos": -0.03242680204650385,
+                "full": 0.2743913480138013
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.16011297735962912,
+                  "validate": 0.0934245927660389,
+                  "oos": 0.12294311813912312,
+                  "full": -0.057329672487049024
+                },
+                "block_shuffle": {
+                  "train": -0.03276951836768273,
+                  "validate": 0.07145906431137747,
+                  "oos": -0.06727671499278406,
+                  "full": -0.012416163943396348
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.09051631609261927,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "changepoint_prob",
+              "target": "fwd_abs_return_1",
+              "status": "ok",
+              "segments": {
+                "train": 0.021426417972335205,
+                "validate": -0.042274953462709396,
+                "oos": -0.005903392692339004,
+                "full": 0.026797682612316184
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.020755824477090925,
+                  "validate": -0.042455869163617405,
+                  "oos": 0.11615394776462334,
+                  "full": 0.009853182410978018
+                },
+                "block_shuffle": {
+                  "train": -0.028443146990843278,
+                  "validate": -0.040495576487362024,
+                  "oos": -0.055086355910284865,
+                  "full": -0.06171567400641161
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.11025055507228435,
+              "validate_oos_sign_stable": true,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hmm_crisis_prob",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": 0.0,
+                "validate": 0.0,
+                "oos": 0.0,
+                "full": 0.0
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                },
+                "block_shuffle": {
+                  "train": 0.0,
+                  "validate": 0.0,
+                  "oos": 0.0,
+                  "full": 0.0
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": 0.0,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "cp_entropy",
+              "target": "fwd_abs_return_5",
+              "status": "ok",
+              "segments": {
+                "train": -0.18870774142624386,
+                "validate": -0.21590052542995228,
+                "oos": 0.11161319542646135,
+                "full": -0.11833272214943834
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": 0.2325132991576686,
+                  "validate": 0.25376954933389734,
+                  "oos": 0.12423407473105685,
+                  "full": 0.19754099904931938
+                },
+                "block_shuffle": {
+                  "train": 0.038357029912897404,
+                  "validate": -0.023662032238921132,
+                  "oos": 0.054163573253489104,
+                  "full": 0.012523047844950938
+                }
+              },
+              "null_control_mode": "circular_shift",
+              "oos_ic_lift_vs_null": -0.012620879304595503,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            },
+            {
+              "descriptor": "hurst",
+              "target": "fwd_abs_return_10",
+              "status": "ok",
+              "segments": {
+                "train": 0.00960456118731224,
+                "validate": 0.03225512849285651,
+                "oos": -0.05838478654370363,
+                "full": 0.0122829772920875
+              },
+              "null_controls": {
+                "circular_shift": {
+                  "train": -0.10009801780333047,
+                  "validate": -0.020322037918683908,
+                  "oos": 0.0397233093178604,
+                  "full": -0.05435867544082691
+                },
+                "block_shuffle": {
+                  "train": 0.034369384716267284,
+                  "validate": 0.05062118513192355,
+                  "oos": 0.06565773743514478,
+                  "full": 0.07253456608016107
+                }
+              },
+              "null_control_mode": "block_shuffle",
+              "oos_ic_lift_vs_null": -0.007272950891441143,
+              "validate_oos_sign_stable": false,
+              "decision": "reject"
+            }
+          ],
+          "summary": {
+            "rows": 7,
+            "promoted_rows": 1,
+            "stable_rows": 3,
+            "median_abs_oos_ic": 0.05838478654370363,
+            "median_oos_ic_lift_vs_null": -0.012620879304595503,
+            "decision": "reject"
+          },
+          "panel_decision": "reject",
+          "fold_index": 21,
+          "fold_start": "2026-04-15T17:30:00+00:00",
+          "fold_end": "2026-05-30T17:00:00+00:00"
+        }
+      ],
+      "summary": {
+        "total_folds": 22,
+        "usable_folds": 22,
+        "promoted_folds": 9,
+        "rejected_folds": 13,
+        "pass_rate": 0.4090909090909091,
+        "median_abs_oos_ic": 0.10838481810730516,
+        "median_oos_ic_lift_vs_null": -0.002619046079291046,
+        "decision": "reject"
+      },
+      "panel_decision": "reject"
+    }
+  ],
+  "panel_summary": {
+    "usable_slices": 1,
+    "total_slices": 1,
+    "decision_counts": {
+      "reject": 1
+    },
+    "promoted_slices": 0,
+    "rejected_slices": 1
+  }
+}
