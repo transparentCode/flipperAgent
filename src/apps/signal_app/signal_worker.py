@@ -86,6 +86,7 @@ class SignalWorker(BaseStreamConsumer):
         self.engineered_manager = EngineeredFeatureManager(asset, timeframe)
         self._price_history: list[dict[str, float]] = []
         self._regime_orchestrator: Any = None
+        self._regime_classifier: Any = None
         self._last_processed_ts: float | None = None
         self._expected_interval_ms: float = _parse_timeframe_seconds(timeframe) * 1000
 
@@ -157,6 +158,45 @@ class SignalWorker(BaseStreamConsumer):
                 exc_info=True,
             )
 
+    async def _maybe_attach_regime_classification(
+        self,
+        results: dict[str, Any],
+        *,
+        close: float,
+        volume: float,
+    ) -> None:
+        """Attach regime_classification probability matrix features when model is available."""
+        if self._regime_classifier is None:
+            return
+
+        if len(self._price_history) < _REGIME_MIN_BARS:
+            return
+
+        try:
+            import pandas as pd
+
+            df_hist = pd.DataFrame(self._price_history)
+            regime_output = self._regime_classifier.batch_evaluate(df_hist)
+            last_features = regime_output.iloc[-1]  # dict from RegimeFeatureOutput.to_dict()
+
+            # Fetch latest L2 features from TimescaleDB (if available)
+            try:
+                from libs.common.db.pool_manager import DBPoolManager
+                from libs.common.db.timescale_reader import TimescaleReader
+                reader = TimescaleReader(DBPoolManager.get_reader_pool())
+                l2 = await reader.get_latest_l2_features(self.asset)
+                if l2:
+                    last_features.update(l2)
+            except Exception:
+                pass  # L2 features are optional
+
+            results["regime_classification"] = last_features
+        except Exception:
+            logger.warning(
+                "RegimeClassification failed for current bar",
+                exc_info=True,
+            )
+
     async def _publish_bar_outputs(
         self,
         *,
@@ -196,6 +236,12 @@ class SignalWorker(BaseStreamConsumer):
             close=close,
             volume=volume,
             append_current_bar=append_current_bar,
+        )
+
+        await self._maybe_attach_regime_classification(
+            results,
+            close=close,
+            volume=volume,
         )
 
         if self.redis_client and results:
@@ -371,6 +417,15 @@ class SignalWorker(BaseStreamConsumer):
         except Exception:
             logger.warning(f"Regime orchestrator unavailable for {self.asset}:{self.timeframe}, "
                            "regime features will not be published", exc_info=True)
+
+        # 3b. Initialize regime classification model (new probability-matrix pipeline)
+        try:
+            from libs.models.regime_classification.model import RegimeClassificationModel
+            self._regime_classifier = RegimeClassificationModel()
+            logger.info(f"RegimeClassificationModel initialized for {self.asset}:{self.timeframe}")
+        except Exception:
+            logger.warning(f"RegimeClassificationModel unavailable for {self.asset}:{self.timeframe}, "
+                           "regime_classification features will not be published", exc_info=True)
 
         # 4. Emit one bootstrap snapshot so higher-timeframe workers do not wait
         # until the next candle close to seed downstream consumers.

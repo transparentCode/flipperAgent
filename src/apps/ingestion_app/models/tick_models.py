@@ -47,3 +47,18 @@ class TickRecord(BaseDataModel):
 class OIRecord(BaseDataModel):
     symbol: str = Field(validation_alias=AliasChoices("symbol", "s", "sym"))
     open_interest: float = Field(ge=0, validation_alias=AliasChoices("open_interest", "openInterest", "oi"))
+
+
+class L2DepthFeatureRecord(BaseDataModel):
+    """Pre-aggregated L2 orderbook features for a single snapshot."""
+    symbol: str = Field(validation_alias=AliasChoices("symbol", "s", "sym"))
+    bid_ask_imbalance: float = Field(default=0.0)
+    depth_ratio: float = Field(default=1.0, gt=0)
+    spread_bps: float = Field(default=0.0, ge=0)
+    depth_decay_bid: float = Field(default=0.0)
+    depth_decay_ask: float = Field(default=0.0)
+    best_bid: float = Field(default=0.0, ge=0)
+    best_ask: float = Field(default=0.0, ge=0)
+    bid_depth_total: float = Field(default=0.0, ge=0)
+    ask_depth_total: float = Field(default=0.0, ge=0)
+    snapshot_levels: int = Field(default=20, ge=1)

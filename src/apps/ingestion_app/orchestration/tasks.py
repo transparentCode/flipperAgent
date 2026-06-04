@@ -243,3 +243,99 @@ async def scheduled_gap_fill(ctx: Dict[str, Any]) -> None:
     from apps.ingestion_app.constants import EXCHANGE_BINANCE
     target_list = config_manager.get("ingestion.assets.target_list", ["BTCUSDT"])
     await run_rest_gap_fill(ctx, target_list, EXCHANGE_BINANCE)
+
+
+# ---------------------------------------------------------------------------
+# L2 Orderbook Depth Polling
+# ---------------------------------------------------------------------------
+
+@retry(
+    retry=retry_if_exception_type(DataIngestionError),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=30),
+    reraise=True,
+)
+async def _fetch_l2_depth_snapshot(binance_adapter, symbol: str, depth_limit: int = 20) -> None:
+    """Fetch L2 depth snapshot, compute features, and store pre-aggregated row."""
+    import numpy as np
+    from libs.models.regime_classification.l2_features import compute_l2_features
+    from apps.ingestion_app.models.tick_models import L2DepthFeatureRecord
+    from apps.ingestion_app.storage.timescale_writer import TimescaleWriter
+
+    try:
+        raw = await asyncio.to_thread(
+            binance_adapter.client.depth,
+            symbol=symbol,
+            limit=depth_limit,
+        )
+    except Exception as e:
+        raise DataIngestionError(
+            f"Binance depth API failed for {symbol}: {e}",
+            context={"symbol": symbol},
+        ) from e
+
+    bids = np.array([[float(p), float(q)] for p, q in raw.get("bids", [])], dtype=float)
+    asks = np.array([[float(p), float(q)] for p, q in raw.get("asks", [])], dtype=float)
+
+    if bids.size == 0 or asks.size == 0:
+        logger.warning(f"[{symbol}] Empty L2 snapshot, skipping.")
+        return
+
+    features = compute_l2_features(bids, asks, top_n=min(5, len(bids)))
+
+    now = datetime.now(timezone.utc)
+    record = L2DepthFeatureRecord(
+        timestamp=now,
+        symbol=symbol,
+        bid_ask_imbalance=features.bid_ask_imbalance if np.isfinite(features.bid_ask_imbalance) else 0.0,
+        depth_ratio=features.depth_ratio if np.isfinite(features.depth_ratio) else 1.0,
+        spread_bps=features.spread_bps if np.isfinite(features.spread_bps) else 0.0,
+        depth_decay_bid=features.depth_decay_bid if np.isfinite(features.depth_decay_bid) else 0.0,
+        depth_decay_ask=features.depth_decay_ask if np.isfinite(features.depth_decay_ask) else 0.0,
+        best_bid=float(bids[0, 0]),
+        best_ask=float(asks[0, 0]),
+        bid_depth_total=float(bids[:, 1].sum()),
+        ask_depth_total=float(asks[:, 1].sum()),
+        snapshot_levels=len(bids),
+    )
+
+    try:
+        ts_writer = TimescaleWriter(DBPoolManager.get_writer_pool())
+    except RuntimeError:
+        raise DataIngestionError(
+            f"[{symbol}] DB writer pool not initialized for L2 depth",
+            context={"symbol": symbol},
+        )
+
+    await ts_writer.insert_l2_depth([record])
+    logger.info(f"[{symbol}] L2 depth features stored: spread={features.spread_bps:.1f}bps, imbalance={features.bid_ask_imbalance:.3f}")
+
+
+async def poll_l2_depth(ctx: Dict[str, Any]) -> None:
+    """Poll L2 orderbook depth for all configured assets.
+
+    Runs as a cron job (default: every 5 min). Fetches 20-level snapshots
+    from Binance /fapi/v1/depth, computes microstructure features,
+    and stores pre-aggregated rows in l2_depth_features.
+
+    Rate budget: 10 assets × 1 req/5min × weight=5 = 10 weight/5min = 0.4% of 2400/min.
+    """
+    binance_adapter = ctx.get("binance_adapter")
+    if not binance_adapter:
+        raise DataIngestionError(
+            "Binance adapter not found in worker context for L2 depth polling",
+            context={},
+        )
+
+    symbols = config_manager.get("ingestion.assets.target_list", ["BTCUSDT"])
+    depth_limit = config_manager.get("ingestion.l2_depth.snapshot_levels", 20)
+
+    for sym in symbols:
+        try:
+            await _fetch_l2_depth_snapshot(binance_adapter, sym, depth_limit)
+        except Exception as e:
+            logger.error(f"[{sym}] L2 depth poll failed: {e}", exc_info=True)
+        # Small delay between assets to be respectful to rate limits
+        await asyncio.sleep(0.2)
+
+    logger.info(f"poll_l2_depth completed for {len(symbols)} asset(s).")

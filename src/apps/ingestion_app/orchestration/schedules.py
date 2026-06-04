@@ -2,7 +2,7 @@ from libs.common.config import ConfigManager
 from arq.cron import cron
 from libs.common.scheduling import BaseScheduler
 from apps.ingestion_app.constants import EXCHANGE_BINANCE
-from .tasks import poll_binance_ohlcv, scheduled_gap_fill
+from .tasks import poll_binance_ohlcv, scheduled_gap_fill, poll_l2_depth
 
 class IngestionScheduler(BaseScheduler):
     def __init__(self, config_manager: ConfigManager | None = None):
@@ -22,6 +22,9 @@ class IngestionScheduler(BaseScheduler):
         ohlcv_minutes = set(schedules.get("ohlcv_minutes", [0, 15, 30, 45]))
         ohlcv_timeout = schedules.get("ohlcv_timeout", 120)
 
+        l2_depth_minutes = set(schedules.get("l2_depth_minutes", [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]))
+        l2_depth_timeout = schedules.get("l2_depth_timeout", 60)
+
         return [
             # Gap Fill Task
             cron(
@@ -38,5 +41,13 @@ class IngestionScheduler(BaseScheduler):
                 run_at_startup=True,
                 unique=True,
                 timeout=ohlcv_timeout,
+            ),
+            # Poll L2 Orderbook Depth
+            cron(
+                poll_l2_depth,
+                minute=l2_depth_minutes,
+                run_at_startup=True,
+                unique=True,
+                timeout=l2_depth_timeout,
             ),
         ]

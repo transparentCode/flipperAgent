@@ -228,6 +228,15 @@ models:
               w_kama: 0.2
               adx_center: 25.0
               adx_steepness: 5.0
+          RegimeClassification:
+            enabled: true
+            migration_mode: legacy  # feature_producer — direction=0 always
+            params:
+              bcpd_hazard_lambda: 150.0
+              hurst_lookback: 100
+              hmm_student_df: 5.0
+              hilbert_min_period: 10
+              hilbert_max_period: 40
 
 scoring_models:
   assets:

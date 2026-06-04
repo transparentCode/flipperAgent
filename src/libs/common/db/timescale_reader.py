@@ -181,3 +181,30 @@ class TimescaleReader:
         if not records:
             return pd.DataFrame(columns=columns)
         return pd.DataFrame([dict(r) for r in records])
+
+    async def get_latest_l2_features(self, symbol: str) -> dict[str, float] | None:
+        """Fetch the most recent L2 depth feature row for a symbol.
+
+        Returns a flat dict of feature values, or None if no data exists.
+        """
+        query = """
+            SELECT bid_ask_imbalance, depth_ratio, spread_bps,
+                   depth_decay_bid, depth_decay_ask
+            FROM l2_depth_features
+            WHERE symbol = $1
+            ORDER BY timestamp DESC
+            LIMIT 1
+        """
+        async with self.pool.acquire() as conn:
+            record = await conn.fetchrow(query, symbol)
+
+        if not record:
+            return None
+
+        return {
+            "bid_ask_imbalance": float(record["bid_ask_imbalance"]),
+            "depth_ratio": float(record["depth_ratio"]),
+            "spread_bps": float(record["spread_bps"]),
+            "depth_decay_bid": float(record["depth_decay_bid"]),
+            "depth_decay_ask": float(record["depth_decay_ask"]),
+        }
