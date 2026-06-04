@@ -50,7 +50,12 @@ def _settings(n_trials: int = 8) -> dict:
     return load_regime_optimization_settings(
         {
             "benchmark_ladder": {"min_bars": 500, "purge_bars": 12},
-            "alpha_ladder": {"n_trials": n_trials, "min_bars": 500},
+            "alpha_ladder": {
+                "n_trials": n_trials,
+                "min_bars": 500,
+                "null_controls": ["circular_shift", "block_shuffle"],
+                "policy_kinds": ["confidence_scaled"],
+            },
         }
     )
 
@@ -69,6 +74,9 @@ def test_alpha_ladder_returns_optimized_policy_contract():
     assert overlay["selection"]["n_trials"] == 8
     assert "policy_kind" in overlay["selection"]["policy"]
     assert "shuffled_control" in overlay
+    assert set(overlay["null_controls"]) == {"circular_shift", "block_shuffle"}
+    assert overlay["null_control_mode"] in {"circular_shift", "block_shuffle"}
+    assert overlay["selection"]["policy"]["policy_kind"] == "confidence_scaled"
     assert report["panel_decision"] in {"promote_to_downstream_research", "reject"}
 
 

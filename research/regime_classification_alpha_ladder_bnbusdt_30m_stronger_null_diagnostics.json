@@ -1,0 +1,271 @@
+{
+  "reports": [
+    {
+      "path": "research/regime_classification_alpha_ladder_bnbusdt_30m_rolling_365d_stronger_nulls.json",
+      "asset": "BNBUSDT",
+      "timeframe": "30m",
+      "folds": 22,
+      "policy_stability": {
+        "best_policy_kind_counts": {
+          "risk_filtered": 14,
+          "confidence_scaled": 2,
+          "combined": 5,
+          "soft_scaled": 1
+        },
+        "best_strategy_counts": {
+          "buy_and_hold": 14,
+          "ema_cross": 3,
+          "sma_cross": 5
+        },
+        "policy_kind_churn_rate": 0.42857142857142855,
+        "strategy_churn_rate": 0.5238095238095238,
+        "numeric_policy_summary": {
+          "max_vol_percentile": {
+            "median": 73.30802185632339,
+            "iqr": 13.922042870362432,
+            "min": 56.675682789721535,
+            "max": 97.36330052998416
+          },
+          "max_changepoint_prob": {
+            "median": 0.6675887106028529,
+            "iqr": 0.3339229893272232,
+            "min": 0.057131346557697665,
+            "max": 0.9431626874079052
+          },
+          "max_crisis_prob": {
+            "median": 0.41661607306708326,
+            "iqr": 0.3242869580578736,
+            "min": 0.018639984129348457,
+            "max": 0.9475963370569245
+          },
+          "min_trend_strength": {
+            "median": 0.3982033040348095,
+            "iqr": 0.36532190549993737,
+            "min": 0.008871164797742331,
+            "max": 0.6529580084893839
+          },
+          "min_confidence": {
+            "median": 0.6529195602822049,
+            "iqr": 0.7920458979754362,
+            "min": 0.0019347458280039725,
+            "max": 0.9489286216082647
+          },
+          "trend_power": {
+            "median": 2.1762822756492053,
+            "iqr": 0.505278010156804,
+            "min": 0.946316985053685,
+            "max": 2.747737107603366
+          },
+          "min_position_scale": {
+            "median": 0.22026594422348456,
+            "iqr": 0.18061526705407518,
+            "min": 0.0054716326541555125,
+            "max": 0.49970674704384266
+          }
+        }
+      },
+      "failure_counts": {
+        "sharpe_lift_low": 12,
+        "calmar_lift_low": 15,
+        "return_lift_low": 13,
+        "loses_to_shuffled_sharpe": 12,
+        "oos_sharpe_low": 10,
+        "oos_return_low": 10,
+        "avg_position_low": 6
+      },
+      "shuffled_best_rows": {
+        "rows": 22,
+        "real_beats_shuffled_rate": 0.45454545454545453,
+        "shuffled_positive_sharpe_rate": 0.5909090909090909,
+        "median_real_oos_sharpe": 0.0,
+        "median_shuffled_oos_sharpe": 1.3681350488192507,
+        "median_sharpe_vs_shuffled": -1.2539184464838076,
+        "median_calmar_vs_shuffled": -0.20299971624637514
+      },
+      "validation_oos_decay": {
+        "all_rows_validation_oos_corr": 0.03167368444028888,
+        "best_rows_validation_oos_corr": 0.1549236941057208,
+        "median_validation_score_best_rows": 8.143356700904938,
+        "median_oos_sharpe_best_rows": 0.0,
+        "median_oos_return_best_rows": 0.0
+      }
+    },
+    {
+      "path": "research/regime_classification_alpha_ladder_bnbusdt_30m_rolling_365d_stability_regularized.json",
+      "asset": "BNBUSDT",
+      "timeframe": "30m",
+      "folds": 22,
+      "policy_stability": {
+        "best_policy_kind_counts": {
+          "risk_filtered": 13,
+          "combined": 6,
+          "soft_scaled": 1,
+          "confidence_scaled": 2
+        },
+        "best_strategy_counts": {
+          "buy_and_hold": 12,
+          "ema_cross": 3,
+          "sma_cross": 7
+        },
+        "policy_kind_churn_rate": 0.42857142857142855,
+        "strategy_churn_rate": 0.42857142857142855,
+        "numeric_policy_summary": {
+          "max_vol_percentile": {
+            "median": 69.99310477325756,
+            "iqr": 15.39982533337205,
+            "min": 55.03681146167439,
+            "max": 97.36330052998416
+          },
+          "max_changepoint_prob": {
+            "median": 0.5924187535109151,
+            "iqr": 0.3117404381096942,
+            "min": 0.06193629034765705,
+            "max": 0.9431626874079052
+          },
+          "max_crisis_prob": {
+            "median": 0.5336638361402959,
+            "iqr": 0.35547509937017885,
+            "min": 0.0052980794602158765,
+            "max": 0.9475963370569245
+          },
+          "min_trend_strength": {
+            "median": 0.42598999747108907,
+            "iqr": 0.22609745282866883,
+            "min": 0.05964051494381666,
+            "max": 0.650733966047192
+          },
+          "min_confidence": {
+            "median": 0.42531674390639507,
+            "iqr": 0.5963271286152951,
+            "min": 0.09457100794284426,
+            "max": 0.9479522783787713
+          },
+          "trend_power": {
+            "median": 1.9294097446867249,
+            "iqr": 0.6061174147727837,
+            "min": 0.9366833190391328,
+            "max": 2.8193136831823287
+          },
+          "min_position_scale": {
+            "median": 0.19567226781301644,
+            "iqr": 0.13249836974701443,
+            "min": 0.0010584660231045913,
+            "max": 0.4102829558663992
+          }
+        }
+      },
+      "failure_counts": {
+        "sharpe_lift_low": 10,
+        "calmar_lift_low": 12,
+        "return_lift_low": 10,
+        "loses_to_shuffled_sharpe": 11,
+        "oos_sharpe_low": 7,
+        "oos_return_low": 8,
+        "avg_position_low": 7
+      },
+      "shuffled_best_rows": {
+        "rows": 22,
+        "real_beats_shuffled_rate": 0.5,
+        "shuffled_positive_sharpe_rate": 0.5909090909090909,
+        "median_real_oos_sharpe": 0.00034937382877294913,
+        "median_shuffled_oos_sharpe": 1.5680200115811465,
+        "median_sharpe_vs_shuffled": -0.27970451743055236,
+        "median_calmar_vs_shuffled": -0.08748973445433814
+      },
+      "validation_oos_decay": {
+        "all_rows_validation_oos_corr": 0.00042276723994781937,
+        "best_rows_validation_oos_corr": 0.0504603813992529,
+        "median_validation_score_best_rows": 8.06673206799219,
+        "median_oos_sharpe_best_rows": 0.00034937382877294913,
+        "median_oos_return_best_rows": 0.0
+      }
+    },
+    {
+      "path": "research/regime_classification_alpha_ladder_bnbusdt_30m_rolling_365d_fixed_confidence.json",
+      "asset": "BNBUSDT",
+      "timeframe": "30m",
+      "folds": 22,
+      "policy_stability": {
+        "best_policy_kind_counts": {
+          "confidence_scaled": 22
+        },
+        "best_strategy_counts": {
+          "sma_cross": 8,
+          "buy_and_hold": 13,
+          "ema_cross": 1
+        },
+        "policy_kind_churn_rate": 0.0,
+        "strategy_churn_rate": 0.47619047619047616,
+        "numeric_policy_summary": {
+          "max_vol_percentile": {
+            "median": 75.43306531485354,
+            "iqr": 22.884080066542296,
+            "min": 55.048913283536,
+            "max": 99.69574088739272
+          },
+          "max_changepoint_prob": {
+            "median": 0.49892205052038163,
+            "iqr": 0.43578287392951276,
+            "min": 0.15697749966304386,
+            "max": 0.8772540719271001
+          },
+          "max_crisis_prob": {
+            "median": 0.5253342101901415,
+            "iqr": 0.22605282064474153,
+            "min": 0.042965924465011164,
+            "max": 0.8843180917138804
+          },
+          "min_trend_strength": {
+            "median": 0.29063687739309285,
+            "iqr": 0.25816207449464773,
+            "min": 0.06493201294156153,
+            "max": 0.7167642923166955
+          },
+          "min_confidence": {
+            "median": 0.6799939500670993,
+            "iqr": 0.5207545811996743,
+            "min": 0.003865770797967627,
+            "max": 0.9454357728516845
+          },
+          "trend_power": {
+            "median": 1.6675803506321665,
+            "iqr": 1.1111209361381384,
+            "min": 0.6322792190070143,
+            "max": 2.998691074414872
+          },
+          "min_position_scale": {
+            "median": 0.30065798026899637,
+            "iqr": 0.19023158677016022,
+            "min": 0.018118844059948708,
+            "max": 0.49862682159346383
+          }
+        }
+      },
+      "failure_counts": {
+        "sharpe_lift_low": 15,
+        "calmar_lift_low": 17,
+        "return_lift_low": 17,
+        "loses_to_shuffled_sharpe": 15,
+        "oos_sharpe_low": 13,
+        "oos_return_low": 14,
+        "avg_position_low": 1
+      },
+      "shuffled_best_rows": {
+        "rows": 22,
+        "real_beats_shuffled_rate": 0.3181818181818182,
+        "shuffled_positive_sharpe_rate": 0.5909090909090909,
+        "median_real_oos_sharpe": -1.0990913272603149,
+        "median_shuffled_oos_sharpe": 1.6450113049371455,
+        "median_sharpe_vs_shuffled": -0.8646640880861226,
+        "median_calmar_vs_shuffled": -0.3497284560645405
+      },
+      "validation_oos_decay": {
+        "all_rows_validation_oos_corr": -0.015449608113675982,
+        "best_rows_validation_oos_corr": 0.12754206510685126,
+        "median_validation_score_best_rows": 3.571719716990271,
+        "median_oos_sharpe_best_rows": -1.0990913272603149,
+        "median_oos_return_best_rows": -0.010464775746728883
+      }
+    }
+  ]
+}

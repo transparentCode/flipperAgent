@@ -45,6 +45,9 @@ def main() -> None:
     parser.add_argument("--rolling", action="store_true")
     parser.add_argument("--fold-bars", type=int, default=None)
     parser.add_argument("--step-bars", type=int, default=None)
+    parser.add_argument("--null-controls", nargs="+", default=None)
+    parser.add_argument("--policy-kinds", nargs="+", default=None)
+    parser.add_argument("--policy-regularization", type=float, default=None)
     parser.add_argument("--show-hmm-warnings", action="store_true")
     args = parser.parse_args()
 
@@ -79,8 +82,17 @@ def _run_one(
     args: argparse.Namespace,
 ) -> dict[str, Any]:
     settings_override: dict[str, Any] = {}
+    alpha_override: dict[str, Any] = {}
     if args.alpha_trials is not None:
-        settings_override = {"alpha_ladder": {"n_trials": args.alpha_trials}}
+        alpha_override["n_trials"] = args.alpha_trials
+    if args.null_controls is not None:
+        alpha_override["null_controls"] = args.null_controls
+    if args.policy_kinds is not None:
+        alpha_override["policy_kinds"] = args.policy_kinds
+    if args.policy_regularization is not None:
+        alpha_override["policy_regularization"] = args.policy_regularization
+    if alpha_override:
+        settings_override = {"alpha_ladder": alpha_override}
     settings = load_regime_optimization_settings(settings_override)
     regime_result = None
     params = None

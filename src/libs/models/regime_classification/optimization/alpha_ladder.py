@@ -39,6 +39,16 @@ _POLICY_KINDS = (
     "soft_scaled",
 )
 
+_POLICY_NUMERIC_KEYS = (
+    "max_vol_percentile",
+    "max_changepoint_prob",
+    "max_crisis_prob",
+    "min_trend_strength",
+    "min_confidence",
+    "trend_power",
+    "min_position_scale",
+)
+
 
 def run_alpha_ladder(
     price_df: pd.DataFrame,
@@ -297,27 +307,30 @@ def optimize_overlay_policy(
         purge_bars=int(ladder_cfg.get("purge_bars", 24)),
     ).split(len(frame))
     val_slice = slice(split.val_start, split.val_end)
-    shuffled = _shuffle_regime(regime_df, alpha_cfg)
+    null_regimes = _build_null_regimes(regime_df, alpha_cfg)
 
     def objective(trial: optuna.Trial) -> float:
         policy = _suggest_policy(trial, alpha_cfg)
         positions = _apply_policy(base_positions, regime_df, policy)
-        shuffled_positions = _apply_policy(base_positions, shuffled, policy)
         metrics = _score_positions(
             positions[val_slice],
             frame.iloc[val_slice],
             timeframe=timeframe,
             cost_bps=float(ladder_cfg.get("cost_bps", 10.0)),
         )
-        shuffled_metrics = _score_positions(
-            shuffled_positions[val_slice],
+        null_metrics = _score_hardest_null(
+            base_positions,
+            null_regimes,
+            policy,
+            val_slice,
             frame.iloc[val_slice],
             timeframe=timeframe,
             cost_bps=float(ladder_cfg.get("cost_bps", 10.0)),
         )
-        lifts = _metric_lifts(metrics, baseline["validate"], shuffled_metrics)
+        lifts = _metric_lifts(metrics, baseline["validate"], null_metrics)
         turnover_penalty = float(alpha_cfg.get("turnover_penalty", 0.05))
         dd_penalty = _drawdown_penalty(metrics, baseline["validate"])
+        policy_penalty = _policy_regularization(policy, alpha_cfg)
         return (
             lifts["sharpe_vs_baseline"]
             + 0.25 * lifts["calmar_vs_baseline"]
@@ -325,6 +338,7 @@ def optimize_overlay_policy(
             + 0.50 * lifts["sharpe_vs_shuffled"]
             - turnover_penalty * max(0.0, metrics["turnover"] - baseline["validate"]["turnover"])
             - dd_penalty
+            - policy_penalty
         )
 
     optuna.logging.set_verbosity(optuna.logging.WARNING)
@@ -357,7 +371,7 @@ def _score_selected_policy(
     alpha_cfg = settings.get("alpha_ladder", {})
     policy = selected["policy"]
     positions = _apply_policy(base, regime_df, policy)
-    shuffled_positions = _apply_policy(base, _shuffle_regime(regime_df, alpha_cfg), policy)
+    null_regimes = _build_null_regimes(regime_df, alpha_cfg)
 
     metrics = {
         seg_name: _score_positions(
@@ -368,19 +382,26 @@ def _score_selected_policy(
         )
         for seg_name, (start, end) in segments.items()
     }
-    shuffled_metrics = {
-        seg_name: _score_positions(
-            shuffled_positions[start:end],
-            frame.iloc[start:end],
-            timeframe=timeframe,
-            cost_bps=float(ladder_cfg.get("cost_bps", 10.0)),
-        )
-        for seg_name, (start, end) in segments.items()
+    null_control_metrics = {
+        mode: {
+            seg_name: _score_positions(
+                _apply_policy(base, null_regime, policy)[start:end],
+                frame.iloc[start:end],
+                timeframe=timeframe,
+                cost_bps=float(ladder_cfg.get("cost_bps", 10.0)),
+            )
+            for seg_name, (start, end) in segments.items()
+        }
+        for mode, null_regime in null_regimes.items()
     }
+    hardest_mode = _hardest_null_mode(null_control_metrics, segment="oos")
+    shuffled_metrics = null_control_metrics[hardest_mode]
     return {
         "optimized_policy": {
             "metrics": metrics,
             "shuffled_control": shuffled_metrics,
+            "null_controls": null_control_metrics,
+            "null_control_mode": hardest_mode,
             "oos_lifts": _metric_lifts(metrics["oos"], baseline["oos"], shuffled_metrics["oos"]),
             "decision": _overlay_decision(
                 metrics["oos"],
@@ -395,7 +416,7 @@ def _score_selected_policy(
 
 def _suggest_policy(trial: optuna.Trial, cfg: dict[str, Any]) -> dict[str, Any]:
     return {
-        "policy_kind": trial.suggest_categorical("policy_kind", list(_POLICY_KINDS)),
+        "policy_kind": trial.suggest_categorical("policy_kind", _policy_kinds(cfg)),
         "max_vol_percentile": trial.suggest_float(
             "max_vol_percentile",
             float(cfg.get("max_vol_percentile_low", 55.0)),
@@ -450,6 +471,13 @@ def _coerce_policy(params: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any
     return policy
 
 
+def _policy_kinds(cfg: dict[str, Any]) -> list[str]:
+    configured = cfg.get("policy_kinds")
+    if configured:
+        return [kind for kind in configured if kind in _POLICY_KINDS]
+    return list(_POLICY_KINDS)
+
+
 def _apply_policy(
     base_positions: np.ndarray,
     regime_df: pd.DataFrame,
@@ -482,6 +510,121 @@ def _apply_policy(
         soft = 0.5 * (conf_scale + trend_scale)
         scale = risk * (min_scale + (1.0 - min_scale) * soft)
     return np.nan_to_num(base_positions.astype(float) * scale, nan=0.0)
+
+
+def _build_null_regimes(
+    regime_df: pd.DataFrame,
+    cfg: dict[str, Any],
+) -> dict[str, pd.DataFrame]:
+    modes = cfg.get("null_controls", ["circular_shift", "block_shuffle"])
+    if isinstance(modes, str):
+        modes = [modes]
+    nulls = {
+        mode: _null_regime(regime_df, cfg, mode)
+        for mode in modes
+        if mode in {"row_shuffle", "circular_shift", "block_shuffle"}
+    }
+    if not nulls:
+        nulls["circular_shift"] = _null_regime(regime_df, cfg, "circular_shift")
+    return nulls
+
+
+def _null_regime(
+    regime_df: pd.DataFrame,
+    cfg: dict[str, Any],
+    mode: str,
+) -> pd.DataFrame:
+    if mode == "row_shuffle":
+        return _shuffle_regime(regime_df, cfg)
+    if mode == "block_shuffle":
+        return _block_shuffle_regime(regime_df, cfg)
+    return _circular_shift_regime(regime_df, cfg)
+
+
+def _circular_shift_regime(
+    regime_df: pd.DataFrame,
+    cfg: dict[str, Any],
+) -> pd.DataFrame:
+    if len(regime_df) == 0:
+        return regime_df.copy()
+    shift = int(cfg.get("null_shift_bars", max(1, len(regime_df) // 3)))
+    shift = shift % len(regime_df)
+    if shift == 0:
+        shift = max(1, len(regime_df) // 3)
+    values = np.roll(regime_df.to_numpy(), shift=shift, axis=0)
+    return pd.DataFrame(values, index=regime_df.index, columns=regime_df.columns)
+
+
+def _block_shuffle_regime(
+    regime_df: pd.DataFrame,
+    cfg: dict[str, Any],
+) -> pd.DataFrame:
+    block_bars = max(int(cfg.get("null_block_bars", 96)), 1)
+    rng = np.random.default_rng(int(cfg.get("shuffle_seed", 42)))
+    blocks = [
+        regime_df.iloc[start : start + block_bars]
+        for start in range(0, len(regime_df), block_bars)
+    ]
+    if len(blocks) <= 1:
+        return _circular_shift_regime(regime_df, cfg)
+    order = rng.permutation(len(blocks))
+    shuffled = pd.concat([blocks[idx] for idx in order], axis=0)
+    shuffled = shuffled.reset_index(drop=True)
+    shuffled.index = regime_df.index
+    return shuffled
+
+
+def _score_hardest_null(
+    base_positions: np.ndarray,
+    null_regimes: dict[str, pd.DataFrame],
+    policy: dict[str, Any],
+    segment: slice,
+    frame: pd.DataFrame,
+    *,
+    timeframe: str,
+    cost_bps: float,
+) -> dict[str, float]:
+    metrics = []
+    for null_regime in null_regimes.values():
+        null_positions = _apply_policy(base_positions, null_regime, policy)
+        metrics.append(
+            _score_positions(
+                null_positions[segment],
+                frame,
+                timeframe=timeframe,
+                cost_bps=cost_bps,
+            )
+        )
+    return max(metrics, key=lambda row: row["sharpe"])
+
+
+def _hardest_null_mode(
+    null_control_metrics: dict[str, dict[str, dict[str, float]]],
+    *,
+    segment: str,
+) -> str:
+    return max(
+        null_control_metrics,
+        key=lambda mode: null_control_metrics[mode][segment]["sharpe"],
+    )
+
+
+def _policy_regularization(
+    policy: dict[str, Any],
+    cfg: dict[str, Any],
+) -> float:
+    weight = float(cfg.get("policy_regularization", 0.0))
+    if weight <= 0:
+        return 0.0
+    penalty = 0.0
+    for key in _POLICY_NUMERIC_KEYS:
+        low = float(cfg.get(f"{key}_low", policy[key]))
+        high = float(cfg.get(f"{key}_high", policy[key]))
+        if high <= low:
+            continue
+        anchor = float(cfg.get(f"{key}_anchor", (low + high) / 2.0))
+        penalty += abs(float(policy[key]) - anchor) / (high - low)
+    return weight * penalty / len(_POLICY_NUMERIC_KEYS)
 
 
 def _overlay_decision(
