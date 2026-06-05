@@ -66,6 +66,9 @@ def _settings() -> dict:
                     ["fwd_vol_ewma", "vol_percentile"],
                     ["fwd_vol_ewma", "vol_percentile", "changepoint_prob"],
                 ],
+                "target_kinds": ["fwd_vol", "vol_expansion"],
+                "target_horizons": [3, 5],
+                "target_vol_lookback": 10,
                 "event_quantiles": [0.70],
                 "n_bins_grid": [4],
                 "risk_budgets": [0.50],
@@ -102,10 +105,17 @@ def test_probability_ladder_returns_calibration_contract():
     assert report["status"] == "ok"
     probability = report["probability"]
     assert probability["selection"]["fitted_config"]["event_threshold"] > 0
+    assert probability["selection"]["config"]["target_kind"] in {
+        "fwd_vol",
+        "vol_expansion",
+    }
+    assert probability["selection"]["config"]["target_horizon"] in {3, 5}
     assert "bin_probs" in probability["selection"]["fitted_config"]
     assert "feature_models" in probability["selection"]["fitted_config"]
     assert probability["selection"]["fitted_config"]["feature_columns"]
     assert "auc" in probability["metrics"]["oos"]
+    assert "top_bottom_event_spread" in probability["metrics"]["oos"]
+    assert "bucket_spread_vs_null" in probability["oos_lifts"]
     assert set(probability["null_controls"]) == {"circular_shift", "block_shuffle"}
     overlay = report["strategies"]["buy_and_hold"]["overlays"]["probability_sized"]
     assert overlay["selection"]["config"]["risk_budget"] == 0.50
@@ -142,6 +152,7 @@ def test_rolling_probability_ladder_returns_fold_summary():
     assert report["status"] == "ok"
     assert report["summary"]["total_folds"] == 3
     assert report["summary"]["usable_folds"] == 3
+    assert "median_bucket_spread_lift_vs_null" in report["summary"]
     assert "best_rows" in report["summary"]
 
 

@@ -50,6 +50,8 @@ def main() -> None:
         help="Comma-separated descriptor set; repeat to add candidates.",
     )
     parser.add_argument("--target-horizon", type=int, default=None)
+    parser.add_argument("--target-horizons", nargs="+", type=int, default=None)
+    parser.add_argument("--target-kinds", nargs="+", default=None)
     parser.add_argument("--null-controls", nargs="+", default=None)
     parser.add_argument("--show-hmm-warnings", action="store_true")
     args = parser.parse_args()
@@ -68,6 +70,10 @@ def main() -> None:
         ]
     if args.target_horizon is not None:
         prob_override["target_horizon"] = args.target_horizon
+    if args.target_horizons is not None:
+        prob_override["target_horizons"] = args.target_horizons
+    if args.target_kinds is not None:
+        prob_override["target_kinds"] = args.target_kinds
     if args.null_controls is not None:
         prob_override["null_controls"] = args.null_controls
     settings = load_regime_optimization_settings(

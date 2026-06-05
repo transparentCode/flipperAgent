@@ -1,0 +1,46 @@
+{
+  "asset": "BNBUSDT",
+  "timeframe": "30m",
+  "variants": [
+    {
+      "null_lift_weight": 1.0,
+      "decision": "reject",
+      "probability_pass_rate": 0.3181818181818182,
+      "probability_promoted_folds": 7,
+      "median_oos_auc": 0.5753959306503773,
+      "median_auc_lift_vs_null": -0.011650204378685997,
+      "median_brier_lift_vs_null": 0.01601011555200329,
+      "sizing_pass_rate": 0.18181818181818182
+    },
+    {
+      "null_lift_weight": 2.0,
+      "decision": "reject",
+      "probability_pass_rate": 0.3181818181818182,
+      "probability_promoted_folds": 7,
+      "median_oos_auc": 0.5753959306503773,
+      "median_auc_lift_vs_null": -0.008514110797997965,
+      "median_brier_lift_vs_null": 0.015138519257369788,
+      "sizing_pass_rate": 0.13636363636363635
+    },
+    {
+      "null_lift_weight": 4.0,
+      "decision": "reject",
+      "probability_pass_rate": 0.36363636363636365,
+      "probability_promoted_folds": 8,
+      "median_oos_auc": 0.5753959306503773,
+      "median_auc_lift_vs_null": -0.008514110797997965,
+      "median_brier_lift_vs_null": 0.015138519257369788,
+      "sizing_pass_rate": 0.13636363636363635
+    },
+    {
+      "null_lift_weight": 8.0,
+      "decision": "reject",
+      "probability_pass_rate": 0.36363636363636365,
+      "probability_promoted_folds": 8,
+      "median_oos_auc": 0.5753959306503773,
+      "median_auc_lift_vs_null": -0.008514110797997965,
+      "median_brier_lift_vs_null": 0.015138519257369788,
+      "sizing_pass_rate": 0.13636363636363635
+    }
+  ]
+}

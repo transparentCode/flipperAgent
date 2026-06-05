@@ -76,7 +76,6 @@ def run_probability_ladder(
             "requested_feature_sets": _configured_feature_sets(prob_cfg),
         }
 
-    target = _forward_vol_target(frame, int(prob_cfg.get("target_horizon", 5)))
     split = WalkForwardSplitter(
         train_ratio=float(prob_cfg.get("train_ratio", ladder_cfg.get("train_ratio", 0.60))),
         val_ratio=float(prob_cfg.get("val_ratio", ladder_cfg.get("val_ratio", 0.20))),
@@ -92,11 +91,12 @@ def run_probability_ladder(
         "full": (0, len(frame)),
     }
 
+    targets = _target_cache(frame, candidate_configs, prob_cfg)
     null_regimes = _build_null_regimes(regime, prob_cfg)
     selected = _select_probability_config(
         regime,
         null_regimes,
-        target,
+        targets,
         segments=segments,
         cfg=prob_cfg,
         candidate_configs=candidate_configs,
@@ -105,7 +105,7 @@ def run_probability_ladder(
         selected,
         regime,
         null_regimes,
-        target,
+        targets,
         segments=segments,
         cfg=prob_cfg,
     )
@@ -130,6 +130,7 @@ def run_probability_ladder(
             null_regimes,
             segments,
             baseline,
+            targets,
             timeframe=timeframe,
             settings=cfg,
         )
@@ -262,7 +263,7 @@ def summarize_probability_panel(rows: list[dict[str, Any]]) -> dict[str, Any]:
 def _select_probability_config(
     regime: pd.DataFrame,
     null_regimes: dict[str, pd.DataFrame],
-    target: pd.Series,
+    targets: dict[tuple[str, int], pd.Series],
     *,
     segments: dict[str, tuple[int, int]],
     cfg: dict[str, Any],
@@ -275,6 +276,7 @@ def _select_probability_config(
         cfg,
         regime.columns,
     ):
+        target = _target_for_candidate(targets, candidate)
         fitted = _fit_probability_ensemble(
             regime,
             target,
@@ -308,11 +310,12 @@ def _score_probability_config(
     selected: dict[str, Any],
     regime: pd.DataFrame,
     null_regimes: dict[str, pd.DataFrame],
-    target: pd.Series,
+    targets: dict[tuple[str, int], pd.Series],
     *,
     segments: dict[str, tuple[int, int]],
     cfg: dict[str, Any],
 ) -> dict[str, Any]:
+    target = _target_for_candidate(targets, selected["config"])
     fitted = selected["fitted_config"]
     event = _event_series(target, fitted["event_threshold"])
     probs = _predict_probability_ensemble(regime, fitted)
@@ -339,6 +342,10 @@ def _score_probability_config(
     lifts = {
         "auc_vs_null": oos["auc"] - hardest_oos["auc"],
         "brier_vs_null": hardest_oos["brier"] - oos["brier"],
+        "bucket_spread_vs_null": (
+            oos["top_bottom_event_spread"]
+            - hardest_oos["top_bottom_event_spread"]
+        ),
     }
     return {
         "selection": selected,
@@ -358,6 +365,7 @@ def _score_probability_sizing(
     null_regimes: dict[str, pd.DataFrame],
     segments: dict[str, tuple[int, int]],
     baseline: dict[str, dict[str, float]],
+    targets: dict[tuple[str, int], pd.Series],
     *,
     timeframe: str,
     settings: dict[str, Any],
@@ -380,7 +388,7 @@ def _score_probability_sizing(
     for mode, null_regime in null_regimes.items():
         null_fit = _fit_probability_ensemble(
             null_regime,
-            _forward_vol_target(frame, int(prob_cfg.get("target_horizon", 5))),
+            _target_for_candidate(targets, selected["config"]),
             train_slice=slice(*segments["train"]),
             cfg=selected["config"],
         )
@@ -570,12 +578,14 @@ def _probability_metrics(probs: np.ndarray, event: pd.Series) -> dict[str, float
         return _empty_prob_metrics()
     p = np.clip(joined["p"].to_numpy(dtype=float), 0.0, 1.0)
     y = joined["y"].to_numpy(dtype=float)
+    bucket = _bucket_event_metrics(p, y)
     return {
         "brier": float(np.mean((p - y) ** 2)),
         "auc": _auc(p, y),
         "event_rate": float(np.mean(y)),
         "mean_probability": float(np.mean(p)),
         "rows": int(len(joined)),
+        **bucket,
     }
 
 
@@ -591,6 +601,13 @@ def _probability_score(
         * (metrics["auc"] - null_metrics["auc"])
         + float(cfg.get("null_brier_weight", 1.0))
         * (null_metrics["brier"] - metrics["brier"])
+        + float(cfg.get("bucket_spread_weight", 0.5))
+        * metrics["top_bottom_event_spread"]
+        + float(cfg.get("null_bucket_spread_weight", 0.5))
+        * (
+            metrics["top_bottom_event_spread"]
+            - null_metrics["top_bottom_event_spread"]
+        )
     )
 
 
@@ -627,6 +644,8 @@ def _probability_decision(
         metrics["auc"] >= float(cfg.get("min_oos_auc", 0.55))
         and lifts["auc_vs_null"] >= float(cfg.get("min_auc_lift_vs_null", 0.0))
         and lifts["brier_vs_null"] >= float(cfg.get("min_brier_lift_vs_null", 0.0))
+        and lifts["bucket_spread_vs_null"]
+        >= float(cfg.get("min_bucket_spread_lift_vs_null", 0.0))
     ):
         return "promote_probability_research"
     return "reject"
@@ -655,29 +674,61 @@ def _candidate_probability_configs(
 ) -> list[dict[str, Any]]:
     rows = []
     available = {str(col) for col in available_columns} if available_columns is not None else None
-    for event_quantile in cfg.get("event_quantiles", [0.70, 0.75, 0.80]):
-        for n_bins in cfg.get("n_bins_grid", [4, 5, 8]):
-            for risk_budget in cfg.get("risk_budgets", [0.25, 0.50, 0.75]):
-                for min_scale in cfg.get("min_position_scales", [0.25, 0.50]):
-                    for feature_set in _configured_feature_sets(cfg):
-                        feature_columns = [
-                            feature
-                            for feature in feature_set
-                            if available is None or feature in available
-                        ]
-                        if not feature_columns:
-                            continue
-                        rows.append(
-                            {
-                                "event_quantile": float(event_quantile),
-                                "n_bins": int(n_bins),
-                                "risk_budget": float(risk_budget),
-                                "min_position_scale": float(min_scale),
-                                "smoothing": float(cfg.get("smoothing", 2.0)),
-                                "feature_columns": feature_columns,
-                            }
-                        )
+    for target_kind in _configured_target_kinds(cfg):
+        for target_horizon in _configured_target_horizons(cfg):
+            for event_quantile in cfg.get("event_quantiles", [0.70, 0.75, 0.80]):
+                for n_bins in cfg.get("n_bins_grid", [4, 5, 8]):
+                    for risk_budget in cfg.get("risk_budgets", [0.25, 0.50, 0.75]):
+                        for min_scale in cfg.get("min_position_scales", [0.25, 0.50]):
+                            for feature_set in _configured_feature_sets(cfg):
+                                feature_columns = [
+                                    feature
+                                    for feature in feature_set
+                                    if available is None or feature in available
+                                ]
+                                if not feature_columns:
+                                    continue
+                                rows.append(
+                                    {
+                                        "target_kind": target_kind,
+                                        "target_horizon": int(target_horizon),
+                                        "event_quantile": float(event_quantile),
+                                        "n_bins": int(n_bins),
+                                        "risk_budget": float(risk_budget),
+                                        "min_position_scale": float(min_scale),
+                                        "smoothing": float(cfg.get("smoothing", 2.0)),
+                                        "feature_columns": feature_columns,
+                                    }
+                                )
     return rows
+
+
+def _configured_target_kinds(cfg: dict[str, Any]) -> list[str]:
+    raw = cfg.get("target_kinds")
+    if raw is None:
+        raw = [cfg.get("target_kind", "fwd_vol")]
+    if isinstance(raw, str):
+        raw = [raw]
+    kinds: list[str] = []
+    for value in raw:
+        kind = str(value)
+        if kind in {"fwd_vol", "vol_expansion"} and kind not in kinds:
+            kinds.append(kind)
+    return kinds or ["fwd_vol"]
+
+
+def _configured_target_horizons(cfg: dict[str, Any]) -> list[int]:
+    raw = cfg.get("target_horizons")
+    if raw is None:
+        raw = [cfg.get("target_horizon", 5)]
+    if isinstance(raw, (int, float, str)):
+        raw = [raw]
+    horizons: list[int] = []
+    for value in raw:
+        horizon = max(int(value), 1)
+        if horizon not in horizons:
+            horizons.append(horizon)
+    return horizons
 
 
 def _configured_feature_sets(cfg: dict[str, Any]) -> list[list[str]]:
@@ -732,6 +783,12 @@ def _summarize_rolling_folds(
     median_auc = _median(row["metrics"]["oos"]["auc"] for row in prob_rows)
     median_auc_lift = _median(row["oos_lifts"]["auc_vs_null"] for row in prob_rows)
     median_brier_lift = _median(row["oos_lifts"]["brier_vs_null"] for row in prob_rows)
+    median_bucket_spread = _median(
+        row["metrics"]["oos"]["top_bottom_event_spread"] for row in prob_rows
+    )
+    median_bucket_lift = _median(
+        row["oos_lifts"]["bucket_spread_vs_null"] for row in prob_rows
+    )
     median_sharpe_lift = _median(row["sharpe_vs_baseline"] for row in best_rows)
     median_null_lift = _median(row["sharpe_vs_shuffled"] for row in best_rows)
     decision = (
@@ -741,6 +798,8 @@ def _summarize_rolling_folds(
         and median_auc >= float(rolling_cfg.get("min_median_auc", 0.55))
         and median_auc_lift >= float(rolling_cfg.get("min_median_auc_lift", 0.0))
         and median_brier_lift >= float(rolling_cfg.get("min_median_brier_lift", 0.0))
+        and median_bucket_lift
+        >= float(rolling_cfg.get("min_median_bucket_spread_lift", 0.0))
         else "reject"
     )
     return {
@@ -755,6 +814,8 @@ def _summarize_rolling_folds(
         "median_oos_auc": float(median_auc),
         "median_auc_lift_vs_null": float(median_auc_lift),
         "median_brier_lift_vs_null": float(median_brier_lift),
+        "median_bucket_spread": float(median_bucket_spread),
+        "median_bucket_spread_lift_vs_null": float(median_bucket_lift),
         "median_sharpe_lift": float(median_sharpe_lift),
         "median_null_sharpe_lift": float(median_null_lift),
         "best_rows": best_rows,
@@ -796,6 +857,51 @@ def _forward_vol_target(frame: pd.DataFrame, horizon: int) -> pd.Series:
     return returns.rolling(horizon).std().shift(-horizon)
 
 
+def _target_cache(
+    frame: pd.DataFrame,
+    candidate_configs: list[dict[str, Any]],
+    cfg: dict[str, Any],
+) -> dict[tuple[str, int], pd.Series]:
+    targets: dict[tuple[str, int], pd.Series] = {}
+    for candidate in candidate_configs:
+        kind = str(candidate.get("target_kind", "fwd_vol"))
+        horizon = max(int(candidate.get("target_horizon", 5)), 1)
+        key = (kind, horizon)
+        if key not in targets:
+            targets[key] = _target_series(frame, kind, horizon, cfg)
+    return targets
+
+
+def _target_for_candidate(
+    targets: dict[tuple[str, int], pd.Series],
+    candidate: dict[str, Any],
+) -> pd.Series:
+    kind = str(candidate.get("target_kind", "fwd_vol"))
+    horizon = max(int(candidate.get("target_horizon", 5)), 1)
+    key = (kind, horizon)
+    if key in targets:
+        return targets[key]
+    return next(iter(targets.values()))
+
+
+def _target_series(
+    frame: pd.DataFrame,
+    kind: str,
+    horizon: int,
+    cfg: dict[str, Any],
+) -> pd.Series:
+    fwd_vol = _forward_vol_target(frame, horizon)
+    if kind == "vol_expansion":
+        lookback = max(int(cfg.get("target_vol_lookback", 20)), horizon)
+        returns = frame["close"].astype(float).pct_change()
+        current_vol = returns.rolling(lookback).std()
+        return (fwd_vol / current_vol.replace(0.0, np.nan)).replace(
+            [np.inf, -np.inf],
+            np.nan,
+        )
+    return fwd_vol
+
+
 def _event_series(target: pd.Series, threshold: float) -> pd.Series:
     event = (pd.to_numeric(target, errors="coerce") > threshold).astype(float)
     event[target.isna()] = np.nan
@@ -826,6 +932,36 @@ def _auc(probs: np.ndarray, event: np.ndarray) -> float:
     return float((pos_rank_sum - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg))
 
 
+def _bucket_event_metrics(probs: np.ndarray, event: np.ndarray) -> dict[str, float]:
+    if len(probs) < 10:
+        return _empty_bucket_metrics()
+    low_cut = float(np.quantile(probs, 0.20))
+    high_cut = float(np.quantile(probs, 0.80))
+    low = probs <= low_cut
+    high = probs >= high_cut
+    if not low.any() or not high.any():
+        return _empty_bucket_metrics()
+    low_rate = float(np.mean(event[low]))
+    high_rate = float(np.mean(event[high]))
+    return {
+        "bottom_bucket_event_rate": low_rate,
+        "top_bucket_event_rate": high_rate,
+        "top_bottom_event_spread": float(high_rate - low_rate),
+        "bottom_bucket_rows": int(np.sum(low)),
+        "top_bucket_rows": int(np.sum(high)),
+    }
+
+
+def _empty_bucket_metrics() -> dict[str, float]:
+    return {
+        "bottom_bucket_event_rate": 0.0,
+        "top_bucket_event_rate": 0.0,
+        "top_bottom_event_spread": 0.0,
+        "bottom_bucket_rows": 0,
+        "top_bucket_rows": 0,
+    }
+
+
 def _empty_prob_metrics() -> dict[str, float]:
     return {
         "brier": 1.0,
@@ -833,6 +969,7 @@ def _empty_prob_metrics() -> dict[str, float]:
         "event_rate": 0.0,
         "mean_probability": 0.0,
         "rows": 0,
+        **_empty_bucket_metrics(),
     }
 
 
