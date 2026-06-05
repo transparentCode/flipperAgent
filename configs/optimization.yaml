@@ -223,6 +223,12 @@ optimization:
       val_ratio: 0.20
       purge_bars: 24
       forecast_column: fwd_vol_ewma
+      feature_sets:
+        - [fwd_vol_ewma]
+        - [fwd_vol_ewma, vol_percentile]
+        - [fwd_vol_ewma, vol_percentile, changepoint_prob]
+        - [fwd_vol_ewma, vol_percentile, changepoint_prob, cp_entropy]
+        - [fwd_vol_ewma, vol_percentile, changepoint_prob, hurst]
       target_horizon: 5
       shuffle_seed: 42
       null_controls: ["circular_shift", "block_shuffle"]

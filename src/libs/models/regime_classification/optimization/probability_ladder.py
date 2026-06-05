@@ -21,7 +21,6 @@ from libs.models.regime_classification.optimization.benchmark_ladder import (
     _rank_overlays,
     _score_positions,
     build_regime_feature_frame,
-    summarize_ladder_panel,
 )
 from libs.models.regime_classification.optimization.settings import (
     load_regime_optimization_settings,
@@ -67,12 +66,14 @@ def run_probability_ladder(
     regime = regime.reindex(frame.index)
 
     forecast_column = str(prob_cfg.get("forecast_column", "fwd_vol_ewma"))
-    if forecast_column not in regime:
+    candidate_configs = _candidate_probability_configs(prob_cfg, regime.columns)
+    if not candidate_configs:
         return {
             "asset": asset,
             "timeframe": timeframe,
-            "status": "missing_forecast_column",
+            "status": "missing_feature_columns",
             "forecast_column": forecast_column,
+            "requested_feature_sets": _configured_feature_sets(prob_cfg),
         }
 
     target = _forward_vol_target(frame, int(prob_cfg.get("target_horizon", 5)))
@@ -96,16 +97,15 @@ def run_probability_ladder(
         regime,
         null_regimes,
         target,
-        forecast_column=forecast_column,
         segments=segments,
         cfg=prob_cfg,
+        candidate_configs=candidate_configs,
     )
     probability_report = _score_probability_config(
         selected,
         regime,
         null_regimes,
         target,
-        forecast_column=forecast_column,
         segments=segments,
         cfg=prob_cfg,
     )
@@ -130,7 +130,6 @@ def run_probability_ladder(
             null_regimes,
             segments,
             baseline,
-            forecast_column=forecast_column,
             timeframe=timeframe,
             settings=cfg,
         )
@@ -148,9 +147,11 @@ def run_probability_ladder(
         "date_from": _index_value(frame, 0),
         "date_to": _index_value(frame, -1),
         "forecast_column": forecast_column,
+        "candidate_feature_sets": _unique_feature_sets_from_configs(candidate_configs),
         "probability": probability_report,
         "strategies": strategies,
-        "panel_decision": _panel_decision(strategies),
+        "panel_decision": probability_report["decision"],
+        "sizing_panel_decision": _panel_decision(strategies),
     }
 
 
@@ -263,27 +264,29 @@ def _select_probability_config(
     null_regimes: dict[str, pd.DataFrame],
     target: pd.Series,
     *,
-    forecast_column: str,
     segments: dict[str, tuple[int, int]],
     cfg: dict[str, Any],
+    candidate_configs: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     train = slice(*segments["train"])
     validate = slice(*segments["validate"])
     best: dict[str, Any] | None = None
-    for candidate in _candidate_probability_configs(cfg):
-        fitted = _fit_probability_model(
-            regime[forecast_column],
+    for candidate in candidate_configs or _candidate_probability_configs(
+        cfg,
+        regime.columns,
+    ):
+        fitted = _fit_probability_ensemble(
+            regime,
             target,
             train_slice=train,
             cfg=candidate,
         )
-        probs = _predict_probability(regime[forecast_column], fitted)
+        probs = _predict_probability_ensemble(regime, fitted)
         event = _event_series(target, fitted["event_threshold"])
         metrics = _probability_metrics(probs[validate], event.iloc[validate])
         null_metrics = _hardest_null_probability_metrics(
             null_regimes,
             target,
-            forecast_column=forecast_column,
             train_slice=train,
             segment=validate,
             cfg=candidate,
@@ -307,28 +310,25 @@ def _score_probability_config(
     null_regimes: dict[str, pd.DataFrame],
     target: pd.Series,
     *,
-    forecast_column: str,
     segments: dict[str, tuple[int, int]],
     cfg: dict[str, Any],
 ) -> dict[str, Any]:
     fitted = selected["fitted_config"]
     event = _event_series(target, fitted["event_threshold"])
-    probs = _predict_probability(regime[forecast_column], fitted)
+    probs = _predict_probability_ensemble(regime, fitted)
     real = {
         name: _probability_metrics(probs[start:end], event.iloc[start:end])
         for name, (start, end) in segments.items()
     }
     nulls: dict[str, dict[str, dict[str, float]]] = {}
     for mode, null_regime in null_regimes.items():
-        if forecast_column not in null_regime:
-            continue
-        null_fit = _fit_probability_model(
-            null_regime[forecast_column],
+        null_fit = _fit_probability_ensemble(
+            null_regime,
             target,
             train_slice=slice(*segments["train"]),
             cfg=selected["config"],
         )
-        null_probs = _predict_probability(null_regime[forecast_column], null_fit)
+        null_probs = _predict_probability_ensemble(null_regime, null_fit)
         nulls[mode] = {
             name: _probability_metrics(null_probs[start:end], event.iloc[start:end])
             for name, (start, end) in segments.items()
@@ -359,14 +359,13 @@ def _score_probability_sizing(
     segments: dict[str, tuple[int, int]],
     baseline: dict[str, dict[str, float]],
     *,
-    forecast_column: str,
     timeframe: str,
     settings: dict[str, Any],
 ) -> dict[str, Any]:
     ladder_cfg = settings.get("benchmark_ladder", {})
     prob_cfg = settings.get("probability_ladder", {})
     fitted = selected["fitted_config"]
-    probs = _predict_probability(regime[forecast_column], fitted)
+    probs = _predict_probability_ensemble(regime, fitted)
     positions = base * _probability_scale(probs, selected["config"])
     metrics = {
         name: _score_positions(
@@ -379,13 +378,13 @@ def _score_probability_sizing(
     }
     null_metrics: dict[str, dict[str, dict[str, float]]] = {}
     for mode, null_regime in null_regimes.items():
-        null_fit = _fit_probability_model(
-            null_regime[forecast_column],
+        null_fit = _fit_probability_ensemble(
+            null_regime,
             _forward_vol_target(frame, int(prob_cfg.get("target_horizon", 5))),
             train_slice=slice(*segments["train"]),
             cfg=selected["config"],
         )
-        null_probs = _predict_probability(null_regime[forecast_column], null_fit)
+        null_probs = _predict_probability_ensemble(null_regime, null_fit)
         null_positions = base * _probability_scale(null_probs, selected["config"])
         null_metrics[mode] = {
             name: _score_positions(
@@ -407,6 +406,70 @@ def _score_probability_sizing(
         "oos_lifts": lifts,
         "decision": _sizing_decision(metrics["oos"], baseline["oos"], lifts, prob_cfg),
         "selection": selected,
+    }
+
+
+def _fit_probability_ensemble(
+    regime: pd.DataFrame,
+    target: pd.Series,
+    *,
+    train_slice: slice,
+    cfg: dict[str, Any],
+) -> dict[str, Any]:
+    """Fit train-only quantile-bin calibrators for a descriptor feature set."""
+    train_target = pd.to_numeric(target.iloc[train_slice], errors="coerce")
+    threshold = float(train_target.quantile(float(cfg.get("event_quantile", 0.75))))
+    event = _event_series(target, threshold)
+    train_event = event.iloc[train_slice]
+    base_rate = float(train_event.dropna().mean()) if train_event.notna().any() else 0.5
+    feature_columns = [
+        str(col)
+        for col in cfg.get("feature_columns", [])
+        if str(col) in regime.columns
+    ]
+    feature_models: dict[str, dict[str, Any]] = {}
+    raw_weights: dict[str, float] = {}
+    for feature in feature_columns:
+        fitted = _fit_probability_model(
+            regime[feature],
+            target,
+            train_slice=train_slice,
+            cfg={key: value for key, value in cfg.items() if key != "feature_columns"},
+        )
+        train_probs = _predict_probability(regime[feature], fitted)
+        train_metrics = _probability_metrics(
+            train_probs[train_slice],
+            train_event,
+        )
+        weight = max(float(train_metrics["auc"]) - 0.5, 0.0)
+        feature_models[feature] = {
+            "event_threshold": threshold,
+            "base_rate": float(fitted.get("base_rate", base_rate)),
+            "bin_edges": fitted.get("bin_edges", []),
+            "bin_probs": fitted.get("bin_probs", []),
+            "train_metrics": train_metrics,
+        }
+        raw_weights[feature] = weight
+
+    if feature_models and sum(raw_weights.values()) <= 0.0:
+        raw_weights = {feature: 1.0 for feature in feature_models}
+    weight_sum = float(sum(raw_weights.values()))
+    feature_weights = (
+        {feature: raw_weights[feature] / weight_sum for feature in feature_models}
+        if weight_sum > 0.0
+        else {}
+    )
+    first_model = next(iter(feature_models.values()), {})
+    return {
+        **cfg,
+        "event_threshold": threshold,
+        "base_rate": base_rate,
+        "feature_columns": list(feature_models),
+        "feature_models": feature_models,
+        "feature_weights": feature_weights,
+        # Keep the previous single-feature contract readable for older callers.
+        "bin_edges": first_model.get("bin_edges", []),
+        "bin_probs": first_model.get("bin_probs", []),
     }
 
 
@@ -471,6 +534,30 @@ def _predict_probability(forecast: pd.Series, fitted: dict[str, Any]) -> np.ndar
     return np.clip(mapped, 0.0, 1.0)
 
 
+def _predict_probability_ensemble(
+    regime: pd.DataFrame,
+    fitted: dict[str, Any],
+) -> np.ndarray:
+    feature_models = fitted.get("feature_models", {})
+    if not feature_models:
+        return np.full(len(regime), float(fitted.get("base_rate", 0.5)), dtype=float)
+    feature_probs: list[np.ndarray] = []
+    weights: list[float] = []
+    fitted_weights = fitted.get("feature_weights", {})
+    for feature, feature_model in feature_models.items():
+        if feature not in regime:
+            continue
+        feature_probs.append(_predict_probability(regime[feature], feature_model))
+        weights.append(float(fitted_weights.get(feature, 0.0)))
+    if not feature_probs:
+        return np.full(len(regime), float(fitted.get("base_rate", 0.5)), dtype=float)
+    weight_arr = np.asarray(weights, dtype=float)
+    if not np.isfinite(weight_arr).all() or float(weight_arr.sum()) <= 0.0:
+        weight_arr = np.ones(len(feature_probs), dtype=float)
+    stacked = np.vstack(feature_probs)
+    return np.clip(np.average(stacked, axis=0, weights=weight_arr), 0.0, 1.0)
+
+
 def _probability_scale(probs: np.ndarray, cfg: dict[str, Any]) -> np.ndarray:
     risk_budget = float(cfg.get("risk_budget", 0.50))
     min_scale = float(cfg.get("min_position_scale", 0.25))
@@ -511,23 +598,20 @@ def _hardest_null_probability_metrics(
     null_regimes: dict[str, pd.DataFrame],
     target: pd.Series,
     *,
-    forecast_column: str,
     train_slice: slice,
     segment: slice,
     cfg: dict[str, Any],
 ) -> dict[str, float]:
     metrics = []
     for null_regime in null_regimes.values():
-        if forecast_column not in null_regime:
-            continue
-        fitted = _fit_probability_model(
-            null_regime[forecast_column],
+        fitted = _fit_probability_ensemble(
+            null_regime,
             target,
             train_slice=train_slice,
             cfg=cfg,
         )
         event = _event_series(target, fitted["event_threshold"])
-        probs = _predict_probability(null_regime[forecast_column], fitted)
+        probs = _predict_probability_ensemble(null_regime, fitted)
         metrics.append(_probability_metrics(probs[segment], event.iloc[segment]))
     if not metrics:
         return _empty_prob_metrics()
@@ -565,21 +649,66 @@ def _sizing_decision(
     return "reject"
 
 
-def _candidate_probability_configs(cfg: dict[str, Any]) -> list[dict[str, Any]]:
+def _candidate_probability_configs(
+    cfg: dict[str, Any],
+    available_columns: pd.Index | list[str] | tuple[str, ...] | None = None,
+) -> list[dict[str, Any]]:
     rows = []
+    available = {str(col) for col in available_columns} if available_columns is not None else None
     for event_quantile in cfg.get("event_quantiles", [0.70, 0.75, 0.80]):
         for n_bins in cfg.get("n_bins_grid", [4, 5, 8]):
             for risk_budget in cfg.get("risk_budgets", [0.25, 0.50, 0.75]):
                 for min_scale in cfg.get("min_position_scales", [0.25, 0.50]):
-                    rows.append(
-                        {
-                            "event_quantile": float(event_quantile),
-                            "n_bins": int(n_bins),
-                            "risk_budget": float(risk_budget),
-                            "min_position_scale": float(min_scale),
-                            "smoothing": float(cfg.get("smoothing", 2.0)),
-                        }
-                    )
+                    for feature_set in _configured_feature_sets(cfg):
+                        feature_columns = [
+                            feature
+                            for feature in feature_set
+                            if available is None or feature in available
+                        ]
+                        if not feature_columns:
+                            continue
+                        rows.append(
+                            {
+                                "event_quantile": float(event_quantile),
+                                "n_bins": int(n_bins),
+                                "risk_budget": float(risk_budget),
+                                "min_position_scale": float(min_scale),
+                                "smoothing": float(cfg.get("smoothing", 2.0)),
+                                "feature_columns": feature_columns,
+                            }
+                        )
+    return rows
+
+
+def _configured_feature_sets(cfg: dict[str, Any]) -> list[list[str]]:
+    raw_sets = cfg.get("feature_sets")
+    if raw_sets is None:
+        raw_sets = cfg.get("feature_columns")
+    if raw_sets is None:
+        raw_sets = [[str(cfg.get("forecast_column", "fwd_vol_ewma"))]]
+    if isinstance(raw_sets, str):
+        raw_sets = [[raw_sets]]
+
+    feature_sets: list[list[str]] = []
+    for raw in raw_sets:
+        if isinstance(raw, str):
+            columns = [raw]
+        elif isinstance(raw, (list, tuple)):
+            columns = [str(col) for col in raw if str(col)]
+        else:
+            continue
+        columns = list(dict.fromkeys(columns))
+        if columns and columns not in feature_sets:
+            feature_sets.append(columns)
+    return feature_sets
+
+
+def _unique_feature_sets_from_configs(configs: list[dict[str, Any]]) -> list[list[str]]:
+    rows: list[list[str]] = []
+    for cfg in configs:
+        columns = [str(col) for col in cfg.get("feature_columns", [])]
+        if columns and columns not in rows:
+            rows.append(columns)
     return rows
 
 
@@ -692,9 +821,7 @@ def _auc(probs: np.ndarray, event: np.ndarray) -> float:
     n_neg = int(np.sum(neg))
     if n_pos == 0 or n_neg == 0:
         return 0.5
-    order = np.argsort(p)
-    ranks = np.empty_like(order, dtype=float)
-    ranks[order] = np.arange(1, len(p) + 1)
+    ranks = pd.Series(p).rank(method="average").to_numpy(dtype=float)
     pos_rank_sum = float(np.sum(ranks[pos]))
     return float((pos_rank_sum - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg))
 

@@ -43,6 +43,12 @@ def main() -> None:
     parser.add_argument("--fold-bars", type=int, default=None)
     parser.add_argument("--step-bars", type=int, default=None)
     parser.add_argument("--forecast-column", default=None)
+    parser.add_argument(
+        "--feature-set",
+        action="append",
+        default=None,
+        help="Comma-separated descriptor set; repeat to add candidates.",
+    )
     parser.add_argument("--target-horizon", type=int, default=None)
     parser.add_argument("--null-controls", nargs="+", default=None)
     parser.add_argument("--show-hmm-warnings", action="store_true")
@@ -55,6 +61,11 @@ def main() -> None:
     prob_override: dict[str, Any] = {}
     if args.forecast_column is not None:
         prob_override["forecast_column"] = args.forecast_column
+    if args.feature_set is not None:
+        prob_override["feature_sets"] = [
+            [col.strip() for col in raw.split(",") if col.strip()]
+            for raw in args.feature_set
+        ]
     if args.target_horizon is not None:
         prob_override["target_horizon"] = args.target_horizon
     if args.null_controls is not None:

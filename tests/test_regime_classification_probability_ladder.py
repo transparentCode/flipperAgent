@@ -42,6 +42,8 @@ def _price_and_regime(n: int = 720) -> tuple[pd.DataFrame, pd.DataFrame]:
             "trend_strength": np.full(n, 0.5),
             "vol_percentile": driver * 100.0,
             "changepoint_prob": np.full(n, 0.05),
+            "cp_entropy": 1.0 - driver / 3.0,
+            "hurst": 0.45 + driver / 10.0,
             "hmm_crisis_prob": np.zeros(n),
             "hmm_p_state_0": 1.0 - driver / 2,
             "hmm_p_state_1": driver / 2,
@@ -59,6 +61,11 @@ def _settings() -> dict:
                 "min_bars": 500,
                 "purge_bars": 12,
                 "null_controls": ["circular_shift", "block_shuffle"],
+                "feature_sets": [
+                    ["fwd_vol_ewma"],
+                    ["fwd_vol_ewma", "vol_percentile"],
+                    ["fwd_vol_ewma", "vol_percentile", "changepoint_prob"],
+                ],
                 "event_quantiles": [0.70],
                 "n_bins_grid": [4],
                 "risk_budgets": [0.50],
@@ -96,11 +103,14 @@ def test_probability_ladder_returns_calibration_contract():
     probability = report["probability"]
     assert probability["selection"]["fitted_config"]["event_threshold"] > 0
     assert "bin_probs" in probability["selection"]["fitted_config"]
+    assert "feature_models" in probability["selection"]["fitted_config"]
+    assert probability["selection"]["fitted_config"]["feature_columns"]
     assert "auc" in probability["metrics"]["oos"]
     assert set(probability["null_controls"]) == {"circular_shift", "block_shuffle"}
     overlay = report["strategies"]["buy_and_hold"]["overlays"]["probability_sized"]
     assert overlay["selection"]["config"]["risk_budget"] == 0.50
-    assert report["panel_decision"] in {"promote_to_downstream_research", "reject"}
+    assert report["panel_decision"] in {"promote_probability_research", "reject"}
+    assert report["sizing_panel_decision"] in {"promote_to_downstream_research", "reject"}
 
 
 def test_probability_ladder_rejects_insufficient_data():
