@@ -217,6 +217,41 @@ optimization:
       min_median_sharpe_lift: 0.05
       min_median_null_sharpe_lift: 0.0
       min_median_drawdown_improvement: 0.0
+    probability_ladder:
+      min_bars: 500
+      train_ratio: 0.60
+      val_ratio: 0.20
+      purge_bars: 24
+      forecast_column: fwd_vol_ewma
+      target_horizon: 5
+      shuffle_seed: 42
+      null_controls: ["circular_shift", "block_shuffle"]
+      null_shift_bars: 720
+      null_block_bars: 96
+      event_quantiles: [0.70, 0.75, 0.80]
+      n_bins_grid: [4, 5, 8]
+      risk_budgets: [0.25, 0.50, 0.75]
+      min_position_scales: [0.25, 0.50]
+      smoothing: 2.0
+      brier_weight: 2.0
+      null_lift_weight: 1.0
+      null_brier_weight: 1.0
+      min_oos_auc: 0.55
+      min_auc_lift_vs_null: 0.0
+      min_brier_lift_vs_null: 0.0
+      min_sharpe_lift: 0.05
+      min_null_sharpe_lift: 0.0
+      min_drawdown_improvement: 0.0
+      min_avg_position: 0.05
+    rolling_probability_ladder:
+      fold_bars: 2160
+      step_bars: 720
+      min_folds: 2
+      min_promoted_folds: 2
+      min_probability_pass_rate: 0.60
+      min_median_auc: 0.55
+      min_median_auc_lift: 0.0
+      min_median_brier_lift: 0.0
     rolling_alpha_ladder:
       fold_bars: 2160
       step_bars: 720
