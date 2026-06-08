@@ -240,7 +240,7 @@ Focused runtime validation for the scraper can stay narrow; you do not need the 
 
 ```bash
 docker-compose down -v
-docker-compose up -d --build db broker tv-scraper
+docker-compose up -d --build db broker scraper-tradingview
 ```
 
 2. Verify readiness:
@@ -273,7 +273,7 @@ PY
 4. Wait for the job to finish, then inspect the outputs:
 
 ```bash
-docker-compose logs --tail=250 tv-scraper
+docker-compose logs --tail=250 scraper-tradingview
 docker-compose exec -T broker redis-cli KEYS 'index:latest:*'
 docker-compose exec -T broker redis-cli HGETALL index:latest:TOTAL2
 docker-compose exec -T broker redis-cli TTL index:latest:TOTAL2
@@ -285,7 +285,7 @@ docker-compose exec -T -e PGPASSWORD=flipperpass db \
 5. Validate browser cleanup in-container:
 
 ```bash
-docker-compose exec -T tv-scraper sh -lc \
+docker-compose exec -T scraper-tradingview sh -lc \
   "ps -eo pid,ppid,stat,comm,args | grep -E 'chromium|chrome|headless' | grep -v grep || true"
 ```
 
@@ -305,7 +305,7 @@ docker-compose down -v
 
 ### Container Note
 
-The `tv-scraper` service now runs with `init: true` in Docker Compose. This is important because the worker process is PID 1 inside the container, and the init shim reaps any orphaned browser child processes that Patchright/Chromium might leave behind.
+The `scraper-tradingview` service now runs with `init: true` in Docker Compose. This is important because the worker process is PID 1 inside the container, and the init shim reaps any orphaned browser child processes that Patchright/Chromium might leave behind.
 
 ### Docker
 

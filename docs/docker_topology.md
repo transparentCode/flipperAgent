@@ -149,7 +149,7 @@ graph LR
     DB    --> B3
 ```
 
-> **Note:** `./configs` is mounted **read-only** on all workers and tv-scraper, but **read-write** on `api-server` so the config hot-reload API can write back changes.
+> **Note:** `./configs` is mounted **read-only** on all workers and `scraper-tradingview`, but **read-write** on `api-server` so the config hot-reload API can write back changes.
 
 ---
 
@@ -276,12 +276,12 @@ graph LR
 
 ---
 
-#### `tv-scraper`
+#### `scraper-tradingview`
 
 ```mermaid
 graph LR
     BRK[(broker)] -->|dequeue scrape jobs| TV
-    subgraph TV["tv-scraper"]
+    subgraph TV["scraper-tradingview"]
         ARQ2["arq WorkerSettings\napps.scraper_app.providers.tradingview.worker\nDockerfile.tv-scraper"]
     end
     TV -->|OHLCV → Redis stream| BRK
@@ -506,7 +506,7 @@ Each `valkey_encode()` call injects `_traceparent` / `_tracestate` keys into the
 | worker-queue | ✅ | ✅ | — |
 | worker-streams | ✅ | ✅ | — |
 | scheduler | ✅ | ✅ | — |
-| tv-scraper | ❌ | — | `./secrets` ro |
+| scraper-tradingview | ❌ | — | `./secrets` ro |
 | signal-worker | ✅ | ✅ | — |
 | strategy-worker | ✅ | ✅ | — |
 | risk-worker | ✅ | ✅ | — |

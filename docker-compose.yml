@@ -322,7 +322,7 @@ services:
     networks:
       - flipper-net
 
-  tv-scraper:
+  scraper-tradingview:
     build:
       context: .
       dockerfile: Dockerfile.tv-scraper
