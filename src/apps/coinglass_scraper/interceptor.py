@@ -126,6 +126,7 @@ class CoinGlassHeatmapInterceptor:
                     "Chrome/125.0.0.0 Safari/537.36",
                 ),
             )
+            await self._configure_route_target(self._context)
             await self._apply_cookies(self._context)
             return self._context
 
@@ -186,7 +187,6 @@ class CoinGlassHeatmapInterceptor:
 
         try:
             page = await context.new_page()
-            await self._configure_page(page)
 
             def on_response(response: Any) -> None:
                 pending_tasks.append(asyncio.create_task(consider_response(response)))
@@ -405,8 +405,8 @@ class CoinGlassHeatmapInterceptor:
             ),
         }
 
-    async def _configure_page(self, page: Any) -> None:
-        route = getattr(page, "route", None)
+    async def _configure_route_target(self, route_target: Any) -> None:
+        route = getattr(route_target, "route", None)
         if not callable(route) or not self._blocked_resource_types:
             return
 
@@ -419,6 +419,9 @@ class CoinGlassHeatmapInterceptor:
             await route_obj.continue_()
 
         await route("**/*", handle_request)
+
+    async def _configure_page(self, page: Any) -> None:
+        await self._configure_route_target(page)
 
     async def close(self) -> None:
         async with self._browser_lock:

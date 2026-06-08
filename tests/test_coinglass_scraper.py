@@ -505,9 +505,13 @@ class TestCoinGlassPatchrightSession:
             def __init__(self):
                 self.new_page_calls = 0
                 self.closed = False
+                self.route_calls = []
 
             async def add_cookies(self, cookies):
                 return None
+
+            async def route(self, pattern, handler):
+                self.route_calls.append((pattern, handler))
 
             async def new_page(self):
                 self.new_page_calls += 1
@@ -582,6 +586,8 @@ class TestCoinGlassPatchrightSession:
         assert fake_manager.start_calls == 1
         assert fake_playwright.chromium.launch_calls == 1
         assert browser.new_context_calls == 1
+        assert len(context.route_calls) == 1
+        assert context.route_calls[0][0] == "**/*"
         assert context.new_page_calls == 2
 
         await interceptor.close()
