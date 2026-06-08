@@ -261,10 +261,7 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
         return results
 
     def _normalize_cookie(self, cookie: dict[str, Any]) -> dict[str, Any]:
-        normalized = dict(cookie)
-        if "domain" in normalized and normalized["domain"].startswith("."):
-            normalized["domain"] = normalized["domain"][1:]
-        return normalized
+        return super()._normalize_cookie(cookie)
 
     async def _fetch_symbol_ohlcv(
         self,
@@ -456,13 +453,24 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
         if current_count >= target_rows:
             return
 
-        max_steps = int(self._config.get("tradingview.history_expansion_max_steps", 0))
+        max_steps = self._resolve_history_expansion_steps(
+            current_count=current_count,
+            target_rows=target_rows,
+        )
+        if max_steps <= 0:
+            return
         max_stagnant_steps = int(
             self._config.get("tradingview.history_expansion_max_stagnant_steps", 2)
         )
+        max_runtime_seconds = float(
+            self._config.get("tradingview.history_expansion_max_runtime_seconds", 90.0)
+        )
+        runtime_deadline = time.monotonic() + max_runtime_seconds
         stagnant_steps = 0
 
         for _ in range(max_steps):
+            if time.monotonic() >= runtime_deadline:
+                break
             before_count = current_count
             dragged = await self._drag_chart_for_history(page)
             if not dragged:
@@ -487,8 +495,33 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
                 "mode": mode,
                 "rows_collected": current_count,
                 "target_rows": target_rows,
+                "max_steps": max_steps,
             },
         )
+
+    def _resolve_history_expansion_steps(
+        self, current_count: int, target_rows: int
+    ) -> int:
+        """Scale chart-pan attempts to the requested history depth."""
+        base_steps = int(self._config.get("tradingview.history_expansion_max_steps", 0))
+        if target_rows <= current_count:
+            return base_steps
+
+        estimated_rows_per_step = max(
+            1,
+            int(
+                self._config.get(
+                    "tradingview.history_expansion_rows_per_step_estimate", 32
+                )
+            ),
+        )
+        required_steps = (target_rows - current_count + estimated_rows_per_step - 1) // (
+            estimated_rows_per_step
+        )
+        hard_cap = int(
+            self._config.get("tradingview.history_expansion_hard_max_steps", base_steps)
+        )
+        return min(hard_cap, max(base_steps, required_steps))
 
     async def _drag_chart_for_history(self, page: Any) -> bool:
         """Drag the TradingView chart to the right to reveal older candles."""

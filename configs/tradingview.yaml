@@ -20,7 +20,10 @@ tradingview:
   ws_poll_interval_seconds: 0.5
   history_expansion_enabled: true
   history_expansion_max_steps: 40
+  history_expansion_hard_max_steps: 320
   history_expansion_max_stagnant_steps: 2
+  history_expansion_rows_per_step_estimate: 32
+  history_expansion_max_runtime_seconds: 90
   history_expansion_drag_distance_px: 700
   history_expansion_drag_start_x_ratio: 0.72
   history_expansion_drag_y_ratio: 0.45

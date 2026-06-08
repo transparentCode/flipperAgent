@@ -173,6 +173,39 @@ class TestInterceptorHelpers:
         assert second == [{"name": "session", "value": "first"}]
         assert third == [{"name": "session", "value": "second"}]
 
+    def test_history_expansion_steps_scale_with_target_rows(self):
+        interceptor = TradingViewInterceptor()
+
+        steps = interceptor._resolve_history_expansion_steps(
+            current_count=300,
+            target_rows=8760,
+        )
+
+        assert steps == 265
+
+    def test_normalize_cookie_accepts_exported_arc_format(self):
+        interceptor = TradingViewInterceptor()
+
+        normalized = interceptor._normalize_cookie(
+            {
+                "name": "sessionid",
+                "value": "secret",
+                "domain": ".tradingview.com",
+                "path": "/",
+                "secure": True,
+                "httpOnly": True,
+                "sameSite": "none",
+                "expirationDate": "2027-07-13T03:06:48.582255Z",
+                "extraField": "ignored",
+            }
+        )
+
+        assert normalized["domain"] == "tradingview.com"
+        assert normalized["sameSite"] == "None"
+        assert isinstance(normalized["expires"], float)
+        assert "expirationDate" not in normalized
+        assert "extraField" not in normalized
+
 
 # ---------------------------------------------------------------------------
 # TradingViewInterceptor.get_historical_ohlcv — Patchright not installed
