@@ -244,6 +244,9 @@ class TestCoinGlassPatchrightSession:
         assert result["shape"] == "runtime_helper"
         assert result["payload"]["liq"] == [[0, 0, 54321.0]]
         assert result["response_url"] == "/api/index/v5/liqHeatMap"
+        assert "timing_ms" in result
+        assert "runtime_helper_attempt" in result["timing_ms"]
+        assert "total" in result["timing_ms"]
         assert page.closed is True
 
         await interceptor.close()
@@ -374,6 +377,9 @@ class TestCoinGlassPatchrightSession:
         assert result["symbol"] == "SOLUSDT"
         assert result["shape"] == "heatmap_payload"
         assert result["payload"]["liq"] == [[0, 0, 12345.0]]
+        assert "timing_ms" in result
+        assert "fallback_capture" in result["timing_ms"]
+        assert "fallback_wait" in result["timing_ms"]
         assert page.goto_calls == 1
         assert page.closed is True
 

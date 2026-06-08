@@ -143,6 +143,8 @@ class CoinGlassHeatmapInterceptor:
         helper_delay_seconds = self._config.get(
             "coinglass.runtime_helper_delay_seconds", 2
         )
+        fetch_started = time.perf_counter()
+        timing_ms: dict[str, float] = {}
 
         async def consider_response(response: Any) -> None:
             nonlocal best_candidate, best_score
@@ -184,6 +186,13 @@ class CoinGlassHeatmapInterceptor:
                 "response_url": url,
                 "captured_at_ms": int(time.time() * 1000),
                 "shape": shape,
+                "timing_ms": {
+                    **timing_ms,
+                    "total": round((time.perf_counter() - fetch_started) * 1000, 2),
+                    "fallback_capture": round(
+                        (time.perf_counter() - fetch_started) * 1000, 2
+                    ),
+                },
                 "payload": candidate,
             }
 
@@ -194,18 +203,34 @@ class CoinGlassHeatmapInterceptor:
                 pending_tasks.append(asyncio.create_task(consider_response(response)))
 
             page.on("response", on_response)
+            navigation_started = time.perf_counter()
             await page.goto(
                 page_url,
                 wait_until="domcontentloaded",
                 timeout=self._config.get("coinglass.page_load_timeout_ms", 30000),
             )
+            timing_ms["navigation"] = round(
+                (time.perf_counter() - navigation_started) * 1000, 2
+            )
             if helper_delay_seconds > 0:
+                helper_delay_started = time.perf_counter()
                 await asyncio.sleep(helper_delay_seconds)
+                timing_ms["helper_delay"] = round(
+                    (time.perf_counter() - helper_delay_started) * 1000, 2
+                )
 
+            helper_started = time.perf_counter()
             runtime_candidate = await self._fetch_runtime_helper_payload(
                 page, target, page_url
             )
+            timing_ms["runtime_helper_attempt"] = round(
+                (time.perf_counter() - helper_started) * 1000, 2
+            )
             if runtime_candidate is not None:
+                runtime_candidate["timing_ms"] = {
+                    **timing_ms,
+                    "total": round((time.perf_counter() - fetch_started) * 1000, 2),
+                }
                 return runtime_candidate
 
             timeout_seconds = self._config.get(
@@ -213,13 +238,25 @@ class CoinGlassHeatmapInterceptor:
             )
             poll_seconds = self._config.get("coinglass.poll_interval_seconds", 0.5)
             deadline = time.monotonic() + timeout_seconds
+            fallback_started = time.perf_counter()
             while time.monotonic() < deadline:
                 if best_candidate is not None and best_score > 1:
                     break
                 await asyncio.sleep(poll_seconds)
+            timing_ms["fallback_wait"] = round(
+                (time.perf_counter() - fallback_started) * 1000, 2
+            )
 
             if pending_tasks:
                 await asyncio.gather(*pending_tasks, return_exceptions=True)
+
+            if best_candidate is not None:
+                best_candidate["timing_ms"] = {
+                    **timing_ms,
+                    **best_candidate.get("timing_ms", {}),
+                    "fallback_wait": timing_ms.get("fallback_wait", 0.0),
+                    "total": round((time.perf_counter() - fetch_started) * 1000, 2),
+                }
         except Exception as exc:
             logger.error(
                 f"CoinGlass interception failed for {target}: {exc}",
