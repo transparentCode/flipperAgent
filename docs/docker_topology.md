@@ -282,7 +282,7 @@ graph LR
 graph LR
     BRK[(broker)] -->|dequeue scrape jobs| TV
     subgraph TV["tv-scraper"]
-        ARQ2["arq WorkerSettings\napps.tv_scraper.worker\nDockerfile.tv-scraper"]
+        ARQ2["arq WorkerSettings\napps.scraper_app.providers.tradingview.worker\nDockerfile.tv-scraper"]
     end
     TV -->|OHLCV → Redis stream| BRK
     SEC["./secrets (ro)\ntv_cookies.json"] --> TV
@@ -292,7 +292,7 @@ graph LR
 | Property | Value |
 |---|---|
 | Dockerfile | `Dockerfile.tv-scraper` (separate, heavier image with browser deps) |
-| Command | `arq apps.tv_scraper.worker.WorkerSettings` |
+| Command | `arq apps.scraper_app.providers.tradingview.worker.WorkerSettings` |
 | Role | Scrapes OHLCV from TradingView, publishes to broker stream |
 | Secrets | `./secrets/tv_cookies.json` (ro) |
 | Resources | 1 G RAM · 0.5 CPU |

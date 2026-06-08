@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from apps.tv_scraper.interceptor import (
+from apps.scraper_app.providers.tradingview.interceptor import (
     extract_single_series_from_tv_response,
     parse_tv_messages,
 )

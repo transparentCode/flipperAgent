@@ -327,7 +327,7 @@ services:
       context: .
       dockerfile: Dockerfile.tv-scraper
     init: true
-    command: arq apps.tv_scraper.worker.WorkerSettings
+    command: arq apps.scraper_app.providers.tradingview.worker.WorkerSettings
     volumes:
       - ./secrets:/app/secrets:ro
       - ./data:/app/data

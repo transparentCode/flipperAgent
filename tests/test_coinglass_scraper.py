@@ -9,8 +9,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from apps.coinglass_scraper.interceptor import CoinGlassHeatmapInterceptor
-from apps.coinglass_scraper.worker import fetch_coinglass_heatmaps
+from apps.scraper_app.providers.coinglass.interceptor import CoinGlassHeatmapInterceptor
+from apps.scraper_app.providers.coinglass.worker import fetch_coinglass_heatmaps
 
 
 class TestCoinGlassHelpers:
@@ -645,7 +645,7 @@ class TestCoinGlassPatchrightSession:
                 "payload": {"liq": [[1, 2, 3]], "prices": [], "y": []},
             }
 
-        monkeypatch.setattr("apps.coinglass_scraper.interceptor.asyncio.sleep", fake_sleep)
+        monkeypatch.setattr("apps.scraper_app.providers.coinglass.interceptor.asyncio.sleep", fake_sleep)
         interceptor._fetch_runtime_helper_payload = fake_fetch  # type: ignore[method-assign]
 
         result, timing_ms = await interceptor._poll_runtime_helper_payload(
@@ -695,7 +695,7 @@ class TestCoinGlassWorker:
                 }
 
         monkeypatch.setattr(
-            "apps.coinglass_scraper.worker.HEATMAP_TARGETS",
+            "apps.scraper_app.providers.coinglass.worker.HEATMAP_TARGETS",
             [
                 {
                     "coin": "SOL",

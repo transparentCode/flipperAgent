@@ -312,7 +312,7 @@ The `tv-scraper` service now runs with `init: true` in Docker Compose. This is i
 The scraper runs in its own container (`Dockerfile.tv-scraper`) separate from the ingestion app because it requires headless Chromium:
 
 ```
-CMD ["arq", "apps.tv_scraper.worker.WorkerSettings"]
+CMD ["arq", "apps.scraper_app.providers.tradingview.worker.WorkerSettings"]
 ```
 
 Python dependencies are installed via the `tv-scraper` optional extras group:

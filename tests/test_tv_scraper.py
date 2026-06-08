@@ -11,12 +11,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pandas as pd
 import pytest
 
-from apps.tv_scraper.interceptor import (
+from apps.scraper_app.providers.tradingview.interceptor import (
     TradingViewInterceptor,
     extract_ohlcv_from_tv_response,
     parse_tv_messages,
 )
-from apps.tv_scraper.worker import INDEX_KEY_MAP, TV_INDICES, fetch_tv_indices
+from apps.scraper_app.providers.tradingview.worker import INDEX_KEY_MAP, TV_INDICES, fetch_tv_indices
 
 
 # ---------------------------------------------------------------------------

@@ -1,1 +1,0 @@
-"""CoinGlass scraper app."""

@@ -1,7 +1,0 @@
-"""Backward-compatible CoinGlass interceptor shim."""
-
-import asyncio
-
-from apps.scraper_app.providers.coinglass.interceptor import CoinGlassHeatmapInterceptor
-
-__all__ = ["CoinGlassHeatmapInterceptor"]
