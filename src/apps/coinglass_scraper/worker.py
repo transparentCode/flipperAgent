@@ -103,6 +103,9 @@ async def startup(ctx: dict[str, Any]) -> None:
 
 async def shutdown(ctx: dict[str, Any]) -> None:
     """Cleanup worker resources."""
+    interceptor = ctx.get("coinglass_interceptor")
+    if interceptor is not None:
+        await interceptor.close()
     redis = ctx.get("redis")
     if redis:
         await redis.aclose()

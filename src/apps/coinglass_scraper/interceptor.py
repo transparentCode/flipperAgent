@@ -33,6 +33,10 @@ class CoinGlassHeatmapInterceptor:
         self._blocked_resource_types = set(
             self._config.get("coinglass.blocked_resource_types", ["image", "media", "font"])
         )
+        self._browser_lock = asyncio.Lock()
+        self._playwright: Any | None = None
+        self._browser: Any | None = None
+        self._context: Any | None = None
 
     async def fetch_heatmap(
         self,
@@ -62,53 +66,68 @@ class CoinGlassHeatmapInterceptor:
             return results
 
         try:
-            from patchright.async_api import async_playwright
-        except ImportError:
-            logger.error(
-                "Patchright is not installed. Install project optional tv-scraper deps."
-            )
-            return results
-
-        browser = None
-        context = None
-
-        try:
-            async with async_playwright() as playwright:
-                launch_kwargs = self._build_launch_kwargs()
-                if self.proxy_url:
-                    launch_kwargs["proxy"] = {"server": self.proxy_url}
-
-                browser = await playwright.chromium.launch(**launch_kwargs)
-                context = await browser.new_context(
-                    viewport={
-                        "width": self._config.get("coinglass.viewport_width", 1920),
-                        "height": self._config.get("coinglass.viewport_height", 1080),
-                    },
-                    user_agent=self._config.get(
-                        "coinglass.user_agent",
-                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/125.0.0.0 Safari/537.36",
-                    ),
-                )
-                await self._apply_cookies(context)
-
-                fetch_delay = self._config.get("coinglass.fetch_delay_seconds", 2)
-                for index, target in enumerate(targets):
-                    key = self.target_key(target)
-                    results[key] = await self._fetch_target_heatmap(context, target)
-                    if index < len(targets) - 1 and fetch_delay > 0:
-                        await asyncio.sleep(fetch_delay)
+            context = await self._get_or_create_context()
         except Exception as exc:
             logger.error(
                 f"CoinGlass browser session failed for {targets}: {exc}",
                 exc_info=True,
             )
-        finally:
-            await self._close_quietly(context)
-            await self._close_quietly(browser)
+            await self.close()
+            return results
+
+        try:
+            fetch_delay = self._config.get("coinglass.fetch_delay_seconds", 2)
+            for index, target in enumerate(targets):
+                key = self.target_key(target)
+                results[key] = await self._fetch_target_heatmap(context, target)
+                if index < len(targets) - 1 and fetch_delay > 0:
+                    await asyncio.sleep(fetch_delay)
+        except Exception as exc:
+            logger.error(
+                f"CoinGlass target fetch failed for {targets}: {exc}",
+                exc_info=True,
+            )
+            await self.close()
 
         return results
+
+    async def _get_or_create_context(self) -> Any:
+        if self._context is not None:
+            return self._context
+
+        async with self._browser_lock:
+            if self._context is not None:
+                return self._context
+
+            try:
+                from patchright.async_api import async_playwright
+            except ImportError:
+                logger.error(
+                    "Patchright is not installed. Install project optional tv-scraper deps."
+                )
+                raise
+
+            self._playwright = await async_playwright().start()
+
+            launch_kwargs = self._build_launch_kwargs()
+            if self.proxy_url:
+                launch_kwargs["proxy"] = {"server": self.proxy_url}
+
+            self._browser = await self._playwright.chromium.launch(**launch_kwargs)
+            self._context = await self._browser.new_context(
+                viewport={
+                    "width": self._config.get("coinglass.viewport_width", 1920),
+                    "height": self._config.get("coinglass.viewport_height", 1080),
+                },
+                user_agent=self._config.get(
+                    "coinglass.user_agent",
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/125.0.0.0 Safari/537.36",
+                ),
+            )
+            await self._apply_cookies(self._context)
+            return self._context
 
     async def _fetch_target_heatmap(
         self, context: Any, target: dict[str, str]
@@ -168,6 +187,11 @@ class CoinGlassHeatmapInterceptor:
         try:
             page = await context.new_page()
             await self._configure_page(page)
+
+            def on_response(response: Any) -> None:
+                pending_tasks.append(asyncio.create_task(consider_response(response)))
+
+            page.on("response", on_response)
             await page.goto(
                 page_url,
                 wait_until="domcontentloaded",
@@ -181,16 +205,6 @@ class CoinGlassHeatmapInterceptor:
             )
             if runtime_candidate is not None:
                 return runtime_candidate
-
-            def on_response(response: Any) -> None:
-                pending_tasks.append(asyncio.create_task(consider_response(response)))
-
-            page.on("response", on_response)
-            await page.goto(
-                page_url,
-                wait_until="domcontentloaded",
-                timeout=self._config.get("coinglass.page_load_timeout_ms", 30000),
-            )
 
             timeout_seconds = self._config.get(
                 "coinglass.response_timeout_seconds", 15
@@ -405,6 +419,23 @@ class CoinGlassHeatmapInterceptor:
             await route_obj.continue_()
 
         await route("**/*", handle_request)
+
+    async def close(self) -> None:
+        async with self._browser_lock:
+            context = self._context
+            browser = self._browser
+            playwright = self._playwright
+            self._context = None
+            self._browser = None
+            self._playwright = None
+
+            await self._close_quietly(context)
+            await self._close_quietly(browser)
+            if playwright is not None:
+                stop = getattr(playwright, "stop", None)
+                if callable(stop):
+                    with contextlib.suppress(Exception):
+                        await stop()
 
     @staticmethod
     def _helper_export_urls(page_url: str) -> list[str]:

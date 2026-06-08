@@ -187,16 +187,17 @@ class TestCoinGlassPatchrightSession:
         class FakePlaywright:
             def __init__(self, browser):
                 self.chromium = FakeChromium(browser)
+                self.stopped = False
 
-        class FakeAsyncPlaywrightContext:
+            async def stop(self):
+                self.stopped = True
+
+        class FakeAsyncPlaywrightManager:
             def __init__(self, playwright):
                 self._playwright = playwright
 
-            async def __aenter__(self):
+            async def start(self):
                 return self._playwright
-
-            async def __aexit__(self, exc_type, exc, tb):
-                return False
 
         page = FakePage()
         context = FakeContext(page)
@@ -211,7 +212,7 @@ class TestCoinGlassPatchrightSession:
 
         patchright_mod = types.ModuleType("patchright")
         async_api_mod = types.ModuleType("patchright.async_api")
-        async_api_mod.async_playwright = lambda: FakeAsyncPlaywrightContext(fake_playwright)
+        async_api_mod.async_playwright = lambda: FakeAsyncPlaywrightManager(fake_playwright)
         patchright_mod.async_api = async_api_mod
 
         with mock.patch.dict(
@@ -224,9 +225,13 @@ class TestCoinGlassPatchrightSession:
         assert result["shape"] == "runtime_helper"
         assert result["payload"]["liq"] == [[0, 0, 54321.0]]
         assert result["response_url"] == "/api/index/v5/liqHeatMap"
+        assert page.closed is True
+
+        await interceptor.close()
+
         assert context.closed is True
         assert browser.closed is True
-        assert page.closed is True
+        assert fake_playwright.stopped is True
 
     @pytest.mark.asyncio
     async def test_fetch_heatmap_captures_best_response(self):
@@ -252,12 +257,14 @@ class TestCoinGlassPatchrightSession:
                 self._responses = list(responses)
                 self._response_cb = None
                 self.closed = False
+                self.goto_calls = 0
 
             def on(self, event, cb):
                 if event == "response":
                     self._response_cb = cb
 
             async def goto(self, *args, **kwargs):
+                self.goto_calls += 1
                 for response in self._responses:
                     if self._response_cb:
                         self._response_cb(response)
@@ -302,16 +309,17 @@ class TestCoinGlassPatchrightSession:
         class FakePlaywright:
             def __init__(self, browser):
                 self.chromium = FakeChromium(browser)
+                self.stopped = False
 
-        class FakeAsyncPlaywrightContext:
+            async def stop(self):
+                self.stopped = True
+
+        class FakeAsyncPlaywrightManager:
             def __init__(self, playwright):
                 self._playwright = playwright
 
-            async def __aenter__(self):
+            async def start(self):
                 return self._playwright
-
-            async def __aexit__(self, exc_type, exc, tb):
-                return False
 
         responses = [
             FakeResponse("https://api.example.com/other", {"ok": True}),
@@ -333,7 +341,7 @@ class TestCoinGlassPatchrightSession:
 
         patchright_mod = types.ModuleType("patchright")
         async_api_mod = types.ModuleType("patchright.async_api")
-        async_api_mod.async_playwright = lambda: FakeAsyncPlaywrightContext(fake_playwright)
+        async_api_mod.async_playwright = lambda: FakeAsyncPlaywrightManager(fake_playwright)
         patchright_mod.async_api = async_api_mod
 
         with mock.patch.dict(
@@ -347,9 +355,14 @@ class TestCoinGlassPatchrightSession:
         assert result["symbol"] == "SOLUSDT"
         assert result["shape"] == "heatmap_payload"
         assert result["payload"]["liq"] == [[0, 0, 12345.0]]
+        assert page.goto_calls == 1
+        assert page.closed is True
+
+        await interceptor.close()
+
         assert context.closed is True
         assert browser.closed is True
-        assert page.closed is True
+        assert fake_playwright.stopped is True
 
     @pytest.mark.asyncio
     async def test_fetch_heatmap_keeps_api_error_envelope_when_no_payload_shape(self):
@@ -415,15 +428,15 @@ class TestCoinGlassPatchrightSession:
             def __init__(self, browser):
                 self.chromium = FakeChromium(browser)
 
-        class FakeAsyncPlaywrightContext:
+            async def stop(self):
+                return None
+
+        class FakeAsyncPlaywrightManager:
             def __init__(self, playwright):
                 self._playwright = playwright
 
-            async def __aenter__(self):
+            async def start(self):
                 return self._playwright
-
-            async def __aexit__(self, exc_type, exc, tb):
-                return False
 
         page = FakePage(
             [
@@ -445,7 +458,7 @@ class TestCoinGlassPatchrightSession:
 
         patchright_mod = types.ModuleType("patchright")
         async_api_mod = types.ModuleType("patchright.async_api")
-        async_api_mod.async_playwright = lambda: FakeAsyncPlaywrightContext(fake_playwright)
+        async_api_mod.async_playwright = lambda: FakeAsyncPlaywrightManager(fake_playwright)
         patchright_mod.async_api = async_api_mod
 
         with mock.patch.dict(
@@ -457,6 +470,121 @@ class TestCoinGlassPatchrightSession:
         assert result is not None
         assert result["shape"] == "api_envelope"
         assert result["payload"]["code"] == "40000"
+
+    @pytest.mark.asyncio
+    async def test_fetch_heatmap_reuses_browser_context_across_calls(self):
+        runtime_payload = {
+            "code": "0",
+            "data": {
+                "y": [100.0, 101.0],
+                "liq": [[0, 0, 54321.0]],
+                "prices": [[1700000000, "100", "110", "90", "105", "1000"]],
+            },
+        }
+
+        class FakePage:
+            def __init__(self):
+                self.closed = False
+
+            def on(self, event, cb):
+                return None
+
+            async def route(self, pattern, handler):
+                return None
+
+            async def goto(self, *args, **kwargs):
+                await asyncio.sleep(0)
+
+            async def evaluate(self, expression, arg=None, isolated_context=True):
+                return runtime_payload
+
+            async def close(self):
+                self.closed = True
+
+        class FakeContext:
+            def __init__(self):
+                self.new_page_calls = 0
+                self.closed = False
+
+            async def add_cookies(self, cookies):
+                return None
+
+            async def new_page(self):
+                self.new_page_calls += 1
+                return FakePage()
+
+            async def close(self):
+                self.closed = True
+
+        class FakeBrowser:
+            def __init__(self, context):
+                self._context = context
+                self.new_context_calls = 0
+                self.closed = False
+
+            async def new_context(self, **kwargs):
+                self.new_context_calls += 1
+                return self._context
+
+            async def close(self):
+                self.closed = True
+
+        class FakeChromium:
+            def __init__(self, browser):
+                self._browser = browser
+                self.launch_calls = 0
+
+            async def launch(self, **kwargs):
+                self.launch_calls += 1
+                return self._browser
+
+        class FakePlaywright:
+            def __init__(self, browser):
+                self.chromium = FakeChromium(browser)
+                self.stopped = False
+
+            async def stop(self):
+                self.stopped = True
+
+        class FakeAsyncPlaywrightManager:
+            def __init__(self, playwright):
+                self._playwright = playwright
+                self.start_calls = 0
+
+            async def start(self):
+                self.start_calls += 1
+                return self._playwright
+
+        context = FakeContext()
+        browser = FakeBrowser(context)
+        fake_playwright = FakePlaywright(browser)
+        fake_manager = FakeAsyncPlaywrightManager(fake_playwright)
+        interceptor = CoinGlassHeatmapInterceptor()
+
+        import sys
+        import types
+        import unittest.mock as mock
+
+        patchright_mod = types.ModuleType("patchright")
+        async_api_mod = types.ModuleType("patchright.async_api")
+        async_api_mod.async_playwright = lambda: fake_manager
+        patchright_mod.async_api = async_api_mod
+
+        with mock.patch.dict(
+            sys.modules,
+            {"patchright": patchright_mod, "patchright.async_api": async_api_mod},
+        ):
+            first = await interceptor.fetch_heatmap("SOL", symbol="SOLUSDT")
+            second = await interceptor.fetch_heatmap("BTC", symbol="BTCUSDT")
+
+        assert first is not None
+        assert second is not None
+        assert fake_manager.start_calls == 1
+        assert fake_playwright.chromium.launch_calls == 1
+        assert browser.new_context_calls == 1
+        assert context.new_page_calls == 2
+
+        await interceptor.close()
 
 
 class TestCoinGlassWorker:
