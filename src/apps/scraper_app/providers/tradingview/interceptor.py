@@ -278,6 +278,7 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
 
         try:
             page = await context.new_page()
+            await self._apply_history_viewport(page, target_rows)
 
             def on_websocket(ws):
                 if "tradingview.com" in ws.url:
@@ -308,6 +309,7 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
                 if has_data:
                     break
                 await asyncio.sleep(poll_s)
+            await self._dismiss_overlays(page)
             await self._expand_chart_history(
                 page=page,
                 intercepted_messages=intercepted_messages,
@@ -362,6 +364,7 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
 
         try:
             page = await context.new_page()
+            await self._apply_history_viewport(page, target_rows)
 
             def on_websocket(ws):
                 if "tradingview.com" in ws.url:
@@ -392,6 +395,7 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
                 if has_data:
                     break
                 await asyncio.sleep(poll_s)
+            await self._dismiss_overlays(page)
             await self._expand_chart_history(
                 page=page,
                 intercepted_messages=intercepted_messages,
@@ -406,6 +410,63 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
             await self._close_quietly(page, "page")
 
         return self._messages_to_series_frame(symbol, intercepted_messages)
+
+    async def _apply_history_viewport(
+        self, page: Any, target_rows: int | None
+    ) -> None:
+        if not target_rows:
+            return
+        min_target_rows = int(
+            self._config.get(
+                "tradingview.history_expansion_deep_viewport_min_target_rows",
+                1000,
+            )
+        )
+        if target_rows < min_target_rows:
+            return
+
+        set_viewport_size = getattr(page, "set_viewport_size", None)
+        if not callable(set_viewport_size):
+            return
+
+        width = int(
+            self._config.get("tradingview.history_expansion_deep_viewport_width", 3840)
+        )
+        height = int(self._config.get("tradingview.viewport_height", 1080))
+        await set_viewport_size({"width": width, "height": height})
+
+    async def _dismiss_overlays(self, page: Any) -> None:
+        evaluate = getattr(page, "evaluate", None)
+        if not callable(evaluate):
+            return
+
+        await evaluate(
+            """() => {
+                const selectors = [
+                    '[class*="wrapper-SiBYNi"]',
+                    '[class*="wrapper-TjF5"]',
+                    '[class*="container-SiBYNi"]',
+                    '[data-qa-id="overlap-manager-root"] [role="dialog"]',
+                ];
+                for (const root of document.querySelectorAll('#overlap-manager-root')) {
+                    for (const button of root.querySelectorAll('button')) {
+                        const text = (
+                            button.innerText ||
+                            button.getAttribute('aria-label') ||
+                            ''
+                        ).trim();
+                        if (/Close|Decline|Don't need|Dont need/i.test(text)) {
+                            button.click();
+                        }
+                    }
+                }
+                for (const selector of selectors) {
+                    for (const element of document.querySelectorAll(selector)) {
+                        element.remove();
+                    }
+                }
+            }"""
+        )
 
     def _messages_to_series_frame(
         self, symbol: str, intercepted_messages: list[str]

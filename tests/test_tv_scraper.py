@@ -200,11 +200,66 @@ class TestInterceptorHelpers:
             }
         )
 
-        assert normalized["domain"] == "tradingview.com"
+        assert normalized["domain"] == ".tradingview.com"
         assert normalized["sameSite"] == "None"
         assert isinstance(normalized["expires"], float)
         assert "expirationDate" not in normalized
         assert "extraField" not in normalized
+
+    @pytest.mark.asyncio
+    async def test_large_limit_applies_deep_history_viewport(self):
+        class FakePage:
+            def __init__(self):
+                self.viewport = None
+
+            async def set_viewport_size(self, viewport):
+                self.viewport = viewport
+
+        interceptor = TradingViewInterceptor()
+        page = FakePage()
+
+        await interceptor._apply_history_viewport(page, target_rows=8760)
+
+        assert page.viewport == {"width": 3840, "height": 1080}
+
+    @pytest.mark.asyncio
+    async def test_small_limit_keeps_default_viewport(self):
+        class FakePage:
+            def __init__(self):
+                self.viewport = None
+
+            async def set_viewport_size(self, viewport):
+                self.viewport = viewport
+
+        interceptor = TradingViewInterceptor()
+        page = FakePage()
+
+        await interceptor._apply_history_viewport(page, target_rows=300)
+
+        assert page.viewport is None
+
+    @pytest.mark.asyncio
+    async def test_dismiss_overlays_runs_cleanup_script(self):
+        class FakePage:
+            def __init__(self):
+                self.script = None
+
+            async def evaluate(self, script):
+                self.script = script
+
+        interceptor = TradingViewInterceptor()
+        page = FakePage()
+
+        await interceptor._dismiss_overlays(page)
+
+        assert "overlap-manager-root" in page.script
+        assert "Don't need" in page.script
+
+    @pytest.mark.asyncio
+    async def test_dismiss_overlays_skips_pages_without_evaluate(self):
+        interceptor = TradingViewInterceptor()
+
+        await interceptor._dismiss_overlays(object())
 
 
 # ---------------------------------------------------------------------------
@@ -625,15 +680,16 @@ class TestFetchTvIndices:
 
         await fetch_tv_indices(ctx)
 
-        # Should be called once per index (3 total)
-        assert mock_redis.hset.call_count == 3
-        assert mock_redis.expire.call_count == 3
+        # Should be called once per configured index
+        assert mock_redis.hset.call_count == len(TV_INDICES)
+        assert mock_redis.expire.call_count == len(TV_INDICES)
 
         # Check one of the calls has the right key pattern
         call_args_list = mock_redis.hset.call_args_list
         keys_called = [c.args[0] for c in call_args_list]
         assert "index:latest:TOTAL2" in keys_called
         assert "index:latest:TOTAL3" in keys_called
+        assert "index:latest:TOTAL3ES" in keys_called
         assert "index:latest:BTC.D" in keys_called
 
     @pytest.mark.asyncio
@@ -711,8 +767,8 @@ class TestFetchTvIndices:
 
         await fetch_tv_indices(ctx)
 
-        # executemany called once per index (3 indices × 1 executemany each)
-        assert mock_conn.executemany.call_count == 3
+        # executemany called once per configured index
+        assert mock_conn.executemany.call_count == len(TV_INDICES)
 
         # Each executemany batch should contain all 3 bars
         for call in mock_conn.executemany.call_args_list:
@@ -720,7 +776,7 @@ class TestFetchTvIndices:
             assert len(rows) == 3, f"Expected 3 rows per batch, got {len(rows)}"
 
         # Valkey hash still receives only latest bar (iloc[-1]) — close=115.0
-        assert mock_redis.hset.call_count == 3
+        assert mock_redis.hset.call_count == len(TV_INDICES)
         for call in mock_redis.hset.call_args_list:
             mapping = call.kwargs.get("mapping") or call.args[1]
             assert float(mapping["close"]) == 115.0

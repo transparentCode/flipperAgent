@@ -19,6 +19,7 @@ logger = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_E
 _default_indices = [
     "CRYPTOCAP:TOTAL2",
     "CRYPTOCAP:TOTAL3",
+    "CRYPTOCAP:TOTAL3ES",
     "CRYPTOCAP:BTC.D",
 ]
 TV_INDICES: list[str] = config_manager.get("tradingview.indices", _default_indices)

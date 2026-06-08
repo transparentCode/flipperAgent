@@ -103,11 +103,6 @@ class BrowserScraperRuntime:
             else:
                 normalized.pop("sameSite", None)
 
-        if "domain" in normalized and isinstance(normalized["domain"], str):
-            domain = normalized["domain"]
-            if domain.startswith("."):
-                normalized["domain"] = domain[1:]
-
         allowed_keys = {
             "name",
             "value",

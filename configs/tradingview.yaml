@@ -2,6 +2,7 @@ tradingview:
   indices:
     - "CRYPTOCAP:TOTAL2"
     - "CRYPTOCAP:TOTAL3"
+    - "CRYPTOCAP:TOTAL3ES"
     - "CRYPTOCAP:BTC.D"
   timeframe: "1h"
   staleness_ttl_seconds: 1800   # 30 minutes — matches fetch cadence (fetch at :00:30 and :30:30)
@@ -13,6 +14,8 @@ tradingview:
   user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
   viewport_width: 1920
   viewport_height: 1080
+  history_expansion_deep_viewport_width: 3840
+  history_expansion_deep_viewport_min_target_rows: 1000
 
   # Timing / interception settings
   page_load_timeout_ms: 30000
