@@ -617,6 +617,55 @@ class TestCoinGlassPatchrightSession:
 
         await interceptor.close()
 
+    @pytest.mark.asyncio
+    async def test_runtime_helper_polling_retries_until_payload_available(
+        self, monkeypatch
+    ):
+        interceptor = CoinGlassHeatmapInterceptor()
+        calls = 0
+
+        async def fake_sleep(_seconds):
+            return None
+
+        async def fake_fetch(_page, _target, _page_url):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return None
+            return {
+                "coin": "SOL",
+                "exchange": "Binance",
+                "symbol": "SOLUSDT",
+                "market_type": "pair",
+                "short_name": "SOL",
+                "page_url": "https://example.com",
+                "response_url": "/api/index/v5/liqHeatMap",
+                "captured_at_ms": 1,
+                "shape": "runtime_helper",
+                "payload": {"liq": [[1, 2, 3]], "prices": [], "y": []},
+            }
+
+        monkeypatch.setattr("apps.coinglass_scraper.interceptor.asyncio.sleep", fake_sleep)
+        interceptor._fetch_runtime_helper_payload = fake_fetch  # type: ignore[method-assign]
+
+        result, timing_ms = await interceptor._poll_runtime_helper_payload(
+            object(),
+            {
+                "coin": "SOL",
+                "market_type": "pair",
+                "exchange": "Binance",
+                "symbol": "SOLUSDT",
+                "short_name": "SOL",
+            },
+            "https://example.com",
+        )
+
+        assert result is not None
+        assert result["shape"] == "runtime_helper"
+        assert calls == 2
+        assert "helper_delay" in timing_ms
+        assert "runtime_helper_attempt" in timing_ms
+
 
 class TestCoinGlassWorker:
     @pytest.mark.asyncio

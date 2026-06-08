@@ -140,9 +140,6 @@ class CoinGlassHeatmapInterceptor:
         best_candidate: dict[str, Any] | None = None
         best_score = -1
         page_url = self._build_page_url(target)
-        helper_delay_seconds = self._config.get(
-            "coinglass.runtime_helper_delay_seconds", 2
-        )
         fetch_started = time.perf_counter()
         timing_ms: dict[str, float] = {}
 
@@ -212,20 +209,10 @@ class CoinGlassHeatmapInterceptor:
             timing_ms["navigation"] = round(
                 (time.perf_counter() - navigation_started) * 1000, 2
             )
-            if helper_delay_seconds > 0:
-                helper_delay_started = time.perf_counter()
-                await asyncio.sleep(helper_delay_seconds)
-                timing_ms["helper_delay"] = round(
-                    (time.perf_counter() - helper_delay_started) * 1000, 2
-                )
-
-            helper_started = time.perf_counter()
-            runtime_candidate = await self._fetch_runtime_helper_payload(
+            runtime_candidate, helper_timing_ms = await self._poll_runtime_helper_payload(
                 page, target, page_url
             )
-            timing_ms["runtime_helper_attempt"] = round(
-                (time.perf_counter() - helper_started) * 1000, 2
-            )
+            timing_ms.update(helper_timing_ms)
             if runtime_candidate is not None:
                 runtime_candidate["timing_ms"] = {
                     **timing_ms,
@@ -269,6 +256,49 @@ class CoinGlassHeatmapInterceptor:
         if best_candidate is None:
             logger.warning(f"No CoinGlass payload captured for {target}")
         return best_candidate
+
+    async def _poll_runtime_helper_payload(
+        self,
+        page: Any,
+        target: dict[str, str],
+        page_url: str,
+    ) -> tuple[dict[str, Any] | None, dict[str, float]]:
+        max_wait_seconds = float(
+            self._config.get("coinglass.runtime_helper_delay_seconds", 2)
+        )
+        poll_interval_seconds = float(
+            self._config.get("coinglass.runtime_helper_poll_interval_seconds", 0.25)
+        )
+        helper_started = time.perf_counter()
+        waited_seconds = 0.0
+
+        while True:
+            runtime_candidate = await self._fetch_runtime_helper_payload(
+                page, target, page_url
+            )
+            if runtime_candidate is not None:
+                return runtime_candidate, {
+                    "helper_delay": round(waited_seconds * 1000, 2),
+                    "runtime_helper_attempt": round(
+                        (time.perf_counter() - helper_started) * 1000, 2
+                    ),
+                }
+
+            elapsed = time.perf_counter() - helper_started
+            remaining = max_wait_seconds - elapsed
+            if remaining <= 0:
+                break
+
+            sleep_for = min(poll_interval_seconds, remaining)
+            await asyncio.sleep(sleep_for)
+            waited_seconds += sleep_for
+
+        return None, {
+            "helper_delay": round(waited_seconds * 1000, 2),
+            "runtime_helper_attempt": round(
+                (time.perf_counter() - helper_started) * 1000, 2
+            ),
+        }
 
     async def _fetch_runtime_helper_payload(
         self,
