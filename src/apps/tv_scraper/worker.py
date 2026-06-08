@@ -287,6 +287,9 @@ async def startup(ctx: dict[str, Any]) -> None:
 
 async def shutdown(ctx: dict[str, Any]) -> None:
     """Worker shutdown — cleanup connections."""
+    interceptor = ctx.get("tv_interceptor")
+    if interceptor is not None:
+        await interceptor.close()
     redis = ctx.get("redis")
     if redis:
         await redis.aclose()

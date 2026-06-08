@@ -141,6 +141,12 @@ class TradingViewInterceptor(BaseExchangeAdapter):
         self.proxy_url = proxy_url or config.get("tradingview.proxy_url")
         self._session = None
         self._config = config
+        self._browser_lock = asyncio.Lock()
+        self._cached_cookies: list[dict[str, Any]] | None = None
+        self._cached_cookies_mtime_ns: int | None = None
+        self._playwright: Any | None = None
+        self._browser: Any | None = None
+        self._context: Any | None = None
 
     async def get_historical_ohlcv(
         self,
@@ -179,58 +185,29 @@ class TradingViewInterceptor(BaseExchangeAdapter):
             return results
 
         try:
-            from patchright.async_api import async_playwright
-        except ImportError:
-            logger.error(
-                "Patchright is not installed. Install with: pip install patchright"
-            )
-            return results
-
-        browser = None
-        context = None
-
-        try:
-            async with async_playwright() as p:
-                launch_kwargs: dict[str, Any] = {
-                    "headless": True,
-                    "args": [
-                        "--disable-blink-features=AutomationControlled",
-                        "--no-sandbox",
-                    ],
-                }
-                if self.proxy_url:
-                    launch_kwargs["proxy"] = {"server": self.proxy_url}
-
-                browser = await p.chromium.launch(**launch_kwargs)
-                context = await browser.new_context(
-                    viewport={
-                        "width": self._config.get("tradingview.viewport_width", 1920),
-                        "height": self._config.get("tradingview.viewport_height", 1080),
-                    },
-                    user_agent=self._config.get(
-                        "tradingview.user_agent",
-                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/125.0.0.0 Safari/537.36",
-                    ),
-                )
-                await self._apply_cookies(context)
-
-                fetch_delay = self._config.get("tradingview.fetch_delay_seconds", 2)
-                for idx, symbol in enumerate(symbols):
-                    results[symbol] = await self._fetch_symbol_ohlcv(
-                        context, symbol, timeframe
-                    )
-                    if idx < len(symbols) - 1 and fetch_delay > 0:
-                        await asyncio.sleep(fetch_delay)
+            context = await self._get_or_create_context()
         except Exception as e:
             logger.error(
                 f"TradingView browser session failed for {symbols}: {e}",
                 exc_info=True,
             )
-        finally:
-            await self._close_quietly(context, "browser context")
-            await self._close_quietly(browser, "browser")
+            await self.close()
+            return results
+
+        try:
+            fetch_delay = self._config.get("tradingview.fetch_delay_seconds", 2)
+            for idx, symbol in enumerate(symbols):
+                results[symbol] = await self._fetch_symbol_ohlcv(
+                    context, symbol, timeframe
+                )
+                if idx < len(symbols) - 1 and fetch_delay > 0:
+                    await asyncio.sleep(fetch_delay)
+        except Exception as e:
+            logger.error(
+                f"TradingView symbol fetch failed for {symbols}: {e}",
+                exc_info=True,
+            )
+            await self.close()
 
         return results
 
@@ -258,58 +235,74 @@ class TradingViewInterceptor(BaseExchangeAdapter):
             return results
 
         try:
-            from patchright.async_api import async_playwright
-        except ImportError:
-            logger.error("Patchright is not installed.")
-            return results
-
-        browser = None
-        context = None
-
-        try:
-            async with async_playwright() as p:
-                launch_kwargs: dict[str, Any] = {
-                    "headless": True,
-                    "args": [
-                        "--disable-blink-features=AutomationControlled",
-                        "--no-sandbox",
-                    ],
-                }
-                if self.proxy_url:
-                    launch_kwargs["proxy"] = {"server": self.proxy_url}
-
-                browser = await p.chromium.launch(**launch_kwargs)
-                context = await browser.new_context(
-                    viewport={
-                        "width": self._config.get("tradingview.viewport_width", 1920),
-                        "height": self._config.get("tradingview.viewport_height", 1080),
-                    },
-                    user_agent=self._config.get(
-                        "tradingview.user_agent",
-                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/125.0.0.0 Safari/537.36",
-                    ),
-                )
-                await self._apply_cookies(context)
-
-                fetch_delay = self._config.get("tradingview.fetch_delay_seconds", 2)
-                for idx, symbol in enumerate(symbols):
-                    df = await self._fetch_symbol_series(context, symbol, timeframe)
-                    if df is not None and not df.empty:
-                        results[symbol] = df
-                    if idx < len(symbols) - 1 and fetch_delay > 0:
-                        await asyncio.sleep(fetch_delay)
+            context = await self._get_or_create_context()
         except Exception as e:
             logger.error(
                 f"TradingView browser session failed for series {symbols}: {e}",
                 exc_info=True,
             )
-        finally:
-            await self._close_quietly(context, "browser context")
-            await self._close_quietly(browser, "browser")
+            await self.close()
+            return results
+
+        try:
+            fetch_delay = self._config.get("tradingview.fetch_delay_seconds", 2)
+            for idx, symbol in enumerate(symbols):
+                df = await self._fetch_symbol_series(context, symbol, timeframe)
+                if df is not None and not df.empty:
+                    results[symbol] = df
+                if idx < len(symbols) - 1 and fetch_delay > 0:
+                    await asyncio.sleep(fetch_delay)
+        except Exception as e:
+            logger.error(
+                f"TradingView series fetch failed for {symbols}: {e}",
+                exc_info=True,
+            )
+            await self.close()
 
         return results
+
+    async def _get_or_create_context(self) -> Any:
+        if self._context is not None:
+            return self._context
+
+        async with self._browser_lock:
+            if self._context is not None:
+                return self._context
+
+            try:
+                from patchright.async_api import async_playwright
+            except ImportError:
+                logger.error(
+                    "Patchright is not installed. Install with: pip install patchright"
+                )
+                raise
+
+            self._playwright = await async_playwright().start()
+            launch_kwargs: dict[str, Any] = {
+                "headless": True,
+                "args": [
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-sandbox",
+                ],
+            }
+            if self.proxy_url:
+                launch_kwargs["proxy"] = {"server": self.proxy_url}
+
+            self._browser = await self._playwright.chromium.launch(**launch_kwargs)
+            self._context = await self._browser.new_context(
+                viewport={
+                    "width": self._config.get("tradingview.viewport_width", 1920),
+                    "height": self._config.get("tradingview.viewport_height", 1080),
+                },
+                user_agent=self._config.get(
+                    "tradingview.user_agent",
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/125.0.0.0 Safari/537.36",
+                ),
+            )
+            await self._apply_cookies(self._context)
+            return self._context
 
     async def _apply_cookies(self, context: Any) -> None:
         cookies = self._load_cookies()
@@ -491,13 +484,48 @@ class TradingViewInterceptor(BaseExchangeAdapter):
 
     def _load_cookies(self) -> list[dict] | None:
         """Load TradingView session cookies from JSON file."""
+        cookie_path = Path(self.cookies_path)
         try:
-            if Path(self.cookies_path).exists():
-                with open(self.cookies_path, encoding="utf-8") as f:
-                    return json.load(f)
+            if not cookie_path.exists():
+                self._cached_cookies = None
+                self._cached_cookies_mtime_ns = None
+                return None
+
+            stat = cookie_path.stat()
+            if (
+                self._cached_cookies is not None
+                and self._cached_cookies_mtime_ns == stat.st_mtime_ns
+            ):
+                return [dict(cookie) for cookie in self._cached_cookies]
+
+            with open(cookie_path, encoding="utf-8") as f:
+                cookies = json.load(f)
+
+            self._cached_cookies = [dict(cookie) for cookie in cookies]
+            self._cached_cookies_mtime_ns = stat.st_mtime_ns
+            return [dict(cookie) for cookie in self._cached_cookies]
         except Exception as e:
+            self._cached_cookies = None
+            self._cached_cookies_mtime_ns = None
             logger.warning(f"Failed to load TV cookies from {self.cookies_path}: {e}")
         return None
+
+    async def close(self) -> None:
+        async with self._browser_lock:
+            context = self._context
+            browser = self._browser
+            playwright = self._playwright
+            self._context = None
+            self._browser = None
+            self._playwright = None
+
+            await self._close_quietly(context, "browser context")
+            await self._close_quietly(browser, "browser")
+            if playwright is not None:
+                stop = getattr(playwright, "stop", None)
+                if callable(stop):
+                    with contextlib.suppress(Exception):
+                        await stop()
 
     @staticmethod
     def _map_timeframe(timeframe: str) -> str:

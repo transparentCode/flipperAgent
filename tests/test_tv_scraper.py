@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import types
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -154,6 +155,24 @@ class TestInterceptorHelpers:
         cookies = interceptor._load_cookies()
         assert cookies == [{"name": "session", "value": "abc"}]
 
+    def test_load_cookies_uses_cache_until_file_changes(self, tmp_path):
+        cookie_file = tmp_path / "cookies.json"
+        cookie_file.write_text(json.dumps([{"name": "session", "value": "first"}]))
+        interceptor = TradingViewInterceptor(cookies_path=str(cookie_file))
+
+        first = interceptor._load_cookies()
+        second = interceptor._load_cookies()
+
+        cookie_file.write_text(json.dumps([{"name": "session", "value": "second"}]))
+        stat = cookie_file.stat()
+        os.utime(cookie_file, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1))
+
+        third = interceptor._load_cookies()
+
+        assert first == [{"name": "session", "value": "first"}]
+        assert second == [{"name": "session", "value": "first"}]
+        assert third == [{"name": "session", "value": "second"}]
+
 
 # ---------------------------------------------------------------------------
 # TradingViewInterceptor.get_historical_ohlcv — Patchright not installed
@@ -274,26 +293,27 @@ class TestInterceptorPatchrightSession:
         class FakePlaywright:
             def __init__(self, chromium):
                 self.chromium = chromium
+                self.stopped = False
 
-        class FakePlaywrightCm:
+            async def stop(self):
+                self.stopped = True
+
+        class FakePlaywrightManager:
             def __init__(self, chromium):
                 self._playwright = FakePlaywright(chromium)
 
-            async def __aenter__(self):
+            async def start(self):
                 return self._playwright
-
-            async def __aexit__(self, exc_type, exc, tb):
-                return False
 
         good_page = FakePage(frame=framed)
         bad_page = FakePage(should_fail=True)
         context = FakeContext([good_page, bad_page])
         browser = FakeBrowser(context)
         chromium = FakeChromium(browser)
-        fake_cm = FakePlaywrightCm(chromium)
+        fake_manager = FakePlaywrightManager(chromium)
 
         fake_async_api = types.ModuleType("patchright.async_api")
-        fake_async_api.async_playwright = lambda: fake_cm
+        fake_async_api.async_playwright = lambda: fake_manager
         fake_patchright = types.ModuleType("patchright")
         fake_patchright.async_api = fake_async_api
 
@@ -315,8 +335,131 @@ class TestInterceptorPatchrightSession:
         assert result["CRYPTOCAP:TOTAL3"].empty
         assert good_page.closed is True
         assert bad_page.closed is True
+        await interceptor.close()
         assert context.closed is True
         assert browser.closed is True
+
+    @pytest.mark.asyncio
+    async def test_batch_reuses_browser_context_across_calls(self):
+        payload = json.dumps(
+            {
+                "m": "timescale_update",
+                "p": [{"sds_1": {"s": [{"v": [1700000000, 1.0, 2.0, 0.5, 1.5, 10.0]}]}}],
+            }
+        )
+        framed = f"~m~{len(payload)}~m~{payload}"
+
+        class FakeWs:
+            def __init__(self):
+                self.url = "wss://data.tradingview.com/socket.io/websocket"
+                self._frame_cb = None
+
+            def on(self, event, cb):
+                if event == "framereceived":
+                    self._frame_cb = cb
+
+            def emit(self, frame):
+                if self._frame_cb:
+                    self._frame_cb(frame)
+
+        class FakePage:
+            def __init__(self, frame):
+                self._ws_cb = None
+                self._frame = frame
+                self.closed = False
+
+            def on(self, event, cb):
+                if event == "websocket":
+                    self._ws_cb = cb
+
+            async def goto(self, *args, **kwargs):
+                ws = FakeWs()
+                if self._ws_cb:
+                    self._ws_cb(ws)
+                ws.emit(self._frame)
+
+            async def close(self):
+                self.closed = True
+
+        class FakeContext:
+            def __init__(self):
+                self.new_page_calls = 0
+                self.closed = False
+
+            async def add_cookies(self, cookies):
+                return None
+
+            async def new_page(self):
+                self.new_page_calls += 1
+                return FakePage(framed)
+
+            async def close(self):
+                self.closed = True
+
+        class FakeBrowser:
+            def __init__(self, context):
+                self._context = context
+                self.new_context_calls = 0
+                self.closed = False
+
+            async def new_context(self, **kwargs):
+                self.new_context_calls += 1
+                return self._context
+
+            async def close(self):
+                self.closed = True
+
+        class FakeChromium:
+            def __init__(self, browser):
+                self._browser = browser
+                self.launch_calls = 0
+
+            async def launch(self, **kwargs):
+                self.launch_calls += 1
+                return self._browser
+
+        class FakePlaywright:
+            def __init__(self, chromium):
+                self.chromium = chromium
+                self.stopped = False
+
+            async def stop(self):
+                self.stopped = True
+
+        class FakePlaywrightManager:
+            def __init__(self, chromium):
+                self._playwright = FakePlaywright(chromium)
+                self.start_calls = 0
+
+            async def start(self):
+                self.start_calls += 1
+                return self._playwright
+
+        context = FakeContext()
+        browser = FakeBrowser(context)
+        chromium = FakeChromium(browser)
+        fake_manager = FakePlaywrightManager(chromium)
+        fake_async_api = types.ModuleType("patchright.async_api")
+        fake_async_api.async_playwright = lambda: fake_manager
+        fake_patchright = types.ModuleType("patchright")
+        fake_patchright.async_api = fake_async_api
+        interceptor = TradingViewInterceptor(cookies_path="/nonexistent/path.json")
+
+        with patch.dict(
+            sys.modules,
+            {"patchright": fake_patchright, "patchright.async_api": fake_async_api},
+        ):
+            first = await interceptor.get_historical_ohlcv_batch(["CRYPTOCAP:TOTAL2"], "1h")
+            second = await interceptor.get_historical_ohlcv_batch(["CRYPTOCAP:TOTAL3"], "1h")
+
+        assert not first["CRYPTOCAP:TOTAL2"].empty
+        assert not second["CRYPTOCAP:TOTAL3"].empty
+        assert fake_manager.start_calls == 1
+        assert chromium.launch_calls == 1
+        assert browser.new_context_calls == 1
+        assert context.new_page_calls == 2
+
+        await interceptor.close()
 
 
 # ---------------------------------------------------------------------------
