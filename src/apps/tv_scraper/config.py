@@ -1,5 +1,5 @@
 """TradingView scraper configuration."""
 
-from libs.common.config import ConfigManager
+from apps.scraper_app.providers.tradingview.config import config_manager
 
-config_manager = ConfigManager()
+__all__ = ["config_manager"]

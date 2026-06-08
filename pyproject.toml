@@ -48,6 +48,9 @@ tv-scraper = [
     "patchright>=1.0.0",
 ]
 
+[project.scripts]
+flipper-scraper-fetch = "apps.scraper_app.cli:main"
+
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
