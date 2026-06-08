@@ -54,6 +54,58 @@ class TestCoinGlassHelpers:
         interceptor = CoinGlassHeatmapInterceptor(cookies_path=str(cookie_file))
         assert interceptor._load_cookies() == [{"name": "session", "value": "secret"}]
 
+    def test_build_launch_kwargs_uses_configured_memory_saving_defaults(self):
+        interceptor = CoinGlassHeatmapInterceptor()
+
+        launch_kwargs = interceptor._build_launch_kwargs()
+
+        assert launch_kwargs["headless"] is True
+        assert "--disable-dev-shm-usage" in launch_kwargs["args"]
+        assert "--disable-extensions" in launch_kwargs["args"]
+        assert "--no-sandbox" in launch_kwargs["args"]
+
+    @pytest.mark.asyncio
+    async def test_configure_page_blocks_only_configured_resource_types(self):
+        interceptor = CoinGlassHeatmapInterceptor()
+
+        class FakeRequest:
+            def __init__(self, resource_type):
+                self.resource_type = resource_type
+
+        class FakeRoute:
+            def __init__(self, resource_type):
+                self.request = FakeRequest(resource_type)
+                self.aborted = False
+                self.continued = False
+
+            async def abort(self):
+                self.aborted = True
+
+            async def continue_(self):
+                self.continued = True
+
+        class FakePage:
+            def __init__(self):
+                self.pattern = None
+                self.handler = None
+
+            async def route(self, pattern, handler):
+                self.pattern = pattern
+                self.handler = handler
+
+        page = FakePage()
+
+        await interceptor._configure_page(page)
+
+        image_route = FakeRoute("image")
+        xhr_route = FakeRoute("xhr")
+        await page.handler(image_route)
+        await page.handler(xhr_route)
+
+        assert page.pattern == "**/*"
+        assert image_route.aborted is True
+        assert xhr_route.continued is True
+
 
 class TestCoinGlassNoPatchright:
     @pytest.mark.asyncio

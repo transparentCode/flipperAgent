@@ -6,9 +6,27 @@ coinglass:
   page_load_timeout_ms: 30000
   response_timeout_seconds: 15
   poll_interval_seconds: 0.5
+  headless: true
   user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
   viewport_width: 1920
   viewport_height: 1080
+  blocked_resource_types:
+    - "image"
+    - "media"
+    - "font"
+  chromium_args:
+    - "--disable-blink-features=AutomationControlled"
+    - "--disable-background-networking"
+    - "--disable-component-update"
+    - "--disable-default-apps"
+    - "--disable-dev-shm-usage"
+    - "--disable-extensions"
+    - "--disable-sync"
+    - "--disable-translate"
+    - "--metrics-recording-only"
+    - "--mute-audio"
+    - "--no-first-run"
+    - "--no-sandbox"
   response_url_keywords:
     - "liquidation"
     - "heatmap"

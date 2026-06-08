@@ -30,6 +30,9 @@ class CoinGlassHeatmapInterceptor:
         )
         self.proxy_url = proxy_url or config.get("coinglass.proxy_url")
         self._config = config
+        self._blocked_resource_types = set(
+            self._config.get("coinglass.blocked_resource_types", ["image", "media", "font"])
+        )
 
     async def fetch_heatmap(
         self,
@@ -71,13 +74,7 @@ class CoinGlassHeatmapInterceptor:
 
         try:
             async with async_playwright() as playwright:
-                launch_kwargs: dict[str, Any] = {
-                    "headless": True,
-                    "args": [
-                        "--disable-blink-features=AutomationControlled",
-                        "--no-sandbox",
-                    ],
-                }
+                launch_kwargs = self._build_launch_kwargs()
                 if self.proxy_url:
                     launch_kwargs["proxy"] = {"server": self.proxy_url}
 
@@ -170,6 +167,7 @@ class CoinGlassHeatmapInterceptor:
 
         try:
             page = await context.new_page()
+            await self._configure_page(page)
             await page.goto(
                 page_url,
                 wait_until="domcontentloaded",
@@ -368,6 +366,45 @@ class CoinGlassHeatmapInterceptor:
         exchange = target.get("exchange", "Binance")
         symbol = target.get("symbol") or f"{target['coin']}USDT"
         return f"{exchange}_{symbol}"
+
+    def _build_launch_kwargs(self) -> dict[str, Any]:
+        return {
+            "headless": self._config.get("coinglass.headless", True),
+            "args": list(
+                self._config.get(
+                    "coinglass.chromium_args",
+                    [
+                        "--disable-blink-features=AutomationControlled",
+                        "--disable-background-networking",
+                        "--disable-component-update",
+                        "--disable-default-apps",
+                        "--disable-dev-shm-usage",
+                        "--disable-extensions",
+                        "--disable-sync",
+                        "--disable-translate",
+                        "--metrics-recording-only",
+                        "--mute-audio",
+                        "--no-first-run",
+                        "--no-sandbox",
+                    ],
+                )
+            ),
+        }
+
+    async def _configure_page(self, page: Any) -> None:
+        route = getattr(page, "route", None)
+        if not callable(route) or not self._blocked_resource_types:
+            return
+
+        async def handle_request(route_obj: Any) -> None:
+            request = getattr(route_obj, "request", None)
+            resource_type = getattr(request, "resource_type", None)
+            if resource_type in self._blocked_resource_types:
+                await route_obj.abort()
+                return
+            await route_obj.continue_()
+
+        await route("**/*", handle_request)
 
     @staticmethod
     def _helper_export_urls(page_url: str) -> list[str]:
