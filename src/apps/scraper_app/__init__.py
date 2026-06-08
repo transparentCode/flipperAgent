@@ -1,0 +1,1 @@
+"""Shared scraper app infrastructure."""

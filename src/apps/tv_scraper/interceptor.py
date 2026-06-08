@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import json
 import re
 import time
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
 from apps.ingestion_app.adapters.base import BaseExchangeAdapter
+from apps.scraper_app.core import BrowserScraperRuntime
 from libs.common.config import ConfigManager
 from libs.common.logging.logger_utils import bind_logger
 from libs.common.enums import SystemComponent
@@ -126,7 +125,7 @@ def extract_single_series_from_tv_response(
     return bars
 
 
-class TradingViewInterceptor(BaseExchangeAdapter):
+class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
     """Stealth WebSocket interceptor for TradingView chart data.
 
     Uses patchright to launch a headless Chromium browser, navigate to a TradingView chart,
@@ -135,18 +134,16 @@ class TradingViewInterceptor(BaseExchangeAdapter):
 
     def __init__(self, cookies_path: str | None = None, proxy_url: str | None = None):
         config = ConfigManager()
-        self.cookies_path = cookies_path or config.get(
+        resolved_cookies_path = cookies_path or config.get(
             "tradingview.cookies_path", "secrets/tv_cookies.json"
         )
-        self.proxy_url = proxy_url or config.get("tradingview.proxy_url")
+        resolved_proxy_url = proxy_url or config.get("tradingview.proxy_url")
+        super().__init__(
+            config=config,
+            cookies_path=resolved_cookies_path,
+            proxy_url=resolved_proxy_url,
+        )
         self._session = None
-        self._config = config
-        self._browser_lock = asyncio.Lock()
-        self._cached_cookies: list[dict[str, Any]] | None = None
-        self._cached_cookies_mtime_ns: int | None = None
-        self._playwright: Any | None = None
-        self._browser: Any | None = None
-        self._context: Any | None = None
 
     async def get_historical_ohlcv(
         self,
@@ -261,61 +258,11 @@ class TradingViewInterceptor(BaseExchangeAdapter):
 
         return results
 
-    async def _get_or_create_context(self) -> Any:
-        if self._context is not None:
-            return self._context
-
-        async with self._browser_lock:
-            if self._context is not None:
-                return self._context
-
-            try:
-                from patchright.async_api import async_playwright
-            except ImportError:
-                logger.error(
-                    "Patchright is not installed. Install with: pip install patchright"
-                )
-                raise
-
-            self._playwright = await async_playwright().start()
-            launch_kwargs: dict[str, Any] = {
-                "headless": True,
-                "args": [
-                    "--disable-blink-features=AutomationControlled",
-                    "--no-sandbox",
-                ],
-            }
-            if self.proxy_url:
-                launch_kwargs["proxy"] = {"server": self.proxy_url}
-
-            self._browser = await self._playwright.chromium.launch(**launch_kwargs)
-            self._context = await self._browser.new_context(
-                viewport={
-                    "width": self._config.get("tradingview.viewport_width", 1920),
-                    "height": self._config.get("tradingview.viewport_height", 1080),
-                },
-                user_agent=self._config.get(
-                    "tradingview.user_agent",
-                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/125.0.0.0 Safari/537.36",
-                ),
-            )
-            await self._apply_cookies(self._context)
-            return self._context
-
-    async def _apply_cookies(self, context: Any) -> None:
-        cookies = self._load_cookies()
-        if not cookies:
-            return
-
-        pw_cookies = []
-        for c in cookies:
-            cookie = dict(c)
-            if "domain" in cookie and cookie["domain"].startswith("."):
-                cookie["domain"] = cookie["domain"][1:]
-            pw_cookies.append(cookie)
-        await context.add_cookies(pw_cookies)
+    def _normalize_cookie(self, cookie: dict[str, Any]) -> dict[str, Any]:
+        normalized = dict(cookie)
+        if "domain" in normalized and normalized["domain"].startswith("."):
+            normalized["domain"] = normalized["domain"][1:]
+        return normalized
 
     async def _fetch_symbol_ohlcv(
         self, context: Any, symbol: str, timeframe: str
@@ -475,57 +422,14 @@ class TradingViewInterceptor(BaseExchangeAdapter):
             columns=["timestamp", "open", "high", "low", "close", "volume"]
         )
 
-    @staticmethod
-    async def _close_quietly(resource: Any, label: str) -> None:
-        if resource is None:
-            return
-        with contextlib.suppress(Exception):
-            await resource.close()
+    def _config_namespace(self) -> str:
+        return "tradingview"
 
-    def _load_cookies(self) -> list[dict] | None:
-        """Load TradingView session cookies from JSON file."""
-        cookie_path = Path(self.cookies_path)
-        try:
-            if not cookie_path.exists():
-                self._cached_cookies = None
-                self._cached_cookies_mtime_ns = None
-                return None
+    def _log_patchright_missing(self) -> None:
+        logger.error("Patchright is not installed. Install with: pip install patchright")
 
-            stat = cookie_path.stat()
-            if (
-                self._cached_cookies is not None
-                and self._cached_cookies_mtime_ns == stat.st_mtime_ns
-            ):
-                return [dict(cookie) for cookie in self._cached_cookies]
-
-            with open(cookie_path, encoding="utf-8") as f:
-                cookies = json.load(f)
-
-            self._cached_cookies = [dict(cookie) for cookie in cookies]
-            self._cached_cookies_mtime_ns = stat.st_mtime_ns
-            return [dict(cookie) for cookie in self._cached_cookies]
-        except Exception as e:
-            self._cached_cookies = None
-            self._cached_cookies_mtime_ns = None
-            logger.warning(f"Failed to load TV cookies from {self.cookies_path}: {e}")
-        return None
-
-    async def close(self) -> None:
-        async with self._browser_lock:
-            context = self._context
-            browser = self._browser
-            playwright = self._playwright
-            self._context = None
-            self._browser = None
-            self._playwright = None
-
-            await self._close_quietly(context, "browser context")
-            await self._close_quietly(browser, "browser")
-            if playwright is not None:
-                stop = getattr(playwright, "stop", None)
-                if callable(stop):
-                    with contextlib.suppress(Exception):
-                        await stop()
+    def _log_cookie_load_failure(self) -> None:
+        logger.warning(f"Failed to load TV cookies from {self.cookies_path}")
 
     @staticmethod
     def _map_timeframe(timeframe: str) -> str:

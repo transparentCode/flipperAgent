@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
-import json
 import time
-from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
+from apps.scraper_app.core import BrowserScraperRuntime
 from libs.common.config import ConfigManager
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
@@ -19,26 +17,24 @@ logger = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_E
 CONFIG_FILE_COINGLASS = "configs/coinglass.yaml"
 
 
-class CoinGlassHeatmapInterceptor:
+class CoinGlassHeatmapInterceptor(BrowserScraperRuntime):
     """Capture CoinGlass heatmap payloads via browser network interception."""
 
     def __init__(self, cookies_path: str | None = None, proxy_url: str | None = None):
         config = ConfigManager()
         config.register_file(CONFIG_FILE_COINGLASS)
-        self.cookies_path = cookies_path or config.get(
+        resolved_cookies_path = cookies_path or config.get(
             "coinglass.cookies_path", "secrets/coinglass_cookies.json"
         )
-        self.proxy_url = proxy_url or config.get("coinglass.proxy_url")
-        self._config = config
+        resolved_proxy_url = proxy_url or config.get("coinglass.proxy_url")
+        super().__init__(
+            config=config,
+            cookies_path=resolved_cookies_path,
+            proxy_url=resolved_proxy_url,
+        )
         self._blocked_resource_types = set(
             self._config.get("coinglass.blocked_resource_types", ["image", "media", "font"])
         )
-        self._browser_lock = asyncio.Lock()
-        self._cached_cookies: list[dict[str, Any]] | None = None
-        self._cached_cookies_mtime_ns: int | None = None
-        self._playwright: Any | None = None
-        self._browser: Any | None = None
-        self._context: Any | None = None
 
     async def fetch_heatmap(
         self,
@@ -93,44 +89,8 @@ class CoinGlassHeatmapInterceptor:
 
         return results
 
-    async def _get_or_create_context(self) -> Any:
-        if self._context is not None:
-            return self._context
-
-        async with self._browser_lock:
-            if self._context is not None:
-                return self._context
-
-            try:
-                from patchright.async_api import async_playwright
-            except ImportError:
-                logger.error(
-                    "Patchright is not installed. Install project optional tv-scraper deps."
-                )
-                raise
-
-            self._playwright = await async_playwright().start()
-
-            launch_kwargs = self._build_launch_kwargs()
-            if self.proxy_url:
-                launch_kwargs["proxy"] = {"server": self.proxy_url}
-
-            self._browser = await self._playwright.chromium.launch(**launch_kwargs)
-            self._context = await self._browser.new_context(
-                viewport={
-                    "width": self._config.get("coinglass.viewport_width", 1920),
-                    "height": self._config.get("coinglass.viewport_height", 1080),
-                },
-                user_agent=self._config.get(
-                    "coinglass.user_agent",
-                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/125.0.0.0 Safari/537.36",
-                ),
-            )
-            await self._configure_route_target(self._context)
-            await self._apply_cookies(self._context)
-            return self._context
+    async def _post_create_context(self, context: Any) -> None:
+        await self._configure_route_target(context)
 
     async def _fetch_target_heatmap(
         self, context: Any, target: dict[str, str]
@@ -450,30 +410,6 @@ class CoinGlassHeatmapInterceptor:
         symbol = target.get("symbol") or f"{target['coin']}USDT"
         return f"{exchange}_{symbol}"
 
-    def _build_launch_kwargs(self) -> dict[str, Any]:
-        return {
-            "headless": self._config.get("coinglass.headless", True),
-            "args": list(
-                self._config.get(
-                    "coinglass.chromium_args",
-                    [
-                        "--disable-blink-features=AutomationControlled",
-                        "--disable-background-networking",
-                        "--disable-component-update",
-                        "--disable-default-apps",
-                        "--disable-dev-shm-usage",
-                        "--disable-extensions",
-                        "--disable-sync",
-                        "--disable-translate",
-                        "--metrics-recording-only",
-                        "--mute-audio",
-                        "--no-first-run",
-                        "--no-sandbox",
-                    ],
-                )
-            ),
-        }
-
     async def _configure_route_target(self, route_target: Any) -> None:
         route = getattr(route_target, "route", None)
         if not callable(route) or not self._blocked_resource_types:
@@ -492,22 +428,14 @@ class CoinGlassHeatmapInterceptor:
     async def _configure_page(self, page: Any) -> None:
         await self._configure_route_target(page)
 
-    async def close(self) -> None:
-        async with self._browser_lock:
-            context = self._context
-            browser = self._browser
-            playwright = self._playwright
-            self._context = None
-            self._browser = None
-            self._playwright = None
+    def _config_namespace(self) -> str:
+        return "coinglass"
 
-            await self._close_quietly(context)
-            await self._close_quietly(browser)
-            if playwright is not None:
-                stop = getattr(playwright, "stop", None)
-                if callable(stop):
-                    with contextlib.suppress(Exception):
-                        await stop()
+    def _log_patchright_missing(self) -> None:
+        logger.error("Patchright is not installed. Install project optional tv-scraper deps.")
+
+    def _log_cookie_load_failure(self) -> None:
+        logger.warning(f"Failed to load CoinGlass cookies from {self.cookies_path}")
 
     @staticmethod
     def _helper_export_urls(page_url: str) -> list[str]:
@@ -584,48 +512,6 @@ class CoinGlassHeatmapInterceptor:
         if "liquidation" in lowered:
             score += 1
         return score
-
-    async def _apply_cookies(self, context: Any) -> None:
-        cookies = self._load_cookies()
-        if not cookies:
-            return
-        await context.add_cookies([dict(cookie) for cookie in cookies])
-
-    def _load_cookies(self) -> list[dict[str, Any]] | None:
-        cookie_path = Path(self.cookies_path)
-        try:
-            if not cookie_path.exists():
-                self._cached_cookies = None
-                self._cached_cookies_mtime_ns = None
-                return None
-
-            stat = cookie_path.stat()
-            if (
-                self._cached_cookies is not None
-                and self._cached_cookies_mtime_ns == stat.st_mtime_ns
-            ):
-                return [dict(cookie) for cookie in self._cached_cookies]
-
-            with open(cookie_path, encoding="utf-8") as handle:
-                cookies = json.load(handle)
-
-            self._cached_cookies = [dict(cookie) for cookie in cookies]
-            self._cached_cookies_mtime_ns = stat.st_mtime_ns
-            return [dict(cookie) for cookie in self._cached_cookies]
-        except Exception as exc:
-            self._cached_cookies = None
-            self._cached_cookies_mtime_ns = None
-            logger.warning(
-                f"Failed to load CoinGlass cookies from {self.cookies_path}: {exc}"
-            )
-        return None
-
-    @staticmethod
-    async def _close_quietly(resource: Any) -> None:
-        if resource is None:
-            return
-        with contextlib.suppress(Exception):
-            await resource.close()
 
     @staticmethod
     def target_key(target: dict[str, str]) -> str:
