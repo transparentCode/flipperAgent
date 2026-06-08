@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from unittest.mock import AsyncMock
 
 import pytest
@@ -53,6 +54,24 @@ class TestCoinGlassHelpers:
         cookie_file.write_text(json.dumps([{"name": "session", "value": "secret"}]))
         interceptor = CoinGlassHeatmapInterceptor(cookies_path=str(cookie_file))
         assert interceptor._load_cookies() == [{"name": "session", "value": "secret"}]
+
+    def test_load_cookies_uses_cache_until_file_changes(self, tmp_path):
+        cookie_file = tmp_path / "cookies.json"
+        cookie_file.write_text(json.dumps([{"name": "session", "value": "first"}]))
+        interceptor = CoinGlassHeatmapInterceptor(cookies_path=str(cookie_file))
+
+        first = interceptor._load_cookies()
+        second = interceptor._load_cookies()
+
+        cookie_file.write_text(json.dumps([{"name": "session", "value": "second"}]))
+        stat = cookie_file.stat()
+        os.utime(cookie_file, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1))
+
+        third = interceptor._load_cookies()
+
+        assert first == [{"name": "session", "value": "first"}]
+        assert second == [{"name": "session", "value": "first"}]
+        assert third == [{"name": "session", "value": "second"}]
 
     def test_build_launch_kwargs_uses_configured_memory_saving_defaults(self):
         interceptor = CoinGlassHeatmapInterceptor()

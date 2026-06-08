@@ -34,6 +34,8 @@ class CoinGlassHeatmapInterceptor:
             self._config.get("coinglass.blocked_resource_types", ["image", "media", "font"])
         )
         self._browser_lock = asyncio.Lock()
+        self._cached_cookies: list[dict[str, Any]] | None = None
+        self._cached_cookies_mtime_ns: int | None = None
         self._playwright: Any | None = None
         self._browser: Any | None = None
         self._context: Any | None = None
@@ -523,11 +525,29 @@ class CoinGlassHeatmapInterceptor:
         await context.add_cookies([dict(cookie) for cookie in cookies])
 
     def _load_cookies(self) -> list[dict[str, Any]] | None:
+        cookie_path = Path(self.cookies_path)
         try:
-            if Path(self.cookies_path).exists():
-                with open(self.cookies_path, encoding="utf-8") as handle:
-                    return json.load(handle)
+            if not cookie_path.exists():
+                self._cached_cookies = None
+                self._cached_cookies_mtime_ns = None
+                return None
+
+            stat = cookie_path.stat()
+            if (
+                self._cached_cookies is not None
+                and self._cached_cookies_mtime_ns == stat.st_mtime_ns
+            ):
+                return [dict(cookie) for cookie in self._cached_cookies]
+
+            with open(cookie_path, encoding="utf-8") as handle:
+                cookies = json.load(handle)
+
+            self._cached_cookies = [dict(cookie) for cookie in cookies]
+            self._cached_cookies_mtime_ns = stat.st_mtime_ns
+            return [dict(cookie) for cookie in self._cached_cookies]
         except Exception as exc:
+            self._cached_cookies = None
+            self._cached_cookies_mtime_ns = None
             logger.warning(
                 f"Failed to load CoinGlass cookies from {self.cookies_path}: {exc}"
             )
