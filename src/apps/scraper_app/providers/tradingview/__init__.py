@@ -1,4 +1,4 @@
-"""Backward-compatible TradingView interceptor shim."""
+"""TradingView scraper provider."""
 
 from apps.scraper_app.providers.tradingview.interceptor import (
     TradingViewInterceptor,
@@ -13,3 +13,4 @@ __all__ = [
     "extract_single_series_from_tv_response",
     "parse_tv_messages",
 ]
+
