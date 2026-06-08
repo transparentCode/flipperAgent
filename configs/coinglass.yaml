@@ -1,0 +1,28 @@
+coinglass:
+  heatmap_base_url: "https://www.coinglass.com/pro/futures/LiquidationHeatMapNew"
+  cookies_path: "secrets/coinglass_cookies.json"
+  fetch_delay_seconds: 2
+  staleness_ttl_seconds: 1800
+  page_load_timeout_ms: 30000
+  response_timeout_seconds: 15
+  poll_interval_seconds: 0.5
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+  viewport_width: 1920
+  viewport_height: 1080
+  response_url_keywords:
+    - "liquidation"
+    - "heatmap"
+    - "map"
+  cron_minutes:
+    - 0
+    - 30
+  cron_second: 45
+  run_at_startup: false
+  max_concurrent_jobs: 1
+  job_timeout_seconds: 120
+  heatmaps:
+    - coin: "SOL"
+      market_type: "pair"
+      exchange: "Binance"
+      symbol: "SOLUSDT"
+      short_name: "SOLUSDT"

@@ -111,6 +111,22 @@ class TestExtractOhlcv:
         bars = extract_ohlcv_from_tv_response([msg])
         assert len(bars) == 2
 
+    def test_ignores_auxiliary_series_by_default(self):
+        msg = {
+            "m": "timescale_update",
+            "p": [
+                {
+                    "sds_1": {"s": [{"v": [1700000000, 1, 2, 0.5, 1.5, 10]}]},
+                    "sds_2": {"s": [{"v": [1577836800, 9, 9, 9, 9, 0]}]},
+                }
+            ],
+        }
+
+        bars = extract_ohlcv_from_tv_response([msg])
+
+        assert len(bars) == 1
+        assert bars[0]["timestamp"] == 1700000000 * 1000
+
 
 # ---------------------------------------------------------------------------
 # TradingViewInterceptor helpers

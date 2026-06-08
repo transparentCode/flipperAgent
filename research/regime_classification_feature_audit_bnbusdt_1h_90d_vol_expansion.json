@@ -1,0 +1,161 @@
+{
+  "asset": "BNBUSDT",
+  "timeframe": "1h",
+  "status": "ok",
+  "audit_kind": "feature_ablation",
+  "features": [
+    {
+      "feature": "fwd_vol_ewma",
+      "status": "ok",
+      "action": "conditional_by_asset_tf",
+      "metrics": {
+        "probability_information_lift": 0.04979139504563235,
+        "risk_overlay_lift": -0.12773292217867338,
+        "null_control_lift": -0.09818619198352407,
+        "fold_stability": 1.0,
+        "oos_auc": 0.574380704041721
+      },
+      "target_metadata": {
+        "available_columns": [
+          "close",
+          "high",
+          "low",
+          "open",
+          "timestamp",
+          "volume"
+        ],
+        "requested_target_kinds": [
+          "vol_expansion"
+        ],
+        "available_target_kinds": [
+          "vol_expansion"
+        ],
+        "missing_target_requirements": {},
+        "derivative_columns_present": false,
+        "selected_target_kind": "vol_expansion",
+        "selected_target_horizon": 3
+      }
+    },
+    {
+      "feature": "vol_percentile",
+      "status": "ok",
+      "action": "keep",
+      "metrics": {
+        "probability_information_lift": 0.006258148631030025,
+        "risk_overlay_lift": 0.017096407318908824,
+        "null_control_lift": 0.0170964073189106,
+        "fold_stability": 1.0,
+        "oos_auc": 0.508735332464146
+      },
+      "target_metadata": {
+        "available_columns": [
+          "close",
+          "high",
+          "low",
+          "open",
+          "timestamp",
+          "volume"
+        ],
+        "requested_target_kinds": [
+          "vol_expansion"
+        ],
+        "available_target_kinds": [
+          "vol_expansion"
+        ],
+        "missing_target_requirements": {},
+        "derivative_columns_present": false,
+        "selected_target_kind": "vol_expansion",
+        "selected_target_horizon": 3
+      }
+    },
+    {
+      "feature": "changepoint_prob",
+      "status": "ok",
+      "action": "drop",
+      "metrics": {
+        "probability_information_lift": -0.056166883963494174,
+        "risk_overlay_lift": 0.12408394110880927,
+        "null_control_lift": -0.04419863268439794,
+        "fold_stability": 0.0,
+        "oos_auc": 0.483728813559322
+      },
+      "target_metadata": {
+        "available_columns": [
+          "close",
+          "high",
+          "low",
+          "open",
+          "timestamp",
+          "volume"
+        ],
+        "requested_target_kinds": [
+          "vol_expansion"
+        ],
+        "available_target_kinds": [
+          "vol_expansion"
+        ],
+        "missing_target_requirements": {},
+        "derivative_columns_present": false,
+        "selected_target_kind": "vol_expansion",
+        "selected_target_horizon": 3
+      }
+    },
+    {
+      "feature": "trend_strength",
+      "status": "ok",
+      "action": "drop",
+      "metrics": {
+        "probability_information_lift": -0.048591916558018255,
+        "risk_overlay_lift": 0.0012901880703335422,
+        "null_control_lift": 0.2247657833724701,
+        "fold_stability": 0.0,
+        "oos_auc": 0.44833116036505866
+      },
+      "target_metadata": {
+        "available_columns": [
+          "close",
+          "high",
+          "low",
+          "open",
+          "timestamp",
+          "volume"
+        ],
+        "requested_target_kinds": [
+          "vol_expansion"
+        ],
+        "available_target_kinds": [
+          "vol_expansion"
+        ],
+        "missing_target_requirements": {},
+        "derivative_columns_present": false,
+        "selected_target_kind": "vol_expansion",
+        "selected_target_horizon": 3
+      }
+    }
+  ],
+  "summary": {
+    "total_features": 4,
+    "action_counts": {
+      "keep": 1,
+      "drop": 2,
+      "conditional_by_asset_tf": 1
+    },
+    "keep": [
+      "vol_percentile"
+    ],
+    "drop": [
+      "changepoint_prob",
+      "trend_strength"
+    ],
+    "conditional_by_asset_tf": [
+      "fwd_vol_ewma"
+    ]
+  },
+  "thresholds": {
+    "min_probability_lift": 0.0,
+    "min_null_control_lift": 0.0,
+    "min_fold_stability": 0.5,
+    "drop_probability_lift": -0.02,
+    "drop_fold_stability": 0.25
+  }
+}

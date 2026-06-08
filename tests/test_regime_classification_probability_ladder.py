@@ -9,6 +9,7 @@ from libs.models.regime_classification.optimization.probability_ladder import (
     run_probability_ladder,
     run_rolling_probability_ladder,
     summarize_probability_panel,
+    _target_series,
 )
 from libs.models.regime_classification.optimization.settings import (
     load_regime_optimization_settings,
@@ -121,6 +122,10 @@ def test_probability_ladder_returns_calibration_contract():
     assert overlay["selection"]["config"]["risk_budget"] == 0.50
     assert report["panel_decision"] in {"promote_probability_research", "reject"}
     assert report["sizing_panel_decision"] in {"promote_to_downstream_research", "reject"}
+    assert report["target_metadata"]["selected_target_kind"] in {
+        "fwd_vol",
+        "vol_expansion",
+    }
 
 
 def test_probability_ladder_rejects_insufficient_data():
@@ -169,3 +174,62 @@ def test_probability_panel_summary_counts_decisions():
     assert summary["total_slices"] == 3
     assert summary["promoted_slices"] == 1
     assert summary["rejected_slices"] == 1
+
+
+def test_derivative_only_target_marks_missing_data():
+    price, regime = _price_and_regime()
+    settings = _settings()
+    settings["probability_ladder"]["target_kinds"] = ["oi_expansion"]
+
+    report = run_probability_ladder(
+        price,
+        asset="BNBUSDT",
+        timeframe="30m",
+        regime_df=regime,
+        settings=settings,
+    )
+
+    assert report["status"] == "missing_derivatives_data"
+    metadata = report["target_metadata"]
+    assert metadata["requested_target_kinds"] == ["oi_expansion"]
+    assert metadata["missing_target_requirements"] == {
+        "oi_expansion": ["open_interest"]
+    }
+
+
+def test_mixed_targets_drop_missing_derivatives_without_fallback():
+    price, regime = _price_and_regime()
+    settings = _settings()
+    settings["probability_ladder"]["target_kinds"] = ["vol_expansion", "oi_expansion"]
+
+    report = run_probability_ladder(
+        price,
+        asset="BNBUSDT",
+        timeframe="1h",
+        regime_df=regime,
+        settings=settings,
+    )
+
+    assert report["status"] == "ok"
+    metadata = report["target_metadata"]
+    assert "oi_expansion" in metadata["missing_target_requirements"]
+    assert metadata["available_target_kinds"] == ["vol_expansion"]
+    assert metadata["selected_target_kind"] == "vol_expansion"
+
+
+def test_oi_vol_composite_uses_rolling_normalization():
+    price, _ = _price_and_regime(140)
+    price = price.copy()
+    price["open_interest"] = np.linspace(1_000.0, 2_000.0, len(price))
+    cfg = {"target_vol_lookback": 10}
+
+    base = _target_series(price, "oi_vol_composite", 3, cfg)
+    shocked = price.copy()
+    shocked.loc[shocked.index[-20:], "open_interest"] *= 20.0
+    shocked_target = _target_series(shocked, "oi_vol_composite", 3, cfg)
+
+    pd.testing.assert_series_equal(
+        base.iloc[20:80],
+        shocked_target.iloc[20:80],
+        check_names=False,
+    )

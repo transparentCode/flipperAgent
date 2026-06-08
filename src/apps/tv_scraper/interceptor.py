@@ -43,11 +43,19 @@ def parse_tv_messages(raw: str) -> list[dict[str, Any]]:
     return results
 
 
-def extract_ohlcv_from_tv_response(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Extract OHLCV bars from TradingView timescale_update or du messages."""
-    bars = []
+def _iter_primary_series_values(
+    messages: list[dict[str, Any]],
+    allowed_series: set[str] | None = None,
+) -> list[list[Any]]:
+    """Yield values from the primary chart series only.
+
+    TradingView may send auxiliary/study series in the same WebSocket frame.
+    Keeping the default to ``sds_1`` prevents old or synthetic series from
+    being mixed into the requested symbol history.
+    """
+    values: list[list[Any]] = []
+    allowed = allowed_series or {"sds_1"}
     for msg in messages:
-        # TradingView sends chart data in 'timescale_update' or 'du' messages
         m_type = msg.get("m")
         if m_type not in ("timescale_update", "du"):
             continue
@@ -56,31 +64,65 @@ def extract_ohlcv_from_tv_response(messages: list[dict[str, Any]]) -> list[dict[
         for param in params:
             if not isinstance(param, dict):
                 continue
-            # Navigate to the series data
             for series_key, series_data in param.items():
-                if series_key.startswith("sds_") or series_key.startswith("s"):
-                    s_data = series_data if isinstance(series_data, dict) else {}
-                    s_list = (
-                        s_data.get("s", [])
-                        if isinstance(s_data, dict)
-                        else series_data
-                        if isinstance(series_data, list)
-                        else []
-                    )
-                    if isinstance(s_list, list):
-                        for candle in s_list:
-                            v = candle.get("v", []) if isinstance(candle, dict) else candle
-                            if isinstance(v, (list, tuple)) and len(v) >= 6:
-                                bars.append(
-                                    {
-                                        "timestamp": int(v[0]) * 1000,  # TV sends seconds
-                                        "open": float(v[1]),
-                                        "high": float(v[2]),
-                                        "low": float(v[3]),
-                                        "close": float(v[4]),
-                                        "volume": float(v[5]) if len(v) > 5 else 0.0,
-                                    }
-                                )
+                if str(series_key) not in allowed:
+                    continue
+                s_data = series_data if isinstance(series_data, dict) else {}
+                s_list = (
+                    s_data.get("s", [])
+                    if isinstance(s_data, dict)
+                    else series_data
+                    if isinstance(series_data, list)
+                    else []
+                )
+                if not isinstance(s_list, list):
+                    continue
+                for candle in s_list:
+                    v = candle.get("v", []) if isinstance(candle, dict) else candle
+                    if isinstance(v, (list, tuple)):
+                        values.append(list(v))
+    return values
+
+
+def extract_ohlcv_from_tv_response(
+    messages: list[dict[str, Any]],
+    allowed_series: set[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Extract OHLCV bars from TradingView timescale_update or du messages."""
+    bars = []
+    for v in _iter_primary_series_values(messages, allowed_series=allowed_series):
+        if len(v) >= 6:
+            bars.append(
+                {
+                    "timestamp": int(v[0]) * 1000,  # TV sends seconds
+                    "open": float(v[1]),
+                    "high": float(v[2]),
+                    "low": float(v[3]),
+                    "close": float(v[4]),
+                    "volume": float(v[5]) if len(v) > 5 else 0.0,
+                }
+            )
+    return bars
+
+
+def extract_single_series_from_tv_response(
+    messages: list[dict[str, Any]],
+    allowed_series: set[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Extract single-value time series from TradingView messages.
+
+    Funding is usually [timestamp, value]. Some OI symbols arrive as
+    [timestamp, open, high, low, close], where the close is the usable value.
+    """
+    bars = []
+    for v in _iter_primary_series_values(messages, allowed_series=allowed_series):
+        if len(v) == 2:
+            value = float(v[1])
+        elif len(v) == 5:
+            value = float(v[4])
+        else:
+            continue
+        bars.append({"timestamp": int(v[0]) * 1000, "value": value})
     return bars
 
 
@@ -192,6 +234,83 @@ class TradingViewInterceptor(BaseExchangeAdapter):
 
         return results
 
+    async def get_historical_series(
+        self,
+        symbol: str,
+        timeframe: str,
+        since: int = None,
+        until: int = None,
+        limit: int = None,
+    ) -> pd.DataFrame:
+        """Fetch a single-value time series (OI, funding rate, etc.) from TradingView.
+
+        Returns DataFrame with columns [timestamp, value].
+        """
+        result = await self.get_historical_series_batch([symbol], timeframe)
+        return result.get(symbol, pd.DataFrame(columns=["timestamp", "value"]))
+
+    async def get_historical_series_batch(
+        self, symbols: list[str], timeframe: str,
+    ) -> dict[str, pd.DataFrame]:
+        """Fetch multiple single-value TradingView series in one browser session."""
+        results = {s: pd.DataFrame(columns=["timestamp", "value"]) for s in symbols}
+        if not symbols:
+            return results
+
+        try:
+            from patchright.async_api import async_playwright
+        except ImportError:
+            logger.error("Patchright is not installed.")
+            return results
+
+        browser = None
+        context = None
+
+        try:
+            async with async_playwright() as p:
+                launch_kwargs: dict[str, Any] = {
+                    "headless": True,
+                    "args": [
+                        "--disable-blink-features=AutomationControlled",
+                        "--no-sandbox",
+                    ],
+                }
+                if self.proxy_url:
+                    launch_kwargs["proxy"] = {"server": self.proxy_url}
+
+                browser = await p.chromium.launch(**launch_kwargs)
+                context = await browser.new_context(
+                    viewport={
+                        "width": self._config.get("tradingview.viewport_width", 1920),
+                        "height": self._config.get("tradingview.viewport_height", 1080),
+                    },
+                    user_agent=self._config.get(
+                        "tradingview.user_agent",
+                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/125.0.0.0 Safari/537.36",
+                    ),
+                )
+                await self._apply_cookies(context)
+
+                fetch_delay = self._config.get("tradingview.fetch_delay_seconds", 2)
+                for idx, symbol in enumerate(symbols):
+                    df = await self._fetch_symbol_series(context, symbol, timeframe)
+                    if df is not None and not df.empty:
+                        results[symbol] = df
+                    if idx < len(symbols) - 1 and fetch_delay > 0:
+                        await asyncio.sleep(fetch_delay)
+        except Exception as e:
+            logger.error(
+                f"TradingView browser session failed for series {symbols}: {e}",
+                exc_info=True,
+            )
+        finally:
+            await self._close_quietly(context, "browser context")
+            await self._close_quietly(browser, "browser")
+
+        return results
+
     async def _apply_cookies(self, context: Any) -> None:
         cookies = self._load_cookies()
         if not cookies:
@@ -275,6 +394,79 @@ class TradingViewInterceptor(BaseExchangeAdapter):
         )
 
         logger.info(f"Extracted {len(df)} bars for {symbol}")
+        return df
+
+    async def _fetch_symbol_series(
+        self, context: Any, symbol: str, timeframe: str
+    ) -> pd.DataFrame:
+        """Fetch a single-value series (OI, funding rate) via WS interception."""
+        intercepted_messages: list[str] = []
+        chart_url = self._build_chart_url(symbol, timeframe)
+        page = None
+
+        logger.info(f"Fetching TV series for {symbol} ({timeframe}) via WS interception...")
+
+        try:
+            page = await context.new_page()
+
+            def on_websocket(ws):
+                if "tradingview.com" in ws.url:
+
+                    def on_frame(data):
+                        payload = data if isinstance(data, str) else str(data)
+                        if "~m~" in payload:
+                            intercepted_messages.append(payload)
+
+                    ws.on("framereceived", on_frame)
+
+            page.on("websocket", on_websocket)
+
+            await page.goto(
+                chart_url,
+                wait_until="domcontentloaded",
+                timeout=self._config.get("tradingview.page_load_timeout_ms", 30000),
+            )
+
+            timeout_s = self._config.get("tradingview.ws_intercept_timeout_seconds", 15)
+            poll_s = self._config.get("tradingview.ws_poll_interval_seconds", 0.5)
+            deadline = time.monotonic() + timeout_s
+            while time.monotonic() < deadline:
+                has_data = any(
+                    "timescale_update" in m or '"du"' in m
+                    for m in intercepted_messages
+                )
+                if has_data:
+                    break
+                await asyncio.sleep(poll_s)
+        except Exception as e:
+            logger.error(f"WS interception failed for series {symbol}: {e}", exc_info=True)
+            return pd.DataFrame(columns=["timestamp", "value"])
+        finally:
+            await self._close_quietly(page, "page")
+
+        return self._messages_to_series_frame(symbol, intercepted_messages)
+
+    def _messages_to_series_frame(
+        self, symbol: str, intercepted_messages: list[str]
+    ) -> pd.DataFrame:
+        all_bars = []
+        for raw_msg in intercepted_messages:
+            parsed = parse_tv_messages(raw_msg)
+            bars = extract_single_series_from_tv_response(parsed)
+            all_bars.extend(bars)
+
+        if not all_bars:
+            logger.warning(f"No series data extracted for {symbol}")
+            return pd.DataFrame(columns=["timestamp", "value"])
+
+        df = pd.DataFrame(all_bars)
+        df = (
+            df.drop_duplicates(subset=["timestamp"])
+            .sort_values("timestamp")
+            .reset_index(drop=True)
+        )
+
+        logger.info(f"Extracted {len(df)} series points for {symbol}")
         return df
 
     def _build_chart_url(self, symbol: str, timeframe: str) -> str:

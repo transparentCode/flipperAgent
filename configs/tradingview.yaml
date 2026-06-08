@@ -29,3 +29,38 @@ tradingview:
   run_at_startup: false
   max_concurrent_jobs: 1
   job_timeout_seconds: 300
+
+  # Derivatives data symbols (OI, funding rate)
+  derivatives:
+    - symbol: "BINANCE:BTCUSDTPERP_OI"
+      short_name: "BTCUSDT_OI"
+      data_type: "open_interest"
+      asset: "BTCUSDT"
+    - symbol: "BINANCE:ETHUSDTPERP_OI"
+      short_name: "ETHUSDT_OI"
+      data_type: "open_interest"
+      asset: "ETHUSDT"
+    - symbol: "BINANCE:BNBUSDTPERP_OI"
+      short_name: "BNBUSDT_OI"
+      data_type: "open_interest"
+      asset: "BNBUSDT"
+    - symbol: "BINANCE:SOLUSDTPERP_OI"
+      short_name: "SOLUSDT_OI"
+      data_type: "open_interest"
+      asset: "SOLUSDT"
+    - symbol: "BINANCE:BTCUSDT.P_FR"
+      short_name: "BTCUSDT_FR"
+      data_type: "funding_rate"
+      asset: "BTCUSDT"
+    - symbol: "BINANCE:ETHUSDT.P_FR"
+      short_name: "ETHUSDT_FR"
+      data_type: "funding_rate"
+      asset: "ETHUSDT"
+    - symbol: "BINANCE:BNBUSDT.P_FR"
+      short_name: "BNBUSDT_FR"
+      data_type: "funding_rate"
+      asset: "BNBUSDT"
+    - symbol: "BINANCE:SOLUSDT.P_FR"
+      short_name: "SOLUSDT_FR"
+      data_type: "funding_rate"
+      asset: "SOLUSDT"

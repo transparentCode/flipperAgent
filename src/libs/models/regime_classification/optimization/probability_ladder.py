@@ -28,6 +28,13 @@ from libs.models.regime_classification.optimization.settings import (
 from libs.optim_utils.walk_forward import WalkForwardSplitter
 
 
+_DERIVATIVE_TARGET_REQUIREMENTS: dict[str, tuple[str, ...]] = {
+    "oi_expansion": ("open_interest",),
+    "funding_divergence": ("funding_rate",),
+    "oi_vol_composite": ("open_interest",),
+}
+
+
 def run_probability_ladder(
     price_df: pd.DataFrame,
     *,
@@ -65,15 +72,25 @@ def run_probability_ladder(
     )
     regime = regime.reindex(frame.index)
 
-    forecast_column = str(prob_cfg.get("forecast_column", "fwd_vol_ewma"))
     candidate_configs = _candidate_probability_configs(prob_cfg, regime.columns)
     if not candidate_configs:
         return {
             "asset": asset,
             "timeframe": timeframe,
             "status": "missing_feature_columns",
-            "forecast_column": forecast_column,
             "requested_feature_sets": _configured_feature_sets(prob_cfg),
+        }
+    candidate_configs, target_metadata = _filter_candidate_configs_for_available_targets(
+        frame,
+        candidate_configs,
+    )
+    if not candidate_configs:
+        return {
+            "asset": asset,
+            "timeframe": timeframe,
+            "status": "missing_derivatives_data",
+            "bars": int(len(frame)),
+            "target_metadata": target_metadata,
         }
 
     split = WalkForwardSplitter(
@@ -147,8 +164,12 @@ def run_probability_ladder(
         "bars": int(len(frame)),
         "date_from": _index_value(frame, 0),
         "date_to": _index_value(frame, -1),
-        "forecast_column": forecast_column,
         "candidate_feature_sets": _unique_feature_sets_from_configs(candidate_configs),
+        "target_metadata": {
+            **target_metadata,
+            "selected_target_kind": selected["config"].get("target_kind"),
+            "selected_target_horizon": selected["config"].get("target_horizon"),
+        },
         "probability": probability_report,
         "strategies": strategies,
         "panel_decision": probability_report["decision"],
@@ -213,6 +234,18 @@ def run_rolling_probability_ladder(
         fold_report["fold_start"] = _index_value(fold_frame, 0)
         fold_report["fold_end"] = _index_value(fold_frame, -1)
         folds.append(fold_report)
+
+    if folds and all(fold.get("status") == "missing_derivatives_data" for fold in folds):
+        return {
+            "asset": asset,
+            "timeframe": timeframe,
+            "status": "missing_derivatives_data",
+            "bars": int(len(frame)),
+            "fold_bars": fold_size,
+            "step_bars": step_size,
+            "folds": folds,
+            "target_metadata": _combine_fold_target_metadata(folds),
+        }
 
     if len(folds) < min_folds:
         return {
@@ -709,10 +742,14 @@ def _configured_target_kinds(cfg: dict[str, Any]) -> list[str]:
         raw = [cfg.get("target_kind", "fwd_vol")]
     if isinstance(raw, str):
         raw = [raw]
+    _valid_kinds = {
+        "fwd_vol", "vol_expansion", "oi_expansion",
+        "funding_divergence", "oi_vol_composite",
+    }
     kinds: list[str] = []
     for value in raw:
         kind = str(value)
-        if kind in {"fwd_vol", "vol_expansion"} and kind not in kinds:
+        if kind in _valid_kinds and kind not in kinds:
             kinds.append(kind)
     return kinds or ["fwd_vol"]
 
@@ -752,6 +789,51 @@ def _configured_feature_sets(cfg: dict[str, Any]) -> list[list[str]]:
         if columns and columns not in feature_sets:
             feature_sets.append(columns)
     return feature_sets
+
+
+def _target_requirements(kind: str) -> tuple[str, ...]:
+    return _DERIVATIVE_TARGET_REQUIREMENTS.get(str(kind), ())
+
+
+def _filter_candidate_configs_for_available_targets(
+    frame: pd.DataFrame,
+    candidate_configs: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Drop unavailable derivative targets and report exactly what can run."""
+    available_columns = {str(col) for col in frame.columns}
+    requested_kinds = list(
+        dict.fromkeys(str(cfg.get("target_kind", "fwd_vol")) for cfg in candidate_configs)
+    )
+    missing_by_kind: dict[str, list[str]] = {}
+    available_kinds: list[str] = []
+    filtered: list[dict[str, Any]] = []
+    derivative_columns_present = any(
+        column in available_columns
+        for required in _DERIVATIVE_TARGET_REQUIREMENTS.values()
+        for column in required
+    )
+
+    for target_kind in requested_kinds:
+        required = _target_requirements(target_kind)
+        missing = [column for column in required if column not in available_columns]
+        if missing:
+            missing_by_kind[target_kind] = missing
+        else:
+            available_kinds.append(target_kind)
+
+    for cfg in candidate_configs:
+        target_kind = str(cfg.get("target_kind", "fwd_vol"))
+        if target_kind in missing_by_kind:
+            continue
+        filtered.append(cfg)
+
+    return filtered, {
+        "available_columns": sorted(available_columns),
+        "requested_target_kinds": requested_kinds,
+        "available_target_kinds": available_kinds,
+        "missing_target_requirements": missing_by_kind,
+        "derivative_columns_present": derivative_columns_present,
+    }
 
 
 def _unique_feature_sets_from_configs(configs: list[dict[str, Any]]) -> list[list[str]]:
@@ -852,6 +934,39 @@ def _best_row(fold: dict[str, Any]) -> dict[str, Any]:
     )[0]
 
 
+def _combine_fold_target_metadata(folds: list[dict[str, Any]]) -> dict[str, Any]:
+    metadata = [fold.get("target_metadata") for fold in folds if fold.get("target_metadata")]
+    requested = sorted(
+        {
+            kind
+            for row in metadata
+            for kind in row.get("requested_target_kinds", [])
+        }
+    )
+    available = sorted(
+        {
+            kind
+            for row in metadata
+            for kind in row.get("available_target_kinds", [])
+        }
+    )
+    missing: dict[str, list[str]] = {}
+    for row in metadata:
+        for kind, columns in row.get("missing_target_requirements", {}).items():
+            missing.setdefault(kind, [])
+            for column in columns:
+                if column not in missing[kind]:
+                    missing[kind].append(column)
+    return {
+        "requested_target_kinds": requested,
+        "available_target_kinds": available,
+        "missing_target_requirements": missing,
+        "derivative_columns_present": any(
+            bool(row.get("derivative_columns_present")) for row in metadata
+        ),
+    }
+
+
 def _forward_vol_target(frame: pd.DataFrame, horizon: int) -> pd.Series:
     returns = frame["close"].astype(float).pct_change()
     return returns.rolling(horizon).std().shift(-horizon)
@@ -899,7 +1014,39 @@ def _target_series(
             [np.inf, -np.inf],
             np.nan,
         )
+    if kind == "oi_expansion":
+        _require_target_columns(frame, kind)
+        oi = frame["open_interest"].astype(float)
+        return oi.pct_change(horizon).shift(-horizon).replace([np.inf, -np.inf], np.nan)
+    if kind == "funding_divergence":
+        _require_target_columns(frame, kind)
+        fr = frame["funding_rate"].astype(float)
+        return fr.rolling(horizon).std().shift(-horizon)
+    if kind == "oi_vol_composite":
+        _require_target_columns(frame, kind)
+        lookback = max(int(cfg.get("target_vol_lookback", 20)), horizon)
+        returns = frame["close"].astype(float).pct_change()
+        current_vol = returns.rolling(lookback).std()
+        vol_ratio = (fwd_vol / current_vol.replace(0.0, np.nan)).replace(
+            [np.inf, -np.inf], np.nan
+        )
+        oi_change = frame["open_interest"].astype(float).pct_change(horizon).shift(-horizon)
+        vol_mean = vol_ratio.rolling(lookback, min_periods=lookback).mean()
+        vol_std = vol_ratio.rolling(lookback, min_periods=lookback).std()
+        oi_mean = oi_change.rolling(lookback, min_periods=lookback).mean()
+        oi_std = oi_change.rolling(lookback, min_periods=lookback).std()
+        vol_z = (vol_ratio - vol_mean) / vol_std.replace(0.0, np.nan)
+        oi_z = (oi_change - oi_mean) / oi_std.replace(0.0, np.nan)
+        return (vol_z + oi_z).replace([np.inf, -np.inf], np.nan)
     return fwd_vol
+
+
+def _require_target_columns(frame: pd.DataFrame, kind: str) -> None:
+    missing = [column for column in _target_requirements(kind) if column not in frame.columns]
+    if missing:
+        raise ValueError(
+            f"target_kind={kind!r} requires missing derivative columns: {missing}"
+        )
 
 
 def _event_series(target: pd.Series, threshold: float) -> pd.Series:

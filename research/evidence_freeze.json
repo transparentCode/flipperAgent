@@ -1,0 +1,202 @@
+{
+  "version": "2.0",
+  "created": "2026-06-05",
+  "description": "Evidence freeze after post-agent reconciliation. Statuses must come from benchmark artifacts; unrun slices remain untested.",
+  "baseline_target": "vol_expansion",
+  "schema": {
+    "status_values": ["promoted", "reject", "untested"],
+    "required_slice_fields": [
+      "asset",
+      "timeframe",
+      "probability_information",
+      "risk_overlay",
+      "model_selection",
+      "alpha",
+      "source_artifact",
+      "tested_at",
+      "target_kind",
+      "accepted_use_case",
+      "rejection_reason"
+    ]
+  },
+  "slices": [
+    {
+      "asset": "BTCUSDT",
+      "timeframe": "1h",
+      "probability_information": "promoted",
+      "risk_overlay": "reject",
+      "model_selection": "reject",
+      "alpha": "reject",
+      "target_kind": "vol_expansion",
+      "tested_at": "2026-06-05",
+      "source_artifact": {
+        "probability_information": "research/regime_classification_probability_ladder_cross_asset_30m_1h_365d_vol_expansion_combined.json",
+        "risk_overlay": "research/regime_classification_model_selection_ladder_cross_asset_1h_365d_vol_expansion_policy_grid_risk.json",
+        "model_selection": "research/regime_classification_model_selection_ladder_cross_asset_1h_365d_vol_expansion_policy_grid_risk.json",
+        "alpha": "research/regime_classification_alpha_ladder_bnbusdt_30m_rolling_365d_stronger_nulls.json"
+      },
+      "accepted_use_case": ["probability_information_research"],
+      "rejection_reason": {
+        "risk_overlay": "did_not_clear_risk_overlay_gate",
+        "model_selection": "simple_model_selection_lift_not_stable_oos",
+        "alpha": "alpha_gate_failed_or_not_asset_specific"
+      },
+      "kill_switch": false,
+      "notes": "Probability-information is usable as research evidence only; no downstream routing integration."
+    },
+    {
+      "asset": "ETHUSDT",
+      "timeframe": "1h",
+      "probability_information": "promoted",
+      "risk_overlay": "reject",
+      "model_selection": "reject",
+      "alpha": "reject",
+      "target_kind": "vol_expansion",
+      "tested_at": "2026-06-05",
+      "source_artifact": {
+        "probability_information": "research/regime_classification_probability_ladder_cross_asset_30m_1h_365d_vol_expansion_combined.json",
+        "risk_overlay": "research/regime_classification_model_selection_ladder_cross_asset_1h_365d_vol_expansion_policy_grid_risk.json",
+        "model_selection": "research/regime_classification_model_selection_ladder_cross_asset_1h_365d_vol_expansion_policy_grid_risk.json",
+        "alpha": "research/regime_classification_alpha_ladder_bnbusdt_30m_rolling_365d_stronger_nulls.json"
+      },
+      "accepted_use_case": ["probability_information_research"],
+      "rejection_reason": {
+        "risk_overlay": "did_not_clear_risk_overlay_gate",
+        "model_selection": "simple_model_selection_lift_not_stable_oos",
+        "alpha": "alpha_gate_failed_or_not_asset_specific"
+      },
+      "kill_switch": false,
+      "notes": "Probability-information promoted; risk/alpha use rejected pending stronger evidence."
+    },
+    {
+      "asset": "BNBUSDT",
+      "timeframe": "1h",
+      "probability_information": "promoted",
+      "risk_overlay": "promoted",
+      "model_selection": "reject",
+      "alpha": "reject",
+      "target_kind": "vol_expansion",
+      "tested_at": "2026-06-05",
+      "source_artifact": {
+        "probability_information": "research/regime_classification_probability_ladder_cross_asset_30m_1h_365d_vol_expansion_combined.json",
+        "risk_overlay": "research/regime_classification_model_selection_ladder_bnbusdt_1h_365d_vol_expansion_policy_risk_final.json",
+        "model_selection": "research/regime_classification_model_selection_ladder_bnbusdt_1h_365d_vol_expansion_policy_risk_final.json",
+        "alpha": "research/regime_classification_alpha_ladder_bnbusdt_30m_rolling_365d_stronger_nulls.json"
+      },
+      "accepted_use_case": [
+        "probability_information_research",
+        "risk_overlay_research"
+      ],
+      "rejection_reason": {
+        "model_selection": "simple_model_selection_gate_rejected_despite_risk_overlay_lift",
+        "alpha": "alpha_gate_failed"
+      },
+      "risk_pass_rate": 0.70,
+      "median_drawdown_improvement": 0.03334,
+      "median_drawdown_improvement_vs_null": 0.00818,
+      "median_return_lift": 0.01153,
+      "median_return_lift_vs_null": 0.00564,
+      "kill_switch": false,
+      "notes": "Only slice accepted for risk-overlay research. No direct alpha promotion."
+    },
+    {
+      "asset": "BNBUSDT",
+      "timeframe": "30m",
+      "probability_information": "promoted",
+      "risk_overlay": "reject",
+      "model_selection": "reject",
+      "alpha": "reject",
+      "target_kind": "vol_expansion",
+      "tested_at": "2026-06-05",
+      "source_artifact": {
+        "probability_information": "research/regime_classification_probability_ladder_cross_asset_30m_1h_365d_vol_expansion_combined.json",
+        "risk_overlay": "research/regime_classification_model_selection_ladder_bnbusdt_30m_365d_vol_expansion_policy_grid_broad_risk.json",
+        "model_selection": "research/regime_classification_model_selection_ladder_bnbusdt_30m_365d_vol_expansion_policy_grid_broad_risk.json",
+        "alpha": "research/regime_classification_alpha_ladder_bnbusdt_30m_rolling_365d_stronger_nulls.json"
+      },
+      "accepted_use_case": ["probability_information_research"],
+      "rejection_reason": {
+        "risk_overlay": "risk_overlay_gate_failed_on_30m",
+        "model_selection": "simple_model_selection_gate_failed_on_30m",
+        "alpha": "alpha_gate_failed_on_30m"
+      },
+      "kill_switch": false,
+      "notes": "Corrected from reject: probability-information was promoted in the combined 30m/1h probability ladder; downstream trading use remains rejected."
+    },
+    {
+      "asset": "SOLUSDT",
+      "timeframe": "1h",
+      "probability_information": "promoted",
+      "risk_overlay": "reject",
+      "model_selection": "reject",
+      "alpha": "reject",
+      "target_kind": "vol_expansion",
+      "tested_at": "2026-06-05",
+      "source_artifact": {
+        "probability_information": "research/regime_classification_probability_ladder_cross_asset_30m_1h_365d_vol_expansion_combined.json",
+        "risk_overlay": "research/regime_classification_model_selection_ladder_cross_asset_1h_365d_vol_expansion_policy_grid_risk.json",
+        "model_selection": "research/regime_classification_model_selection_ladder_cross_asset_1h_365d_vol_expansion_policy_grid_risk.json",
+        "alpha": "research/regime_classification_alpha_ladder_bnbusdt_30m_rolling_365d_stronger_nulls.json"
+      },
+      "accepted_use_case": ["probability_information_research"],
+      "rejection_reason": {
+        "risk_overlay": "did_not_clear_risk_overlay_gate",
+        "model_selection": "simple_model_selection_lift_not_stable_oos",
+        "alpha": "alpha_gate_failed_or_not_asset_specific"
+      },
+      "kill_switch": false,
+      "notes": "Probability-information promoted; no downstream trading use accepted."
+    },
+    {
+      "asset": "XRPUSDT",
+      "timeframe": "1h",
+      "probability_information": "untested",
+      "risk_overlay": "untested",
+      "model_selection": "untested",
+      "alpha": "untested",
+      "target_kind": "vol_expansion",
+      "tested_at": null,
+      "source_artifact": {},
+      "accepted_use_case": [],
+      "rejection_reason": {
+        "all": "not_benchmarked"
+      },
+      "kill_switch": false,
+      "notes": "No accepted or rejected conclusion until benchmark artifacts exist for this asset/timeframe."
+    },
+    {
+      "asset": "DOGEUSDT",
+      "timeframe": "1h",
+      "probability_information": "untested",
+      "risk_overlay": "untested",
+      "model_selection": "untested",
+      "alpha": "untested",
+      "target_kind": "vol_expansion",
+      "tested_at": null,
+      "source_artifact": {},
+      "accepted_use_case": [],
+      "rejection_reason": {
+        "all": "not_benchmarked"
+      },
+      "kill_switch": false,
+      "notes": "No accepted or rejected conclusion until benchmark artifacts exist for this asset/timeframe."
+    }
+  ],
+  "key_findings": {
+    "cross_asset_probability_information": "Several tested 30m/1h slices promote probability-information research, but that is not direct alpha.",
+    "risk_overlay": "Only BNBUSDT 1h is currently promoted for risk-overlay research.",
+    "30m": "BNBUSDT 30m promotes probability-information but rejects risk-overlay, model-selection, and alpha use cases.",
+    "alpha_all": "Rejected in available artifacts. Do not integrate as a direct trading signal.",
+    "derivative_targets": "Research-only until TradingView symbol mapping, DB persistence, and Valkey feature flow are validated. Missing derivative columns must produce missing_derivatives_data, not fwd_vol fallback."
+  },
+  "next_experiment_gates": [
+    "probability_information_gate",
+    "risk_overlay_gate",
+    "model_selection_gate",
+    "alpha_gate",
+    "null_control_gate",
+    "asset_tf_stability_gate",
+    "derivative_data_availability_gate",
+    "feature_ablation_gate"
+  ]
+}

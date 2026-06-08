@@ -133,6 +133,129 @@ async def fetch_tv_indices(ctx: dict[str, Any]) -> None:
             continue
 
 
+async def fetch_tv_derivatives(ctx: dict[str, Any]) -> None:
+    """Fetch latest derivatives data (OI, funding rate) for configured TV symbols.
+
+    Single browser session fetches all derivatives sequentially, then publishes
+    each to Valkey hash and upserts into TimescaleDB.
+    """
+    redis_client = ctx.get("redis")
+    db_pool = ctx.get("db_pool")
+    interceptor = ctx.get("tv_interceptor")
+
+    if interceptor is None:
+        logger.warning("TV interceptor not available in worker context, skipping derivatives fetch")
+        return
+
+    derivatives_config: list[dict[str, Any]] = config_manager.get("tradingview.derivatives", [])
+    if not derivatives_config:
+        logger.debug("No tradingview.derivatives configured, skipping")
+        return
+
+    timeframe = config_manager.get("tradingview.timeframe", "1h")
+    ttl_seconds = int(config_manager.get("tradingview.staleness_ttl_seconds", 1800))
+
+    all_symbols = [entry["symbol"] for entry in derivatives_config]
+    try:
+        symbol_frames = await interceptor.get_historical_series_batch(all_symbols, timeframe)
+    except Exception as e:
+        logger.error(f"Failed to fetch TradingView derivatives batch: {e}", exc_info=True)
+        return
+
+    for entry in derivatives_config:
+        tv_symbol = entry["symbol"]
+        short_name = entry.get("short_name", tv_symbol)
+        data_type = entry.get("data_type", "")
+        asset = entry.get("asset", "")
+
+        try:
+            df = symbol_frames.get(tv_symbol)
+            if df is None or df.empty:
+                logger.warning(f"No derivatives data returned for {tv_symbol}")
+                continue
+
+            latest = df.iloc[-1]
+            fetched_at = time.time()
+
+            if data_type == "open_interest":
+                # Publish to Valkey
+                if redis_client:
+                    hash_key = f"derivatives:latest:{asset}:oi"
+                    await redis_client.hset(
+                        hash_key,
+                        mapping={
+                            "symbol": asset,
+                            "timestamp": str(latest["timestamp"]),
+                            "value": str(latest["value"]),
+                            "fetched_at": str(fetched_at),
+                        },
+                    )
+                    if ttl_seconds > 0:
+                        await redis_client.expire(hash_key, ttl_seconds)
+                    logger.info(f"Published {short_name} OI to Valkey: value={latest['value']}")
+
+                # Upsert into TimescaleDB
+                if db_pool:
+                    try:
+                        from apps.ingestion_app.models.tick_models import OIRecord
+                        from apps.ingestion_app.storage.timescale_writer import TimescaleWriter
+
+                        writer = TimescaleWriter(db_pool)
+                        records = [
+                            OIRecord(
+                                timestamp=int(row["timestamp"]),
+                                symbol=asset,
+                                open_interest=float(row["value"]),
+                            )
+                            for _, row in df.iterrows()
+                        ]
+                        await writer.insert_open_interest(records)
+                        logger.info(f"Upserted {len(records)} OI records for {asset}")
+                    except Exception as db_err:
+                        logger.error(f"DB upsert failed for OI {asset}: {db_err}")
+
+            elif data_type == "funding_rate":
+                # Publish to Valkey
+                if redis_client:
+                    hash_key = f"derivatives:latest:{asset}:funding"
+                    await redis_client.hset(
+                        hash_key,
+                        mapping={
+                            "symbol": asset,
+                            "timestamp": str(latest["timestamp"]),
+                            "value": str(latest["value"]),
+                            "fetched_at": str(fetched_at),
+                        },
+                    )
+                    if ttl_seconds > 0:
+                        await redis_client.expire(hash_key, ttl_seconds)
+                    logger.info(f"Published {short_name} funding rate to Valkey: value={latest['value']}")
+
+                # Upsert into TimescaleDB
+                if db_pool:
+                    try:
+                        from apps.ingestion_app.models.tick_models import FundingRateRecord
+                        from apps.ingestion_app.storage.timescale_writer import TimescaleWriter
+
+                        writer = TimescaleWriter(db_pool)
+                        records = [
+                            FundingRateRecord(
+                                timestamp=int(row["timestamp"]),
+                                symbol=asset,
+                                funding_rate=float(row["value"]),
+                            )
+                            for _, row in df.iterrows()
+                        ]
+                        await writer.insert_funding_rate(records)
+                        logger.info(f"Upserted {len(records)} funding rate records for {asset}")
+                    except Exception as db_err:
+                        logger.error(f"DB upsert failed for funding rate {asset}: {db_err}")
+
+        except Exception as e:
+            logger.error(f"Failed to process derivatives for {tv_symbol}: {e}", exc_info=True)
+            continue
+
+
 async def startup(ctx: dict[str, Any]) -> None:
     """Worker startup — initialize TV interceptor and connections."""
     from apps.tv_scraper.interceptor import TradingViewInterceptor
@@ -173,7 +296,7 @@ async def shutdown(ctx: dict[str, Any]) -> None:
 class WorkerSettings:
     """ARQ worker settings for TV index fetching."""
 
-    functions = [fetch_tv_indices]
+    functions = [fetch_tv_indices, fetch_tv_derivatives]
     on_startup = startup
     on_shutdown = shutdown
 
@@ -184,6 +307,12 @@ class WorkerSettings:
         cron(
             fetch_tv_indices,
             # set of minutes fires at both :00:30 (1h/4h closes) and :30:30 (30m close)
+            minute=set(config_manager.get("tradingview.cron_minutes", [0, 30])),
+            second=config_manager.get("tradingview.cron_second", 30),
+            run_at_startup=config_manager.get("tradingview.run_at_startup", False),
+        ),
+        cron(
+            fetch_tv_derivatives,
             minute=set(config_manager.get("tradingview.cron_minutes", [0, 30])),
             second=config_manager.get("tradingview.cron_second", 30),
             run_at_startup=config_manager.get("tradingview.run_at_startup", False),

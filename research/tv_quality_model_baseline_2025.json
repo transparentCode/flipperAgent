@@ -1,0 +1,87 @@
+{
+  "accepted_paths": [
+    "data/tv_derivatives/BINANCE_BNBUSDT.P_FR_1h_series.csv",
+    "data/tv_derivatives/BINANCE_BNBUSDTPERP_OI_1h_series.csv",
+    "data/tv_index_4h/CRYPTOCAP_BTC.D_4h_ohlcv.csv",
+    "data/tv_index_4h/CRYPTOCAP_TOTAL2_4h_ohlcv.csv",
+    "data/tv_index_4h/CRYPTOCAP_TOTAL3_4h_ohlcv.csv"
+  ],
+  "rejected_paths": [],
+  "reports": [
+    {
+      "days": 520.333,
+      "duplicate_timestamps": 0,
+      "end": "2026-06-05T08:00:00+00:00",
+      "expected_interval_seconds": 28800,
+      "gap_count": 6,
+      "max_gap_seconds": 180000,
+      "path": "data/tv_derivatives/BINANCE_BNBUSDT.P_FR_1h_series.csv",
+      "reasons": [],
+      "rows": 5787,
+      "sparse_allowed": true,
+      "start": "2025-01-01T00:00:00+00:00",
+      "status": "ok"
+    },
+    {
+      "days": 520.5,
+      "duplicate_timestamps": 0,
+      "end": "2026-06-05T12:00:00+00:00",
+      "expected_interval_seconds": 3600,
+      "gap_count": 0,
+      "max_gap_seconds": 3600,
+      "path": "data/tv_derivatives/BINANCE_BNBUSDTPERP_OI_1h_series.csv",
+      "reasons": [],
+      "rows": 12493,
+      "sparse_allowed": false,
+      "start": "2025-01-01T00:00:00+00:00",
+      "status": "ok"
+    },
+    {
+      "days": 520.5,
+      "duplicate_timestamps": 0,
+      "end": "2026-06-05T12:00:00+00:00",
+      "expected_interval_seconds": 14400,
+      "gap_count": 0,
+      "max_gap_seconds": 14400,
+      "path": "data/tv_index_4h/CRYPTOCAP_BTC.D_4h_ohlcv.csv",
+      "reasons": [],
+      "rows": 3124,
+      "sparse_allowed": false,
+      "start": "2025-01-01T00:00:00+00:00",
+      "status": "ok"
+    },
+    {
+      "days": 520.5,
+      "duplicate_timestamps": 0,
+      "end": "2026-06-05T12:00:00+00:00",
+      "expected_interval_seconds": 14400,
+      "gap_count": 0,
+      "max_gap_seconds": 14400,
+      "path": "data/tv_index_4h/CRYPTOCAP_TOTAL2_4h_ohlcv.csv",
+      "reasons": [],
+      "rows": 3124,
+      "sparse_allowed": false,
+      "start": "2025-01-01T00:00:00+00:00",
+      "status": "ok"
+    },
+    {
+      "days": 520.5,
+      "duplicate_timestamps": 0,
+      "end": "2026-06-05T12:00:00+00:00",
+      "expected_interval_seconds": 14400,
+      "gap_count": 0,
+      "max_gap_seconds": 14400,
+      "path": "data/tv_index_4h/CRYPTOCAP_TOTAL3_4h_ohlcv.csv",
+      "reasons": [],
+      "rows": 3124,
+      "sparse_allowed": false,
+      "start": "2025-01-01T00:00:00+00:00",
+      "status": "ok"
+    }
+  ],
+  "summary": {
+    "accepted": 5,
+    "rejected": 0,
+    "total": 5
+  }
+}

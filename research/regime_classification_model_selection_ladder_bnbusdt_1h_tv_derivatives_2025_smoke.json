@@ -1,0 +1,563 @@
+{
+  "reports": [
+    {
+      "asset": "BNBUSDT",
+      "timeframe": "1h",
+      "status": "ok",
+      "bars": 12489,
+      "date_from": "2025-01-01T00:00:00+00:00",
+      "date_to": "2026-06-05T08:00:00+00:00",
+      "target_metadata": {
+        "available_columns": [
+          "close",
+          "datetime",
+          "funding_rate",
+          "high",
+          "low",
+          "open",
+          "open_interest",
+          "timestamp",
+          "volume"
+        ],
+        "requested_target_kinds": [
+          "vol_expansion",
+          "oi_expansion",
+          "funding_divergence",
+          "oi_vol_composite"
+        ],
+        "available_target_kinds": [
+          "vol_expansion",
+          "oi_expansion",
+          "funding_divergence",
+          "oi_vol_composite"
+        ],
+        "missing_target_requirements": {},
+        "derivative_columns_present": true,
+        "selected_target_kind": "vol_expansion",
+        "selected_target_horizon": 10
+      },
+      "probability": {
+        "selection": {
+          "config": {
+            "target_kind": "vol_expansion",
+            "target_horizon": 10,
+            "event_quantile": 0.75,
+            "n_bins": 4,
+            "risk_budget": 0.25,
+            "min_position_scale": 0.25,
+            "smoothing": 2.0,
+            "feature_columns": [
+              "fwd_vol_ewma",
+              "vol_percentile",
+              "changepoint_prob",
+              "hurst"
+            ]
+          },
+          "fitted_config": {
+            "target_kind": "vol_expansion",
+            "target_horizon": 10,
+            "event_quantile": 0.75,
+            "n_bins": 4,
+            "risk_budget": 0.25,
+            "min_position_scale": 0.25,
+            "smoothing": 2.0,
+            "feature_columns": [
+              "fwd_vol_ewma",
+              "vol_percentile",
+              "changepoint_prob",
+              "hurst"
+            ],
+            "event_threshold": 1.2993021279592174,
+            "base_rate": 0.25,
+            "feature_models": {
+              "fwd_vol_ewma": {
+                "event_threshold": 1.2993021279592174,
+                "base_rate": 0.25,
+                "bin_edges": [
+                  0.0010488763342625745,
+                  0.003160657627113682,
+                  0.00453938169030957,
+                  0.006423103607406342,
+                  0.024769208466836244
+                ],
+                "bin_probs": [
+                  0.3239398819108964,
+                  0.29549114331723025,
+                  0.24396135265700483,
+                  0.1366076221148685
+                ],
+                "train_metrics": {
+                  "brier": 0.1823813098557272,
+                  "auc": 0.6023643202579259,
+                  "event_rate": 0.25,
+                  "mean_probability": 0.25000000000000006,
+                  "rows": 7444,
+                  "bottom_bucket_event_rate": 0.13648576034390114,
+                  "top_bucket_event_rate": 0.32401934443847397,
+                  "top_bottom_event_spread": 0.18753358409457282,
+                  "bottom_bucket_rows": 1861,
+                  "top_bucket_rows": 1861
+                }
+              },
+              "vol_percentile": {
+                "event_threshold": 1.2993021279592174,
+                "base_rate": 0.25,
+                "bin_edges": [
+                  0.1,
+                  24.3,
+                  53.45,
+                  76.42500000000001,
+                  100.0
+                ],
+                "bin_probs": [
+                  0.285061794734014,
+                  0.27908847184986596,
+                  0.2122920021470746,
+                  0.22356414385399892
+                ],
+                "train_metrics": {
+                  "brier": 0.1864487940756204,
+                  "auc": 0.545685870103676,
+                  "event_rate": 0.25,
+                  "mean_probability": 0.24999999827711317,
+                  "rows": 7444,
+                  "bottom_bucket_event_rate": 0.2122514777001612,
+                  "top_bucket_event_rate": 0.28509951586874666,
+                  "top_bottom_event_spread": 0.07284803816858545,
+                  "bottom_bucket_rows": 1861,
+                  "top_bucket_rows": 1859
+                }
+              },
+              "changepoint_prob": {
+                "event_threshold": 1.2993021279592174,
+                "base_rate": 0.25,
+                "bin_edges": [
+                  0.00026665107976955025,
+                  0.000272181196386255,
+                  0.00027819311095242144,
+                  0.00028960722751841887,
+                  0.0013461399383662492
+                ],
+                "bin_probs": [
+                  0.22839506172839505,
+                  0.23698336017176597,
+                  0.2514761137949544,
+                  0.2831454643048846
+                ],
+                "train_metrics": {
+                  "brier": 0.18706481488057472,
+                  "auc": 0.5298226759806556,
+                  "event_rate": 0.25,
+                  "mean_probability": 0.25,
+                  "rows": 7444,
+                  "bottom_bucket_event_rate": 0.22837184309511016,
+                  "top_bucket_event_rate": 0.2831810854379366,
+                  "top_bottom_event_spread": 0.054809242342826414,
+                  "bottom_bucket_rows": 1861,
+                  "top_bucket_rows": 1861
+                }
+              },
+              "hurst": {
+                "event_threshold": 1.2993021279592174,
+                "base_rate": 0.25,
+                "bin_edges": [
+                  0.2843726242283842,
+                  0.5747340609252356,
+                  0.6445856800972768,
+                  0.7139123850574367,
+                  0.99
+                ],
+                "bin_probs": [
+                  0.25201288244766507,
+                  0.24449812130971552,
+                  0.262211486849168,
+                  0.2412775093934514
+                ],
+                "train_metrics": {
+                  "brier": 0.18743497939103093,
+                  "auc": 0.5117320437041017,
+                  "event_rate": 0.25,
+                  "mean_probability": 0.25000000000000006,
+                  "rows": 7444,
+                  "bottom_bucket_event_rate": 0.2412681354110693,
+                  "top_bucket_event_rate": 0.26222461042450296,
+                  "top_bottom_event_spread": 0.020956475013433645,
+                  "bottom_bucket_rows": 1861,
+                  "top_bucket_rows": 1861
+                }
+              }
+            },
+            "feature_weights": {
+              "fwd_vol_ewma": 0.5398822226328283,
+              "vol_percentile": 0.2409529905765921,
+              "changepoint_prob": 0.15728852155444611,
+              "hurst": 0.061876265236133474
+            },
+            "bin_edges": [
+              0.0010488763342625745,
+              0.003160657627113682,
+              0.00453938169030957,
+              0.006423103607406342,
+              0.024769208466836244
+            ],
+            "bin_probs": [
+              0.3239398819108964,
+              0.29549114331723025,
+              0.24396135265700483,
+              0.1366076221148685
+            ]
+          },
+          "validation_score": 2.7876572912579323,
+          "validation_metrics": {
+            "brier": 0.188329353042937,
+            "auc": 0.6500629892693578,
+            "event_rate": 0.26366559485530544,
+            "mean_probability": 0.2497050301542143,
+            "rows": 2488,
+            "top_bottom_event_spread": 0.2841991861929407
+          },
+          "validation_null_metrics": {
+            "brier": 0.19442001709559042,
+            "auc": 0.5011932181275961,
+            "event_rate": 0.26366559485530544,
+            "mean_probability": 0.24928660196746014,
+            "rows": 2488,
+            "top_bottom_event_spread": -0.008087180277715156
+          }
+        },
+        "metrics": {
+          "train": {
+            "brier": 0.18317984697565826,
+            "auc": 0.6085625617723567,
+            "event_rate": 0.25,
+            "mean_probability": 0.24999999958486527,
+            "rows": 7444,
+            "bottom_bucket_event_rate": 0.13430851063829788,
+            "top_bucket_event_rate": 0.33400267737617134,
+            "top_bottom_event_spread": 0.19969416673787346,
+            "bottom_bucket_rows": 1504,
+            "top_bucket_rows": 1494
+          },
+          "validate": {
+            "brier": 0.188329353042937,
+            "auc": 0.6500629892693578,
+            "event_rate": 0.26366559485530544,
+            "mean_probability": 0.2497050301542143,
+            "rows": 2488,
+            "bottom_bucket_event_rate": 0.12648221343873517,
+            "top_bucket_event_rate": 0.4106813996316759,
+            "top_bottom_event_spread": 0.2841991861929407,
+            "bottom_bucket_rows": 506,
+            "top_bucket_rows": 543
+          },
+          "oos": {
+            "brier": 0.1844210186097083,
+            "auc": 0.6492547155078172,
+            "event_rate": 0.25010084711577246,
+            "mean_probability": 0.2652810893684292,
+            "rows": 2479,
+            "bottom_bucket_event_rate": 0.16666666666666666,
+            "top_bucket_event_rate": 0.4321880650994575,
+            "top_bottom_event_spread": 0.2655213984327909,
+            "bottom_bucket_rows": 504,
+            "top_bucket_rows": 553
+          },
+          "full": {
+            "brier": 0.1839596626604716,
+            "auc": 0.6199745177616857,
+            "event_rate": 0.25178585761297057,
+            "mean_probability": 0.25290972333383827,
+            "rows": 12459,
+            "bottom_bucket_event_rate": 0.1393312101910828,
+            "top_bucket_event_rate": 0.3803875049426651,
+            "top_bottom_event_spread": 0.2410562947515823,
+            "bottom_bucket_rows": 2512,
+            "top_bucket_rows": 2529
+          }
+        },
+        "null_controls": {
+          "circular_shift": {
+            "train": {
+              "brier": 0.18694533618206566,
+              "auc": 0.5506824230269155,
+              "event_rate": 0.25,
+              "mean_probability": 0.2500000013660511,
+              "rows": 7444,
+              "bottom_bucket_event_rate": 0.2103861517976032,
+              "top_bucket_event_rate": 0.29580279813457694,
+              "top_bottom_event_spread": 0.08541664633697374,
+              "bottom_bucket_rows": 1502,
+              "top_bucket_rows": 1501
+            },
+            "validate": {
+              "brier": 0.19442001709559042,
+              "auc": 0.5011932181275961,
+              "event_rate": 0.26366559485530544,
+              "mean_probability": 0.24928660196746014,
+              "rows": 2488,
+              "bottom_bucket_event_rate": 0.2625250501002004,
+              "top_bucket_event_rate": 0.25443786982248523,
+              "top_bottom_event_spread": -0.008087180277715156,
+              "bottom_bucket_rows": 499,
+              "top_bucket_rows": 507
+            },
+            "oos": {
+              "brier": 0.18745413333500566,
+              "auc": 0.5113094101927849,
+              "event_rate": 0.25010084711577246,
+              "mean_probability": 0.2524037678150702,
+              "rows": 2479,
+              "bottom_bucket_event_rate": 0.23138832997987926,
+              "top_bucket_event_rate": 0.25426621160409557,
+              "top_bottom_event_spread": 0.022877881624216306,
+              "bottom_bucket_rows": 497,
+              "top_bucket_rows": 586
+            },
+            "full": {
+              "brier": 0.18807136157750212,
+              "auc": 0.5312575466484178,
+              "event_rate": 0.25178585761297057,
+              "mean_probability": 0.25035851707082935,
+              "rows": 12459,
+              "bottom_bucket_event_rate": 0.2270759543486816,
+              "top_bucket_event_rate": 0.2760640374853573,
+              "top_bottom_event_spread": 0.048988083136675686,
+              "bottom_bucket_rows": 2541,
+              "top_bucket_rows": 2561
+            }
+          },
+          "block_shuffle": {
+            "train": {
+              "brier": 0.18699835126036396,
+              "auc": 0.5504703914730014,
+              "event_rate": 0.25,
+              "mean_probability": 0.24999998379688468,
+              "rows": 7444,
+              "bottom_bucket_event_rate": 0.2112676056338028,
+              "top_bucket_event_rate": 0.2991967871485944,
+              "top_bottom_event_spread": 0.08792918151479157,
+              "bottom_bucket_rows": 1562,
+              "top_bucket_rows": 1494
+            },
+            "validate": {
+              "brier": 0.19460540102972673,
+              "auc": 0.4871737372190862,
+              "event_rate": 0.26366559485530544,
+              "mean_probability": 0.24903742159871575,
+              "rows": 2488,
+              "bottom_bucket_event_rate": 0.281437125748503,
+              "top_bucket_event_rate": 0.27236580516898606,
+              "top_bottom_event_spread": -0.009071320579516928,
+              "bottom_bucket_rows": 501,
+              "top_bucket_rows": 503
+            },
+            "oos": {
+              "brier": 0.18773747401655302,
+              "auc": 0.4970205972687362,
+              "event_rate": 0.25010084711577246,
+              "mean_probability": 0.25073346470675956,
+              "rows": 2479,
+              "bottom_bucket_event_rate": 0.25,
+              "top_bucket_event_rate": 0.2785571142284569,
+              "top_bottom_event_spread": 0.028557114228456915,
+              "bottom_bucket_rows": 496,
+              "top_bucket_rows": 499
+            },
+            "full": {
+              "brier": 0.18819691776192182,
+              "auc": 0.525075510084186,
+              "event_rate": 0.25178585761297057,
+              "mean_probability": 0.24997721723581534,
+              "rows": 12459,
+              "bottom_bucket_event_rate": 0.2394705174488568,
+              "top_bucket_event_rate": 0.289031224979984,
+              "top_bottom_event_spread": 0.04956070753112721,
+              "bottom_bucket_rows": 2493,
+              "top_bucket_rows": 2498
+            }
+          }
+        },
+        "null_control_mode": "circular_shift",
+        "oos_lifts": {
+          "auc_vs_null": 0.13794530531503235,
+          "brier_vs_null": 0.0030331147252973534,
+          "bucket_spread_vs_null": 0.24264351680857457
+        },
+        "decision": "promote_probability_research"
+      },
+      "raw_selection": {
+        "model": "sma_cross",
+        "variant": "sma_cross",
+        "metrics": {
+          "train": {
+            "total_return": 0.1340209261164187,
+            "sharpe": 0.5855183346010163,
+            "max_drawdown": -0.23846631424631995,
+            "calmar": 0.56201198286641,
+            "turnover": 0.022909967845659164,
+            "avg_position": 0.5438102893890675,
+            "trades": 171
+          },
+          "validate": {
+            "total_return": -0.23098790952939008,
+            "sharpe": -2.7499928155191053,
+            "max_drawdown": -0.25564684126035253,
+            "calmar": -0.9035429829314823,
+            "turnover": 0.021704180064308683,
+            "avg_position": 0.465032154340836,
+            "trades": 55
+          },
+          "oos": {
+            "total_return": -0.013557342581926868,
+            "sharpe": -0.007261633458102505,
+            "max_drawdown": -0.19406724893666463,
+            "calmar": -0.0698589929841867,
+            "turnover": 0.019686621132985135,
+            "avg_position": 0.5383688228204098,
+            "trades": 50
+          },
+          "full": {
+            "total_return": -0.12695212418445068,
+            "sharpe": -0.10187012363263188,
+            "max_drawdown": -0.3972720404352527,
+            "calmar": -0.3195596751419039,
+            "turnover": 0.021939306589799024,
+            "avg_position": 0.5287853310913604,
+            "trades": 274
+          }
+        },
+        "validation_score": -3.2068664707813657
+      },
+      "probability_selection": {
+        "model": "sma_cross",
+        "variant": "sma_cross:prefer_high_vol",
+        "metrics": {
+          "train": {
+            "total_return": 0.07336806158919362,
+            "sharpe": 0.6154800131431878,
+            "max_drawdown": -0.11270092708963543,
+            "calmar": 0.6509978532016968,
+            "turnover": 0.01136453415945554,
+            "avg_position": 0.240034932300624,
+            "trades": 2393
+          },
+          "validate": {
+            "total_return": -0.10628085298937373,
+            "sharpe": -2.779000414035279,
+            "max_drawdown": -0.11891161006563493,
+            "calmar": -0.893780287145305,
+            "turnover": 0.010694401945412853,
+            "avg_position": 0.20787510678785062,
+            "trades": 726
+          },
+          "oos": {
+            "total_return": -0.005646714622842164,
+            "sharpe": -0.0820691370329245,
+            "max_drawdown": -0.09454443882476721,
+            "calmar": -0.059725507846188935,
+            "turnover": 0.010045742122742748,
+            "avg_position": 0.24231763668081616,
+            "trades": 838
+          },
+          "full": {
+            "total_return": -0.04031528529280426,
+            "sharpe": -0.12173089304770049,
+            "max_drawdown": -0.19631965882542285,
+            "calmar": -0.20535531456202563,
+            "turnover": 0.010932718292519836,
+            "avg_position": 0.23478828016514378,
+            "trades": 3991
+          }
+        },
+        "validation_score": -3.1087263388109787,
+        "probability_policy": "prefer_high_vol",
+        "probability_config": {
+          "target_kind": "vol_expansion",
+          "target_horizon": 10,
+          "event_quantile": 0.75,
+          "n_bins": 4,
+          "risk_budget": 0.25,
+          "min_position_scale": 0.25,
+          "smoothing": 2.0,
+          "feature_columns": [
+            "fwd_vol_ewma",
+            "vol_percentile",
+            "changepoint_prob",
+            "hurst"
+          ]
+        }
+      },
+      "null_selection": {
+        "model": "sma_cross",
+        "variant": "sma_cross:prefer_high_vol:block_shuffle",
+        "metrics": {
+          "train": {
+            "total_return": 0.061260354165829645,
+            "sharpe": 0.515171531909078,
+            "max_drawdown": -0.11239943311551681,
+            "calmar": 0.5450236933390068,
+            "turnover": 0.01097223179408608,
+            "avg_position": 0.23758370321695066,
+            "trades": 2482
+          },
+          "validate": {
+            "total_return": -0.10797038352484423,
+            "sharpe": -2.8185939713742547,
+            "max_drawdown": -0.1207082212876383,
+            "calmar": -0.8944741490934507,
+            "turnover": 0.01032838501705382,
+            "avg_position": 0.20336353239114213,
+            "trades": 750
+          },
+          "oos": {
+            "total_return": -0.003704471609164317,
+            "sharpe": -0.031160200302883648,
+            "max_drawdown": -0.08981737526492643,
+            "calmar": -0.04124448747514122,
+            "turnover": 0.009512969588887038,
+            "avg_position": 0.23616551260479343,
+            "trades": 812
+          },
+          "full": {
+            "total_return": -0.05085432273303192,
+            "sharpe": -0.16590049732810452,
+            "max_drawdown": -0.19695102939917256,
+            "calmar": -0.258207955998861,
+            "turnover": 0.010518089761050854,
+            "avg_position": 0.23126982704238339,
+            "trades": 4074
+          }
+        },
+        "validation_score": -3.1501828921724617,
+        "null_mode": "block_shuffle",
+        "probability_policy": "prefer_high_vol"
+      },
+      "oos_lifts": {
+        "sharpe_vs_baseline": -0.07480750357482199,
+        "calmar_vs_baseline": 0.010133485137997764,
+        "total_return_vs_baseline": 0.007910627959084704,
+        "sharpe_vs_shuffled": -0.05090893673004085,
+        "calmar_vs_shuffled": -0.018481020371047714,
+        "max_drawdown_improvement_vs_baseline": 0.09952281011189743,
+        "max_drawdown_improvement_vs_shuffled": -0.0047270635598407745,
+        "total_return_vs_shuffled": -0.0019422430136778468
+      },
+      "panel_decision": "reject",
+      "risk_overlay_decision": "reject"
+    }
+  ],
+  "panel_summary": {
+    "usable_slices": 1,
+    "total_slices": 1,
+    "decision_counts": {
+      "reject": 1
+    },
+    "promoted_slices": 0,
+    "rejected_slices": 1,
+    "risk_decision_counts": {
+      "reject": 1
+    },
+    "risk_promoted_slices": 0,
+    "risk_rejected_slices": 1
+  }
+}

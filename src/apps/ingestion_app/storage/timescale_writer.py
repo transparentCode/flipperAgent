@@ -1,8 +1,8 @@
 import asyncpg
 from typing import List
 
-from ..models.tick_models import OHLCVRecord, TickRecord, OIRecord, L2DepthFeatureRecord
-from ..constants import TABLE_OHLCV, TABLE_TICKS, TABLE_OPEN_INTEREST, TABLE_L2_DEPTH_FEATURES
+from ..models.tick_models import OHLCVRecord, TickRecord, OIRecord, FundingRateRecord, L2DepthFeatureRecord
+from ..constants import TABLE_OHLCV, TABLE_TICKS, TABLE_OPEN_INTEREST, TABLE_FUNDING_RATE, TABLE_L2_DEPTH_FEATURES
 
 # Below this threshold, use executemany; at or above, use COPY protocol.
 _COPY_THRESHOLD = 10
@@ -166,4 +166,38 @@ class TimescaleWriter:
                         f"SELECT {col_list} FROM _stage "
                         f"ON CONFLICT (timestamp, symbol) "
                         f"DO UPDATE SET {update_cols}"
+                    )
+
+    async def insert_funding_rate(self, records: List[FundingRateRecord]) -> None:
+        if not records:
+            return
+
+        columns = ["timestamp", "symbol", "funding_rate"]
+        tuples = [
+            (r.timestamp, r.symbol, r.funding_rate)
+            for r in records
+        ]
+
+        async with self.pool.acquire() as conn:
+            if len(tuples) < _COPY_THRESHOLD:
+                query = f"""
+                INSERT INTO {TABLE_FUNDING_RATE} ({', '.join(columns)})
+                VALUES ($1, $2, $3)
+                ON CONFLICT (timestamp, symbol)
+                DO UPDATE SET
+                    funding_rate = EXCLUDED.funding_rate;
+                """
+                await conn.executemany(query, tuples)
+            else:
+                async with conn.transaction():
+                    await conn.execute(
+                        f"CREATE TEMP TABLE _stage (LIKE {TABLE_FUNDING_RATE} INCLUDING DEFAULTS) ON COMMIT DROP"
+                    )
+                    await conn.copy_records_to_table("_stage", records=tuples, columns=columns)
+                    col_list = ", ".join(columns)
+                    await conn.execute(
+                        f"INSERT INTO {TABLE_FUNDING_RATE} ({col_list}) "
+                        f"SELECT {col_list} FROM _stage "
+                        f"ON CONFLICT (timestamp, symbol) "
+                        f"DO UPDATE SET funding_rate = EXCLUDED.funding_rate"
                     )

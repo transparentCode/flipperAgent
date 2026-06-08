@@ -78,3 +78,29 @@ VOL_LOOKBACK_STEP: int = 24
 TREND_LOOKBACK_LOW: int = 10
 TREND_LOOKBACK_HIGH: int = 60
 TREND_LOOKBACK_STEP: int = 5
+
+# ── Benchmark Gate Protocol ──────────────────────────────────────────
+# Universal gate names and promotion labels used across all ladders.
+# Every experiment stage must pass through these gates.
+
+GATE_PROBABILITY_INFORMATION = "probability_information_gate"
+GATE_RISK_OVERLAY = "risk_overlay_gate"
+GATE_MODEL_SELECTION = "model_selection_gate"
+GATE_ALPHA = "alpha_gate"
+GATE_NULL_CONTROL = "null_control_gate"
+GATE_ASSET_TF_STABILITY = "asset_tf_stability_gate"
+
+PROMOTION_PROBABILITY = "promote_probability_research"
+PROMOTION_RISK_OVERLAY = "promote_risk_overlay_research"
+PROMOTION_MODEL_SELECTION = "promote_model_selection_research"
+PROMOTION_ALPHA = "promote_alpha_research"
+PROMOTION_REJECT = "reject"
+
+# All valid promotion labels — used for validation
+VALID_PROMOTIONS = frozenset({
+    PROMOTION_PROBABILITY,
+    PROMOTION_RISK_OVERLAY,
+    PROMOTION_MODEL_SELECTION,
+    PROMOTION_ALPHA,
+    PROMOTION_REJECT,
+})

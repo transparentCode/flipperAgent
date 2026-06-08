@@ -64,10 +64,15 @@ FEATURE_PARAMS = {
 
 def load_tv_data(symbol: str) -> pd.DataFrame:
     """Load TV index CSV and return DataFrame with datetime index."""
-    fname = f"{symbol.replace('.', '_')}_1h.csv"
-    path = TV_DATA_DIR / fname
-    if not path.exists():
-        raise FileNotFoundError(f"TV data not found: {path}")
+    candidates = [
+        TV_DATA_DIR / f"CRYPTOCAP_{symbol}_1h_ohlcv.csv",
+        TV_DATA_DIR / f"CRYPTOCAP_{symbol.replace('.', '_')}_1h_ohlcv.csv",
+        TV_DATA_DIR / f"{symbol.replace('.', '_')}_1h.csv",
+    ]
+    path = next((candidate for candidate in candidates if candidate.exists()), None)
+    if path is None:
+        expected = ", ".join(str(candidate) for candidate in candidates)
+        raise FileNotFoundError(f"TV data not found. Checked: {expected}")
 
     df = pd.read_csv(path)
     df["datetime"] = pd.to_datetime(df["datetime"], utc=True)

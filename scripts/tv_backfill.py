@@ -1,23 +1,28 @@
 #!/usr/bin/env python
-"""Fetch 90+ days of 1h OHLCV data for BTC.D, TOTAL2, TOTAL3 from TradingView.
+"""Backfill TradingView OHLCV or single-value series through direct WebSocket.
 
-Uses TradingView's public WebSocket protocol directly — no browser automation.
-Saves CSV files to data/tv_index/.
+Examples:
+    # 2 years of 1h CRYPTOCAP index data
+    PYTHONPATH=src .venv/bin/python scripts/tv_backfill.py \
+        --symbols CRYPTOCAP:BTC.D CRYPTOCAP:TOTAL2 CRYPTOCAP:TOTAL3 \
+        --timeframe 1h --years 2 --kind ohlcv
 
-Usage:
-    cd /Users/aloobhujia/flipperAgent
-    PYTHONPATH=src .venv/bin/python scripts/tv_backfill.py
+    # 2 years of 1h derivative series if TradingView exposes enough history
+    PYTHONPATH=src .venv/bin/python scripts/tv_backfill.py \
+        --symbols BINANCE:BNBUSDTPERP_OI BINANCE:BNBUSDT.P_FR \
+        --timeframe 1h --years 2 --kind series --output-dir data/tv_derivatives
 """
 
 from __future__ import annotations
 
+import argparse
 import json
-import os
 import random
 import re
 import string
 import time
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import websocket
@@ -28,8 +33,35 @@ import websocket
 
 TV_WS_URL = "wss://data.tradingview.com/socket.io/websocket"
 TV_ORIGIN = "https://www.tradingview.com"
+DEFAULT_INDEX_SYMBOLS = ["CRYPTOCAP:BTC.D", "CRYPTOCAP:TOTAL2", "CRYPTOCAP:TOTAL3"]
 
 _MSG_RE = re.compile(r"~m~(\d+)~m~")
+_TIMEFRAME_TO_INTERVAL = {
+    "1m": "1",
+    "5m": "5",
+    "15m": "15",
+    "30m": "30",
+    "1h": "60",
+    "2h": "120",
+    "4h": "240",
+    "1d": "D",
+    "1D": "D",
+    "1w": "W",
+    "1W": "W",
+}
+_TIMEFRAME_SECONDS = {
+    "1m": 60,
+    "5m": 300,
+    "15m": 900,
+    "30m": 1800,
+    "1h": 3600,
+    "2h": 7200,
+    "4h": 14400,
+    "1d": 86400,
+    "1D": 86400,
+    "1w": 604800,
+    "1W": 604800,
+}
 
 
 def _rand_session(prefix: str = "cs") -> str:
@@ -60,46 +92,74 @@ def _decode_msgs(raw: str) -> list:
             parsed = json.loads(payload)
             results.append(parsed)
         except (json.JSONDecodeError, TypeError):
-            # Heartbeat or non-JSON message
             if payload.startswith("~h~"):
                 results.append({"_heartbeat": payload})
-            pass
     return results
 
 
-def _extract_bars(messages: list[dict]) -> list[dict]:
-    """Extract OHLCV bars from parsed TV messages (timescale_update or du)."""
+def _extract_bars(
+    messages: list[dict],
+    allowed_series: set[str] | None = None,
+) -> list[dict]:
+    """Extract OHLCV bars from parsed TV messages."""
     bars = []
+    for values in _iter_series_values(messages, allowed_series=allowed_series):
+        if len(values) >= 5:
+            bars.append(
+                {
+                    "timestamp": int(values[0]),
+                    "open": float(values[1]),
+                    "high": float(values[2]),
+                    "low": float(values[3]),
+                    "close": float(values[4]),
+                    "volume": float(values[5]) if len(values) > 5 else 0.0,
+                }
+            )
+    return bars
+
+
+def _extract_single_series(
+    messages: list[dict],
+    allowed_series: set[str] | None = None,
+) -> list[dict]:
+    """Extract single-value points like open interest or funding rate."""
+    points = []
+    for values in _iter_series_values(messages, allowed_series=allowed_series):
+        if len(values) >= 5:
+            points.append({"timestamp": int(values[0]), "value": float(values[4])})
+        elif len(values) >= 2:
+            points.append({"timestamp": int(values[0]), "value": float(values[1])})
+    return points
+
+
+def _iter_series_values(
+    messages: list[dict],
+    allowed_series: set[str] | None = None,
+) -> list[list[Any]]:
+    values: list[list[Any]] = []
+    allowed = allowed_series or {"sds_1"}
     for msg in messages:
         if not isinstance(msg, dict):
             continue
-        m_type = msg.get("m")
-        if m_type not in ("timescale_update", "du"):
+        if msg.get("m") not in {"timescale_update", "du"}:
             continue
         params = msg.get("p", [])
         for param in params:
             if not isinstance(param, dict):
                 continue
-            for key, val in param.items():
+            for series_key, val in param.items():
+                if str(series_key) not in allowed:
+                    continue
                 if not isinstance(val, dict):
                     continue
-                s_list = val.get("s", [])
-                if not isinstance(s_list, list):
+                series = val.get("s", [])
+                if not isinstance(series, list):
                     continue
-                for candle in s_list:
-                    v = candle.get("v", []) if isinstance(candle, dict) else []
-                    if isinstance(v, (list, tuple)) and len(v) >= 5:
-                        bars.append(
-                            {
-                                "timestamp": int(v[0]),
-                                "open": float(v[1]),
-                                "high": float(v[2]),
-                                "low": float(v[3]),
-                                "close": float(v[4]),
-                                "volume": float(v[5]) if len(v) > 5 else 0.0,
-                            }
-                        )
-    return bars
+                for candle in series:
+                    raw = candle.get("v", []) if isinstance(candle, dict) else []
+                    if isinstance(raw, (list, tuple)):
+                        values.append(list(raw))
+    return values
 
 
 def fetch_tv_history(
@@ -109,30 +169,54 @@ def fetch_tv_history(
     n_bars: int = 5000,
     timeout: int = 30,
 ) -> pd.DataFrame:
-    """Fetch historical OHLCV from TradingView via direct WebSocket.
+    """Fetch historical OHLCV from TradingView via direct WebSocket."""
+    full_symbol = _full_symbol(symbol, exchange)
+    rows = _fetch_tv_series_rows(
+        full_symbol=full_symbol,
+        interval=interval,
+        n_bars=n_bars,
+        timeout=timeout,
+        kind="ohlcv",
+    )
+    if not rows:
+        print(f"  WARNING: No bars received for {full_symbol}")
+        return pd.DataFrame(columns=["timestamp", "open", "high", "low", "close", "volume"])
+    return _rows_to_frame(rows)
 
-    Parameters
-    ----------
-    symbol : str
-        TradingView symbol name (e.g. "BTC.D", "TOTAL2").
-    exchange : str
-        Exchange prefix (e.g. "CRYPTOCAP").
-    interval : str
-        TradingView resolution ("60" = 1h, "240" = 4h, "D" = daily).
-    n_bars : int
-        Number of bars to request.
-    timeout : int
-        Max seconds to wait for data.
 
-    Returns
-    -------
-    pd.DataFrame with columns [timestamp, open, high, low, close, volume].
-    """
+def fetch_tv_single_series(
+    symbol: str,
+    exchange: str = "BINANCE",
+    interval: str = "60",
+    n_bars: int = 5000,
+    timeout: int = 30,
+) -> pd.DataFrame:
+    """Fetch a single-value TradingView series via direct WebSocket."""
+    full_symbol = _full_symbol(symbol, exchange)
+    rows = _fetch_tv_series_rows(
+        full_symbol=full_symbol,
+        interval=interval,
+        n_bars=n_bars,
+        timeout=timeout,
+        kind="series",
+    )
+    if not rows:
+        print(f"  WARNING: No series points received for {full_symbol}")
+        return pd.DataFrame(columns=["timestamp", "value"])
+    return _rows_to_frame(rows)
+
+
+def _fetch_tv_series_rows(
+    *,
+    full_symbol: str,
+    interval: str,
+    n_bars: int,
+    timeout: int,
+    kind: str,
+) -> list[dict[str, Any]]:
     chart_session = _rand_session("cs")
-    quote_session = _rand_session("qs")
-    full_symbol = f"{exchange}:{symbol}"
-
-    all_bars: list[dict] = []
+    rows: list[dict[str, Any]] = []
+    extractor = _extract_bars if kind == "ohlcv" else _extract_single_series
 
     ws = websocket.create_connection(
         TV_WS_URL,
@@ -145,13 +229,8 @@ def fetch_tv_history(
     )
 
     try:
-        # 1. Auth
         ws.send(_encode_msg({"m": "set_auth_token", "p": ["unauthorized_user_token"]}))
-
-        # 2. Create chart session
         ws.send(_encode_msg({"m": "chart_create_session", "p": [chart_session, ""]}))
-
-        # 3. Resolve symbol
         ws.send(
             _encode_msg(
                 {
@@ -164,8 +243,6 @@ def fetch_tv_history(
                 }
             )
         )
-
-        # 4. Create series with requested bar count
         ws.send(
             _encode_msg(
                 {
@@ -176,18 +253,15 @@ def fetch_tv_history(
                         "s1",
                         "sds_sym_1",
                         interval,
-                        n_bars,
+                        int(n_bars),
                         "",
                     ],
                 }
             )
         )
 
-        # 5. Collect responses
         deadline = time.monotonic() + timeout
-        got_data = False
         consecutive_empty = 0
-
         while time.monotonic() < deadline:
             try:
                 ws.settimeout(max(1, deadline - time.monotonic()))
@@ -203,110 +277,165 @@ def fetch_tv_history(
             consecutive_empty = 0
 
             msgs = _decode_msgs(raw)
-
-            # Handle heartbeats
             for msg in msgs:
                 if isinstance(msg, dict) and "_heartbeat" in msg:
-                    # Echo heartbeat back
                     hb = msg["_heartbeat"]
                     ws.send(f"~m~{len(hb)}~m~{hb}")
 
-            bars = _extract_bars(msgs)
-            if bars:
-                all_bars.extend(bars)
-                got_data = True
+            rows.extend(extractor(msgs))
 
-            # Check for series_completed
-            for msg in msgs:
-                if isinstance(msg, dict) and msg.get("m") == "series_completed":
-                    # All data received
-                    deadline = 0  # exit loop
-
+            if any(isinstance(msg, dict) and msg.get("m") == "series_completed" for msg in msgs):
+                break
     finally:
         ws.close()
 
-    if not all_bars:
-        print(f"  WARNING: No bars received for {full_symbol}")
-        return pd.DataFrame(columns=["timestamp", "open", "high", "low", "close", "volume"])
+    return rows
 
-    df = pd.DataFrame(all_bars)
-    # TV timestamps are in seconds; convert to datetime for CSV
+
+def _rows_to_frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
+    df = pd.DataFrame(rows)
     df = df.drop_duplicates(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
     df["datetime"] = pd.to_datetime(df["timestamp"], unit="s", utc=True)
     return df
 
 
-def check_gaps(df: pd.DataFrame, expected_interval_h: int = 1) -> list[str]:
-    """Check for significant gaps in the data."""
+def check_gaps(df: pd.DataFrame, expected_interval_seconds: int = 3600) -> list[str]:
+    """Check for significant timestamp gaps in fetched TV data."""
     if len(df) < 2:
         return ["Insufficient data to check gaps"]
 
     gaps = []
     ts = df["timestamp"].values
-    expected_delta = expected_interval_h * 3600
-
     for i in range(1, len(ts)):
-        delta = ts[i] - ts[i - 1]
-        if delta > expected_delta * 3:  # Gap > 3x expected
+        delta = int(ts[i] - ts[i - 1])
+        if delta > expected_interval_seconds * 3:
             gap_hours = delta / 3600
             dt1 = pd.Timestamp(ts[i - 1], unit="s", tz="UTC")
             dt2 = pd.Timestamp(ts[i], unit="s", tz="UTC")
-            gaps.append(f"  Gap: {dt1} → {dt2} ({gap_hours:.1f}h)")
-
+            gaps.append(f"  Gap: {dt1} -> {dt2} ({gap_hours:.1f}h)")
     return gaps
 
 
-def main():
-    output_dir = Path("data/tv_index")
+def _full_symbol(symbol: str, default_exchange: str) -> str:
+    return symbol if ":" in symbol else f"{default_exchange}:{symbol}"
+
+
+def _split_symbol(symbol: str, default_exchange: str) -> tuple[str, str]:
+    if ":" not in symbol:
+        return symbol, default_exchange
+    exchange, name = symbol.split(":", 1)
+    return name, exchange
+
+
+def _safe_filename(symbol: str, timeframe: str, kind: str) -> str:
+    safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", symbol.replace(":", "_"))
+    return f"{safe}_{timeframe}_{kind}.csv"
+
+
+def _interval_for_timeframe(timeframe: str, interval: str | None) -> str:
+    if interval:
+        return interval
+    if timeframe not in _TIMEFRAME_TO_INTERVAL:
+        raise ValueError(f"Unsupported timeframe {timeframe!r}; pass --interval explicitly")
+    return _TIMEFRAME_TO_INTERVAL[timeframe]
+
+
+def _seconds_for_timeframe(timeframe: str, interval: str | None = None) -> int:
+    if timeframe in _TIMEFRAME_SECONDS:
+        return _TIMEFRAME_SECONDS[timeframe]
+    if interval and interval.isdigit():
+        return int(interval) * 60
+    raise ValueError(f"Unsupported timeframe {timeframe!r}; cannot infer gap interval")
+
+
+def _bars_for_years(years: float, timeframe: str, interval: str | None = None) -> int:
+    seconds = _seconds_for_timeframe(timeframe, interval)
+    return int(round(years * 365 * 86400 / seconds))
+
+
+def _default_output_dir(kind: str) -> Path:
+    return Path("data/tv_derivatives" if kind == "series" else "data/tv_index")
+
+
+def _summarize(symbol: str, df: pd.DataFrame, expected_seconds: int) -> None:
+    dt_min = df["datetime"].min()
+    dt_max = df["datetime"].max()
+    days = (dt_max - dt_min).total_seconds() / 86400
+    print(f"  Bars: {len(df)}")
+    print(f"  Range: {dt_min:%Y-%m-%d %H:%M} -> {dt_max:%Y-%m-%d %H:%M} ({days:.1f} days)")
+    gaps = check_gaps(df, expected_seconds)
+    if gaps:
+        print(f"  Gaps found ({len(gaps)}):")
+        for gap in gaps[:5]:
+            print(gap)
+        if len(gaps) > 5:
+            print(f"  ... and {len(gaps) - 5} more")
+    else:
+        print("  No significant gaps")
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Backfill TradingView data via direct WebSocket.")
+    parser.add_argument("--symbols", nargs="+", default=None)
+    parser.add_argument("--default-exchange", default="CRYPTOCAP")
+    parser.add_argument("--kind", choices=["ohlcv", "series"], default="ohlcv")
+    parser.add_argument("--timeframe", default="1h")
+    parser.add_argument("--interval", default=None, help="TradingView interval override, e.g. 60, 30, D")
+    parser.add_argument("--n-bars", type=int, default=None)
+    parser.add_argument("--years", type=float, default=None)
+    parser.add_argument("--timeout", type=int, default=45)
+    parser.add_argument("--output-dir", type=str, default=None)
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = _parse_args()
+    interval = _interval_for_timeframe(args.timeframe, args.interval)
+    if args.n_bars is not None:
+        n_bars = args.n_bars
+    elif args.years is not None:
+        n_bars = _bars_for_years(args.years, args.timeframe, interval)
+    else:
+        n_bars = 5000
+    expected_seconds = _seconds_for_timeframe(args.timeframe, interval)
+    output_dir = Path(args.output_dir) if args.output_dir else _default_output_dir(args.kind)
     output_dir.mkdir(parents=True, exist_ok=True)
-
-    symbols = [
-        ("BTC.D", "CRYPTOCAP"),
-        ("TOTAL2", "CRYPTOCAP"),
-        ("TOTAL3", "CRYPTOCAP"),
-    ]
+    symbols = args.symbols or DEFAULT_INDEX_SYMBOLS
 
     print("=" * 60)
-    print("TradingView Index Data Backfill")
+    print("TradingView Data Backfill")
     print("=" * 60)
+    print(f"Kind: {args.kind} | timeframe={args.timeframe} interval={interval} n_bars={n_bars}")
 
-    for symbol, exchange in symbols:
-        print(f"\nFetching {exchange}:{symbol} (1h, 5000 bars)...")
-        df = fetch_tv_history(
-            symbol=symbol,
-            exchange=exchange,
-            interval="60",
-            n_bars=5000,
-            timeout=30,
-        )
+    for raw_symbol in symbols:
+        symbol, exchange = _split_symbol(raw_symbol, args.default_exchange)
+        full_symbol = _full_symbol(symbol, exchange)
+        print(f"\nFetching {full_symbol} ({args.timeframe}, {n_bars} bars)...")
+        if args.kind == "series":
+            df = fetch_tv_single_series(
+                symbol=symbol,
+                exchange=exchange,
+                interval=interval,
+                n_bars=n_bars,
+                timeout=args.timeout,
+            )
+        else:
+            df = fetch_tv_history(
+                symbol=symbol,
+                exchange=exchange,
+                interval=interval,
+                n_bars=n_bars,
+                timeout=args.timeout,
+            )
 
         if df.empty:
-            print(f"  FAILED: No data for {symbol}")
+            print(f"  FAILED: No data for {full_symbol}")
             continue
 
-        # Save to CSV
-        csv_path = output_dir / f"{symbol.replace('.', '_')}_1h.csv"
+        csv_path = output_dir / _safe_filename(full_symbol, args.timeframe, args.kind)
         df.to_csv(csv_path, index=False)
-
-        # Summary
-        dt_min = df["datetime"].min()
-        dt_max = df["datetime"].max()
-        days = (dt_max - dt_min).total_seconds() / 86400
-
-        print(f"  Bars: {len(df)}")
-        print(f"  Range: {dt_min:%Y-%m-%d %H:%M} → {dt_max:%Y-%m-%d %H:%M} ({days:.1f} days)")
-
-        gaps = check_gaps(df)
-        if gaps:
-            print(f"  Gaps found ({len(gaps)}):")
-            for g in gaps[:5]:
-                print(g)
-            if len(gaps) > 5:
-                print(f"  ... and {len(gaps) - 5} more")
-        else:
-            print("  No significant gaps")
-
-        print(f"  Saved → {csv_path}")
+        _summarize(full_symbol, df, expected_seconds)
+        print(f"  Saved -> {csv_path}")
 
     print("\n" + "=" * 60)
     print("Backfill complete")

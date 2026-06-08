@@ -1,0 +1,250 @@
+{
+  "reports": [
+    {
+      "asset": "BNBUSDT",
+      "timeframe": "1h",
+      "status": "ok",
+      "audit_kind": "feature_ablation",
+      "features": [
+        {
+          "feature": "fwd_vol_ewma",
+          "status": "ok",
+          "action": "conditional_by_asset_tf",
+          "metrics": {
+            "probability_information_lift": 0.16491308741788785,
+            "risk_overlay_lift": -0.021482982437035458,
+            "null_control_lift": -0.021099317478943874,
+            "fold_stability": 1.0,
+            "oos_auc": 0.661088933804952
+          },
+          "target_metadata": {
+            "available_columns": [
+              "close",
+              "datetime",
+              "funding_rate",
+              "high",
+              "low",
+              "open",
+              "open_interest",
+              "timestamp",
+              "volume"
+            ],
+            "requested_target_kinds": [
+              "vol_expansion",
+              "oi_expansion",
+              "funding_divergence",
+              "oi_vol_composite"
+            ],
+            "available_target_kinds": [
+              "vol_expansion",
+              "oi_expansion",
+              "funding_divergence",
+              "oi_vol_composite"
+            ],
+            "missing_target_requirements": {},
+            "derivative_columns_present": true,
+            "selected_target_kind": "vol_expansion",
+            "selected_target_horizon": 10
+          }
+        },
+        {
+          "feature": "vol_percentile",
+          "status": "ok",
+          "action": "drop",
+          "metrics": {
+            "probability_information_lift": -0.042949218359054464,
+            "risk_overlay_lift": 0.011148387271842697,
+            "null_control_lift": 0.003025217564165683,
+            "fold_stability": 0.0,
+            "oos_auc": 0.49986589002982446
+          },
+          "target_metadata": {
+            "available_columns": [
+              "close",
+              "datetime",
+              "funding_rate",
+              "high",
+              "low",
+              "open",
+              "open_interest",
+              "timestamp",
+              "volume"
+            ],
+            "requested_target_kinds": [
+              "vol_expansion",
+              "oi_expansion",
+              "funding_divergence",
+              "oi_vol_composite"
+            ],
+            "available_target_kinds": [
+              "vol_expansion",
+              "oi_expansion",
+              "funding_divergence",
+              "oi_vol_composite"
+            ],
+            "missing_target_requirements": {},
+            "derivative_columns_present": true,
+            "selected_target_kind": "oi_expansion",
+            "selected_target_horizon": 3
+          }
+        },
+        {
+          "feature": "changepoint_prob",
+          "status": "ok",
+          "action": "conditional_by_asset_tf",
+          "metrics": {
+            "probability_information_lift": 0.11870497787253292,
+            "risk_overlay_lift": -0.02954614475268122,
+            "null_control_lift": -0.010260062773452233,
+            "fold_stability": 0.0,
+            "oos_auc": 0.5331265949542915
+          },
+          "target_metadata": {
+            "available_columns": [
+              "close",
+              "datetime",
+              "funding_rate",
+              "high",
+              "low",
+              "open",
+              "open_interest",
+              "timestamp",
+              "volume"
+            ],
+            "requested_target_kinds": [
+              "vol_expansion",
+              "oi_expansion",
+              "funding_divergence",
+              "oi_vol_composite"
+            ],
+            "available_target_kinds": [
+              "vol_expansion",
+              "oi_expansion",
+              "funding_divergence",
+              "oi_vol_composite"
+            ],
+            "missing_target_requirements": {},
+            "derivative_columns_present": true,
+            "selected_target_kind": "funding_divergence",
+            "selected_target_horizon": 10
+          }
+        },
+        {
+          "feature": "cp_entropy",
+          "status": "ok",
+          "action": "drop",
+          "metrics": {
+            "probability_information_lift": -0.05923539102626224,
+            "risk_overlay_lift": 0.013069101930785181,
+            "null_control_lift": 0.006129593258949669,
+            "fold_stability": 0.0,
+            "oos_auc": 0.47343088800594374
+          },
+          "target_metadata": {
+            "available_columns": [
+              "close",
+              "datetime",
+              "funding_rate",
+              "high",
+              "low",
+              "open",
+              "open_interest",
+              "timestamp",
+              "volume"
+            ],
+            "requested_target_kinds": [
+              "vol_expansion",
+              "oi_expansion",
+              "funding_divergence",
+              "oi_vol_composite"
+            ],
+            "available_target_kinds": [
+              "vol_expansion",
+              "oi_expansion",
+              "funding_divergence",
+              "oi_vol_composite"
+            ],
+            "missing_target_requirements": {},
+            "derivative_columns_present": true,
+            "selected_target_kind": "funding_divergence",
+            "selected_target_horizon": 10
+          }
+        },
+        {
+          "feature": "hurst",
+          "status": "ok",
+          "action": "drop",
+          "metrics": {
+            "probability_information_lift": -0.06850157418339231,
+            "risk_overlay_lift": -0.022656144856147753,
+            "null_control_lift": 0.04734649985241836,
+            "fold_stability": 0.0,
+            "oos_auc": 0.46200437819756
+          },
+          "target_metadata": {
+            "available_columns": [
+              "close",
+              "datetime",
+              "funding_rate",
+              "high",
+              "low",
+              "open",
+              "open_interest",
+              "timestamp",
+              "volume"
+            ],
+            "requested_target_kinds": [
+              "vol_expansion",
+              "oi_expansion",
+              "funding_divergence",
+              "oi_vol_composite"
+            ],
+            "available_target_kinds": [
+              "vol_expansion",
+              "oi_expansion",
+              "funding_divergence",
+              "oi_vol_composite"
+            ],
+            "missing_target_requirements": {},
+            "derivative_columns_present": true,
+            "selected_target_kind": "funding_divergence",
+            "selected_target_horizon": 3
+          }
+        }
+      ],
+      "summary": {
+        "total_features": 5,
+        "action_counts": {
+          "keep": 0,
+          "drop": 3,
+          "conditional_by_asset_tf": 2
+        },
+        "keep": [],
+        "drop": [
+          "vol_percentile",
+          "cp_entropy",
+          "hurst"
+        ],
+        "conditional_by_asset_tf": [
+          "fwd_vol_ewma",
+          "changepoint_prob"
+        ]
+      },
+      "thresholds": {
+        "min_probability_lift": 0.0,
+        "min_null_control_lift": 0.0,
+        "min_fold_stability": 0.5,
+        "drop_probability_lift": -0.02,
+        "drop_fold_stability": 0.25
+      }
+    }
+  ],
+  "panel_summary": {
+    "total_reports": 1,
+    "action_counts": {
+      "keep": 0,
+      "drop": 3,
+      "conditional_by_asset_tf": 2
+    }
+  }
+}

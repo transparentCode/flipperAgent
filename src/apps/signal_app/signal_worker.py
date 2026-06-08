@@ -124,6 +124,38 @@ class SignalWorker(BaseStreamConsumer):
                 )
         return index_data
 
+    async def _load_derivatives_data(self) -> dict[str, float]:
+        """Fetch latest derivatives snapshots (OI, funding) from Valkey."""
+        derivatives: dict[str, float] = {}
+        if not self.redis_client:
+            return derivatives
+
+        # Derive asset list from config — same derivatives config used by tv_scraper
+        derivatives_config: list[dict[str, Any]] = self._config.get(
+            "tradingview.derivatives", []
+        )
+        assets = sorted({entry.get("asset", "") for entry in derivatives_config if entry.get("asset")})
+        if not assets:
+            return derivatives
+
+        for asset in assets:
+            for suffix, key_name in [("oi", "open_interest"), ("funding", "funding_rate")]:
+                try:
+                    raw = await self.redis_client.hgetall(f"derivatives:latest:{asset}:{suffix}")
+                    if raw:
+                        for k, v in raw.items():
+                            field = k.decode() if isinstance(k, bytes) else k
+                            val_str = v.decode() if isinstance(v, bytes) else v
+                            if field == "value":
+                                try:
+                                    derivatives[f"{asset}_{key_name}"] = float(val_str)
+                                except (ValueError, TypeError):
+                                    pass
+                except Exception:
+                    logger.warning(f"Failed to fetch derivatives data for {asset}/{suffix}")
+
+        return derivatives
+
     def _append_price_bar(
         self,
         *,
@@ -276,6 +308,7 @@ class SignalWorker(BaseStreamConsumer):
         """Compute derived features and publish the signal/risk payloads for a bar."""
         results = dict(raw_results)
         index_data = await self._load_index_data()
+        derivatives_data = await self._load_derivatives_data()
 
         engineered = self.engineered_manager.compute(
             results,
@@ -290,6 +323,10 @@ class SignalWorker(BaseStreamConsumer):
             index_data=index_data if index_data else None,
         )
         results.update(engineered)
+
+        # Inject derivatives data into results for downstream consumers
+        if derivatives_data:
+            results.update(derivatives_data)
 
         # Maintain price history buffer independently of any regime pipeline
         if append_current_bar:

@@ -266,6 +266,43 @@ optimization:
       min_median_auc_lift: 0.0
       min_median_brier_lift: 0.0
       min_median_bucket_spread_lift: 0.0
+    model_selection_ladder:
+      min_bars: 500
+      base_models: [sma_cross, ema_cross, buy_and_hold]
+      calmar_weight: 0.25
+      return_weight: 1.0
+      turnover_penalty: 0.0
+      probability_validation_weight: 0.25
+      probability_policies:
+        - throttle_high_vol
+        - rank_throttle
+        - prefer_high_vol
+        - rank_prefer_high_vol
+        - confidence_scaled
+      min_sharpe_lift: 0.0
+      min_null_sharpe_lift: 0.0
+      min_total_return_lift: 0.0
+      min_drawdown_improvement: 0.0
+      min_risk_drawdown_improvement: 0.0
+      min_risk_null_drawdown_improvement: 0.0
+      min_risk_total_return_lift: 0.0
+      min_risk_null_total_return_lift: 0.0
+      min_avg_position: 0.05
+    rolling_model_selection_ladder:
+      fold_bars: 2160
+      step_bars: 720
+      min_folds: 2
+      min_promoted_folds: 2
+      min_pass_rate: 0.60
+      min_median_sharpe_lift: 0.0
+      min_median_null_sharpe_lift: 0.0
+      min_median_auc_lift: 0.0
+      min_risk_promoted_folds: 2
+      min_risk_pass_rate: 0.60
+      min_median_risk_drawdown_improvement: 0.0
+      min_median_risk_null_drawdown_improvement: 0.0
+      min_median_risk_total_return_lift: 0.0
+      min_median_risk_null_total_return_lift: 0.0
     rolling_alpha_ladder:
       fold_bars: 2160
       step_bars: 720

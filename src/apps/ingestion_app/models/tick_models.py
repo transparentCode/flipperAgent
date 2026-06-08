@@ -49,6 +49,11 @@ class OIRecord(BaseDataModel):
     open_interest: float = Field(ge=0, validation_alias=AliasChoices("open_interest", "openInterest", "oi"))
 
 
+class FundingRateRecord(BaseDataModel):
+    symbol: str = Field(validation_alias=AliasChoices("symbol", "s", "sym"))
+    funding_rate: float = Field(validation_alias=AliasChoices("funding_rate", "fundingRate", "fr"))
+
+
 class L2DepthFeatureRecord(BaseDataModel):
     """Pre-aggregated L2 orderbook features for a single snapshot."""
     symbol: str = Field(validation_alias=AliasChoices("symbol", "s", "sym"))

@@ -10,8 +10,24 @@ risk:
     max_drawdown_pct: 15
     daily_loss_limit_pct: 5
     cooldown_after_loss_seconds: 0
+    vol_circuit_breaker:
+      enabled: true
+      # Trigger 1: Reject when vol_percentile exceeds this
+      vol_percentile_reject_threshold: 95
+      # Trigger 2: Reject when drawdown velocity exceeds this (% per hour)
+      drawdown_velocity_reject_pct: 2.0
+      drawdown_velocity_window_hours: 4
+      # Trigger 3: Scale position size by vol regime
+      vol_scaling_enabled: true
+      vol_scaling_start_percentile: 70
+      vol_scaling_floor: 0.25
+      # Trigger 4: Reject when changepoint probability spikes
+      changepoint_reject_threshold: 0.85
+      # Cooldown: minimum bars between circuit breaker resets
+      cooldown_bars: 6
 
   rules:
+    - VolCircuitBreakerRule
     - MaxExposureRule
     - MaxPositionsRule
     - MaxDrawdownRule
