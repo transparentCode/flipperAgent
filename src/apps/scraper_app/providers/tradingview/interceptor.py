@@ -162,19 +162,19 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
         Args:
             symbol: TradingView symbol (e.g., 'CRYPTOCAP:TOTAL2')
             timeframe: Candle timeframe (e.g., '1h', '4h', '1D')
-            since: Not used (TV determines available history)
-            until: Not used
-            limit: Not used
+            since: Not used yet
+            until: Not used yet
+            limit: Optional target number of rows to expand toward
 
         Returns:
             DataFrame with columns [timestamp, open, high, low, close, volume]
         """
-        return (await self.get_historical_ohlcv_batch([symbol], timeframe)).get(
+        return (await self.get_historical_ohlcv_batch([symbol], timeframe, limit=limit)).get(
             symbol, self._empty_frame()
         )
 
     async def get_historical_ohlcv_batch(
-        self, symbols: list[str], timeframe: str
+        self, symbols: list[str], timeframe: str, limit: int | None = None
     ) -> dict[str, pd.DataFrame]:
         """Fetch multiple TradingView symbols through one browser session."""
         results = {symbol: self._empty_frame() for symbol in symbols}
@@ -195,7 +195,7 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
             fetch_delay = self._config.get("tradingview.fetch_delay_seconds", 2)
             for idx, symbol in enumerate(symbols):
                 results[symbol] = await self._fetch_symbol_ohlcv(
-                    context, symbol, timeframe
+                    context, symbol, timeframe, target_rows=limit
                 )
                 if idx < len(symbols) - 1 and fetch_delay > 0:
                     await asyncio.sleep(fetch_delay)
@@ -220,11 +220,11 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
 
         Returns DataFrame with columns [timestamp, value].
         """
-        result = await self.get_historical_series_batch([symbol], timeframe)
+        result = await self.get_historical_series_batch([symbol], timeframe, limit=limit)
         return result.get(symbol, pd.DataFrame(columns=["timestamp", "value"]))
 
     async def get_historical_series_batch(
-        self, symbols: list[str], timeframe: str,
+        self, symbols: list[str], timeframe: str, limit: int | None = None,
     ) -> dict[str, pd.DataFrame]:
         """Fetch multiple single-value TradingView series in one browser session."""
         results = {s: pd.DataFrame(columns=["timestamp", "value"]) for s in symbols}
@@ -244,7 +244,9 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
         try:
             fetch_delay = self._config.get("tradingview.fetch_delay_seconds", 2)
             for idx, symbol in enumerate(symbols):
-                df = await self._fetch_symbol_series(context, symbol, timeframe)
+                df = await self._fetch_symbol_series(
+                    context, symbol, timeframe, target_rows=limit
+                )
                 if df is not None and not df.empty:
                     results[symbol] = df
                 if idx < len(symbols) - 1 and fetch_delay > 0:
@@ -265,7 +267,11 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
         return normalized
 
     async def _fetch_symbol_ohlcv(
-        self, context: Any, symbol: str, timeframe: str
+        self,
+        context: Any,
+        symbol: str,
+        timeframe: str,
+        target_rows: int | None = None,
     ) -> pd.DataFrame:
         intercepted_messages: list[str] = []
         chart_url = self._build_chart_url(symbol, timeframe)
@@ -305,6 +311,13 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
                 if has_data:
                     break
                 await asyncio.sleep(poll_s)
+            await self._expand_chart_history(
+                page=page,
+                intercepted_messages=intercepted_messages,
+                symbol=symbol,
+                target_rows=target_rows,
+                mode="ohlcv",
+            )
         except Exception as e:
             logger.error(f"WS interception failed for {symbol}: {e}", exc_info=True)
             return self._empty_frame()
@@ -337,7 +350,11 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
         return df
 
     async def _fetch_symbol_series(
-        self, context: Any, symbol: str, timeframe: str
+        self,
+        context: Any,
+        symbol: str,
+        timeframe: str,
+        target_rows: int | None = None,
     ) -> pd.DataFrame:
         """Fetch a single-value series (OI, funding rate) via WS interception."""
         intercepted_messages: list[str] = []
@@ -378,6 +395,13 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
                 if has_data:
                     break
                 await asyncio.sleep(poll_s)
+            await self._expand_chart_history(
+                page=page,
+                intercepted_messages=intercepted_messages,
+                symbol=symbol,
+                target_rows=target_rows,
+                mode="series",
+            )
         except Exception as e:
             logger.error(f"WS interception failed for series {symbol}: {e}", exc_info=True)
             return pd.DataFrame(columns=["timestamp", "value"])
@@ -408,6 +432,124 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
 
         logger.info(f"Extracted {len(df)} series points for {symbol}")
         return df
+
+    async def _expand_chart_history(
+        self,
+        page: Any,
+        intercepted_messages: list[str],
+        symbol: str,
+        target_rows: int | None,
+        mode: str,
+    ) -> None:
+        """Pan the chart to request older history when deeper data is requested."""
+        if not target_rows or target_rows <= 0:
+            return
+        if not self._config.get("tradingview.history_expansion_enabled", True):
+            return
+
+        count_fn = (
+            self._count_ohlcv_rows
+            if mode == "ohlcv"
+            else self._count_series_rows
+        )
+        current_count = count_fn(intercepted_messages)
+        if current_count >= target_rows:
+            return
+
+        max_steps = int(self._config.get("tradingview.history_expansion_max_steps", 0))
+        max_stagnant_steps = int(
+            self._config.get("tradingview.history_expansion_max_stagnant_steps", 2)
+        )
+        stagnant_steps = 0
+
+        for _ in range(max_steps):
+            before_count = current_count
+            dragged = await self._drag_chart_for_history(page)
+            if not dragged:
+                break
+
+            await self._wait_for_history_growth(intercepted_messages, count_fn, before_count)
+            current_count = count_fn(intercepted_messages)
+            if current_count >= target_rows:
+                break
+
+            if current_count <= before_count:
+                stagnant_steps += 1
+                if stagnant_steps >= max_stagnant_steps:
+                    break
+            else:
+                stagnant_steps = 0
+
+        logger.info(
+            "Expanded TV history",
+            extra={
+                "symbol": symbol,
+                "mode": mode,
+                "rows_collected": current_count,
+                "target_rows": target_rows,
+            },
+        )
+
+    async def _drag_chart_for_history(self, page: Any) -> bool:
+        """Drag the TradingView chart to the right to reveal older candles."""
+        mouse = getattr(page, "mouse", None)
+        if mouse is None:
+            return False
+
+        move = getattr(mouse, "move", None)
+        down = getattr(mouse, "down", None)
+        up = getattr(mouse, "up", None)
+        if not callable(move) or not callable(down) or not callable(up):
+            return False
+
+        viewport = getattr(page, "viewport_size", None) or {
+            "width": int(self._config.get("tradingview.viewport_width", 1920)),
+            "height": int(self._config.get("tradingview.viewport_height", 1080)),
+        }
+        start_x = int(
+            viewport["width"]
+            * float(self._config.get("tradingview.history_expansion_drag_start_x_ratio", 0.72))
+        )
+        end_x = start_x + int(
+            self._config.get("tradingview.history_expansion_drag_distance_px", 700)
+        )
+        y = int(
+            viewport["height"]
+            * float(self._config.get("tradingview.history_expansion_drag_y_ratio", 0.45))
+        )
+        steps = int(self._config.get("tradingview.history_expansion_drag_move_steps", 12))
+
+        await move(start_x, y)
+        await down()
+        await move(end_x, y, steps=steps)
+        await up()
+        return True
+
+    async def _wait_for_history_growth(
+        self,
+        intercepted_messages: list[str],
+        count_fn: Any,
+        before_count: int,
+    ) -> bool:
+        """Wait briefly for additional history frames to arrive after a chart pan."""
+        timeout_s = float(
+            self._config.get("tradingview.history_expansion_settle_timeout_seconds", 2.5)
+        )
+        poll_s = float(
+            self._config.get("tradingview.history_expansion_settle_poll_seconds", 0.25)
+        )
+        deadline = time.monotonic() + timeout_s
+        while time.monotonic() < deadline:
+            if count_fn(intercepted_messages) > before_count:
+                return True
+            await asyncio.sleep(poll_s)
+        return False
+
+    def _count_ohlcv_rows(self, intercepted_messages: list[str]) -> int:
+        return len(self._messages_to_frame("__count__", intercepted_messages))
+
+    def _count_series_rows(self, intercepted_messages: list[str]) -> int:
+        return len(self._messages_to_series_frame("__count__", intercepted_messages))
 
     def _build_chart_url(self, symbol: str, timeframe: str) -> str:
         tv_resolution = self._map_timeframe(timeframe)

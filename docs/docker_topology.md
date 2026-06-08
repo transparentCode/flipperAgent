@@ -19,7 +19,7 @@ graph TD
         SCH[scheduler]
         WQ[worker-queue\narq WorkerSettings]
         WS[worker-streams\ningestion_app.main]
-        TV[tv-scraper\ntv_scraper.worker]
+        TV[scraper-tradingview\napps.scraper_app.providers.tradingview.worker]
     end
 
     subgraph pipeline["Processing Pipeline"]

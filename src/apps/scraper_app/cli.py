@@ -37,12 +37,14 @@ def build_parser() -> argparse.ArgumentParser:
     tv_ohlcv = tv_subparsers.add_parser("ohlcv", help="Fetch TradingView OHLCV candles")
     tv_ohlcv.add_argument("--symbol", required=True)
     tv_ohlcv.add_argument("--timeframe", default="1h")
+    tv_ohlcv.add_argument("--limit", type=int)
     tv_ohlcv.add_argument("--cookies-path")
     tv_ohlcv.add_argument("--output-path")
 
     tv_series = tv_subparsers.add_parser("series", help="Fetch TradingView single-value series")
     tv_series.add_argument("--symbol", required=True)
     tv_series.add_argument("--timeframe", default="1h")
+    tv_series.add_argument("--limit", type=int)
     tv_series.add_argument("--cookies-path")
     tv_series.add_argument("--output-path")
 
@@ -73,7 +75,9 @@ async def _run_coinglass(args: argparse.Namespace) -> int:
 async def _run_tradingview_ohlcv(args: argparse.Namespace) -> int:
     interceptor = TradingViewInterceptor(cookies_path=args.cookies_path)
     try:
-        frame = await interceptor.get_historical_ohlcv(args.symbol, args.timeframe)
+        frame = await interceptor.get_historical_ohlcv(
+            args.symbol, args.timeframe, limit=args.limit
+        )
     finally:
         await interceptor.close()
 
@@ -84,7 +88,9 @@ async def _run_tradingview_ohlcv(args: argparse.Namespace) -> int:
 async def _run_tradingview_series(args: argparse.Namespace) -> int:
     interceptor = TradingViewInterceptor(cookies_path=args.cookies_path)
     try:
-        frame = await interceptor.get_historical_series(args.symbol, args.timeframe)
+        frame = await interceptor.get_historical_series(
+            args.symbol, args.timeframe, limit=args.limit
+        )
     finally:
         await interceptor.close()
 

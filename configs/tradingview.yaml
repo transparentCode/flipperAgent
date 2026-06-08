@@ -18,6 +18,15 @@ tradingview:
   page_load_timeout_ms: 30000
   ws_intercept_timeout_seconds: 30
   ws_poll_interval_seconds: 0.5
+  history_expansion_enabled: true
+  history_expansion_max_steps: 40
+  history_expansion_max_stagnant_steps: 2
+  history_expansion_drag_distance_px: 700
+  history_expansion_drag_start_x_ratio: 0.72
+  history_expansion_drag_y_ratio: 0.45
+  history_expansion_drag_move_steps: 12
+  history_expansion_settle_timeout_seconds: 2.5
+  history_expansion_settle_poll_seconds: 0.25
 
   # ARQ worker schedule & limits
   # cron_minutes: list of minute-of-hour values to fire at (set semantics)

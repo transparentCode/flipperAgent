@@ -461,6 +461,94 @@ class TestInterceptorPatchrightSession:
 
         await interceptor.close()
 
+    @pytest.mark.asyncio
+    async def test_limit_expands_history_via_chart_drag(self):
+        initial_payload = json.dumps(
+            {
+                "m": "timescale_update",
+                "p": [{"sds_1": {"s": [{"v": [1700003600, 2.0, 3.0, 1.5, 2.5, 12.0]}]}}],
+            }
+        )
+        older_payload = json.dumps(
+            {
+                "m": "timescale_update",
+                "p": [{"sds_1": {"s": [{"v": [1700000000, 1.0, 2.0, 0.5, 1.5, 10.0]}]}}],
+            }
+        )
+        framed_initial = f"~m~{len(initial_payload)}~m~{initial_payload}"
+        framed_older = f"~m~{len(older_payload)}~m~{older_payload}"
+
+        class FakeWs:
+            def __init__(self):
+                self.url = "wss://data.tradingview.com/socket.io/websocket"
+                self._frame_cb = None
+
+            def on(self, event, cb):
+                if event == "framereceived":
+                    self._frame_cb = cb
+
+            def emit(self, frame):
+                if self._frame_cb:
+                    self._frame_cb(frame)
+
+        class FakeMouse:
+            def __init__(self, page):
+                self.page = page
+                self.drags = 0
+
+            async def move(self, *_args, **_kwargs):
+                return None
+
+            async def down(self):
+                return None
+
+            async def up(self):
+                self.drags += 1
+                if self.drags == 1 and self.page._ws is not None:
+                    self.page._ws.emit(framed_older)
+
+        class FakePage:
+            def __init__(self):
+                self._ws_cb = None
+                self._ws = None
+                self.closed = False
+                self.viewport_size = {"width": 1600, "height": 900}
+                self.mouse = FakeMouse(self)
+
+            def on(self, event, cb):
+                if event == "websocket":
+                    self._ws_cb = cb
+
+            async def goto(self, *args, **kwargs):
+                self._ws = FakeWs()
+                if self._ws_cb:
+                    self._ws_cb(self._ws)
+                self._ws.emit(framed_initial)
+
+            async def close(self):
+                self.closed = True
+
+        class FakeContext:
+            async def add_cookies(self, cookies):
+                return None
+
+            async def new_page(self):
+                return FakePage()
+
+            async def close(self):
+                return None
+
+        interceptor = TradingViewInterceptor(cookies_path="/nonexistent/path.json")
+        frame = await interceptor._fetch_symbol_ohlcv(
+            FakeContext(),
+            "CRYPTOCAP:TOTAL2",
+            "1h",
+            target_rows=2,
+        )
+
+        assert len(frame) == 2
+        assert list(frame["timestamp"]) == [1700000000 * 1000, 1700003600 * 1000]
+
 
 # ---------------------------------------------------------------------------
 # Worker — fetch_tv_indices

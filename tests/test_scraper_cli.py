@@ -39,7 +39,8 @@ def test_tradingview_cli_writes_csv(tmp_path, monkeypatch):
         def __init__(self, cookies_path=None):
             self.cookies_path = cookies_path
 
-        async def get_historical_ohlcv(self, symbol, timeframe):
+        async def get_historical_ohlcv(self, symbol, timeframe, limit=None):
+            assert limit is None
             return pd.DataFrame(
                 [
                     {
@@ -73,3 +74,51 @@ def test_tradingview_cli_writes_csv(tmp_path, monkeypatch):
 
     assert exit_code == 0
     assert "timestamp,open,high,low,close,volume" in output_path.read_text()
+
+
+def test_tradingview_cli_passes_limit(tmp_path, monkeypatch):
+    output_path = tmp_path / "ohlcv.json"
+
+    class FakeInterceptor:
+        def __init__(self, cookies_path=None):
+            self.cookies_path = cookies_path
+
+        async def get_historical_ohlcv(self, symbol, timeframe, limit=None):
+            assert symbol == "CRYPTOCAP:TOTAL2"
+            assert timeframe == "1h"
+            assert limit == 8760
+            return pd.DataFrame(
+                [
+                    {
+                        "timestamp": 1700000000000,
+                        "open": 1.0,
+                        "high": 2.0,
+                        "low": 0.5,
+                        "close": 1.5,
+                        "volume": 10.0,
+                    }
+                ]
+            )
+
+        async def close(self):
+            return None
+
+    monkeypatch.setattr(cli, "TradingViewInterceptor", FakeInterceptor)
+
+    exit_code = cli.main(
+        [
+            "tradingview",
+            "ohlcv",
+            "--symbol",
+            "CRYPTOCAP:TOTAL2",
+            "--timeframe",
+            "1h",
+            "--limit",
+            "8760",
+            "--output-path",
+            str(output_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert "1700000000000" in output_path.read_text()
