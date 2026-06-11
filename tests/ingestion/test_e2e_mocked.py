@@ -1,10 +1,7 @@
 import pytest
 import pandas as pd
-import ccxt
-from pydantic import ValidationError
-from unittest.mock import AsyncMock
 
-from apps.ingestion_app.orchestration.tasks import run_rest_gap_fill, _fetch_asset_gap
+from apps.ingestion_app.orchestration.tasks import run_rest_gap_fill
 from apps.ingestion_app.constants import EXCHANGE_BINANCE
 from libs.common.exceptions import DataIngestionError
 DEFAULT_ASSET = 'BTCUSDT'

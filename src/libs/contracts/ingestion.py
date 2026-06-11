@@ -18,6 +18,10 @@ class IngestionCommandType(str, Enum):
 
 class IngestionEventType(str, Enum):
     COMMAND_ACCEPTED = "COMMAND_ACCEPTED"
+    GAP_FILL_FAILED = "GAP_FILL_FAILED"
+    RUNTIME_RETRY_EXHAUSTED = "RUNTIME_RETRY_EXHAUSTED"
+    ASSET_PURGE_COMPLETED = "ASSET_PURGE_COMPLETED"
+    ASSET_PURGE_FAILED = "ASSET_PURGE_FAILED"
 
 
 class IngestionControlCommand(BaseModel):
@@ -49,9 +53,21 @@ class IngestionControlEvent(BaseModel):
     emitted_at: float
 
 
+class IngestionRuntimeEvent(BaseModel):
+    event_id: str
+    event_type: IngestionEventType
+    symbol: str
+    timeframe: str | None = None
+    severity: Literal["info", "warning", "error", "critical"] = "warning"
+    status: Literal["emitted"] = "emitted"
+    detail: dict[str, Any] = Field(default_factory=dict)
+    emitted_at: float
+
+
 __all__ = [
     "IngestionCommandType",
     "IngestionControlCommand",
     "IngestionControlEvent",
     "IngestionEventType",
+    "IngestionRuntimeEvent",
 ]

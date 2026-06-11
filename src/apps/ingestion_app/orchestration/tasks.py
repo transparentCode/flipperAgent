@@ -5,7 +5,9 @@ from typing import Dict, Any, List
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 
 from apps.ingestion_app.coordination import IngestionCoordinator, IngestionState
+from apps.ingestion_app.events import publish_ingestion_runtime_event
 from apps.ingestion_app.models.tick_models import OHLCVRecord
+from apps.ingestion_app.storage.janitor import IngestionStorageJanitor
 from apps.ingestion_app.storage.timescale_writer import TimescaleWriter
 from libs.common.config import ConfigManager
 from libs.common.db.pool_manager import DBPoolManager
@@ -13,6 +15,7 @@ from libs.common.db.timescale_reader import TimescaleReader
 from libs.common.enums import SystemComponent
 from libs.common.exceptions import DataIngestionError
 from libs.common.logging.logger_utils import bind_logger
+from libs.contracts.schemas import IngestionEventType
 
 config_manager = ConfigManager()
 
@@ -190,6 +193,7 @@ async def run_rest_gap_fill(ctx: Dict[str, Any], assets: List[str], exchange: st
 
     ccxt_adapter = ctx.get("ccxt_adapter")
     coordinator: IngestionCoordinator | None = ctx.get("coordinator")
+    valkey_client = ctx.get("valkey_client")
     if coordinator is None:
         raise DataIngestionError(
             "coordinator not found in worker context — state machine cannot progress",
@@ -217,6 +221,19 @@ async def run_rest_gap_fill(ctx: Dict[str, Any], assets: List[str], exchange: st
 
     await asyncio.gather(*(process_asset(symbol) for symbol in assets))
     if failed_assets:
+        await publish_ingestion_runtime_event(
+            valkey_client,
+            event_type=IngestionEventType.GAP_FILL_FAILED,
+            symbol=exchange.upper(),
+            timeframe=base_timeframe,
+            severity="error",
+            detail={
+                "exchange": exchange,
+                "successful_assets": successful_assets,
+                "failed_assets": failed_assets,
+                "asset_count": len(assets),
+            },
+        )
         logger.warning(
             "Gap fill completed with failures for %s. succeeded=%s failed=%s failed_assets=%s",
             exchange,
@@ -235,6 +252,68 @@ async def run_rest_gap_fill(ctx: Dict[str, Any], assets: List[str], exchange: st
         )
 
     logger.info(f"Gap fill task completed successfully for {exchange}.")
+
+
+async def purge_removed_asset(
+    ctx: Dict[str, Any],
+    symbol: str,
+    base_timeframe: str | None = None,
+) -> None:
+    timeframe = base_timeframe or config_manager.get("ingestion.timeframes.base_gap_fill", "1m")
+    valkey_client = ctx.get("valkey_client")
+    janitor = IngestionStorageJanitor(DBPoolManager.get_writer_pool())
+
+    try:
+        deleted_rows = await janitor.purge_asset_data(symbol)
+        registry_deleted = await janitor.finalize_asset_removal(symbol)
+        await _clear_ingestion_observability_keys(valkey_client, symbol, timeframe)
+        await publish_ingestion_runtime_event(
+            valkey_client,
+            event_type=IngestionEventType.ASSET_PURGE_COMPLETED,
+            symbol=symbol,
+            timeframe=timeframe,
+            severity="info",
+            detail={
+                "deleted_rows": deleted_rows,
+                "registry_deleted": registry_deleted,
+            },
+        )
+    except Exception as exc:
+        await publish_ingestion_runtime_event(
+            valkey_client,
+            event_type=IngestionEventType.ASSET_PURGE_FAILED,
+            symbol=symbol,
+            timeframe=timeframe,
+            severity="error",
+            detail={"error": str(exc)},
+        )
+        raise DataIngestionError(
+            f"Asset purge failed for {symbol}",
+            context={"symbol": symbol, "timeframe": timeframe},
+        ) from exc
+
+
+async def scheduled_asset_cleanup(ctx: Dict[str, Any]) -> None:
+    janitor = IngestionStorageJanitor(DBPoolManager.get_writer_pool())
+    for symbol, timeframe in await janitor.list_pending_removals():
+        await purge_removed_asset(ctx, symbol, timeframe)
+
+
+async def _clear_ingestion_observability_keys(
+    valkey_client: Any | None,
+    symbol: str,
+    timeframe: str,
+) -> None:
+    if valkey_client is None:
+        return
+    keys = (
+        IngestionCoordinator._state_key(symbol, timeframe),
+        IngestionCoordinator._disconnect_ts_key(symbol, timeframe),
+        IngestionCoordinator._last_live_ts_key(symbol, timeframe),
+        IngestionCoordinator._disconnect_count_key(symbol, timeframe),
+    )
+    for key in keys:
+        await valkey_client.delete(key)
 
 async def scheduled_gap_fill(ctx: Dict[str, Any]) -> None:
     """

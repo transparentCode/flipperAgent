@@ -192,11 +192,13 @@ async def test_run_rest_gap_fill_logs_partial_failures():
     ctx = {
         "ccxt_adapter": AsyncMock(),
         "coordinator": MagicMock(transition=AsyncMock()),
+        "valkey_client": AsyncMock(),
     }
 
     with patch("apps.ingestion_app.orchestration.tasks._fetch_asset_gap", new=AsyncMock(side_effect=[None, RuntimeError("boom")])), \
          patch("apps.ingestion_app.orchestration.tasks.config_manager") as mock_config, \
-         patch("apps.ingestion_app.orchestration.tasks.logger") as mock_logger:
+         patch("apps.ingestion_app.orchestration.tasks.logger") as mock_logger, \
+         patch("apps.ingestion_app.orchestration.tasks.publish_ingestion_runtime_event", new=AsyncMock()) as mock_event:
         mock_config.get.side_effect = lambda k, default=None: {
             "ingestion.timeframes.base_gap_fill": "1m",
             "ingestion.concurrency.gap_fill_limit": 5,
@@ -216,6 +218,7 @@ async def test_run_rest_gap_fill_logs_partial_failures():
         ["ETHUSDT"],
     )
     mock_logger.error.assert_any_call("Failed to gap-fill ETHUSDT: boom")
+    mock_event.assert_awaited_once()
     assert exc_info.value.context["failed_assets"] == ["ETHUSDT"]
     assert exc_info.value.context["successful_assets"] == ["BTCUSDT"]
 
@@ -346,3 +349,78 @@ async def test_reconciler_stops_runtime_when_asset_paused():
 
     assert "BTCUSDT" not in reconciler.asset_handles
     mock_coordinator.transition.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_reconciler_dispatches_removal_once():
+    removing_asset = IngestionAssetRecord(
+        symbol="BTCUSDT",
+        base_timeframe="1m",
+        publish_timeframes=["1h"],
+        desired_state="REMOVING",
+        enabled=False,
+        source="registry",
+    )
+    mock_config = MagicMock()
+    mock_config.get.side_effect = lambda key, default=None: {
+        "ingestion.runtime.reconcile_interval_seconds": 1,
+    }.get(key, default)
+    mock_arq_pool = AsyncMock()
+
+    reconciler = IngestionRuntimeReconciler(
+        config_manager=mock_config,
+        arq_pool=mock_arq_pool,
+        coordinator=MagicMock(transition=AsyncMock()),
+        redis_client=MagicMock(),
+        asset_catalog=MagicMock(list_effective_assets=AsyncMock(side_effect=[[removing_asset], [removing_asset]])),
+    )
+
+    await reconciler.reconcile_once()
+    await reconciler.reconcile_once()
+
+    mock_arq_pool.enqueue_job.assert_awaited_once_with("purge_removed_asset", "BTCUSDT", "1m")
+
+
+@pytest.mark.asyncio
+async def test_run_websocket_pipeline_emits_retry_exhausted_event():
+    mock_coordinator = MagicMock()
+    mock_coordinator.transition = AsyncMock()
+    mock_coordinator.get_disconnect_count = AsyncMock(return_value=5)
+    mock_arq_pool = AsyncMock()
+    mock_redis_client = AsyncMock()
+    mock_writer = MagicMock()
+    mock_writer.insert_ohlcv = AsyncMock()
+
+    async def broken_stream(_symbols_timeframes, _loop, _queue):
+        if False:
+            yield {}
+        raise RuntimeError("socket dropped")
+
+    mock_adapter = MagicMock()
+    mock_adapter.stream_multiplex_socket = broken_stream
+
+    with patch("apps.ingestion_app.orchestration.controller.create_valkey_client", new=AsyncMock(return_value=mock_redis_client)), \
+         patch("apps.ingestion_app.orchestration.controller.DBPoolManager") as mock_db_pool, \
+         patch("apps.ingestion_app.orchestration.controller.TimescaleWriter", return_value=mock_writer), \
+         patch("apps.ingestion_app.orchestration.controller.BinanceNativeAdapter", return_value=mock_adapter), \
+         patch("apps.ingestion_app.orchestration.controller.publish_ingestion_runtime_event", new=AsyncMock()) as mock_event, \
+         patch("apps.ingestion_app.orchestration.controller.asyncio.sleep", new=AsyncMock(side_effect=asyncio.CancelledError)), \
+         patch("apps.ingestion_app.orchestration.controller.config_manager") as mock_config:
+        mock_db_pool.get_writer_pool.return_value = MagicMock()
+        mock_config.get.side_effect = lambda k, default=None: {
+            "ingestion.timeframes.base_gap_fill": "1m",
+            "ingestion.websocket.reconnect_sleep_seconds": 5,
+            "ingestion.websocket.queue_maxsize": 10,
+            "ingestion.observability.circuit_breaker_threshold": 5,
+            "ingestion.observability.circuit_breaker_sleep_seconds": 300,
+        }.get(k, default)
+
+        with pytest.raises(asyncio.CancelledError):
+            await run_websocket_pipeline(
+                "BTCUSDT",
+                [],
+                arq_pool=mock_arq_pool,
+                coordinator=mock_coordinator,
+            )
+
+    mock_event.assert_awaited_once()

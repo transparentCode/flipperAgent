@@ -14,7 +14,14 @@ from libs.common.connections import create_valkey_client
 from libs.common.db.pool_manager import DBPoolManager
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
-from .tasks import poll_binance_ohlcv, run_rest_gap_fill, scheduled_gap_fill, poll_l2_depth
+from .tasks import (
+    poll_binance_ohlcv,
+    poll_l2_depth,
+    purge_removed_asset,
+    run_rest_gap_fill,
+    scheduled_asset_cleanup,
+    scheduled_gap_fill,
+)
 from .schedules import IngestionScheduler
 
 config_manager = ConfigManager()
@@ -85,6 +92,8 @@ class WorkerSettings:
         run_rest_gap_fill,
         scheduled_gap_fill,
         poll_l2_depth,
+        purge_removed_asset,
+        scheduled_asset_cleanup,
     ]
     
     cron_jobs = IngestionScheduler().get_cron_jobs()

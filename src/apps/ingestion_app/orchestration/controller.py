@@ -14,6 +14,7 @@ from apps.ingestion_app.asset_registry import IngestionAssetCatalog
 from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
 from apps.ingestion_app.constants import EXCHANGE_BINANCE, INGESTION_CONTROL_STREAM
 from apps.ingestion_app.coordination import IngestionCoordinator, IngestionState
+from apps.ingestion_app.events import publish_ingestion_runtime_event
 from apps.ingestion_app.models.asset_registry import IngestionAssetDesiredState, IngestionAssetRecord
 from apps.ingestion_app.models.tick_models import OHLCVRecord
 from apps.ingestion_app.storage.bootstrap import apply_ingestion_schema
@@ -23,7 +24,7 @@ from libs.common.connections import create_valkey_client
 from libs.common.db.pool_manager import DBPoolManager
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
-from libs.contracts.schemas import StreamOHLCVPayload, valkey_encode
+from libs.contracts.schemas import IngestionEventType, StreamOHLCVPayload, valkey_encode
 
 # --- OTel setup (graceful if not available) ---
 _tracer = None
@@ -126,6 +127,7 @@ class IngestionRuntimeReconciler:
         self.redis_client = redis_client
         self.asset_catalog = asset_catalog or IngestionAssetCatalog(config_manager=config_manager)
         self.asset_handles: dict[str, AssetRuntimeHandle] = {}
+        self.pending_removals: set[str] = set()
         self.control_stream_last_id = "$"
         self.reconcile_interval_seconds = float(
             self.config_manager.get("ingestion.runtime.reconcile_interval_seconds", 5)
@@ -139,6 +141,9 @@ class IngestionRuntimeReconciler:
     async def reconcile_once(self) -> None:
         assets = await self.asset_catalog.list_effective_assets()
         desired_by_symbol = {asset.symbol: asset for asset in assets}
+        self.pending_removals.intersection_update(
+            {asset.symbol for asset in assets if asset.desired_state == IngestionAssetDesiredState.REMOVING}
+        )
 
         for symbol, handle in list(self.asset_handles.items()):
             desired = desired_by_symbol.get(symbol)
@@ -147,7 +152,7 @@ class IngestionRuntimeReconciler:
                 continue
 
             desired_spec = AssetRuntimeSpec.from_asset(desired)
-            if not desired_spec.should_run():
+            if desired.desired_state == IngestionAssetDesiredState.REMOVING or not desired_spec.should_run():
                 await self._stop_asset(symbol, handle)
                 continue
 
@@ -156,6 +161,9 @@ class IngestionRuntimeReconciler:
 
         for symbol, asset in desired_by_symbol.items():
             desired_spec = AssetRuntimeSpec.from_asset(asset)
+            if asset.desired_state == IngestionAssetDesiredState.REMOVING:
+                await self._dispatch_asset_removal(asset)
+                continue
             if not desired_spec.should_run():
                 continue
             if symbol in self.asset_handles:
@@ -189,6 +197,25 @@ class IngestionRuntimeReconciler:
         except Exception:
             logger.warning(f"[{symbol}] Failed to transition runtime to COLD during stop", exc_info=True)
         logger.info(f"[{symbol}] Runtime stopped")
+
+    async def _dispatch_asset_removal(self, asset: IngestionAssetRecord) -> None:
+        if asset.symbol in self.pending_removals:
+            return
+
+        try:
+            await self.arq_pool.enqueue_job("purge_removed_asset", asset.symbol, asset.base_timeframe)
+            self.pending_removals.add(asset.symbol)
+            logger.info(f"[{asset.symbol}] Dispatched asset purge job")
+        except Exception as exc:
+            logger.warning(f"[{asset.symbol}] Failed to dispatch asset purge job: {exc}", exc_info=True)
+            await publish_ingestion_runtime_event(
+                self.redis_client,
+                event_type=IngestionEventType.ASSET_PURGE_FAILED,
+                symbol=asset.symbol,
+                timeframe=asset.base_timeframe,
+                severity="error",
+                detail={"error": str(exc), "phase": "dispatch"},
+            )
 
     async def _wait_for_change(self) -> None:
         stream_wait_ms = max(250, int(self.reconcile_interval_seconds * 1000))
@@ -255,6 +282,7 @@ async def run_websocket_pipeline(
 
     redis_client = None
     live_confirmed = False
+    retry_exhausted_emitted = False
 
     try:
         while True:
@@ -288,6 +316,7 @@ async def run_websocket_pipeline(
                         if coordinator and not live_confirmed:
                             await coordinator.transition(symbol, base_timeframe, IngestionState.LIVE)
                             live_confirmed = True
+                            retry_exhausted_emitted = False
 
                         record = OHLCVRecord(
                             symbol=symbol,
@@ -377,6 +406,20 @@ async def run_websocket_pipeline(
                             f"in window. Backing off for {cb_sleep}s."
                         )
                         sleep_s = cb_sleep
+                        if not retry_exhausted_emitted:
+                            await publish_ingestion_runtime_event(
+                                redis_client,
+                                event_type=IngestionEventType.RUNTIME_RETRY_EXHAUSTED,
+                                symbol=symbol,
+                                timeframe=base_timeframe,
+                                severity="critical",
+                                detail={
+                                    "disconnect_count": disconnect_count,
+                                    "threshold": cb_threshold,
+                                    "backoff_seconds": cb_sleep,
+                                },
+                            )
+                            retry_exhausted_emitted = True
 
                 await asyncio.sleep(sleep_s)
     finally:

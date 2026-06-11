@@ -9,8 +9,8 @@ async def test_worker_startup_applies_ingestion_schema():
     ctx = {}
     mock_valkey_client = AsyncMock()
 
-    with patch("apps.ingestion_app.orchestration.worker.BinanceNativeAdapter") as mock_binance_adapter, \
-         patch("apps.ingestion_app.orchestration.worker.CCXTAdapter") as mock_ccxt_adapter, \
+    with patch("apps.ingestion_app.orchestration.worker.BinanceNativeAdapter"), \
+         patch("apps.ingestion_app.orchestration.worker.CCXTAdapter"), \
          patch("apps.ingestion_app.orchestration.worker.DBPoolManager") as mock_db_pool, \
          patch("apps.ingestion_app.orchestration.worker.apply_ingestion_schema", new=AsyncMock()) as mock_apply_schema, \
          patch("apps.ingestion_app.orchestration.worker.create_valkey_client", new=AsyncMock(return_value=mock_valkey_client)), \
