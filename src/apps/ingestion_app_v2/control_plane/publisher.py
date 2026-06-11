@@ -1,0 +1,109 @@
+from __future__ import annotations
+
+import uuid
+from time import time
+from typing import Any
+
+from apps.ingestion_app.constants import INGESTION_CONTROL_STREAM, INGESTION_EVENTS_STREAM
+from apps.ingestion_app_v2.models.asset_registry import IngestionAssetRecord, IngestionControlResult
+from libs.common.enums import SystemComponent
+from libs.common.logging.logger_utils import bind_logger
+from libs.contracts.schemas import (
+    IngestionCommandType,
+    IngestionControlCommand,
+    IngestionControlEvent,
+    IngestionEventType,
+    valkey_encode,
+)
+
+logger = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_ENGINE)
+
+
+class IngestionControlPublisher:
+    def __init__(self, valkey_client: Any | None = None) -> None:
+        self.valkey_client = valkey_client
+
+    async def publish(
+        self,
+        *,
+        asset: IngestionAssetRecord,
+        command_type: IngestionCommandType,
+        requested_by: str,
+        reason: str | None,
+    ) -> IngestionControlResult:
+        command_id = str(uuid.uuid4())
+        command_stream_id: str | None = None
+        event_stream_id: str | None = None
+        command_published = False
+        event_published = False
+
+        command = IngestionControlCommand(
+            command_id=command_id,
+            command_type=command_type,
+            symbol=asset.symbol,
+            exchange=asset.exchange,
+            provider=asset.provider,
+            base_timeframe=asset.base_timeframe,
+            publish_timeframes=asset.publish_timeframes,
+            historical_backfill_days=asset.historical_backfill_days,
+            retention_days=asset.retention_days,
+            enabled=asset.enabled,
+            desired_state=asset.desired_state.value,
+            requested_by=requested_by,
+            reason=reason,
+            requested_at=time(),
+        )
+        event = IngestionControlEvent(
+            event_id=str(uuid.uuid4()),
+            event_type=IngestionEventType.COMMAND_ACCEPTED,
+            command_id=command_id,
+            command_type=command_type,
+            symbol=asset.symbol,
+            requested_by=requested_by,
+            detail={
+                "enabled": asset.enabled,
+                "desired_state": asset.desired_state.value,
+                "publish_timeframes": asset.publish_timeframes,
+            },
+            emitted_at=time(),
+        )
+
+        if self.valkey_client is not None:
+            try:
+                command_stream_id = await self.valkey_client.xadd(
+                    INGESTION_CONTROL_STREAM,
+                    valkey_encode(command),
+                    maxlen=10_000,
+                    approximate=True,
+                )
+                command_published = True
+            except Exception as exc:
+                logger.warning(
+                    f"Failed to publish ingestion control command for {asset.symbol}: {exc}",
+                    exc_info=True,
+                )
+
+            try:
+                event_stream_id = await self.valkey_client.xadd(
+                    INGESTION_EVENTS_STREAM,
+                    valkey_encode(event),
+                    maxlen=10_000,
+                    approximate=True,
+                )
+                event_published = True
+            except Exception as exc:
+                logger.warning(
+                    f"Failed to publish ingestion control event for {asset.symbol}: {exc}",
+                    exc_info=True,
+                )
+
+        return IngestionControlResult(
+            asset=asset,
+            command_id=command_id,
+            command_type=command_type.value,
+            command_published=command_published,
+            event_published=event_published,
+            command_stream_id=command_stream_id,
+            event_stream_id=event_stream_id,
+        )
+
