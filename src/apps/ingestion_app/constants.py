@@ -11,6 +11,8 @@ BINANCE_RAW_KLINE_COLUMNS = [
 ]
 BINANCE_KLINE_STREAM_TEMPLATE = "{symbol}@kline_{interval}"
 EXCHANGE_BINANCE = "binance"
+INGESTION_CONTROL_STREAM = "stream:control:ingestion"
+INGESTION_EVENTS_STREAM = "stream:events:ingestion"
 
 # Storage Constants (Phase 4)
 TABLE_OHLCV = "ohlcv"

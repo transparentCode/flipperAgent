@@ -154,6 +154,31 @@ class TestSignalWorkerProcessMessage:
         assert worker._tv_index_keys == ["TOTAL3", "OTHERS.D"]
 
     @pytest.mark.asyncio
+    async def test_load_index_data_handles_symbol_and_timeframe_fields(self) -> None:
+        from apps.signal_app.signal_worker import SignalWorker
+
+        worker = SignalWorker("BTCUSDT", "4h")
+        worker._tv_index_keys = ["TOTAL3ES"]
+        worker.redis_client = AsyncMock()
+        worker.redis_client.hgetall.return_value = {
+            "symbol": "TOTAL3ES",
+            "timeframe": "1h",
+            "timestamp": "1710000000000",
+            "open": "1.0",
+            "high": "2.0",
+            "low": "0.5",
+            "close": "1.5",
+            "volume": "10.0",
+            "fetched_at": "9999999999",
+        }
+
+        result = await worker._load_index_data()
+
+        assert result["TOTAL3ES"]["symbol"] == "TOTAL3ES"
+        assert result["TOTAL3ES"]["timeframe"] == "1h"
+        assert result["TOTAL3ES"]["close"] == 1.5
+
+    @pytest.mark.asyncio
     @patch("apps.signal_app.signal_worker.FeatureManager")
     async def test_start_waits_in_warming_mode_until_history_available(self, MockFM) -> None:
         """Workers should stay alive during cold start and begin once enough history exists."""
@@ -164,7 +189,7 @@ class TestSignalWorkerProcessMessage:
 
         mock_fm = MagicMock()
         mock_fm.indicators = [indicator]
-        history = [(1.0, 2.0, 0.5, 1.5, 10.0, 1700000000.0)] * 20
+        history = [(1.0, 2.0, 0.5, 1.5, 10.0, 1700000000.0)] * 200
         mock_fm.fetch_historical_db_records = AsyncMock(
             side_effect=[[], [], [], history]
         )
@@ -221,7 +246,7 @@ class TestSignalWorkerProcessMessage:
         indicator = MagicMock()
         indicator.lookback_required = 20
 
-        history = [(1.0, 2.0, 0.5, 1.5, 10.0, 1700000000.0)] * 20
+        history = [(1.0, 2.0, 0.5, 1.5, 10.0, 1700000000.0)] * 200
 
         mock_fm = MagicMock()
         mock_fm.indicators = [indicator]

@@ -1,17 +1,20 @@
 import asyncio
 import json
-import os
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Set
+import os
+from typing import Any, List, Set
 
 import arq
 from arq.connections import RedisSettings, create_pool
 from fastapi import FastAPI
 
+from apps.ingestion_app.asset_registry import IngestionAssetCatalog
 from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
-from apps.ingestion_app.constants import EXCHANGE_BINANCE
+from apps.ingestion_app.constants import EXCHANGE_BINANCE, INGESTION_CONTROL_STREAM
 from apps.ingestion_app.coordination import IngestionCoordinator, IngestionState
+from apps.ingestion_app.models.asset_registry import IngestionAssetDesiredState, IngestionAssetRecord
 from apps.ingestion_app.models.tick_models import OHLCVRecord
 from apps.ingestion_app.storage.bootstrap import apply_ingestion_schema
 from apps.ingestion_app.storage.timescale_writer import TimescaleWriter
@@ -20,6 +23,7 @@ from libs.common.connections import create_valkey_client
 from libs.common.db.pool_manager import DBPoolManager
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
+from libs.contracts.schemas import StreamOHLCVPayload, valkey_encode
 
 # --- OTel setup (graceful if not available) ---
 _tracer = None
@@ -39,6 +43,177 @@ def _track_task(task_registry: Set[asyncio.Task[Any]], task: asyncio.Task[Any]) 
     task_registry.add(task)
     task.add_done_callback(task_registry.discard)
     return task
+
+
+@dataclass(frozen=True)
+class AssetRuntimeSpec:
+    symbol: str
+    base_timeframe: str
+    publish_timeframes: tuple[str, ...]
+    enabled: bool
+    desired_state: IngestionAssetDesiredState
+
+    @classmethod
+    def from_asset(cls, asset: IngestionAssetRecord) -> "AssetRuntimeSpec":
+        return cls(
+            symbol=asset.symbol,
+            base_timeframe=asset.base_timeframe,
+            publish_timeframes=tuple(sorted(asset.publish_timeframes)),
+            enabled=asset.enabled,
+            desired_state=asset.desired_state,
+        )
+
+    def should_run(self) -> bool:
+        return self.enabled and self.desired_state == IngestionAssetDesiredState.LIVE
+
+
+@dataclass
+class AssetRuntimeHandle:
+    spec: AssetRuntimeSpec
+    tasks: Set[asyncio.Task[Any]] = field(default_factory=set)
+
+
+async def _initialize_asset_runtime(
+    asset: IngestionAssetRecord,
+    arq_pool: arq.connections.ArqRedis,
+    coordinator: IngestionCoordinator,
+    task_registry: Set[asyncio.Task[Any]],
+) -> None:
+    symbol = asset.symbol
+    base_timeframe = asset.base_timeframe
+    try:
+        try:
+            stale = await coordinator.is_stale(symbol, base_timeframe)
+        except Exception as stale_err:
+            logger.warning(f"[{symbol}] is_stale() check failed ({stale_err}), treating as stale.")
+            stale = True
+
+        if stale:
+            logger.info(f"[{symbol}] Stale/missing data. Dispatching REST gap-fill.")
+            await arq_pool.enqueue_job("run_rest_gap_fill", [symbol], EXCHANGE_BINANCE)
+        else:
+            logger.info(f"[{symbol}] Data is up-to-date. Marking WARMING.")
+            await coordinator.transition(symbol, base_timeframe, IngestionState.WARMING)
+
+        await verify_and_launch_ws(
+            symbol,
+            list(asset.publish_timeframes),
+            arq_pool,
+            coordinator,
+            task_registry,
+        )
+    except asyncio.CancelledError:
+        await coordinator.transition(symbol, base_timeframe, IngestionState.COLD)
+        raise
+    except Exception as exc:
+        logger.error(f"[{symbol}] Asset runtime bootstrap failed: {exc}", exc_info=True)
+        await coordinator.transition(symbol, base_timeframe, IngestionState.ERROR)
+
+
+class IngestionRuntimeReconciler:
+    def __init__(
+        self,
+        *,
+        config_manager: ConfigManager,
+        arq_pool: arq.connections.ArqRedis,
+        coordinator: IngestionCoordinator,
+        redis_client: Any,
+        asset_catalog: IngestionAssetCatalog | None = None,
+    ) -> None:
+        self.config_manager = config_manager
+        self.arq_pool = arq_pool
+        self.coordinator = coordinator
+        self.redis_client = redis_client
+        self.asset_catalog = asset_catalog or IngestionAssetCatalog(config_manager=config_manager)
+        self.asset_handles: dict[str, AssetRuntimeHandle] = {}
+        self.control_stream_last_id = "$"
+        self.reconcile_interval_seconds = float(
+            self.config_manager.get("ingestion.runtime.reconcile_interval_seconds", 5)
+        )
+
+    async def run(self) -> None:
+        while True:
+            await self.reconcile_once()
+            await self._wait_for_change()
+
+    async def reconcile_once(self) -> None:
+        assets = await self.asset_catalog.list_effective_assets()
+        desired_by_symbol = {asset.symbol: asset for asset in assets}
+
+        for symbol, handle in list(self.asset_handles.items()):
+            desired = desired_by_symbol.get(symbol)
+            if desired is None:
+                await self._stop_asset(symbol, handle)
+                continue
+
+            desired_spec = AssetRuntimeSpec.from_asset(desired)
+            if not desired_spec.should_run():
+                await self._stop_asset(symbol, handle)
+                continue
+
+            if not handle.tasks or handle.spec != desired_spec:
+                await self._stop_asset(symbol, handle)
+
+        for symbol, asset in desired_by_symbol.items():
+            desired_spec = AssetRuntimeSpec.from_asset(asset)
+            if not desired_spec.should_run():
+                continue
+            if symbol in self.asset_handles:
+                continue
+            await self._start_asset(asset, desired_spec)
+
+    async def stop(self) -> None:
+        for symbol, handle in list(self.asset_handles.items()):
+            await self._stop_asset(symbol, handle)
+
+    async def _start_asset(self, asset: IngestionAssetRecord, spec: AssetRuntimeSpec) -> None:
+        handle = AssetRuntimeHandle(spec=spec)
+        bootstrap_task = asyncio.create_task(
+            _initialize_asset_runtime(asset, self.arq_pool, self.coordinator, handle.tasks)
+        )
+        _track_task(handle.tasks, bootstrap_task)
+        self.asset_handles[asset.symbol] = handle
+        logger.info(
+            f"[{asset.symbol}] Runtime started "
+            f"(publish_timeframes={list(spec.publish_timeframes)}, base_timeframe={spec.base_timeframe})"
+        )
+
+    async def _stop_asset(self, symbol: str, handle: AssetRuntimeHandle) -> None:
+        self.asset_handles.pop(symbol, None)
+        for task in list(handle.tasks):
+            task.cancel()
+        if handle.tasks:
+            await asyncio.gather(*handle.tasks, return_exceptions=True)
+        try:
+            await self.coordinator.transition(symbol, handle.spec.base_timeframe, IngestionState.COLD)
+        except Exception:
+            logger.warning(f"[{symbol}] Failed to transition runtime to COLD during stop", exc_info=True)
+        logger.info(f"[{symbol}] Runtime stopped")
+
+    async def _wait_for_change(self) -> None:
+        stream_wait_ms = max(250, int(self.reconcile_interval_seconds * 1000))
+        xread = getattr(self.redis_client, "xread", None)
+        if not callable(xread):
+            await asyncio.sleep(self.reconcile_interval_seconds)
+            return
+
+        try:
+            response = await xread(
+                {INGESTION_CONTROL_STREAM: self.control_stream_last_id},
+                count=10,
+                block=stream_wait_ms,
+            )
+            if not response or not isinstance(response, (list, tuple)):
+                return
+            for _stream_name, messages in response:
+                if messages:
+                    self.control_stream_last_id = messages[-1][0]
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning(f"Runtime control stream wait failed: {exc}", exc_info=True)
+            await asyncio.sleep(self.reconcile_interval_seconds)
+
 
 async def verify_and_launch_ws(
     symbol: str,
@@ -135,21 +310,23 @@ async def run_websocket_pipeline(
                             stream_key = f"stream:ohlcv:{symbol.lower()}:{timeframe}"
                             now_utc = int(datetime.now(timezone.utc).timestamp() * 1000)
 
-                            # TODO: replace with StreamOHLCVPayload schema + valkey_encode
-                            payload = {
-                                "exchange": EXCHANGE_BINANCE,
-                                "symbol": symbol,
-                                "timeframe": timeframe,
-                                "timestamp": str(record.timestamp.timestamp()),
-                                "open": str(record.open),
-                                "high": str(record.high),
-                                "low": str(record.low),
-                                "close": str(record.close),
-                                "volume": str(record.volume),
-                                "taker_buy_base": str(record.taker_buy_base),
-                                "bar_closed": "True",
-                                "ingestion_timestamp": str(now_utc)
-                            }
+                            payload = valkey_encode(
+                                StreamOHLCVPayload(
+                                    exchange=EXCHANGE_BINANCE,
+                                    symbol=symbol,
+                                    timeframe=timeframe,
+                                    timestamp=record.timestamp.timestamp(),
+                                    open=record.open,
+                                    high=record.high,
+                                    low=record.low,
+                                    close=record.close,
+                                    volume=record.volume,
+                                    taker_buy_base=record.taker_buy_base,
+                                    bar_closed=True,
+                                    ingestion_timestamp=now_utc,
+                                ),
+                                inject_trace=False,
+                            )
 
                             if _tracer and _inject_trace_context:
                                 with _tracer.start_as_current_span(
@@ -210,9 +387,6 @@ async def run_websocket_pipeline(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     cfg = config_manager
-    target_assets = cfg.get("ingestion.assets.target_list", ["BTCUSDT"])
-    publish_timeframes = cfg.get("ingestion.assets.publish_timeframes", {})
-    base_timeframe = cfg.get("ingestion.timeframes.base_gap_fill", "1m")
     redis_settings = RedisSettings.from_dsn(
         os.getenv("VALKEY_URI") or os.getenv("REDIS_URI")
         or cfg.get("valkey.uri", "redis://localhost:6379/0")
@@ -228,42 +402,21 @@ async def lifespan(app: FastAPI):
     redis_client = await create_valkey_client(cfg)
     coordinator = IngestionCoordinator(redis_client, cfg)
     background_tasks: Set[asyncio.Task[Any]] = set()
+    reconciler = IngestionRuntimeReconciler(
+        config_manager=cfg,
+        arq_pool=arq_pool,
+        coordinator=coordinator,
+        redis_client=redis_client,
+    )
 
-    for symbol in target_assets:
-        try:
-            try:
-                stale = await coordinator.is_stale(symbol, base_timeframe)
-            except Exception as stale_err:
-                logger.warning(f"[{symbol}] is_stale() check failed ({stale_err}), treating as stale.")
-                stale = True
-
-            if stale:
-                logger.info(f"[{symbol}] Stale/missing data. Dispatching REST gap-fill.")
-                await arq_pool.enqueue_job("run_rest_gap_fill", [symbol], EXCHANGE_BINANCE)
-            else:
-                logger.info(f"[{symbol}] Data is up-to-date. Marking WARMING.")
-                await coordinator.transition(symbol, base_timeframe, IngestionState.WARMING)
-
-            asset_publish_timeframes = publish_timeframes.get(symbol, [])
-            _track_task(
-                background_tasks,
-                asyncio.create_task(
-                    verify_and_launch_ws(
-                        symbol,
-                        asset_publish_timeframes,
-                        arq_pool,
-                        coordinator,
-                        background_tasks,
-                    )
-                ),
-            )
-
-        except Exception as e:
-            logger.error(f"Error initializing asset {symbol}: {e}")
+    await reconciler.reconcile_once()
+    reconciler_task = _track_task(background_tasks, asyncio.create_task(reconciler.run()))
 
     yield
 
     logger.info("Shutting down... Cleaning up.")
+    reconciler_task.cancel()
+    await reconciler.stop()
     for task in list(background_tasks):
         task.cancel()
     if background_tasks:

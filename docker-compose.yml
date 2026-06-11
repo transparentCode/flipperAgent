@@ -351,6 +351,42 @@ services:
     networks:
       - flipper-net
 
+  scraper-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.tv-scraper
+    init: true
+    command: python -m apps.scraper_app.api.main
+    ports:
+      - "127.0.0.1:8081:8081"
+    volumes:
+      - ./secrets:/app/secrets:ro
+      - ./data:/app/data
+      - ./configs:/app/configs:ro
+      - flipper-logs:/app/logs
+    tmpfs:
+      - /tmp
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
+      VALKEY_URI: redis://broker:6379/0
+      LOG_FILE: /app/logs/scraper_service.log
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      SCRAPER_SERVICE_PORT: 8081
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: scraper_service
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    networks:
+      - flipper-net
+
   api-server:
     build:
       context: .

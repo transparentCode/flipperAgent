@@ -13,7 +13,7 @@ from libs.common.logging.logger_utils import bind_logger
 from libs.common.enums import SystemComponent
 from apps.scraper_app.providers.tradingview.config import config_manager
 
-logger = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_ENGINE)
+logger = bind_logger(__name__, system_component=SystemComponent.MARKET_DATA)
 
 # Indices to fetch — driven by tradingview.indices config
 _default_indices = [
@@ -81,6 +81,7 @@ async def fetch_tv_indices(ctx: dict[str, Any]) -> None:
                         "low": str(latest["low"]),
                         "close": str(latest["close"]),
                         "volume": str(latest.get("volume", 0.0)),
+                        "timeframe": timeframe,
                         "fetched_at": str(fetched_at),
                     },
                 )
@@ -184,6 +185,7 @@ async def fetch_tv_derivatives(ctx: dict[str, Any]) -> None:
                             "symbol": asset,
                             "timestamp": str(latest["timestamp"]),
                             "value": str(latest["value"]),
+                            "timeframe": timeframe,
                             "fetched_at": str(fetched_at),
                         },
                     )
@@ -221,6 +223,7 @@ async def fetch_tv_derivatives(ctx: dict[str, Any]) -> None:
                             "symbol": asset,
                             "timestamp": str(latest["timestamp"]),
                             "value": str(latest["value"]),
+                            "timeframe": timeframe,
                             "fetched_at": str(fetched_at),
                         },
                     )

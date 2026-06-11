@@ -102,9 +102,9 @@ class SignalWorker(BaseStreamConsumer):
         """Normalize timestamps to millisecond precision."""
         return int(timestamp * 1000) if timestamp < 1e12 else int(timestamp)
 
-    async def _load_index_data(self) -> dict[str, dict[str, float]]:
+    async def _load_index_data(self) -> dict[str, dict[str, Any]]:
         """Fetch latest TradingView index snapshots from Valkey."""
-        index_data: dict[str, dict[str, float]] = {}
+        index_data: dict[str, dict[str, Any]] = {}
         if not self.redis_client:
             return index_data
 
@@ -112,11 +112,22 @@ class SignalWorker(BaseStreamConsumer):
             try:
                 raw = await self.redis_client.hgetall(f"index:latest:{idx_symbol}")
                 if raw:
-                    index_data[idx_symbol] = {
+                    decoded = {
                         k.decode() if isinstance(k, bytes) else k:
-                        float(v.decode() if isinstance(v, bytes) else v)
+                        v.decode() if isinstance(v, bytes) else v
                         for k, v in raw.items()
                     }
+                    numeric_fields = ("timestamp", "open", "high", "low", "close", "volume", "fetched_at")
+                    parsed: dict[str, Any] = {
+                        field: float(decoded[field])
+                        for field in numeric_fields
+                        if field in decoded
+                    }
+                    if "symbol" in decoded:
+                        parsed["symbol"] = decoded["symbol"]
+                    if "timeframe" in decoded:
+                        parsed["timeframe"] = decoded["timeframe"]
+                    index_data[idx_symbol] = parsed
             except Exception:
                 logger.warning(
                     f"Failed to fetch TV index data for {idx_symbol}",

@@ -16,7 +16,7 @@ from libs.common.config import ConfigManager
 from libs.common.logging.logger_utils import bind_logger
 from libs.common.enums import SystemComponent
 
-logger = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_ENGINE)
+logger = bind_logger(__name__, system_component=SystemComponent.MARKET_DATA)
 
 # TradingView ~m~ protocol parser
 _MSG_PATTERN = re.compile(r"~m~(\d+)~m~(.+)", re.DOTALL)

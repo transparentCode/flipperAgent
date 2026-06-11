@@ -5,9 +5,15 @@ import pandas as pd
 import asyncio
 
 from apps.ingestion_app.coordination import IngestionState
+from apps.ingestion_app.models.asset_registry import IngestionAssetRecord
 from libs.common.exceptions import DataIngestionError
 from apps.ingestion_app.orchestration.tasks import _fetch_asset_gap
-from apps.ingestion_app.orchestration.controller import lifespan, app, run_websocket_pipeline
+from apps.ingestion_app.orchestration.controller import (
+    IngestionRuntimeReconciler,
+    app,
+    lifespan,
+    run_websocket_pipeline,
+)
 from apps.ingestion_app.constants import EXCHANGE_BINANCE
 
 @pytest.mark.asyncio
@@ -31,7 +37,7 @@ async def test_fetch_asset_gap_pagination():
     symbol = "BTCUSDT"
     
     with patch('apps.ingestion_app.orchestration.tasks.TimescaleReader') as mock_reader_class, \
-         patch('apps.ingestion_app.orchestration.tasks.DBPoolManager', new_callable=MagicMock) as mock_db_pool, \
+         patch('apps.ingestion_app.orchestration.tasks.DBPoolManager', new_callable=MagicMock), \
          patch('apps.ingestion_app.orchestration.tasks.TimescaleWriter') as mock_writer_class, \
          patch('apps.ingestion_app.orchestration.tasks.datetime') as mock_datetime, \
          patch('apps.ingestion_app.orchestration.tasks.config_manager') as mock_config:
@@ -83,11 +89,18 @@ async def test_lifespan_cold_start():
     mock_coordinator.is_stale = AsyncMock(return_value=True)
     mock_coordinator.transition = AsyncMock()
 
+    async def idle_xread(*args, **kwargs):
+        await asyncio.sleep(0)
+        return []
+
     with patch('apps.ingestion_app.orchestration.controller.DBPoolManager') as mock_db_pool, \
          patch('apps.ingestion_app.orchestration.controller.apply_ingestion_schema', new=AsyncMock()) as mock_apply_schema, \
          patch('apps.ingestion_app.orchestration.controller.create_pool') as mock_create_pool, \
          patch('apps.ingestion_app.orchestration.controller.create_valkey_client') as mock_create_valkey, \
          patch('apps.ingestion_app.orchestration.controller.IngestionCoordinator') as mock_coordinator_class, \
+         patch('apps.ingestion_app.orchestration.controller.IngestionAssetCatalog.list_effective_assets', new=AsyncMock(return_value=[
+             IngestionAssetRecord(symbol="BTCUSDT", publish_timeframes=[]),
+         ])) as _mock_assets, \
          patch('apps.ingestion_app.orchestration.controller.verify_and_launch_ws') as mock_verify_ws, \
          patch('apps.ingestion_app.orchestration.controller.config_manager') as mock_config:
 
@@ -100,6 +113,7 @@ async def test_lifespan_cold_start():
 
         mock_create_pool.return_value = mock_arq_pool
         mock_create_valkey.return_value = mock_valkey_client
+        mock_valkey_client.xread = AsyncMock(side_effect=idle_xread)
         mock_coordinator_class.return_value = mock_coordinator
 
         mock_db_pool.init_pools = AsyncMock()
@@ -127,11 +141,18 @@ async def test_lifespan_caught_up():
     mock_coordinator.is_stale = AsyncMock(return_value=False)
     mock_coordinator.transition = AsyncMock()
 
+    async def idle_xread(*args, **kwargs):
+        await asyncio.sleep(0)
+        return []
+
     with patch('apps.ingestion_app.orchestration.controller.DBPoolManager') as mock_db_pool, \
          patch('apps.ingestion_app.orchestration.controller.apply_ingestion_schema', new=AsyncMock()) as mock_apply_schema, \
          patch('apps.ingestion_app.orchestration.controller.create_pool') as mock_create_pool, \
          patch('apps.ingestion_app.orchestration.controller.create_valkey_client') as mock_create_valkey, \
          patch('apps.ingestion_app.orchestration.controller.IngestionCoordinator') as mock_coordinator_class, \
+         patch('apps.ingestion_app.orchestration.controller.IngestionAssetCatalog.list_effective_assets', new=AsyncMock(return_value=[
+             IngestionAssetRecord(symbol="BTCUSDT", publish_timeframes=[]),
+         ])) as _mock_assets, \
          patch('apps.ingestion_app.orchestration.controller.verify_and_launch_ws') as mock_verify_ws, \
          patch('apps.ingestion_app.orchestration.controller.config_manager') as mock_config:
 
@@ -144,6 +165,7 @@ async def test_lifespan_caught_up():
 
         mock_create_pool.return_value = mock_arq_pool
         mock_create_valkey.return_value = mock_valkey_client
+        mock_valkey_client.xread = AsyncMock(side_effect=idle_xread)
         mock_coordinator_class.return_value = mock_coordinator
 
         mock_db_pool.init_pools = AsyncMock()
@@ -158,7 +180,7 @@ async def test_lifespan_caught_up():
         # Gap-fill shouldn't be called
         mock_arq_pool.enqueue_job.assert_not_called()
         # Coordinator should be set to WARMING since data is caught up
-        mock_coordinator.transition.assert_called_once_with("BTCUSDT", "1m", IngestionState.WARMING)
+        mock_coordinator.transition.assert_any_call("BTCUSDT", "1m", IngestionState.WARMING)
         mock_verify_ws.assert_called_once()
         args = mock_verify_ws.call_args.args
         assert args[:4] == ("BTCUSDT", [], mock_arq_pool, mock_coordinator)
@@ -257,3 +279,70 @@ async def test_run_websocket_pipeline_transitions_live_after_first_valid_payload
         (( "BTCUSDT", "1m", IngestionState.COLD),),
     ]
     mock_writer.insert_ohlcv.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_reconciler_starts_new_runtime_for_live_asset():
+    asset = IngestionAssetRecord(
+        symbol="BTCUSDT",
+        base_timeframe="1m",
+        publish_timeframes=["1h"],
+        source="registry",
+    )
+    mock_config = MagicMock()
+    mock_config.get.side_effect = lambda key, default=None: {
+        "ingestion.runtime.reconcile_interval_seconds": 1,
+    }.get(key, default)
+
+    reconciler = IngestionRuntimeReconciler(
+        config_manager=mock_config,
+        arq_pool=AsyncMock(),
+        coordinator=MagicMock(transition=AsyncMock()),
+        redis_client=MagicMock(),
+        asset_catalog=MagicMock(list_effective_assets=AsyncMock(return_value=[asset])),
+    )
+
+    with patch(
+        'apps.ingestion_app.orchestration.controller._initialize_asset_runtime',
+        new=AsyncMock(),
+    ) as mock_initialize:
+        await reconciler.reconcile_once()
+        await asyncio.sleep(0)
+
+    assert "BTCUSDT" in reconciler.asset_handles
+    mock_initialize.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_reconciler_stops_runtime_when_asset_paused():
+    asset = IngestionAssetRecord(
+        symbol="BTCUSDT",
+        base_timeframe="1m",
+        publish_timeframes=["1h"],
+        source="registry",
+    )
+    paused_asset = asset.model_copy(update={"desired_state": "PAUSED"})
+    mock_config = MagicMock()
+    mock_config.get.side_effect = lambda key, default=None: {
+        "ingestion.runtime.reconcile_interval_seconds": 1,
+    }.get(key, default)
+    mock_coordinator = MagicMock()
+    mock_coordinator.transition = AsyncMock()
+
+    reconciler = IngestionRuntimeReconciler(
+        config_manager=mock_config,
+        arq_pool=AsyncMock(),
+        coordinator=mock_coordinator,
+        redis_client=MagicMock(),
+        asset_catalog=MagicMock(list_effective_assets=AsyncMock(side_effect=[[asset], [paused_asset]])),
+    )
+
+    with patch(
+        'apps.ingestion_app.orchestration.controller._initialize_asset_runtime',
+        new=AsyncMock(),
+    ):
+        await reconciler.reconcile_once()
+        await reconciler.reconcile_once()
+
+    assert "BTCUSDT" not in reconciler.asset_handles
+    mock_coordinator.transition.assert_awaited()

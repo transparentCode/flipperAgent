@@ -70,3 +70,19 @@ CREATE TABLE IF NOT EXISTS l2_depth_features (
 );
 SELECT create_hypertable('l2_depth_features', 'timestamp', if_not_exists => true, migrate_data => true);
 SELECT add_retention_policy('l2_depth_features', INTERVAL '90 days', if_not_exists => true);
+
+CREATE TABLE IF NOT EXISTS ingestion_assets (
+    symbol TEXT PRIMARY KEY,
+    exchange TEXT NOT NULL DEFAULT 'binance',
+    provider TEXT NOT NULL DEFAULT 'binance_native',
+    base_timeframe TEXT NOT NULL DEFAULT '1m',
+    publish_timeframes TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    historical_backfill_days INTEGER NOT NULL DEFAULT 2 CHECK (historical_backfill_days >= 0),
+    retention_days INTEGER CHECK (retention_days IS NULL OR retention_days > 0),
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    desired_state TEXT NOT NULL DEFAULT 'LIVE'
+        CHECK (desired_state IN ('LIVE', 'PAUSED', 'STOPPED', 'REMOVING')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ingestion_assets_enabled ON ingestion_assets (enabled);

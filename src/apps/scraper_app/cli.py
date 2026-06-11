@@ -10,8 +10,8 @@ from typing import Any
 
 import pandas as pd
 
-from apps.scraper_app.providers.coinglass import CoinGlassHeatmapInterceptor
-from apps.scraper_app.providers.tradingview import TradingViewInterceptor
+from apps.scraper_app.core.models import ScrapeDataset, ScrapeRequest, ScraperProvider
+from apps.scraper_app.service import ScraperFetchService
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -52,48 +52,54 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 async def _run_coinglass(args: argparse.Namespace) -> int:
-    interceptor = CoinGlassHeatmapInterceptor(cookies_path=args.cookies_path)
-    try:
-        envelope = await interceptor.fetch_heatmap(
+    service = ScraperFetchService()
+    result = await service.fetch(
+        ScrapeRequest(
+            provider=ScraperProvider.COINGLASS,
+            dataset=ScrapeDataset.HEATMAP,
             coin=args.coin,
             market_type=args.market_type,
             exchange=args.exchange,
             symbol=args.symbol,
             short_name=args.short_name,
+            cookies_path=args.cookies_path,
         )
-    finally:
-        await interceptor.close()
-
-    if envelope is None:
-        raise RuntimeError("No CoinGlass payload captured")
-
-    payload = json.dumps(envelope, indent=2)
+    )
+    payload = json.dumps(result.data, indent=2)
     _write_output(payload, args.output_path)
     return 0
 
 
 async def _run_tradingview_ohlcv(args: argparse.Namespace) -> int:
-    interceptor = TradingViewInterceptor(cookies_path=args.cookies_path)
-    try:
-        frame = await interceptor.get_historical_ohlcv(
-            args.symbol, args.timeframe, limit=args.limit
+    service = ScraperFetchService()
+    result = await service.fetch(
+        ScrapeRequest(
+            provider=ScraperProvider.TRADINGVIEW,
+            dataset=ScrapeDataset.OHLCV,
+            symbol=args.symbol,
+            timeframe=args.timeframe,
+            limit=args.limit,
+            cookies_path=args.cookies_path,
         )
-    finally:
-        await interceptor.close()
-
+    )
+    frame = pd.DataFrame(result.data)
     _write_frame_output(frame, args.output_path)
     return 0
 
 
 async def _run_tradingview_series(args: argparse.Namespace) -> int:
-    interceptor = TradingViewInterceptor(cookies_path=args.cookies_path)
-    try:
-        frame = await interceptor.get_historical_series(
-            args.symbol, args.timeframe, limit=args.limit
+    service = ScraperFetchService()
+    result = await service.fetch(
+        ScrapeRequest(
+            provider=ScraperProvider.TRADINGVIEW,
+            dataset=ScrapeDataset.SERIES,
+            symbol=args.symbol,
+            timeframe=args.timeframe,
+            limit=args.limit,
+            cookies_path=args.cookies_path,
         )
-    finally:
-        await interceptor.close()
-
+    )
+    frame = pd.DataFrame(result.data)
     _write_frame_output(frame, args.output_path)
     return 0
 

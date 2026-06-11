@@ -14,7 +14,7 @@ from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
 from apps.scraper_app.providers.coinglass.config import config_manager
 
-logger = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_ENGINE)
+logger = bind_logger(__name__, system_component=SystemComponent.MARKET_DATA)
 
 DEFAULT_HEATMAP_TARGETS = [
     {

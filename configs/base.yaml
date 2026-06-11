@@ -108,3 +108,8 @@ postgres:
   user: flipper
 valkey:
   uri: redis://localhost:6379/0
+
+scraper_service:
+  host: 0.0.0.0
+  port: 8081
+  job_ttl_seconds: 3600
