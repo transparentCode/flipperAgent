@@ -1,6 +1,9 @@
 import asyncio
+import gc
+import tracemalloc
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import psutil
 import pytest
 
 from apps.ingestion_app.coordination import IngestionState
@@ -247,6 +250,123 @@ async def test_run_websocket_pipeline_closes_valkey_clients_across_reconnect_v2(
     first_redis_client.aclose.assert_awaited_once()
     second_redis_client.aclose.assert_awaited_once()
     mock_arq_pool.enqueue_job.assert_awaited_once_with("run_rest_gap_fill", ["BTCUSDT"], EXCHANGE_BINANCE)
+
+
+@pytest.mark.asyncio
+@pytest.mark.slow
+async def test_run_websocket_pipeline_bounded_memory_across_repeated_cycles_v2():
+    process = psutil.Process()
+    cycle_count = 8
+    rss_threshold_bytes = 32 * 1024 * 1024
+    traced_threshold_bytes = 4 * 1024 * 1024
+    baseline_live_tasks = sum(1 for task in asyncio.all_tasks() if not task.done())
+    rss_samples: list[int] = []
+
+    gc.collect()
+    tracemalloc.start()
+    baseline_traced_bytes, _ = tracemalloc.get_traced_memory()
+    baseline_rss_bytes = process.memory_info().rss
+
+    for cycle_index in range(cycle_count):
+        mock_coordinator = MagicMock()
+        mock_coordinator.transition = AsyncMock()
+        mock_coordinator.get_disconnect_count = AsyncMock(return_value=1)
+        mock_arq_pool = AsyncMock()
+        mock_writer = MagicMock()
+        mock_writer.insert_ohlcv = AsyncMock()
+        created_redis_clients: list[AsyncMock] = []
+        attempt = {"count": 0}
+
+        async def make_client(_config_manager):
+            client = AsyncMock()
+            created_redis_clients.append(client)
+            return client
+
+        valid_message = {
+            "data": {
+                "k": {
+                    "t": 1704067200000 + cycle_index,
+                    "o": "100.0",
+                    "h": "110.0",
+                    "l": "95.0",
+                    "c": "105.0",
+                    "v": "42.0",
+                    "Q": "21.0",
+                    "i": "1m",
+                    "x": True,
+                }
+            }
+        }
+
+        async def cycle_stream(_symbols_timeframes, _loop, _queue):
+            attempt["count"] += 1
+            if attempt["count"] == 1:
+                raise RuntimeError("socket dropped")
+            yield valid_message
+            raise asyncio.CancelledError()
+
+        mock_adapter = MagicMock()
+        mock_adapter.stream_multiplex_socket = cycle_stream
+
+        with (
+            patch(
+                "apps.ingestion_app.runtime.websocket.create_valkey_client",
+                new=AsyncMock(side_effect=make_client),
+            ),
+            patch("apps.ingestion_app.runtime.websocket.DBPoolManager") as mock_db_pool,
+            patch("apps.ingestion_app.runtime.websocket.TimescaleWriter", return_value=mock_writer),
+            patch("apps.ingestion_app.runtime.websocket.BinanceNativeAdapter", return_value=mock_adapter),
+            patch("apps.ingestion_app.runtime.websocket.asyncio.sleep", new=AsyncMock()),
+            patch("apps.ingestion_app.runtime.websocket.config_manager") as mock_config,
+        ):
+            mock_db_pool.get_writer_pool.return_value = MagicMock()
+            mock_config.get.side_effect = lambda key, default=None: {
+                "ingestion.timeframes.base_gap_fill": "1m",
+                "ingestion.websocket.reconnect_sleep_seconds": 0,
+                "ingestion.websocket.queue_maxsize": 10,
+                "ingestion.observability.circuit_breaker_threshold": 5,
+                "ingestion.observability.circuit_breaker_sleep_seconds": 300,
+            }.get(key, default)
+
+            await run_websocket_pipeline("BTCUSDT", [], arq_pool=mock_arq_pool, coordinator=mock_coordinator)
+
+        assert attempt["count"] == 2
+        assert len(created_redis_clients) == 2
+        for client in created_redis_clients:
+            client.aclose.assert_awaited_once()
+
+        del mock_adapter
+        del mock_writer
+        del mock_arq_pool
+        del mock_coordinator
+        del created_redis_clients
+
+        await asyncio.sleep(0)
+        gc.collect()
+        rss_samples.append(process.memory_info().rss)
+
+    final_traced_bytes, peak_traced_bytes = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    gc.collect()
+    final_rss_bytes = process.memory_info().rss
+    final_live_tasks = sum(1 for task in asyncio.all_tasks() if not task.done())
+
+    traced_growth_bytes = final_traced_bytes - baseline_traced_bytes
+    rss_growth_bytes = final_rss_bytes - baseline_rss_bytes
+
+    assert traced_growth_bytes < traced_threshold_bytes, (
+        "Traced Python allocations grew too much across repeated WS cycles: "
+        f"{traced_growth_bytes} bytes (baseline={baseline_traced_bytes}, "
+        f"final={final_traced_bytes}, peak={peak_traced_bytes})"
+    )
+    assert rss_growth_bytes < rss_threshold_bytes, (
+        "RSS grew too much across repeated WS cycles: "
+        f"{rss_growth_bytes} bytes (baseline={baseline_rss_bytes}, final={final_rss_bytes}, "
+        f"samples={rss_samples})"
+    )
+    assert final_live_tasks <= baseline_live_tasks + 1, (
+        f"Live asyncio task count drifted: baseline={baseline_live_tasks}, final={final_live_tasks}"
+    )
 
 
 @pytest.mark.asyncio
