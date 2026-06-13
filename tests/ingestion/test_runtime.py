@@ -199,6 +199,57 @@ async def test_run_websocket_pipeline_transitions_live_after_first_valid_payload
 
 
 @pytest.mark.asyncio
+async def test_run_websocket_pipeline_closes_valkey_clients_across_reconnect_v2():
+    mock_coordinator = MagicMock()
+    mock_coordinator.transition = AsyncMock()
+    mock_coordinator.get_disconnect_count = AsyncMock(return_value=1)
+    mock_arq_pool = AsyncMock()
+    first_redis_client = AsyncMock()
+    second_redis_client = AsyncMock()
+    mock_writer = MagicMock()
+    mock_writer.insert_ohlcv = AsyncMock()
+    attempt = {"count": 0}
+
+    async def flappy_stream(_symbols_timeframes, _loop, _queue):
+        attempt["count"] += 1
+        if False:
+            yield {}
+        if attempt["count"] == 1:
+            raise RuntimeError("socket dropped")
+        raise asyncio.CancelledError()
+
+    mock_adapter = MagicMock()
+    mock_adapter.stream_multiplex_socket = flappy_stream
+
+    with (
+        patch(
+            "apps.ingestion_app.runtime.websocket.create_valkey_client",
+            new=AsyncMock(side_effect=[first_redis_client, second_redis_client]),
+        ),
+        patch("apps.ingestion_app.runtime.websocket.DBPoolManager") as mock_db_pool,
+        patch("apps.ingestion_app.runtime.websocket.TimescaleWriter", return_value=mock_writer),
+        patch("apps.ingestion_app.runtime.websocket.BinanceNativeAdapter", return_value=mock_adapter),
+        patch("apps.ingestion_app.runtime.websocket.asyncio.sleep", new=AsyncMock()),
+        patch("apps.ingestion_app.runtime.websocket.config_manager") as mock_config,
+    ):
+        mock_db_pool.get_writer_pool.return_value = MagicMock()
+        mock_config.get.side_effect = lambda key, default=None: {
+            "ingestion.timeframes.base_gap_fill": "1m",
+            "ingestion.websocket.reconnect_sleep_seconds": 0,
+            "ingestion.websocket.queue_maxsize": 10,
+            "ingestion.observability.circuit_breaker_threshold": 5,
+            "ingestion.observability.circuit_breaker_sleep_seconds": 300,
+        }.get(key, default)
+
+        await run_websocket_pipeline("BTCUSDT", [], arq_pool=mock_arq_pool, coordinator=mock_coordinator)
+
+    assert attempt["count"] == 2
+    first_redis_client.aclose.assert_awaited_once()
+    second_redis_client.aclose.assert_awaited_once()
+    mock_arq_pool.enqueue_job.assert_awaited_once_with("run_rest_gap_fill", ["BTCUSDT"], EXCHANGE_BINANCE)
+
+
+@pytest.mark.asyncio
 async def test_reconciler_starts_new_runtime_for_live_asset_v2():
     asset = IngestionAssetRecord(
         symbol="BTCUSDT",
