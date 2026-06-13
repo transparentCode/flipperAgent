@@ -5,6 +5,7 @@ from typing import Any
 import asyncpg
 
 from apps.ingestion_app.control_plane.publisher import IngestionControlPublisher
+from apps.ingestion_app.coordination import IngestionCoordinator
 from apps.ingestion_app.control_plane.repository import IngestionAssetRegistryRepository
 from apps.ingestion_app.models.asset_registry import (
     IngestionAssetActionRequest,
@@ -86,10 +87,18 @@ class IngestionControlService:
             }
         )
         persisted = await self.repo.upsert_asset(asset)
+        if self.publisher.valkey_client is not None and action in {
+            IngestionCommandType.PAUSE_ASSET,
+            IngestionCommandType.STOP_ASSET,
+        }:
+            coordinator = IngestionCoordinator(self.publisher.valkey_client)
+            await coordinator.mark_resume_backfill_required(
+                persisted.symbol,
+                persisted.base_timeframe,
+            )
         return await self.publisher.publish(
             asset=persisted,
             command_type=action,
             requested_by=body.requested_by,
             reason=body.reason,
         )
-

@@ -8,6 +8,8 @@ import pytest
 import asyncpg
 from libs.common.db.pool_manager import DBPoolManager
 
+from tests.e2e.helpers import docker_compose_command
+
 
 @pytest.mark.asyncio
 async def test_timescaledb_initialization_and_gap_fill(db_pools):
@@ -200,7 +202,7 @@ async def test_downstream_workers_running_no_errors(db_pools):
     Verify risk, execution, portfolio workers are running without crash loops.
     """
     result = subprocess.run(
-        ["docker-compose", "ps"],
+        [*docker_compose_command(), "ps"],
         capture_output=True,
         text=True,
     )
@@ -215,7 +217,7 @@ async def test_downstream_workers_running_no_errors(db_pools):
         "portfolio-worker",
     ]:
         assert "restarting" not in output.lower() or service not in output, (
-            f"{service} appears to be restarting. docker-compose ps output:\n{output}"
+            f"{service} appears to be restarting. compose ps output:\n{output}"
         )
 
 
@@ -611,8 +613,10 @@ async def test_db_persistence_across_restart(db_pools):
 
     # 2. Restart the ingestion worker (not the DB — data should persist)
     subprocess.run(
-        ["docker-compose", "restart", "worker-streams"],
-        check=True, capture_output=True, text=True,
+        [*docker_compose_command(), "restart", "worker-streams"],
+        check=True,
+        capture_output=True,
+        text=True,
     )
     await asyncio.sleep(10)  # Wait for restart
 

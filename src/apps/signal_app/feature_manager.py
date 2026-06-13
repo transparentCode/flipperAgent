@@ -5,7 +5,6 @@ import pandas as pd
 from libs.common.config import ConfigManager
 from libs.common.constants import CONFIG_FILE_FEATURES
 from libs.common.logging.logger_utils import bind_logger
-import libs.features.indicators
 from libs.features.indicators.registry import IndicatorRegistry
 from libs.features.indicators.base import Indicator
 from libs.common.enums import SystemComponent

@@ -75,6 +75,7 @@ async def _clear_ingestion_observability_keys(
         IngestionCoordinator._disconnect_ts_key(symbol, timeframe),
         IngestionCoordinator._last_live_ts_key(symbol, timeframe),
         IngestionCoordinator._disconnect_count_key(symbol, timeframe),
+        IngestionCoordinator._resume_backfill_key(symbol, timeframe),
     )
     for key in keys:
         await valkey_client.delete(key)

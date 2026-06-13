@@ -22,6 +22,7 @@ _STATE_KEY_PREFIX = "ingestion:state"
 _DISCONNECT_TS_PREFIX = "ingestion:disconnect_ts"
 _LAST_LIVE_TS_PREFIX = "ingestion:last_live_ts"
 _DISCONNECT_COUNT_PREFIX = "ingestion:disconnect_count"
+_RESUME_BACKFILL_PREFIX = "ingestion:resume_backfill_required"
 
 
 class IngestionState(str, Enum):
@@ -70,6 +71,10 @@ class IngestionCoordinator:
     def _disconnect_count_key(symbol: str, tf: str) -> str:
         return f"{_DISCONNECT_COUNT_PREFIX}:{symbol}:{tf}"
 
+    @staticmethod
+    def _resume_backfill_key(symbol: str, tf: str) -> str:
+        return f"{_RESUME_BACKFILL_PREFIX}:{symbol}:{tf}"
+
     # ------------------------------------------------------------------ public API
 
     async def get_state(self, symbol: str, tf: str) -> IngestionState:
@@ -114,14 +119,22 @@ class IngestionCoordinator:
         raw = await self._valkey.get(self._disconnect_count_key(symbol, tf))
         return int(raw) if raw is not None else 0
 
+    async def mark_resume_backfill_required(self, symbol: str, tf: str) -> None:
+        await self._valkey.set(self._resume_backfill_key(symbol, tf), "1")
+
+    async def resume_backfill_required(self, symbol: str, tf: str) -> bool:
+        raw = await self._valkey.get(self._resume_backfill_key(symbol, tf))
+        return raw is not None and str(raw) == "1"
+
+    async def clear_resume_backfill_required(self, symbol: str, tf: str) -> None:
+        await self._valkey.delete(self._resume_backfill_key(symbol, tf))
+
     async def get_observability_snapshot(self, symbol: str, tf: str) -> dict:
         """Return a per-asset observability dict suitable for the /ingestion/status endpoint."""
-        state_raw, disconnect_ts_raw, last_live_ts_raw, count_raw = await asyncio.gather(
-            self._valkey.get(self._state_key(symbol, tf)),
-            self._valkey.get(self._disconnect_ts_key(symbol, tf)),
-            self._valkey.get(self._last_live_ts_key(symbol, tf)),
-            self._valkey.get(self._disconnect_count_key(symbol, tf)),
-        )
+        state_raw = await self._valkey.get(self._state_key(symbol, tf))
+        disconnect_ts_raw = await self._valkey.get(self._disconnect_ts_key(symbol, tf))
+        last_live_ts_raw = await self._valkey.get(self._last_live_ts_key(symbol, tf))
+        count_raw = await self._valkey.get(self._disconnect_count_key(symbol, tf))
         return {
             "state": state_raw or IngestionState.COLD.value,
             "last_live_ts": int(last_live_ts_raw) if last_live_ts_raw else None,

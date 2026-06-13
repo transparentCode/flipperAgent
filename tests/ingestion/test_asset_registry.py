@@ -67,10 +67,20 @@ class _Ctx:
 class FakeValkey:
     def __init__(self) -> None:
         self.calls: list[tuple[str, dict[str, str]]] = []
+        self.set_calls: list[tuple[str, str]] = []
+        self.delete_calls: list[str] = []
 
     async def xadd(self, stream: str, payload: dict[str, str], **kwargs):
         self.calls.append((stream, payload))
         return "123-0"
+
+    async def set(self, key: str, value: str):
+        self.set_calls.append((key, value))
+        return True
+
+    async def delete(self, key: str):
+        self.delete_calls.append(key)
+        return 1
 
 
 @pytest.mark.asyncio
@@ -301,7 +311,8 @@ async def test_v2_control_service_apply_action_persists_and_publishes():
         source=IngestionAssetSource.REGISTRY,
     )
     persisted = existing.model_copy(update={"desired_state": "PAUSED", "enabled": True})
-    service = IngestionControlService(pool=FakePool(FakeConnection()), valkey_client=FakeValkey())
+    valkey = FakeValkey()
+    service = IngestionControlService(pool=FakePool(FakeConnection()), valkey_client=valkey)
     service.repo.upsert_asset = AsyncMock(return_value=persisted)
 
     result = await service.apply_action(
@@ -316,3 +327,4 @@ async def test_v2_control_service_apply_action_persists_and_publishes():
     assert result.command_type == IngestionCommandType.PAUSE_ASSET.value
     assert result.command_published is True
     assert result.event_published is True
+    assert valkey.set_calls == [("ingestion:resume_backfill_required:BTCUSDT:1m", "1")]

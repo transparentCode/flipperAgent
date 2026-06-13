@@ -47,6 +47,7 @@ def patch_v2_db_pool_manager(mock_asyncpg_pool, mocker):
 def base_worker_ctx(mock_ccxt_adapter):
     coordinator = MagicMock(spec=IngestionCoordinator)
     coordinator.transition = AsyncMock()
+    coordinator.clear_resume_backfill_required = AsyncMock()
     return {
         "job_id": "test_job_123",
         "ccxt_adapter": mock_ccxt_adapter,
@@ -63,20 +64,24 @@ async def test_v2_standard_gap_fill_flow(base_worker_ctx, mock_ccxt_adapter, moc
         columns=["timestamp", "open", "high", "low", "close", "volume"],
     )
 
-    await run_rest_gap_fill(base_worker_ctx, [symbol], EXCHANGE_BINANCE)
+    with patch("apps.ingestion_app.jobs.gap_fill.publish_ingestion_runtime_event", new=AsyncMock()) as mock_event:
+        await run_rest_gap_fill(base_worker_ctx, [symbol], EXCHANGE_BINANCE)
 
     conn = mock_asyncpg_pool.acquire.return_value.__aenter__.return_value
     conn.executemany.assert_awaited_once()
     _, tuples = conn.executemany.call_args[0]
     assert tuples[0][1] == symbol
     assert tuples[0][2] == "1m"
+    base_worker_ctx["coordinator"].clear_resume_backfill_required.assert_awaited_once_with(symbol, "1m")
+    mock_event.assert_awaited_once()
+    assert mock_event.await_args.kwargs["event_type"].value == "GAP_FILL_COMPLETED"
 
 
 @pytest.mark.asyncio
 async def test_v2_gap_fill_partial_failures_emit_event():
     ctx = {
         "ccxt_adapter": AsyncMock(),
-        "coordinator": MagicMock(transition=AsyncMock()),
+        "coordinator": MagicMock(transition=AsyncMock(), clear_resume_backfill_required=AsyncMock()),
         "valkey_client": AsyncMock(),
     }
 
@@ -142,7 +147,7 @@ async def test_v2_purge_removed_asset_clears_keys_and_emits_completion_event():
          patch("apps.ingestion_app.jobs.cleanup.publish_ingestion_runtime_event", new=AsyncMock()) as mock_publish:
         await purge_removed_asset(ctx, "BTCUSDT", "1m")
 
-    assert ctx["valkey_client"].delete.await_count == 6
+    assert ctx["valkey_client"].delete.await_count == 7
     mock_publish.assert_awaited_once()
 
 

@@ -87,6 +87,30 @@ class IngestionAssetActionRequest(BaseModel):
     requested_by: str = "api_app"
 
 
+class IngestionAssetBatchUpsertRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    assets: list[IngestionAssetUpsertRequest] = Field(default_factory=list)
+
+
+class IngestionAssetBatchActionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    symbols: list[str] = Field(default_factory=list)
+    desired_state: IngestionAssetDesiredState
+    reason: str | None = None
+    requested_by: str = "api_app"
+
+    @field_validator("symbols", mode="before")
+    @classmethod
+    def normalize_symbols(cls, value: object) -> list[str]:
+        if value in (None, ""):
+            return []
+        if isinstance(value, (list, tuple, set)):
+            return [str(item).upper().strip() for item in value]
+        return [str(value).upper().strip()]
+
+
 class IngestionControlResult(BaseModel):
     asset: IngestionAssetRecord
     command_id: str
@@ -95,4 +119,3 @@ class IngestionControlResult(BaseModel):
     event_published: bool
     command_stream_id: str | None = None
     event_stream_id: str | None = None
-

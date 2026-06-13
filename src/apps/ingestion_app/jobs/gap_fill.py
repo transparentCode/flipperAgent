@@ -109,6 +109,7 @@ async def run_rest_gap_fill(ctx: dict[str, Any], assets: list[str], exchange: st
             await coordinator.transition(symbol, base_timeframe, IngestionState.BACKFILLING)
             try:
                 await _fetch_asset_gap(ctx, ccxt_adapter, symbol)
+                await coordinator.clear_resume_backfill_required(symbol, base_timeframe)
                 await coordinator.transition(symbol, base_timeframe, IngestionState.WARMING)
                 successful_assets.append(symbol)
             except Exception as exc:
@@ -149,6 +150,18 @@ async def run_rest_gap_fill(ctx: dict[str, Any], assets: list[str], exchange: st
             },
         )
 
+    await publish_ingestion_runtime_event(
+        valkey_client,
+        event_type=IngestionEventType.GAP_FILL_COMPLETED,
+        symbol=exchange.upper(),
+        timeframe=base_timeframe,
+        severity="info",
+        detail={
+            "exchange": exchange,
+            "successful_assets": successful_assets,
+            "asset_count": len(successful_assets),
+        },
+    )
     logger.info(f"Gap fill task completed successfully for {exchange}.")
 
 

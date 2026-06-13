@@ -15,6 +15,8 @@ This first slice documents:
 
 - major `ingestion_app` features
 - internal runtime components
+- ingestion-facing API control and observability surfaces
+- the scraper bridge used for on-demand external data pulls
 - external dependencies
 - Valkey streams and ARQ jobs
 - TimescaleDB tables owned or touched by the app

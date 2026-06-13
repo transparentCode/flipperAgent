@@ -197,7 +197,7 @@ All config under `configs/tradingview.yaml`.
 The Signal App reads TV index data from Valkey hashes on each closed bar:
 
 - **Hash key**: `index:latest:{short_name}` (e.g. `index:latest:TOTAL2`, `index:latest:BTC.D`)
-- **Consumer**: `signal_worker.py` → `EngineeredFeatureManager.compute()` via `index_data` kwarg
+- **Consumer**: `runtime/worker.py` → `EngineeredFeatureManager.compute()` via `index_data` kwarg
 - **Short names** consumed by the signal app are derived from the same `tradingview.indices` config, so adding a new index in config propagates automatically to both the scraper and the consumer
 
 **Staleness:** the producer now sets Redis key expiry using `tradingview.staleness_ttl_seconds` (default `1800`). Consumers can still inspect `fetched_at`, but a downed scraper will naturally age out `index:latest:*` keys instead of serving stale hashes forever.

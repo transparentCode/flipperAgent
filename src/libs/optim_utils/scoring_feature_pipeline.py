@@ -1,8 +1,7 @@
 """Batch feature pipeline for scoring model optimization.
 
-OHLCV DataFrame → indicators (FeatureManager) → engineered features
-(EngineeredFeatureManager) → flat feature DataFrame suitable for
-ScoringModel.batch_evaluate().
+OHLCV DataFrame → raw indicators → engineered features → flat feature DataFrame
+suitable for ``ScoringModel.batch_evaluate()``.
 """
 
 from __future__ import annotations
@@ -13,7 +12,7 @@ import pandas as pd
 
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
-from apps.signal_app.feature_manager import FeatureManager
+from apps.signal_app.pipeline.raw_indicators import RawIndicatorPipeline
 from libs.features.engineered.manager import EngineeredFeatureManager
 
 logger = bind_logger(__name__, system_component=SystemComponent.OPTIMIZATION)
@@ -22,9 +21,9 @@ logger = bind_logger(__name__, system_component=SystemComponent.OPTIMIZATION)
 _WARMUP_BARS = 100
 
 
-def _required_warmup_bars(fm: FeatureManager, n_bars: int) -> int:
+def _required_warmup_bars(indicator_source: Any, n_bars: int) -> int:
     indicator_lookback = max(
-        (getattr(ind, "lookback_required", 0) for ind in fm.indicators),
+        (getattr(ind, "lookback_required", 0) for ind in indicator_source.indicators),
         default=0,
     )
     return min(max(_WARMUP_BARS, indicator_lookback), n_bars)
@@ -71,7 +70,7 @@ def build_scoring_feature_df(
     """Build a feature DataFrame suitable for ScoringModel.batch_evaluate().
 
     Pipeline:
-    1. Prime FeatureManager with the first ``_WARMUP_BARS`` bars
+    1. Prime the raw indicator pipeline with the first ``_WARMUP_BARS`` bars
     2. Process remaining bars via ``process_tick()`` to get raw indicators
     3. Feed raw indicators + bar data into EngineeredFeatureManager
     4. Flatten composite outputs, merge with OHLCV, return DataFrame
@@ -93,7 +92,7 @@ def build_scoring_feature_df(
         (eng_regime_score, eng_mean_reversion_z, …), and OHLCV columns.
         Rows before indicator warm-up contain NaN for indicator columns.
     """
-    fm = FeatureManager(asset, timeframe)
+    raw_pipeline = RawIndicatorPipeline(asset, timeframe)
     efm = EngineeredFeatureManager(asset, timeframe)
 
     bar_tuples = [
@@ -101,8 +100,8 @@ def build_scoring_feature_df(
         for r in ohlcv_df.itertuples(index=False)
     ]
 
-    warmup = _required_warmup_bars(fm, len(bar_tuples))
-    fm.prime(bar_tuples[:warmup])
+    warmup = _required_warmup_bars(raw_pipeline, len(bar_tuples))
+    raw_pipeline.prime(bar_tuples[:warmup])
 
     rows: list[dict[str, Any]] = []
 
@@ -113,7 +112,7 @@ def build_scoring_feature_df(
     # Remaining bars: process one by one
     for i in range(warmup, len(bar_tuples)):
         tick = bar_tuples[i]
-        raw = fm.process_tick(tick)
+        raw = raw_pipeline.process_tick(tick)
 
         bar_dict = {
             "open": tick[0],

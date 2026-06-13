@@ -174,6 +174,7 @@ async def test_runtime_asset_pause_and_resume_lifecycle(db_pools, valkey_client)
         valkey_client=valkey_client,
     )
     coordinator = IngestionCoordinator(valkey_client)
+    resume_backfill_key = IngestionCoordinator._resume_backfill_key(TEST_SYMBOL, BASE_TIMEFRAME)
 
     result = await service.upsert_asset(
         IngestionAssetUpsertRequest(
@@ -242,6 +243,14 @@ async def test_runtime_asset_pause_and_resume_lifecycle(db_pools, valkey_client)
             description=f"{TEST_SYMBOL} to transition to COLD after pause",
         )
 
+        pause_marker_exists = await _wait_until(
+            lambda: _valkey_key_exists(valkey_client, resume_backfill_key),
+            timeout_s=30,
+            interval_s=1,
+            description=f"{resume_backfill_key} to exist after pause",
+        )
+        assert pause_marker_exists is True
+
         await asyncio.sleep(3)
         paused_stream_len = await valkey_client.xlen(STREAM_KEY)
         await asyncio.sleep(10)
@@ -267,6 +276,14 @@ async def test_runtime_asset_pause_and_resume_lifecycle(db_pools, valkey_client)
             description=f"{TEST_SYMBOL} to persist resumed state",
         )
         assert resumed_flags == (IngestionAssetDesiredState.LIVE.value, True)
+
+        resume_marker_cleared = await _wait_until(
+            lambda: _valkey_key_missing(valkey_client, resume_backfill_key),
+            timeout_s=120,
+            interval_s=1,
+            description=f"{resume_backfill_key} to clear after resume gap-fill",
+        )
+        assert resume_marker_cleared is True
 
         resumed_snapshot = await _wait_until(
             lambda: _live_state_snapshot(coordinator),
@@ -324,6 +341,18 @@ async def _stream_len_greater_than(valkey_client, previous_len: int):
     current_len = await valkey_client.xlen(STREAM_KEY)
     if current_len > previous_len:
         return current_len
+    return None
+
+
+async def _valkey_key_exists(valkey_client, key: str):
+    if await valkey_client.exists(key):
+        return True
+    return None
+
+
+async def _valkey_key_missing(valkey_client, key: str):
+    if await valkey_client.exists(key) == 0:
+        return True
     return None
 
 

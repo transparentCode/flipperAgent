@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 class StreamOHLCVPayload(BaseModel):
     """Pydantic validation for incoming stream:ohlcv:{symbol}:{tf} payloads.
 
-    Published by the ingestion layer, consumed by SignalWorker.
+    Published by the ingestion layer, consumed by the signal runtime worker.
     """
     exchange: str = Field(default="", description="Source exchange identifier")
     symbol: str = Field(default="", description="Trading pair symbol")
@@ -59,7 +59,7 @@ class TradeSignal(BaseModel):
 
 
 class FeatureVector(BaseModel):
-    """Published by SignalWorker, consumed by StrategyWorker."""
+    """Published by the signal runtime worker, consumed by StrategyWorker."""
     asset: str
     timeframe: str
     timestamp: float
@@ -121,7 +121,7 @@ class SelectionResult(BaseModel):
 
 
 class PriceUpdate(BaseModel):
-    """Lightweight bar price update published by SignalWorker on every closed bar."""
+    """Lightweight bar price update published by the signal runtime worker on every closed bar."""
     asset: str
     timeframe: str
     timestamp: float

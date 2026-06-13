@@ -1,0 +1,199 @@
+direction: right
+
+title: {
+  label: "signal_app target architecture"
+  near: top-center
+}
+
+inputs: {
+  label: "Inputs"
+  style.fill: "#E8F1FF"
+
+  ingestion_stream: {
+    label: "stream:ohlcv:{symbol}:{tf}"
+    tooltip: "Closed candle stream produced by ingestion_app."
+    link: "../../../src/apps/ingestion_app/runtime/websocket.py"
+  }
+
+  history: {
+    label: "Timescale OHLCV"
+    tooltip: "Historical bars used for startup priming and gap recovery."
+    link: "../../../src/libs/common/db/timescale_reader.py"
+  }
+
+  market_context: {
+    label: "TV / derivatives hashes"
+    tooltip: "Latest cross-market context stored in Valkey hashes."
+    link: "../../../configs/tradingview.yaml"
+  }
+
+  api_client: {
+    label: "api_app / research CLI"
+    tooltip: "Internal observability and on-demand feature callers."
+    link: "../../../src/apps/api_app/routers/signal.py"
+  }
+}
+
+signal_app: {
+  label: "signal_app"
+  link: "./README.md"
+  style.fill: "#EEF7EA"
+
+  pair_catalog: {
+    label: "pair_catalog"
+    tooltip: "Resolves effective asset/timeframe pairs from config now and runtime state later."
+    link: "../../../src/apps/signal_app/catalog/pairs.py"
+  }
+
+  runtime_runner: {
+    label: "runtime_runner"
+    tooltip: "Boots and supervises per-pair signal workers."
+    link: "../../../src/apps/signal_app/runtime/runner.py"
+  }
+
+  runtime_worker: {
+    label: "runtime_worker"
+    tooltip: "Consumes closed candles and delegates work to pipeline services."
+    link: "../../../src/apps/signal_app/runtime/worker.py"
+  }
+
+  feature_pipeline: {
+    label: "feature_pipeline"
+    tooltip: "Runs raw indicators, engineered features, and regime feature stages."
+    link: "../../../src/apps/signal_app/pipeline/features.py"
+  }
+
+  raw_indicators: {
+    label: "raw_indicators"
+    tooltip: "Stateful indicator config, priming, live update, and snapshot behavior."
+    link: "../../../src/apps/signal_app/pipeline/raw_indicators.py"
+  }
+
+  enrichment: {
+    label: "enrichment"
+    tooltip: "Loads TV index, derivatives, and optional L2 context."
+    link: "../../../src/apps/signal_app/enrichment/valkey.py"
+  }
+
+  publishers: {
+    label: "publishers"
+    tooltip: "Publishes FeatureVector and PriceUpdate stream contracts."
+    link: "../../../src/apps/signal_app/publishing/streams.py"
+  }
+
+  observability: {
+    label: "observability"
+    tooltip: "Builds latest, status, lag, and future events views."
+    link: "../../../src/apps/signal_app/observability/status.py"
+  }
+
+  api: {
+    label: "internal_api"
+    tooltip: "Signal API routes for pair catalog, latest/status views, and on-demand snapshots."
+    link: "../../../src/apps/signal_app/api/routes.py"
+  }
+}
+
+valkey: {
+  label: "Valkey"
+  style.fill: "#FFF2D8"
+
+  feature_stream: {
+    label: "features:{symbol}:{tf}"
+    tooltip: "FeatureVector stream consumed by strategy_app."
+    link: "../../../src/libs/contracts/signal.py"
+  }
+
+  price_stream: {
+    label: "price_update:{symbol}:{tf}"
+    tooltip: "PriceUpdate stream consumed by risk_app."
+    link: "../../../src/libs/contracts/signal.py"
+  }
+
+  signal_events: {
+    label: "stream:events:signal"
+    tooltip: "Future signal runtime events for operators and alert_app."
+  }
+
+  context_hashes: {
+    label: "context hashes"
+    tooltip: "index:latest and derivatives:latest hashes read during feature enrichment."
+  }
+
+  signal_state: {
+    label: "signal state keys"
+    tooltip: "Future worker state, lag, and last error keys."
+  }
+}
+
+timescaledb: {
+  label: "TimescaleDB"
+  style.fill: "#F4EAFE"
+
+  ohlcv: {
+    label: "ohlcv"
+    tooltip: "Historical candle source for priming and gap recovery."
+    link: "../../../src/apps/ingestion_app/storage/schema.sql"
+  }
+
+  l2_depth_features: {
+    label: "l2_depth_features"
+    tooltip: "Optional regime classification context."
+    link: "../../../src/apps/ingestion_app/storage/schema.sql"
+  }
+
+  future_snapshots: {
+    label: "signal_feature_snapshots"
+    tooltip: "Optional future table for materialized research features."
+  }
+}
+
+consumers: {
+  label: "Consumers"
+  style.fill: "#FCE8E8"
+
+  strategy_app: {
+    label: "strategy_app"
+    tooltip: "Consumes FeatureVector streams and publishes trade signals."
+    link: "../../../src/apps/strategy_app/strategy_worker.py"
+  }
+
+  risk_app: {
+    label: "risk_app"
+    tooltip: "Consumes PriceUpdate streams for active position monitoring."
+    link: "../../../src/apps/risk_app/risk_worker.py"
+  }
+
+  alert_app: {
+    label: "future alert_app"
+    tooltip: "Will subscribe to signal runtime events later."
+  }
+}
+
+inputs.api_client -> signal_app.api: "HTTP / CLI"
+inputs.ingestion_stream -> signal_app.runtime_worker: "closed candles"
+inputs.history -> signal_app.feature_pipeline: "priming / gap history"
+inputs.market_context -> signal_app.enrichment: "context reads"
+
+signal_app.api -> signal_app.pair_catalog: "list pairs"
+signal_app.api -> signal_app.observability: "latest / status / events"
+signal_app.api -> signal_app.feature_pipeline: "on-demand snapshot"
+
+signal_app.pair_catalog -> signal_app.runtime_runner: "effective pairs"
+signal_app.runtime_runner -> signal_app.runtime_worker: "start workers"
+signal_app.runtime_worker -> signal_app.feature_pipeline: "closed bar"
+signal_app.runtime_worker -> signal_app.observability: "state / failures"
+signal_app.feature_pipeline -> signal_app.raw_indicators: "raw features"
+signal_app.feature_pipeline -> signal_app.enrichment: "market context"
+signal_app.enrichment -> valkey.context_hashes: "read"
+signal_app.feature_pipeline -> timescaledb.l2_depth_features: "optional read"
+signal_app.feature_pipeline -> signal_app.publishers: "feature + price payloads"
+signal_app.publishers -> valkey.feature_stream: "publish FeatureVector"
+signal_app.publishers -> valkey.price_stream: "publish PriceUpdate"
+signal_app.observability -> valkey.signal_events: "future events"
+signal_app.observability -> valkey.signal_state: "future state keys"
+
+timescaledb.ohlcv -> signal_app.feature_pipeline: "history reads"
+valkey.feature_stream -> consumers.strategy_app: "consume"
+valkey.price_stream -> consumers.risk_app: "consume"
+valkey.signal_events -> consumers.alert_app: "subscribe later"

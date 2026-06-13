@@ -9,6 +9,7 @@ import pytest
 from apps.ingestion_app.coordination import IngestionState
 from apps.ingestion_app.models.asset_registry import IngestionAssetRecord
 from apps.ingestion_app.runtime.app import app, lifespan
+from apps.ingestion_app.runtime.bootstrap import initialize_asset_runtime
 from apps.ingestion_app.runtime.reconciler import IngestionRuntimeReconciler
 from apps.ingestion_app.runtime.websocket import run_websocket_pipeline
 from apps.ingestion_app.constants import EXCHANGE_BINANCE
@@ -93,6 +94,7 @@ async def test_lifespan_caught_up_v2():
     mock_valkey_client = AsyncMock()
     mock_coordinator = AsyncMock()
     mock_coordinator.is_stale = AsyncMock(return_value=False)
+    mock_coordinator.resume_backfill_required = AsyncMock(return_value=False)
     mock_coordinator.transition = AsyncMock()
 
     async def idle_xread(*args, **kwargs):
@@ -138,6 +140,31 @@ async def test_lifespan_caught_up_v2():
     args = mock_verify_ws.await_args.args
     assert args[:4] == ("BTCUSDT", [], mock_arq_pool, mock_coordinator)
     assert isinstance(args[4], set)
+
+
+@pytest.mark.asyncio
+async def test_initialize_asset_runtime_forces_gap_fill_on_resume_marker_v2():
+    asset = IngestionAssetRecord(
+        symbol="BTCUSDT",
+        base_timeframe="1m",
+        publish_timeframes=["1h"],
+        source="registry",
+    )
+    mock_arq_pool = AsyncMock()
+    mock_coordinator = MagicMock()
+    mock_coordinator.resume_backfill_required = AsyncMock(return_value=True)
+    mock_coordinator.is_stale = AsyncMock(return_value=False)
+    mock_coordinator.transition = AsyncMock()
+
+    with patch(
+        "apps.ingestion_app.runtime.bootstrap.verify_and_launch_ws",
+        new=AsyncMock(),
+    ) as mock_verify_ws:
+        await initialize_asset_runtime(asset, mock_arq_pool, mock_coordinator, set())
+
+    mock_arq_pool.enqueue_job.assert_awaited_once_with("run_rest_gap_fill", ["BTCUSDT"], EXCHANGE_BINANCE)
+    mock_coordinator.transition.assert_not_awaited()
+    mock_verify_ws.assert_awaited_once()
 
 
 @pytest.mark.asyncio

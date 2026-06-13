@@ -19,13 +19,25 @@ async def initialize_asset_runtime(
     symbol = asset.symbol
     base_timeframe = asset.base_timeframe
     try:
+        force_backfill = False
+        try:
+            force_backfill = await coordinator.resume_backfill_required(symbol, base_timeframe)
+        except Exception as resume_backfill_error:
+            logger.warning(
+                f"[{symbol}] resume_backfill_required() check failed ({resume_backfill_error}), "
+                "falling back to staleness-only bootstrap."
+            )
+
         try:
             stale = await coordinator.is_stale(symbol, base_timeframe)
         except Exception as stale_error:
             logger.warning(f"[{symbol}] is_stale() check failed ({stale_error}), treating as stale.")
             stale = True
 
-        if stale:
+        if force_backfill:
+            logger.info(f"[{symbol}] Resume backfill required. Dispatching REST gap-fill before live launch.")
+            await arq_pool.enqueue_job("run_rest_gap_fill", [symbol], EXCHANGE_BINANCE)
+        elif stale:
             logger.info(f"[{symbol}] Stale/missing data. Dispatching REST gap-fill.")
             await arq_pool.enqueue_job("run_rest_gap_fill", [symbol], EXCHANGE_BINANCE)
         else:

@@ -1,0 +1,300 @@
+app:
+  name: signal_app
+  current_path: src/apps/signal_app
+  target_path: src/apps/signal_app
+  purpose: >
+    Converts closed OHLCV candles into feature vectors and lightweight price
+    updates for strategy and risk consumers.
+
+entrypoints:
+  current_worker:
+    path: src/apps/signal_app/main.py
+    role: Boots modular signal runtime workers per configured asset/timeframe pair
+  target_worker:
+    path: src/apps/signal_app/runtime/runner.py
+    role: Owns modular signal runtime startup and worker fleet lifecycle
+  api:
+    path: src/apps/signal_app/api/routes.py
+    role: Internal signal pair and on-demand feature API
+  cli:
+    path: src/apps/signal_app/cli.py
+    role: Offline research and feature snapshot entrypoint
+
+features:
+  - key: live_feature_generation
+    summary: Consumes closed OHLCV candles and publishes FeatureVector payloads
+  - key: price_update_publication
+    summary: Publishes lightweight bar updates for risk monitoring
+  - key: startup_priming
+    summary: Warms indicators from TimescaleDB before live processing
+  - key: gap_recovery
+    summary: Detects candle gaps and re-primes from historical storage
+  - key: engineered_features
+    summary: Computes derived and cross-sectional feature overlays
+  - key: regime_context
+    summary: Attaches market-state facts for downstream strategy and risk use
+  - key: valkey_enrichment
+    summary: Reads TradingView index and derivatives snapshots from Valkey
+  - key: observability_api
+    summary: Exposes latest feature, lag, state, and failure status
+  - key: on_demand_snapshots
+    summary: Computes feature snapshots for research or debugging without publishing
+
+internal_components:
+  - name: pair_catalog
+    target_paths:
+      - src/apps/signal_app/catalog/pairs.py
+      - src/apps/signal_app/models.py
+    inputs:
+      - models_config
+      - feature_config
+    outputs:
+      - effective_signal_pairs
+    responsibilities:
+      - Resolve active asset/timeframe pairs
+      - Preserve config-driven behavior during migration
+      - Provide future runtime registry insertion point
+
+  - name: runtime_runner
+    target_paths:
+      - src/apps/signal_app/runtime/runner.py
+      - src/apps/signal_app/runtime/worker.py
+    inputs:
+      - effective_signal_pairs
+      - stream_ohlcv
+    outputs:
+      - signal_runtime_state
+    responsibilities:
+      - Open shared DB and Valkey connections
+      - Start and supervise per-pair workers
+      - Keep worker lifecycle separate from feature computation
+
+  - name: startup_primer
+    target_paths:
+      - src/apps/signal_app/pipeline/priming.py
+    inputs:
+      - ohlcv_history
+      - indicator_config
+    outputs:
+      - primed_feature_state
+      - bootstrap_feature_snapshot
+    responsibilities:
+      - Fetch enough historical bars for indicator warmup
+      - Remain in warming mode when history is not ready
+      - Fail fast on real indicator contract bugs
+
+  - name: feature_pipeline
+    target_paths:
+      - src/apps/signal_app/pipeline/raw_indicators.py
+      - src/apps/signal_app/pipeline/engineered.py
+      - src/apps/signal_app/pipeline/features.py
+      - src/apps/signal_app/pipeline/regime.py
+      - src/apps/signal_app/pipeline/snapshot.py
+    inputs:
+      - closed_ohlcv_bar
+      - primed_feature_state
+      - index_snapshots
+      - derivatives_snapshots
+      - l2_depth_features
+    outputs:
+      - feature_vector_payload
+    responsibilities:
+      - Run raw indicators
+      - Run engineered features
+      - Attach regime and regime-classification context
+      - Keep live and offline feature computation paths aligned
+
+  - name: enrichment_readers
+    target_paths:
+      - src/apps/signal_app/enrichment/valkey.py
+    inputs:
+      - valkey_index_hashes
+      - valkey_derivatives_hashes
+      - timescale_l2_depth_features
+    outputs:
+      - index_snapshots
+      - derivatives_snapshots
+      - l2_depth_features
+    responsibilities:
+      - Read external market context without coupling it to the worker loop
+      - Normalize values before feature pipeline use
+      - Make stale or missing enrichment explicit
+
+  - name: publishers
+    target_paths:
+      - src/apps/signal_app/publishing/streams.py
+    inputs:
+      - feature_vector_payload
+      - price_update_payload
+    outputs:
+      - features_stream
+      - price_update_stream
+    responsibilities:
+      - Publish FeatureVector contracts
+      - Publish PriceUpdate contracts
+      - Keep stream naming and maxlen policies centralized
+
+  - name: observability
+    target_paths:
+      - src/apps/signal_app/observability/status.py
+      - src/apps/signal_app/api/routes.py
+    inputs:
+      - features_stream
+      - signal_runtime_state
+      - signal_runtime_events
+    outputs:
+      - latest_feature_view
+      - pair_status_view
+      - signal_events_view
+    responsibilities:
+      - Report latest features and lag
+      - Report worker state and last failure
+      - Provide alert_app-ready event contracts later
+
+tech_stack:
+  language: python
+  framework:
+    - fastapi
+    - pydantic
+  infra:
+    - valkey
+    - timescaledb
+  shared_libs:
+    - libs.common.stream_consumer
+    - libs.common.config
+    - libs.common.db.timescale_reader
+    - libs.contracts.signal
+    - libs.features.indicators
+    - libs.features.engineered
+
+inputs:
+  - name: stream_ohlcv
+    source: ingestion_app
+    target: runtime_worker
+    transport: valkey_stream
+    contract: stream:ohlcv:{symbol}:{timeframe}
+  - name: ohlcv_history
+    source: timescaledb.ohlcv
+    target: startup_primer
+    transport: database_query
+  - name: valkey_index_hashes
+    source: scraper_app_or_ingestion_bridge
+    target: enrichment_readers
+    transport: valkey_hash
+    contract: index:latest:{symbol}
+  - name: valkey_derivatives_hashes
+    source: scraper_app_or_ingestion_bridge
+    target: enrichment_readers
+    transport: valkey_hash
+    contract: derivatives:latest:{asset}:{suffix}
+  - name: on_demand_feature_request
+    source: api_app_or_research_cli
+    target: feature_pipeline
+    transport: http_or_cli
+
+outputs:
+  - name: feature_vector_payload
+    producer: feature_pipeline
+    transport: valkey_stream
+    target: strategy_app
+    contract: features:{symbol}:{timeframe}
+  - name: price_update_payload
+    producer: publishers
+    transport: valkey_stream
+    target: risk_app
+    contract: price_update:{symbol}:{timeframe}
+  - name: latest_feature_view
+    producer: observability
+    transport: http
+    target: operators_and_internal_consumers
+    contract: GET /signal/latest
+  - name: pair_status_view
+    producer: observability
+    transport: http
+    target: operators_and_alert_app
+    contract: GET /signal/status
+  - name: on_demand_feature_snapshot
+    producer: feature_pipeline
+    transport: http_or_cli
+    target: research_and_debugging
+    contract: POST /signal/features/snapshot
+
+valkey:
+  streams:
+    consumes:
+      - name: stream:ohlcv:{symbol}:{timeframe}
+        consumer: runtime_worker
+        group: signal_app_group
+    produces:
+      - name: features:{symbol}:{timeframe}
+        producer: publishers
+        consumers:
+          - strategy_app
+      - name: price_update:{symbol}:{timeframe}
+        producer: publishers
+        consumers:
+          - risk_app
+      - name: stream:events:signal
+        producer: observability
+        consumers:
+          - future_alert_app
+  hashes:
+    reads:
+      - name: index:latest:{symbol}
+        reader: enrichment_readers
+      - name: derivatives:latest:{asset}:{suffix}
+        reader: enrichment_readers
+  state_keys:
+    future:
+      - name: signal:state:{symbol}:{timeframe}
+        owner: runtime_runner
+      - name: signal:last_feature_ts:{symbol}:{timeframe}
+        owner: publishers
+      - name: signal:last_error:{symbol}:{timeframe}
+        owner: observability
+
+database:
+  reads:
+    - name: ohlcv
+      source: startup_primer
+      usage: Indicator priming, bootstrap snapshot, and gap recovery
+    - name: l2_depth_features
+      source: feature_pipeline
+      usage: Optional regime classification features
+  future_writes:
+    - name: signal_feature_snapshots
+      source: on_demand_snapshots
+      usage: Optional historical feature materialization
+
+api:
+  routes:
+    - method: GET
+      path: /signal/health
+      purpose: Runtime health
+    - method: GET
+      path: /signal/pairs
+      purpose: Effective signal pair catalog
+    - method: GET
+      path: /signal/status
+      purpose: Per-pair state, lag, warming, and failure status
+    - method: GET
+      path: /signal/latest
+      purpose: Latest FeatureVector per configured pair
+    - method: GET
+      path: /signal/events
+      purpose: Recent signal runtime events
+    - method: POST
+      path: /signal/features/snapshot
+      purpose: On-demand feature computation without publication
+    - method: POST
+      path: /signal/pairs/batch
+      purpose: Future runtime pair upsert
+    - method: POST
+      path: /signal/pairs/batch/action
+      purpose: Future batch pause, resume, stop, or remove
+
+migration_notes:
+  - Do not import from apps.signal_app inside signal_app.
+  - Preserve FeatureVector and PriceUpdate stream contracts until downstream tests are green.
+  - Prefer service extraction over copying the current monolithic worker.
+  - Add runtime control only after feature parity and observability are stable.

@@ -19,7 +19,7 @@ flowchart LR
     end
 
     subgraph Signal App
-        SW[SignalWorker] --> FM[FeatureManager]
+        SW[SignalRuntimeWorker] --> FM[FeatureManager]
         FM --> IR[IndicatorRegistry]
         IR --> IND[Indicator Instances]
     end
@@ -58,7 +58,7 @@ flowchart LR
 
 ```mermaid
 classDiagram
-    class SignalWorker {
+    class SignalRuntimeWorker {
         +asset: str
         +timeframe: str
         +stream_key: str
@@ -105,7 +105,7 @@ classDiagram
     class BollingerBands
     class ATR
 
-    SignalWorker --> FeatureManager
+    SignalRuntimeWorker --> FeatureManager
     FeatureManager --> IndicatorRegistry
     FeatureManager *-- Indicator
     IndicatorRegistry --> Indicator
@@ -120,7 +120,7 @@ classDiagram
 
 ```
 src/apps/signal_app/
-├── signal_worker.py          # Valkey consumer — orchestrates lifecycle
+├── runtime/worker.py          # Valkey consumer — orchestrates lifecycle
 └── feature_manager.py        # Config-driven indicator loading + tick dispatch
 
 src/libs/features/
@@ -174,7 +174,7 @@ features:
 ```mermaid
 sequenceDiagram
     participant Main as Entrypoint
-    participant SW as SignalWorker
+    participant SW as SignalRuntimeWorker
     participant FM as FeatureManager
     participant IR as IndicatorRegistry
     participant CFG as ConfigManager
@@ -211,7 +211,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant VK as Valkey
-    participant SW as SignalWorker
+    participant SW as SignalRuntimeWorker
     participant FM as FeatureManager
     participant IND as Indicators
 
@@ -333,6 +333,6 @@ class Indicator(ABC, Generic[TInput, TOutput]):
 
 ## 8. Known Integration Notes
 
-1. **bytes vs str:** SignalWorker handles both `bytes` and `str` keys/values from Valkey (depends on client `decode_responses` setting).
+1. **bytes vs str:** SignalRuntimeWorker handles both `bytes` and `str` keys/values from Valkey (depends on client `decode_responses` setting).
 2. **Only closed bars:** `process_message()` filters on `bar_closed == true` — partial/open candles are ignored.
-3. **No `main.py` entrypoint:** Signal App currently has no boot/discovery mechanism. `SignalWorker` must be instantiated externally (e.g., from a shared orchestrator or a future `main.py`).
+3. **No `main.py` entrypoint:** Signal App currently has no boot/discovery mechanism. `SignalRuntimeWorker` must be instantiated externally (e.g., from a shared orchestrator or a future `main.py`).

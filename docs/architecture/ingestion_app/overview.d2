@@ -10,18 +10,27 @@ clients: {
   style.fill: "#E8F1FF"
 
   api_client: {
-    label: "API / operator"
-    tooltip: "Control-plane callers that add, patch, pause, resume, or remove assets."
+    label: "api_app / operator"
+    tooltip: "Callers that use ingestion control, observability, and scraper-bridge routes."
+    link: "../../../src/apps/api_app/routers/ingestion.py"
   }
 
   binance_ws: {
     label: "Binance WS"
     tooltip: "Live upstream candle feed used by the websocket pipeline."
+    link: "../../../src/apps/ingestion_app/adapters/binance_native.py"
   }
 
   binance_rest: {
     label: "Binance REST / CCXT"
     tooltip: "Historical OHLCV and scheduled depth snapshot source."
+    link: "../../../src/apps/ingestion_app/adapters/crypto_ccxt.py"
+  }
+
+  scraper_service: {
+    label: "scraper_app API"
+    tooltip: "Browser-backed scraper service used for on-demand data fetch and job delegation."
+    link: "../../../src/apps/scraper_app/api/app.py"
   }
 }
 
@@ -34,6 +43,24 @@ ingestion_app: {
     label: "control_plane"
     tooltip: "Persists asset definitions and emits ingestion control/events streams."
     link: "../../../src/apps/ingestion_app/control_plane/service.py"
+  }
+
+  ingestion_router: {
+    label: "ingestion_router"
+    tooltip: "Ingestion-facing API routes for asset control, events, ops-summary, status, and scraper delegation."
+    link: "../../../src/apps/api_app/routers/ingestion.py"
+  }
+
+  scraper_bridge: {
+    label: "scraper_bridge"
+    tooltip: "HTTP client bridge from ingestion routes to scraper_app sync fetch and job APIs."
+    link: "../../../src/apps/api_app/clients/scraper_service.py"
+  }
+
+  runtime_api: {
+    label: "runtime_api"
+    tooltip: "FastAPI health and runtime lifespan surface used by Docker and operational health checks."
+    link: "../../../src/apps/ingestion_app/runtime/app.py"
   }
 
   runtime_reconciler: {
@@ -68,26 +95,31 @@ valkey: {
   control_stream: {
     label: "stream:control:ingestion"
     tooltip: "Desired-state commands emitted by control_plane and consumed by runtime_reconciler."
+    link: "../../../src/apps/ingestion_app/control_plane/publisher.py"
   }
 
   events_stream: {
     label: "stream:events:ingestion"
     tooltip: "Control acceptance and runtime status events."
+    link: "../../../src/apps/ingestion_app/events.py"
   }
 
   ohlcv_stream: {
     label: "stream:ohlcv:{symbol}:{tf}"
     tooltip: "Candle-close OHLCV stream for downstream consumers such as signal_app."
+    link: "../../../src/apps/ingestion_app/runtime/websocket.py"
   }
 
   arq_queue: {
     label: "ARQ jobs"
     tooltip: "Queue surface for run_rest_gap_fill, purge_removed_asset, poll_l2_depth, and scheduled jobs."
+    link: "../../../src/apps/ingestion_app/worker.py"
   }
 
   coordination_keys: {
     label: "coordination keys"
     tooltip: "Runtime freshness, disconnect, and state-machine keys."
+    link: "../../../src/apps/ingestion_app/coordination.py"
   }
 }
 
@@ -98,37 +130,51 @@ timescaledb: {
   ingestion_assets: {
     label: "ingestion_assets"
     tooltip: "Registry table for desired asset state and runtime configuration."
+    link: "../../../src/apps/ingestion_app/storage/schema.sql"
   }
 
   ohlcv: {
     label: "ohlcv"
     tooltip: "Primary stored candle history written by live and gap-fill flows."
+    link: "../../../src/apps/ingestion_app/storage/schema.sql"
   }
 
   ticks: {
     label: "ticks"
     tooltip: "Raw tick storage owned by the ingestion schema."
+    link: "../../../src/apps/ingestion_app/storage/schema.sql"
   }
 
   open_interest: {
     label: "open_interest"
     tooltip: "Open interest table written through ingestion storage."
+    link: "../../../src/apps/ingestion_app/storage/schema.sql"
   }
 
   funding_rate: {
     label: "funding_rate"
     tooltip: "Funding rate table written through ingestion storage."
+    link: "../../../src/apps/ingestion_app/storage/schema.sql"
   }
 
   l2_depth_features: {
     label: "l2_depth_features"
     tooltip: "Scheduled depth snapshot features for downstream use."
+    link: "../../../src/apps/ingestion_app/storage/schema.sql"
   }
 }
 
-clients.api_client -> ingestion_app.control_plane: "asset lifecycle commands"
+clients.api_client -> ingestion_app.ingestion_router: "HTTP routes"
+clients.api_client -> ingestion_app.runtime_api: "health / readiness"
 clients.binance_ws -> ingestion_app.websocket_pipeline: "live candles"
 clients.binance_rest -> ingestion_app.queue_jobs: "backfill / depth snapshots"
+clients.scraper_service -> ingestion_app.scraper_bridge: "fetch / job responses"
+
+ingestion_app.ingestion_router -> ingestion_app.control_plane: "upsert / patch / lifecycle"
+ingestion_app.ingestion_router -> valkey.events_stream: "read events / ops-summary"
+ingestion_app.ingestion_router -> valkey.coordination_keys: "read status snapshot"
+ingestion_app.ingestion_router -> ingestion_app.scraper_bridge: "proxy on-demand scraper calls"
+ingestion_app.scraper_bridge -> clients.scraper_service: "fetch / jobs"
 
 ingestion_app.control_plane -> timescaledb.ingestion_assets: "upsert / patch / mark removing"
 ingestion_app.control_plane -> valkey.control_stream: "publish commands"

@@ -1,12 +1,18 @@
-"""Tests for regime_snapshot wiring from SignalWorker → StrategyWorker → Blender."""
+"""Tests for regime context wiring in the modular signal pipeline."""
 
 from __future__ import annotations
 
 import types
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
+from apps.signal_app.pipeline.regime import (
+    FeatureProducerConfigResolver,
+    RegimeFeaturePipeline,
+    regime_features_to_dict,
+)
+from libs.common.config import ConfigManager
 from libs.contracts.signal import ScoringOutput
 from libs.models.blender.ensemble import RegimeEnsembleBlender
 
@@ -74,9 +80,6 @@ def _scoring_outputs() -> list[ScoringOutput]:
 
 class TestRegimeFeaturesToDict:
     def test_serializes_all_expected_keys(self) -> None:
-        from apps.signal_app.signal_worker import _regime_features_to_dict
-
-        # Create a mock RegimeFeatures with attribute access
         rf = types.SimpleNamespace(
             regime="CHOPPY",
             p_trending=0.3,
@@ -89,7 +92,7 @@ class TestRegimeFeaturesToDict:
             hilbert_period=20.0,
             hilbert_confidence=0.5,
         )
-        result = _regime_features_to_dict(rf)
+        result = regime_features_to_dict(rf)
 
         assert result["regime"] == "CHOPPY"
         assert result["changepoint_prob"] == 0.05
@@ -100,12 +103,9 @@ class TestRegimeFeaturesToDict:
     def test_all_values_json_serializable(self) -> None:
         import json
 
-        from apps.signal_app.signal_worker import _regime_features_to_dict
-
         rf = types.SimpleNamespace(**SAMPLE_REGIME_SNAPSHOT)
-        result = _regime_features_to_dict(rf)
+        result = regime_features_to_dict(rf)
 
-        # Must be JSON-serializable (goes through Valkey)
         serialized = json.dumps(result)
         assert isinstance(serialized, str)
 
@@ -155,18 +155,17 @@ class TestBlenderSimpleNamespaceBridge:
 
 
 # ---------------------------------------------------------------------------
-# Tests: SignalWorker regime integration
+# Tests: modular regime pipeline integration
 # ---------------------------------------------------------------------------
 
 
-class TestSignalWorkerRegimeIntegration:
-    @patch("apps.signal_app.signal_worker.FeatureManager")
-    def test_feature_producer_config_deep_merges_fallbacks(self, MockFM) -> None:
-        from apps.signal_app.signal_worker import SignalWorker
-
-        MockFM.return_value.indicators = []
-        worker = SignalWorker("BTCUSDT", "30m")
-        worker._config = {
+class TestRegimePipelineIntegration:
+    def test_feature_producer_config_deep_merges_fallbacks(self, monkeypatch) -> None:
+        ConfigManager.reset_singleton()
+        config_manager = ConfigManager()
+        monkeypatch.setattr(config_manager, "_load_configs", lambda trigger_callbacks=True: None)
+        monkeypatch.setattr(ConfigManager, "register_file", lambda self, _: None)
+        config_manager._state = {
             "feature_producers": {
                 "assets": {
                     "default": {
@@ -201,7 +200,11 @@ class TestSignalWorkerRegimeIntegration:
             },
         }
 
-        resolved = worker._resolve_feature_producer_config("RegimeClassification")
+        resolved = FeatureProducerConfigResolver(config_manager).resolve(
+            "BTCUSDT",
+            "30m",
+            "RegimeClassification",
+        )
 
         assert resolved["enabled"] is True
         assert resolved["params"]["bcpd_hazard_lambda"] == 150.0
@@ -209,26 +212,7 @@ class TestSignalWorkerRegimeIntegration:
         assert resolved["frozen_overrides"]["hmm_crisis_vol_mult"] == 2.0
 
     @pytest.mark.asyncio
-    @patch("apps.signal_app.signal_worker.FeatureManager")
-    async def test_regime_snapshot_injected_when_history_sufficient(self, MockFM) -> None:
-        """When price history >= 200 bars and orchestrator works, regime_snapshot appears in features."""
-        from apps.signal_app.signal_worker import SignalWorker
-
-        mock_fm = MagicMock()
-        mock_fm.indicators = []
-        mock_fm.process_tick.return_value = {"RSI": 50.0}
-        MockFM.return_value = mock_fm
-
-        worker = SignalWorker("BTCUSDT", "4h")
-        worker.redis_client = AsyncMock()
-        worker.redis_client.hgetall.return_value = {}
-
-        # Pre-fill price history to exceed _REGIME_MIN_BARS
-        worker._price_history = [
-            {"open": 49000, "high": 51000, "low": 48500, "close": 50000, "volume": 100}
-        ] * 200
-
-        # Mock the regime orchestrator
+    async def test_regime_snapshot_injected_when_history_sufficient(self) -> None:
         mock_regime = MagicMock()
         mock_regime.analyze.return_value = types.SimpleNamespace(
             regime="CLEAN_TREND_BULL",
@@ -242,91 +226,69 @@ class TestSignalWorkerRegimeIntegration:
             hilbert_period=18.0,
             hilbert_confidence=0.72,
         )
-        worker._regime_orchestrator = mock_regime
+        regime = RegimeFeaturePipeline(
+            "BTCUSDT",
+            "4h",
+            min_bars=3,
+            orchestrator=mock_regime,
+            classifier=None,
+        )
+        regime.prime(_history(length=3))
 
-        payload = {
-            "bar_closed": "true",
-            "open": "49000.0", "high": "51000.0", "low": "48500.0",
-            "close": "50000.0", "volume": "100.0",
-            "timestamp": "1700000000000.0",
-        }
-        await worker.process_message("msg-1", payload)
+        enriched = await regime.enrich({"RSI": 50.0})
 
-        # Verify regime analysis was called
         mock_regime.analyze.assert_called_once()
-
-        # Verify feature vector published includes regime_snapshot
-        xadd_calls = worker.redis_client.xadd.call_args_list
-        assert len(xadd_calls) >= 1  # at least feature stream
-        feature_call = xadd_calls[0]
-        published_payload = feature_call[0][1]
-        # The features dict is JSON-encoded; check that regime_snapshot key is present
-        import json
-        features_json = published_payload.get("features")
-        if features_json:
-            features_dict = json.loads(features_json)
-            assert "regime_snapshot" in features_dict
-            assert features_dict["regime_snapshot"]["regime"] == "CLEAN_TREND_BULL"
+        assert enriched["regime_snapshot"]["regime"] == "CLEAN_TREND_BULL"
 
     @pytest.mark.asyncio
-    @patch("apps.signal_app.signal_worker.FeatureManager")
-    async def test_regime_skipped_when_history_insufficient(self, MockFM) -> None:
-        """When price history < 200 bars, regime_snapshot should NOT appear."""
-        from apps.signal_app.signal_worker import SignalWorker
-
-        mock_fm = MagicMock()
-        mock_fm.indicators = []
-        mock_fm.process_tick.return_value = {"RSI": 50.0}
-        MockFM.return_value = mock_fm
-
-        worker = SignalWorker("BTCUSDT", "4h")
-        worker.redis_client = AsyncMock()
-        worker.redis_client.hgetall.return_value = {}
-        worker._price_history = []  # empty history
-
+    async def test_regime_skipped_when_history_insufficient(self) -> None:
         mock_regime = MagicMock()
-        worker._regime_orchestrator = mock_regime
+        regime = RegimeFeaturePipeline(
+            "BTCUSDT",
+            "4h",
+            min_bars=5,
+            orchestrator=mock_regime,
+            classifier=None,
+        )
+        regime.prime(_history(length=3))
+        enriched = await regime.enrich({"RSI": 50.0})
 
-        payload = {
-            "bar_closed": "true",
-            "open": "49000.0", "high": "51000.0", "low": "48500.0",
-            "close": "50000.0", "volume": "100.0",
-            "timestamp": "1700000000000.0",
-        }
-        await worker.process_message("msg-1", payload)
-
-        # Orchestrator.analyze should NOT be called (only 1 bar in history)
         mock_regime.analyze.assert_not_called()
+        assert "regime_snapshot" not in enriched
 
     @pytest.mark.asyncio
-    @patch("apps.signal_app.signal_worker.FeatureManager")
-    async def test_regime_failure_does_not_break_feature_publishing(self, MockFM) -> None:
-        """If regime analysis raises, features are still published without regime_snapshot."""
-        from apps.signal_app.signal_worker import SignalWorker
-
-        mock_fm = MagicMock()
-        mock_fm.indicators = []
-        mock_fm.process_tick.return_value = {"RSI": 50.0}
-        MockFM.return_value = mock_fm
-
-        worker = SignalWorker("BTCUSDT", "4h")
-        worker.redis_client = AsyncMock()
-        worker.redis_client.hgetall.return_value = {}
-        worker._price_history = [
-            {"open": 49000, "high": 51000, "low": 48500, "close": 50000, "volume": 100}
-        ] * 200
-
+    async def test_regime_failure_does_not_break_feature_enrichment(self) -> None:
         mock_regime = MagicMock()
         mock_regime.analyze.side_effect = RuntimeError("HMM boom")
-        worker._regime_orchestrator = mock_regime
+        regime = RegimeFeaturePipeline(
+            "BTCUSDT",
+            "4h",
+            min_bars=3,
+            orchestrator=mock_regime,
+            classifier=None,
+        )
+        regime.prime(_history(length=3))
 
-        payload = {
-            "bar_closed": "true",
-            "open": "49000.0", "high": "51000.0", "low": "48500.0",
-            "close": "50000.0", "volume": "100.0",
-            "timestamp": "1700000000000.0",
-        }
-        await worker.process_message("msg-1", payload)
+        enriched = await regime.enrich({"RSI": 50.0})
 
-        # Features should still be published despite regime failure
-        assert worker.redis_client.xadd.call_count == 2  # features + price_update
+        assert enriched["RSI"] == 50.0
+        assert "regime_snapshot" not in enriched
+
+
+def _history(length: int) -> list[tuple[float, ...]]:
+    base_ts = 1_700_000_000
+    rows = []
+    for index in range(length):
+        close = 100.0 + index * 0.1
+        rows.append(
+            (
+                close,
+                close + 1,
+                close - 1,
+                close,
+                1000.0,
+                base_ts + index * 3600,
+                550.0 + (index % 20),
+            )
+        )
+    return rows

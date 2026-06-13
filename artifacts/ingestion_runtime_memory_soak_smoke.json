@@ -1,0 +1,667 @@
+{
+  "started_at_epoch": 1781324327.322189,
+  "finished_at_epoch": 1781324409.200705,
+  "exit_code": 0,
+  "failure_message": null,
+  "config": {
+    "cycles": 1,
+    "symbol": "SOLUSDT",
+    "base_timeframe": "1m",
+    "publish_timeframes": [
+      "1m"
+    ],
+    "historical_backfill_days": 1,
+    "pause_flat_seconds": 3.0,
+    "sample_interval_seconds": 2.0,
+    "live_timeout_seconds": 240.0,
+    "remove_timeout_seconds": 180.0,
+    "memory_growth_threshold_mib": 128.0,
+    "memory_final_growth_threshold_mib": 96.0,
+    "containers": [
+      "flipperagent-worker-streams-1",
+      "flipperagent-worker-queue-1",
+      "flipperagent-broker-1",
+      "flipperagent-db-1"
+    ],
+    "start_stack": true,
+    "keep_stack": false
+  },
+  "cycles": [
+    {
+      "cycle_index": 1,
+      "stream_key": "stream:ohlcv:solusdt:1m",
+      "warnings": [],
+      "initial_stream_len": 1,
+      "paused_disconnects_in_window": 4,
+      "paused_stream_len": 1,
+      "resumed_stream_len": 2,
+      "resumed_disconnects_in_window": 4,
+      "resumed_live_state_confirmed": true
+    }
+  ],
+  "memory_summary": {
+    "flipperagent-worker-streams-1": {
+      "baseline_memory_bytes": 248197939,
+      "peak_memory_bytes": 255223398,
+      "final_memory_bytes": 254908825,
+      "peak_growth_bytes": 7025459,
+      "final_growth_bytes": 6710886,
+      "peak_memory_percent": 47.54
+    },
+    "flipperagent-worker-queue-1": {
+      "baseline_memory_bytes": 364485017,
+      "peak_memory_bytes": 371405619,
+      "final_memory_bytes": 371300761,
+      "peak_growth_bytes": 6920602,
+      "final_growth_bytes": 6815744,
+      "peak_memory_percent": 69.17
+    },
+    "flipperagent-broker-1": {
+      "baseline_memory_bytes": 8941207,
+      "peak_memory_bytes": 13117685,
+      "final_memory_bytes": 12970885,
+      "peak_growth_bytes": 4176478,
+      "final_growth_bytes": 4029678,
+      "peak_memory_percent": 4.89
+    },
+    "flipperagent-db-1": {
+      "baseline_memory_bytes": 139460608,
+      "peak_memory_bytes": 152148377,
+      "final_memory_bytes": 134637158,
+      "peak_growth_bytes": 12687769,
+      "final_growth_bytes": -4823450,
+      "peak_memory_percent": 14.17
+    },
+    "_failures": []
+  },
+  "memory_points": [
+    {
+      "timestamp": 1781324328.39259,
+      "container": "flipperagent-worker-streams-1",
+      "memory_usage_bytes": 248197939,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 46.23
+    },
+    {
+      "timestamp": 1781324328.39259,
+      "container": "flipperagent-worker-queue-1",
+      "memory_usage_bytes": 364485017,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 67.88
+    },
+    {
+      "timestamp": 1781324328.39259,
+      "container": "flipperagent-broker-1",
+      "memory_usage_bytes": 8941207,
+      "memory_limit_bytes": 268435456,
+      "memory_percent": 3.33
+    },
+    {
+      "timestamp": 1781324328.39259,
+      "container": "flipperagent-db-1",
+      "memory_usage_bytes": 139460608,
+      "memory_limit_bytes": 1073741824,
+      "memory_percent": 12.99
+    },
+    {
+      "timestamp": 1781324332.479799,
+      "container": "flipperagent-worker-streams-1",
+      "memory_usage_bytes": 250819379,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 46.72
+    },
+    {
+      "timestamp": 1781324332.479799,
+      "container": "flipperagent-worker-queue-1",
+      "memory_usage_bytes": 362073292,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 67.43
+    },
+    {
+      "timestamp": 1781324332.479799,
+      "container": "flipperagent-broker-1",
+      "memory_usage_bytes": 10548674,
+      "memory_limit_bytes": 268435456,
+      "memory_percent": 3.93
+    },
+    {
+      "timestamp": 1781324332.479799,
+      "container": "flipperagent-db-1",
+      "memory_usage_bytes": 152148377,
+      "memory_limit_bytes": 1073741824,
+      "memory_percent": 14.17
+    },
+    {
+      "timestamp": 1781324336.674015,
+      "container": "flipperagent-worker-streams-1",
+      "memory_usage_bytes": 252077670,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 46.96
+    },
+    {
+      "timestamp": 1781324336.674015,
+      "container": "flipperagent-worker-queue-1",
+      "memory_usage_bytes": 363017011,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 67.62
+    },
+    {
+      "timestamp": 1781324336.674015,
+      "container": "flipperagent-broker-1",
+      "memory_usage_bytes": 9334423,
+      "memory_limit_bytes": 268435456,
+      "memory_percent": 3.48
+    },
+    {
+      "timestamp": 1781324336.674015,
+      "container": "flipperagent-db-1",
+      "memory_usage_bytes": 135476019,
+      "memory_limit_bytes": 1073741824,
+      "memory_percent": 12.62
+    },
+    {
+      "timestamp": 1781324340.809178,
+      "container": "flipperagent-worker-streams-1",
+      "memory_usage_bytes": 252287385,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 47.0
+    },
+    {
+      "timestamp": 1781324340.809178,
+      "container": "flipperagent-worker-queue-1",
+      "memory_usage_bytes": 361968435,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 67.42
+    },
+    {
+      "timestamp": 1781324340.809178,
+      "container": "flipperagent-broker-1",
+      "memory_usage_bytes": 9621733,
+      "memory_limit_bytes": 268435456,
+      "memory_percent": 3.58
+    },
+    {
+      "timestamp": 1781324340.809178,
+      "container": "flipperagent-db-1",
+      "memory_usage_bytes": 137048883,
+      "memory_limit_bytes": 1073741824,
+      "memory_percent": 12.76
+    },
+    {
+      "timestamp": 1781324344.896141,
+      "container": "flipperagent-worker-streams-1",
+      "memory_usage_bytes": 252916531,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 47.11
+    },
+    {
+      "timestamp": 1781324344.896141,
+      "container": "flipperagent-worker-queue-1",
+      "memory_usage_bytes": 362492723,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 67.52
+    },
+    {
+      "timestamp": 1781324344.896141,
+      "container": "flipperagent-broker-1",
+      "memory_usage_bytes": 11051991,
+      "memory_limit_bytes": 268435456,
+      "memory_percent": 4.12
+    },
+    {
+      "timestamp": 1781324344.896141,
+      "container": "flipperagent-db-1",
+      "memory_usage_bytes": 146905497,
+      "memory_limit_bytes": 1073741824,
+      "memory_percent": 13.68
+    },
+    {
+      "timestamp": 1781324348.9499562,
+      "container": "flipperagent-worker-streams-1",
+      "memory_usage_bytes": 253021388,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 47.12
+    },
+    {
+      "timestamp": 1781324348.9499562,
+      "container": "flipperagent-worker-queue-1",
+      "memory_usage_bytes": 362492723,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 67.52
+    },
+    {
+      "timestamp": 1781324348.9499562,
+      "container": "flipperagent-broker-1",
+      "memory_usage_bytes": 11041505,
+      "memory_limit_bytes": 268435456,
+      "memory_percent": 4.11
+    },
+    {
+      "timestamp": 1781324348.9499562,
+      "container": "flipperagent-db-1",
+      "memory_usage_bytes": 146800640,
+      "memory_limit_bytes": 1073741824,
+      "memory_percent": 13.67
+    },
+    {
+      "timestamp": 1781324352.0360372,
+      "container": "flipperagent-worker-streams-1",
+      "memory_usage_bytes": 253021388,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 47.13
+    },
+    {
+      "timestamp": 1781324352.0360372,
+      "container": "flipperagent-worker-queue-1",
+      "memory_usage_bytes": 362492723,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 67.52
+    },
+    {
+      "timestamp": 1781324352.0360372,
+      "container": "flipperagent-broker-1",
+      "memory_usage_bytes": 11062476,
+      "memory_limit_bytes": 268435456,
+      "memory_percent": 4.12
+    },
+    {
+      "timestamp": 1781324352.0360372,
+      "container": "flipperagent-db-1",
+      "memory_usage_bytes": 146800640,
+      "memory_limit_bytes": 1073741824,
+      "memory_percent": 13.67
+    },
+    {
+      "timestamp": 1781324356.117596,
+      "container": "flipperagent-worker-streams-1",
+      "memory_usage_bytes": 254279680,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 47.36
+    },
+    {
+      "timestamp": 1781324356.117596,
+      "container": "flipperagent-worker-queue-1",
+      "memory_usage_bytes": 362492723,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 67.51
+    },
+    {
+      "timestamp": 1781324356.117596,
+      "container": "flipperagent-broker-1",
+      "memory_usage_bytes": 11041505,
+      "memory_limit_bytes": 268435456,
+      "memory_percent": 4.11
+    },
+    {
+      "timestamp": 1781324356.117596,
+      "container": "flipperagent-db-1",
+      "memory_usage_bytes": 146800640,
+      "memory_limit_bytes": 1073741824,
+      "memory_percent": 13.67
+    },
+    {
+      "timestamp": 1781324360.246316,
+      "container": "flipperagent-worker-streams-1",
+      "memory_usage_bytes": 253545676,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 47.23
+    },
+    {
+      "timestamp": 1781324360.246316,
+      "container": "flipperagent-worker-queue-1",
+      "memory_usage_bytes": 362073292,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 67.43
+    },
+    {
+      "timestamp": 1781324360.246316,
+      "container": "flipperagent-broker-1",
+      "memory_usage_bytes": 8171552,
+      "memory_limit_bytes": 268435456,
+      "memory_percent": 3.04
+    },
+    {
+      "timestamp": 1781324360.246316,
+      "container": "flipperagent-db-1",
+      "memory_usage_bytes": 132959436,
+      "memory_limit_bytes": 1073741824,
+      "memory_percent": 12.38
+    },
+    {
+      "timestamp": 1781324364.325662,
+      "container": "flipperagent-worker-streams-1",
+      "memory_usage_bytes": 253545676,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 47.23
+    },
+    {
+      "timestamp": 1781324364.325662,
+      "container": "flipperagent-worker-queue-1",
+      "memory_usage_bytes": 362073292,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 67.43
+    },
+    {
+      "timestamp": 1781324364.325662,
+      "container": "flipperagent-broker-1",
+      "memory_usage_bytes": 8757706,
+      "memory_limit_bytes": 268435456,
+      "memory_percent": 3.26
+    },
+    {
+      "timestamp": 1781324364.325662,
+      "container": "flipperagent-db-1",
+      "memory_usage_bytes": 132959436,
+      "memory_limit_bytes": 1073741824,
+      "memory_percent": 12.38
+    },
+    {
+      "timestamp": 1781324368.4155898,
+      "container": "flipperagent-worker-streams-1",
+      "memory_usage_bytes": 253545676,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 47.23
+    },
+    {
+      "timestamp": 1781324368.4155898,
+      "container": "flipperagent-worker-queue-1",
+      "memory_usage_bytes": 362073292,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 67.43
+    },
+    {
+      "timestamp": 1781324368.4155898,
+      "container": "flipperagent-broker-1",
+      "memory_usage_bytes": 8757706,
+      "memory_limit_bytes": 268435456,
+      "memory_percent": 3.26
+    },
+    {
+      "timestamp": 1781324368.4155898,
+      "container": "flipperagent-db-1",
+      "memory_usage_bytes": 133274009,
+      "memory_limit_bytes": 1073741824,
+      "memory_percent": 12.42
+    },
+    {
+      "timestamp": 1781324372.505997,
+      "container": "flipperagent-worker-streams-1",
+      "memory_usage_bytes": 253965107,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 47.3
+    },
+    {
+      "timestamp": 1781324372.505997,
+      "container": "flipperagent-worker-queue-1",
+      "memory_usage_bytes": 362283008,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 67.48
+    },
+    {
+      "timestamp": 1781324372.505997,
+      "container": "flipperagent-broker-1",
+      "memory_usage_bytes": 9478078,
+      "memory_limit_bytes": 268435456,
+      "memory_percent": 3.53
+    },
+    {
+      "timestamp": 1781324372.505997,
+      "container": "flipperagent-db-1",
+      "memory_usage_bytes": 133378867,
+      "memory_limit_bytes": 1073741824,
+      "memory_percent": 12.42
+    },
+    {
+      "timestamp": 1781324376.59619,
+      "container": "flipperagent-worker-streams-1",
+      "memory_usage_bytes": 253965107,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 47.31
+    },
+    {
+      "timestamp": 1781324376.59619,
+      "container": "flipperagent-worker-queue-1",
+      "memory_usage_bytes": 362283008,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 67.48
+    },
+    {
+      "timestamp": 1781324376.59619,
+      "container": "flipperagent-broker-1",
+      "memory_usage_bytes": 9748611,
+      "memory_limit_bytes": 268435456,
+      "memory_percent": 3.63
+    },
+    {
+      "timestamp": 1781324376.59619,
+      "container": "flipperagent-db-1",
+      "memory_usage_bytes": 133798297,
+      "memory_limit_bytes": 1073741824,
+      "memory_percent": 12.46
+    },
+    {
+      "timestamp": 1781324380.720779,
+      "container": "flipperagent-worker-streams-1",
+      "memory_usage_bytes": 253965107,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 47.31
+    },
+    {
+      "timestamp": 1781324380.720779,
+      "container": "flipperagent-worker-queue-1",
+      "memory_usage_bytes": 362283008,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 67.48
+    },
+    {
+      "timestamp": 1781324380.720779,
+      "container": "flipperagent-broker-1",
+      "memory_usage_bytes": 9654239,
+      "memory_limit_bytes": 268435456,
+      "memory_percent": 3.6
+    },
+    {
+      "timestamp": 1781324380.720779,
+      "container": "flipperagent-db-1",
+      "memory_usage_bytes": 133798297,
+      "memory_limit_bytes": 1073741824,
+      "memory_percent": 12.46
+    },
+    {
+      "timestamp": 1781324384.806189,
+      "container": "flipperagent-worker-streams-1",
+      "memory_usage_bytes": 254069964,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 47.32
+    },
+    {
+      "timestamp": 1781324384.806189,
+      "container": "flipperagent-worker-queue-1",
+      "memory_usage_bytes": 362283008,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 67.48
+    },
+    {
+      "timestamp": 1781324384.806189,
+      "container": "flipperagent-broker-1",
+      "memory_usage_bytes": 9625927,
+      "memory_limit_bytes": 268435456,
+      "memory_percent": 3.59
+    },
+    {
+      "timestamp": 1781324384.806189,
+      "container": "flipperagent-db-1",
+      "memory_usage_bytes": 134112870,
+      "memory_limit_bytes": 1073741824,
+      "memory_percent": 12.49
+    },
+    {
+      "timestamp": 1781324388.91371,
+      "container": "flipperagent-worker-streams-1",
+      "memory_usage_bytes": 253965107,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 47.31
+    },
+    {
+      "timestamp": 1781324388.91371,
+      "container": "flipperagent-worker-queue-1",
+      "memory_usage_bytes": 362283008,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 67.48
+    },
+    {
+      "timestamp": 1781324388.91371,
+      "container": "flipperagent-broker-1",
+      "memory_usage_bytes": 9625927,
+      "memory_limit_bytes": 268435456,
+      "memory_percent": 3.59
+    },
+    {
+      "timestamp": 1781324388.91371,
+      "container": "flipperagent-db-1",
+      "memory_usage_bytes": 133903155,
+      "memory_limit_bytes": 1073741824,
+      "memory_percent": 12.47
+    },
+    {
+      "timestamp": 1781324391.986799,
+      "container": "flipperagent-worker-streams-1",
+      "memory_usage_bytes": 255118540,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 47.53
+    },
+    {
+      "timestamp": 1781324391.986799,
+      "container": "flipperagent-worker-queue-1",
+      "memory_usage_bytes": 362178150,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 67.47
+    },
+    {
+      "timestamp": 1781324391.986799,
+      "container": "flipperagent-broker-1",
+      "memory_usage_bytes": 12320768,
+      "memory_limit_bytes": 268435456,
+      "memory_percent": 4.59
+    },
+    {
+      "timestamp": 1781324391.986799,
+      "container": "flipperagent-db-1",
+      "memory_usage_bytes": 133903155,
+      "memory_limit_bytes": 1073741824,
+      "memory_percent": 12.47
+    },
+    {
+      "timestamp": 1781324396.073112,
+      "container": "flipperagent-worker-streams-1",
+      "memory_usage_bytes": 254908825,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 47.48
+    },
+    {
+      "timestamp": 1781324396.073112,
+      "container": "flipperagent-worker-queue-1",
+      "memory_usage_bytes": 362178150,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 67.47
+    },
+    {
+      "timestamp": 1781324396.073112,
+      "container": "flipperagent-broker-1",
+      "memory_usage_bytes": 12561940,
+      "memory_limit_bytes": 268435456,
+      "memory_percent": 4.68
+    },
+    {
+      "timestamp": 1781324396.073112,
+      "container": "flipperagent-db-1",
+      "memory_usage_bytes": 133903155,
+      "memory_limit_bytes": 1073741824,
+      "memory_percent": 12.47
+    },
+    {
+      "timestamp": 1781324400.1991181,
+      "container": "flipperagent-worker-streams-1",
+      "memory_usage_bytes": 254908825,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 47.49
+    },
+    {
+      "timestamp": 1781324400.1991181,
+      "container": "flipperagent-worker-queue-1",
+      "memory_usage_bytes": 362178150,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 67.47
+    },
+    {
+      "timestamp": 1781324400.1991181,
+      "container": "flipperagent-broker-1",
+      "memory_usage_bytes": 12771655,
+      "memory_limit_bytes": 268435456,
+      "memory_percent": 4.76
+    },
+    {
+      "timestamp": 1781324400.1991181,
+      "container": "flipperagent-db-1",
+      "memory_usage_bytes": 133903155,
+      "memory_limit_bytes": 1073741824,
+      "memory_percent": 12.47
+    },
+    {
+      "timestamp": 1781324404.281227,
+      "container": "flipperagent-worker-streams-1",
+      "memory_usage_bytes": 255223398,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 47.54
+    },
+    {
+      "timestamp": 1781324404.281227,
+      "container": "flipperagent-worker-queue-1",
+      "memory_usage_bytes": 371405619,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 69.17
+    },
+    {
+      "timestamp": 1781324404.281227,
+      "container": "flipperagent-broker-1",
+      "memory_usage_bytes": 13117685,
+      "memory_limit_bytes": 268435456,
+      "memory_percent": 4.89
+    },
+    {
+      "timestamp": 1781324404.281227,
+      "container": "flipperagent-db-1",
+      "memory_usage_bytes": 134637158,
+      "memory_limit_bytes": 1073741824,
+      "memory_percent": 12.54
+    },
+    {
+      "timestamp": 1781324406.317964,
+      "container": "flipperagent-worker-streams-1",
+      "memory_usage_bytes": 254908825,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 47.48
+    },
+    {
+      "timestamp": 1781324406.317964,
+      "container": "flipperagent-worker-queue-1",
+      "memory_usage_bytes": 371300761,
+      "memory_limit_bytes": 536870912,
+      "memory_percent": 69.15
+    },
+    {
+      "timestamp": 1781324406.317964,
+      "container": "flipperagent-broker-1",
+      "memory_usage_bytes": 12970885,
+      "memory_limit_bytes": 268435456,
+      "memory_percent": 4.83
+    },
+    {
+      "timestamp": 1781324406.317964,
+      "container": "flipperagent-db-1",
+      "memory_usage_bytes": 134637158,
+      "memory_limit_bytes": 1073741824,
+      "memory_percent": 12.54
+    }
+  ]
+}
