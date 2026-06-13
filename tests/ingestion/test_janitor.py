@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from apps.ingestion_app.storage.janitor import IngestionStorageJanitor
-from apps.ingestion_app.orchestration.tasks import purge_removed_asset, scheduled_asset_cleanup
+from apps.ingestion_app.jobs.cleanup import purge_removed_asset, scheduled_asset_cleanup
 
 
 class FakeConnection:
@@ -71,22 +71,27 @@ async def test_purge_removed_asset_clears_keys_and_emits_completion_event():
     janitor = MagicMock()
     janitor.purge_asset_data = AsyncMock(return_value={"ohlcv": 5})
     janitor.finalize_asset_removal = AsyncMock(return_value=True)
+    registry = MagicMock()
+    registry.get_asset = AsyncMock(return_value=MagicMock(publish_timeframes=["1m", "1h"]))
 
     with patch(
-        "apps.ingestion_app.orchestration.tasks.IngestionStorageJanitor",
+        "apps.ingestion_app.jobs.cleanup.IngestionStorageJanitor",
         return_value=janitor,
     ), patch(
-        "apps.ingestion_app.orchestration.tasks.DBPoolManager.get_writer_pool",
+        "apps.ingestion_app.jobs.cleanup.IngestionAssetRegistryRepository",
+        return_value=registry,
+    ), patch(
+        "apps.ingestion_app.jobs.cleanup.DBPoolManager.get_writer_pool",
         return_value=MagicMock(),
     ), patch(
-        "apps.ingestion_app.orchestration.tasks.publish_ingestion_runtime_event",
+        "apps.ingestion_app.jobs.cleanup.publish_ingestion_runtime_event",
         new=AsyncMock(),
     ) as mock_publish:
         await purge_removed_asset(ctx, "BTCUSDT", "1m")
 
     janitor.purge_asset_data.assert_awaited_once_with("BTCUSDT")
     janitor.finalize_asset_removal.assert_awaited_once_with("BTCUSDT")
-    assert ctx["valkey_client"].delete.await_count == 4
+    assert ctx["valkey_client"].delete.await_count == 6
     mock_publish.assert_awaited_once()
 
 
@@ -97,13 +102,13 @@ async def test_scheduled_asset_cleanup_replays_pending_removals():
     janitor.list_pending_removals = AsyncMock(return_value=[("BTCUSDT", "1m"), ("ETHUSDT", "4h")])
 
     with patch(
-        "apps.ingestion_app.orchestration.tasks.IngestionStorageJanitor",
+        "apps.ingestion_app.jobs.cleanup.IngestionStorageJanitor",
         return_value=janitor,
     ), patch(
-        "apps.ingestion_app.orchestration.tasks.DBPoolManager.get_writer_pool",
+        "apps.ingestion_app.jobs.cleanup.DBPoolManager.get_writer_pool",
         return_value=MagicMock(),
     ), patch(
-        "apps.ingestion_app.orchestration.tasks.purge_removed_asset",
+        "apps.ingestion_app.jobs.cleanup.purge_removed_asset",
         new=AsyncMock(),
     ) as mock_purge:
         await scheduled_asset_cleanup(ctx)

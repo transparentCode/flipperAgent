@@ -16,7 +16,6 @@ import math
 from datetime import datetime, timezone
 
 import numpy as np
-import pytest
 
 from apps.ingestion_app.models.tick_models import L2DepthFeatureRecord
 from apps.ingestion_app.constants import TABLE_L2_DEPTH_FEATURES
@@ -128,11 +127,11 @@ class TestL2FeatureComputation:
 class TestTaskImports:
 
     def test_poll_l2_depth_importable(self):
-        from apps.ingestion_app.orchestration.tasks import poll_l2_depth
+        from apps.ingestion_app.jobs.l2_depth import poll_l2_depth
         assert callable(poll_l2_depth)
 
     def test_worker_functions_include_l2(self):
-        from apps.ingestion_app.orchestration.worker import WorkerSettings
+        from apps.ingestion_app.worker import WorkerSettings
         func_names = [f.__name__ for f in WorkerSettings.functions]
         assert "poll_l2_depth" in func_names
 
@@ -144,7 +143,7 @@ class TestTaskImports:
 class TestSchedule:
 
     def test_schedule_has_l2_cron(self):
-        from apps.ingestion_app.orchestration.schedules import IngestionScheduler
+        from apps.ingestion_app.schedules import IngestionScheduler
         scheduler = IngestionScheduler()
         jobs = scheduler.get_cron_jobs()
         job_funcs = [j.coroutine.__name__ for j in jobs]

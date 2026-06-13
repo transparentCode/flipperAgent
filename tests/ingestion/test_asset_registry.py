@@ -1,17 +1,21 @@
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from apps.ingestion_app.asset_registry import (
     IngestionAssetCatalog,
-    IngestionControlService,
     IngestionAssetRegistryRepository,
+    IngestionControlPublisher,
+    IngestionControlService,
 )
 from apps.ingestion_app.models.asset_registry import (
+    IngestionAssetActionRequest,
+    IngestionAssetDesiredState,
     IngestionAssetRecord,
     IngestionAssetSource,
+    IngestionAssetPatchRequest,
     IngestionAssetUpsertRequest,
 )
 from libs.contracts.schemas import IngestionCommandType
@@ -60,8 +64,17 @@ class _Ctx:
         return None
 
 
+class FakeValkey:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict[str, str]]] = []
+
+    async def xadd(self, stream: str, payload: dict[str, str], **kwargs):
+        self.calls.append((stream, payload))
+        return "123-0"
+
+
 @pytest.mark.asyncio
-async def test_registry_repository_returns_persisted_assets():
+async def test_v2_registry_repository_returns_persisted_assets():
     conn = FakeConnection(
         fetch_results=[
             [
@@ -92,7 +105,7 @@ async def test_registry_repository_returns_persisted_assets():
 
 
 @pytest.mark.asyncio
-async def test_asset_catalog_falls_back_to_config_when_registry_empty():
+async def test_v2_asset_catalog_falls_back_to_config_when_registry_empty():
     config_manager = FakeConfigManager(
         {
             "ingestion.assets.target_list": ["BTCUSDT", "ETHUSDT"],
@@ -114,7 +127,7 @@ async def test_asset_catalog_falls_back_to_config_when_registry_empty():
 
 
 @pytest.mark.asyncio
-async def test_asset_catalog_prefers_registry_over_config():
+async def test_v2_asset_catalog_prefers_registry_over_config():
     config_manager = FakeConfigManager(
         {
             "ingestion.assets.target_list": ["BTCUSDT"],
@@ -123,22 +136,20 @@ async def test_asset_catalog_prefers_registry_over_config():
         }
     )
     conn = FakeConnection(
-        fetch_results=[
-            [
-                {
-                    "symbol": "ETHUSDT",
-                    "exchange": "binance",
-                    "provider": "binance_native",
-                    "base_timeframe": "1m",
-                    "publish_timeframes": ["30m", "1h"],
-                    "historical_backfill_days": 2,
-                    "retention_days": None,
-                    "enabled": True,
-                    "desired_state": "LIVE",
-                    "created_at": None,
-                    "updated_at": None,
-                }
-            ]
+        fetchrow_results=[
+            {
+                "symbol": "ETHUSDT",
+                "exchange": "binance",
+                "provider": "binance_native",
+                "base_timeframe": "1m",
+                "publish_timeframes": ["30m", "1h"],
+                "historical_backfill_days": 2,
+                "retention_days": None,
+                "enabled": True,
+                "desired_state": "LIVE",
+                "created_at": None,
+                "updated_at": None,
+            }
         ]
     )
 
@@ -151,7 +162,30 @@ async def test_asset_catalog_prefers_registry_over_config():
 
 
 @pytest.mark.asyncio
-async def test_asset_catalog_merges_registry_overrides_with_config_defaults():
+async def test_v2_asset_catalog_get_effective_asset_uses_direct_registry_lookup():
+    config_manager = FakeConfigManager(
+        {
+            "ingestion.assets.target_list": ["BTCUSDT"],
+            "ingestion.assets.publish_timeframes": {"BTCUSDT": ["4h"]},
+            "ingestion.timeframes.base_gap_fill": "1m",
+        }
+    )
+    catalog = IngestionAssetCatalog(config_manager=config_manager, pool=FakePool(FakeConnection()))
+
+    with patch.object(
+        IngestionAssetRegistryRepository,
+        "get_asset",
+        AsyncMock(return_value=IngestionAssetRecord(symbol="ETHUSDT")),
+    ), patch.object(IngestionAssetCatalog, "_load_registry_assets", AsyncMock()) as mock_list_loader:
+        record = await catalog.get_effective_asset("ETHUSDT")
+
+    assert record is not None
+    assert record.symbol == "ETHUSDT"
+    mock_list_loader.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_v2_asset_catalog_merges_registry_overrides_with_config_defaults():
     config_manager = FakeConfigManager(
         {
             "ingestion.assets.target_list": ["BTCUSDT", "ETHUSDT"],
@@ -193,7 +227,27 @@ async def test_asset_catalog_merges_registry_overrides_with_config_defaults():
 
 
 @pytest.mark.asyncio
-async def test_control_service_upsert_persists_and_publishes():
+async def test_v2_control_publisher_publishes_two_stream_messages():
+    asset = IngestionAssetRecord(
+        symbol="SOLUSDT",
+        publish_timeframes=["1h", "4h"],
+        source=IngestionAssetSource.REGISTRY,
+    )
+    publisher = IngestionControlPublisher(FakeValkey())
+
+    result = await publisher.publish(
+        asset=asset,
+        command_type=IngestionCommandType.UPSERT_ASSET,
+        requested_by="api_app",
+        reason="new asset",
+    )
+
+    assert result.command_published is True
+    assert result.event_published is True
+
+
+@pytest.mark.asyncio
+async def test_v2_control_service_upsert_persists_and_publishes():
     persisted = IngestionAssetRecord(
         symbol="SOLUSDT",
         publish_timeframes=["1h", "4h"],
@@ -217,10 +271,48 @@ async def test_control_service_upsert_persists_and_publishes():
     assert result.event_published is True
 
 
-class FakeValkey:
-    def __init__(self) -> None:
-        self.calls: list[tuple[str, dict[str, str]]] = []
+@pytest.mark.asyncio
+async def test_v2_control_service_patch_persists_and_publishes():
+    existing = IngestionAssetRecord(
+        symbol="BTCUSDT",
+        publish_timeframes=["1h"],
+        source=IngestionAssetSource.REGISTRY,
+    )
+    persisted = existing.model_copy(update={"publish_timeframes": ["4h"]})
+    service = IngestionControlService(pool=FakePool(FakeConnection()), valkey_client=FakeValkey())
+    service.repo.upsert_asset = AsyncMock(return_value=persisted)
 
-    async def xadd(self, stream: str, payload: dict[str, str], **kwargs):
-        self.calls.append((stream, payload))
-        return "123-0"
+    result = await service.patch_asset(
+        existing,
+        IngestionAssetPatchRequest(publish_timeframes=["4h"], reason="rebalance"),
+    )
+
+    assert result.asset.publish_timeframes == ["4h"]
+    assert result.command_type == IngestionCommandType.UPDATE_ASSET.value
+    assert result.command_published is True
+    assert result.event_published is True
+
+
+@pytest.mark.asyncio
+async def test_v2_control_service_apply_action_persists_and_publishes():
+    existing = IngestionAssetRecord(
+        symbol="BTCUSDT",
+        publish_timeframes=["1h"],
+        source=IngestionAssetSource.REGISTRY,
+    )
+    persisted = existing.model_copy(update={"desired_state": "PAUSED", "enabled": True})
+    service = IngestionControlService(pool=FakePool(FakeConnection()), valkey_client=FakeValkey())
+    service.repo.upsert_asset = AsyncMock(return_value=persisted)
+
+    result = await service.apply_action(
+        existing,
+        desired_state=IngestionAssetDesiredState.PAUSED,
+        enabled=True,
+        action=IngestionCommandType.PAUSE_ASSET,
+        body=IngestionAssetActionRequest(reason="maintenance"),
+    )
+
+    assert result.asset.symbol == "BTCUSDT"
+    assert result.command_type == IngestionCommandType.PAUSE_ASSET.value
+    assert result.command_published is True
+    assert result.event_published is True

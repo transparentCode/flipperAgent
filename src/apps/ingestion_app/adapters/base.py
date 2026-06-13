@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any
+
 import pandas as pd
 
 class BaseExchangeAdapter(ABC):

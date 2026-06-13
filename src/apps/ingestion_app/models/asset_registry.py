@@ -95,3 +95,4 @@ class IngestionControlResult(BaseModel):
     event_published: bool
     command_stream_id: str | None = None
     event_stream_id: str | None = None
+

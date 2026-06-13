@@ -236,7 +236,7 @@ graph LR
 graph LR
     BRK[(broker)] -->|dequeue arq jobs| WQ
     subgraph WQ["worker-queue"]
-        ARQ["arq WorkerSettings\napps.ingestion_app.orchestration.worker"]
+        ARQ["arq WorkerSettings\napps.ingestion_app.worker"]
     end
     WQ --> DB[(TimescaleDB)]
     WQ --> LOG[(flipper-logs)]
@@ -245,7 +245,7 @@ graph LR
 
 | Property | Value |
 |---|---|
-| Command | `arq apps.ingestion_app.orchestration.worker.WorkerSettings` |
+| Command | `arq apps.ingestion_app.worker.WorkerSettings` |
 | Role | Pulls scrape jobs from Valkey queue, orchestrates ingestion tasks |
 | Depends on | `db` healthy, `broker` healthy |
 | Resources | 512 M RAM · 0.5 CPU |

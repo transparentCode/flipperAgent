@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from apps.ingestion_app.asset_registry import IngestionAssetCatalog, IngestionControlService
+from apps.ingestion_app.control_plane import IngestionAssetCatalog, IngestionControlService
 from apps.ingestion_app.coordination import IngestionCoordinator
 from apps.ingestion_app.models.asset_registry import (
     IngestionAssetActionRequest,
@@ -17,11 +17,14 @@ from apps.ingestion_app.models.asset_registry import (
 from libs.common.config import ConfigManager
 from libs.common.connections import create_valkey_client
 from libs.common.db.pool_manager import DBPoolManager
+from libs.common.enums import SystemComponent
+from libs.common.logging.logger_utils import bind_logger
 from libs.contracts.schemas import IngestionCommandType
 
 router = APIRouter(prefix="/ingestion", tags=["ingestion"])
 
 config_manager = ConfigManager()
+logger = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_ENGINE)
 
 
 @router.get("/assets", response_model=list[IngestionAssetRecord], summary="Effective ingestion asset catalog")
@@ -177,5 +180,6 @@ async def _apply_asset_action(
 async def _safe_create_valkey_client():
     try:
         return await create_valkey_client(config_manager)
-    except Exception:
+    except Exception as exc:
+        logger.warning(f"Ingestion control proceeding without Valkey publisher: {exc}", exc_info=True)
         return None

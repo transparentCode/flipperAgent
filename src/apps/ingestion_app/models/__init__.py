@@ -1,5 +1,4 @@
-from .base_models import BaseDataModel
-from .asset_registry import (
+from apps.ingestion_app.models.asset_registry import (
     IngestionAssetActionRequest,
     IngestionAssetDesiredState,
     IngestionAssetPatchRequest,
@@ -8,10 +7,16 @@ from .asset_registry import (
     IngestionAssetUpsertRequest,
     IngestionControlResult,
 )
-from .tick_models import OHLCVRecord, TickRecord, OIRecord, L2DepthFeatureRecord
+from apps.ingestion_app.models.base_models import BaseDataModel
+from apps.ingestion_app.models.tick_models import (
+    FundingRateRecord,
+    L2DepthFeatureRecord,
+    OHLCVRecord,
+    OIRecord,
+    TickRecord,
+)
 
 __all__ = [
-    "BaseDataModel",
     "IngestionAssetActionRequest",
     "IngestionAssetDesiredState",
     "IngestionAssetPatchRequest",
@@ -19,8 +24,10 @@ __all__ = [
     "IngestionAssetSource",
     "IngestionAssetUpsertRequest",
     "IngestionControlResult",
+    "BaseDataModel",
     "OHLCVRecord",
     "TickRecord",
     "OIRecord",
+    "FundingRateRecord",
     "L2DepthFeatureRecord",
 ]

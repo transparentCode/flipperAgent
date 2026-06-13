@@ -1,6 +1,6 @@
 from typing import Literal, Any, Optional
 from pydantic import Field, AliasChoices, model_validator
-from .base_models import BaseDataModel
+from apps.ingestion_app.models.base_models import BaseDataModel
 
 
 class OHLCVRecord(BaseDataModel):

@@ -52,7 +52,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: arq apps.ingestion_app.orchestration.worker.WorkerSettings
+    command: arq apps.ingestion_app.worker.WorkerSettings
     volumes:
       - ./data:/app/data
       - ./configs:/app/configs:ro

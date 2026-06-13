@@ -58,7 +58,7 @@ echo "=== Waiting for workers to stabilize (15s) ==="
 sleep 15
 
 echo "=== Running E2E tests ==="
-if PYTHONPATH=src .venv/bin/python -m pytest tests/e2e/test_docker_integration.py "${PYTEST_ARGS[@]}"; then
+if PYTHONPATH=src .venv/bin/python -m pytest tests/e2e "${PYTEST_ARGS[@]}"; then
     echo "E2E tests passed."
     TEST_RESULT=0
 else

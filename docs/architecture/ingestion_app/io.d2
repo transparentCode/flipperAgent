@@ -1,0 +1,187 @@
+direction: right
+
+title: {
+  label: "ingestion_app IO contracts"
+  near: top-center
+}
+
+classes: {
+  source: {
+    style.fill: "#E8F1FF"
+  }
+  component: {
+    style.fill: "#EEF7EA"
+  }
+  contract: {
+    style.fill: "#FFF2D8"
+  }
+  storage: {
+    style.fill: "#F4EAFE"
+  }
+  consumer: {
+    style.fill: "#FCE8E8"
+  }
+}
+
+sources: {
+  label: "Inputs"
+
+  asset_commands: {
+    class: source
+    label: "asset_lifecycle_commands"
+    shape: document
+    tooltip: "Operator or API-driven asset upsert, patch, pause, resume, and remove requests."
+  }
+
+  live_candle_feed: {
+    class: source
+    label: "live_candle_feed"
+    tooltip: "Binance websocket kline messages for live runtime ingestion."
+  }
+
+  historical_ohlcv_backfill: {
+    class: source
+    label: "historical_ohlcv_backfill"
+    tooltip: "Binance REST or CCXT historical OHLCV pages for gap fill and top-up."
+  }
+
+  l2_depth_snapshots: {
+    class: source
+    label: "l2_depth_snapshots"
+    tooltip: "Binance REST orderbook snapshots for scheduled depth features."
+  }
+
+  effective_asset_catalog: {
+    class: source
+    label: "effective_asset_catalog"
+    tooltip: "Merged config and ingestion_assets registry view consumed by runtime reconciliation."
+  }
+}
+
+components: {
+  label: "ingestion_app components"
+
+  control_plane: {
+    class: component
+    link: "../../../src/apps/ingestion_app/control_plane/service.py"
+  }
+
+  runtime_reconciler: {
+    class: component
+    link: "../../../src/apps/ingestion_app/runtime/reconciler.py"
+  }
+
+  websocket_pipeline: {
+    class: component
+    link: "../../../src/apps/ingestion_app/runtime/websocket.py"
+  }
+
+  queue_jobs: {
+    class: component
+    link: "../../../src/apps/ingestion_app/worker.py"
+  }
+}
+
+contracts: {
+  label: "Contracts"
+
+  stream_ohlcv: {
+    class: contract
+    label: "stream:ohlcv:{symbol}:{timeframe}"
+    shape: queue
+    tooltip: "Valkey stream contract for closed candles consumed by downstream signal pipelines."
+  }
+
+  control_stream: {
+    class: contract
+    label: "stream:control:ingestion"
+    shape: queue
+    tooltip: "Valkey control stream for desired-state ingestion commands."
+  }
+
+  events_stream: {
+    class: contract
+    label: "stream:events:ingestion"
+    shape: queue
+    tooltip: "Valkey event stream for accepted commands, runtime failures, and purge outcomes."
+  }
+
+  gap_fill_job: {
+    class: contract
+    label: "run_rest_gap_fill"
+    shape: queue
+    tooltip: "ARQ job contract for recovery and scheduled historical backfill."
+  }
+
+  asset_purge_job: {
+    class: contract
+    label: "purge_removed_asset"
+    shape: queue
+    tooltip: "ARQ job contract for removing asset-scoped storage and registry rows."
+  }
+}
+
+storage: {
+  label: "Persistence"
+
+  ohlcv: {
+    class: storage
+    shape: cylinder
+    tooltip: "Primary OHLCV history written by live and backfill flows."
+  }
+
+  l2_depth_features: {
+    class: storage
+    shape: cylinder
+    tooltip: "Pre-aggregated depth features produced by scheduled polling jobs."
+  }
+
+  ingestion_assets: {
+    class: storage
+    shape: cylinder
+    tooltip: "Desired-state asset registry with publish_timeframes and backfill settings."
+  }
+}
+
+consumers: {
+  label: "Downstream / operators"
+
+  downstream_consumers: {
+    class: consumer
+    label: "downstream_consumers"
+    tooltip: "Current primary consumer is signal_app; more may subscribe later."
+  }
+
+  observability_alerts: {
+    class: consumer
+    label: "observability_or_alert_consumers"
+    tooltip: "Future alerting and operational visibility can subscribe to ingestion events."
+  }
+}
+
+sources.asset_commands -> components.control_plane: "HTTP / function call"
+sources.live_candle_feed -> components.websocket_pipeline: "websocket"
+sources.historical_ohlcv_backfill -> components.queue_jobs: "REST / CCXT"
+sources.l2_depth_snapshots -> components.queue_jobs: "REST snapshot"
+sources.effective_asset_catalog -> components.runtime_reconciler: "database query"
+sources.effective_asset_catalog -> components.websocket_pipeline: "runtime bootstrap"
+
+components.control_plane -> contracts.control_stream: "publish"
+components.control_plane -> contracts.events_stream: "publish accepted event"
+components.control_plane -> storage.ingestion_assets: "persist registry"
+
+contracts.control_stream -> components.runtime_reconciler: "consume"
+components.runtime_reconciler -> contracts.asset_purge_job: "enqueue"
+
+components.websocket_pipeline -> contracts.stream_ohlcv: "publish closed candle"
+components.websocket_pipeline -> contracts.gap_fill_job: "enqueue on disconnect"
+components.websocket_pipeline -> storage.ohlcv: "persist live OHLCV"
+
+contracts.gap_fill_job -> components.queue_jobs: "consume"
+contracts.asset_purge_job -> components.queue_jobs: "consume"
+components.queue_jobs -> contracts.events_stream: "publish failures / purge outcomes"
+components.queue_jobs -> storage.ohlcv: "persist gap-fill / top-up"
+components.queue_jobs -> storage.l2_depth_features: "persist depth features"
+
+contracts.stream_ohlcv -> consumers.downstream_consumers: "consume"
+contracts.events_stream -> consumers.observability_alerts: "subscribe"

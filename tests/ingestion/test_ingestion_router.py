@@ -9,6 +9,7 @@ from apps.api_app.routers.ingestion import (
     ingestion_asset,
     ingestion_assets,
     ingestion_status,
+    patch_ingestion_asset,
     pause_ingestion_asset,
     remove_ingestion_asset,
     resume_ingestion_asset,
@@ -16,6 +17,7 @@ from apps.api_app.routers.ingestion import (
 )
 from apps.ingestion_app.models.asset_registry import (
     IngestionAssetActionRequest,
+    IngestionAssetPatchRequest,
     IngestionAssetRecord,
     IngestionAssetUpsertRequest,
 )
@@ -112,6 +114,32 @@ async def test_upsert_ingestion_asset_uses_control_service():
     ):
         result = await upsert_ingestion_asset(
             IngestionAssetUpsertRequest(symbol="SOLUSDT", publish_timeframes=["1h"])
+        )
+
+    assert result is expected
+
+
+@pytest.mark.asyncio
+async def test_patch_ingestion_asset_uses_control_service():
+    asset = IngestionAssetRecord(symbol="BTCUSDT", publish_timeframes=["1h"], source="registry")
+    expected = MagicMock()
+
+    with patch(
+        "apps.api_app.routers.ingestion.IngestionAssetCatalog.get_effective_asset",
+        AsyncMock(return_value=asset),
+    ), patch(
+        "apps.api_app.routers.ingestion._safe_create_valkey_client",
+        AsyncMock(return_value=None),
+    ), patch(
+        "apps.api_app.routers.ingestion.DBPoolManager.get_writer_pool",
+        return_value=MagicMock(),
+    ), patch(
+        "apps.api_app.routers.ingestion.IngestionControlService.patch_asset",
+        AsyncMock(return_value=expected),
+    ):
+        result = await patch_ingestion_asset(
+            "BTCUSDT",
+            IngestionAssetPatchRequest(publish_timeframes=["4h"]),
         )
 
     assert result is expected

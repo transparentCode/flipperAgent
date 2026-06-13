@@ -1,0 +1,157 @@
+direction: right
+
+title: {
+  label: "ingestion_app architecture"
+  near: top-center
+}
+
+clients: {
+  label: "Inputs"
+  style.fill: "#E8F1FF"
+
+  api_client: {
+    label: "API / operator"
+    tooltip: "Control-plane callers that add, patch, pause, resume, or remove assets."
+  }
+
+  binance_ws: {
+    label: "Binance WS"
+    tooltip: "Live upstream candle feed used by the websocket pipeline."
+  }
+
+  binance_rest: {
+    label: "Binance REST / CCXT"
+    tooltip: "Historical OHLCV and scheduled depth snapshot source."
+  }
+}
+
+ingestion_app: {
+  label: "ingestion_app"
+  link: "./README.md"
+  style.fill: "#EEF7EA"
+
+  control_plane: {
+    label: "control_plane"
+    tooltip: "Persists asset definitions and emits ingestion control/events streams."
+    link: "../../../src/apps/ingestion_app/control_plane/service.py"
+  }
+
+  runtime_reconciler: {
+    label: "runtime_reconciler"
+    tooltip: "Reconciles desired asset state with running runtime handles."
+    link: "../../../src/apps/ingestion_app/runtime/reconciler.py"
+  }
+
+  websocket_pipeline: {
+    label: "websocket_pipeline"
+    tooltip: "Consumes Binance live candles, stores OHLCV, and emits candle-close streams."
+    link: "../../../src/apps/ingestion_app/runtime/websocket.py"
+  }
+
+  queue_jobs: {
+    label: "queue_jobs"
+    tooltip: "Runs gap-fill, cleanup, L2 depth polling, and polling top-up jobs."
+    link: "../../../src/apps/ingestion_app/worker.py"
+  }
+
+  storage: {
+    label: "storage"
+    tooltip: "Schema bootstrap, writes, and janitor cleanup."
+    link: "../../../src/apps/ingestion_app/storage/schema.sql"
+  }
+}
+
+valkey: {
+  label: "Valkey"
+  style.fill: "#FFF2D8"
+
+  control_stream: {
+    label: "stream:control:ingestion"
+    tooltip: "Desired-state commands emitted by control_plane and consumed by runtime_reconciler."
+  }
+
+  events_stream: {
+    label: "stream:events:ingestion"
+    tooltip: "Control acceptance and runtime status events."
+  }
+
+  ohlcv_stream: {
+    label: "stream:ohlcv:{symbol}:{tf}"
+    tooltip: "Candle-close OHLCV stream for downstream consumers such as signal_app."
+  }
+
+  arq_queue: {
+    label: "ARQ jobs"
+    tooltip: "Queue surface for run_rest_gap_fill, purge_removed_asset, poll_l2_depth, and scheduled jobs."
+  }
+
+  coordination_keys: {
+    label: "coordination keys"
+    tooltip: "Runtime freshness, disconnect, and state-machine keys."
+  }
+}
+
+timescaledb: {
+  label: "TimescaleDB"
+  style.fill: "#F4EAFE"
+
+  ingestion_assets: {
+    label: "ingestion_assets"
+    tooltip: "Registry table for desired asset state and runtime configuration."
+  }
+
+  ohlcv: {
+    label: "ohlcv"
+    tooltip: "Primary stored candle history written by live and gap-fill flows."
+  }
+
+  ticks: {
+    label: "ticks"
+    tooltip: "Raw tick storage owned by the ingestion schema."
+  }
+
+  open_interest: {
+    label: "open_interest"
+    tooltip: "Open interest table written through ingestion storage."
+  }
+
+  funding_rate: {
+    label: "funding_rate"
+    tooltip: "Funding rate table written through ingestion storage."
+  }
+
+  l2_depth_features: {
+    label: "l2_depth_features"
+    tooltip: "Scheduled depth snapshot features for downstream use."
+  }
+}
+
+clients.api_client -> ingestion_app.control_plane: "asset lifecycle commands"
+clients.binance_ws -> ingestion_app.websocket_pipeline: "live candles"
+clients.binance_rest -> ingestion_app.queue_jobs: "backfill / depth snapshots"
+
+ingestion_app.control_plane -> timescaledb.ingestion_assets: "upsert / patch / mark removing"
+ingestion_app.control_plane -> valkey.control_stream: "publish commands"
+ingestion_app.control_plane -> valkey.events_stream: "publish accepted events"
+
+timescaledb.ingestion_assets -> ingestion_app.runtime_reconciler: "effective asset catalog"
+valkey.control_stream -> ingestion_app.runtime_reconciler: "change trigger"
+ingestion_app.runtime_reconciler -> ingestion_app.websocket_pipeline: "start / stop runtimes"
+ingestion_app.runtime_reconciler -> valkey.arq_queue: "enqueue purge_removed_asset"
+
+ingestion_app.websocket_pipeline -> timescaledb.ohlcv: "insert live OHLCV"
+ingestion_app.websocket_pipeline -> valkey.ohlcv_stream: "publish closed candles"
+ingestion_app.websocket_pipeline -> valkey.arq_queue: "enqueue run_rest_gap_fill"
+ingestion_app.websocket_pipeline -> valkey.coordination_keys: "update liveness state"
+
+ingestion_app.queue_jobs -> timescaledb.ohlcv: "gap-fill / top-up writes"
+ingestion_app.queue_jobs -> timescaledb.l2_depth_features: "depth snapshot writes"
+ingestion_app.queue_jobs -> valkey.events_stream: "publish failure / purge events"
+timescaledb.ohlcv -> ingestion_app.queue_jobs: "latest timestamp read"
+
+ingestion_app.storage -> timescaledb.ticks: "schema ownership"
+ingestion_app.storage -> timescaledb.open_interest: "insert / upsert"
+ingestion_app.storage -> timescaledb.funding_rate: "insert / upsert"
+ingestion_app.storage -> timescaledb.l2_depth_features: "insert / upsert"
+ingestion_app.storage -> timescaledb.ohlcv: "purge on removal"
+ingestion_app.storage -> timescaledb.ingestion_assets: "finalize removal"

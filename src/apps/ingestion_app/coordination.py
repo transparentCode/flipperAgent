@@ -10,7 +10,6 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
-from apps.ingestion_app.constants import TABLE_OHLCV
 from libs.common.config import ConfigManager
 from libs.common.db.pool_manager import DBPoolManager
 from libs.common.db.timescale_reader import TimescaleReader

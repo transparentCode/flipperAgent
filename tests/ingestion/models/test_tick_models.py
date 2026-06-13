@@ -1,9 +1,11 @@
-import pytest
-DEFAULT_BINANCE_ASSET = 'BTCUSDT'
 from datetime import datetime, timezone
+
+import pytest
 from pydantic import ValidationError
 
 from apps.ingestion_app.models.tick_models import OHLCVRecord, TickRecord, OIRecord
+
+DEFAULT_BINANCE_ASSET = "BTCUSDT"
 
 def test_timestamp_utc_coercion():
     # Ms parsing
