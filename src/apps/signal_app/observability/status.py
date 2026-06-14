@@ -5,7 +5,8 @@ import time
 from typing import Any
 
 from apps.signal_app.catalog import SignalPairCatalog
-from apps.signal_app.models import SignalRuntimeStatus
+from apps.signal_app.models import SignalPairState, SignalRuntimeStatus
+from apps.signal_app.observability.runtime_state import SignalRuntimeStateStore
 from apps.signal_app.publishing.streams import feature_stream_key
 
 
@@ -13,6 +14,7 @@ class SignalObservabilityService:
     def __init__(self, redis_client: Any, catalog: SignalPairCatalog) -> None:
         self.redis_client = redis_client
         self.catalog = catalog
+        self.state_store = SignalRuntimeStateStore(redis_client)
 
     async def latest_features(self) -> dict[str, Any]:
         now_ms = int(time.time() * 1000)
@@ -28,11 +30,29 @@ class SignalObservabilityService:
         result: dict[str, SignalRuntimeStatus] = {}
         for pair in self.catalog.list_pairs():
             entry = latest.get(pair.key, {})
-            result[pair.key] = SignalRuntimeStatus(
-                pair=pair,
-                last_feature_ts=_coerce_float(entry.get("timestamp")),
-                lag_ms=entry.get("lag_ms") if isinstance(entry.get("lag_ms"), int) else None,
-                detail={"latest_status": entry.get("status", "unknown")},
+            stored = await self.state_store.read(pair)
+            if stored is None:
+                result[pair.key] = SignalRuntimeStatus(
+                    pair=pair,
+                    state=_infer_state_from_latest(entry),
+                    last_feature_ts=_coerce_float(entry.get("timestamp")),
+                    lag_ms=entry.get("lag_ms") if isinstance(entry.get("lag_ms"), int) else None,
+                    detail={"latest_status": entry.get("status", "unknown")},
+                )
+                continue
+
+            merged_detail = dict(stored.detail)
+            merged_detail["latest_status"] = entry.get("status", "unknown")
+            result[pair.key] = stored.model_copy(
+                update={
+                    "last_feature_ts": stored.last_feature_ts or _coerce_float(entry.get("timestamp")),
+                    "lag_ms": (
+                        entry.get("lag_ms")
+                        if isinstance(entry.get("lag_ms"), int)
+                        else stored.lag_ms
+                    ),
+                    "detail": merged_detail,
+                }
             )
         return result
 
@@ -91,3 +111,12 @@ def _coerce_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _infer_state_from_latest(entry: dict[str, Any]) -> SignalPairState:
+    status = entry.get("status")
+    if status == "ok":
+        return SignalPairState.LIVE
+    if status == "error":
+        return SignalPairState.FAILED
+    return SignalPairState.WARMING

@@ -5,8 +5,12 @@ from __future__ import annotations
 import asyncio
 import os
 
+from apps.signal_app.catalog import SignalPairCatalog
+from apps.signal_app.catalog.static import StaticSignalPairCatalog
+from apps.signal_app.models import SignalPair
 from apps.signal_app.runtime.runner import SignalRuntimeRunner
 from libs.common.config import ConfigManager
+from libs.common.asset_manifest import AssetManifestStore
 from libs.common.connections import create_valkey_client, init_db_pools
 from libs.common.constants import CONFIG_FILE_FEATURES, CONFIG_FILE_MODELS
 from libs.common.db.pool_manager import DBPoolManager
@@ -41,16 +45,35 @@ async def _run() -> None:
     except ImportError:
         pass
 
-    runner = SignalRuntimeRunner(worker_settings=SignalWorkerSettings.from_config(config_mgr))
-    pairs = runner.list_pairs()
-    if not pairs:
-        logger.warning("No asset/timeframe pairs found in models.yaml. Exiting.")
-        return
-
-    logger.info("Discovered %s asset/timeframe pairs: %s", len(pairs), [pair.key for pair in pairs])
-
     await init_db_pools(config_mgr)
     redis_client = await create_valkey_client(config_mgr)
+    fallback_catalog = SignalPairCatalog(config_manager=config_mgr)
+    fallback_pairs = fallback_catalog.list_pairs()
+    manifest_pairs = await AssetManifestStore(redis_client).list_runtime_pairs()
+    resolved_pairs = (
+        [
+            SignalPair(asset=asset, timeframe=timeframe, source="asset_manifest")
+            for asset, timeframe in manifest_pairs
+        ]
+        if manifest_pairs
+        else fallback_pairs
+    )
+    if not resolved_pairs:
+        logger.warning("No asset/timeframe pairs found in canonical manifest or models.yaml. Exiting.")
+        await redis_client.aclose()
+        await DBPoolManager.close_pools()
+        return
+
+    runner = SignalRuntimeRunner(
+        catalog=StaticSignalPairCatalog(resolved_pairs),
+        worker_settings=SignalWorkerSettings.from_config(config_mgr),
+    )
+    logger.info(
+        "Discovered %s signal asset/timeframe pairs from %s: %s",
+        len(resolved_pairs),
+        "asset manifest" if manifest_pairs else "models.yaml",
+        [pair.key for pair in resolved_pairs],
+    )
 
     try:
         await runner.connect(redis_client)

@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS ingestion_assets (
     retention_days INTEGER CHECK (retention_days IS NULL OR retention_days > 0),
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
     desired_state TEXT NOT NULL DEFAULT 'LIVE'
-        CHECK (desired_state IN ('LIVE', 'PAUSED', 'STOPPED', 'REMOVING')),
+        CHECK (desired_state IN ('LIVE', 'RESUMING', 'PAUSED', 'STOPPED', 'REMOVING')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

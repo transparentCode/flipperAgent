@@ -13,6 +13,7 @@ from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
 
 from apps.signal_app.pipeline.raw_indicators import BarTuple
+from apps.signal_app.settings import SignalWorkerSettings
 
 logger = bind_logger(__name__, system_component=SystemComponent.SIGNAL_APP)
 
@@ -60,18 +61,26 @@ class RegimeFeaturePipeline:
         asset: str,
         timeframe: str,
         *,
-        min_bars: int = REGIME_MIN_BARS,
-        max_history: int = REGIME_MAX_HISTORY,
-        reeval_interval: int = REGIME_REEVAL_INTERVAL,
+        min_bars: int | None = None,
+        max_history: int | None = None,
+        reeval_interval: int | None = None,
+        settings: SignalWorkerSettings | None = None,
         orchestrator: Any | None = None,
         classifier: Any | None = None,
         l2_reader: L2FeatureReader | None = None,
     ) -> None:
+        settings = settings or SignalWorkerSettings()
         self.asset = asset.upper()
         self.timeframe = timeframe
-        self.min_bars = min_bars
-        self.max_history = max_history
-        self.reeval_interval = reeval_interval
+        self.min_bars = (
+            settings.regime_min_bars if min_bars is None else min_bars
+        )
+        self.max_history = (
+            settings.regime_max_history if max_history is None else max_history
+        )
+        self.reeval_interval = (
+            settings.regime_reeval_interval if reeval_interval is None else reeval_interval
+        )
         self.orchestrator = orchestrator
         self.classifier = classifier
         self.l2_reader = l2_reader or _load_latest_l2_features
@@ -86,7 +95,9 @@ class RegimeFeaturePipeline:
         timeframe: str,
         *,
         config_resolver: FeatureProducerConfigResolver | None = None,
+        settings: SignalWorkerSettings | None = None,
     ) -> "RegimeFeaturePipeline":
+        settings = settings or SignalWorkerSettings()
         orchestrator = _create_regime_orchestrator(asset, timeframe)
         classifier = _create_regime_classifier(
             asset,
@@ -96,6 +107,7 @@ class RegimeFeaturePipeline:
         return cls(
             asset,
             timeframe,
+            settings=settings,
             orchestrator=orchestrator,
             classifier=classifier,
         )

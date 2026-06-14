@@ -137,12 +137,13 @@ async def test_runtime_asset_addition_backfill_live_stream_and_removal(db_pools,
 
     assert remove_result.command_published is True
 
-    await _wait_until(
-        lambda: _asset_removed(TEST_SYMBOL),
+    tombstone_flags = await _wait_until(
+        lambda: _asset_flags_match(TEST_SYMBOL, IngestionAssetDesiredState.STOPPED.value, False),
         timeout_s=180,
         interval_s=2,
-        description=f"{TEST_SYMBOL} registry deletion",
+        description=f"{TEST_SYMBOL} tombstone state after removal",
     )
+    assert tombstone_flags == (IngestionAssetDesiredState.STOPPED.value, False)
 
     assert await _fetch_symbol_count("ohlcv", TEST_SYMBOL) == 0
     assert await _fetch_symbol_count("ticks", TEST_SYMBOL) == 0
@@ -160,10 +161,6 @@ async def test_runtime_asset_addition_backfill_live_stream_and_removal(db_pools,
     assert await valkey_client.exists(last_live_key) == 0
     assert await valkey_client.exists(disconnect_count_key) == 0
     assert await valkey_client.exists(STREAM_KEY) == 0
-
-
-async def _asset_removed(symbol: str) -> bool:
-    return not await _ingestion_asset_exists(symbol)
 
 
 @pytest.mark.asyncio
@@ -315,12 +312,13 @@ async def test_runtime_asset_pause_and_resume_lifecycle(db_pools, valkey_client)
             remove_requested = True
 
         if remove_requested:
-            await _wait_until(
-                lambda: _asset_removed(TEST_SYMBOL),
+            tombstone_flags = await _wait_until(
+                lambda: _asset_flags_match(TEST_SYMBOL, IngestionAssetDesiredState.STOPPED.value, False),
                 timeout_s=180,
                 interval_s=2,
-                description=f"{TEST_SYMBOL} registry deletion after pause/resume validation",
+                description=f"{TEST_SYMBOL} tombstone state after pause/resume cleanup",
             )
+            assert tombstone_flags == (IngestionAssetDesiredState.STOPPED.value, False)
 
 
 async def _live_state_snapshot(coordinator: IngestionCoordinator):

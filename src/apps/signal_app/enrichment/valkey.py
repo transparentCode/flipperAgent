@@ -5,18 +5,12 @@ from typing import Any
 from libs.common.config import ConfigManager
 from libs.common.constants import CONFIG_FILE_TRADINGVIEW
 from libs.common.logging.logger_utils import bind_logger
+from apps.signal_app.settings import SignalWorkerSettings
 
 logger = bind_logger(__name__)
 
-_DEFAULT_TV_INDICES = ["CRYPTOCAP:BTC.D", "CRYPTOCAP:TOTAL2", "CRYPTOCAP:TOTAL3"]
-
-
 def resolve_tv_index_keys(config_manager: ConfigManager) -> list[str]:
-    config_manager.register_file(CONFIG_FILE_TRADINGVIEW)
-    configured = config_manager.get("tradingview.indices", _DEFAULT_TV_INDICES)
-    if not isinstance(configured, list) or not configured:
-        configured = _DEFAULT_TV_INDICES
-    return [str(symbol).split(":")[-1] for symbol in configured]
+    return list(SignalWorkerSettings.from_config(config_manager).enrichment_index_keys)
 
 
 class ValkeySignalEnrichmentReader:
@@ -24,11 +18,13 @@ class ValkeySignalEnrichmentReader:
         self,
         redis_client: Any,
         config_manager: ConfigManager | None = None,
+        settings: SignalWorkerSettings | None = None,
     ) -> None:
         self.redis_client = redis_client
         self.config_manager = config_manager or ConfigManager()
         self.config_manager.register_file(CONFIG_FILE_TRADINGVIEW)
-        self.index_keys = resolve_tv_index_keys(self.config_manager)
+        self.settings = settings or SignalWorkerSettings.from_config(self.config_manager)
+        self.index_keys = list(self.settings.enrichment_index_keys)
 
     async def load_index_data(self) -> dict[str, dict[str, Any]]:
         index_data: dict[str, dict[str, Any]] = {}
@@ -95,4 +91,3 @@ def _parse_numeric_snapshot(decoded: dict[str, str]) -> dict[str, Any]:
         if field in decoded:
             parsed[field] = decoded[field]
     return parsed
-

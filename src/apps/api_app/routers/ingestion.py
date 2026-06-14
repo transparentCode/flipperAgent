@@ -197,7 +197,7 @@ async def batch_apply_ingestion_asset_action(
 
 @router.get("/status", summary="Per-asset ingestion observability snapshot")
 async def ingestion_status() -> dict:
-    """Return state, last_live_ts, last_disconnect_ts, and disconnects_in_window
+    """Return per-asset ingestion runtime state and timing metadata
     for every effective asset/timeframe pair.
 
     Creates a short-lived Valkey connection per request — suitable for low-frequency

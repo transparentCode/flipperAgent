@@ -52,7 +52,14 @@ class IngestionStorageJanitor:
     async def finalize_asset_removal(self, symbol: str) -> bool:
         async with self.pool.acquire() as conn:
             result = await conn.execute(
-                "DELETE FROM ingestion_assets WHERE symbol = $1",
+                """
+                UPDATE ingestion_assets
+                SET enabled = FALSE,
+                    desired_state = 'STOPPED',
+                    updated_at = NOW()
+                WHERE symbol = $1
+                  AND desired_state = 'REMOVING'
+                """,
                 symbol.upper(),
             )
         return _parse_delete_count(result) > 0

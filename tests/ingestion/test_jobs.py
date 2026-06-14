@@ -7,6 +7,7 @@ from apps.ingestion_app.constants import EXCHANGE_BINANCE
 from apps.ingestion_app.coordination import IngestionCoordinator
 from apps.ingestion_app.jobs.cleanup import purge_removed_asset, scheduled_asset_cleanup
 from apps.ingestion_app.jobs.gap_fill import run_rest_gap_fill, scheduled_gap_fill
+from apps.ingestion_app.models.asset_registry import IngestionAssetDesiredState, IngestionAssetRecord
 from apps.ingestion_app.jobs.l2_depth import poll_l2_depth
 from apps.ingestion_app.jobs.topup import poll_binance_ohlcv
 from libs.common.exceptions import DataIngestionError
@@ -48,6 +49,7 @@ def base_worker_ctx(mock_ccxt_adapter):
     coordinator = MagicMock(spec=IngestionCoordinator)
     coordinator.transition = AsyncMock()
     coordinator.clear_resume_backfill_required = AsyncMock()
+    coordinator.get_state = AsyncMock(return_value="WARMING")
     return {
         "job_id": "test_job_123",
         "ccxt_adapter": mock_ccxt_adapter,
@@ -75,14 +77,28 @@ async def test_v2_standard_gap_fill_flow(base_worker_ctx, mock_ccxt_adapter, moc
     base_worker_ctx["coordinator"].clear_resume_backfill_required.assert_awaited_once_with(symbol, "1m")
     mock_event.assert_awaited_once()
     assert mock_event.await_args.kwargs["event_type"].value == "GAP_FILL_COMPLETED"
+    assert base_worker_ctx["coordinator"].transition.await_args_list[0].args == (
+        symbol,
+        "1m",
+        "BACKFILLING",
+    )
+    assert base_worker_ctx["coordinator"].transition.await_args_list[1].args == (
+        symbol,
+        "1m",
+        "WARMING",
+    )
 
 
 @pytest.mark.asyncio
 async def test_v2_gap_fill_partial_failures_emit_event():
     ctx = {
         "ccxt_adapter": AsyncMock(),
-        "coordinator": MagicMock(transition=AsyncMock(), clear_resume_backfill_required=AsyncMock()),
-        "valkey_client": AsyncMock(),
+        "coordinator": MagicMock(
+            transition=AsyncMock(),
+            clear_resume_backfill_required=AsyncMock(),
+            get_state=AsyncMock(return_value="WARMING"),
+        ),
+        "valkey_client": None,
     }
 
     with patch("apps.ingestion_app.jobs.gap_fill._fetch_asset_gap", new=AsyncMock(side_effect=[None, RuntimeError("boom")])), \
@@ -99,6 +115,70 @@ async def test_v2_gap_fill_partial_failures_emit_event():
 
     mock_event.assert_awaited_once()
     assert exc_info.value.context["failed_assets"] == ["ETHUSDT"]
+
+
+@pytest.mark.asyncio
+async def test_v2_gap_fill_promotes_resuming_asset_to_live_and_emits_lifecycle():
+    ctx = {
+        "ccxt_adapter": AsyncMock(),
+        "coordinator": MagicMock(
+            transition=AsyncMock(),
+            clear_resume_backfill_required=AsyncMock(),
+            get_state=AsyncMock(return_value="WARMING"),
+        ),
+        "valkey_client": AsyncMock(),
+    }
+    ctx["valkey_client"].hgetall = AsyncMock(return_value={})
+    resuming_asset = IngestionAssetRecord(
+        symbol="BTCUSDT",
+        publish_timeframes=["1h"],
+        desired_state=IngestionAssetDesiredState.RESUMING,
+        source="registry",
+    )
+    live_asset = resuming_asset.model_copy(update={"desired_state": IngestionAssetDesiredState.LIVE})
+    repo = MagicMock()
+    repo.get_asset = AsyncMock(return_value=resuming_asset)
+    repo.upsert_asset = AsyncMock(return_value=live_asset)
+
+    with patch("apps.ingestion_app.jobs.gap_fill._fetch_asset_gap", new=AsyncMock(return_value=None)), \
+         patch("apps.ingestion_app.jobs.gap_fill.IngestionAssetRegistryRepository", return_value=repo), \
+         patch("apps.ingestion_app.jobs.gap_fill.config_manager") as mock_config, \
+         patch("apps.ingestion_app.jobs.gap_fill.publish_ingestion_runtime_event", new=AsyncMock()):
+        mock_config.get.side_effect = lambda key, default=None: {
+            "ingestion.timeframes.base_gap_fill": "1m",
+            "ingestion.concurrency.gap_fill_limit": 1,
+            "ingestion.concurrency.gap_fill_sleep_seconds": 0.0,
+        }.get(key, default)
+        await run_rest_gap_fill(ctx, ["BTCUSDT"], EXCHANGE_BINANCE)
+
+    repo.upsert_asset.assert_awaited_once()
+    xadd_streams = [call.args[0] for call in ctx["valkey_client"].xadd.await_args_list]
+    assert "asset:lifecycle" in xadd_streams
+
+
+@pytest.mark.asyncio
+async def test_v2_gap_fill_does_not_downgrade_live_runtime_state():
+    ctx = {
+        "ccxt_adapter": AsyncMock(),
+        "coordinator": MagicMock(
+            transition=AsyncMock(),
+            clear_resume_backfill_required=AsyncMock(),
+            get_state=AsyncMock(return_value="LIVE"),
+        ),
+        "valkey_client": None,
+    }
+
+    with patch("apps.ingestion_app.jobs.gap_fill._fetch_asset_gap", new=AsyncMock(return_value=None)), \
+         patch("apps.ingestion_app.jobs.gap_fill.config_manager") as mock_config, \
+         patch("apps.ingestion_app.jobs.gap_fill.publish_ingestion_runtime_event", new=AsyncMock()):
+        mock_config.get.side_effect = lambda key, default=None: {
+            "ingestion.timeframes.base_gap_fill": "1m",
+            "ingestion.concurrency.gap_fill_limit": 1,
+            "ingestion.concurrency.gap_fill_sleep_seconds": 0.0,
+        }.get(key, default)
+        await run_rest_gap_fill(ctx, ["BTCUSDT"], EXCHANGE_BINANCE)
+
+    ctx["coordinator"].transition.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -147,7 +227,7 @@ async def test_v2_purge_removed_asset_clears_keys_and_emits_completion_event():
          patch("apps.ingestion_app.jobs.cleanup.publish_ingestion_runtime_event", new=AsyncMock()) as mock_publish:
         await purge_removed_asset(ctx, "BTCUSDT", "1m")
 
-    assert ctx["valkey_client"].delete.await_count == 7
+    assert ctx["valkey_client"].delete.await_count == 8
     mock_publish.assert_awaited_once()
 
 

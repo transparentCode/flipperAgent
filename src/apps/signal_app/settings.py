@@ -3,6 +3,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from libs.common.config import ConfigManager
+from libs.common.constants import CONFIG_FILE_TRADINGVIEW
+
+DEFAULT_SIGNAL_TV_INDICES = (
+    "CRYPTOCAP:BTC.D",
+    "CRYPTOCAP:TOTAL2",
+    "CRYPTOCAP:TOTAL3",
+)
+
+
+def _normalize_index_keys(symbols: object) -> tuple[str, ...]:
+    if not isinstance(symbols, list) or not symbols:
+        symbols = list(DEFAULT_SIGNAL_TV_INDICES)
+    return tuple(str(symbol).split(":")[-1] for symbol in symbols)
 
 
 @dataclass(frozen=True)
@@ -13,6 +26,10 @@ class SignalWorkerSettings:
     block_ms: int = 1000
     priming_retry_delay_sec: float = 1.0
     warming_retry_delay_sec: float = 5.0
+    enrichment_index_keys: tuple[str, ...] = ("BTC.D", "TOTAL2", "TOTAL3")
+    regime_min_bars: int = 200
+    regime_max_history: int = 2000
+    regime_reeval_interval: int = 10
 
     @classmethod
     def from_config(
@@ -20,6 +37,7 @@ class SignalWorkerSettings:
         config_manager: ConfigManager | None = None,
     ) -> "SignalWorkerSettings":
         config_manager = config_manager or ConfigManager()
+        config_manager.register_file(CONFIG_FILE_TRADINGVIEW)
         return cls(
             consumer_group=str(
                 config_manager.get(
@@ -45,6 +63,21 @@ class SignalWorkerSettings:
                 config_manager.get(
                     "signal.runtime.warming_retry_delay_sec",
                     cls.warming_retry_delay_sec,
+                )
+            ),
+            enrichment_index_keys=_normalize_index_keys(
+                config_manager.get("tradingview.indices", list(DEFAULT_SIGNAL_TV_INDICES))
+            ),
+            regime_min_bars=int(
+                config_manager.get("signal.regime.min_bars", cls.regime_min_bars)
+            ),
+            regime_max_history=int(
+                config_manager.get("signal.regime.max_history", cls.regime_max_history)
+            ),
+            regime_reeval_interval=int(
+                config_manager.get(
+                    "signal.regime.reeval_interval",
+                    cls.regime_reeval_interval,
                 )
             ),
         )

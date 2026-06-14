@@ -22,8 +22,8 @@ class FakeConnection:
         return table
 
     async def execute(self, query, *args):
-        if "DELETE FROM ingestion_assets" in query:
-            return "DELETE 1"
+        if "UPDATE ingestion_assets" in query:
+            return "UPDATE 1"
         for table in ("ohlcv", "ticks", "open_interest", "funding_rate", "l2_depth_features"):
             if f"DELETE FROM {table}" in query:
                 self.deleted_tables.append(table)
@@ -91,7 +91,7 @@ async def test_purge_removed_asset_clears_keys_and_emits_completion_event():
 
     janitor.purge_asset_data.assert_awaited_once_with("BTCUSDT")
     janitor.finalize_asset_removal.assert_awaited_once_with("BTCUSDT")
-    assert ctx["valkey_client"].delete.await_count == 7
+    assert ctx["valkey_client"].delete.await_count == 8
     mock_publish.assert_awaited_once()
 
 

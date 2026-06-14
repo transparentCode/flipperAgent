@@ -4,6 +4,7 @@ import asyncio
 from typing import Any
 
 import arq
+from valkey.exceptions import TimeoutError as ValkeyTimeoutError
 
 from apps.ingestion_app.constants import INGESTION_CONTROL_STREAM
 from apps.ingestion_app.coordination import IngestionCoordinator, IngestionState
@@ -70,7 +71,7 @@ class IngestionRuntimeReconciler:
                 await self.stop_asset(symbol, handle)
                 continue
 
-            if not handle.tasks or handle.spec != desired_spec:
+            if not handle.tasks or self._requires_restart(handle.spec, desired_spec):
                 await self.stop_asset(symbol, handle)
 
         for symbol, asset in desired_by_symbol.items():
@@ -149,8 +150,20 @@ class IngestionRuntimeReconciler:
             for _stream_name, messages in response:
                 if messages:
                     self.control_stream_last_id = messages[-1][0]
+        except ValkeyTimeoutError:
+            return
         except asyncio.CancelledError:
             raise
         except Exception as exc:
             logger.warning(f"Runtime control stream wait failed: {exc}", exc_info=True)
             await asyncio.sleep(self.reconcile_interval_seconds)
+
+    @staticmethod
+    def _requires_restart(current: AssetRuntimeSpec, desired: AssetRuntimeSpec) -> bool:
+        if current.symbol != desired.symbol:
+            return True
+        if current.base_timeframe != desired.base_timeframe:
+            return True
+        if current.publish_timeframes != desired.publish_timeframes:
+            return True
+        return current.should_run() != desired.should_run()

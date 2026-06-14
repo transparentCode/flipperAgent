@@ -79,9 +79,14 @@ class IngestionControlService:
         action: IngestionCommandType,
         body: IngestionAssetActionRequest,
     ) -> IngestionControlResult:
+        effective_desired_state = (
+            IngestionAssetDesiredState.RESUMING
+            if action == IngestionCommandType.RESUME_ASSET
+            else desired_state
+        )
         asset = existing.model_copy(
             update={
-                "desired_state": desired_state,
+                "desired_state": effective_desired_state,
                 "enabled": enabled,
                 "source": IngestionAssetSource.REGISTRY,
             }

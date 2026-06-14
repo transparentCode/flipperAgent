@@ -1,8 +1,6 @@
 """Tests for StrategyWorker — deserialization, idempotency key, signal conversion."""
 
-import json
-import pytest
-
+from apps.strategy_app.settings import StrategyWorkerSettings
 from apps.strategy_app.strategy_worker import StrategyWorker
 
 
@@ -27,3 +25,19 @@ class TestStrategyWorkerInit:
     def test_model_manager_loaded(self):
         sw = StrategyWorker("BTCUSDT", "1h")
         assert len(sw.model_manager.models) >= 1
+
+    def test_custom_worker_settings_applied(self):
+        sw = StrategyWorker(
+            "BTCUSDT",
+            "1h",
+            settings=StrategyWorkerSettings(
+                consumer_group="custom_group",
+                consumer_name_prefix="custom_worker",
+                batch_size=25,
+                block_ms=2500,
+            ),
+        )
+        assert sw.group_name == "custom_group"
+        assert sw.consumer_name == "custom_worker_BTCUSDT_1h"
+        assert sw.batch_size == 25
+        assert sw.block_ms == 2500

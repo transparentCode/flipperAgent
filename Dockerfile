@@ -28,5 +28,6 @@ COPY --chown=flipper:flipper ./configs /app/configs
 
 USER flipper
 ENV PYTHONPATH=/app/src
+ENV NUMBA_CACHE_DIR=/tmp/numba_cache
 
 CMD ["python"]

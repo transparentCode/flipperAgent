@@ -19,6 +19,7 @@ from libs.common.logging.logger_utils import bind_logger
 logger = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_ENGINE)
 
 _STATE_KEY_PREFIX = "ingestion:state"
+_STATE_UPDATED_TS_PREFIX = "ingestion:state_updated_ts"
 _DISCONNECT_TS_PREFIX = "ingestion:disconnect_ts"
 _LAST_LIVE_TS_PREFIX = "ingestion:last_live_ts"
 _DISCONNECT_COUNT_PREFIX = "ingestion:disconnect_count"
@@ -64,6 +65,10 @@ class IngestionCoordinator:
         return f"{_DISCONNECT_TS_PREFIX}:{symbol}:{tf}"
 
     @staticmethod
+    def _state_updated_ts_key(symbol: str, tf: str) -> str:
+        return f"{_STATE_UPDATED_TS_PREFIX}:{symbol}:{tf}"
+
+    @staticmethod
     def _last_live_ts_key(symbol: str, tf: str) -> str:
         return f"{_LAST_LIVE_TS_PREFIX}:{symbol}:{tf}"
 
@@ -97,6 +102,7 @@ class IngestionCoordinator:
         """
         now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
         await self._valkey.set(self._state_key(symbol, tf), state.value)
+        await self._valkey.set(self._state_updated_ts_key(symbol, tf), str(now_ms))
 
         if state == IngestionState.LIVE:
             await self._valkey.set(self._last_live_ts_key(symbol, tf), str(now_ms))
@@ -131,14 +137,22 @@ class IngestionCoordinator:
 
     async def get_observability_snapshot(self, symbol: str, tf: str) -> dict:
         """Return a per-asset observability dict suitable for the /ingestion/status endpoint."""
+        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
         state_raw = await self._valkey.get(self._state_key(symbol, tf))
+        state_updated_ts_raw = await self._valkey.get(self._state_updated_ts_key(symbol, tf))
         disconnect_ts_raw = await self._valkey.get(self._disconnect_ts_key(symbol, tf))
         last_live_ts_raw = await self._valkey.get(self._last_live_ts_key(symbol, tf))
         count_raw = await self._valkey.get(self._disconnect_count_key(symbol, tf))
+        state_updated_ts = int(state_updated_ts_raw) if state_updated_ts_raw else None
+        last_live_ts = int(last_live_ts_raw) if last_live_ts_raw else None
+        last_disconnect_ts = int(disconnect_ts_raw) if disconnect_ts_raw else None
         return {
             "state": state_raw or IngestionState.COLD.value,
-            "last_live_ts": int(last_live_ts_raw) if last_live_ts_raw else None,
-            "last_disconnect_ts": int(disconnect_ts_raw) if disconnect_ts_raw else None,
+            "state_updated_ts": state_updated_ts,
+            "state_age_ms": (now_ms - state_updated_ts) if state_updated_ts is not None else None,
+            "last_live_ts": last_live_ts,
+            "last_live_age_ms": (now_ms - last_live_ts) if last_live_ts is not None else None,
+            "last_disconnect_ts": last_disconnect_ts,
             "disconnects_in_window": int(count_raw) if count_raw else 0,
         }
 

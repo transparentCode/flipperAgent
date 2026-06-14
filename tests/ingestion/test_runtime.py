@@ -5,12 +5,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import psutil
 import pytest
+from valkey.exceptions import TimeoutError as ValkeyTimeoutError
 
-from apps.ingestion_app.coordination import IngestionState
-from apps.ingestion_app.models.asset_registry import IngestionAssetRecord
+from apps.ingestion_app.coordination import IngestionCoordinator, IngestionState
+from apps.ingestion_app.models.asset_registry import IngestionAssetDesiredState, IngestionAssetRecord
 from apps.ingestion_app.runtime.app import app, lifespan
 from apps.ingestion_app.runtime.bootstrap import initialize_asset_runtime
 from apps.ingestion_app.runtime.reconciler import IngestionRuntimeReconciler
+from apps.ingestion_app.runtime.shared import AssetRuntimeHandle, AssetRuntimeSpec
 from apps.ingestion_app.runtime.websocket import run_websocket_pipeline
 from apps.ingestion_app.constants import EXCHANGE_BINANCE
 
@@ -167,6 +169,60 @@ async def test_initialize_asset_runtime_forces_gap_fill_on_resume_marker_v2():
     mock_verify_ws.assert_awaited_once()
 
 
+def test_asset_runtime_spec_should_run_for_resuming_v2():
+    spec = AssetRuntimeSpec(
+        symbol="BTCUSDT",
+        base_timeframe="1m",
+        publish_timeframes=("1h",),
+        enabled=True,
+        desired_state=IngestionAssetDesiredState.RESUMING,
+    )
+
+    assert spec.should_run() is True
+
+
+@pytest.mark.asyncio
+async def test_reconciler_does_not_restart_when_asset_promotes_from_resuming_to_live_v2():
+    reconciler = IngestionRuntimeReconciler(
+        config_manager=MagicMock(get=MagicMock(return_value=5)),
+        arq_pool=AsyncMock(),
+        coordinator=MagicMock(),
+        redis_client=AsyncMock(),
+    )
+    current = AssetRuntimeSpec(
+        symbol="BTCUSDT",
+        base_timeframe="1m",
+        publish_timeframes=("1h",),
+        enabled=True,
+        desired_state=IngestionAssetDesiredState.RESUMING,
+    )
+    active_task = asyncio.create_task(asyncio.sleep(60))
+    reconciler.asset_handles["BTCUSDT"] = AssetRuntimeHandle(spec=current, tasks={active_task})
+    reconciler.stop_asset = AsyncMock()
+    reconciler.start_asset = AsyncMock()
+    reconciler.asset_catalog = MagicMock()
+    reconciler.asset_catalog.list_effective_assets = AsyncMock(
+        return_value=[
+            IngestionAssetRecord(
+                symbol="BTCUSDT",
+                base_timeframe="1m",
+                publish_timeframes=["1h"],
+                enabled=True,
+                desired_state=IngestionAssetDesiredState.LIVE,
+                source="registry",
+            )
+        ]
+    )
+
+    try:
+        await reconciler.reconcile_once()
+        reconciler.stop_asset.assert_not_awaited()
+        reconciler.start_asset.assert_not_awaited()
+    finally:
+        active_task.cancel()
+        await asyncio.gather(active_task, return_exceptions=True)
+
+
 @pytest.mark.asyncio
 async def test_run_websocket_pipeline_transitions_live_after_first_valid_payload_v2():
     mock_coordinator = MagicMock()
@@ -301,12 +357,12 @@ async def test_run_websocket_pipeline_bounded_memory_across_repeated_cycles_v2()
         mock_arq_pool = AsyncMock()
         mock_writer = MagicMock()
         mock_writer.insert_ohlcv = AsyncMock()
-        created_redis_clients: list[AsyncMock] = []
+        created_redis_clients = []
         attempt = {"count": 0}
 
-        async def make_client(_config_manager):
+        async def make_client(_config_manager, clients=created_redis_clients):
             client = AsyncMock()
-            created_redis_clients.append(client)
+            clients.append(client)
             return client
 
         valid_message = {
@@ -491,6 +547,61 @@ async def test_reconciler_dispatches_removal_once_v2():
     await reconciler.reconcile_once()
 
     mock_arq_pool.enqueue_job.assert_awaited_once_with("purge_removed_asset", "BTCUSDT", "1m")
+
+
+@pytest.mark.asyncio
+async def test_reconciler_wait_for_change_treats_valkey_timeout_as_idle_v2():
+    mock_config = MagicMock()
+    mock_config.get.side_effect = lambda key, default=None: {
+        "ingestion.runtime.reconcile_interval_seconds": 1,
+    }.get(key, default)
+    redis_client = MagicMock()
+    redis_client.xread = AsyncMock(side_effect=ValkeyTimeoutError("Timeout reading from broker:6379"))
+    reconciler = IngestionRuntimeReconciler(
+        config_manager=mock_config,
+        arq_pool=AsyncMock(),
+        coordinator=MagicMock(transition=AsyncMock()),
+        redis_client=redis_client,
+    )
+
+    with patch("apps.ingestion_app.runtime.reconciler.asyncio.sleep", new=AsyncMock()) as mock_sleep:
+        await reconciler.wait_for_change()
+
+    mock_sleep.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_coordinator_snapshot_includes_state_timing_metadata_v2():
+    symbol = "BTCUSDT"
+    timeframe = "1m"
+    now_ms = 1_781_410_000_000
+    state_updated_ts = now_ms - 2_000
+    last_live_ts = now_ms - 9_000
+    last_disconnect_ts = now_ms - 5_000
+    values = {
+        IngestionCoordinator._state_key(symbol, timeframe): IngestionState.WARMING.value,
+        IngestionCoordinator._state_updated_ts_key(symbol, timeframe): str(state_updated_ts),
+        IngestionCoordinator._last_live_ts_key(symbol, timeframe): str(last_live_ts),
+        IngestionCoordinator._disconnect_ts_key(symbol, timeframe): str(last_disconnect_ts),
+        IngestionCoordinator._disconnect_count_key(symbol, timeframe): "3",
+    }
+    valkey_client = MagicMock()
+    valkey_client.get = AsyncMock(side_effect=lambda key: values.get(key))
+    coordinator = IngestionCoordinator(valkey_client)
+
+    with patch("apps.ingestion_app.coordination.datetime") as mock_datetime:
+        mock_now = MagicMock()
+        mock_now.timestamp.return_value = now_ms / 1000
+        mock_datetime.now.return_value = mock_now
+        snapshot = await coordinator.get_observability_snapshot(symbol, timeframe)
+
+    assert snapshot["state"] == IngestionState.WARMING.value
+    assert snapshot["state_updated_ts"] == state_updated_ts
+    assert snapshot["state_age_ms"] == 2_000
+    assert snapshot["last_live_ts"] == last_live_ts
+    assert snapshot["last_live_age_ms"] == 9_000
+    assert snapshot["last_disconnect_ts"] == last_disconnect_ts
+    assert snapshot["disconnects_in_window"] == 3
 
 
 @pytest.mark.asyncio

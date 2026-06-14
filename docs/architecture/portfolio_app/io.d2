@@ -1,0 +1,179 @@
+direction: right
+
+title: {
+  label: "portfolio_app IO contracts"
+  near: top-center
+}
+
+classes: {
+  source: { style.fill: "#E8F1FF" }
+  component: { style.fill: "#EEF7EA" }
+  contract: { style.fill: "#FFF2D8" }
+  storage: { style.fill: "#F4EAFE" }
+  consumer: { style.fill: "#FCE8E8" }
+}
+
+sources: {
+  label: "Inputs"
+
+  fill_stream_in: {
+    class: source
+    label: "fills:{symbol}"
+    shape: queue
+  }
+
+  price_stream_in: {
+    class: source
+    label: "price_update:{symbol}:{tf}"
+    shape: queue
+  }
+
+  risk_positions_in: {
+    class: source
+    label: "risk_positions"
+    shape: cylinder
+  }
+
+  benchmark_request: {
+    class: source
+    label: "benchmark / analytics request"
+    shape: document
+  }
+}
+
+components: {
+  label: "Components"
+
+  bootstrap: {
+    class: component
+    label: "main bootstrap"
+    link: "../../../src/apps/portfolio_app/main.py"
+  }
+
+  runner: {
+    class: component
+    label: "runtime_runner"
+    link: "../../../src/apps/portfolio_app/runtime/runner.py"
+  }
+
+  fill_worker: {
+    class: component
+    label: "fill_worker"
+    link: "../../../src/apps/portfolio_app/runtime/worker.py"
+  }
+
+  mark_worker: {
+    class: component
+    label: "mark_worker"
+    link: "../../../src/apps/portfolio_app/runtime/mark_worker.py"
+  }
+
+  state: {
+    class: component
+    label: "shared_state"
+    link: "../../../src/libs/portfolio/state.py"
+  }
+
+  observability: {
+    class: component
+    label: "observability"
+    link: "../../../src/apps/portfolio_app/observability/service.py"
+  }
+
+  policy: {
+    class: component
+    label: "policy_layer"
+    link: "../../../src/apps/portfolio_app/policy/service.py"
+  }
+}
+
+contracts: {
+  label: "Valkey Contracts"
+
+  fill_stream: {
+    class: contract
+    label: "fills:{symbol}"
+    shape: queue
+  }
+
+  price_stream: {
+    class: contract
+    label: "price_update:{symbol}:{tf}"
+    shape: queue
+  }
+}
+
+storage: {
+  label: "Persistence"
+
+  equity_curve: {
+    class: storage
+    label: "portfolio_equity_curve"
+    shape: cylinder
+  }
+
+  closed_trades: {
+    class: storage
+    label: "portfolio_closed_trades"
+    shape: cylinder
+  }
+
+  processed_fills: {
+    class: storage
+    label: "portfolio_processed_fills"
+    shape: cylinder
+  }
+
+  risk_positions: {
+    class: storage
+    label: "risk_positions"
+    shape: cylinder
+  }
+
+  risk_snapshots: {
+    class: storage
+    label: "risk_account_snapshots"
+    shape: cylinder
+  }
+}
+
+consumers: {
+  label: "Consumers"
+
+  operator: {
+    class: consumer
+    label: "operator / research client"
+  }
+}
+
+sources.fill_stream_in -> contracts.fill_stream: "published by execution"
+sources.price_stream_in -> contracts.price_stream: "published by signal"
+sources.risk_positions_in -> storage.risk_positions: "maintained by risk"
+sources.benchmark_request -> components.observability: "query"
+
+components.bootstrap -> components.runner: "start runtime"
+components.runner -> components.fill_worker: "worker lifecycle"
+components.runner -> components.mark_worker: "worker lifecycle"
+components.runner -> components.state: "restore / periodic sync"
+
+contracts.fill_stream -> components.fill_worker: "consume"
+contracts.price_stream -> components.mark_worker: "consume"
+storage.risk_positions -> components.state: "restore / sync marks"
+
+components.fill_worker -> components.state: "apply fills"
+components.mark_worker -> components.state: "refresh marks"
+
+components.fill_worker -> storage.closed_trades: "write"
+components.fill_worker -> storage.processed_fills: "write"
+components.fill_worker -> storage.equity_curve: "write"
+components.mark_worker -> storage.equity_curve: "write"
+components.state -> storage.equity_curve: "periodic snapshot"
+
+storage.equity_curve -> components.observability: "read"
+storage.closed_trades -> components.observability: "read"
+storage.risk_positions -> components.observability: "read open positions"
+storage.risk_snapshots -> components.observability: "read context"
+
+components.observability -> components.policy: "sleeve summary"
+components.observability -> consumers.operator: "analytics responses"
+components.policy -> consumers.operator: "rebalance recommendations"

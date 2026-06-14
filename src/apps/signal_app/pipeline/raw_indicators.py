@@ -54,12 +54,21 @@ class RawIndicatorPipeline:
 
     def prime(self, historical_data: Sequence[BarTuple]) -> None:
         for output_key, indicator in self._indicator_entries:
+            mapped_data: list[Any] = []
             try:
                 mapped_data = self._get_mapped_historical_inputs(indicator, historical_data)
                 indicator.prime(mapped_data)
                 logger.info("Primed indicator '%s'", output_key)
-            except Exception:
-                logger.error("Error priming '%s'", output_key, exc_info=True)
+            except Exception as exc:
+                if _is_expected_priming_shortfall(indicator, mapped_data, exc):
+                    logger.warning(
+                        "Indicator '%s' awaiting more history to prime: have %s bars, need %s.",
+                        output_key,
+                        len(mapped_data),
+                        int(indicator.lookback_required),
+                    )
+                else:
+                    logger.error("Error priming '%s'", output_key, exc_info=True)
                 indicator._is_primed = False
 
     def process_tick(self, data: BarTuple) -> dict[str, Any]:
@@ -209,3 +218,13 @@ def _flatten_microstructure_outputs(
     if isinstance(output, dict) and indicator.__class__.__name__ in MICROSTRUCTURE_INDICATORS:
         for nested_key, nested_value in output.items():
             results.setdefault(nested_key, nested_value)
+
+
+def _is_expected_priming_shortfall(
+    indicator: Indicator,
+    mapped_data: Sequence[Any],
+    exc: Exception,
+) -> bool:
+    if len(mapped_data) < int(indicator.lookback_required):
+        return True
+    return "requires at least" in str(exc).lower()

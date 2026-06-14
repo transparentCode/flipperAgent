@@ -6,101 +6,72 @@ title: {
 }
 
 classes: {
-  source: {
-    style.fill: "#E8F1FF"
-  }
-  component: {
-    style.fill: "#EEF7EA"
-  }
-  contract: {
-    style.fill: "#FFF2D8"
-  }
-  storage: {
-    style.fill: "#F4EAFE"
-  }
-  consumer: {
-    style.fill: "#FCE8E8"
-  }
+  source: { style.fill: "#E8F1FF" }
+  component: { style.fill: "#EEF7EA" }
+  contract: { style.fill: "#FFF2D8" }
+  storage: { style.fill: "#F4EAFE" }
+  consumer: { style.fill: "#FCE8E8" }
 }
 
 sources: {
   label: "Inputs"
 
-  closed_candle: {
+  canonical: {
     class: source
-    label: "StreamOHLCVPayload"
-    shape: document
-    tooltip: "Closed candle payload consumed from ingestion streams."
-    link: "../../../src/libs/contracts/signal.py"
+    label: "asset manifest / lifecycle"
+    shape: stored_data
+  }
+
+  ohlcv_stream_in: {
+    class: source
+    label: "stream:ohlcv:{symbol}:{tf}"
+    shape: queue
   }
 
   historical_bars: {
     class: source
     label: "historical OHLCV"
     shape: cylinder
-    tooltip: "Historical bars used for priming, snapshots, and gap recovery."
-    link: "../../../src/libs/common/db/timescale_reader.py"
   }
 
   context_hashes: {
     class: source
     label: "index / derivatives hashes"
     shape: stored_data
-    tooltip: "Valkey hashes with latest TradingView index and derivatives data."
-    link: "../../../configs/tradingview.yaml"
   }
 
   snapshot_request: {
     class: source
     label: "snapshot request"
     shape: document
-    tooltip: "HTTP or CLI request for on-demand feature computation."
   }
 }
 
 components: {
-  label: "Target Components"
+  label: "Components"
 
-  catalog: {
+  bootstrap: {
     class: component
-    label: "pair_catalog"
-    link: "../../../src/apps/signal_app/catalog/pairs.py"
+    label: "main bootstrap"
+    link: "../../../src/apps/signal_app/main.py"
   }
 
-  runtime: {
+  runner: {
+    class: component
+    label: "runtime_runner"
+    link: "../../../src/apps/signal_app/runtime/runner.py"
+  }
+
+  worker: {
     class: component
     label: "runtime_worker"
     link: "../../../src/apps/signal_app/runtime/worker.py"
-  }
-
-  primer: {
-    class: component
-    label: "startup_primer"
-    link: "../../../src/apps/signal_app/pipeline/priming.py"
   }
 
   pipeline: {
     class: component
     label: "feature_pipeline"
     link: "../../../src/apps/signal_app/pipeline/features.py"
-  }
-
-  raw_indicators: {
-    class: component
-    label: "raw_indicators"
-    link: "../../../src/apps/signal_app/pipeline/raw_indicators.py"
-  }
-
-  regime: {
-    class: component
-    label: "regime_stage"
-    link: "../../../src/apps/signal_app/pipeline/regime.py"
-  }
-
-  enrichment: {
-    class: component
-    label: "enrichment_readers"
-    link: "../../../src/apps/signal_app/enrichment/valkey.py"
   }
 
   publisher: {
@@ -117,41 +88,30 @@ components: {
 }
 
 contracts: {
-  label: "Contracts"
+  label: "Valkey Contracts"
 
-  ohlcv_stream: {
+  lifecycle_stream: {
     class: contract
-    label: "stream:ohlcv:{symbol}:{tf}"
+    label: "asset:lifecycle"
     shape: queue
-    tooltip: "Input candle stream from ingestion_app."
   }
 
   feature_stream: {
     class: contract
     label: "features:{symbol}:{tf}"
     shape: queue
-    tooltip: "FeatureVector stream consumed by strategy_app."
   }
 
   price_stream: {
     class: contract
     label: "price_update:{symbol}:{tf}"
     shape: queue
-    tooltip: "PriceUpdate stream consumed by risk_app."
   }
 
-  events_stream: {
+  runtime_status: {
     class: contract
-    label: "stream:events:signal"
-    shape: queue
-    tooltip: "Future event stream for alerting and operator visibility."
-  }
-
-  state_keys: {
-    class: contract
-    label: "signal state keys"
+    label: "signal:status:{symbol}:{tf}"
     shape: stored_data
-    tooltip: "Future state, lag, and failure markers per pair."
   }
 }
 
@@ -160,71 +120,49 @@ storage: {
 
   ohlcv: {
     class: storage
+    label: "ohlcv"
     shape: cylinder
-    tooltip: "Historical source table for priming and gap recovery."
   }
 
-  l2_depth_features: {
+  l2: {
     class: storage
+    label: "l2_depth_features"
     shape: cylinder
-    tooltip: "Optional context for regime classification features."
-  }
-
-  feature_snapshots: {
-    class: storage
-    shape: cylinder
-    tooltip: "Optional future materialized feature snapshots."
   }
 }
 
 consumers: {
   label: "Consumers"
 
-  strategy_app: {
+  strategy: {
     class: consumer
     label: "strategy_app"
-    link: "../../../src/apps/strategy_app/strategy_worker.py"
   }
 
-  risk_app: {
+  risk: {
     class: consumer
     label: "risk_app"
-    link: "../../../src/apps/risk_app/risk_worker.py"
-  }
-
-  operators: {
-    class: consumer
-    label: "operators / alert_app"
   }
 }
 
-sources.closed_candle -> contracts.ohlcv_stream: "published upstream"
-contracts.ohlcv_stream -> components.runtime: "consume"
-sources.historical_bars -> components.primer: "startup warmup"
-sources.historical_bars -> components.pipeline: "on-demand snapshot"
-sources.context_hashes -> components.enrichment: "read"
-sources.snapshot_request -> components.pipeline: "compute without publish"
+sources.canonical -> components.bootstrap: "list_runtime_pairs"
+sources.canonical -> contracts.lifecycle_stream: "published by ingestion"
+contracts.lifecycle_stream -> components.runner: "consume"
+sources.ohlcv_stream_in -> components.worker: "closed candles"
+sources.historical_bars -> components.pipeline: "prime / snapshot"
+sources.context_hashes -> components.pipeline: "enrich"
+sources.snapshot_request -> components.pipeline: "compute"
 
-components.catalog -> components.runtime: "effective pairs"
-components.runtime -> components.primer: "prime before live"
-components.runtime -> components.pipeline: "closed bar"
-components.primer -> components.pipeline: "primed state / bootstrap bar"
-components.pipeline -> components.raw_indicators: "raw indicator update"
-components.pipeline -> components.enrichment: "market context"
-components.pipeline -> components.regime: "market-state facts"
+components.bootstrap -> components.runner: "start runtime"
+components.runner -> components.worker: "worker lifecycle"
+components.worker -> components.pipeline: "bar input"
+components.worker -> components.observability: "state / errors"
 components.pipeline -> components.publisher: "FeatureVector / PriceUpdate"
-components.runtime -> components.observability: "state / errors"
-components.publisher -> components.observability: "last publish timestamps"
+components.observability -> contracts.runtime_status: "write"
 
+storage.ohlcv -> components.pipeline: "read"
+storage.l2 -> components.pipeline: "optional read"
 components.publisher -> contracts.feature_stream: "publish"
 components.publisher -> contracts.price_stream: "publish"
-components.observability -> contracts.events_stream: "future publish"
-components.observability -> contracts.state_keys: "future write"
-
-storage.ohlcv -> components.primer: "read"
-storage.l2_depth_features -> components.regime: "optional read"
-components.pipeline -> storage.feature_snapshots: "future materialize"
-
-contracts.feature_stream -> consumers.strategy_app: "consume"
-contracts.price_stream -> consumers.risk_app: "consume"
-contracts.events_stream -> consumers.operators: "subscribe"
+contracts.feature_stream -> consumers.strategy: "consume"
+contracts.price_stream -> consumers.risk: "consume"

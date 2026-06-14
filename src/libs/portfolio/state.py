@@ -113,6 +113,36 @@ class PortfolioState:
     def make_position_key(asset: str, entry_timestamp: float, entry_price: float) -> tuple[str, float, float]:
         return (asset, entry_timestamp, entry_price)
 
+    def apply_price_update(
+        self,
+        asset: str,
+        *,
+        high: float,
+        low: float,
+        close: float,
+    ) -> None:
+        """Apply a live price update to marks and watermarks for all open positions of an asset."""
+        for position in self.matcher.open_positions.get(asset, []):
+            key = self.make_position_key(
+                position.asset,
+                position.timestamp,
+                position.entry_price,
+            )
+            self.position_marks[key] = close
+            if key not in self.position_watermarks:
+                self.position_watermarks[key] = {
+                    "worst_price": position.entry_price,
+                    "best_price": position.entry_price,
+                }
+
+            marks = self.position_watermarks[key]
+            if position.side == "buy":
+                marks["worst_price"] = min(marks["worst_price"], low)
+                marks["best_price"] = max(marks["best_price"], high)
+            else:
+                marks["worst_price"] = max(marks["worst_price"], high)
+                marks["best_price"] = min(marks["best_price"], low)
+
     async def sync_marks_from_risk_positions(self, db_pool: Any) -> None:
         """Refresh current prices from risk_positions without changing portfolio balance."""
         tracker = await PositionTracker.load_positions(db_pool)

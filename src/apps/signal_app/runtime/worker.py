@@ -9,9 +9,11 @@ from libs.common.stream_consumer import BaseStreamConsumer
 from libs.contracts.signal import StreamOHLCVPayload
 
 from apps.signal_app.enrichment.valkey import ValkeySignalEnrichmentReader
+from apps.signal_app.models import SignalPair, SignalPairState
+from apps.signal_app.observability.runtime_state import SignalRuntimeStateStore
 from apps.signal_app.pipeline import EngineeredFeaturePipeline, FeaturePipeline, RawIndicatorPipeline
 from apps.signal_app.pipeline.priming import StartupPrimer, TimescaleStartupHistoryFetcher
-from apps.signal_app.pipeline.regime import REGIME_MIN_BARS, RegimeFeaturePipeline
+from apps.signal_app.pipeline.regime import RegimeFeaturePipeline
 from apps.signal_app.publishing import SignalStreamPublisher
 from apps.signal_app.settings import SignalWorkerSettings
 
@@ -47,12 +49,17 @@ class SignalRuntimeWorker(BaseStreamConsumer):
         self.pipeline = pipeline or FeaturePipeline(
             raw_indicators=self.raw_indicators,
             engineered_features=EngineeredFeaturePipeline(self.asset, self.timeframe),
-            regime_features=RegimeFeaturePipeline.create_optional(self.asset, self.timeframe),
+            regime_features=RegimeFeaturePipeline.create_optional(
+                self.asset,
+                self.timeframe,
+                settings=self.settings,
+            ),
         )
         if getattr(self.pipeline, "raw_indicators", None) is not None:
             self.raw_indicators = self.pipeline.raw_indicators
         self.publisher = publisher
         self.primer = primer or StartupPrimer(TimescaleStartupHistoryFetcher())
+        self.state_store: SignalRuntimeStateStore | None = None
         self.startup_retry_delay_sec = (
             startup_retry_delay_sec
             if startup_retry_delay_sec is not None
@@ -63,13 +70,21 @@ class SignalRuntimeWorker(BaseStreamConsumer):
 
     async def connect(self, redis_client: Any) -> None:
         await super().connect(redis_client)
+        self.state_store = SignalRuntimeStateStore(redis_client)
         if self.publisher is None:
             self.publisher = SignalStreamPublisher(redis_client)
         if self.pipeline.enrichment_reader is None:
-            self.pipeline.enrichment_reader = ValkeySignalEnrichmentReader(redis_client)
+            self.pipeline.enrichment_reader = ValkeySignalEnrichmentReader(
+                redis_client,
+                settings=self.settings,
+            )
 
     async def start(self) -> None:
         logger.info("Starting signal worker for %s %s", self.asset, self.timeframe)
+        await self._update_runtime_state(
+            state=SignalPairState.WARMING,
+            detail={"phase": "startup"},
+        )
         history: list[tuple[float, ...]] = []
         while True:
             primed_history = await self.prime_startup_history(self.max_lookback)
@@ -86,7 +101,9 @@ class SignalRuntimeWorker(BaseStreamConsumer):
 
     @property
     def max_lookback(self) -> int:
-        lookback = REGIME_MIN_BARS
+        lookback = 0
+        if self.pipeline.regime_features is not None:
+            lookback = max(lookback, int(self.pipeline.regime_features.min_bars))
         for indicator in self.raw_indicators.indicators:
             lookback = max(lookback, int(indicator.lookback_required))
         return lookback
@@ -108,6 +125,10 @@ class SignalRuntimeWorker(BaseStreamConsumer):
                         self.asset,
                         self.timeframe,
                     )
+                    await self._update_runtime_state(
+                        state=SignalPairState.WARMING,
+                        detail={"phase": "startup", "reason": "no_history"},
+                    )
                     return None
 
                 self.raw_indicators.prime(history)
@@ -120,6 +141,16 @@ class SignalRuntimeWorker(BaseStreamConsumer):
                             self.timeframe,
                             len(history),
                             max_lookback,
+                        )
+                        await self._update_runtime_state(
+                            state=SignalPairState.DEGRADED,
+                            detail={
+                                "phase": "startup",
+                                "reason": "partial_history",
+                                "history_bars": len(history),
+                                "required_bars": max_lookback,
+                                "unprimed_indicators": unprimed,
+                            },
                         )
                         return history
                     raise RuntimeError(
@@ -137,6 +168,11 @@ class SignalRuntimeWorker(BaseStreamConsumer):
                         self.timeframe,
                         exc_info=True,
                     )
+                    await self._update_runtime_state(
+                        state=SignalPairState.WARMING,
+                        last_error="priming_attempt_failed",
+                        detail={"phase": "startup", "attempt": attempt + 1},
+                    )
                     await asyncio.sleep(self.settings.priming_retry_delay_sec)
                 else:
                     logger.warning(
@@ -144,6 +180,11 @@ class SignalRuntimeWorker(BaseStreamConsumer):
                         self.asset,
                         self.timeframe,
                         exc_info=True,
+                    )
+                    await self._update_runtime_state(
+                        state=SignalPairState.WARMING,
+                        last_error="priming_attempts_exhausted",
+                        detail={"phase": "startup", "attempts_exhausted": True},
                     )
         return None
 
@@ -157,6 +198,10 @@ class SignalRuntimeWorker(BaseStreamConsumer):
                 "Skipping bootstrap snapshot for %s:%s: no primed indicator outputs.",
                 self.asset,
                 self.timeframe,
+            )
+            await self._update_runtime_state(
+                state=SignalPairState.DEGRADED,
+                detail={"phase": "bootstrap", "reason": "no_raw_features"},
             )
             return
 
@@ -185,6 +230,13 @@ class SignalRuntimeWorker(BaseStreamConsumer):
         self._last_processed_ts = int(feature_vector.timestamp)
         await publisher.publish_feature_vector(feature_vector)
         await publisher.publish_price_update(price_update)
+        await self._update_runtime_state(
+            state=self._current_runtime_state(history),
+            last_input_ts=float(candle.timestamp),
+            last_feature_ts=float(feature_vector.timestamp),
+            last_error=None,
+            detail={"phase": "bootstrap"},
+        )
 
     async def process_message(self, message_id: str, data: dict[str, str]) -> None:
         payload = _decode_payload(data)
@@ -198,40 +250,95 @@ class SignalRuntimeWorker(BaseStreamConsumer):
             return
 
         timestamp = normalize_timestamp_ms(candle.timestamp)
-        if self._last_processed_ts is not None:
-            gap_ms = timestamp - self._last_processed_ts
-            if gap_ms > 2 * self._expected_interval_ms:
-                logger.warning(
-                    "Gap detected for %s:%s: %.0fs since last bar; re-priming.",
-                    self.asset,
-                    self.timeframe,
-                    gap_ms / 1000,
-                )
-                await self.reprime_after_gap()
-        self._last_processed_ts = timestamp
+        try:
+            if self._last_processed_ts is not None:
+                gap_ms = timestamp - self._last_processed_ts
+                if gap_ms > 2 * self._expected_interval_ms:
+                    logger.warning(
+                        "Gap detected for %s:%s: %.0fs since last bar; re-priming.",
+                        self.asset,
+                        self.timeframe,
+                        gap_ms / 1000,
+                    )
+                    if not await self.reprime_after_gap():
+                        return
+            self._last_processed_ts = timestamp
 
-        publisher = self._ensure_publisher()
-        feature_vector, price_update = await self.pipeline.process_closed_candle_enriched(
-            asset=self.asset,
-            timeframe=self.timeframe,
-            candle=candle,
-        )
-        await publisher.publish_feature_vector(feature_vector)
-        await publisher.publish_price_update(price_update)
+            publisher = self._ensure_publisher()
+            feature_vector, price_update = await self.pipeline.process_closed_candle_enriched(
+                asset=self.asset,
+                timeframe=self.timeframe,
+                candle=candle,
+            )
+            await publisher.publish_feature_vector(feature_vector)
+            await publisher.publish_price_update(price_update)
+            await self._update_runtime_state(
+                state=self._current_runtime_state_after_processing(),
+                last_input_ts=float(candle.timestamp),
+                last_feature_ts=float(feature_vector.timestamp),
+                last_error=None,
+                detail={"phase": "live"},
+            )
+        except Exception as exc:
+            await self._update_runtime_state(
+                state=SignalPairState.FAILED,
+                last_input_ts=float(candle.timestamp),
+                last_error=str(exc),
+                detail={"phase": "live", "message_id": message_id},
+            )
+            raise
 
-    async def reprime_after_gap(self) -> None:
+    async def reprime_after_gap(self) -> bool:
         history = await self.primer.fetch_history(self.asset, self.timeframe, self.max_lookback)
         if not history:
-            raise RuntimeError(f"No history returned for re-priming {self.asset}:{self.timeframe}")
+            logger.warning(
+                "Gap re-priming deferred for %s:%s: no history returned yet.",
+                self.asset,
+                self.timeframe,
+            )
+            await self._update_runtime_state(
+                state=SignalPairState.DEGRADED,
+                last_error="reprime_no_history",
+                detail={"phase": "reprime", "reason": "no_history"},
+            )
+            return False
 
         self.raw_indicators.prime(history)
         unprimed = self.raw_indicators.get_unprimed_indicator_keys()
         if unprimed:
+            if len(history) < self.max_lookback:
+                logger.warning(
+                    "Gap re-priming left %s:%s degraded: have %s bars, need %s.",
+                    self.asset,
+                    self.timeframe,
+                    len(history),
+                    self.max_lookback,
+                )
+                if self.pipeline.regime_features is not None:
+                    self.pipeline.regime_features.prime(history)
+                await self._update_runtime_state(
+                    state=SignalPairState.DEGRADED,
+                    last_error=None,
+                    detail={
+                        "phase": "reprime",
+                        "reason": "partial_history",
+                        "history_bars": len(history),
+                        "required_bars": self.max_lookback,
+                        "unprimed_indicators": unprimed,
+                    },
+                )
+                return True
             raise RuntimeError(
                 f"Indicators failed to re-prime after gap: {', '.join(unprimed)}"
             )
         if self.pipeline.regime_features is not None:
             self.pipeline.regime_features.prime(history)
+        await self._update_runtime_state(
+            state=SignalPairState.LIVE,
+            last_error=None,
+            detail={"phase": "reprime", "history_bars": len(history)},
+        )
+        return True
 
     def _ensure_publisher(self) -> SignalStreamPublisher:
         if self.publisher is None:
@@ -239,6 +346,40 @@ class SignalRuntimeWorker(BaseStreamConsumer):
                 raise RuntimeError("SignalRuntimeWorker requires a publisher or redis client.")
             self.publisher = SignalStreamPublisher(self.redis_client)
         return self.publisher
+
+    def _pair(self) -> SignalPair:
+        return SignalPair(asset=self.asset, timeframe=self.timeframe)
+
+    def _current_runtime_state(self, history: list[tuple[float, ...]]) -> SignalPairState:
+        if self.raw_indicators.get_unprimed_indicator_keys() or len(history) < self.max_lookback:
+            return SignalPairState.DEGRADED
+        return SignalPairState.LIVE
+
+    def _current_runtime_state_after_processing(self) -> SignalPairState:
+        if self.raw_indicators.get_unprimed_indicator_keys():
+            return SignalPairState.DEGRADED
+        return SignalPairState.LIVE
+
+    async def _update_runtime_state(
+        self,
+        *,
+        state: SignalPairState,
+        last_input_ts: float | None = None,
+        last_feature_ts: float | None = None,
+        last_error: str | None = None,
+        detail: dict[str, Any] | None = None,
+    ) -> None:
+        if self.state_store is None:
+            return
+        await self.state_store.update(
+            self._pair(),
+            state=state,
+            last_input_ts=last_input_ts,
+            last_feature_ts=last_feature_ts,
+            last_error=last_error,
+            replace_last_error=last_error is None,
+            detail=detail,
+        )
 
 
 def _is_closed_bar(payload: dict[str, Any]) -> bool:

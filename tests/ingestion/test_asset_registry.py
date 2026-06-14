@@ -10,6 +10,7 @@ from apps.ingestion_app.asset_registry import (
     IngestionControlPublisher,
     IngestionControlService,
 )
+from apps.ingestion_app.constants import INGESTION_CONTROL_STREAM, INGESTION_EVENTS_STREAM
 from apps.ingestion_app.models.asset_registry import (
     IngestionAssetActionRequest,
     IngestionAssetDesiredState,
@@ -17,6 +18,12 @@ from apps.ingestion_app.models.asset_registry import (
     IngestionAssetSource,
     IngestionAssetPatchRequest,
     IngestionAssetUpsertRequest,
+)
+from libs.common.asset_manifest import (
+    ASSET_LIFECYCLE_STREAM,
+    AssetManifestStore,
+    asset_manifest_key,
+    asset_timeframe_manifest_key,
 )
 from libs.contracts.schemas import IngestionCommandType
 
@@ -67,12 +74,26 @@ class _Ctx:
 class FakeValkey:
     def __init__(self) -> None:
         self.calls: list[tuple[str, dict[str, str]]] = []
+        self.hash_calls: list[tuple[str, dict[str, str]]] = []
         self.set_calls: list[tuple[str, str]] = []
         self.delete_calls: list[str] = []
+        self.hashes: dict[str, dict[str, str]] = {}
 
     async def xadd(self, stream: str, payload: dict[str, str], **kwargs):
         self.calls.append((stream, payload))
         return "123-0"
+
+    async def hset(self, key: str, mapping: dict[str, str]):
+        self.hash_calls.append((key, mapping))
+        self.hashes[key] = dict(mapping)
+        return len(mapping)
+
+    async def hgetall(self, key: str):
+        return dict(self.hashes.get(key, {}))
+
+    async def keys(self, pattern: str):
+        prefix = pattern.rstrip("*")
+        return [key for key in self.hashes if key.startswith(prefix)]
 
     async def set(self, key: str, value: str):
         self.set_calls.append((key, value))
@@ -237,6 +258,45 @@ async def test_v2_asset_catalog_merges_registry_overrides_with_config_defaults()
 
 
 @pytest.mark.asyncio
+async def test_v2_asset_catalog_keeps_registry_tombstone_over_config_defaults():
+    config_manager = FakeConfigManager(
+        {
+            "ingestion.assets.target_list": ["SOLUSDT"],
+            "ingestion.assets.publish_timeframes": {"SOLUSDT": ["1h", "4h"]},
+            "ingestion.timeframes.base_gap_fill": "1m",
+        }
+    )
+    conn = FakeConnection(
+        fetch_results=[
+            [
+                {
+                    "symbol": "SOLUSDT",
+                    "exchange": "binance",
+                    "provider": "binance_native",
+                    "base_timeframe": "1m",
+                    "publish_timeframes": ["1m"],
+                    "historical_backfill_days": 1,
+                    "retention_days": None,
+                    "enabled": False,
+                    "desired_state": "STOPPED",
+                    "created_at": None,
+                    "updated_at": None,
+                }
+            ]
+        ]
+    )
+
+    catalog = IngestionAssetCatalog(config_manager=config_manager, pool=FakePool(conn))
+    records = await catalog.list_effective_assets()
+
+    assert len(records) == 1
+    assert records[0].symbol == "SOLUSDT"
+    assert records[0].source == IngestionAssetSource.REGISTRY
+    assert records[0].enabled is False
+    assert records[0].desired_state == IngestionAssetDesiredState.STOPPED
+
+
+@pytest.mark.asyncio
 async def test_v2_control_publisher_publishes_two_stream_messages():
     asset = IngestionAssetRecord(
         symbol="SOLUSDT",
@@ -254,6 +314,15 @@ async def test_v2_control_publisher_publishes_two_stream_messages():
 
     assert result.command_published is True
     assert result.event_published is True
+    assert [stream for stream, _ in publisher.valkey_client.calls] == [
+        INGESTION_CONTROL_STREAM,
+        INGESTION_EVENTS_STREAM,
+        ASSET_LIFECYCLE_STREAM,
+    ]
+    assert asset_manifest_key("SOLUSDT") in publisher.valkey_client.hashes
+    assert asset_timeframe_manifest_key("SOLUSDT", "1m") in publisher.valkey_client.hashes
+    assert asset_timeframe_manifest_key("SOLUSDT", "1h") in publisher.valkey_client.hashes
+    assert asset_timeframe_manifest_key("SOLUSDT", "4h") in publisher.valkey_client.hashes
 
 
 @pytest.mark.asyncio
@@ -328,3 +397,126 @@ async def test_v2_control_service_apply_action_persists_and_publishes():
     assert result.command_published is True
     assert result.event_published is True
     assert valkey.set_calls == [("ingestion:resume_backfill_required:BTCUSDT:1m", "1")]
+
+
+@pytest.mark.asyncio
+async def test_v2_control_service_resume_persists_resuming_without_lifecycle_event():
+    existing = IngestionAssetRecord(
+        symbol="BTCUSDT",
+        publish_timeframes=["1h"],
+        source=IngestionAssetSource.REGISTRY,
+        desired_state=IngestionAssetDesiredState.PAUSED,
+    )
+    persisted = existing.model_copy(
+        update={"desired_state": IngestionAssetDesiredState.RESUMING, "enabled": True}
+    )
+    valkey = FakeValkey()
+    service = IngestionControlService(pool=FakePool(FakeConnection()), valkey_client=valkey)
+    service.repo.upsert_asset = AsyncMock(return_value=persisted)
+
+    result = await service.apply_action(
+        existing,
+        desired_state=IngestionAssetDesiredState.LIVE,
+        enabled=True,
+        action=IngestionCommandType.RESUME_ASSET,
+        body=IngestionAssetActionRequest(reason="resume"),
+    )
+
+    assert result.asset.desired_state == IngestionAssetDesiredState.RESUMING
+    assert [stream for stream, _ in valkey.calls] == [
+        INGESTION_CONTROL_STREAM,
+        INGESTION_EVENTS_STREAM,
+    ]
+
+
+@pytest.mark.asyncio
+async def test_asset_manifest_store_prunes_stale_timeframes():
+    valkey = FakeValkey()
+    store = AssetManifestStore(valkey)
+
+    await store.sync_from_ingestion_asset(
+        IngestionAssetRecord(
+            symbol="BTCUSDT",
+            base_timeframe="1m",
+            publish_timeframes=["1h", "4h"],
+            source=IngestionAssetSource.REGISTRY,
+        ),
+        updated_at=100.0,
+    )
+    await store.sync_from_ingestion_asset(
+        IngestionAssetRecord(
+            symbol="BTCUSDT",
+            base_timeframe="1m",
+            publish_timeframes=["1h"],
+            source=IngestionAssetSource.REGISTRY,
+        ),
+        updated_at=200.0,
+    )
+
+    manifest = await store.read_asset("BTCUSDT")
+    timeframe = await store.read_timeframe("BTCUSDT", "1h")
+
+    assert manifest is not None
+    assert manifest.timeframes == ["1m", "1h"]
+    assert timeframe is not None
+    assert timeframe.timeframe == "1h"
+    assert asset_timeframe_manifest_key("BTCUSDT", "4h") in valkey.delete_calls
+
+
+@pytest.mark.asyncio
+async def test_asset_manifest_store_lists_live_runtime_pairs_only():
+    valkey = FakeValkey()
+    store = AssetManifestStore(valkey)
+
+    await store.sync_from_ingestion_asset(
+        IngestionAssetRecord(
+            symbol="BTCUSDT",
+            base_timeframe="1m",
+            publish_timeframes=["1h", "4h"],
+            desired_state=IngestionAssetDesiredState.LIVE,
+            source=IngestionAssetSource.REGISTRY,
+        ),
+        updated_at=100.0,
+    )
+    await store.sync_from_ingestion_asset(
+        IngestionAssetRecord(
+            symbol="ETHUSDT",
+            base_timeframe="1m",
+            publish_timeframes=["1h"],
+            desired_state=IngestionAssetDesiredState.PAUSED,
+            source=IngestionAssetSource.REGISTRY,
+        ),
+        updated_at=200.0,
+    )
+
+    assert await store.list_runtime_pairs() == [("BTCUSDT", "1h"), ("BTCUSDT", "4h")]
+
+
+@pytest.mark.asyncio
+async def test_asset_manifest_store_skips_non_hash_asset_keys():
+    class MixedKeyValkey(FakeValkey):
+        def __init__(self) -> None:
+            super().__init__()
+            self.key_types: dict[str, str] = {ASSET_LIFECYCLE_STREAM: "stream"}
+
+        async def keys(self, pattern: str):
+            return [asset_manifest_key("BTCUSDT"), ASSET_LIFECYCLE_STREAM]
+
+        async def type(self, key: str):
+            return self.key_types.get(key, "hash")
+
+    valkey = MixedKeyValkey()
+    store = AssetManifestStore(valkey)
+
+    await store.sync_from_ingestion_asset(
+        IngestionAssetRecord(
+            symbol="BTCUSDT",
+            base_timeframe="1m",
+            publish_timeframes=["1h"],
+            desired_state=IngestionAssetDesiredState.LIVE,
+            source=IngestionAssetSource.REGISTRY,
+        ),
+        updated_at=100.0,
+    )
+
+    assert await store.list_runtime_pairs() == [("BTCUSDT", "1h")]

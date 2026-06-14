@@ -72,6 +72,7 @@ async def _clear_ingestion_observability_keys(
         return
     keys = (
         IngestionCoordinator._state_key(symbol, timeframe),
+        IngestionCoordinator._state_updated_ts_key(symbol, timeframe),
         IngestionCoordinator._disconnect_ts_key(symbol, timeframe),
         IngestionCoordinator._last_live_ts_key(symbol, timeframe),
         IngestionCoordinator._disconnect_count_key(symbol, timeframe),

@@ -1,0 +1,161 @@
+direction: right
+
+title: {
+  label: "portfolio_app architecture"
+  near: top-center
+}
+
+inputs: {
+  label: "Inputs"
+  style.fill: "#E8F1FF"
+
+  api_client: {
+    label: "api_app / operator"
+    link: "../../../src/apps/api_app/routers/portfolio.py"
+  }
+
+  execution_app: {
+    label: "execution_app"
+    link: "../../../src/apps/execution_app/execution_worker.py"
+  }
+
+  signal_app: {
+    label: "signal_app"
+    link: "../signal_app/README.md"
+  }
+
+  risk_state: {
+    label: "risk state"
+    link: "../../../src/libs/portfolio/state.py"
+  }
+}
+
+portfolio_app: {
+  label: "portfolio_app"
+  style.fill: "#EEF7EA"
+  link: "./README.md"
+
+  api_routes: {
+    label: "portfolio_routes"
+    link: "../../../src/apps/portfolio_app/api/routes.py"
+  }
+
+  observability: {
+    label: "observability_service"
+    link: "../../../src/apps/portfolio_app/observability/service.py"
+  }
+
+  policy: {
+    label: "policy_layer"
+    link: "../../../src/apps/portfolio_app/policy/service.py"
+  }
+
+  runtime_runner: {
+    label: "runtime_runner"
+    link: "../../../src/apps/portfolio_app/runtime/runner.py"
+  }
+
+  fill_workers: {
+    label: "fill_workers"
+    link: "../../../src/apps/portfolio_app/runtime/worker.py"
+  }
+
+  mark_workers: {
+    label: "mark_workers"
+    link: "../../../src/apps/portfolio_app/runtime/mark_worker.py"
+  }
+
+  shared_state: {
+    label: "shared_state"
+    link: "../../../src/libs/portfolio/state.py"
+  }
+}
+
+valkey: {
+  label: "Valkey"
+  style.fill: "#FFF2D8"
+
+  fills_stream: {
+    label: "fills:{symbol}"
+    link: "../../../src/apps/execution_app/execution_worker.py"
+  }
+
+  price_stream: {
+    label: "price_update:{symbol}:{tf}"
+    link: "../../../src/apps/signal_app/publishing/streams.py"
+  }
+}
+
+timescaledb: {
+  label: "TimescaleDB"
+  style.fill: "#F4EAFE"
+
+  equity_curve: {
+    label: "portfolio_equity_curve"
+    link: "../../../src/libs/portfolio/equity_curve.py"
+  }
+
+  closed_trades: {
+    label: "portfolio_closed_trades"
+    link: "../../../src/libs/portfolio/trade_journal.py"
+  }
+
+  processed_fills: {
+    label: "portfolio_processed_fills"
+    link: "../../../src/libs/portfolio/trade_journal.py"
+  }
+
+  risk_positions: {
+    label: "risk_positions"
+    link: "../../../src/libs/risk/position_tracker.py"
+  }
+
+  risk_snapshots: {
+    label: "risk_account_snapshots"
+    link: "../../../src/libs/portfolio/trade_journal.py"
+  }
+}
+
+consumers: {
+  label: "Consumers"
+  style.fill: "#FCE8E8"
+
+  operators: {
+    label: "operators / research"
+    link: "../../../src/apps/portfolio_app/api/app.py"
+  }
+}
+
+inputs.api_client -> portfolio_app.api_routes: "HTTP"
+inputs.execution_app -> valkey.fills_stream: "publish"
+inputs.signal_app -> valkey.price_stream: "publish"
+inputs.risk_state -> timescaledb.risk_positions: "persist"
+
+portfolio_app.api_routes -> portfolio_app.observability: "analytics"
+portfolio_app.api_routes -> portfolio_app.policy: "rebalance recommendation"
+
+portfolio_app.runtime_runner -> portfolio_app.fill_workers: "supervise"
+portfolio_app.runtime_runner -> portfolio_app.mark_workers: "supervise"
+portfolio_app.runtime_runner -> portfolio_app.shared_state: "bootstrap / periodic snapshot"
+
+timescaledb.risk_positions -> portfolio_app.shared_state: "restore / sync marks"
+valkey.fills_stream -> portfolio_app.fill_workers: "consume"
+valkey.price_stream -> portfolio_app.mark_workers: "consume"
+
+portfolio_app.fill_workers -> portfolio_app.shared_state: "mutate state"
+portfolio_app.mark_workers -> portfolio_app.shared_state: "update marks"
+
+portfolio_app.fill_workers -> timescaledb.closed_trades: "persist"
+portfolio_app.fill_workers -> timescaledb.processed_fills: "persist idempotency"
+portfolio_app.fill_workers -> timescaledb.equity_curve: "persist snapshot"
+portfolio_app.mark_workers -> timescaledb.equity_curve: "persist MTM"
+portfolio_app.shared_state -> timescaledb.equity_curve: "periodic snapshot"
+
+timescaledb.equity_curve -> portfolio_app.observability: "read"
+timescaledb.closed_trades -> portfolio_app.observability: "read"
+timescaledb.risk_positions -> portfolio_app.observability: "read open positions"
+timescaledb.risk_snapshots -> portfolio_app.observability: "benchmark / journal context"
+
+portfolio_app.observability -> portfolio_app.policy: "sleeves summary"
+portfolio_app.observability -> consumers.operators: "API responses"
+portfolio_app.policy -> consumers.operators: "recommendation responses"

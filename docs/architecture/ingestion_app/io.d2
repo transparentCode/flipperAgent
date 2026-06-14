@@ -6,237 +6,191 @@ title: {
 }
 
 classes: {
-  source: {
-    style.fill: "#E8F1FF"
-  }
-  component: {
-    style.fill: "#EEF7EA"
-  }
-  contract: {
-    style.fill: "#FFF2D8"
-  }
-  storage: {
-    style.fill: "#F4EAFE"
-  }
-  consumer: {
-    style.fill: "#FCE8E8"
-  }
-  service: {
-    style.fill: "#EAF7F3"
-  }
+  source: { style.fill: "#E8F1FF" }
+  component: { style.fill: "#EEF7EA" }
+  contract: { style.fill: "#FFF2D8" }
+  storage: { style.fill: "#F4EAFE" }
+  consumer: { style.fill: "#FCE8E8" }
 }
 
 sources: {
   label: "Inputs"
 
-  asset_commands: {
+  lifecycle_request: {
     class: source
-    label: "asset_lifecycle_commands"
+    label: "asset lifecycle request"
     shape: document
-    tooltip: "Operator or API-driven asset upsert, patch, pause, resume, and remove requests."
     link: "../../../src/apps/ingestion_app/models/asset_registry.py"
   }
 
-  live_candle_feed: {
+  live_feed: {
     class: source
-    label: "live_candle_feed"
-    tooltip: "Binance websocket kline messages for live runtime ingestion."
+    label: "Binance live kline"
     link: "../../../src/apps/ingestion_app/adapters/binance_native.py"
   }
 
-  historical_ohlcv_backfill: {
+  historical_feed: {
     class: source
-    label: "historical_ohlcv_backfill"
-    tooltip: "Binance REST or CCXT historical OHLCV pages for gap fill and top-up."
+    label: "historical OHLCV / depth"
     link: "../../../src/apps/ingestion_app/adapters/crypto_ccxt.py"
-  }
-
-  l2_depth_snapshots: {
-    class: source
-    label: "l2_depth_snapshots"
-    tooltip: "Binance REST orderbook snapshots for scheduled depth features."
-    link: "../../../src/apps/ingestion_app/jobs/l2_depth.py"
-  }
-
-  effective_asset_catalog: {
-    class: source
-    label: "effective_asset_catalog"
-    tooltip: "Merged config and ingestion_assets registry view consumed by runtime reconciliation."
-    link: "../../../src/apps/ingestion_app/control_plane/catalog.py"
-  }
-
-  scraper_requests: {
-    class: source
-    label: "scraper_requests"
-    shape: document
-    tooltip: "On-demand sync fetch and async job requests routed through ingestion-facing APIs."
-    link: "../../../src/apps/scraper_app/core/models.py"
   }
 }
 
 components: {
-  label: "ingestion_app components"
+  label: "Components"
 
-  api_router: {
+  router: {
     class: component
     label: "ingestion_router"
     link: "../../../src/apps/api_app/routers/ingestion.py"
   }
 
-  control_plane: {
+  control: {
     class: component
+    label: "control_plane"
     link: "../../../src/apps/ingestion_app/control_plane/service.py"
   }
 
-  scraper_bridge: {
+  reconciler: {
     class: component
-    link: "../../../src/apps/api_app/clients/scraper_service.py"
-  }
-
-  runtime_reconciler: {
-    class: component
+    label: "runtime_reconciler"
     link: "../../../src/apps/ingestion_app/runtime/reconciler.py"
   }
 
-  websocket_pipeline: {
+  ws: {
     class: component
+    label: "websocket_pipeline"
     link: "../../../src/apps/ingestion_app/runtime/websocket.py"
   }
 
-  queue_jobs: {
+  jobs: {
     class: component
+    label: "queue_jobs"
     link: "../../../src/apps/ingestion_app/worker.py"
   }
 }
 
 contracts: {
-  label: "Contracts"
+  label: "Valkey / Job Contracts"
 
-  stream_ohlcv: {
+  asset_manifest: {
     class: contract
-    label: "stream:ohlcv:{symbol}:{timeframe}"
+    label: "asset:{symbol}"
+    shape: stored_data
+  }
+
+  asset_manifest_tf: {
+    class: contract
+    label: "asset:{symbol}:tf:{tf}"
+    shape: stored_data
+  }
+
+  lifecycle_stream: {
+    class: contract
+    label: "asset:lifecycle"
     shape: queue
-    tooltip: "Valkey stream contract for closed candles consumed by downstream signal pipelines."
   }
 
   control_stream: {
     class: contract
     label: "stream:control:ingestion"
     shape: queue
-    tooltip: "Valkey control stream for desired-state ingestion commands."
   }
 
   events_stream: {
     class: contract
     label: "stream:events:ingestion"
     shape: queue
-    tooltip: "Valkey event stream for accepted commands, runtime failures, and purge outcomes."
-    link: "../../../src/apps/ingestion_app/events.py"
+  }
+
+  ohlcv_stream: {
+    class: contract
+    label: "stream:ohlcv:{symbol}:{tf}"
+    shape: queue
+  }
+
+  runtime_state: {
+    class: contract
+    label: "ingestion:state:{symbol}:{tf}"
+    shape: stored_data
   }
 
   gap_fill_job: {
     class: contract
     label: "run_rest_gap_fill"
     shape: queue
-    tooltip: "ARQ job contract for recovery and scheduled historical backfill."
-    link: "../../../src/apps/ingestion_app/jobs/gap_fill.py"
   }
 
-  asset_purge_job: {
+  purge_job: {
     class: contract
     label: "purge_removed_asset"
     shape: queue
-    tooltip: "ARQ job contract for removing asset-scoped storage and registry rows."
-    link: "../../../src/apps/ingestion_app/jobs/cleanup.py"
-  }
-
-  coordination_keys: {
-    class: contract
-    label: "coordination_keys"
-    shape: stored_data
-    tooltip: "Valkey runtime state, disconnect timestamps, and liveness keys used by status and reconciliation."
-    link: "../../../src/apps/ingestion_app/coordination.py"
   }
 }
 
 storage: {
   label: "Persistence"
 
-  ohlcv: {
-    class: storage
-    shape: cylinder
-    tooltip: "Primary OHLCV history written by live and backfill flows."
-    link: "../../../src/apps/ingestion_app/storage/schema.sql"
-  }
-
-  l2_depth_features: {
-    class: storage
-    shape: cylinder
-    tooltip: "Pre-aggregated depth features produced by scheduled polling jobs."
-    link: "../../../src/apps/ingestion_app/storage/schema.sql"
-  }
-
   ingestion_assets: {
     class: storage
     shape: cylinder
-    tooltip: "Desired-state asset registry with publish_timeframes and backfill settings."
-    link: "../../../src/apps/ingestion_app/storage/schema.sql"
+    label: "ingestion_assets"
+  }
+
+  ohlcv: {
+    class: storage
+    shape: cylinder
+    label: "ohlcv"
+  }
+
+  l2: {
+    class: storage
+    shape: cylinder
+    label: "l2_depth_features"
   }
 }
 
-services: {
-  label: "External services / consumers"
+consumers: {
+  label: "Consumers"
 
-  scraper_app_api: {
-    class: service
-    label: "scraper_app API"
-    tooltip: "Internal scraper service for browser-backed TradingView and CoinGlass fetches."
-    link: "../../../src/apps/scraper_app/api/app.py"
+  signal_app: {
+    class: consumer
+    label: "signal_app"
   }
 
-  downstream_consumers: {
+  operators: {
     class: consumer
-    label: "downstream_consumers"
-    tooltip: "Current primary consumer is signal_app; more may subscribe later."
-  }
-
-  observability_alerts: {
-    class: consumer
-    label: "observability_or_alert_consumers"
-    tooltip: "Future alerting and operational visibility can subscribe to ingestion events."
+    label: "operators / future alert_app"
   }
 }
 
-sources.asset_commands -> components.api_router: "HTTP"
-sources.scraper_requests -> components.api_router: "HTTP"
-sources.live_candle_feed -> components.websocket_pipeline: "websocket"
-sources.historical_ohlcv_backfill -> components.queue_jobs: "REST / CCXT"
-sources.l2_depth_snapshots -> components.queue_jobs: "REST snapshot"
-sources.effective_asset_catalog -> components.runtime_reconciler: "database query"
-sources.effective_asset_catalog -> components.websocket_pipeline: "runtime bootstrap"
+sources.lifecycle_request -> components.router: "HTTP"
+components.router -> components.control: "upsert / patch / action"
+sources.live_feed -> components.ws: "websocket"
+sources.historical_feed -> components.jobs: "REST"
 
-components.api_router -> components.control_plane: "lifecycle routes"
-components.api_router -> components.scraper_bridge: "proxy scraper calls"
-components.api_router -> contracts.events_stream: "read / summarize"
-components.api_router -> contracts.coordination_keys: "read status"
-components.control_plane -> contracts.control_stream: "publish"
-components.control_plane -> contracts.events_stream: "publish accepted event"
-components.control_plane -> storage.ingestion_assets: "persist registry"
+components.control -> storage.ingestion_assets: "persist registry"
+components.control -> contracts.asset_manifest: "write"
+components.control -> contracts.asset_manifest_tf: "write"
+components.control -> contracts.lifecycle_stream: "publish"
+components.control -> contracts.control_stream: "publish"
+components.control -> contracts.events_stream: "publish"
 
-contracts.control_stream -> components.runtime_reconciler: "consume"
-components.runtime_reconciler -> contracts.asset_purge_job: "enqueue"
+storage.ingestion_assets -> components.reconciler: "effective state"
+contracts.control_stream -> components.reconciler: "consume"
+components.reconciler -> contracts.gap_fill_job: "enqueue"
+components.reconciler -> contracts.purge_job: "enqueue"
 
-components.websocket_pipeline -> contracts.stream_ohlcv: "publish closed candle"
-components.websocket_pipeline -> contracts.gap_fill_job: "enqueue on disconnect"
-components.websocket_pipeline -> contracts.coordination_keys: "update runtime state"
-components.websocket_pipeline -> storage.ohlcv: "persist live OHLCV"
+components.ws -> storage.ohlcv: "persist live"
+components.ws -> contracts.ohlcv_stream: "publish"
+components.ws -> contracts.runtime_state: "write"
+components.ws -> contracts.gap_fill_job: "enqueue on recovery"
 
-contracts.gap_fill_job -> components.queue_jobs: "consume"
-contracts.asset_purge_job -> components.queue_jobs: "consume"
-components.queue_jobs -> contracts.events_stream: "publish failures / purge outcomes"
-components.queue_jobs -> storage.ohlcv: "persist gap-fill / top-up"
-components.queue_jobs -> storage.l2_depth_features: "persist depth features"
-components.scraper_bridge -> services.scraper_app_api: "fetch / jobs"
+contracts.gap_fill_job -> components.jobs: "consume"
+contracts.purge_job -> components.jobs: "consume"
+components.jobs -> storage.ohlcv: "gap-fill / top-up"
+components.jobs -> storage.l2: "depth writes"
+components.jobs -> contracts.events_stream: "publish outcomes"
 
-contracts.stream_ohlcv -> services.downstream_consumers: "consume"
-contracts.events_stream -> services.observability_alerts: "subscribe"
+contracts.ohlcv_stream -> consumers.signal_app: "consume"
+contracts.events_stream -> consumers.operators: "observe"

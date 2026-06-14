@@ -6,6 +6,7 @@ import json
 
 import pytest
 
+from libs.common.position_matcher import OpenPosition
 from libs.portfolio.state import PortfolioState
 
 
@@ -102,3 +103,23 @@ async def test_load_restores_balance_positions_and_processed_fills():
     assert len(positions) == 1
     assert positions[0].size == pytest.approx(0.5)
     assert state.position_marks[("BTCUSDT", 1000.0, 100.0)] == pytest.approx(105.0)
+
+
+def test_apply_price_update_updates_marks_and_watermarks() -> None:
+    state = PortfolioState(balance=10_000.0, peak_equity=10_000.0)
+    position = OpenPosition(
+        asset="BTCUSDT",
+        side="buy",
+        size=1.0,
+        entry_price=100.0,
+        timestamp=1000.0,
+        metadata={},
+    )
+    state.matcher.open_positions.setdefault("BTCUSDT", []).append(position)
+
+    state.apply_price_update("BTCUSDT", high=110.0, low=95.0, close=108.0)
+
+    key = ("BTCUSDT", 1000.0, 100.0)
+    assert state.position_marks[key] == pytest.approx(108.0)
+    assert state.position_watermarks[key]["worst_price"] == pytest.approx(95.0)
+    assert state.position_watermarks[key]["best_price"] == pytest.approx(110.0)

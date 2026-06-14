@@ -1,0 +1,133 @@
+app:
+  name: strategy_app
+  path: src/apps/strategy_app
+  purpose: >
+    Consumes feature streams, evaluates configured strategy models, applies
+    scoring/selection, and publishes trade signals for downstream risk and
+    execution consumers.
+
+entrypoints:
+  worker_runtime:
+    path: src/apps/strategy_app/main.py
+    role: Bootstraps pairs from asset manifest and starts runtime runner
+  runtime_runner:
+    path: src/apps/strategy_app/runtime/runner.py
+    role: Supervises pair workers and lifecycle events
+  api:
+    path: src/apps/api_app/routers/strategy.py
+    role: Latest signal, status, pause, and resume routes
+
+features:
+  - key: canonical_bootstrap
+    summary: Reads runtime pairs from asset manifest before config fallback
+  - key: lifecycle_subscription
+    summary: Watches asset lifecycle events and manages workers per pair
+  - key: feature_evaluation
+    summary: Evaluates feature vectors through model, scoring, and selection layers
+  - key: signal_publication
+    summary: Publishes selected trade signals with idempotency keys
+  - key: pair_control
+    summary: Supports pause and resume via strategy-local control keys
+  - key: observability
+    summary: Exposes latest signal and runtime status per pair
+
+internal_components:
+  - name: runtime_runner
+    paths:
+      - src/apps/strategy_app/runtime/runner.py
+    responsibilities:
+      - Ensure lifecycle consumer group
+      - Start and stop strategy workers
+      - Apply add remove pause resume lifecycle events
+
+  - name: runtime_worker
+    paths:
+      - src/apps/strategy_app/runtime/worker.py
+    responsibilities:
+      - Consume FeatureVector streams
+      - Respect local pause control
+      - Update runtime status during startup and live processing
+
+  - name: evaluation_service
+    paths:
+      - src/apps/strategy_app/evaluation/service.py
+      - src/apps/strategy_app/model_manager.py
+      - src/apps/strategy_app/scoring_model_manager.py
+      - src/apps/strategy_app/models/model_manager.py
+      - src/apps/strategy_app/models/scoring_model_manager.py
+    responsibilities:
+      - Validate feature coverage
+      - Run model outputs and scoring outputs
+      - Blend regime-aware scores when enabled
+      - Select publishable candidates
+
+  - name: publishers
+    paths:
+      - src/apps/strategy_app/publishing/signals.py
+    responsibilities:
+      - Encode TradeSignal payloads
+      - Publish to signal streams
+      - Generate idempotency keys
+
+  - name: observability_and_control
+    paths:
+      - src/apps/strategy_app/control.py
+      - src/apps/strategy_app/observability/runtime_state.py
+      - src/apps/strategy_app/observability/status.py
+      - src/apps/api_app/routers/strategy.py
+    responsibilities:
+      - Persist pair pause/resume intent
+      - Persist runtime status
+      - Serve latest signal and status views
+
+valkey:
+  canonical_reads:
+    hashes:
+      - name: asset:{symbol}
+        reader: worker_runtime
+      - name: asset:{symbol}:tf:{timeframe}
+        reader: worker_runtime
+    streams:
+      - name: asset:lifecycle
+        consumer: runtime_runner
+        group: strategy_app_group
+  consumes:
+    streams:
+      - name: features:{symbol}:{timeframe}
+        consumer: runtime_worker
+        group: strategy_app_group
+  produces:
+    streams:
+      - name: signals:{symbol}:{timeframe}
+        producer: publishers
+        consumers:
+          - risk_app
+          - future_execution_path
+  state_keys:
+    writes:
+      - name: strategy:status:{symbol}:{timeframe}
+        owner: observability_and_control
+      - name: strategy:control:{symbol}:{timeframe}
+        owner: observability_and_control
+
+api:
+  routes:
+    - method: GET
+      path: /strategy/latest
+      purpose: Latest trade signal by pair
+    - method: GET
+      path: /strategy/status
+      purpose: Runtime status and lag by pair
+    - method: POST
+      path: /strategy/{symbol}/{timeframe}/pause
+      purpose: Pause one strategy pair
+    - method: POST
+      path: /strategy/{symbol}/{timeframe}/resume
+      purpose: Resume one strategy pair
+
+validated_behaviors:
+  - manifest-first pair discovery
+  - lifecycle-driven add remove pause resume worker management
+  - feature consumption from signal_app streams
+  - trade-signal publication to signals streams
+  - local pause/resume control-state enforcement

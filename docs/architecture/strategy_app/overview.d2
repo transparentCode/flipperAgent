@@ -1,0 +1,126 @@
+direction: right
+
+title: {
+  label: "strategy_app architecture"
+  near: top-center
+}
+
+inputs: {
+  label: "Inputs"
+  style.fill: "#E8F1FF"
+
+  feature_stream_in: {
+    label: "features:{symbol}:{tf}"
+    link: "../../../src/apps/strategy_app/runtime/worker.py"
+  }
+
+  asset_manifest: {
+    label: "asset:* + asset:lifecycle"
+    link: "../../../src/libs/common/asset_manifest.py"
+  }
+
+  operator_api: {
+    label: "api_app / operator"
+    link: "../../../src/apps/api_app/routers/strategy.py"
+  }
+}
+
+strategy_app: {
+  label: "strategy_app"
+  style.fill: "#EEF7EA"
+  link: "./README.md"
+
+  worker_runtime: {
+    label: "main bootstrap"
+    link: "../../../src/apps/strategy_app/main.py"
+  }
+
+  runtime_runner: {
+    label: "runtime_runner"
+    link: "../../../src/apps/strategy_app/runtime/runner.py"
+  }
+
+  runtime_worker: {
+    label: "runtime_worker"
+    link: "../../../src/apps/strategy_app/runtime/worker.py"
+  }
+
+  evaluation: {
+    label: "evaluation_service"
+    link: "../../../src/apps/strategy_app/evaluation/service.py"
+  }
+
+  publishers: {
+    label: "signal_publisher"
+    link: "../../../src/apps/strategy_app/publishing/signals.py"
+  }
+
+  control: {
+    label: "control_store"
+    link: "../../../src/apps/strategy_app/control.py"
+  }
+
+  observability: {
+    label: "observability"
+    link: "../../../src/apps/strategy_app/observability/status.py"
+  }
+
+  api: {
+    label: "strategy_api"
+    link: "../../../src/apps/api_app/routers/strategy.py"
+  }
+}
+
+valkey: {
+  label: "Valkey"
+  style.fill: "#FFF2D8"
+
+  lifecycle: {
+    label: "asset:lifecycle"
+    link: "../../../src/libs/common/asset_manifest.py"
+  }
+
+  strategy_control: {
+    label: "strategy:control:{symbol}:{tf}"
+    link: "../../../src/apps/strategy_app/control.py"
+  }
+
+  strategy_status: {
+    label: "strategy:status:{symbol}:{tf}"
+    link: "../../../src/apps/strategy_app/observability/runtime_state.py"
+  }
+
+  signals_stream: {
+    label: "signals:{symbol}:{tf}"
+    link: "../../../src/apps/strategy_app/publishing/signals.py"
+  }
+}
+
+downstream: {
+  label: "Downstream"
+  style.fill: "#FCE8E8"
+
+  risk_app: {
+    label: "risk_app"
+    link: "../../../src/apps/risk_app/risk_worker.py"
+  }
+}
+
+inputs.asset_manifest -> strategy_app.worker_runtime: "bootstrap pairs"
+inputs.asset_manifest -> strategy_app.runtime_runner: "lifecycle subscription"
+inputs.operator_api -> strategy_app.api: "HTTP"
+inputs.feature_stream_in -> strategy_app.runtime_worker: "consume features"
+
+strategy_app.worker_runtime -> strategy_app.runtime_runner: "start runtime"
+strategy_app.runtime_runner -> strategy_app.runtime_worker: "worker lifecycle"
+strategy_app.runtime_worker -> strategy_app.control: "check pause state"
+strategy_app.runtime_worker -> strategy_app.evaluation: "evaluate feature vector"
+strategy_app.runtime_worker -> strategy_app.observability: "runtime updates"
+strategy_app.evaluation -> strategy_app.publishers: "selected candidates"
+strategy_app.api -> strategy_app.control: "pause / resume"
+strategy_app.api -> strategy_app.observability: "latest / status"
+
+strategy_app.control -> valkey.strategy_control: "write"
+strategy_app.observability -> valkey.strategy_status: "write"
+strategy_app.publishers -> valkey.signals_stream: "publish"
+valkey.signals_stream -> downstream.risk_app: "consume"

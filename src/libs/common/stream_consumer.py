@@ -7,6 +7,9 @@ import asyncio
 import time as _time
 from typing import Any
 
+from valkey.exceptions import ResponseError
+from valkey.exceptions import TimeoutError as ValkeyTimeoutError
+
 from libs.common.logging.logger_utils import bind_logger
 
 logger = bind_logger(__name__)
@@ -191,7 +194,28 @@ class BaseStreamConsumer(abc.ABC):
             except asyncio.CancelledError:
                 logger.info(f"Consumer {self.consumer_name} cancelled")
                 break
-            except Exception:
+            except ValkeyTimeoutError:
+                consecutive_failures += 1
+                logger.warning(
+                    "Stream read timeout on %s (consecutive failures: %s)",
+                    self.stream_key,
+                    consecutive_failures,
+                )
+                if consecutive_failures >= circuit_breaker_threshold:
+                    logger.critical(
+                        f"Circuit breaker tripped for {self.stream_key}: "
+                        f"{consecutive_failures} consecutive failures. Breaking consumer loop."
+                    )
+                    break
+                await asyncio.sleep(1)
+            except Exception as exc:
+                if isinstance(exc, ResponseError) and "NOGROUP" in str(exc):
+                    logger.info(
+                        "Consumer %s stopping because stream/group disappeared for %s",
+                        self.consumer_name,
+                        self.stream_key,
+                    )
+                    break
                 consecutive_failures += 1
                 logger.exception(f"Stream read error on {self.stream_key} (consecutive failures: {consecutive_failures})")
                 if consecutive_failures >= circuit_breaker_threshold:

@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 class IngestionAssetDesiredState(str, Enum):
     LIVE = "LIVE"
+    RESUMING = "RESUMING"
     PAUSED = "PAUSED"
     STOPPED = "STOPPED"
     REMOVING = "REMOVING"

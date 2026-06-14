@@ -42,6 +42,7 @@ async def test_supervise_worker_restarts_after_unexpected_return() -> None:
 
 @pytest.mark.asyncio
 @patch("apps.portfolio_app.main.configure_logging")
+@patch("apps.portfolio_app.main.discover_asset_timeframes")
 @patch("apps.portfolio_app.main.discover_assets")
 @patch("apps.portfolio_app.main.create_valkey_client")
 @patch("apps.portfolio_app.main.init_db_pools", new_callable=AsyncMock)
@@ -55,6 +56,7 @@ async def test_run_spawns_supervised_workers_and_snapshot_loop(
     _mock_init_db_pools,
     mock_create_valkey_client,
     mock_discover_assets,
+    mock_discover_asset_timeframes,
     _mock_configure_logging,
 ) -> None:
     from apps.portfolio_app.main import _run
@@ -62,6 +64,10 @@ async def test_run_spawns_supervised_workers_and_snapshot_loop(
     redis_client = AsyncMock()
     mock_create_valkey_client.return_value = redis_client
     mock_discover_assets.return_value = ["BTCUSDT", "ETHUSDT"]
+    mock_discover_asset_timeframes.return_value = {
+        "BTCUSDT": ["1h"],
+        "ETHUSDT": ["1h"],
+    }
 
     cfg = MockConfigManager.return_value
     cfg.register_file = MagicMock()
@@ -86,6 +92,6 @@ async def test_run_spawns_supervised_workers_and_snapshot_loop(
     ) as mock_snapshot_loop:
         await _run()
 
-    assert mock_supervise.await_count == 2
+    assert mock_supervise.await_count == 4
     mock_snapshot_loop.assert_awaited_once()
     redis_client.aclose.assert_awaited_once()

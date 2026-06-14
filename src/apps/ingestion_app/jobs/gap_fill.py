@@ -6,15 +6,18 @@ from typing import Any
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from apps.ingestion_app.constants import EXCHANGE_BINANCE
+from apps.ingestion_app.control_plane.repository import IngestionAssetRegistryRepository
 from apps.ingestion_app.coordination import IngestionCoordinator, IngestionState
 from apps.ingestion_app.events import publish_ingestion_runtime_event
+from apps.ingestion_app.models.asset_registry import IngestionAssetDesiredState
 from apps.ingestion_app.storage.timescale_writer import TimescaleWriter
+from libs.common.asset_manifest import AssetManifestStore
 from libs.common.db.pool_manager import DBPoolManager
 from libs.common.db.timescale_reader import TimescaleReader
 from libs.common.enums import SystemComponent
 from libs.common.exceptions import DataIngestionError
 from libs.common.logging.logger_utils import bind_logger
-from libs.contracts.schemas import IngestionEventType
+from libs.contracts.schemas import IngestionCommandType, IngestionEventType
 
 from apps.ingestion_app.jobs.shared import (
     build_ohlcv_records,
@@ -25,6 +28,36 @@ from apps.ingestion_app.jobs.shared import (
 )
 
 logger = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_ENGINE)
+
+
+async def _promote_resuming_asset_live(ctx: dict[str, Any], symbol: str) -> None:
+    valkey_client = ctx.get("valkey_client")
+    if valkey_client is None:
+        return
+
+    try:
+        pool = DBPoolManager.get_writer_pool()
+    except RuntimeError:
+        logger.warning("Writer pool unavailable while promoting %s from RESUMING to LIVE", symbol)
+        return
+
+    repo = IngestionAssetRegistryRepository(pool)
+    asset = await repo.get_asset(symbol)
+    if asset is None or asset.desired_state != IngestionAssetDesiredState.RESUMING:
+        return
+
+    persisted = await repo.upsert_asset(
+        asset.model_copy(update={"desired_state": IngestionAssetDesiredState.LIVE, "enabled": True})
+    )
+
+    manifest_store = AssetManifestStore(valkey_client)
+    await manifest_store.sync_from_ingestion_asset(persisted)
+    await manifest_store.publish_lifecycle_event(
+        asset=persisted,
+        command_type=IngestionCommandType.RESUME_ASSET,
+        requested_by="ingestion_app",
+        reason="resume_backfill_complete",
+    )
 
 
 @retry(
@@ -106,15 +139,22 @@ async def run_rest_gap_fill(ctx: dict[str, Any], assets: list[str], exchange: st
 
     async def process_asset(symbol: str) -> None:
         async with semaphore:
-            await coordinator.transition(symbol, base_timeframe, IngestionState.BACKFILLING)
+            current_state = await coordinator.get_state(symbol, base_timeframe)
+            should_mutate_runtime_state = current_state != IngestionState.LIVE
+
+            if should_mutate_runtime_state:
+                await coordinator.transition(symbol, base_timeframe, IngestionState.BACKFILLING)
             try:
                 await _fetch_asset_gap(ctx, ccxt_adapter, symbol)
                 await coordinator.clear_resume_backfill_required(symbol, base_timeframe)
-                await coordinator.transition(symbol, base_timeframe, IngestionState.WARMING)
+                await _promote_resuming_asset_live(ctx, symbol)
+                if should_mutate_runtime_state:
+                    await coordinator.transition(symbol, base_timeframe, IngestionState.WARMING)
                 successful_assets.append(symbol)
             except Exception as exc:
                 logger.error(f"Failed to gap-fill {symbol}: {exc}")
-                await coordinator.transition(symbol, base_timeframe, IngestionState.ERROR)
+                if should_mutate_runtime_state:
+                    await coordinator.transition(symbol, base_timeframe, IngestionState.ERROR)
                 failed_assets.append(symbol)
             await asyncio.sleep(sleep_seconds)
 

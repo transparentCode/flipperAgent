@@ -2,33 +2,41 @@ app:
   name: ingestion_app
   path: src/apps/ingestion_app
   purpose: >
-    Owns market-data ingestion from exchange adapters into TimescaleDB and
-    publishes candle-close OHLCV events for downstream consumers.
+    Owns exchange ingestion, historical backfill, asset lifecycle control,
+    canonical asset manifest publication, and closed-candle distribution for
+    downstream consumers.
 
 entrypoints:
-  api_runtime:
-    path: src/apps/ingestion_app/runtime/app.py
-    role: FastAPI runtime and health surface
-  worker_streams:
+  runtime_controller:
     path: src/apps/ingestion_app/main.py
-    role: Runtime controller and live stream orchestration
-  worker_queue:
+    role: Runtime reconciler and websocket orchestration
+  queue_worker:
     path: src/apps/ingestion_app/worker.py
-    role: ARQ worker for backfill, cleanup, and scheduled jobs
+    role: ARQ worker for backfill, purge, cleanup, and polling jobs
+  runtime_api:
+    path: src/apps/ingestion_app/runtime/app.py
+    role: Runtime health and process surface
+  ingress_routes:
+    path: src/apps/api_app/routers/ingestion.py
+    role: Asset lifecycle, ops, status, and scraper bridge routes
 
 features:
-  - key: dynamic_asset_registry
-    summary: Config-plus-registry asset catalog with runtime reconciliation
-  - key: live_websocket_ingestion
-    summary: Binance native websocket ingestion for live candles
+  - key: canonical_asset_manifest
+    summary: Writes canonical asset and asset-timeframe manifests to Valkey
+  - key: lifecycle_streaming
+    summary: Publishes normalized asset lifecycle events for downstream apps
+  - key: runtime_reconciliation
+    summary: Reconciles desired asset state into running websocket runtimes
+  - key: websocket_ingestion
+    summary: Streams live Binance candles and persists/publishes closed bars
   - key: rest_gap_fill
-    summary: REST/CCXT backfill for startup gaps and disconnect recovery
-  - key: l2_depth_snapshots
-    summary: Scheduled order-book depth snapshot capture
-  - key: asset_removal_cleanup
-    summary: Purges stored data and registry state for removed assets
-  - key: runtime_events
-    summary: Emits ingestion runtime and control events to Valkey
+    summary: Backfills gaps before live and after disconnects
+  - key: asset_cleanup
+    summary: Purges storage and runtime state for removed assets
+  - key: observability_routes
+    summary: Exposes catalog, status, events, and ops summary routes
+  - key: scraper_bridge
+    summary: Proxies internal scraper fetch/job flows for on-demand data pulls
 
 internal_components:
   - name: control_plane
@@ -37,143 +45,53 @@ internal_components:
       - src/apps/ingestion_app/control_plane/publisher.py
       - src/apps/ingestion_app/control_plane/repository.py
       - src/apps/ingestion_app/control_plane/catalog.py
-    inputs:
-      - asset_lifecycle_commands
-    outputs:
-      - ingestion_control_commands
-      - ingestion_runtime_events
-      - persisted_asset_registry
     responsibilities:
-      - Persist asset registry changes
-      - Publish control commands and accepted events
-      - Merge config-backed and DB-backed asset definitions
-    component_dependencies:
-      - target: repository
-        reason: Persist and fetch ingestion_assets records
-      - target: publisher
-        reason: Emit control and accepted-event stream messages
-      - target: valkey
-        reason: Write command and event streams
-      - target: timescaledb
-        reason: Store asset registry state
+      - Persist desired asset state
+      - Sync canonical asset manifests
+      - Publish ingestion control commands
+      - Publish accepted control and lifecycle events
 
   - name: runtime_reconciler
     paths:
       - src/apps/ingestion_app/runtime/reconciler.py
       - src/apps/ingestion_app/runtime/bootstrap.py
       - src/apps/ingestion_app/runtime/shared.py
-    inputs:
-      - effective_asset_catalog
-      - ingestion_control_commands
-    outputs:
-      - asset_purge_job
     responsibilities:
-      - Reconcile desired asset state with running runtime handles
-      - Watch control stream changes
-      - Start and stop per-asset runtimes
-    component_dependencies:
-      - target: control_plane.catalog
-        reason: Build the effective desired-state asset list
-      - target: valkey.stream:control:ingestion
-        reason: Wake reconciliation on asset lifecycle changes
-      - target: runtime.bootstrap
-        reason: Start per-asset runtime handles safely
-      - target: arq
-        reason: Dispatch purge jobs for removed assets
-      - target: coordinator
-        reason: Transition asset state during stop flows
+      - Bootstrap effective assets
+      - Watch control-stream changes
+      - Start, stop, resume, and remove per-asset runtimes
+      - Dispatch purge work for removals
 
   - name: websocket_pipeline
     paths:
       - src/apps/ingestion_app/runtime/websocket.py
       - src/apps/ingestion_app/adapters/binance_native.py
-    inputs:
-      - live_candle_feed
-      - effective_asset_catalog
-    outputs:
-      - candle_close_ohlcv
-      - gap_fill_job
-      - persisted_market_history
     responsibilities:
-      - Stream multiplexed Binance candles
-      - Persist live OHLCV
-      - Publish candle-close OHLCV downstream
-      - Enqueue recovery gap-fill on disconnect
-    component_dependencies:
-      - target: adapters.binance_native
-        reason: Consume multiplexed live kline events
-      - target: storage.timescale_writer
-        reason: Persist live OHLCV records
-      - target: valkey.stream:ohlcv
-        reason: Publish closed-candle events for downstream consumers
-      - target: arq
-        reason: Enqueue recovery backfill jobs after disconnects
-      - target: coordinator
-        reason: Track runtime freshness and disconnect state
+      - Consume live kline feeds
+      - Persist OHLCV
+      - Publish closed-candle streams
+      - Trigger recovery gap-fill jobs
 
   - name: queue_jobs
     paths:
       - src/apps/ingestion_app/jobs/gap_fill.py
-      - src/apps/ingestion_app/jobs/l2_depth.py
       - src/apps/ingestion_app/jobs/cleanup.py
+      - src/apps/ingestion_app/jobs/l2_depth.py
       - src/apps/ingestion_app/jobs/topup.py
-    inputs:
-      - historical_ohlcv_backfill
-      - l2_depth_snapshots
-      - gap_fill_job
-      - asset_purge_job
-    outputs:
-      - ingestion_runtime_events
-      - persisted_market_history
-      - persisted_l2_features
     responsibilities:
-      - Backfill historical OHLCV
+      - Run REST gap-fill jobs
+      - Purge removed assets
       - Poll L2 depth snapshots
-      - Purge removed-asset data
-      - Top up OHLCV by polling
-    component_dependencies:
-      - target: adapters.crypto_ccxt
-        reason: Fetch historical OHLCV over REST
-      - target: adapters.binance_native
-        reason: Fetch order-book depth snapshots
-      - target: storage.timescale_writer
-        reason: Persist backfill, top-up, and depth records
-      - target: storage.janitor
-        reason: Delete asset-scoped data during removals
-      - target: timescale_reader
-        reason: Find latest stored timestamp before backfill
-      - target: valkey.stream:events:ingestion
-        reason: Emit failure and purge outcome events
+      - Top up missing candle data
 
-  - name: storage
+  - name: observability_routes
     paths:
-      - src/apps/ingestion_app/storage/timescale_writer.py
-      - src/apps/ingestion_app/storage/janitor.py
-      - src/apps/ingestion_app/storage/schema.sql
-    inputs:
-      - persisted_market_history
-      - persisted_l2_features
-      - persisted_asset_registry
-    outputs:
-      - ohlcv
-      - ticks
-      - open_interest
-      - funding_rate
-      - l2_depth_features
-      - ingestion_assets
+      - src/apps/api_app/routers/ingestion.py
     responsibilities:
-      - Create ingestion schema
-      - Write OHLCV, ticks, OI, funding, and L2 features
-      - Delete asset-scoped data during removals
-    component_dependencies:
-      - target: timescaledb
-        reason: Own schema bootstrap and all ingestion persistence
-      - target: storage.schema
-        reason: Define tables, hypertables, and retention policies
-      - target: storage.timescale_writer
-        reason: Perform inserts and upserts
-      - target: storage.janitor
-        reason: Perform asset-scoped purge and final registry deletion
+      - Serve effective asset catalog
+      - Serve runtime status snapshots
+      - Serve recent ingestion events
+      - Serve compact operator summaries
 
 tech_stack:
   language: python
@@ -185,215 +103,88 @@ tech_stack:
     - valkey
     - timescaledb
   adapters:
-    - binance_native_websocket
+    - binance_websocket
+    - binance_rest
     - ccxt_rest
-  support:
-    - tenacity
-    - pydantic
-
-external_dependencies:
-  - name: binance_websocket
-    kind: upstream_market_data
-    usage: Live candle ingestion
-  - name: binance_rest
-    kind: upstream_market_data
-    usage: Gap fill and depth snapshots
-  - name: valkey
-    kind: broker_and_state
-    usage: Streams, ARQ jobs, and coordination keys
-  - name: timescaledb
-    kind: primary_storage
-    usage: Historical and live market storage
-
-inputs:
-  - name: asset_lifecycle_commands
-    source: api_app_or_operator
-    target: control_plane
-    transport: function_call_http
-    payloads:
-      - IngestionAssetUpsertRequest
-      - IngestionAssetPatchRequest
-      - IngestionAssetActionRequest
-  - name: live_candle_feed
-    source: binance_websocket
-    target: websocket_pipeline
-    transport: websocket
-    payloads:
-      - kline_messages
-  - name: historical_ohlcv_backfill
-    source: binance_rest
-    target: queue_jobs
-    transport: rest
-    payloads:
-      - historical_ohlcv_pages
-  - name: l2_depth_snapshots
-    source: binance_rest
-    target: queue_jobs
-    transport: rest
-    payloads:
-      - orderbook_snapshot
-  - name: effective_asset_catalog
-    source: ingestion_assets
-    target: runtime_reconciler
-    transport: database_query
-    payloads:
-      - IngestionAssetRecord
-
-outputs:
-  - name: candle_close_ohlcv
-    producer: websocket_pipeline
-    transport: valkey_stream
-    target: downstream_consumers
-    contract: stream:ohlcv:{symbol}:{timeframe}
-  - name: ingestion_control_commands
-    producer: control_plane
-    transport: valkey_stream
-    target: runtime_reconciler
-    contract: stream:control:ingestion
-  - name: ingestion_runtime_events
-    producer: control_plane_and_queue_jobs
-    transport: valkey_stream
-    target: observability_or_alert_consumers
-    contract: stream:events:ingestion
-  - name: gap_fill_job
-    producer: websocket_pipeline
-    transport: arq_job
-    target: queue_jobs
-    contract: run_rest_gap_fill
-  - name: asset_purge_job
-    producer: runtime_reconciler
-    transport: arq_job
-    target: queue_jobs
-    contract: purge_removed_asset
-  - name: persisted_market_history
-    producer: websocket_pipeline_and_queue_jobs
-    transport: timescaledb_write
-    target: ohlcv
-  - name: persisted_l2_features
-    producer: queue_jobs
-    transport: timescaledb_write
-    target: l2_depth_features
-  - name: persisted_asset_registry
-    producer: control_plane
-    transport: timescaledb_write
-    target: ingestion_assets
 
 valkey:
-  streams:
+  canonical_keys:
+    writes:
+      - name: asset:{symbol}
+        owner: control_plane
+      - name: asset:{symbol}:tf:{timeframe}
+        owner: control_plane
+    stream:
+      - name: asset:lifecycle
+        producer: control_plane
+        consumers:
+          - signal_app
+          - strategy_app
+  runtime_streams:
     produces:
+      - name: stream:control:ingestion
+        producer: control_plane
+        consumers:
+          - runtime_reconciler
+      - name: stream:events:ingestion
+        producer: control_plane_and_queue_jobs
+        consumers:
+          - operators
+          - future_alert_app
       - name: stream:ohlcv:{symbol}:{timeframe}
         producer: websocket_pipeline
-        purpose: Publish candle-close OHLCV to downstream apps
-      - name: stream:control:ingestion
-        producer: control_plane
-        purpose: Desired-state control commands for runtime reconciler
-      - name: stream:events:ingestion
-        producer: control_plane
-        purpose: Control acceptance and runtime status events
-    consumes:
-      - name: stream:control:ingestion
-        consumer: runtime_reconciler
-        purpose: Trigger faster reconciliation on asset changes
-
-  queues:
-    enqueues:
+        consumers:
+          - signal_app
+  runtime_keys:
+    writes:
+      - name: ingestion:state:{symbol}:{timeframe}
+        owner: runtime_reconciler_and_websocket_pipeline
+  jobs:
+    queue:
       - name: run_rest_gap_fill
-        source: websocket_pipeline
-        purpose: Recover after websocket disconnect
+        producer: websocket_pipeline_and_runtime_reconciler
+        consumer: queue_worker
       - name: purge_removed_asset
-        source: runtime_reconciler
-        purpose: Delete data for assets marked removing
-    workers:
-      - name: run_rest_gap_fill
-        owner: queue_jobs
-      - name: scheduled_gap_fill
-        owner: queue_jobs
-      - name: poll_l2_depth
-        owner: queue_jobs
-      - name: purge_removed_asset
-        owner: queue_jobs
-
-  state_keys:
-    - name: ingestion:state:{symbol}:{timeframe}
-      owner: coordination
-      purpose: Runtime state machine marker
-    - name: ingestion:disconnect_ts:{symbol}:{timeframe}
-      owner: coordination
-      purpose: Last disconnect timestamp
-    - name: ingestion:last_live_ts:{symbol}:{timeframe}
-      owner: coordination
-      purpose: Freshness tracking
-    - name: ingestion:disconnect_count:{symbol}:{timeframe}
-      owner: coordination
-      purpose: Retry and observability counters
+        producer: runtime_reconciler
+        consumer: queue_worker
 
 database:
-  writes:
-    - name: ohlcv
-      source: websocket_pipeline
-      mode: insert_upsert
-    - name: ticks
-      source: storage
-      mode: insert
-    - name: open_interest
-      source: storage
-      mode: insert_upsert
-    - name: funding_rate
-      source: storage
-      mode: insert_upsert
-    - name: l2_depth_features
-      source: queue_jobs
-      mode: insert_upsert
-    - name: ingestion_assets
-      source: control_plane
-      mode: insert_update_delete
+  tables:
+    owns:
+      - name: ingestion_assets
+      - name: ohlcv
+      - name: ticks
+      - name: open_interest
+      - name: funding_rate
+      - name: l2_depth_features
 
-  reads:
-    - name: ingestion_assets
-      source: control_plane
-      purpose: Build effective runtime asset catalog
-    - name: ohlcv
-      source: queue_jobs
-      purpose: Find latest timestamp before backfill
+api:
+  routes:
+    - method: GET
+      path: /ingestion/assets
+      purpose: Effective asset catalog
+    - method: POST
+      path: /ingestion/assets
+      purpose: Upsert asset
+    - method: POST
+      path: /ingestion/assets/batch
+      purpose: Batch upsert assets
+    - method: POST
+      path: /ingestion/assets/batch/action
+      purpose: Batch pause stop resume remove
+    - method: GET
+      path: /ingestion/status
+      purpose: Runtime state snapshot
+    - method: GET
+      path: /ingestion/events
+      purpose: Recent ingestion events
+    - method: GET
+      path: /ingestion/ops-summary
+      purpose: Latest operator-focused failure summary
 
-  deletes:
-    - name: ohlcv
-      source: storage_janitor
-    - name: ticks
-      source: storage_janitor
-    - name: open_interest
-      source: storage_janitor
-    - name: funding_rate
-      source: storage_janitor
-    - name: l2_depth_features
-      source: storage_janitor
-    - name: ingestion_assets
-      source: storage_janitor
-
-flows:
-  - name: asset_lifecycle_control
-    steps:
-      - API or config updates asset definition
-      - control_plane persists ingestion_assets
-      - control_plane emits stream:control:ingestion
-      - runtime_reconciler updates running asset handles
-
-  - name: live_candle_flow
-    steps:
-      - websocket_pipeline consumes Binance live candles
-      - live OHLCV is written to ohlcv
-      - closed candles emit stream:ohlcv:{symbol}:{timeframe}
-
-  - name: disconnect_recovery
-    steps:
-      - websocket disconnect is detected
-      - websocket_pipeline enqueues run_rest_gap_fill
-      - queue_jobs backfills ohlcv from REST
-      - coordinator transitions asset back toward warm/live
-
-  - name: asset_removal
-    steps:
-      - asset desired_state becomes REMOVING
-      - runtime_reconciler enqueues purge_removed_asset
-      - storage_janitor deletes asset-scoped rows
-      - runtime event is emitted for completion or failure
+validated_behaviors:
+  - initial gap-fill before websocket live handoff
+  - closed-candle publication to downstream signal consumers
+  - runtime asset add remove flows
+  - pause and resume with backfill-before-live semantics
+  - canonical lifecycle fan-out to downstream apps

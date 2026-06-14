@@ -6,10 +6,8 @@ processes it correctly.
 """
 
 from dataclasses import dataclass
-from unittest.mock import patch, MagicMock
 
-import pytest
-
+from apps.strategy_app.settings import StrategyWorkerSettings
 from apps.strategy_app.strategy_worker import StrategyWorker
 from libs.contracts.signal import ScoringOutput
 
@@ -39,15 +37,24 @@ class TestStrategyWorkerBlenderIntegration:
                 "TRANSITION": {"mean_reversion": 0.00, "momentum": 0.78, "squeeze_breakout": 0.22},
             },
         }
-        with patch("libs.common.config.ConfigManager.get", return_value=blender_cfg):
-            sw = StrategyWorker("BTCUSDT", "1h")
+        sw = StrategyWorker(
+            "BTCUSDT",
+            "1h",
+            settings=StrategyWorkerSettings(
+                blender_enabled=True,
+                blender_config=blender_cfg,
+            ),
+        )
 
         assert sw.blender is not None
 
     def test_blender_disabled_by_default(self):
         """Blender is None when config has enabled: false."""
-        with patch("libs.common.config.ConfigManager.get", return_value={"enabled": False}):
-            sw = StrategyWorker("BTCUSDT", "1h")
+        sw = StrategyWorker(
+            "BTCUSDT",
+            "1h",
+            settings=StrategyWorkerSettings(blender_enabled=False),
+        )
         assert sw.blender is None
 
     def test_blended_output_is_valid_scoring_output(self):

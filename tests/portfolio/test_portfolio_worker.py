@@ -1,11 +1,9 @@
 """Tests for apps/portfolio_app/portfolio_worker.py — mock Valkey + DB."""
 
-import asyncio
 import pytest
 
 from libs.portfolio.state import PortfolioState
 from libs.contracts.schemas import (
-    ClosedTrade,
     ExecutionReport,
     OrderFill,
     OrderStatus,

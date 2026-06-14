@@ -41,7 +41,10 @@ class AssetRuntimeSpec:
         )
 
     def should_run(self) -> bool:
-        return self.enabled and self.desired_state == IngestionAssetDesiredState.LIVE
+        return self.enabled and self.desired_state in {
+            IngestionAssetDesiredState.LIVE,
+            IngestionAssetDesiredState.RESUMING,
+        }
 
 
 @dataclass

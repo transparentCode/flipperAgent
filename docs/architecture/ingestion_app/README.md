@@ -1,55 +1,50 @@
 # `ingestion_app` Architecture Metadata
 
-This folder is the first `D2` pilot for repo architecture metadata.
+This folder documents the validated ingestion control-plane and runtime shape.
 
-It focuses only on `ingestion_app` and keeps three concerns separate:
+## Files
 
-- `catalog.yaml` — machine-readable metadata source for the app
-- `overview.d2` — human-facing diagram for quick review
-- `io.d2` — focused inputs/outputs/contracts view
-- this file — scope, assumptions, and rendering notes
+- `catalog.yaml` — machine-readable ingestion metadata
+- `overview.d2` — app/component relationship map
+- `io.d2` — focused contracts, queues, streams, and persistence view
+- this file — scope and rendering notes
 
 ## Scope
 
-This first slice documents:
+This slice reflects the current validated ingestion behavior:
 
-- major `ingestion_app` features
-- internal runtime components
-- ingestion-facing API control and observability surfaces
-- the scraper bridge used for on-demand external data pulls
-- external dependencies
-- Valkey streams and ARQ jobs
-- TimescaleDB tables owned or touched by the app
-- app-level inputs and outputs
-- component-level IO contracts
+- registry-backed asset lifecycle control
+- canonical asset manifest publication to Valkey
+- lifecycle stream fan-out for downstream apps
+- runtime reconciliation and per-asset websocket orchestration
+- REST gap-fill, purge, and scheduled ARQ jobs
+- ingestion observability and scraper bridge routes
+- TimescaleDB ownership and Valkey runtime contracts
 
-It does **not** yet generate `D2` from YAML. The diagram is hand-authored from the catalog so we can agree on the shape first.
+## Key Contract Split
+
+- canonical control-plane state lives under:
+  - `asset:{symbol}`
+  - `asset:{symbol}:tf:{timeframe}`
+  - `asset:lifecycle`
+- ingestion runtime/ops contracts remain separate:
+  - `stream:control:ingestion`
+  - `stream:events:ingestion`
+  - `stream:ohlcv:{symbol}:{timeframe}`
+  - `ingestion:state:{symbol}:{timeframe}`
 
 ## Rendering
 
-If `d2` is installed locally, render with:
+If `d2` is installed locally:
 
 ```bash
 d2 docs/architecture/ingestion_app/overview.d2 docs/architecture/ingestion_app/overview.svg
 d2 docs/architecture/ingestion_app/io.d2 docs/architecture/ingestion_app/io.svg
 ```
 
-Or use the repo helper:
+Or use:
 
 ```bash
 ./scripts/render_d2.sh docs/architecture/ingestion_app/overview.d2
 ./scripts/render_d2.sh docs/architecture/ingestion_app/io.d2
 ```
-
-The current rendered output lives at `docs/architecture/ingestion_app/overview.svg`.
-The IO-focused rendered output lives at `docs/architecture/ingestion_app/io.svg`.
-
-## Review Intent
-
-The goal of this first pass is to validate:
-
-- whether the metadata categories are right
-- whether per-app drilldown is useful
-- whether stream/table ownership is represented clearly enough
-
-Once this structure looks good, we can apply the same pattern to `scraper_app`, `signal_app`, and the rest of the pipeline.

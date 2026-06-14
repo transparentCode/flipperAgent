@@ -1,0 +1,178 @@
+app:
+  name: portfolio_app
+  path: src/apps/portfolio_app
+  purpose: >
+    Maintains portfolio-level state from execution fills and mark updates,
+    persists equity/trade analytics, and serves observability plus
+    recommendation-only rebalance views.
+
+entrypoints:
+  worker_runtime:
+    path: src/apps/portfolio_app/main.py
+    role: Bootstraps shared state and starts fill plus mark workers
+  runtime_runner:
+    path: src/apps/portfolio_app/runtime/runner.py
+    role: Supervises per-asset workers and periodic equity snapshots
+  runtime_api:
+    path: src/apps/portfolio_app/api/main.py
+    role: Internal FastAPI service for analytics and portfolio observability
+  api_shim:
+    path: src/apps/api_app/routers/portfolio.py
+    role: Re-exports portfolio routes through api_app
+
+features:
+  - key: fill_consumption
+    summary: Consumes execution fill streams and updates portfolio accounting
+  - key: mark_to_market_updates
+    summary: Consumes price-update streams to refresh MTM exposure and equity
+  - key: shared_state_restore
+    summary: Restores open positions, balance, peak equity, and processed fills on startup
+  - key: transactional_fill_processing
+    summary: Commits closed trades and equity snapshots atomically before mutating in-memory state
+  - key: portfolio_analytics
+    summary: Serves equity curve, performance, attribution, and benchmark analytics
+  - key: exposure_sleeves
+    summary: Serves grouped asset, model, and timeframe exposure views
+  - key: policy_recommendations
+    summary: Produces recommendation-only rebalance targets from sleeve concentration
+
+internal_components:
+  - name: runtime_runner
+    paths:
+      - src/apps/portfolio_app/main.py
+      - src/apps/portfolio_app/runtime/runner.py
+    responsibilities:
+      - Discover configured assets and timeframes
+      - Bootstrap shared portfolio state
+      - Supervise per-asset fill workers
+      - Supervise mark workers and periodic snapshot loop
+
+  - name: fill_workers
+    paths:
+      - src/apps/portfolio_app/runtime/worker.py
+      - src/apps/portfolio_app/services/fill_processor.py
+      - src/apps/portfolio_app/services/accounting.py
+    responsibilities:
+      - Consume `fills:{asset}` streams
+      - Apply fills into copied state transactionally
+      - Persist closed trades and equity snapshots
+      - Preserve fill idempotency via processed-fill tracking
+
+  - name: mark_workers
+    paths:
+      - src/apps/portfolio_app/runtime/mark_worker.py
+    responsibilities:
+      - Consume `price_update:{asset}:{timeframe}` streams
+      - Refresh marks and watermarks for open positions
+      - Persist mark-to-market equity updates
+
+  - name: shared_state
+    paths:
+      - src/libs/portfolio/state.py
+    responsibilities:
+      - Restore balance and peak equity from persistence
+      - Restore open positions from risk-position state
+      - Maintain in-memory marks, watermarks, and processed fill IDs
+      - Support periodic mark sync from risk positions
+
+  - name: observability_api
+    paths:
+      - src/apps/portfolio_app/api/routes.py
+      - src/apps/portfolio_app/observability/service.py
+      - src/libs/portfolio/equity_curve.py
+      - src/libs/portfolio/trade_journal.py
+    responsibilities:
+      - Serve latest equity and equity curve history
+      - Serve open positions and exposure sleeves
+      - Serve trades, performance, attribution, and benchmark analytics
+      - Expose health and compact summary views
+
+  - name: policy_layer
+    paths:
+      - src/apps/portfolio_app/policy/service.py
+      - src/apps/portfolio_app/policy/allocator.py
+      - src/apps/portfolio_app/policy/base.py
+    responsibilities:
+      - Convert sleeve views into policy inputs
+      - Produce recommendation-only rebalance targets
+      - Keep allocator implementations swappable
+
+valkey:
+  consumes:
+    streams:
+      - name: fills:{symbol}
+        consumer: fill_workers
+        group: portfolio_app_fills_group
+        producers:
+          - execution_app
+      - name: price_update:{symbol}:{timeframe}
+        consumer: mark_workers
+        group: portfolio_app_prices_group
+        producers:
+          - signal_app
+  ownership:
+    note: portfolio_app does not own canonical lifecycle or control-plane Valkey keys
+
+database:
+  tables:
+    owns:
+      - name: portfolio_equity_curve
+      - name: portfolio_closed_trades
+      - name: portfolio_processed_fills
+    reads:
+      - name: risk_positions
+        usage: restore and refresh current marks for open positions
+      - name: risk_account_snapshots
+        usage: journal enrichment and offline equity-curve reconstruction
+
+api:
+  routes:
+    - method: GET
+      path: /portfolio/health
+      purpose: DB and Valkey availability
+    - method: GET
+      path: /portfolio/summary
+      purpose: Latest equity plus compact recent-trade stats
+    - method: GET
+      path: /portfolio/equity/latest
+      purpose: Latest portfolio equity snapshot
+    - method: GET
+      path: /portfolio/equity/curve
+      purpose: Historical equity curve
+    - method: GET
+      path: /portfolio/positions/open
+      purpose: Current open positions
+    - method: GET
+      path: /portfolio/exposure/by-asset
+      purpose: Notional exposure grouped by asset
+    - method: GET
+      path: /portfolio/exposure/by-model
+      purpose: Notional exposure grouped by model
+    - method: GET
+      path: /portfolio/exposure/by-timeframe
+      purpose: Notional exposure grouped by timeframe
+    - method: GET
+      path: /portfolio/sleeves
+      purpose: Aggregate sleeve/utilization/concentration view
+    - method: GET
+      path: /portfolio/rebalance/recommendation
+      purpose: Recommendation-only portfolio rebalance targets
+    - method: GET
+      path: /portfolio/trades
+      purpose: Filtered closed trades
+    - method: GET
+      path: /portfolio/performance
+      purpose: Aggregate performance summary
+    - method: GET
+      path: /portfolio/attribution
+      purpose: PnL attribution by asset model or timeframe
+    - method: POST
+      path: /portfolio/benchmark
+      purpose: Compare portfolio vs supplied benchmark series
+
+validated_behaviors:
+  - fill replay safety through processed-fill tracking
+  - shared state restore before worker processing
+  - mark-to-market equity refresh from price updates
+  - transactional trade and equity persistence
+  - exposure sleeve analytics and recommendation-only rebalance output

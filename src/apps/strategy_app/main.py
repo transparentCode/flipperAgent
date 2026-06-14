@@ -5,34 +5,21 @@ from __future__ import annotations
 import asyncio
 import os
 
+from apps.strategy_app.runtime import StrategyRuntimeRunner
+from apps.strategy_app.state import StrategyPair
+from apps.strategy_app.settings import StrategyWorkerSettings, create_strategy_config_manager
+from libs.common.asset_manifest import AssetManifestStore
 from libs.common.config import ConfigManager
 from libs.common.connections import create_valkey_client
-from libs.common.constants import CONFIG_FILE_MODELS
 from libs.common.discovery import discover_pairs
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger, configure_logging
-from apps.strategy_app.strategy_worker import StrategyWorker
 
 logger = bind_logger(__name__, system_component=SystemComponent.MODEL_STRATEGY)
 
 
-async def _run_worker(asset: str, tf: str, redis_client) -> None:
-    """Run one worker in isolation so a single pair crash does not stop others."""
-    try:
-        worker = StrategyWorker(asset, tf)
-        await worker.connect(redis_client)
-        await worker.start()
-    except asyncio.CancelledError:
-        raise
-    except Exception:
-        logger.exception(
-            f"Strategy worker crashed for {asset}/{tf}; other workers will continue running"
-        )
-
-
 async def _run() -> None:
-    config_mgr = ConfigManager()
-    config_mgr.register_file(CONFIG_FILE_MODELS)
+    config_mgr = create_strategy_config_manager(ConfigManager())
 
     try:
         from libs.common.telemetry.bootstrap import init_telemetry
@@ -53,29 +40,32 @@ async def _run() -> None:
     except ImportError:
         pass
 
-    pairs = discover_pairs(config_mgr)
+    redis_client = await create_valkey_client(config_mgr)
+    settings = StrategyWorkerSettings.from_config(config_mgr)
+    manifest_pairs = await AssetManifestStore(redis_client).list_runtime_pairs()
+    pairs = manifest_pairs or discover_pairs(config_mgr)
     if not pairs:
-        logger.warning("No asset/timeframe pairs found in models.yaml. Exiting.")
+        logger.warning("No asset/timeframe pairs found in canonical manifest or models.yaml. Exiting.")
+        await redis_client.aclose()
         return
 
-    logger.info(f"Discovered {len(pairs)} asset/timeframe pairs: {pairs}")
+    logger.info(
+        "Discovered %s strategy asset/timeframe pairs from %s: %s",
+        len(pairs),
+        "asset manifest" if manifest_pairs else "models.yaml",
+        pairs,
+    )
 
-    # --- Connection setup ---
-    redis_client = await create_valkey_client(config_mgr)
-
-    tasks: list[asyncio.Task] = []
+    runner = StrategyRuntimeRunner(
+        [StrategyPair(asset=asset, timeframe=tf, source="asset_manifest" if manifest_pairs else "config") for asset, tf in pairs],
+        config_manager=config_mgr,
+        worker_settings=settings,
+    )
     try:
-        for asset, tf in pairs:
-            tasks.append(asyncio.create_task(_run_worker(asset, tf, redis_client)))
-
-        await asyncio.gather(*tasks)
-    except BaseException:
-        for t in tasks:
-            t.cancel()
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
-        raise
+        await runner.connect(redis_client)
+        await runner.start()
     finally:
+        await runner.stop()
         await redis_client.aclose()
 
 

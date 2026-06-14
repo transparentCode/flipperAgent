@@ -2,18 +2,21 @@ from __future__ import annotations
 
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import math
 import pandas as pd
 import pytest
+from valkey.exceptions import TimeoutError as ValkeyTimeoutError
 
 from apps.signal_app.feature_manager import FeatureManager
 from apps.signal_app.api.dependencies import SignalApiDependencies
 from apps.signal_app.catalog import SignalPairCatalog
+from apps.signal_app.catalog.static import StaticSignalPairCatalog
 from apps.signal_app.enrichment.valkey import ValkeySignalEnrichmentReader
-from apps.signal_app.models import SignalPair
+from apps.signal_app.models import SignalPair, SignalPairState, SignalRuntimeStatus
 from apps.signal_app.observability.status import SignalObservabilityService
+from apps.signal_app.observability.runtime_state import runtime_status_key
 from apps.signal_app.api.routes import signal_feature_snapshot, signal_latest, signal_status
 from apps.signal_app.pipeline.engineered import EngineeredFeaturePipeline
 from apps.signal_app.pipeline.features import FeaturePipeline
@@ -27,6 +30,7 @@ from apps.signal_app.runtime.worker import SignalRuntimeWorker
 from apps.signal_app.settings import SignalWorkerSettings
 from libs.common.config import ConfigManager
 from libs.contracts.signal import FeatureVector, PriceUpdate, StreamOHLCVPayload
+from libs.contracts.serialization import valkey_encode
 from libs.features.engineered.manager import EngineeredFeatureManager
 from apps.signal_app.models import SignalFeatureSnapshotRequest
 
@@ -132,6 +136,19 @@ def test_feature_pipeline_process_closed_candle_uses_raw_indicators() -> None:
     assert "RSI" in feature_vector.features
     assert "MACD" in feature_vector.features
     assert price_update.close == 126.0
+
+
+def test_raw_indicator_pipeline_expected_short_history_logs_warning_not_error() -> None:
+    history = _history(length=5)
+
+    ConfigManager.reset_singleton()
+    with patch("apps.signal_app.pipeline.raw_indicators.logger") as mock_logger:
+        raw = RawIndicatorPipeline("BTCUSDT", "1h")
+        raw.prime(history)
+
+    assert raw.get_unprimed_indicator_keys()
+    assert mock_logger.warning.called
+    mock_logger.error.assert_not_called()
 
 
 def test_engineered_pipeline_matches_shared_manager() -> None:
@@ -526,6 +543,10 @@ def test_signal_runtime_worker_applies_settings_defaults() -> None:
         block_ms=2500,
         priming_retry_delay_sec=2.5,
         warming_retry_delay_sec=7.5,
+        enrichment_index_keys=("TOTAL3ES",),
+        regime_min_bars=300,
+        regime_max_history=4000,
+        regime_reeval_interval=12,
     )
 
     worker = SignalRuntimeWorker("BTCUSDT", "1h", settings=settings)
@@ -536,6 +557,51 @@ def test_signal_runtime_worker_applies_settings_defaults() -> None:
     assert worker.block_ms == 2500
     assert worker.startup_retry_delay_sec == 7.5
     assert worker.settings.priming_retry_delay_sec == 2.5
+    assert worker.settings.enrichment_index_keys == ("TOTAL3ES",)
+    assert worker.pipeline.regime_features is not None
+    assert worker.pipeline.regime_features.min_bars == 300
+    assert worker.pipeline.regime_features.max_history == 4000
+    assert worker.pipeline.regime_features.reeval_interval == 12
+
+
+def test_signal_worker_settings_from_config_reads_runtime_and_regime_overrides(monkeypatch) -> None:
+    ConfigManager.reset_singleton()
+    config_manager = ConfigManager()
+    monkeypatch.setattr(config_manager, "_load_configs", lambda trigger_callbacks=True: None)
+    monkeypatch.setattr(ConfigManager, "register_file", lambda self, _: None)
+    config_manager._state = {
+        "signal": {
+            "runtime": {
+                "consumer_group": "signal_cfg_group",
+                "consumer_name_prefix": "signal_cfg_worker",
+                "batch_size": 42,
+                "block_ms": 2100,
+                "priming_retry_delay_sec": 3.0,
+                "warming_retry_delay_sec": 9.0,
+            },
+            "regime": {
+                "min_bars": 333,
+                "max_history": 4444,
+                "reeval_interval": 6,
+            },
+        },
+        "tradingview": {
+            "indices": ["CRYPTOCAP:TOTAL3ES"],
+        },
+    }
+
+    settings = SignalWorkerSettings.from_config(config_manager)
+
+    assert settings.consumer_group == "signal_cfg_group"
+    assert settings.consumer_name_prefix == "signal_cfg_worker"
+    assert settings.batch_size == 42
+    assert settings.block_ms == 2100
+    assert settings.priming_retry_delay_sec == 3.0
+    assert settings.warming_retry_delay_sec == 9.0
+    assert settings.enrichment_index_keys == ("TOTAL3ES",)
+    assert settings.regime_min_bars == 333
+    assert settings.regime_max_history == 4444
+    assert settings.regime_reeval_interval == 6
 
 
 @pytest.mark.asyncio
@@ -623,6 +689,88 @@ async def test_signal_runtime_worker_gap_reprime_before_processing() -> None:
 
 
 @pytest.mark.asyncio
+async def test_signal_runtime_worker_gap_reprime_degrades_on_partial_history() -> None:
+    raw = _FakeRawIndicators(
+        snapshot={"RSI": 55.0},
+        live={"RSI": 56.0},
+        unprimed=["MACD", "ATR"],
+    )
+    raw.indicators = [SimpleNamespace(lookback_required=10)]
+
+    class StubPipeline(FeaturePipeline):
+        async def process_closed_candle_enriched(self, *, asset, timeframe, candle):
+            raw.process_tick(
+                (
+                    candle.open,
+                    candle.high,
+                    candle.low,
+                    candle.close,
+                    candle.volume,
+                    candle.timestamp,
+                )
+            )
+            return (
+                FeatureVector(
+                    asset=asset,
+                    timeframe=timeframe,
+                    timestamp=1_700_021_600_000,
+                    features={"RSI": 56.0},
+                    bar_data={"close": candle.close},
+                ),
+                PriceUpdate(
+                    asset=asset,
+                    timeframe=timeframe,
+                    timestamp=1_700_021_600_000,
+                    open=candle.open,
+                    high=candle.high,
+                    low=candle.low,
+                    close=candle.close,
+                    volume=candle.volume,
+                ),
+            )
+
+    pipeline = StubPipeline(raw_indicators=raw)
+    primer = StartupPrimer(AsyncMock(return_value=_history(length=5)))
+    redis_client = AsyncMock()
+    redis_client.xadd = AsyncMock(return_value="1-0")
+    worker = SignalRuntimeWorker(
+        "BTCUSDT",
+        "1h",
+        pipeline=pipeline,
+        primer=primer,
+    )
+    worker.redis_client = redis_client
+    worker.state_store = AsyncMock()
+    worker._last_processed_ts = 1_700_000_000_000
+
+    await worker.process_message(
+        "1-0",
+        {
+            "bar_closed": "true",
+            "timestamp": "1700021600",
+            "open": "100.0",
+            "high": "110.0",
+            "low": "95.0",
+            "close": "105.0",
+            "volume": "10.0",
+        },
+    )
+
+    assert raw.prime_calls == [_history(length=5)]
+    assert len(raw.process_tick_calls) == 1
+    assert redis_client.xadd.await_count == 2
+    worker.state_store.update.assert_any_await(
+        SignalPair(asset="BTCUSDT", timeframe="1h"),
+        state=SignalPairState.DEGRADED,
+        last_input_ts=1_700_021_600.0,
+        last_feature_ts=1_700_021_600_000.0,
+        last_error=None,
+        replace_last_error=True,
+        detail={"phase": "live"},
+    )
+
+
+@pytest.mark.asyncio
 async def test_signal_runtime_runner_connects_and_stops_workers() -> None:
     class StubWorker:
         def __init__(self, asset: str, timeframe: str) -> None:
@@ -646,7 +794,11 @@ async def test_signal_runtime_runner_connects_and_stops_workers() -> None:
     catalog = SignalPairCatalog(config_manager=_signal_models_config_manager())
     runner = SignalRuntimeRunner(catalog=catalog, worker_factory=StubWorker)
 
-    workers = await runner.connect(redis_client=object())
+    redis_client = AsyncMock()
+    redis_client.xgroup_create = AsyncMock()
+    redis_client.xreadgroup = AsyncMock(side_effect=asyncio.CancelledError())
+
+    workers = await runner.connect(redis_client=redis_client)
     assert workers
     assert all(worker.connected for worker in workers)
 
@@ -656,6 +808,42 @@ async def test_signal_runtime_runner_connects_and_stops_workers() -> None:
     await start_task
 
     assert all(worker.cancelled.is_set() for worker in workers)
+
+
+@pytest.mark.asyncio
+async def test_signal_runtime_runner_lifecycle_watcher_retries_timeout() -> None:
+    runner = SignalRuntimeRunner(catalog=StaticSignalPairCatalog([]))
+    runner.redis_client = AsyncMock()
+    runner.worker_settings = SignalWorkerSettings(block_ms=1)
+    runner.redis_client.xreadgroup = AsyncMock(
+        side_effect=[
+            ValkeyTimeoutError("Timeout reading from broker:6379"),
+            [("asset:lifecycle", [("1-0", {"event_id": "evt-1"})])],
+            asyncio.CancelledError(),
+        ]
+    )
+    runner.redis_client.xack = AsyncMock()
+    runner._apply_lifecycle_event = AsyncMock()
+
+    event = SimpleNamespace(
+        event_id="evt-1",
+        symbol="SOLUSDT",
+        base_timeframe="1m",
+        publish_timeframes=["1m"],
+        desired_state="REMOVING",
+        enabled=False,
+        reason="cleanup",
+    )
+
+    with (
+        patch("apps.signal_app.runtime.runner.valkey_decode", return_value=event),
+        patch("apps.signal_app.runtime.runner.mark_lifecycle_event_processed", new=AsyncMock(return_value=True)),
+        pytest.raises(asyncio.CancelledError),
+    ):
+        await runner._watch_lifecycle()
+
+    runner._apply_lifecycle_event.assert_awaited_once_with(event)
+    runner.redis_client.xack.assert_awaited_once()
 
 
 def test_signal_runtime_runner_passes_worker_settings_when_supported() -> None:
@@ -759,6 +947,7 @@ async def test_signal_status_route_returns_runtime_status(monkeypatch) -> None:
             },
         )
     ]
+    redis_client.hgetall.return_value = {}
     redis_client.aclose = AsyncMock()
 
     deps = SignalApiDependencies(config_manager=_signal_models_config_manager())
@@ -837,6 +1026,7 @@ async def test_signal_observability_service_reads_latest_feature(monkeypatch) ->
             },
         )
     ]
+    redis_client.hgetall.return_value = {}
 
     service = SignalObservabilityService(
         redis_client,
@@ -847,6 +1037,62 @@ async def test_signal_observability_service_reads_latest_feature(monkeypatch) ->
 
     assert latest["BTCUSDT:1h"]["status"] == "ok"
     assert latest["BTCUSDT:1h"]["features"]["RSI"] == 55.0
+
+
+@pytest.mark.asyncio
+async def test_signal_observability_service_reads_persisted_runtime_state(monkeypatch) -> None:
+    ConfigManager.reset_singleton()
+    config_manager = ConfigManager()
+    monkeypatch.setattr(config_manager, "_load_configs", lambda trigger_callbacks=True: None)
+    monkeypatch.setattr(ConfigManager, "register_file", lambda self, _: None)
+    config_manager._state = {
+        "models": {
+            "assets": {
+                "BTCUSDT": {"timeframes": {"1h": {"MeanReversion": {"enabled": True}}}},
+            }
+        }
+    }
+
+    persisted = SignalRuntimeStatus(
+        pair=SignalPair(asset="BTCUSDT", timeframe="1h"),
+        state=SignalPairState.DEGRADED,
+        last_input_ts=1_700_000_100_000.0,
+        last_feature_ts=1_700_000_200_000.0,
+        last_error="bootstrap degraded",
+        detail={"phase": "bootstrap"},
+    )
+
+    redis_client = AsyncMock()
+    redis_client.xrevrange.return_value = [
+        (
+            "1-0",
+            {
+                "timestamp": "1700000300000",
+                "features": '{"RSI": 55.0}',
+                "bar_data": '{"close": 105.0}',
+            },
+        )
+    ]
+
+    async def hgetall(key: str):
+        if key == runtime_status_key("BTCUSDT", "1h"):
+            return valkey_encode(persisted, inject_trace=False)
+        return {}
+
+    redis_client.hgetall.side_effect = hgetall
+
+    service = SignalObservabilityService(
+        redis_client,
+        SignalPairCatalog(config_manager=config_manager),
+    )
+
+    status = await service.status()
+
+    assert status["BTCUSDT:1h"].state == SignalPairState.DEGRADED
+    assert status["BTCUSDT:1h"].last_error == "bootstrap degraded"
+    assert status["BTCUSDT:1h"].last_feature_ts == 1_700_000_200_000.0
+    assert status["BTCUSDT:1h"].detail["phase"] == "bootstrap"
+    assert status["BTCUSDT:1h"].detail["latest_status"] == "ok"
 
 
 def _signal_models_config_manager() -> ConfigManager:

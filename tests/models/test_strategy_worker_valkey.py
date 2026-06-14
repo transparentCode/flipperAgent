@@ -9,7 +9,6 @@ import pytest
 from libs.contracts.schemas import (
     FeatureVector,
     ModelOutput,
-    TradeSignal,
     valkey_encode,
 )
 from libs.contracts.signal import ScoringOutput

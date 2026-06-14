@@ -51,6 +51,7 @@ tv-scraper = [
 [project.scripts]
 flipper-scraper-fetch = "apps.scraper_app.cli:main"
 flipper-scraper-api = "apps.scraper_app.api.main:main"
+flipper-portfolio-api = "apps.portfolio_app.api.main:main"
 
 
 [build-system]
