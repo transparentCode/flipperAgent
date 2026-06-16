@@ -160,6 +160,12 @@ class TestPositionTrackerSaveLoadRoundtrip:
         queries = [q for _, q, _ in save_conn.executed]
         assert any("DELETE FROM risk_positions" in q for q in queries)
         assert any("INSERT INTO risk_positions" in q for q in queries)
+        insert_args = next(
+            args
+            for op, query, args in save_conn.executed
+            if op == "execute" and "INSERT INTO risk_positions" in query
+        )
+        assert insert_args[1] == "1"
 
         # Simulate load_positions with a matching DB row
         load_conn = FakeConnection()
@@ -337,11 +343,11 @@ class TestStartupLoadsFromDB:
             patch.object(
                 AccountState, "load_latest", new_callable=AsyncMock,
                 return_value=mock_account,
-            ) as mock_load_acct,
+            ),
             patch.object(
                 PositionTracker, "load_positions", new_callable=AsyncMock,
                 return_value=mock_tracker,
-            ) as mock_load_pos,
+            ),
         ):
             cfg_instance = MockCfg.return_value
             cfg_instance.get.side_effect = lambda key, default=None: {
@@ -356,16 +362,6 @@ class TestStartupLoadsFromDB:
             MockPoolMgr.get_writer_pool.return_value = mock_pool
             MockPoolMgr.close_pools = AsyncMock()
 
-            from apps.risk_app.main import _run
-            # discover_asset_timeframes returns {} so _run exits early
-            # after the "No asset/timeframe pairs" warning — before
-            # reaching the DB load calls. Override to return one asset
-            # so it reaches past asset_map check but then hits the
-            # empty tasks gather quickly.
-
-            # Actually, with empty asset_map the function returns early
-            # (line "if not asset_map: ... return") BEFORE DB load.
-            # We need at least one asset.
             pass
 
         # Simpler: just verify the load methods exist and are classmethods

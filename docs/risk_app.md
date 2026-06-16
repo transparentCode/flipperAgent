@@ -1,8 +1,19 @@
 # Risk App — Technical Documentation
 
+## Status
+
+This document describes the current modular `risk_app` implementation.
+The app is now lifecycle-aware and canonical-manifest-aware, replacing the older
+single-file worker bootstrap shape.
+
 ## 1. Overview
 
-The **Risk App** is the position-sizing, rule enforcement, and SL/TP monitoring layer in the flipperAgent pipeline. It sits between the strategy layer and the execution layer, consuming `TradeSignal` payloads from Valkey streams, running them through a configurable rule chain and position sizer via the `RiskEngine`, and publishing `OrderExecutionRequest` payloads for execution.
+The **Risk App** is the position-sizing, rule enforcement, lifecycle-aware order
+preparation, and SL/TP monitoring layer in the flipperAgent pipeline. It sits
+between the strategy layer and the execution layer, consuming `TradeSignal`
+payloads from Valkey streams, running them through a configurable rule chain and
+position sizer via the `RiskEngine`, and publishing `OrderExecutionRequest`
+payloads for execution.
 
 **Single Responsibility:** Assess every signal for risk compliance, size the position, attach SL/TP levels, and emit execution-ready orders.
 
@@ -50,6 +61,9 @@ flowchart LR
 | **MTF batching** | One `RiskWorker` per asset reads ALL timeframe streams and batches signals into a single `SignalAggregator.aggregate()` call |
 | **Heartbeat SL/TP** | `price_update:{asset}:{tf}` streams drive SL/TP monitoring on every bar — independent of signal arrival |
 | **PEL drain on boot** | Signal streams are reclaimed via `XAUTOCLAIM` at startup to reprocess any messages unacked at crash time |
+| **Lifecycle aware** | `RiskRuntimeRunner` subscribes to `asset:lifecycle` and starts/stops per-asset workers from canonical ingestion state |
+| **Manifest aware** | Startup prefers `asset:*` canonical manifest keys over static config discovery |
+| **Observability API** | Dedicated routes expose account snapshots, open positions, latest orders, and per-asset status |
 
 ### 2.3 Key Contracts
 
@@ -63,6 +77,25 @@ flowchart LR
 ---
 
 ## 3. Low-Level Design (LLD)
+
+### 3.0 Runtime Modules
+
+```
+src/apps/risk_app/
+├── main.py                  # Bootstrap: config, manifest discovery, DB/Valkey, runtime runner
+├── runtime/
+│   ├── runner.py            # Lifecycle-aware supervision, persistence, worker management
+│   ├── worker.py            # Per-asset signal + price stream consumer
+│   └── fill_listener.py     # Per-asset fills consumer
+├── observability/
+│   └── service.py           # Account/order/position/status views
+├── api/
+│   ├── app.py               # FastAPI app factory
+│   ├── routes.py            # `/risk/*` endpoints
+│   └── main.py              # Uvicorn entrypoint
+├── risk_worker.py           # Compatibility shim -> runtime.worker
+└── fill_listener.py         # Compatibility shim -> runtime.fill_listener
+```
 
 ### 3.1 Component Architecture
 

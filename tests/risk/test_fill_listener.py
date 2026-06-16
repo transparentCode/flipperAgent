@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from apps.risk_app.fill_listener import FillListener
-from libs.contracts.schemas import ExecutionReport, OrderStatus, PositionState
+from libs.contracts.schemas import ExecutionReport, OrderStatus
 from libs.risk.account_state import AccountState
 from libs.risk.position_tracker import PositionTracker
 

@@ -83,6 +83,36 @@ risk:
       4h: 1.5
       1d: 2.0
 
+  model_profiles:
+    default: {}
+    MeanReversion:
+      position_sizing:
+        strategy: fixed_fractional
+      stop_loss:
+        method: fixed_pct
+      take_profit:
+        method: risk_reward
+      limits:
+        max_total_exposure_pct: 50
+    TrendFollowing:
+      position_sizing:
+        strategy: volatility_scaled
+      stop_loss:
+        method: atr_based
+      take_profit:
+        method: trailing
+      limits:
+        max_total_exposure_pct: 60
+    SqueezeBreakout:
+      position_sizing:
+        strategy: volatility_scaled
+      stop_loss:
+        method: atr_based
+      take_profit:
+        method: multi_level
+      limits:
+        max_total_exposure_pct: 70
+
   assets:
     BTCUSDT:
       max_position_pct: 40
@@ -91,9 +121,18 @@ risk:
         strategy: volatility_scaled
       stop_loss:
         method: atr_based
+      model_profiles:
+        default: {}
+        SqueezeBreakout:
+          limits:
+            max_total_exposure_pct: 65
     ETHUSDT:
       max_position_pct: 30
       signal_handling: aggregate
+      model_profiles:
+        MeanReversion:
+          limits:
+            max_total_exposure_pct: 45
     default:
       max_position_pct: 20
       signal_handling: aggregate

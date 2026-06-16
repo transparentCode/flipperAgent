@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import json
-import time
 from typing import Any
 
 from fastapi import APIRouter
 
+from apps.execution_app.observability.status import ExecutionObservabilityService
+from apps.execution_app.state import ExecutionAsset, ExecutionRuntimeStatus
 from libs.common.config import ConfigManager
 from libs.common.connections import create_valkey_client
 from libs.common.discovery import discover_pairs
@@ -56,71 +56,55 @@ async def execution_fills() -> dict[str, Any]:
     - ``no_data`` — stream exists but no fill has been published yet
     - ``error`` — unexpected Valkey error
     """
-    pairs = discover_pairs(config_manager)
-    # Execution operates per-asset — deduplicate while preserving order
-    seen: set[str] = set()
-    assets: list[str] = []
-    for asset, _ in pairs:
-        if asset not in seen:
-            seen.add(asset)
-            assets.append(asset)
-
-    now_ms = int(time.time() * 1000)
-
-    valkey_client = await create_valkey_client(config_manager)
+    service, valkey_client = await _open_observability_service()
     try:
-        result: dict[str, Any] = {}
-        for asset in assets:
-            stream = f"fills:{asset}"
-            entry: dict[str, Any] = {"stream": stream, "status": "no_data"}
-
-            try:
-                messages = await valkey_client.xrevrange(stream, count=1)
-                if messages:
-                    message_id, data = messages[0]
-                    decoded: dict[str, Any] = {}
-                    for k, v in data.items():
-                        k = k.decode() if isinstance(k, bytes) else k
-                        v = v.decode() if isinstance(v, bytes) else v
-                        try:
-                            decoded[k] = json.loads(v)
-                        except (json.JSONDecodeError, TypeError):
-                            decoded[k] = v
-
-                    ts = decoded.get("timestamp")
-                    try:
-                        ts_float = float(ts)
-                        ts_ms = ts_float * 1000 if ts_float < 1e12 else ts_float
-                        lag_ms = now_ms - int(ts_ms)
-                    except (TypeError, ValueError):
-                        lag_ms = None
-
-                    entry = {
-                        "stream": stream,
-                        "message_id": message_id.decode() if isinstance(message_id, bytes) else message_id,
-                        "timestamp": ts,
-                        "lag_ms": lag_ms,
-                        "status": "ok",
-                        "order_id": decoded.get("order_id"),
-                        "side": decoded.get("side"),
-                        "requested_size": decoded.get("requested_size"),
-                        "filled_size": decoded.get("filled_size"),
-                        "requested_price": decoded.get("requested_price"),
-                        "average_fill_price": decoded.get("average_fill_price"),
-                        "fill_status": decoded.get("status"),
-                        "slippage_bps": decoded.get("slippage_bps"),
-                        "stop_loss_price": decoded.get("stop_loss_price"),
-                        "take_profit_price": decoded.get("take_profit_price"),
-                        "idempotency_key": decoded.get("idempotency_key"),
-                        "error_message": decoded.get("error_message"),
-                    }
-                else:
-                    entry["status"] = "no_data"
-            except Exception as e:
-                entry = {"stream": stream, "status": "error", "error": str(e)}
-
-            result[asset] = entry
+        result = await service.latest_fills()
     finally:
         await valkey_client.aclose()
 
     return result
+
+
+@router.get("/status", response_model=dict[str, ExecutionRuntimeStatus], summary="Per-asset execution runtime status")
+async def execution_status() -> dict[str, ExecutionRuntimeStatus]:
+    service, valkey_client = await _open_observability_service()
+    try:
+        return await service.status()
+    finally:
+        await valkey_client.aclose()
+
+
+@router.get("/failures", summary="Latest execution failure per asset")
+async def execution_failures() -> dict[str, Any]:
+    service, valkey_client = await _open_observability_service()
+    try:
+        return await service.latest_failures()
+    finally:
+        await valkey_client.aclose()
+
+
+@router.get("/summary", summary="Execution runtime summary")
+async def execution_summary() -> dict[str, Any]:
+    service, valkey_client = await _open_observability_service()
+    try:
+        return await service.summary()
+    finally:
+        await valkey_client.aclose()
+
+
+async def _open_observability_service() -> tuple[ExecutionObservabilityService, Any]:
+    assets = _discover_execution_assets()
+    valkey_client = await create_valkey_client(config_manager)
+    return ExecutionObservabilityService(valkey_client, assets), valkey_client
+
+
+def _discover_execution_assets() -> list[ExecutionAsset]:
+    pairs = discover_pairs(config_manager)
+    seen: set[str] = set()
+    assets: list[ExecutionAsset] = []
+    for asset, _ in pairs:
+        normalized = asset.upper().strip()
+        if normalized not in seen:
+            seen.add(normalized)
+            assets.append(ExecutionAsset(asset=normalized))
+    return assets

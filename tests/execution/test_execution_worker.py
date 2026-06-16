@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from apps.execution_app.observability.runtime_state import ExecutionRuntimeStateStore
+from apps.execution_app.observability.status import failure_stream_key
+from apps.execution_app.state import ExecutionAsset, ExecutionAssetState
 from apps.execution_app.execution_worker import ExecutionWorker
 from libs.contracts.schemas import (
     ExecutionReport,
@@ -133,6 +137,43 @@ class TestEncodeDecodeRoundtrip:
 
 class TestProcessMessagePublishesFill:
     @pytest.mark.asyncio
+    async def test_start_marks_worker_stopped_after_cancel(self) -> None:
+        status_hashes: dict[str, dict[str, str]] = {}
+        mock_order_manager = AsyncMock()
+
+        worker = ExecutionWorker(
+            asset="BTCUSDT",
+            order_manager=mock_order_manager,
+            exec_config={"mode": "paper"},
+            runtime_state_store=ExecutionRuntimeStateStore(AsyncMock()),
+        )
+        worker.redis_client = AsyncMock()
+        worker.runtime_state_store.redis_client = worker.redis_client
+
+        async def hgetall(key: str):
+            return status_hashes.get(key, {})
+
+        async def hset(key: str, mapping: dict[str, str]):
+            status_hashes[key] = dict(mapping)
+            return len(mapping)
+
+        worker.redis_client.hgetall.side_effect = hgetall
+        worker.redis_client.hset.side_effect = hset
+
+        async def fake_run():
+            raise asyncio.CancelledError()
+
+        worker.run = fake_run
+
+        with pytest.raises(asyncio.CancelledError):
+            await worker.start()
+
+        stored = await worker.runtime_state_store.read(ExecutionAsset(asset="BTCUSDT"))
+        assert stored is not None
+        assert stored.state == ExecutionAssetState.STOPPED
+        assert stored.detail["phase"] == "cancelled"
+
+    @pytest.mark.asyncio
     async def test_process_message_publishes_fill(self) -> None:
         """process_message should call xadd on fills:{asset} stream."""
         report = ExecutionReport(
@@ -176,3 +217,52 @@ class TestProcessMessagePublishesFill:
         worker.redis_client.xadd.assert_called_once()
         call_args = worker.redis_client.xadd.call_args
         assert call_args[0][0] == "fills:BTCUSDT"
+
+    @pytest.mark.asyncio
+    async def test_process_message_publishes_failure_and_updates_runtime_state(self) -> None:
+        mock_order_manager = AsyncMock()
+        mock_order_manager.process_order.side_effect = RuntimeError("broker unavailable")
+        status_hashes: dict[str, dict[str, str]] = {}
+
+        worker = ExecutionWorker(
+            asset="BTCUSDT",
+            order_manager=mock_order_manager,
+            exec_config={"mode": "paper"},
+            runtime_state_store=ExecutionRuntimeStateStore(AsyncMock()),
+        )
+        worker.redis_client = AsyncMock()
+        worker.runtime_state_store.redis_client = worker.redis_client
+
+        async def hgetall(key: str):
+            return status_hashes.get(key, {})
+
+        async def hset(key: str, mapping: dict[str, str]):
+            status_hashes[key] = dict(mapping)
+            return len(mapping)
+
+        worker.redis_client.hgetall.side_effect = hgetall
+        worker.redis_client.hset.side_effect = hset
+
+        payload = valkey_encode(
+            OrderExecutionRequest(
+                asset="BTCUSDT",
+                side="buy",
+                size=0.1,
+                timestamp=1_700_000_000.0,
+                requested_price=50_000.0,
+                idempotency_key="test-key",
+            )
+        )
+
+        with pytest.raises(RuntimeError, match="broker unavailable"):
+            await worker.process_message("msg-1", payload)
+
+        assert worker.redis_client.xadd.await_count == 1
+        stream_name = worker.redis_client.xadd.call_args.args[0]
+        assert stream_name == failure_stream_key("BTCUSDT")
+
+        stored = await worker.runtime_state_store.read(ExecutionAsset(asset="BTCUSDT"))
+        assert stored is not None
+        assert stored.state == ExecutionAssetState.FAILED
+        assert stored.failure_count == 1
+        assert stored.last_error == "broker unavailable"

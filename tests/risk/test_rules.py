@@ -1,11 +1,10 @@
 """Tests for risk rules."""
 
 import time
-from unittest.mock import patch
 
 import pytest
 
-from libs.contracts.schemas import RiskVerdict, TradeSignal
+from libs.contracts.schemas import TradeSignal
 from libs.risk.account_state import AccountState
 from libs.risk.position_tracker import PositionTracker
 from libs.risk.rules.base import RiskContext, RiskRuleRegistry

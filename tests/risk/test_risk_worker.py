@@ -5,13 +5,12 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from apps.risk_app.risk_worker import RiskWorker
 from libs.contracts.schemas import (
-    OrderExecutionRequest,
     RiskAssessment,
     TradeSignal,
 )
@@ -157,6 +156,126 @@ class TestProcessSignalBatch:
         worker.redis_client.xadd.assert_called_once()
         call_args = worker.redis_client.xadd.call_args
         assert call_args[0][0] == "orders:BTCUSDT"
+
+    @pytest.mark.asyncio
+    async def test_model_profile_override_is_passed_to_risk_engine(self) -> None:
+        worker = _make_worker(
+            risk_config={
+                "position_sizing": {
+                    "default_strategy": "fixed_fractional",
+                    "fixed_fractional": {"risk_per_trade_pct": 2.0},
+                    "volatility_scaled": {"target_risk_pct": 1.0, "atr_multiplier": 2.0},
+                },
+                "stop_loss": {"default_method": "fixed_pct", "fixed_pct": {"pct": 2.0}},
+                "take_profit": {"default_method": "risk_reward", "risk_reward": {"ratio": 2.0}},
+                "mtf": {"default_conflict_resolution": "conviction_weighted"},
+                "model_profiles": {
+                    "test_model": {
+                        "position_sizing": {"strategy": "volatility_scaled"},
+                    }
+                },
+            },
+        )
+        worker.redis_client = AsyncMock()
+
+        signal = _make_signal(model_name="test_model")
+        worker.signal_aggregator.aggregate.return_value = signal
+
+        assessment = MagicMock(spec=RiskAssessment)
+        assessment.allowed = True
+        assessment.proposed_size = 0.01
+        assessment.stop_loss_price = 49_000.0
+        assessment.take_profit_price = 52_000.0
+        assessment.tp_levels = []
+        assessment.tp_portions = []
+        assessment.trail_to_breakeven = False
+        worker.risk_engine.assess.return_value = assessment
+
+        await worker._process_signal_batch([signal])
+
+        assess_call = worker.risk_engine.assess.call_args
+        effective_config = assess_call.args[3]
+        assert effective_config["position_sizing"]["default_strategy"] == "volatility_scaled"
+
+    @pytest.mark.asyncio
+    async def test_asset_model_override_is_passed_to_risk_engine(self) -> None:
+        worker = _make_worker(
+            risk_config={
+                "position_sizing": {
+                    "default_strategy": "fixed_fractional",
+                    "fixed_fractional": {"risk_per_trade_pct": 2.0},
+                    "kelly": {"fraction": 0.5},
+                },
+                "take_profit": {
+                    "default_method": "risk_reward",
+                    "risk_reward": {"ratio": 2.0},
+                    "multi_level": {"levels": [{"pct": 1.5, "portion": 1.0}]},
+                },
+                "assets": {
+                    "BTCUSDT": {
+                        "model_profiles": {
+                            "test_model": {
+                                "position_sizing": {"strategy": "kelly"},
+                                "take_profit": {"method": "multi_level"},
+                            }
+                        }
+                    }
+                },
+            },
+        )
+        worker.redis_client = AsyncMock()
+
+        signal = _make_signal(asset="BTCUSDT", model_name="test_model")
+        worker.signal_aggregator.aggregate.return_value = signal
+
+        assessment = MagicMock(spec=RiskAssessment)
+        assessment.allowed = True
+        assessment.proposed_size = 0.01
+        assessment.stop_loss_price = 49_000.0
+        assessment.take_profit_price = None
+        assessment.tp_levels = [51_000.0]
+        assessment.tp_portions = [1.0]
+        assessment.trail_to_breakeven = False
+        worker.risk_engine.assess.return_value = assessment
+
+        await worker._process_signal_batch([signal])
+
+        assess_call = worker.risk_engine.assess.call_args
+        effective_config = assess_call.args[3]
+        assert effective_config["position_sizing"]["default_strategy"] == "kelly"
+        assert effective_config["take_profit"]["default_method"] == "multi_level"
+
+    @pytest.mark.asyncio
+    async def test_batch_profile_can_override_mtf_strategy_when_model_is_uniform(self) -> None:
+        worker = _make_worker(
+            risk_config={
+                "mtf": {
+                    "default_conflict_resolution": "conviction_weighted",
+                    "timeframe_weights": {"1h": 1.0},
+                },
+                "model_profiles": {
+                    "test_model": {
+                        "mtf": {"conflict_resolution": "higher_tf_priority"},
+                    }
+                },
+            },
+        )
+        worker.redis_client = AsyncMock()
+        worker.risk_engine.assess.return_value = MagicMock(
+            allowed=False,
+            rejection_reason="rejected",
+            tp_levels=[],
+            tp_portions=[],
+            trail_to_breakeven=False,
+        )
+
+        signal = _make_signal(model_name="test_model")
+        worker.signal_aggregator.aggregate.return_value = None
+
+        await worker._process_signal_batch([signal])
+
+        aggregate_call = worker.signal_aggregator.aggregate.call_args
+        assert aggregate_call.args[1] == "higher_tf_priority"
 
     @pytest.mark.asyncio
     async def test_sl_tp_triggers_order(self) -> None:

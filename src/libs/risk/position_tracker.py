@@ -313,7 +313,7 @@ class PositionTracker:
                             $13,$14,$15,$16,$17,$18)
                     """,
                     pos.asset,
-                    pos.direction,
+                    str(pos.direction),
                     pos.entry_price,
                     pos.current_price,
                     pos.size,
