@@ -14,8 +14,10 @@ from libs.models.base import BaseModel
 from libs.models.legacy_adapter import LegacyScoringAdapter
 from libs.models.registry import ModelRegistry
 from libs.models.scoring_base import ScoringModel
+from libs.contracts.model_runtime import ResolvedModelRuntimeSpec
 
 from apps.strategy_app.feature_contracts import build_available_feature_contract
+from apps.strategy_app.runtime_specs import resolve_model_runtime_spec
 from apps.strategy_app.settings import (
     create_strategy_config_manager,
     resolve_asset_timeframe_node,
@@ -49,6 +51,7 @@ class ModelManager:
         self.adapted_models: list[LegacyScoringAdapter] = []
         self.scoring_models: list[ScoringModel] = []
         self.shadow_models: list[BaseModel] = []
+        self.runtime_specs: dict[str, ResolvedModelRuntimeSpec] = {}
         self._load_models()
 
     def _resolve_config_node(self, root_key: str) -> dict[str, Any]:
@@ -90,6 +93,14 @@ class ModelManager:
                     f"skipping (expected in scoring_models config)."
                 )
                 continue
+
+            self.runtime_specs[model_name] = resolve_model_runtime_spec(
+                asset=self.asset,
+                timeframe=self.timeframe,
+                model_name=model_name,
+                model_cfg=model_cfg,
+                fallback_warmup_bars=getattr(model_cls.meta, "min_history_bars", 0),
+            )
 
             if migration_mode == "scoring":
                 instance = model_cls(params)

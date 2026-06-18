@@ -143,18 +143,36 @@ async def run_rest_gap_fill(ctx: dict[str, Any], assets: list[str], exchange: st
             should_mutate_runtime_state = current_state != IngestionState.LIVE
 
             if should_mutate_runtime_state:
-                await coordinator.transition(symbol, base_timeframe, IngestionState.BACKFILLING)
+                await coordinator.transition(
+                    symbol,
+                    base_timeframe,
+                    IngestionState.BACKFILLING,
+                    reason="rest_gap_fill_started",
+                    provenance="gap_fill",
+                )
             try:
                 await _fetch_asset_gap(ctx, ccxt_adapter, symbol)
                 await coordinator.clear_resume_backfill_required(symbol, base_timeframe)
                 await _promote_resuming_asset_live(ctx, symbol)
                 if should_mutate_runtime_state:
-                    await coordinator.transition(symbol, base_timeframe, IngestionState.WARMING)
+                    await coordinator.transition(
+                        symbol,
+                        base_timeframe,
+                        IngestionState.WARMING,
+                        reason="rest_gap_fill_completed",
+                        provenance="gap_fill",
+                    )
                 successful_assets.append(symbol)
             except Exception as exc:
                 logger.error(f"Failed to gap-fill {symbol}: {exc}")
                 if should_mutate_runtime_state:
-                    await coordinator.transition(symbol, base_timeframe, IngestionState.ERROR)
+                    await coordinator.transition(
+                        symbol,
+                        base_timeframe,
+                        IngestionState.ERROR,
+                        reason="rest_gap_fill_failed",
+                        provenance="gap_fill",
+                    )
                 failed_assets.append(symbol)
             await asyncio.sleep(sleep_seconds)
 

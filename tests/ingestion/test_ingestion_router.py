@@ -96,8 +96,8 @@ async def test_ingestion_status_uses_effective_asset_catalog():
     fake_coordinator = MagicMock()
     fake_coordinator.get_observability_snapshot = AsyncMock(
         side_effect=[
-            {"state": "LIVE", "disconnects_in_window": 0},
-            {"state": "WARMING", "disconnects_in_window": 1},
+            {"state": "LIVE", "disconnects_in_window": 0, "downstream_ready": True},
+            {"state": "WARMING", "disconnects_in_window": 1, "downstream_ready": True},
         ]
     )
 
@@ -114,6 +114,7 @@ async def test_ingestion_status_uses_effective_asset_catalog():
         result = await ingestion_status()
 
     assert result["BTCUSDT:1m"]["state"] == "LIVE"
+    assert result["BTCUSDT:1m"]["downstream_ready"] is True
     assert result["ETHUSDT:1m"]["disconnects_in_window"] == 1
     fake_valkey.aclose.assert_awaited_once()
 

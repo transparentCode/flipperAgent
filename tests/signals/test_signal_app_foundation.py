@@ -20,13 +20,21 @@ from apps.signal_app.observability.runtime_state import runtime_status_key
 from apps.signal_app.api.routes import signal_feature_snapshot, signal_latest, signal_status
 from apps.signal_app.pipeline.engineered import EngineeredFeaturePipeline
 from apps.signal_app.pipeline.features import FeaturePipeline
+from apps.signal_app.pipeline.context_namespaces import (
+    LTF_CONTEXT_PREFIX,
+    TRANSPORT_CONTEXT_KEY,
+    build_transport_context,
+    ltf_context_key,
+    merge_ltf_context,
+)
 from apps.signal_app.pipeline.priming import StartupPrimer, dataframe_to_bar_tuples
+from apps.signal_app.pipeline.snapshot import _bar_tuple_to_candle as snapshot_bar_tuple_to_candle
 from apps.signal_app.pipeline.raw_indicators import RawIndicatorPipeline
 from apps.signal_app.pipeline.regime import FeatureProducerConfigResolver, RegimeFeaturePipeline
 from apps.signal_app.pipeline.snapshot import FeatureSnapshotService
 from apps.signal_app.publishing.streams import SignalStreamPublisher
 from apps.signal_app.runtime.runner import SignalRuntimeRunner
-from apps.signal_app.runtime.worker import SignalRuntimeWorker
+from apps.signal_app.runtime.worker import SignalRuntimeWorker, _bar_tuple_to_candle as runtime_bar_tuple_to_candle
 from apps.signal_app.settings import SignalWorkerSettings
 from libs.common.config import ConfigManager
 from libs.contracts.signal import FeatureVector, PriceUpdate, StreamOHLCVPayload
@@ -40,8 +48,20 @@ def test_signal_pair_catalog_lists_configured_pairs() -> None:
 
     pairs = SignalPairCatalog().list_pairs()
 
-    assert SignalPair(asset="BTCUSDT", timeframe="1h") in pairs
-    assert SignalPair(asset="ETHUSDT", timeframe="4h") in pairs
+    assert any(pair.asset == "BTCUSDT" and pair.timeframe == "1h" for pair in pairs)
+    assert any(pair.asset == "ETHUSDT" and pair.timeframe == "4h" for pair in pairs)
+
+
+def test_signal_pair_catalog_adds_runtime_base_pairs_and_context_profiles() -> None:
+    catalog = SignalPairCatalog(config_manager=_signal_runtime_models_config_manager())
+
+    pairs = {pair.key: pair for pair in catalog.list_pairs()}
+
+    assert "BTCUSDT:1h" in pairs
+    assert "BTCUSDT:1m" in pairs
+    assert pairs["BTCUSDT:1h"].base_timeframe == "1m"
+    assert pairs["BTCUSDT:1h"].required_context_profiles == ["volatility_60m"]
+    assert pairs["BTCUSDT:1m"].required_context_profiles == ["volatility_60m"]
 
 
 def test_feature_pipeline_builds_existing_contract_payloads() -> None:
@@ -71,6 +91,106 @@ def test_feature_pipeline_builds_existing_contract_payloads() -> None:
     assert feature_vector.features["RSI"] == 55.0
     assert feature_vector.bar_data["taker_buy_base"] == 4.0
     assert price_update.close == 105.0
+
+
+def test_runtime_bar_tuple_to_candle_adds_canonical_metadata() -> None:
+    candle = runtime_bar_tuple_to_candle(
+        "BTCUSDT",
+        "1h",
+        (100.0, 110.0, 95.0, 105.0, 10.0, 1_700_000_000.0, 4.0),
+    )
+
+    assert candle.base_timeframe == "1m"
+    assert candle.bar_span_seconds == 3600
+    assert candle.close_timestamp == 1_700_003_600.0
+    assert candle.provider == "timescale"
+    assert candle.origin == "bootstrap_snapshot"
+
+
+def test_snapshot_bar_tuple_to_candle_adds_canonical_metadata() -> None:
+    candle = snapshot_bar_tuple_to_candle(
+        "BTCUSDT",
+        "4h",
+        (100.0, 110.0, 95.0, 105.0, 10.0, 1_700_000_000.0, 4.0),
+    )
+
+    assert candle.base_timeframe == "1m"
+    assert candle.bar_span_seconds == 14_400
+    assert candle.close_timestamp == 1_700_014_400.0
+    assert candle.provider == "timescale"
+    assert candle.origin == "timescale_snapshot"
+
+
+def test_ltf_context_namespace_helpers_are_stable() -> None:
+    assert ltf_context_key("volatility_60m") == f"{LTF_CONTEXT_PREFIX}_volatility_60m"
+
+    merged = merge_ltf_context(
+        {"RSI": 55.0},
+        profiles={"volatility_60m": {"value": 1.2, "zscore": 0.8}},
+    )
+
+    assert merged["RSI"] == 55.0
+    assert merged["ctx_ltf_volatility_60m"] == {"value": 1.2, "zscore": 0.8}
+
+    candle = StreamOHLCVPayload(
+        symbol="BTCUSDT",
+        timeframe="1h",
+        timestamp=1_700_000_000.0,
+        open=100.0,
+        high=110.0,
+        low=95.0,
+        close=105.0,
+        volume=10.0,
+        bar_closed=True,
+        base_timeframe="1m",
+        bar_span_seconds=3600,
+        close_timestamp=1_700_003_600.0,
+        ingestion_timestamp=1_700_003_700_000.0,
+        publication_lag_ms=100_000,
+        provider="binance_native",
+        origin="live_websocket",
+    )
+    assert build_transport_context(candle) == {
+        "base_timeframe": "1m",
+        "bar_span_seconds": 3600,
+        "close_timestamp": 1_700_003_600.0,
+        "ingestion_timestamp": 1_700_003_700_000.0,
+        "publication_lag_ms": 100_000,
+        "provider": "binance_native",
+        "origin": "live_websocket",
+    }
+
+
+def test_feature_pipeline_merges_ltf_context_profiles() -> None:
+    candle = StreamOHLCVPayload(
+        symbol="BTCUSDT",
+        timeframe="1h",
+        timestamp=1_700_000_000.0,
+        open=100.0,
+        high=110.0,
+        low=95.0,
+        close=105.0,
+        volume=10.0,
+        taker_buy_base=4.0,
+        bar_closed=True,
+    )
+
+    features = FeaturePipeline().build_features(
+        candle=candle,
+        raw_features={"RSI": 55.0},
+        ltf_context_profiles={"volatility_60m": {"value": 1.2}},
+    )
+
+    feature_vector, _ = FeaturePipeline().build_payloads(
+        asset="BTCUSDT",
+        timeframe="1h",
+        candle=candle,
+        features=features,
+    )
+
+    assert feature_vector.features["ctx_ltf_volatility_60m"] == {"value": 1.2}
+    assert feature_vector.features[TRANSPORT_CONTEXT_KEY]["base_timeframe"] == "1m"
+    assert feature_vector.features[TRANSPORT_CONTEXT_KEY]["bar_span_seconds"] == 60
 
 
 def test_raw_indicator_pipeline_matches_current_feature_manager_for_live_tick() -> None:
@@ -381,6 +501,28 @@ async def test_signal_stream_publisher_uses_current_stream_contracts() -> None:
 
     assert redis_client.xadd.await_args_list[0].args[0] == "features:BTCUSDT:1h"
     assert redis_client.xadd.await_args_list[1].args[0] == "price_update:BTCUSDT:1h"
+    assert redis_client.xadd.await_args_list[0].kwargs["maxlen"] == 5000
+    assert redis_client.xadd.await_args_list[1].kwargs["maxlen"] == 500
+
+
+@pytest.mark.asyncio
+async def test_signal_stream_publisher_supports_projected_trigger_lane_streams() -> None:
+    redis_client = AsyncMock()
+    redis_client.xadd = AsyncMock(return_value="1-0")
+    publisher = SignalStreamPublisher(redis_client)
+
+    await publisher.publish_feature_vector(
+        FeatureVector(
+            asset="BTCUSDT",
+            timeframe="4h",
+            timestamp=1_700_000_000_000,
+            features={"RSI": 55.0},
+            bar_data={"close": 105.0},
+        ),
+        trigger_timeframe="1m",
+    )
+
+    assert redis_client.xadd.await_args_list[0].args[0] == "features:BTCUSDT:4h@1m"
 
 
 @pytest.mark.asyncio
@@ -439,6 +581,131 @@ async def test_signal_runtime_worker_processes_closed_bar() -> None:
     assert pipeline.calls[0][2].timestamp == 1_700_000_000.0
     assert redis_client.xadd.await_args_list[0].args[0] == "features:BTCUSDT:1h"
     assert redis_client.xadd.await_args_list[1].args[0] == "price_update:BTCUSDT:1h"
+
+
+@pytest.mark.asyncio
+async def test_signal_runtime_worker_projects_decision_view_on_base_trigger_lane() -> None:
+    redis_client = AsyncMock()
+    redis_client.xadd = AsyncMock(return_value="1-0")
+    redis_client.hset = AsyncMock(return_value=1)
+    redis_client.hgetall = AsyncMock(return_value={})
+    raw = _FakeRawIndicators(snapshot={"RSI": 55.0}, live={"RSI": 56.0})
+    pipeline = FeaturePipeline(raw_indicators=raw)
+    worker = SignalRuntimeWorker(
+        "BTCUSDT",
+        "4h",
+        pipeline=pipeline,
+        trigger_timeframe="1m",
+        trigger_mode="on_base_bar_close",
+        required_context_profiles=["volatility_15m"],
+    )
+    await worker.connect(redis_client)
+    history_4h = _history(length=8)
+    history_1m = _history_1m(length=240)
+    worker._prime_projection_history(history_4h)
+    worker._prime_source_history(history_1m)
+    worker._prime_ltf_history(history_1m)
+
+    await worker.process_message(
+        "1-0",
+        {
+            b"bar_closed": b"true",
+            b"symbol": b"BTCUSDT",
+            b"timeframe": b"1m",
+            b"timestamp": str(int(history_1m[-1][5] + 60)).encode(),
+            b"open": b"100.0",
+            b"high": b"101.0",
+            b"low": b"99.0",
+            b"close": b"100.5",
+            b"volume": b"10.0",
+            b"taker_buy_base": b"4.0",
+        },
+    )
+
+    assert redis_client.xadd.await_args_list[0].args[0] == "features:BTCUSDT:4h@1m"
+    payload = redis_client.xadd.await_args_list[0].args[1]
+    assert payload["timeframe"] == "4h"
+
+
+@pytest.mark.asyncio
+async def test_signal_runtime_worker_base_lane_publishes_ltf_context_profiles() -> None:
+    redis_client = AsyncMock()
+    redis_client.xadd = AsyncMock(return_value="1-0")
+    redis_client.hset = AsyncMock(return_value=1)
+    redis_client.expire = AsyncMock(return_value=True)
+    redis_client.hgetall = AsyncMock(return_value={})
+
+    class StubPipeline:
+        enrichment_reader = None
+
+        def __init__(self) -> None:
+            self.calls = []
+
+        async def process_closed_candle_enriched(
+            self,
+            *,
+            asset,
+            timeframe,
+            candle,
+            ltf_context_profiles=None,
+        ):
+            self.calls.append(ltf_context_profiles or {})
+            return (
+                FeatureVector(
+                    asset=asset,
+                    timeframe=timeframe,
+                    timestamp=1_700_000_000_000,
+                    features={"RSI": 55.0},
+                    bar_data={"close": candle.close},
+                ),
+                PriceUpdate(
+                    asset=asset,
+                    timeframe=timeframe,
+                    timestamp=1_700_000_000_000,
+                    open=candle.open,
+                    high=candle.high,
+                    low=candle.low,
+                    close=candle.close,
+                    volume=candle.volume,
+                ),
+            )
+
+    pipeline = StubPipeline()
+    worker = SignalRuntimeWorker(
+        "BTCUSDT",
+        "1m",
+        pipeline=pipeline,
+        required_context_profiles=["volatility_15m"],
+    )
+    await worker.connect(redis_client)
+    worker._prime_ltf_history(_history_1m(length=15))
+
+    await worker.process_message(
+        "1-0",
+        {
+            b"bar_closed": b"true",
+            b"symbol": b"BTCUSDT",
+            b"timeframe": b"1m",
+            b"timestamp": b"1700000900",
+            b"open": b"100.0",
+            b"high": b"101.0",
+            b"low": b"99.0",
+            b"close": b"100.5",
+            b"volume": b"10.0",
+            b"taker_buy_base": b"4.0",
+        },
+    )
+
+    assert any(
+        call.args[0] == "signal:ltf_context:BTCUSDT:1m:volatility_15m"
+        for call in redis_client.hset.await_args_list
+    )
+    assert any(
+        call.args[0] == "signal:ltf_context:BTCUSDT:1m:volatility_15m" and call.args[1] == 21_600
+        for call in redis_client.expire.await_args_list
+    )
+    assert "volatility_15m" in pipeline.calls[0]
+    assert "value" in pipeline.calls[0]["volatility_15m"]
 
 
 @pytest.mark.asyncio
@@ -1002,6 +1269,32 @@ async def test_valkey_enrichment_reader_decodes_index_and_derivatives(monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_valkey_enrichment_reader_decodes_ltf_context_profiles(monkeypatch) -> None:
+    ConfigManager.reset_singleton()
+    config_manager = ConfigManager()
+    monkeypatch.setattr(config_manager, "_load_configs", lambda trigger_callbacks=True: None)
+    monkeypatch.setattr(ConfigManager, "register_file", lambda self, _: None)
+    config_manager._state = {"tradingview": {"indices": []}}
+
+    redis_client = AsyncMock()
+    redis_client.hgetall.return_value = {
+        "value": "0.0123",
+        "window_bars": "60",
+        "base_timeframe": "1m",
+    }
+    reader = ValkeySignalEnrichmentReader(redis_client, config_manager=config_manager)
+
+    profiles = await reader.load_ltf_context_profiles(
+        asset="BTCUSDT",
+        base_timeframe="1m",
+        profiles=["volatility_60m"],
+    )
+
+    assert profiles["volatility_60m"]["value"] == 0.0123
+    assert profiles["volatility_60m"]["window_bars"] == 60.0
+
+
+@pytest.mark.asyncio
 async def test_signal_observability_service_reads_latest_feature(monkeypatch) -> None:
     ConfigManager.reset_singleton()
     config_manager = ConfigManager()
@@ -1109,6 +1402,34 @@ def _signal_models_config_manager() -> ConfigManager:
     return config_manager
 
 
+def _signal_runtime_models_config_manager() -> ConfigManager:
+    ConfigManager.reset_singleton()
+    config_manager = ConfigManager()
+    config_manager.register_file = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+    config_manager._load_configs = lambda trigger_callbacks=True: None  # type: ignore[method-assign]
+    config_manager._state = {
+        "models": {
+            "assets": {
+                "BTCUSDT": {
+                    "timeframes": {
+                        "1h": {
+                            "Momentum": {
+                                "enabled": True,
+                                "runtime": {
+                                    "decision_timeframe": "1h",
+                                    "base_timeframe": "1m",
+                                    "required_context_profiles": ["volatility_60m"],
+                                },
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return config_manager
+
+
 def _history(length: int) -> list[tuple[float, ...]]:
     base_ts = 1_700_000_000
     rows = []
@@ -1123,6 +1444,25 @@ def _history(length: int) -> list[tuple[float, ...]]:
                 1000.0,
                 base_ts + index * 3600,
                 550.0 + (index % 20),
+            )
+        )
+    return rows
+
+
+def _history_1m(length: int) -> list[tuple[float, ...]]:
+    base_ts = 1_700_000_000
+    rows = []
+    for index in range(length):
+        close = 100.0 + index * 0.01
+        rows.append(
+            (
+                close,
+                close + 0.2,
+                close - 0.2,
+                close,
+                10.0 + index,
+                base_ts + index * 60,
+                4.0 + (index % 3),
             )
         )
     return rows

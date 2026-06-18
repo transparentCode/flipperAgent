@@ -21,7 +21,11 @@ class SignalObservabilityService:
         latest: dict[str, Any] = {}
 
         for pair in self.catalog.list_pairs():
-            stream = feature_stream_key(pair.asset, pair.timeframe)
+            stream = feature_stream_key(
+                pair.asset,
+                pair.timeframe,
+                trigger_timeframe=pair.trigger_timeframe,
+            )
             latest[pair.key] = await self._latest_stream_entry(stream, now_ms)
         return latest
 

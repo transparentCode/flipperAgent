@@ -20,6 +20,8 @@ async def publish_ingestion_runtime_event(
     timeframe: str | None = None,
     severity: str = "warning",
     detail: dict[str, Any] | None = None,
+    maxlen: int = 5000,
+    approximate: bool = True,
 ) -> str | None:
     if valkey_client is None:
         return None
@@ -38,8 +40,8 @@ async def publish_ingestion_runtime_event(
         return await valkey_client.xadd(
             INGESTION_EVENTS_STREAM,
             valkey_encode(event),
-            maxlen=10_000,
-            approximate=True,
+            maxlen=maxlen,
+            approximate=approximate,
         )
     except Exception as exc:
         logger.warning(

@@ -31,6 +31,10 @@ class StrategyWorker(_RuntimeStrategyWorker):
         blender: RegimeEnsembleBlender | None = None,
         settings: StrategyWorkerSettings | None = None,
         config_manager: ConfigManager | None = None,
+        trigger_timeframe: str | None = None,
+        trigger_mode: str = "on_bar_close",
+        base_timeframe: str = "1m",
+        allowed_model_names: list[str] | None = None,
     ) -> None:
         config_manager = create_strategy_config_manager(config_manager or ConfigManager())
         settings = settings or StrategyWorkerSettings.from_config(config_manager)
@@ -59,6 +63,10 @@ class StrategyWorker(_RuntimeStrategyWorker):
             blender=blender,
             settings=settings,
             config_manager=config_manager,
+            trigger_timeframe=trigger_timeframe,
+            trigger_mode=trigger_mode,
+            base_timeframe=base_timeframe,
+            allowed_model_names=allowed_model_names,
         )
 
     def _log_migration_comparison(

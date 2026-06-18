@@ -9,11 +9,13 @@ from apps.ingestion_app.constants import EXCHANGE_BINANCE
 from apps.ingestion_app.coordination import IngestionCoordinator, IngestionState
 from apps.ingestion_app.events import publish_ingestion_runtime_event
 from apps.ingestion_app.models.tick_models import OHLCVRecord
+from apps.ingestion_app.runtime.shared import runtime_stream_timeframes
 from apps.ingestion_app.storage.timescale_writer import TimescaleWriter
 from apps.ingestion_app.runtime.shared import config_manager, logger, track_task
 from apps.ingestion_app.jobs.shared import utc_now_ms
 from libs.common.connections import create_valkey_client
 from libs.common.db.pool_manager import DBPoolManager
+from libs.common.timeframes import timeframe_to_seconds
 from libs.contracts.schemas import IngestionEventType, StreamOHLCVPayload, valkey_encode
 
 _tracer = None
@@ -31,7 +33,7 @@ except ImportError:
 
 async def verify_and_launch_ws(
     symbol: str,
-    publish_timeframes: list[str],
+    stream_timeframes: list[str],
     arq_pool: Any,
     coordinator: IngestionCoordinator,
     task_registry: set[asyncio.Task[Any]] | None = None,
@@ -45,12 +47,18 @@ async def verify_and_launch_ws(
             return
     except asyncio.TimeoutError:
         logger.error(f"[{symbol}] Warmup timed out. WebSocket launch aborted.")
-        await coordinator.transition(symbol, base_timeframe, IngestionState.ERROR)
+        await coordinator.transition(
+            symbol,
+            base_timeframe,
+            IngestionState.ERROR,
+            reason="warmup_timeout",
+            provenance="verification_gate",
+        )
         return
 
     logger.info(f"[{symbol}] Data warmed up. Launching WebSocket pipeline.")
     websocket_task = asyncio.create_task(
-        run_websocket_pipeline(symbol, publish_timeframes, arq_pool=arq_pool, coordinator=coordinator)
+        run_websocket_pipeline(symbol, stream_timeframes, arq_pool=arq_pool, coordinator=coordinator)
     )
     if task_registry is not None:
         track_task(task_registry, websocket_task)
@@ -58,15 +66,18 @@ async def verify_and_launch_ws(
 
 async def run_websocket_pipeline(
     symbol: str,
-    publish_timeframes: list[str],
+    stream_timeframes: list[str],
     *,
     arq_pool: Any = None,
     coordinator: IngestionCoordinator | None = None,
 ) -> None:
     base_timeframe = config_manager.get("ingestion.timeframes.base_gap_fill", "1m")
+    live_stream_timeframes = runtime_stream_timeframes(base_timeframe, stream_timeframes)
     loop = asyncio.get_running_loop()
     reconnect_sleep_seconds = config_manager.get("ingestion.websocket.reconnect_sleep_seconds", 5)
     queue_maxsize = max(1, int(config_manager.get("ingestion.websocket.queue_maxsize", 1000)))
+    stream_maxlen = int(config_manager.get("ingestion.streams.ohlcv_maxlen", 5000))
+    stream_approximate = bool(config_manager.get("ingestion.streams.ohlcv_approximate", True))
 
     redis_client = None
     live_confirmed = False
@@ -87,7 +98,9 @@ async def run_websocket_pipeline(
 
                 queue = asyncio.Queue(maxsize=queue_maxsize)
                 adapter = BinanceNativeAdapter()
-                symbols_timeframes = {symbol: list(set(["1m"] + publish_timeframes))}
+                symbols_timeframes = {
+                    symbol: list(live_stream_timeframes)
+                }
 
                 async for msg in adapter.stream_multiplex_socket(symbols_timeframes, loop, queue):
                     if isinstance(msg, str):
@@ -101,7 +114,13 @@ async def run_websocket_pipeline(
                     timeframe = kline.get("i", "1m")
 
                     if coordinator and not live_confirmed:
-                        await coordinator.transition(symbol, base_timeframe, IngestionState.LIVE)
+                        await coordinator.transition(
+                            symbol,
+                            base_timeframe,
+                            IngestionState.LIVE,
+                            reason="first_live_bar",
+                            provenance="websocket",
+                        )
                         live_confirmed = True
                         retry_exhausted_emitted = False
 
@@ -120,8 +139,13 @@ async def run_websocket_pipeline(
                     if timeframe == "1m" and is_closed:
                         await ts_writer.insert_ohlcv([record], timeframe=timeframe)
 
-                    if is_closed and timeframe in publish_timeframes:
+                    if is_closed and timeframe in live_stream_timeframes:
                         stream_key = f"stream:ohlcv:{symbol.lower()}:{timeframe}"
+                        bar_span_seconds = timeframe_to_seconds(timeframe)
+                        close_timestamp = float(kline.get("T", 0.0)) / 1000.0
+                        if close_timestamp <= 0:
+                            close_timestamp = record.timestamp.timestamp() + bar_span_seconds
+                        emitted_at_ms = utc_now_ms()
                         payload = valkey_encode(
                             StreamOHLCVPayload(
                                 exchange=EXCHANGE_BINANCE,
@@ -135,7 +159,13 @@ async def run_websocket_pipeline(
                                 volume=record.volume,
                                 taker_buy_base=record.taker_buy_base,
                                 bar_closed=True,
-                                ingestion_timestamp=utc_now_ms(),
+                                ingestion_timestamp=emitted_at_ms,
+                                base_timeframe=base_timeframe,
+                                bar_span_seconds=bar_span_seconds,
+                                close_timestamp=close_timestamp,
+                                publication_lag_ms=max(0, emitted_at_ms - int(close_timestamp * 1000)),
+                                provider="binance_native",
+                                origin="live_websocket",
                             ),
                             inject_trace=False,
                         )
@@ -152,24 +182,46 @@ async def run_websocket_pipeline(
                             ):
                                 _inject_trace_context(payload)
                                 pipe = redis_client.pipeline(transaction=False)
-                                pipe.xadd(stream_key, payload, maxlen=10000, approximate=True)
+                                pipe.xadd(
+                                    stream_key,
+                                    payload,
+                                    maxlen=stream_maxlen,
+                                    approximate=stream_approximate,
+                                )
                                 await pipe.execute()
                         else:
                             pipe = redis_client.pipeline(transaction=False)
-                            pipe.xadd(stream_key, payload, maxlen=10000, approximate=True)
+                            pipe.xadd(
+                                stream_key,
+                                payload,
+                                maxlen=stream_maxlen,
+                                approximate=stream_approximate,
+                            )
                             await pipe.execute()
 
             except asyncio.CancelledError:
                 logger.info(f"[{symbol}] WebSocket task canceled.")
                 if coordinator:
-                    await coordinator.transition(symbol, base_timeframe, IngestionState.COLD)
+                    await coordinator.transition(
+                        symbol,
+                        base_timeframe,
+                        IngestionState.COLD,
+                        reason="websocket_cancelled",
+                        provenance="websocket",
+                    )
                 break
             except Exception as exc:
                 logger.error(
                     f"[{symbol}] WebSocket stream failed: {exc}. Reconnecting in {reconnect_sleep_seconds}s..."
                 )
                 if coordinator:
-                    await coordinator.transition(symbol, base_timeframe, IngestionState.COLD)
+                    await coordinator.transition(
+                        symbol,
+                        base_timeframe,
+                        IngestionState.COLD,
+                        reason="websocket_disconnected",
+                        provenance="websocket",
+                    )
                 if arq_pool is not None:
                     try:
                         await arq_pool.enqueue_job("run_rest_gap_fill", [symbol], EXCHANGE_BINANCE)

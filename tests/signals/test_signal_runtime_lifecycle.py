@@ -58,9 +58,23 @@ class _FakeLifecycleRedis:
 class _StubWorker:
     created: list["_StubWorker"] = []
 
-    def __init__(self, asset: str, timeframe: str, *, settings: SignalWorkerSettings) -> None:
+    def __init__(
+        self,
+        asset: str,
+        timeframe: str,
+        *,
+        settings: SignalWorkerSettings,
+        base_timeframe: str = "1m",
+        trigger_timeframe: str | None = None,
+        trigger_mode: str = "on_bar_close",
+        required_context_profiles: list[str] | None = None,
+    ) -> None:
         self.asset = asset
         self.timeframe = timeframe
+        self.base_timeframe = base_timeframe
+        self.trigger_timeframe = trigger_timeframe or timeframe
+        self.trigger_mode = trigger_mode
+        self.required_context_profiles = list(required_context_profiles or [])
         self.connected = False
         self.started = asyncio.Event()
         self.cancelled = asyncio.Event()
@@ -128,17 +142,20 @@ async def test_signal_runtime_runner_reacts_to_pause_and_resume_lifecycle_events
             "emitted_at": "2",
         },
     )
-    async def _second_worker_started() -> None:
-        while len(_StubWorker.created) < 2:
+    async def _resumed_workers_started() -> None:
+        while len(_StubWorker.created) < 3:
             await asyncio.sleep(0.01)
-        await _StubWorker.created[1].started.wait()
+        await asyncio.gather(
+            _StubWorker.created[1].started.wait(),
+            _StubWorker.created[2].started.wait(),
+        )
 
-    await asyncio.wait_for(_second_worker_started(), timeout=2)
+    await asyncio.wait_for(_resumed_workers_started(), timeout=2)
 
     await runner.stop()
     await start_task
 
-    assert len(_StubWorker.created) == 2
+    assert len(_StubWorker.created) == 3
     assert redis.acks == [
         (ASSET_LIFECYCLE_STREAM, "signal_lifecycle_test", "1-0"),
         (ASSET_LIFECYCLE_STREAM, "signal_lifecycle_test", "2-0"),
@@ -182,3 +199,64 @@ async def test_signal_runtime_runner_deduplicates_replayed_lifecycle_event_ids()
     await start_task
 
     assert len(_StubWorker.created) == 1
+
+
+@pytest.mark.asyncio
+async def test_signal_runtime_runner_uses_full_catalog_metadata_for_lifecycle_additions() -> None:
+    _StubWorker.created = []
+    redis = _FakeLifecycleRedis()
+    runner = SignalRuntimeRunner(
+        catalog=StaticSignalPairCatalog(
+            [
+                SignalPair(
+                    asset="BTCUSDT",
+                    timeframe="1h",
+                    base_timeframe="1m",
+                    required_context_profiles=["volatility_60m"],
+                ),
+                SignalPair(
+                    asset="BTCUSDT",
+                    timeframe="1m",
+                    base_timeframe="1m",
+                    required_context_profiles=["volatility_60m"],
+                ),
+            ]
+        ),
+        initial_pairs=[SignalPair(asset="BTCUSDT", timeframe="1h", source="asset_manifest")],
+        worker_factory=_StubWorker,
+        worker_settings=SignalWorkerSettings(consumer_group="signal_lifecycle_metadata_test"),
+    )
+
+    await runner.connect(redis)
+    start_task = asyncio.create_task(runner.start())
+    await _StubWorker.created[0].started.wait()
+
+    await redis.emit(
+        "1-0",
+        {
+            "event_id": "evt-resume",
+            "event_type": "ASSET_RESUMED",
+            "command_type": "RESUME_ASSET",
+            "symbol": "BTCUSDT",
+            "base_timeframe": "1m",
+            "publish_timeframes": '["1h"]',
+            "timeframes": '["1m","1h"]',
+            "enabled": "True",
+            "desired_state": "LIVE",
+            "requested_by": "test",
+            "reason": "resume",
+            "emitted_at": "2",
+        },
+    )
+
+    async def _resumed_workers_started() -> None:
+        while len(_StubWorker.created) < 2:
+            await asyncio.sleep(0.01)
+        await _StubWorker.created[1].started.wait()
+
+    await asyncio.wait_for(_resumed_workers_started(), timeout=2)
+    await runner.stop()
+    await start_task
+
+    resumed_pairs = {(worker.asset, worker.timeframe): worker for worker in _StubWorker.created}
+    assert resumed_pairs[("BTCUSDT", "1m")].required_context_profiles == ["volatility_60m"]

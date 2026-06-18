@@ -6,8 +6,7 @@ import asyncio
 import os
 
 from apps.signal_app.catalog import SignalPairCatalog
-from apps.signal_app.catalog.static import StaticSignalPairCatalog
-from apps.signal_app.models import SignalPair
+from apps.signal_app.runtime_pairs import build_signal_pairs
 from apps.signal_app.runtime.runner import SignalRuntimeRunner
 from libs.common.config import ConfigManager
 from libs.common.asset_manifest import AssetManifestStore
@@ -47,16 +46,12 @@ async def _run() -> None:
 
     await init_db_pools(config_mgr)
     redis_client = await create_valkey_client(config_mgr)
-    fallback_catalog = SignalPairCatalog(config_manager=config_mgr)
-    fallback_pairs = fallback_catalog.list_pairs()
-    manifest_pairs = await AssetManifestStore(redis_client).list_runtime_pairs()
-    resolved_pairs = (
-        [
-            SignalPair(asset=asset, timeframe=timeframe, source="asset_manifest")
-            for asset, timeframe in manifest_pairs
-        ]
-        if manifest_pairs
-        else fallback_pairs
+    full_catalog = SignalPairCatalog(config_manager=config_mgr)
+    manifest_store = AssetManifestStore(redis_client)
+    manifest_assets = await manifest_store.list_assets()
+    resolved_pairs = build_signal_pairs(
+        config_mgr,
+        live_manifests=manifest_assets if manifest_assets else None,
     )
     if not resolved_pairs:
         logger.warning("No asset/timeframe pairs found in canonical manifest or models.yaml. Exiting.")
@@ -65,14 +60,25 @@ async def _run() -> None:
         return
 
     runner = SignalRuntimeRunner(
-        catalog=StaticSignalPairCatalog(resolved_pairs),
+        catalog=full_catalog,
+        initial_pairs=resolved_pairs,
         worker_settings=SignalWorkerSettings.from_config(config_mgr),
     )
     logger.info(
         "Discovered %s signal asset/timeframe pairs from %s: %s",
         len(resolved_pairs),
-        "asset manifest" if manifest_pairs else "models.yaml",
-        [pair.key for pair in resolved_pairs],
+        "asset manifest" if manifest_assets else "models.yaml",
+        [
+            (
+                pair.asset,
+                pair.timeframe,
+                pair.trigger_timeframe or pair.timeframe,
+                pair.trigger_mode,
+                pair.base_timeframe,
+                list(pair.required_context_profiles),
+            )
+            for pair in resolved_pairs
+        ],
     )
 
     try:

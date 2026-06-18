@@ -57,9 +57,24 @@ class _FakeLifecycleRedis:
 class _StubWorker:
     created: list["_StubWorker"] = []
 
-    def __init__(self, asset: str, timeframe: str, *, settings: StrategyWorkerSettings, config_manager=None) -> None:
+    def __init__(
+        self,
+        asset: str,
+        timeframe: str,
+        *,
+        settings: StrategyWorkerSettings,
+        config_manager=None,
+        trigger_timeframe: str | None = None,
+        trigger_mode: str = "on_bar_close",
+        base_timeframe: str = "1m",
+        allowed_model_names: list[str] | None = None,
+    ) -> None:
         self.asset = asset
         self.timeframe = timeframe
+        self.trigger_timeframe = trigger_timeframe or timeframe
+        self.trigger_mode = trigger_mode
+        self.base_timeframe = base_timeframe
+        self.allowed_model_names = list(allowed_model_names or [])
         self.connected = False
         self.started = asyncio.Event()
         self.cancelled = asyncio.Event()
@@ -181,3 +196,30 @@ async def test_strategy_runtime_runner_deduplicates_replayed_lifecycle_event_ids
     await start_task
 
     assert len(_StubWorker.created) == 1
+
+
+@pytest.mark.asyncio
+async def test_strategy_runtime_runner_passes_trigger_lane_metadata_to_worker() -> None:
+    _StubWorker.created = []
+    redis = _FakeLifecycleRedis()
+    pair = StrategyPair(
+        asset="BTCUSDT",
+        timeframe="4h",
+        trigger_timeframe="1m",
+        trigger_mode="on_base_bar_close",
+        base_timeframe="1m",
+        model_names=["Momentum"],
+    )
+    runner = StrategyRuntimeRunner(
+        [pair],
+        worker_factory=_StubWorker,
+        worker_settings=StrategyWorkerSettings(consumer_group="strategy_trigger_lane_test"),
+    )
+
+    workers = await runner.connect(redis)
+
+    assert len(workers) == 1
+    assert workers[0].timeframe == "4h"
+    assert workers[0].trigger_timeframe == "1m"
+    assert workers[0].trigger_mode == "on_base_bar_close"
+    assert workers[0].allowed_model_names == ["Momentum"]

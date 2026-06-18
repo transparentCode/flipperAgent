@@ -224,10 +224,10 @@ async def test_v2_purge_removed_asset_clears_keys_and_emits_completion_event():
     with patch("apps.ingestion_app.jobs.cleanup.IngestionStorageJanitor", return_value=janitor), \
          patch("apps.ingestion_app.jobs.cleanup.IngestionAssetRegistryRepository", return_value=registry), \
          patch("apps.ingestion_app.jobs.cleanup.DBPoolManager.get_writer_pool", return_value=MagicMock()), \
-         patch("apps.ingestion_app.jobs.cleanup.publish_ingestion_runtime_event", new=AsyncMock()) as mock_publish:
+        patch("apps.ingestion_app.jobs.cleanup.publish_ingestion_runtime_event", new=AsyncMock()) as mock_publish:
         await purge_removed_asset(ctx, "BTCUSDT", "1m")
 
-    assert ctx["valkey_client"].delete.await_count == 8
+    assert ctx["valkey_client"].delete.await_count == 10
     mock_publish.assert_awaited_once()
 
 

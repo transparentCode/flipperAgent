@@ -110,9 +110,50 @@ def lifecycle_event_type(command_type: IngestionCommandType) -> AssetLifecycleEv
     return mapping[command_type]
 
 
+def manifest_runtime_timeframes(manifest: AssetManifest) -> list[str]:
+    ordered: list[str] = []
+    candidates = manifest.timeframes or [manifest.base_timeframe, *list(manifest.publish_timeframes)]
+    for timeframe in candidates:
+        normalized = str(timeframe).strip()
+        if normalized and normalized not in ordered:
+            ordered.append(normalized)
+    return ordered
+
+
+def iter_live_manifest_timeframes(
+    manifests: list[AssetManifest] | None,
+) -> list[tuple[AssetManifest, str]]:
+    entries: list[tuple[AssetManifest, str]] = []
+    if not manifests:
+        return entries
+    for manifest in manifests:
+        if not manifest.enabled or str(manifest.desired_state).upper() != "LIVE":
+            continue
+        for timeframe in manifest_runtime_timeframes(manifest):
+            entries.append((manifest, timeframe))
+    return entries
+
+
+def live_manifest_pairs(manifests: list[AssetManifest] | None) -> list[tuple[str, str]]:
+    pairs: list[tuple[str, str]] = []
+    for manifest, timeframe in iter_live_manifest_timeframes(manifests):
+        pair = (manifest.symbol, timeframe)
+        if pair not in pairs:
+            pairs.append(pair)
+    return pairs
+
+
 class AssetManifestStore:
-    def __init__(self, redis_client: Any) -> None:
+    def __init__(
+        self,
+        redis_client: Any,
+        *,
+        lifecycle_stream_maxlen: int = 5000,
+        lifecycle_stream_approximate: bool = True,
+    ) -> None:
         self.redis_client = redis_client
+        self.lifecycle_stream_maxlen = lifecycle_stream_maxlen
+        self.lifecycle_stream_approximate = lifecycle_stream_approximate
 
     async def read_asset(self, symbol: str) -> AssetManifest | None:
         raw = await self.redis_client.hgetall(asset_manifest_key(symbol))
@@ -136,16 +177,7 @@ class AssetManifestStore:
         return manifests
 
     async def list_runtime_pairs(self) -> list[tuple[str, str]]:
-        pairs: list[tuple[str, str]] = []
-        for manifest in await self.list_assets():
-            if not manifest.enabled or str(manifest.desired_state).upper() != "LIVE":
-                continue
-            timeframes = manifest.publish_timeframes or [manifest.base_timeframe]
-            for timeframe in timeframes:
-                pair = (manifest.symbol, timeframe)
-                if pair not in pairs:
-                    pairs.append(pair)
-        return pairs
+        return live_manifest_pairs(await self.list_assets())
 
     async def sync_from_ingestion_asset(
         self,
@@ -232,8 +264,8 @@ class AssetManifestStore:
         return await self.redis_client.xadd(
             ASSET_LIFECYCLE_STREAM,
             valkey_encode(event, inject_trace=False),
-            maxlen=10_000,
-            approximate=True,
+            maxlen=self.lifecycle_stream_maxlen,
+            approximate=self.lifecycle_stream_approximate,
         )
 
     @staticmethod

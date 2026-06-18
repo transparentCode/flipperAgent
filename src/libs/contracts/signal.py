@@ -22,10 +22,35 @@ class StreamOHLCVPayload(BaseModel):
     taker_buy_base: float = Field(default=0.0, description="Taker buy base volume")
     bar_closed: bool = Field(default=True, description="Whether the bar is closed")
     ingestion_timestamp: float = Field(default=0.0, description="Ingestion timestamp (ms epoch)")
+    base_timeframe: str = Field(
+        default="1m",
+        description="Canonical lower timeframe backing this published bar.",
+    )
+    bar_span_seconds: int = Field(
+        default=60,
+        description="Duration of the published bar in seconds.",
+    )
+    close_timestamp: float = Field(
+        default=0.0,
+        description="Candle close timestamp (seconds or ms).",
+    )
+    publication_lag_ms: int = Field(
+        default=0,
+        description="Lag between candle close and publication time in milliseconds.",
+    )
+    provider: str = Field(default="", description="Upstream provider identifier.")
+    origin: str = Field(
+        default="",
+        description="Publication origin, for example live websocket or timescale snapshot.",
+    )
 
 
 class StreamFeaturePayload(BaseModel):
-    """Stream transport wrapper for FeatureVector — published on features:{asset}:{tf}."""
+    """Stream transport wrapper for FeatureVector.
+
+    Direct lanes publish on ``features:{asset}:{decision_tf}``.
+    Projected lanes publish on ``features:{asset}:{decision_tf}@{trigger_tf}``.
+    """
     asset: str
     timeframe: str
     timestamp: float

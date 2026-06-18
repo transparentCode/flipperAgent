@@ -9,11 +9,13 @@ from libs.common.enums import SystemComponent
 from libs.common.exceptions import ConfigurationError
 from libs.common.logging.logger_utils import bind_logger
 from libs.contracts.schemas import FeatureVector
+from libs.contracts.model_runtime import ResolvedModelRuntimeSpec
 from libs.contracts.signal import ScoringOutput
 from libs.models.registry import ModelRegistry
 from libs.models.scoring_base import ScoringModel
 
 from apps.strategy_app.feature_contracts import build_available_feature_contract
+from apps.strategy_app.runtime_specs import resolve_model_runtime_spec
 from apps.strategy_app.settings import (
     create_strategy_config_manager,
     resolve_asset_timeframe_node,
@@ -43,6 +45,7 @@ class ScoringModelManager:
         self.config_mgr = create_strategy_config_manager(config_manager or ConfigManager())
 
         self.models: list[ScoringModel] = []
+        self.runtime_specs: dict[str, ResolvedModelRuntimeSpec] = {}
         self._load_models()
 
     def _resolve_config_node(self, root_key: str) -> dict[str, Any]:
@@ -67,6 +70,13 @@ class ScoringModelManager:
             except KeyError:
                 logger.warning(f"Scoring model '{model_name}' not found in registry, skipping.")
                 continue
+            self.runtime_specs[model_name] = resolve_model_runtime_spec(
+                asset=self.asset,
+                timeframe=self.timeframe,
+                model_name=model_name,
+                model_cfg=model_cfg,
+                fallback_warmup_bars=getattr(model_cls.meta, "min_history_bars", 0),
+            )
             params = model_cfg.get("params", {}) or {}
             model = model_cls(params)
             if not isinstance(model, ScoringModel):

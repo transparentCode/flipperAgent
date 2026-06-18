@@ -91,7 +91,7 @@ async def test_purge_removed_asset_clears_keys_and_emits_completion_event():
 
     janitor.purge_asset_data.assert_awaited_once_with("BTCUSDT")
     janitor.finalize_asset_removal.assert_awaited_once_with("BTCUSDT")
-    assert ctx["valkey_client"].delete.await_count == 8
+    assert ctx["valkey_client"].delete.await_count == 10
     mock_publish.assert_awaited_once()
 
 

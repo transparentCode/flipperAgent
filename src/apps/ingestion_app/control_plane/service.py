@@ -16,6 +16,7 @@ from apps.ingestion_app.models.asset_registry import (
     IngestionAssetUpsertRequest,
     IngestionControlResult,
 )
+from libs.common.config import ConfigManager
 from libs.contracts.schemas import IngestionCommandType
 
 
@@ -25,9 +26,14 @@ class IngestionControlService:
         *,
         pool: asyncpg.Pool,
         valkey_client: Any | None = None,
+        config_manager: ConfigManager | Any | None = None,
     ) -> None:
         self.repo = IngestionAssetRegistryRepository(pool)
-        self.publisher = IngestionControlPublisher(valkey_client)
+        self.config_manager = config_manager or ConfigManager()
+        self.publisher = IngestionControlPublisher(
+            valkey_client,
+            config_manager=self.config_manager,
+        )
 
     async def upsert_asset(
         self,
@@ -60,8 +66,11 @@ class IngestionControlService:
         existing: IngestionAssetRecord,
         patch: IngestionAssetPatchRequest,
     ) -> IngestionControlResult:
+        persistence_base = await self._resolve_persistence_base_asset(existing)
         updates = patch.model_dump(exclude_none=True, exclude={"reason", "requested_by"})
-        asset = existing.model_copy(update={**updates, "source": IngestionAssetSource.REGISTRY})
+        asset = persistence_base.model_copy(
+            update={**updates, "source": IngestionAssetSource.REGISTRY}
+        )
         persisted = await self.repo.upsert_asset(asset)
         return await self.publisher.publish(
             asset=persisted,
@@ -84,7 +93,8 @@ class IngestionControlService:
             if action == IngestionCommandType.RESUME_ASSET
             else desired_state
         )
-        asset = existing.model_copy(
+        persistence_base = await self._resolve_persistence_base_asset(existing)
+        asset = persistence_base.model_copy(
             update={
                 "desired_state": effective_desired_state,
                 "enabled": enabled,
@@ -107,3 +117,12 @@ class IngestionControlService:
             requested_by=body.requested_by,
             reason=body.reason,
         )
+
+    async def _resolve_persistence_base_asset(
+        self,
+        existing: IngestionAssetRecord,
+    ) -> IngestionAssetRecord:
+        persisted = await self.repo.get_asset(existing.symbol)
+        if persisted is not None:
+            return persisted
+        return existing

@@ -35,6 +35,7 @@ class StrategyRuntimeRunner:
         self.worker_settings = worker_settings or StrategyWorkerSettings()
         self.config_manager = config_manager
         self.redis_client: Any = None
+        self._catalog_pairs_by_key: dict[str, StrategyPair] = {pair.key: pair for pair in pairs}
         self._pairs_by_key: dict[str, StrategyPair] = {pair.key: pair for pair in pairs}
         self._workers_by_key: dict[str, StrategyWorker] = {}
         self._worker_tasks: dict[str, asyncio.Task[None]] = {}
@@ -200,12 +201,8 @@ class StrategyRuntimeRunner:
 
     async def _apply_lifecycle_event(self, event: AssetLifecycleEvent) -> None:
         desired_pairs = {
-            f"{event.symbol}:{timeframe}": StrategyPair(
-                asset=event.symbol,
-                timeframe=timeframe,
-                source="asset_manifest",
-            )
-            for timeframe in self._event_timeframes(event)
+            pair.key: pair
+            for pair in self._desired_pairs_for_event(event)
         }
         existing_keys = [
             pair_key for pair_key in list(self._pairs_by_key)
@@ -272,11 +269,45 @@ class StrategyRuntimeRunner:
             kwargs["config_manager"] = self.config_manager
         if "settings" in parameters:
             kwargs["settings"] = self.worker_settings
+        if "trigger_timeframe" in parameters:
+            kwargs["trigger_timeframe"] = pair.trigger_timeframe or pair.timeframe
+        if "trigger_mode" in parameters:
+            kwargs["trigger_mode"] = pair.trigger_mode
+        if "base_timeframe" in parameters:
+            kwargs["base_timeframe"] = pair.base_timeframe
+        if "allowed_model_names" in parameters:
+            kwargs["allowed_model_names"] = list(pair.model_names)
         return self.worker_factory(pair.asset, pair.timeframe, **kwargs)
 
     @staticmethod
     def _event_timeframes(event: AssetLifecycleEvent) -> list[str]:
-        timeframes = list(event.publish_timeframes or [])
+        timeframes = list(event.timeframes or [])
         if not timeframes:
             timeframes = [event.base_timeframe]
-        return [timeframe for timeframe in timeframes if timeframe]
+        ordered: list[str] = []
+        for timeframe in timeframes:
+            normalized = str(timeframe).strip()
+            if normalized and normalized not in ordered:
+                ordered.append(normalized)
+        return ordered
+
+    def _desired_pairs_for_event(self, event: AssetLifecycleEvent) -> list[StrategyPair]:
+        event_timeframes = set(self._event_timeframes(event))
+        configured = [
+            pair
+            for pair in self._catalog_pairs_by_key.values()
+            if pair.asset == event.symbol
+            and (pair.trigger_timeframe or pair.timeframe) in event_timeframes
+        ]
+        if configured:
+            return configured
+        return [
+            StrategyPair(
+                asset=event.symbol,
+                timeframe=timeframe,
+                trigger_timeframe=timeframe,
+                base_timeframe=event.base_timeframe,
+                source="asset_manifest",
+            )
+            for timeframe in event_timeframes
+        ]

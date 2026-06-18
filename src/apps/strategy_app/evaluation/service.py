@@ -43,16 +43,40 @@ class StrategyEvaluationService:
         self.scoring_model_manager.validate_feature_coverage()
 
     def evaluate_feature_vector(self, feature_vec: FeatureVector) -> StrategyEvaluationResult:
-        outputs = self.model_manager.evaluate(feature_vec)
-        scoring_outputs = self.scoring_model_manager.evaluate(feature_vec)
+        return self.evaluate_feature_vector_routed(feature_vec)
 
-        adapted_outputs = self.model_manager.evaluate_adapted(feature_vec)
+    def evaluate_feature_vector_routed(
+        self,
+        feature_vec: FeatureVector,
+        *,
+        allowed_model_names: set[str] | None = None,
+        runtime_metadata: dict[str, Any] | None = None,
+    ) -> StrategyEvaluationResult:
+        outputs = self._filter_outputs(
+            self.model_manager.evaluate(feature_vec),
+            allowed_model_names,
+        )
+        scoring_outputs = self._filter_outputs(
+            self.scoring_model_manager.evaluate(feature_vec),
+            allowed_model_names,
+        )
+
+        adapted_outputs = self._filter_outputs(
+            self.model_manager.evaluate_adapted(feature_vec),
+            allowed_model_names,
+        )
         scoring_outputs.extend(adapted_outputs)
 
-        native_scoring_outputs = self.model_manager.evaluate_scoring(feature_vec)
+        native_scoring_outputs = self._filter_outputs(
+            self.model_manager.evaluate_scoring(feature_vec),
+            allowed_model_names,
+        )
         scoring_outputs.extend(native_scoring_outputs)
 
-        shadow_outputs = self.model_manager.evaluate_shadow(feature_vec)
+        shadow_outputs = self._filter_outputs(
+            self.model_manager.evaluate_shadow(feature_vec),
+            allowed_model_names,
+        )
         log_migration_comparison(
             self.logger,
             asset=self.asset,
@@ -67,6 +91,9 @@ class StrategyEvaluationService:
             scoring_outputs=scoring_outputs,
             feature_vec=feature_vec,
         )
+        if runtime_metadata:
+            for result in selected:
+                result.candidate.metadata.update(runtime_metadata)
         return StrategyEvaluationResult(feature_vector=feature_vec, selected=selected)
 
     def _blend_outputs(
@@ -90,3 +117,12 @@ class StrategyEvaluationService:
         if blended is None:
             return scoring_outputs
         return [blended]
+
+    @staticmethod
+    def _filter_outputs(outputs: list[Any], allowed_model_names: set[str] | None) -> list[Any]:
+        if not allowed_model_names:
+            return outputs
+        return [
+            output for output in outputs
+            if getattr(output, "model_name", "") in allowed_model_names
+        ]

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from libs.common.timeframes import timeframe_to_seconds
 from libs.contracts.signal import FeatureVector, StreamOHLCVPayload
 
 from apps.signal_app.pipeline.engineered import EngineeredFeaturePipeline
@@ -94,6 +95,7 @@ def _bar_tuple_to_candle(
     timeframe: str,
     bar: tuple[float, ...],
 ) -> StreamOHLCVPayload:
+    bar_span_seconds = timeframe_to_seconds(timeframe)
     return StreamOHLCVPayload(
         symbol=asset,
         timeframe=timeframe,
@@ -105,4 +107,9 @@ def _bar_tuple_to_candle(
         volume=float(bar[4]),
         taker_buy_base=float(bar[6]) if len(bar) > 6 else 0.0,
         bar_closed=True,
+        base_timeframe="1m",
+        bar_span_seconds=bar_span_seconds,
+        close_timestamp=float(bar[5]) + bar_span_seconds,
+        provider="timescale",
+        origin="timescale_snapshot",
     )

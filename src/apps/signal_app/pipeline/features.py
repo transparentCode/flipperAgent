@@ -5,6 +5,11 @@ from typing import Any
 from libs.contracts.signal import FeatureVector, PriceUpdate, StreamOHLCVPayload
 
 from apps.signal_app.enrichment.valkey import ValkeySignalEnrichmentReader
+from apps.signal_app.pipeline.context_namespaces import (
+    TRANSPORT_CONTEXT_KEY,
+    build_transport_context,
+    merge_ltf_context,
+)
 from apps.signal_app.pipeline.engineered import EngineeredFeaturePipeline
 from apps.signal_app.pipeline.raw_indicators import BarTuple, RawIndicatorPipeline
 from apps.signal_app.pipeline.regime import RegimeFeaturePipeline
@@ -38,6 +43,7 @@ class FeaturePipeline:
         candle: StreamOHLCVPayload,
         index_data: dict[str, dict[str, float]] | None = None,
         derivatives_data: dict[str, float] | None = None,
+        ltf_context_profiles: dict[str, dict[str, Any]] | None = None,
         append_current_bar: bool = True,
     ) -> tuple[FeatureVector, PriceUpdate]:
         if self.raw_indicators is None:
@@ -49,6 +55,7 @@ class FeaturePipeline:
             raw_features=raw_features,
             index_data=index_data,
             derivatives_data=derivatives_data,
+            ltf_context_profiles=ltf_context_profiles,
             append_current_bar=append_current_bar,
         )
         return self.build_payloads(
@@ -65,6 +72,7 @@ class FeaturePipeline:
         timeframe: str,
         candle: StreamOHLCVPayload,
         append_current_bar: bool = True,
+        ltf_context_profiles: dict[str, dict[str, Any]] | None = None,
     ) -> tuple[FeatureVector, PriceUpdate]:
         index_data: dict[str, dict[str, float]] = {}
         derivatives_data: dict[str, float] = {}
@@ -78,6 +86,7 @@ class FeaturePipeline:
             candle=candle,
             index_data=index_data,
             derivatives_data=derivatives_data,
+            ltf_context_profiles=ltf_context_profiles,
             append_current_bar=append_current_bar,
         )
         if self.regime_features is not None:
@@ -91,9 +100,11 @@ class FeaturePipeline:
         raw_features: dict[str, Any],
         index_data: dict[str, dict[str, float]] | None = None,
         derivatives_data: dict[str, float] | None = None,
+        ltf_context_profiles: dict[str, dict[str, Any]] | None = None,
         append_current_bar: bool = True,
     ) -> dict[str, Any]:
-        features = dict(raw_features)
+        features = merge_ltf_context(raw_features, profiles=ltf_context_profiles)
+        features[TRANSPORT_CONTEXT_KEY] = build_transport_context(candle)
         bar_data = candle_bar_data(candle)
         if self.engineered_features is not None:
             features.update(

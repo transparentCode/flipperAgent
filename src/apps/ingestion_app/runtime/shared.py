@@ -46,8 +46,23 @@ class AssetRuntimeSpec:
             IngestionAssetDesiredState.RESUMING,
         }
 
+    @property
+    def stream_timeframes(self) -> tuple[str, ...]:
+        return runtime_stream_timeframes(self.base_timeframe, self.publish_timeframes)
+
 
 @dataclass
 class AssetRuntimeHandle:
     spec: AssetRuntimeSpec
     tasks: set[asyncio.Task[Any]] = field(default_factory=set)
+
+
+def runtime_stream_timeframes(
+    base_timeframe: str,
+    publish_timeframes: tuple[str, ...] | list[str],
+) -> tuple[str, ...]:
+    ordered: list[str] = []
+    for timeframe in [str(base_timeframe).strip(), *[str(tf).strip() for tf in publish_timeframes]]:
+        if timeframe and timeframe not in ordered:
+            ordered.append(timeframe)
+    return tuple(ordered)

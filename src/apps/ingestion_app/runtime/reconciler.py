@@ -98,7 +98,9 @@ class IngestionRuntimeReconciler:
         self.asset_handles[asset.symbol] = handle
         logger.info(
             f"[{asset.symbol}] Runtime started "
-            f"(publish_timeframes={list(spec.publish_timeframes)}, base_timeframe={spec.base_timeframe})"
+            f"(publish_timeframes={list(spec.publish_timeframes)}, "
+            f"stream_timeframes={list(spec.stream_timeframes)}, "
+            f"base_timeframe={spec.base_timeframe})"
         )
 
     async def stop_asset(self, symbol: str, handle: AssetRuntimeHandle) -> None:
@@ -108,7 +110,13 @@ class IngestionRuntimeReconciler:
         if handle.tasks:
             await asyncio.gather(*handle.tasks, return_exceptions=True)
         try:
-            await self.coordinator.transition(symbol, handle.spec.base_timeframe, IngestionState.COLD)
+            await self.coordinator.transition(
+                symbol,
+                handle.spec.base_timeframe,
+                IngestionState.COLD,
+                reason="runtime_stopped",
+                provenance="reconciler",
+            )
         except Exception:
             logger.warning(f"[{symbol}] Failed to transition runtime to COLD during stop", exc_info=True)
         logger.info(f"[{symbol}] Runtime stopped")

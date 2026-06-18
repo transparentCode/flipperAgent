@@ -6,6 +6,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
+from libs.common.config import ConfigManager
 from libs.contracts.schemas import FeatureVector
 from libs.contracts.signal import ScoringOutput
 
@@ -336,3 +337,68 @@ class TestScoringModelManager:
         assert "BollingerBands_upper" in available
         assert "KeltnerChannel_upper" in available
         assert "ADX_plus_di" in available
+
+
+    def test_runtime_spec_defaults_for_scoring_models(self):
+        node = {
+            "assets": {
+                "default": {
+                    "timeframes": {
+                        "default": {
+                            "RegimePullbackScorer": {"enabled": True, "params": {}},
+                        }
+                    }
+                }
+            }
+        }
+        mgr = self._make_manager(node)
+
+        spec = mgr.runtime_specs["RegimePullbackScorer"]
+        assert spec.decision_timeframe == "1h"
+        assert spec.base_timeframe == "1m"
+        assert spec.trigger_mode == "on_bar_close"
+        assert spec.stateful is False
+
+    def test_runtime_spec_reads_scoring_model_runtime_block(self, tmp_path, monkeypatch):
+        ConfigManager.reset_singleton()
+        config_dir = tmp_path
+        monkeypatch.chdir(config_dir)
+        (config_dir / "base.yaml").write_text("{}", encoding="utf-8")
+        (config_dir / "features.yaml").write_text("features: {}\n", encoding="utf-8")
+        (config_dir / "models.yaml").write_text(
+            """
+scoring_models:
+  assets:
+    BTCUSDT:
+      timeframes:
+        1h:
+          RegimePullbackScorer:
+            enabled: true
+            runtime:
+              decision_timeframe: "1h"
+              base_timeframe: "1m"
+              trigger_mode: "every_bar_close"
+              required_context_profiles:
+                - "breakout_pressure_15m"
+              warmup_bars: 120
+              priority_class: "low"
+            params: {}
+""".strip()
+            + "\n",
+            encoding="utf-8",
+        )
+
+        manager = ConfigManager(config_dir=str(config_dir))
+        manager.register_file(config_dir / "models.yaml")
+        manager.register_file(config_dir / "features.yaml")
+
+        from apps.strategy_app.scoring_model_manager import ScoringModelManager
+
+        mgr = ScoringModelManager("BTCUSDT", "1h", config_manager=manager)
+        spec = mgr.runtime_specs["RegimePullbackScorer"]
+        assert spec.decision_timeframe == "1h"
+        assert spec.base_timeframe == "1m"
+        assert spec.trigger_mode == "every_bar_close"
+        assert spec.required_context_profiles == ["breakout_pressure_15m"]
+        assert spec.warmup_bars == 120
+        assert spec.priority_class == "low"

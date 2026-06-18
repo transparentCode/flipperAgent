@@ -10,6 +10,10 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
+from libs.common.asset_status import (
+    AssetRuntimeStatusStore,
+    IngestionAssetRuntimeStatus,
+)
 from libs.common.config import ConfigManager
 from libs.common.db.pool_manager import DBPoolManager
 from libs.common.db.timescale_reader import TimescaleReader
@@ -22,6 +26,7 @@ _STATE_KEY_PREFIX = "ingestion:state"
 _STATE_UPDATED_TS_PREFIX = "ingestion:state_updated_ts"
 _DISCONNECT_TS_PREFIX = "ingestion:disconnect_ts"
 _LAST_LIVE_TS_PREFIX = "ingestion:last_live_ts"
+_LAST_READY_TS_PREFIX = "ingestion:last_ready_ts"
 _DISCONNECT_COUNT_PREFIX = "ingestion:disconnect_count"
 _RESUME_BACKFILL_PREFIX = "ingestion:resume_backfill_required"
 
@@ -53,6 +58,12 @@ class IngestionCoordinator:
     ) -> None:
         self._valkey = valkey_client
         self._config = config_manager or ConfigManager()
+        self._runtime_status_stream_maxlen = int(
+            self._config.get("ingestion.streams.runtime_status_maxlen", 5000)
+        )
+        self._runtime_status_stream_approximate = bool(
+            self._config.get("ingestion.streams.runtime_status_approximate", True)
+        )
 
     # ------------------------------------------------------------------ helpers
 
@@ -71,6 +82,10 @@ class IngestionCoordinator:
     @staticmethod
     def _last_live_ts_key(symbol: str, tf: str) -> str:
         return f"{_LAST_LIVE_TS_PREFIX}:{symbol}:{tf}"
+
+    @staticmethod
+    def _last_ready_ts_key(symbol: str, tf: str) -> str:
+        return f"{_LAST_READY_TS_PREFIX}:{symbol}:{tf}"
 
     @staticmethod
     def _disconnect_count_key(symbol: str, tf: str) -> str:
@@ -92,17 +107,29 @@ class IngestionCoordinator:
         except ValueError:
             return IngestionState.COLD
 
-    async def transition(self, symbol: str, tf: str, state: IngestionState) -> None:
+    async def transition(
+        self,
+        symbol: str,
+        tf: str,
+        state: IngestionState,
+        *,
+        reason: str | None = None,
+        provenance: str = "ingestion_runtime",
+    ) -> None:
         """Write a state transition to Valkey and emit a log line.
 
         Side-effects on specific states:
         - LIVE  → records last_live_ts
+        - WARMING/LIVE → records last_ready_ts
         - COLD  → records disconnect_ts, increments rolling disconnect counter
                    (counter TTL = ingestion.observability.disconnect_window_seconds)
         """
         now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
         await self._valkey.set(self._state_key(symbol, tf), state.value)
         await self._valkey.set(self._state_updated_ts_key(symbol, tf), str(now_ms))
+
+        if state in (IngestionState.WARMING, IngestionState.LIVE):
+            await self._valkey.set(self._last_ready_ts_key(symbol, tf), str(now_ms))
 
         if state == IngestionState.LIVE:
             await self._valkey.set(self._last_live_ts_key(symbol, tf), str(now_ms))
@@ -118,6 +145,12 @@ class IngestionCoordinator:
                 # First increment in this window — set the TTL
                 await self._valkey.expire(count_key, window_s)
 
+        await self._publish_runtime_status(
+            symbol,
+            tf,
+            reason=reason,
+            provenance=provenance,
+        )
         logger.info(f"[{symbol}:{tf}] ingestion state → {state.value}")
 
     async def get_disconnect_count(self, symbol: str, tf: str) -> int:
@@ -127,6 +160,12 @@ class IngestionCoordinator:
 
     async def mark_resume_backfill_required(self, symbol: str, tf: str) -> None:
         await self._valkey.set(self._resume_backfill_key(symbol, tf), "1")
+        await self._publish_runtime_status(
+            symbol,
+            tf,
+            reason="resume_backfill_required",
+            provenance="control_plane",
+        )
 
     async def resume_backfill_required(self, symbol: str, tf: str) -> bool:
         raw = await self._valkey.get(self._resume_backfill_key(symbol, tf))
@@ -134,6 +173,12 @@ class IngestionCoordinator:
 
     async def clear_resume_backfill_required(self, symbol: str, tf: str) -> None:
         await self._valkey.delete(self._resume_backfill_key(symbol, tf))
+        await self._publish_runtime_status(
+            symbol,
+            tf,
+            reason="resume_backfill_cleared",
+            provenance="gap_fill",
+        )
 
     async def get_observability_snapshot(self, symbol: str, tf: str) -> dict:
         """Return a per-asset observability dict suitable for the /ingestion/status endpoint."""
@@ -142,18 +187,33 @@ class IngestionCoordinator:
         state_updated_ts_raw = await self._valkey.get(self._state_updated_ts_key(symbol, tf))
         disconnect_ts_raw = await self._valkey.get(self._disconnect_ts_key(symbol, tf))
         last_live_ts_raw = await self._valkey.get(self._last_live_ts_key(symbol, tf))
+        last_ready_ts_raw = await self._valkey.get(self._last_ready_ts_key(symbol, tf))
         count_raw = await self._valkey.get(self._disconnect_count_key(symbol, tf))
+        resume_backfill_required = await self.resume_backfill_required(symbol, tf)
+        status_record = await AssetRuntimeStatusStore(self._valkey).read_status(symbol, tf)
         state_updated_ts = int(state_updated_ts_raw) if state_updated_ts_raw else None
         last_live_ts = int(last_live_ts_raw) if last_live_ts_raw else None
+        last_ready_ts = int(last_ready_ts_raw) if last_ready_ts_raw else None
         last_disconnect_ts = int(disconnect_ts_raw) if disconnect_ts_raw else None
+        state_value = state_raw or IngestionState.COLD.value
+        downstream_ready = (
+            state_value in {IngestionState.WARMING.value, IngestionState.LIVE.value}
+            and not resume_backfill_required
+        )
         return {
-            "state": state_raw or IngestionState.COLD.value,
+            "state": state_value,
             "state_updated_ts": state_updated_ts,
             "state_age_ms": (now_ms - state_updated_ts) if state_updated_ts is not None else None,
+            "downstream_ready": downstream_ready,
+            "resume_backfill_required": resume_backfill_required,
+            "last_ready_ts": last_ready_ts,
+            "last_ready_age_ms": (now_ms - last_ready_ts) if last_ready_ts is not None else None,
             "last_live_ts": last_live_ts,
             "last_live_age_ms": (now_ms - last_live_ts) if last_live_ts is not None else None,
             "last_disconnect_ts": last_disconnect_ts,
             "disconnects_in_window": int(count_raw) if count_raw else 0,
+            "status_reason": status_record.reason if status_record is not None else None,
+            "status_provenance": status_record.provenance if status_record is not None else None,
         }
 
     async def is_stale(self, symbol: str, tf: str) -> bool:
@@ -209,3 +269,46 @@ class IngestionCoordinator:
                 await asyncio.sleep(poll_interval_s)
 
         return await asyncio.wait_for(_poll(), timeout=timeout_s)
+
+    async def _publish_runtime_status(
+        self,
+        symbol: str,
+        tf: str,
+        *,
+        reason: str | None,
+        provenance: str,
+    ) -> None:
+        state = await self.get_state(symbol, tf)
+        now_s = datetime.now(timezone.utc).timestamp()
+        last_ready_raw = await self._valkey.get(self._last_ready_ts_key(symbol, tf))
+        last_live_raw = await self._valkey.get(self._last_live_ts_key(symbol, tf))
+        last_disconnect_raw = await self._valkey.get(self._disconnect_ts_key(symbol, tf))
+        resume_backfill_required = await self.resume_backfill_required(symbol, tf)
+        downstream_ready = state in (IngestionState.WARMING, IngestionState.LIVE) and not resume_backfill_required
+
+        status = IngestionAssetRuntimeStatus(
+            symbol=symbol,
+            timeframe=tf,
+            runtime_state=state.value,
+            downstream_ready=downstream_ready,
+            resume_backfill_required=resume_backfill_required,
+            reason=reason,
+            provenance=provenance,
+            updated_at=now_s,
+            last_ready_at=(int(last_ready_raw) / 1000) if last_ready_raw else None,
+            last_live_at=(int(last_live_raw) / 1000) if last_live_raw else None,
+            last_disconnect_at=(int(last_disconnect_raw) / 1000) if last_disconnect_raw else None,
+        )
+        try:
+            await AssetRuntimeStatusStore(
+                self._valkey,
+                stream_maxlen=self._runtime_status_stream_maxlen,
+                stream_approximate=self._runtime_status_stream_approximate,
+            ).write_status(status)
+        except Exception:
+            logger.warning(
+                "[%s:%s] failed to publish runtime status update",
+                symbol,
+                tf,
+                exc_info=True,
+            )

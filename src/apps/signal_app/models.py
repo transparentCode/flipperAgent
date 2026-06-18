@@ -20,6 +20,10 @@ class SignalPair(BaseModel):
 
     asset: str
     timeframe: str
+    trigger_timeframe: str | None = None
+    trigger_mode: str = "on_bar_close"
+    base_timeframe: str = "1m"
+    required_context_profiles: list[str] = Field(default_factory=list)
     enabled: bool = True
     source: str = "config"
 
@@ -33,9 +37,46 @@ class SignalPair(BaseModel):
     def normalize_timeframe(cls, value: object) -> str:
         return str(value).strip()
 
+    @field_validator("trigger_timeframe", mode="before")
+    @classmethod
+    def normalize_trigger_timeframe(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        normalized = str(value).strip()
+        return normalized or None
+
+    @field_validator("trigger_mode", mode="before")
+    @classmethod
+    def normalize_trigger_mode(cls, value: object) -> str:
+        return str(value).strip()
+
+    @field_validator("base_timeframe", mode="before")
+    @classmethod
+    def normalize_base_timeframe(cls, value: object) -> str:
+        return str(value).strip()
+
+    @field_validator("required_context_profiles", mode="before")
+    @classmethod
+    def normalize_required_context_profiles(cls, value: object) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            items = [value]
+        else:
+            items = list(value)
+        ordered: list[str] = []
+        for item in items:
+            normalized = str(item).strip()
+            if normalized and normalized not in ordered:
+                ordered.append(normalized)
+        return ordered
+
     @property
     def key(self) -> str:
-        return f"{self.asset}:{self.timeframe}"
+        trigger_timeframe = self.trigger_timeframe or self.timeframe
+        if trigger_timeframe == self.timeframe:
+            return f"{self.asset}:{self.timeframe}"
+        return f"{self.asset}:{self.timeframe}@{trigger_timeframe}"
 
 
 class SignalRuntimeStatus(BaseModel):
@@ -58,4 +99,3 @@ class SignalFeatureSnapshotRequest(BaseModel):
     @classmethod
     def normalize_asset(cls, value: object) -> str:
         return str(value).upper().strip()
-

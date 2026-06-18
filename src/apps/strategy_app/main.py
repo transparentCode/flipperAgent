@@ -6,12 +6,11 @@ import asyncio
 import os
 
 from apps.strategy_app.runtime import StrategyRuntimeRunner
-from apps.strategy_app.state import StrategyPair
+from apps.strategy_app.runtime_pairs import build_strategy_pairs
 from apps.strategy_app.settings import StrategyWorkerSettings, create_strategy_config_manager
 from libs.common.asset_manifest import AssetManifestStore
 from libs.common.config import ConfigManager
 from libs.common.connections import create_valkey_client
-from libs.common.discovery import discover_pairs
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger, configure_logging
 
@@ -42,8 +41,12 @@ async def _run() -> None:
 
     redis_client = await create_valkey_client(config_mgr)
     settings = StrategyWorkerSettings.from_config(config_mgr)
-    manifest_pairs = await AssetManifestStore(redis_client).list_runtime_pairs()
-    pairs = manifest_pairs or discover_pairs(config_mgr)
+    manifest_store = AssetManifestStore(redis_client)
+    manifest_assets = await manifest_store.list_assets()
+    pairs = build_strategy_pairs(
+        config_mgr,
+        live_manifests=manifest_assets if manifest_assets else None,
+    )
     if not pairs:
         logger.warning("No asset/timeframe pairs found in canonical manifest or models.yaml. Exiting.")
         await redis_client.aclose()
@@ -52,12 +55,12 @@ async def _run() -> None:
     logger.info(
         "Discovered %s strategy asset/timeframe pairs from %s: %s",
         len(pairs),
-        "asset manifest" if manifest_pairs else "models.yaml",
-        pairs,
+        "asset manifest" if manifest_assets else "models.yaml",
+        [(pair.asset, pair.timeframe, pair.trigger_timeframe or pair.timeframe) for pair in pairs],
     )
 
     runner = StrategyRuntimeRunner(
-        [StrategyPair(asset=asset, timeframe=tf, source="asset_manifest" if manifest_pairs else "config") for asset, tf in pairs],
+        pairs,
         config_manager=config_mgr,
         worker_settings=settings,
     )

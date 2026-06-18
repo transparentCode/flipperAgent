@@ -24,6 +24,11 @@ class SignalWorkerSettings:
     consumer_name_prefix: str = "signal_worker"
     batch_size: int = 10
     block_ms: int = 1000
+    feature_stream_maxlen: int = 5000
+    feature_stream_approximate: bool = True
+    price_update_stream_maxlen: int = 500
+    price_update_stream_approximate: bool = True
+    ltf_context_ttl_seconds: int = 21_600
     priming_retry_delay_sec: float = 1.0
     warming_retry_delay_sec: float = 5.0
     enrichment_index_keys: tuple[str, ...] = ("BTC.D", "TOTAL2", "TOTAL3")
@@ -53,6 +58,36 @@ class SignalWorkerSettings:
             ),
             batch_size=int(config_manager.get("signal.runtime.batch_size", cls.batch_size)),
             block_ms=int(config_manager.get("signal.runtime.block_ms", cls.block_ms)),
+            feature_stream_maxlen=int(
+                config_manager.get(
+                    "signal.runtime.feature_stream_maxlen",
+                    cls.feature_stream_maxlen,
+                )
+            ),
+            feature_stream_approximate=bool(
+                config_manager.get(
+                    "signal.runtime.feature_stream_approximate",
+                    cls.feature_stream_approximate,
+                )
+            ),
+            price_update_stream_maxlen=int(
+                config_manager.get(
+                    "signal.runtime.price_update_stream_maxlen",
+                    cls.price_update_stream_maxlen,
+                )
+            ),
+            price_update_stream_approximate=bool(
+                config_manager.get(
+                    "signal.runtime.price_update_stream_approximate",
+                    cls.price_update_stream_approximate,
+                )
+            ),
+            ltf_context_ttl_seconds=int(
+                config_manager.get(
+                    "signal.runtime.ltf_context_ttl_seconds",
+                    cls.ltf_context_ttl_seconds,
+                )
+            ),
             priming_retry_delay_sec=float(
                 config_manager.get(
                     "signal.runtime.priming_retry_delay_sec",

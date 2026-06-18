@@ -29,6 +29,35 @@ CREATE TABLE IF NOT EXISTS open_interest (
 );
 SELECT create_hypertable('open_interest', 'timestamp', if_not_exists => true, migrate_data => true);
 
+CREATE TABLE IF NOT EXISTS funding_rate (
+    timestamp TIMESTAMPTZ NOT NULL,
+    symbol TEXT NOT NULL,
+    funding_rate FLOAT,
+    PRIMARY KEY(timestamp, symbol)
+);
+SELECT create_hypertable('funding_rate', 'timestamp', if_not_exists => true, migrate_data => true);
+
+ALTER TABLE ohlcv SET (
+    timescaledb.compress,
+    timescaledb.compress_segmentby = 'symbol,timeframe'
+);
+SELECT add_compression_policy('ohlcv', INTERVAL '14 days', if_not_exists => true);
+SELECT add_retention_policy('ohlcv', INTERVAL '180 days', if_not_exists => true);
+
+ALTER TABLE open_interest SET (
+    timescaledb.compress,
+    timescaledb.compress_segmentby = 'symbol'
+);
+SELECT add_compression_policy('open_interest', INTERVAL '14 days', if_not_exists => true);
+SELECT add_retention_policy('open_interest', INTERVAL '180 days', if_not_exists => true);
+
+ALTER TABLE funding_rate SET (
+    timescaledb.compress,
+    timescaledb.compress_segmentby = 'symbol'
+);
+SELECT add_compression_policy('funding_rate', INTERVAL '14 days', if_not_exists => true);
+SELECT add_retention_policy('funding_rate', INTERVAL '180 days', if_not_exists => true);
+
 -- 1. Continuous Aggregate for 1-minute bars
 CREATE MATERIALIZED VIEW IF NOT EXISTS market_1m_bars
 WITH (timescaledb.continuous) AS
@@ -50,7 +79,12 @@ SELECT add_continuous_aggregate_policy('market_1m_bars',
     schedule_interval => INTERVAL '1 minute');
 
 -- 3. Add 30-day retention on raw ticks
-SELECT add_retention_policy('ticks', INTERVAL '30 days');
+ALTER TABLE ticks SET (
+    timescaledb.compress,
+    timescaledb.compress_segmentby = 'symbol'
+);
+SELECT add_compression_policy('ticks', INTERVAL '1 day', if_not_exists => true);
+SELECT add_retention_policy('ticks', INTERVAL '30 days', if_not_exists => true);
 
 -- 4. L2 orderbook depth features (pre-aggregated)
 CREATE TABLE IF NOT EXISTS l2_depth_features (
@@ -69,6 +103,11 @@ CREATE TABLE IF NOT EXISTS l2_depth_features (
     PRIMARY KEY(timestamp, symbol)
 );
 SELECT create_hypertable('l2_depth_features', 'timestamp', if_not_exists => true, migrate_data => true);
+ALTER TABLE l2_depth_features SET (
+    timescaledb.compress,
+    timescaledb.compress_segmentby = 'symbol'
+);
+SELECT add_compression_policy('l2_depth_features', INTERVAL '7 days', if_not_exists => true);
 SELECT add_retention_policy('l2_depth_features', INTERVAL '90 days', if_not_exists => true);
 
 CREATE TABLE IF NOT EXISTS ingestion_assets (

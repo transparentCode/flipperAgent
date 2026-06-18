@@ -23,6 +23,23 @@ _INDICATOR_FIELD_ALIASES: dict[str, set[str]] = {
     "VPIN": {"vpin", "vpin_z", "net_taker_buy_ratio"},
 }
 
+_TRANSPORT_CONTEXT_FIELDS = {
+    "ctx_transport",
+    "ctx_transport.base_timeframe",
+    "ctx_transport.bar_span_seconds",
+    "ctx_transport.close_timestamp",
+    "ctx_transport.ingestion_timestamp",
+    "ctx_transport.publication_lag_ms",
+    "ctx_transport.provider",
+    "ctx_transport.origin",
+    "ctx_transport.trigger_timeframe",
+    "ctx_transport.decision_timeframe",
+    "ctx_transport.trigger_mode",
+    "ctx_transport.source_feature_timeframe",
+    "ctx_transport.decision_bar_closed",
+    "ctx_transport.projection_mode",
+}
+
 
 def build_available_feature_contract(
     features_node: Mapping[str, Any], engineered_node: Mapping[str, Any]
@@ -46,4 +63,5 @@ def build_available_feature_contract(
         if isinstance(cfg, Mapping) and cfg.get("enabled", True):
             available.add(f"eng_{key}")
 
+    available.update(_TRANSPORT_CONTEXT_FIELDS)
     return available

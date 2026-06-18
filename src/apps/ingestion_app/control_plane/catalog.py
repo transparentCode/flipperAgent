@@ -14,8 +14,47 @@ from libs.common.config import ConfigManager
 from libs.common.db.pool_manager import DBPoolManager
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
+from libs.contracts.model_runtime import collect_runtime_trigger_timeframes
 
 logger = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_ENGINE)
+
+
+def apply_effective_runtime_contract(
+    asset: IngestionAssetRecord,
+    *,
+    config_manager: ConfigManager | Any | None = None,
+) -> IngestionAssetRecord:
+    manager = config_manager or ConfigManager()
+    derived = collect_runtime_trigger_timeframes(
+        manager,
+        asset=asset.symbol,
+    )
+    merged = merge_publish_timeframes(
+        asset.base_timeframe,
+        asset.publish_timeframes,
+        derived,
+    )
+    if merged == list(asset.publish_timeframes):
+        return asset
+    return asset.model_copy(update={"publish_timeframes": merged})
+
+
+def merge_publish_timeframes(
+    base_timeframe: str,
+    configured: list[str],
+    derived: list[str],
+) -> list[str]:
+    normalized_base = str(base_timeframe).strip()
+    ordered: list[str] = []
+    for timeframe in [*list(configured or []), *list(derived or [])]:
+        normalized = str(timeframe).strip()
+        if not normalized:
+            continue
+        if normalized == normalized_base and normalized not in configured:
+            continue
+        if normalized not in ordered:
+            ordered.append(normalized)
+    return ordered
 
 
 class IngestionAssetCatalog:
@@ -30,7 +69,10 @@ class IngestionAssetCatalog:
 
     async def list_effective_assets(self) -> list[IngestionAssetRecord]:
         config_assets = {asset.symbol: asset for asset in self._assets_from_config()}
-        registry_assets = await self._load_registry_assets()
+        registry_assets = [
+            apply_effective_runtime_contract(asset, config_manager=self.config_manager)
+            for asset in await self._load_registry_assets()
+        ]
         if not registry_assets:
             return list(config_assets.values())
 
@@ -42,7 +84,10 @@ class IngestionAssetCatalog:
         symbol = symbol.upper()
         registry_asset = await self._load_registry_asset(symbol)
         if registry_asset is not None:
-            return registry_asset
+            return apply_effective_runtime_contract(
+                registry_asset,
+                config_manager=self.config_manager,
+            )
 
         for asset in self._assets_from_config():
             if asset.symbol == symbol:
@@ -86,16 +131,19 @@ class IngestionAssetCatalog:
         )
 
         return [
-            IngestionAssetRecord(
-                symbol=symbol,
-                exchange="binance",
-                provider="binance_native",
-                base_timeframe=base_timeframe,
-                publish_timeframes=publish_timeframes.get(symbol, []),
-                historical_backfill_days=historical_backfill_days,
-                enabled=True,
-                desired_state=IngestionAssetDesiredState.LIVE,
-                source=IngestionAssetSource.CONFIG,
+            apply_effective_runtime_contract(
+                IngestionAssetRecord(
+                    symbol=symbol,
+                    exchange="binance",
+                    provider="binance_native",
+                    base_timeframe=base_timeframe,
+                    publish_timeframes=publish_timeframes.get(symbol, []),
+                    historical_backfill_days=historical_backfill_days,
+                    enabled=True,
+                    desired_state=IngestionAssetDesiredState.LIVE,
+                    source=IngestionAssetSource.CONFIG,
+                ),
+                config_manager=self.config_manager,
             )
             for symbol in target_assets
         ]

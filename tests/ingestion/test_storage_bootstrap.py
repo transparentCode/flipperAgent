@@ -46,19 +46,26 @@ async def test_apply_ingestion_schema_ignores_existing_policy_errors():
         statements_seen.append(statement)
         if "add_retention_policy" in statement:
             raise RuntimeError("retention policy already exists")
+        if "add_compression_policy" in statement:
+            raise RuntimeError("compression policy already exists")
         return "OK"
 
     conn.execute.side_effect = execute_side_effect
 
     with patch(
         "pathlib.Path.read_text",
-        return_value="SELECT 1; SELECT add_retention_policy('ticks', INTERVAL '30 days');",
+        return_value=(
+            "SELECT 1; "
+            "SELECT add_compression_policy('ticks', INTERVAL '1 day', if_not_exists => true); "
+            "SELECT add_retention_policy('ticks', INTERVAL '30 days', if_not_exists => true);"
+        ),
     ):
         await apply_ingestion_schema(pool)
 
     assert statements_seen == [
         "SELECT 1",
-        "SELECT add_retention_policy('ticks', INTERVAL '30 days')",
+        "SELECT add_compression_policy('ticks', INTERVAL '1 day', if_not_exists => true)",
+        "SELECT add_retention_policy('ticks', INTERVAL '30 days', if_not_exists => true)",
     ]
     conn.fetchval.assert_any_await("SELECT pg_advisory_lock($1)", 48_216_421)
     conn.fetchval.assert_any_await("SELECT pg_advisory_unlock($1)", 48_216_421)

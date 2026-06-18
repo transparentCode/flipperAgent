@@ -1,5 +1,6 @@
 """Tests for StrategyWorker — deserialization, idempotency key, signal conversion."""
 
+from libs.common.config import ConfigManager
 from apps.strategy_app.settings import StrategyWorkerSettings
 from apps.strategy_app.strategy_worker import StrategyWorker
 
@@ -18,15 +19,18 @@ class TestStrategyWorkerHelpers:
 
 class TestStrategyWorkerInit:
     def test_stream_keys(self):
+        ConfigManager.reset_singleton()
         sw = StrategyWorker("BTCUSDT", "1h")
         assert sw.feature_stream_key == "features:BTCUSDT:1h"
         assert sw.signal_stream_key == "signals:BTCUSDT:1h"
 
     def test_model_manager_loaded(self):
+        ConfigManager.reset_singleton()
         sw = StrategyWorker("BTCUSDT", "1h")
         assert len(sw.model_manager.models) >= 1
 
     def test_custom_worker_settings_applied(self):
+        ConfigManager.reset_singleton()
         sw = StrategyWorker(
             "BTCUSDT",
             "1h",
@@ -41,3 +45,16 @@ class TestStrategyWorkerInit:
         assert sw.consumer_name == "custom_worker_BTCUSDT_1h"
         assert sw.batch_size == 25
         assert sw.block_ms == 2500
+
+    def test_trigger_lane_worker_uses_trigger_stream_and_decision_signal_lane(self):
+        ConfigManager.reset_singleton()
+        sw = StrategyWorker(
+            "BTCUSDT",
+            "4h",
+            trigger_timeframe="1m",
+            trigger_mode="on_base_bar_close",
+            allowed_model_names=["Momentum"],
+        )
+        assert sw.feature_stream_key == "features:BTCUSDT:4h@1m"
+        assert sw.signal_stream_key == "signals:BTCUSDT:4h"
+        assert sw.consumer_name == "strategy_worker_BTCUSDT_4h__1m"

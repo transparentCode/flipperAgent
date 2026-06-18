@@ -8,11 +8,13 @@ from typing import Any
 from libs.common.config import ConfigManager
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
+from libs.common.stream_keys import feature_stream_key
 from libs.common.stream_consumer import BaseStreamConsumer
 from libs.contracts.schemas import FeatureVector, valkey_decode
 
 from apps.strategy_app.control import StrategyControlStore, StrategyDesiredState
 from apps.strategy_app.evaluation.service import StrategyEvaluationService
+from apps.strategy_app.evaluation.view_adapter import StrategyDecisionViewAdapter
 from apps.strategy_app.models import ModelManager, ScoringModelManager
 from apps.strategy_app.observability.runtime_state import StrategyRuntimeStateStore
 from apps.strategy_app.publishing.signals import (
@@ -30,7 +32,7 @@ DEFAULT_STRATEGY_WORKER_SETTINGS = StrategyWorkerSettings()
 
 
 class StrategyWorker(BaseStreamConsumer):
-    """Valkey consumer for ``features:{asset}:{timeframe}`` streams."""
+    """Valkey consumer for projected or direct feature streams."""
 
     def __init__(
         self,
@@ -43,36 +45,60 @@ class StrategyWorker(BaseStreamConsumer):
         blender: RegimeEnsembleBlender | None = None,
         settings: StrategyWorkerSettings | None = None,
         config_manager: ConfigManager | None = None,
+        trigger_timeframe: str | None = None,
+        trigger_mode: str = "on_bar_close",
+        base_timeframe: str = "1m",
+        allowed_model_names: list[str] | None = None,
     ) -> None:
         config_manager = create_strategy_config_manager(config_manager or ConfigManager())
         settings = settings or StrategyWorkerSettings.from_config(config_manager)
+        self.asset = asset
+        self.timeframe = timeframe
+        self.decision_timeframe = timeframe
+        self.trigger_timeframe = trigger_timeframe or timeframe
+        self.trigger_mode = trigger_mode
+        self.base_timeframe = base_timeframe
+        self.allowed_model_names = set(allowed_model_names or [])
+        self.view_adapter = StrategyDecisionViewAdapter(
+            decision_timeframe=self.decision_timeframe,
+            trigger_timeframe=self.trigger_timeframe,
+            trigger_mode=self.trigger_mode,
+            base_timeframe=self.base_timeframe,
+        )
         super().__init__(
-            stream_key=f"features:{asset}:{timeframe}",
+            stream_key=feature_stream_key(
+                asset,
+                self.decision_timeframe,
+                trigger_timeframe=self.trigger_timeframe,
+            ),
             group_name=settings.consumer_group,
-            consumer_name=f"{settings.consumer_name_prefix}_{asset}_{timeframe}",
+            consumer_name=_consumer_name(
+                settings.consumer_name_prefix,
+                asset,
+                decision_timeframe=self.decision_timeframe,
+                trigger_timeframe=self.trigger_timeframe,
+            ),
             batch_size=settings.batch_size,
             block_ms=settings.block_ms,
         )
-        self.asset = asset
-        self.timeframe = timeframe
         self.settings = settings
         self.feature_stream_key = self.stream_key
-        self.signal_stream_key = f"signals:{asset}:{timeframe}"
+        self.signal_stream_key = f"signals:{asset}:{self.decision_timeframe}"
         self.config_manager = config_manager
         self.model_manager = model_manager or ModelManager(
             asset,
-            timeframe,
+            self.decision_timeframe,
             config_manager=self.config_manager,
         )
         self.scoring_model_manager = scoring_model_manager or ScoringModelManager(
             asset,
-            timeframe,
+            self.decision_timeframe,
             config_manager=self.config_manager,
         )
-        self.selection_layer = selection_layer or SelectionLayer(asset, timeframe)
+        self.selection_layer = selection_layer or SelectionLayer(asset, self.decision_timeframe)
         self.evaluation_service = StrategyEvaluationService(
             asset=asset,
-            timeframe=timeframe,
+            timeframe=self.decision_timeframe,
             model_manager=self.model_manager,
             scoring_model_manager=self.scoring_model_manager,
             selection_layer=self.selection_layer,
@@ -84,7 +110,7 @@ class StrategyWorker(BaseStreamConsumer):
         if self.blender is None and settings.blender_enabled and settings.blender_config:
             try:
                 self.blender = RegimeEnsembleBlender(settings.blender_config)
-                logger.info(f"Regime ensemble blender enabled for {asset}/{timeframe}")
+                logger.info(f"Regime ensemble blender enabled for {asset}/{self.decision_timeframe}")
             except Exception:
                 logger.debug("Blender config not found or invalid, blender disabled")
         self.evaluation_service.blender = self.blender
@@ -166,7 +192,12 @@ class StrategyWorker(BaseStreamConsumer):
             return
 
         try:
-            result = self.evaluation_service.evaluate_feature_vector(feature_vec)
+            decision_view = self.view_adapter.adapt(feature_vec)
+            result = self.evaluation_service.evaluate_feature_vector_routed(
+                decision_view.feature_vector,
+                allowed_model_names=self.allowed_model_names or None,
+                runtime_metadata=decision_view.runtime_metadata,
+            )
             published = await self.signal_publisher.publish_selected(
                 redis_client=self.redis_client,
                 feature_vec=result.feature_vector,
@@ -207,7 +238,14 @@ class StrategyWorker(BaseStreamConsumer):
         return make_signal_idempotency_key(model_name, asset, timeframe, timestamp)
 
     def _pair(self) -> StrategyPair:
-        return StrategyPair(asset=self.asset, timeframe=self.timeframe)
+        return StrategyPair(
+            asset=self.asset,
+            timeframe=self.decision_timeframe,
+            trigger_timeframe=self.trigger_timeframe,
+            base_timeframe=self.base_timeframe,
+            trigger_mode=self.trigger_mode,
+            model_names=sorted(self.allowed_model_names),
+        )
 
     async def _update_runtime_state(
         self,
@@ -234,3 +272,15 @@ class StrategyWorker(BaseStreamConsumer):
         if self.control_store is None:
             return False
         return await self.control_store.is_paused(self._pair())
+
+
+def _consumer_name(
+    prefix: str,
+    asset: str,
+    *,
+    decision_timeframe: str,
+    trigger_timeframe: str,
+) -> str:
+    if decision_timeframe == trigger_timeframe:
+        return f"{prefix}_{asset}_{decision_timeframe}"
+    return f"{prefix}_{asset}_{decision_timeframe}__{trigger_timeframe}"

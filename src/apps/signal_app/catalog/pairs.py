@@ -4,6 +4,7 @@ from libs.common.config import ConfigManager
 from libs.common.constants import CONFIG_FILE_FEATURES, CONFIG_FILE_MODELS
 
 from apps.signal_app.models import SignalPair
+from apps.signal_app.runtime_pairs import build_signal_pairs
 
 
 class SignalPairCatalog:
@@ -19,27 +20,13 @@ class SignalPairCatalog:
         self.config_manager.register_file(CONFIG_FILE_FEATURES)
 
     def list_pairs(self) -> list[SignalPair]:
-        models_config = self.config_manager.get("models", {})
-        assets_config = models_config.get("assets", {})
-        pairs: list[SignalPair] = []
-
-        for asset, asset_config in assets_config.items():
-            if asset == "default" or not isinstance(asset_config, dict):
-                continue
-            timeframes = asset_config.get("timeframes", {})
-            if not isinstance(timeframes, dict):
-                continue
-            for timeframe in timeframes:
-                if timeframe == "default":
-                    continue
-                pairs.append(SignalPair(asset=asset, timeframe=timeframe))
-
-        return pairs
+        return build_signal_pairs(self.config_manager)
 
     def get_pair(self, asset: str, timeframe: str) -> SignalPair | None:
         normalized = SignalPair(asset=asset, timeframe=timeframe)
         for pair in self.list_pairs():
-            if pair.key == normalized.key:
+            if pair.key == normalized.key or (
+                pair.asset == normalized.asset and pair.timeframe == normalized.timeframe
+            ):
                 return pair
         return None
-

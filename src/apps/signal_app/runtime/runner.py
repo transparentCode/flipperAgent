@@ -31,10 +31,17 @@ class SignalRuntimeRunner:
         catalog: SignalPairCatalog | None = None,
         worker_factory: Callable[[str, str], SignalRuntimeWorker] | None = None,
         worker_settings: SignalWorkerSettings | None = None,
+        initial_pairs: list[SignalPair] | None = None,
     ) -> None:
         self.catalog = catalog or SignalPairCatalog()
         self.worker_factory = worker_factory or SignalRuntimeWorker
         self.worker_settings = worker_settings or SignalWorkerSettings()
+        self._catalog_pairs_by_key: dict[str, SignalPair] = {
+            pair.key: pair for pair in self.catalog.list_pairs()
+        }
+        self._initial_pairs = list(initial_pairs) if initial_pairs is not None else list(
+            self._catalog_pairs_by_key.values()
+        )
         self.redis_client: Any = None
         self.workers: list[SignalRuntimeWorker] = []
         self._workers_by_key: dict[str, SignalRuntimeWorker] = {}
@@ -47,7 +54,7 @@ class SignalRuntimeRunner:
     def list_pairs(self) -> list[SignalPair]:
         if self._pairs_by_key:
             return list(self._pairs_by_key.values())
-        return self.catalog.list_pairs()
+        return list(self._initial_pairs)
 
     def build_workers(self) -> list[SignalRuntimeWorker]:
         self.workers = [
@@ -59,18 +66,23 @@ class SignalRuntimeRunner:
 
     def _build_worker(self, pair: SignalPair) -> SignalRuntimeWorker:
         parameters = inspect.signature(self.worker_factory).parameters
+        kwargs: dict[str, Any] = {}
         if "settings" in parameters:
-            return self.worker_factory(
-                pair.asset,
-                pair.timeframe,
-                settings=self.worker_settings,
-            )
-        return self.worker_factory(pair.asset, pair.timeframe)
+            kwargs["settings"] = self.worker_settings
+        if "trigger_timeframe" in parameters:
+            kwargs["trigger_timeframe"] = pair.trigger_timeframe or pair.timeframe
+        if "trigger_mode" in parameters:
+            kwargs["trigger_mode"] = pair.trigger_mode
+        if "base_timeframe" in parameters:
+            kwargs["base_timeframe"] = pair.base_timeframe
+        if "required_context_profiles" in parameters:
+            kwargs["required_context_profiles"] = list(pair.required_context_profiles)
+        return self.worker_factory(pair.asset, pair.timeframe, **kwargs)
 
     async def connect(self, redis_client: Any) -> list[SignalRuntimeWorker]:
         self.redis_client = redis_client
         self._state_store = SignalRuntimeStateStore(redis_client)
-        for pair in self.catalog.list_pairs():
+        for pair in self._initial_pairs:
             self._pairs_by_key[pair.key] = pair
         workers = await self._start_pairs(self.list_pairs())
         return list(workers)
@@ -218,12 +230,8 @@ class SignalRuntimeRunner:
 
     async def _apply_lifecycle_event(self, event: AssetLifecycleEvent) -> None:
         desired_pairs = {
-            f"{event.symbol}:{timeframe}": SignalPair(
-                asset=event.symbol,
-                timeframe=timeframe,
-                source="asset_manifest",
-            )
-            for timeframe in self._event_timeframes(event)
+            pair.key: pair
+            for pair in self._desired_pairs_for_event(event)
         }
         existing_keys = [
             pair_key for pair_key in list(self._pairs_by_key)
@@ -282,7 +290,36 @@ class SignalRuntimeRunner:
 
     @staticmethod
     def _event_timeframes(event: AssetLifecycleEvent) -> list[str]:
-        timeframes = list(event.publish_timeframes or [])
+        timeframes = list(event.timeframes or [])
         if not timeframes:
-            timeframes = [event.base_timeframe]
-        return [timeframe for timeframe in timeframes if timeframe]
+            timeframes = [event.base_timeframe, *list(event.publish_timeframes or [])]
+        ordered: list[str] = []
+        for timeframe in timeframes:
+            normalized = str(timeframe).strip()
+            if normalized and normalized not in ordered:
+                ordered.append(normalized)
+        return ordered
+
+    def _desired_pairs_for_event(self, event: AssetLifecycleEvent) -> list[SignalPair]:
+        event_timeframes = set(self._event_timeframes(event))
+        configured = [
+            pair
+            for pair in self._catalog_pairs_by_key.values()
+            if pair.asset == event.symbol
+            and (pair.trigger_timeframe or pair.timeframe) in event_timeframes
+        ]
+        desired_by_key = {pair.key: pair for pair in configured}
+        for timeframe in event_timeframes:
+            pair_key = f"{event.symbol}:{timeframe}"
+            desired_by_key.setdefault(
+                pair_key,
+                SignalPair(
+                    asset=event.symbol,
+                    timeframe=timeframe,
+                    trigger_timeframe=timeframe,
+                    trigger_mode="on_bar_close",
+                    base_timeframe=event.base_timeframe,
+                    source="asset_manifest",
+                ),
+            )
+        return list(desired_by_key.values())

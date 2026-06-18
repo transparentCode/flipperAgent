@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from apps.signal_app.pipeline.features import FeaturePipeline
+from apps.signal_app.runtime.worker import SignalRuntimeWorker
+from apps.strategy_app.evaluation.service import StrategyEvaluationResult
+from apps.strategy_app.strategy_worker import StrategyWorker
 from libs.contracts.schemas import (
     FeatureVector,
     ModelOutput,
@@ -39,6 +44,56 @@ def _make_model_output(direction: int = 1) -> ModelOutput:
         conviction=0.85,
         metadata={"score": 0.9},
     )
+
+
+def _history(length: int = 8, timeframe_seconds: int = 14_400) -> list[tuple[float, ...]]:
+    start = 1_700_000_000 - length * timeframe_seconds
+    rows: list[tuple[float, ...]] = []
+    for index in range(length):
+        ts = float(start + index * timeframe_seconds)
+        price = 100.0 + index
+        rows.append((price, price + 1.0, price - 1.0, price + 0.5, 10.0 + index, ts, 4.0))
+    return rows
+
+
+def _history_1m(length: int = 240) -> list[tuple[float, ...]]:
+    start = 1_700_000_000 - length * 60
+    rows: list[tuple[float, ...]] = []
+    for index in range(length):
+        ts = float(start + index * 60)
+        price = 100.0 + (index * 0.05)
+        rows.append((price, price + 0.2, price - 0.2, price + 0.1, 5.0 + index, ts, 2.0))
+    return rows
+
+
+class _FakeRawIndicators:
+    def __init__(self, *, snapshot: dict[str, float], live: dict[str, float]) -> None:
+        self.snapshot = snapshot
+        self.live = live
+        self.history: list[tuple[float, ...]] = []
+        self.indicators = [SimpleNamespace(lookback_required=4)]
+
+    def prime(self, history: list[tuple[float, ...]]) -> None:
+        self.history = list(history)
+
+    def get_unprimed_indicator_keys(self) -> list[str]:
+        return []
+
+    def snapshot_features(self, history: list[tuple[float, ...]]) -> dict[str, float]:
+        return dict(self.snapshot)
+
+    def snapshot_raw(self, history: list[tuple[float, ...]]) -> dict[str, dict[str, float]]:
+        return {name: {"value": value} for name, value in self.snapshot.items()}
+
+    def update(self, row: tuple[float, ...]) -> None:
+        self.history.append(row)
+
+    def process_tick(self, data: tuple[float, ...]) -> dict[str, float]:
+        self.history.append(data)
+        return dict(self.live)
+
+    def get_latest_raw(self) -> dict[str, dict[str, float]]:
+        return {name: {"value": value} for name, value in self.live.items()}
 
 
 # ---------------------------------------------------------------------------
@@ -209,3 +264,82 @@ class TestStrategyWorkerProcessFeatures:
         await worker.process_features(valkey_encode(_make_feature_vector()))
 
         worker.redis_client.xadd.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_process_features_preserves_projected_source_lane_metadata(self) -> None:
+        signal_redis = AsyncMock()
+        signal_redis.xadd = AsyncMock(return_value="1-0")
+        signal_redis.hset = AsyncMock(return_value=1)
+        signal_redis.hgetall = AsyncMock(return_value={})
+        raw = _FakeRawIndicators(snapshot={"RSI": 55.0}, live={"RSI": 56.0})
+        pipeline = FeaturePipeline(raw_indicators=raw)
+        signal_worker = SignalRuntimeWorker(
+            "BTCUSDT",
+            "4h",
+            pipeline=pipeline,
+            trigger_timeframe="1m",
+            trigger_mode="on_base_bar_close",
+            required_context_profiles=["volatility_15m"],
+        )
+        await signal_worker.connect(signal_redis)
+        history_4h = _history(length=8)
+        history_1m = _history_1m(length=240)
+        signal_worker._prime_projection_history(history_4h)
+        signal_worker._prime_source_history(history_1m)
+        signal_worker._prime_ltf_history(history_1m)
+
+        await signal_worker.process_message(
+            "1-0",
+            {
+                b"bar_closed": b"true",
+                b"symbol": b"BTCUSDT",
+                b"timeframe": b"1m",
+                b"timestamp": str(int(history_1m[-1][5] + 60)).encode(),
+                b"open": b"100.0",
+                b"high": b"101.0",
+                b"low": b"99.0",
+                b"close": b"100.5",
+                b"volume": b"10.0",
+                b"taker_buy_base": b"4.0",
+            },
+        )
+
+        published_payload = signal_redis.xadd.await_args_list[0].args[1]
+        strategy_worker = StrategyWorker(
+            "BTCUSDT",
+            "4h",
+            trigger_timeframe="1m",
+            trigger_mode="on_base_bar_close",
+        )
+        strategy_worker.redis_client = AsyncMock()
+        strategy_worker.signal_publisher.publish_selected = AsyncMock(return_value=0)
+        strategy_worker._is_paused = AsyncMock(return_value=False)
+        strategy_worker._update_runtime_state = AsyncMock()
+        captured: dict[str, object] = {}
+
+        def _evaluate(feature_vec: FeatureVector, *, allowed_model_names=None, runtime_metadata=None):
+            captured["feature_vec"] = feature_vec
+            captured["runtime_metadata"] = runtime_metadata
+            return StrategyEvaluationResult(feature_vector=feature_vec, selected=[])
+
+        strategy_worker.evaluation_service = SimpleNamespace(
+            evaluate_feature_vector_routed=_evaluate
+        )
+
+        await strategy_worker.process_features(published_payload)
+
+        runtime_metadata = captured["runtime_metadata"]
+        assert runtime_metadata is not None
+        assert runtime_metadata["decision_timeframe"] == "4h"
+        assert runtime_metadata["trigger_timeframe"] == "1m"
+        assert runtime_metadata["source_feature_timeframe"] == "1m"
+        assert runtime_metadata["trigger_mode"] == "on_base_bar_close"
+        assert runtime_metadata["projection_mode"] == "decision_view"
+        assert runtime_metadata["decision_bar_closed"] is False
+
+        feature_vec = captured["feature_vec"]
+        assert feature_vec is not None
+        transport = feature_vec.features["ctx_transport"]
+        assert transport["source_feature_timeframe"] == "1m"
+        assert transport["decision_timeframe"] == "4h"
+        assert transport["projection_mode"] == "decision_view"

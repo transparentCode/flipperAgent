@@ -71,6 +71,39 @@ class ValkeySignalEnrichmentReader:
                     logger.warning("Failed to fetch derivatives data for %s/%s", asset, suffix, exc_info=True)
         return derivatives
 
+    async def load_ltf_context_profiles(
+        self,
+        *,
+        asset: str,
+        base_timeframe: str = "1m",
+        profiles: list[str] | tuple[str, ...] | None = None,
+    ) -> dict[str, dict[str, Any]]:
+        snapshots: dict[str, dict[str, Any]] = {}
+        if self.redis_client is None or not profiles:
+            return snapshots
+
+        normalized_asset = str(asset).upper().strip()
+        normalized_base = str(base_timeframe).strip() or "1m"
+        for profile in profiles:
+            normalized_profile = str(profile).strip()
+            if not normalized_profile:
+                continue
+            try:
+                raw = await self.redis_client.hgetall(
+                    f"signal:ltf_context:{normalized_asset}:{normalized_base}:{normalized_profile}"
+                )
+                if raw:
+                    snapshots[normalized_profile] = _parse_generic_snapshot(_decode_hash(raw))
+            except Exception:
+                logger.warning(
+                    "Failed to fetch lower-timeframe context for %s/%s/%s",
+                    normalized_asset,
+                    normalized_base,
+                    normalized_profile,
+                    exc_info=True,
+                )
+        return snapshots
+
 
 def _decode_hash(raw: dict[Any, Any]) -> dict[str, str]:
     decoded: dict[str, str] = {}
@@ -90,4 +123,14 @@ def _parse_numeric_snapshot(decoded: dict[str, str]) -> dict[str, Any]:
     for field in ("symbol", "timeframe"):
         if field in decoded:
             parsed[field] = decoded[field]
+    return parsed
+
+
+def _parse_generic_snapshot(decoded: dict[str, str]) -> dict[str, Any]:
+    parsed: dict[str, Any] = {}
+    for key, value in decoded.items():
+        try:
+            parsed[key] = float(value)
+        except (TypeError, ValueError):
+            parsed[key] = value
     return parsed

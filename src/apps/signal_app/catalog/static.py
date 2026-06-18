@@ -13,7 +13,8 @@ class StaticSignalPairCatalog:
     def get_pair(self, asset: str, timeframe: str) -> SignalPair | None:
         normalized = SignalPair(asset=asset, timeframe=timeframe)
         for pair in self._pairs:
-            if pair.key == normalized.key:
+            if pair.key == normalized.key or (
+                pair.asset == normalized.asset and pair.timeframe == normalized.timeframe
+            ):
                 return pair
         return None
-
