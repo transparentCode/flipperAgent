@@ -45,6 +45,12 @@ components: {
     link: "../../../src/apps/api_app/routers/ingestion.py"
   }
 
+  runtime_app: {
+    class: component
+    label: "runtime_app"
+    link: "../../../src/apps/ingestion_app/runtime/app.py"
+  }
+
   control: {
     class: component
     label: "control_plane"
@@ -121,6 +127,18 @@ contracts: {
     shape: queue
   }
 
+  topup_job: {
+    class: contract
+    label: "poll_binance_ohlcv"
+    shape: queue
+  }
+
+  depth_job: {
+    class: contract
+    label: "poll_l2_depth"
+    shape: queue
+  }
+
   purge_job: {
     class: contract
     label: "purge_removed_asset"
@@ -158,6 +176,11 @@ consumers: {
     label: "signal_app"
   }
 
+  strategy_app: {
+    class: consumer
+    label: "strategy_app"
+  }
+
   operators: {
     class: consumer
     label: "operators / future alert_app"
@@ -166,6 +189,7 @@ consumers: {
 
 sources.lifecycle_request -> components.router: "HTTP"
 components.router -> components.control: "upsert / patch / action"
+components.runtime_app -> components.reconciler: "startup reconcile"
 sources.live_feed -> components.ws: "websocket"
 sources.historical_feed -> components.jobs: "REST"
 
@@ -180,6 +204,7 @@ storage.ingestion_assets -> components.reconciler: "effective state"
 contracts.control_stream -> components.reconciler: "consume"
 components.reconciler -> contracts.gap_fill_job: "enqueue"
 components.reconciler -> contracts.purge_job: "enqueue"
+components.reconciler -> contracts.runtime_state: "write lifecycle state"
 
 components.ws -> storage.ohlcv: "persist live"
 components.ws -> contracts.ohlcv_stream: "publish"
@@ -187,10 +212,14 @@ components.ws -> contracts.runtime_state: "write"
 components.ws -> contracts.gap_fill_job: "enqueue on recovery"
 
 contracts.gap_fill_job -> components.jobs: "consume"
+contracts.topup_job -> components.jobs: "scheduled consume"
+contracts.depth_job -> components.jobs: "scheduled consume"
 contracts.purge_job -> components.jobs: "consume"
 components.jobs -> storage.ohlcv: "gap-fill / top-up"
 components.jobs -> storage.l2: "depth writes"
 components.jobs -> contracts.events_stream: "publish outcomes"
 
+contracts.lifecycle_stream -> consumers.signal_app: "consume"
+contracts.lifecycle_stream -> consumers.strategy_app: "consume"
 contracts.ohlcv_stream -> consumers.signal_app: "consume"
 contracts.events_stream -> consumers.operators: "observe"

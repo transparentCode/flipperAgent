@@ -3,30 +3,34 @@ app:
   path: src/apps/ingestion_app
   purpose: >
     Owns exchange ingestion, historical backfill, asset lifecycle control,
-    canonical asset manifest publication, and closed-candle distribution for
-    downstream consumers.
+    canonical asset manifest publication, runtime reconciliation, and
+    closed-candle distribution for downstream consumers.
 
 entrypoints:
-  runtime_controller:
+  runtime_process:
     path: src/apps/ingestion_app/main.py
-    role: Runtime reconciler and websocket orchestration
+    role: Launches runtime app and reconciler process
+  runtime_controller:
+    path: src/apps/ingestion_app/runtime/app.py
+    role: Storage init, coordinator wiring, reconciler lifespan, health surface
   queue_worker:
     path: src/apps/ingestion_app/worker.py
     role: ARQ worker for backfill, purge, cleanup, and polling jobs
-  runtime_api:
-    path: src/apps/ingestion_app/runtime/app.py
-    role: Runtime health and process surface
-  ingress_routes:
+  operator_api:
     path: src/apps/api_app/routers/ingestion.py
-    role: Asset lifecycle, ops, status, and scraper bridge routes
+    role: Asset lifecycle, batch control, ops, status, events, and scraper bridge routes
 
 features:
   - key: canonical_asset_manifest
     summary: Writes canonical asset and asset-timeframe manifests to Valkey
   - key: lifecycle_streaming
     summary: Publishes normalized asset lifecycle events for downstream apps
+  - key: desired_state_registry
+    summary: Persists desired asset lifecycle state in Timescale-backed registry storage
   - key: runtime_reconciliation
     summary: Reconciles desired asset state into running websocket runtimes
+  - key: backfill_before_live
+    summary: Performs warmup and resume recovery before promoting runtimes to live
   - key: websocket_ingestion
     summary: Streams live Binance candles and persists/publishes closed bars
   - key: rest_gap_fill
@@ -48,8 +52,9 @@ internal_components:
     responsibilities:
       - Persist desired asset state
       - Sync canonical asset manifests
-      - Publish ingestion control commands
-      - Publish accepted control and lifecycle events
+      - Publish lifecycle events for downstream apps
+      - Publish ingestion runtime control commands
+      - Publish accepted control and operator events
 
   - name: runtime_reconciler
     paths:
@@ -60,7 +65,8 @@ internal_components:
       - Bootstrap effective assets
       - Watch control-stream changes
       - Start, stop, resume, and remove per-asset runtimes
-      - Dispatch purge work for removals
+      - Coordinate backfill-before-live transitions
+      - Dispatch purge and recovery work
 
   - name: websocket_pipeline
     paths:
@@ -70,7 +76,8 @@ internal_components:
       - Consume live kline feeds
       - Persist OHLCV
       - Publish closed-candle streams
-      - Trigger recovery gap-fill jobs
+      - Write runtime liveness/state
+      - Trigger recovery gap-fill jobs on disconnect/gap
 
   - name: queue_jobs
     paths:
@@ -84,7 +91,7 @@ internal_components:
       - Poll L2 depth snapshots
       - Top up missing candle data
 
-  - name: observability_routes
+  - name: operator_api
     paths:
       - src/apps/api_app/routers/ingestion.py
     responsibilities:
@@ -92,6 +99,7 @@ internal_components:
       - Serve runtime status snapshots
       - Serve recent ingestion events
       - Serve compact operator summaries
+      - Bridge on-demand scraper-backed provider requests
 
 tech_stack:
   language: python
@@ -147,6 +155,19 @@ valkey:
       - name: purge_removed_asset
         producer: runtime_reconciler
         consumer: queue_worker
+    scheduled:
+      - name: poll_l2_depth
+        producer: ingestion_scheduler
+        consumer: queue_worker
+      - name: poll_binance_ohlcv
+        producer: ingestion_scheduler
+        consumer: queue_worker
+      - name: scheduled_gap_fill
+        producer: ingestion_scheduler
+        consumer: queue_worker
+      - name: scheduled_asset_cleanup
+        producer: ingestion_scheduler
+        consumer: queue_worker
 
 database:
   tables:
@@ -181,6 +202,15 @@ api:
     - method: GET
       path: /ingestion/ops-summary
       purpose: Latest operator-focused failure summary
+    - method: POST
+      path: /ingestion/scraper/fetch
+      purpose: Synchronous scraper-backed on-demand provider fetch
+    - method: POST
+      path: /ingestion/scraper/jobs
+      purpose: Queue asynchronous scraper-backed provider fetch
+    - method: GET
+      path: /ingestion/scraper/jobs/{job_id}
+      purpose: Read asynchronous scraper job status/result
 
 validated_behaviors:
   - initial gap-fill before websocket live handoff
@@ -188,3 +218,4 @@ validated_behaviors:
   - runtime asset add remove flows
   - pause and resume with backfill-before-live semantics
   - canonical lifecycle fan-out to downstream apps
+  - operator-facing status, event, and ops-summary routes

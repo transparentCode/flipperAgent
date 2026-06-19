@@ -10,7 +10,7 @@ inputs: {
   style.fill: "#E8F1FF"
 
   api_client: {
-    label: "api_app / operator"
+    label: "api_app / operator / internal caller"
     link: "../../../src/apps/api_app/routers/ingestion.py"
   }
 
@@ -34,6 +34,16 @@ ingestion_app: {
   label: "ingestion_app"
   style.fill: "#EEF7EA"
   link: "./README.md"
+
+  runtime_process: {
+    label: "runtime_process"
+    link: "../../../src/apps/ingestion_app/main.py"
+  }
+
+  runtime_app: {
+    label: "runtime_app"
+    link: "../../../src/apps/ingestion_app/runtime/app.py"
+  }
 
   ingress_routes: {
     label: "ingestion_router"
@@ -147,6 +157,7 @@ downstream: {
 }
 
 inputs.api_client -> ingestion_app.ingress_routes: "HTTP"
+ingestion_app.runtime_process -> ingestion_app.runtime_app: "boot"
 inputs.binance_ws -> ingestion_app.websocket_pipeline: "live candles"
 inputs.binance_rest -> ingestion_app.queue_worker: "backfill / depth"
 inputs.api_client -> ingestion_app.scraper_bridge: "on-demand scraper routes"
@@ -160,9 +171,11 @@ ingestion_app.control_plane -> valkey.lifecycle: "publish lifecycle"
 ingestion_app.control_plane -> valkey.control_stream: "publish runtime commands"
 ingestion_app.control_plane -> valkey.events_stream: "publish accepted events"
 
+ingestion_app.runtime_app -> ingestion_app.runtime_reconciler: "lifespan / reconcile loop"
 timescaledb.ingestion_assets -> ingestion_app.runtime_reconciler: "effective catalog"
 valkey.control_stream -> ingestion_app.runtime_reconciler: "change trigger"
 ingestion_app.runtime_reconciler -> ingestion_app.websocket_pipeline: "start / stop runtimes"
+ingestion_app.runtime_reconciler -> valkey.runtime_state: "warming / live / cold state"
 ingestion_app.runtime_reconciler -> valkey.arq_jobs: "purge / backfill jobs"
 
 ingestion_app.websocket_pipeline -> timescaledb.ohlcv: "persist live bars"
