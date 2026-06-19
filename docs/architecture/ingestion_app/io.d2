@@ -11,6 +11,7 @@ classes: {
   contract: { style.fill: "#FFF2D8" }
   storage: { style.fill: "#F4EAFE" }
   consumer: { style.fill: "#FCE8E8" }
+  control: { style.fill: "#EAF7F0" }
 }
 
 sources: {
@@ -74,6 +75,12 @@ components: {
     label: "queue_jobs"
     link: "../../../src/apps/ingestion_app/worker.py"
   }
+
+  validator: {
+    class: component
+    label: "candle_validator"
+    link: "../../../src/apps/ingestion_app/runtime/websocket.py"
+  }
 }
 
 contracts: {
@@ -106,6 +113,12 @@ contracts: {
   events_stream: {
     class: contract
     label: "stream:events:ingestion"
+    shape: queue
+  }
+
+  dlq_stream: {
+    class: contract
+    label: "stream:dlq:ingestion (target)"
     shape: queue
   }
 
@@ -166,6 +179,12 @@ storage: {
     shape: cylinder
     label: "l2_depth_features"
   }
+
+  failures: {
+    class: storage
+    shape: cylinder
+    label: "ingestion_failures (target)"
+  }
 }
 
 consumers: {
@@ -181,6 +200,16 @@ consumers: {
     label: "strategy_app"
   }
 
+  risk_app: {
+    class: consumer
+    label: "risk_app (target)"
+  }
+
+  execution_app: {
+    class: consumer
+    label: "execution_app (target)"
+  }
+
   operators: {
     class: consumer
     label: "operators / future alert_app"
@@ -194,6 +223,7 @@ sources.live_feed -> components.ws: "websocket"
 sources.historical_feed -> components.jobs: "REST"
 
 components.control -> storage.ingestion_assets: "persist registry"
+storage.ingestion_assets -> contracts.asset_manifest: "project canonical state"
 components.control -> contracts.asset_manifest: "write"
 components.control -> contracts.asset_manifest_tf: "write"
 components.control -> contracts.lifecycle_stream: "publish"
@@ -206,8 +236,9 @@ components.reconciler -> contracts.gap_fill_job: "enqueue"
 components.reconciler -> contracts.purge_job: "enqueue"
 components.reconciler -> contracts.runtime_state: "write lifecycle state"
 
-components.ws -> storage.ohlcv: "persist live"
-components.ws -> contracts.ohlcv_stream: "publish"
+components.ws -> components.validator: "candidate closed candle"
+components.validator -> storage.ohlcv: "persist canonical candle"
+components.validator -> contracts.ohlcv_stream: "publish closed candle"
 components.ws -> contracts.runtime_state: "write"
 components.ws -> contracts.gap_fill_job: "enqueue on recovery"
 
@@ -218,8 +249,14 @@ contracts.purge_job -> components.jobs: "consume"
 components.jobs -> storage.ohlcv: "gap-fill / top-up"
 components.jobs -> storage.l2: "depth writes"
 components.jobs -> contracts.events_stream: "publish outcomes"
+components.jobs -> contracts.dlq_stream: "terminal failures (target)"
+components.jobs -> storage.failures: "durable failures (target)"
 
 contracts.lifecycle_stream -> consumers.signal_app: "consume"
 contracts.lifecycle_stream -> consumers.strategy_app: "consume"
 contracts.ohlcv_stream -> consumers.signal_app: "consume"
+consumers.signal_app -> consumers.strategy_app: "feature outputs"
+consumers.strategy_app -> consumers.risk_app: "trade intents"
+consumers.risk_app -> consumers.execution_app: "approved orders"
 contracts.events_stream -> consumers.operators: "observe"
+contracts.dlq_stream -> consumers.operators: "investigate"

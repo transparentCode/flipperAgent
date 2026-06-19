@@ -41,6 +41,37 @@ features:
     summary: Exposes catalog, status, events, and ops summary routes
   - key: scraper_bridge
     summary: Proxies internal scraper fetch/job flows for on-demand data pulls
+  - key: closed_candle_contract
+    summary: Uses closed-candle publication as the default downstream trigger surface
+  - key: durable_registry_projection_split
+    summary: Keeps durable registry truth separate from Valkey runtime projection
+
+architecture_decisions:
+  canonical_truth:
+    durable_owner:
+      kind: timescaledb
+      contract: ingestion_assets
+    projection_owner:
+      kind: valkey
+      contracts:
+        - asset:{symbol}
+        - asset:{symbol}:tf:{timeframe}
+        - asset:lifecycle
+    rule: Timescale-backed registry is canonical; Valkey is projection and stream distribution.
+  candle_semantics:
+    default_downstream_trigger: closed_candles_only
+    provisional_support: optional
+    correction_mode: explicit_not_implicit
+  lifecycle_idempotency:
+    required_identifiers:
+      - request_id
+      - command_id
+      - asset_version
+      - timeframe_version
+    convergence_rule: Replayed equivalent commands must not create duplicate runtimes or duplicate backfill work.
+  source_reconciliation:
+    conflict_case: websocket_vs_rest
+    requirement: Explicit source precedence and observable correction path.
 
 internal_components:
   - name: control_plane
@@ -78,6 +109,7 @@ internal_components:
       - Publish closed-candle streams
       - Write runtime liveness/state
       - Trigger recovery gap-fill jobs on disconnect/gap
+      - Enforce candle finality and publication semantics
 
   - name: queue_jobs
     paths:
@@ -90,6 +122,17 @@ internal_components:
       - Purge removed assets
       - Poll L2 depth snapshots
       - Top up missing candle data
+      - Repair gaps without violating closed-candle parity semantics
+
+  - name: data_quality_validation
+    paths:
+      - src/apps/ingestion_app/runtime/websocket.py
+      - src/apps/ingestion_app/jobs/gap_fill.py
+      - src/apps/ingestion_app/jobs/topup.py
+    responsibilities:
+      - Enforce timestamp/timeframe alignment
+      - Detect duplicate closed-candle conflicts
+      - Enforce source-precedence aware correction behavior
 
   - name: operator_api
     paths:
@@ -139,10 +182,16 @@ valkey:
         consumers:
           - operators
           - future_alert_app
+      - name: stream:dlq:ingestion
+        producer: recommended_future_failure_sink
+        consumers:
+          - operators
+          - future_alert_app
       - name: stream:ohlcv:{symbol}:{timeframe}
         producer: websocket_pipeline
         consumers:
           - signal_app
+          - future_backtest_live_parity_auditors
   runtime_keys:
     writes:
       - name: ingestion:state:{symbol}:{timeframe}
@@ -178,6 +227,9 @@ database:
       - name: open_interest
       - name: funding_rate
       - name: l2_depth_features
+    recommended_future:
+      - name: ingestion_failures
+        purpose: Durable non-recoverable ingestion failure sink and audit history
 
 api:
   routes:
@@ -219,3 +271,13 @@ validated_behaviors:
   - pause and resume with backfill-before-live semantics
   - canonical lifecycle fan-out to downstream apps
   - operator-facing status, event, and ops-summary routes
+
+review_focus:
+  explicit_risks_to_review:
+    - canonical truth must not split across Timescale and Valkey
+    - lifecycle requests need formal idempotency
+    - reconnect, restart, duplicate, and late-candle rules must be explicit
+    - closed-candle finality is the default downstream trigger contract
+    - backtest/live parity must be preserved at candle-schema and semantic level
+    - silent failures require DLQ or durable failure storage
+    - risk gate must remain between strategy_app and execution_app

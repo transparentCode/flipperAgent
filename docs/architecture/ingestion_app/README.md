@@ -27,6 +27,17 @@ It owns:
 It does **not** own downstream feature computation, strategy evaluation,
 portfolio logic, or alert policy decisions.
 
+## Review Lens
+
+This doc distinguishes between:
+
+- current implemented behavior
+- required architectural contract
+- recommended near-term addition
+
+That split matters because ingestion cannot leave canonical truth, idempotency,
+candle finality, parity, and failure handling implicit.
+
 ## Runtime Shape
 
 At a high level, the app is split into four layers:
@@ -128,6 +139,115 @@ Async jobs cover:
 
 These jobs are intentionally separate from the hot websocket path.
 
+## Explicit Architectural Contracts
+
+### Canonical truth ownership
+
+This must be single-owner.
+
+**Decision**
+
+- `TimescaleDB.ingestion_assets` is the durable canonical asset registry
+- Valkey canonical asset keys are the runtime projection and stream layer
+
+Meaning:
+
+- persistent lifecycle writes land in the registry first
+- Valkey `asset:{symbol}` and `asset:{symbol}:tf:{timeframe}` are derived
+  projection state
+- durable recovery must be able to rebuild Valkey projection from registry
+
+**Rule**
+
+There must never be two independently mutable truths for lifecycle state.
+
+### Lifecycle idempotency
+
+Lifecycle mutations must converge safely under replay.
+
+Examples:
+
+- repeated `UPSERT`
+- repeated `RESUME`
+- repeated batch submissions
+- replayed control messages after reconnect/restart
+
+**Required identifiers**
+
+- `request_id`
+- `command_id`
+- `asset_version`
+- `timeframe_version`
+
+**Convergence rule**
+
+Equivalent repeated commands must not:
+
+- create duplicate runtimes
+- enqueue duplicate backfill work
+- publish conflicting lifecycle state
+
+### Websocket reconnect and recovery rules
+
+These are normal cases, not edge cases.
+
+Required rules:
+
+- websocket disconnect
+  - runtime degrades or warms
+  - reconnects
+  - backfills missing closed intervals before returning live
+- process restart
+  - rebuilds desired runtime set from durable registry
+  - restores projection state
+  - re-primes before live
+- late candle arrival
+  - must obey explicit closed-candle ordering rules
+- duplicate closed candle
+  - dedupe by `(symbol, timeframe, open_timestamp)`
+- REST versus websocket conflict
+  - resolve by explicit source-precedence policy
+  - correction path must be observable
+
+### Candle finalization contract
+
+Downstream semantics depend on this.
+
+**Recommended default**
+
+- downstream apps consume closed candles only
+- forming candles are optional and must be explicitly provisional
+
+**Default trigger rule**
+
+- `signal_app` and `strategy_app` trigger on closed-candle publication by
+  default
+
+**Required semantic marker**
+
+Every candle event should have explicit finality such as:
+
+- `provisional`
+- `closed`
+- optionally `corrected_closed`
+
+### Backtest / live parity
+
+The ingestion layer should preserve parity between:
+
+- historical candles used in research/backtest
+- live candles seen by downstream strategy consumers
+
+Parity should hold for:
+
+- timeframe alignment
+- close timestamp convention
+- candle finality semantics
+- duplicate correction policy
+- source precedence and repair behavior
+
+If parity cannot hold, the divergence point must be explicit and observable.
+
 ## State Domains
 
 The app deliberately separates three state domains.
@@ -200,6 +320,80 @@ Current intended guarantees:
 - downstream apps consume canonical lifecycle and live candle streams, but do not
   control ingestion internals directly
 
+## Failure and Quality Contracts
+
+### Data quality validator
+
+Before publishing downstream closed candles, the architecture should assume a
+validation layer exists in websocket and recovery paths.
+
+Validator responsibilities:
+
+- timeframe-boundary timestamp alignment
+- OHLC consistency
+- non-negative volume
+- duplicate closed-candle conflict detection
+- missing-interval detection
+- source-precedence aware correction handling
+
+This can stay internal to runtime/job modules, but the contract should be
+architecturally explicit.
+
+### Failure sink / DLQ
+
+`stream:events:ingestion` is the operator event stream, but it should not be
+the only failure sink long term.
+
+Recommended additions:
+
+- `stream:dlq:ingestion`
+- or durable storage such as `ingestion_failures`
+
+Use cases:
+
+- non-recoverable job failures
+- repeated gap-fill failures
+- conflicting candle correction events
+- validator rejects needing operator action
+
+Silent ingestion failure is a first-class risk.
+
+## Observability Expectations
+
+The architecture should explicitly model an observability plane.
+
+Recommended surfaces:
+
+- Prometheus metrics
+- Grafana dashboards
+- Loki or structured logs
+- future alert consumer
+
+Important metrics:
+
+- `ws_connected`
+- `last_candle_lag_seconds`
+- `gap_fill_pending_count`
+- `failed_jobs_count`
+- `duplicate_candle_count`
+- `runtime_restarts_total`
+- `candle_publish_latency_ms`
+
+## Downstream Safety Chain
+
+Current direct downstream consumers:
+
+- `signal_app`
+- `strategy_app`
+
+Target trading chain:
+
+- `ingestion_app -> signal_app -> strategy_app -> risk_app -> execution_app`
+
+Safety rule:
+
+- `strategy_app` must not bypass `risk_app` to place live orders
+
 ## Storage Policy
 
 Current storage classes:
@@ -230,6 +424,17 @@ Current architecture coverage reflected by this doc set:
 - gap-fill / purge / depth / top-up jobs
 - ingestion status, events, ops-summary, and scraper bridge routes
 - Timescale retention/compression bootstrap
+
+## What Still Needs Hardening
+
+Explicit review items still needing formalization:
+
+- lifecycle command/event idempotency identifiers
+- REST vs websocket source-precedence policy
+- candle finality and provisional-candle contract
+- DLQ or durable failure sink
+- validator contract before downstream candle publication
+- parity checklist for historical versus live candle semantics
 
 ## What Is Intentionally Deferred
 

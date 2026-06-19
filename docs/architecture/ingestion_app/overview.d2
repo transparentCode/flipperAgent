@@ -105,6 +105,10 @@ valkey: {
     link: "../../../src/apps/ingestion_app/control_plane/publisher.py"
   }
 
+  dlq_stream: {
+    label: "stream:dlq:ingestion (target)"
+  }
+
   ohlcv_stream: {
     label: "stream:ohlcv:{symbol}:{tf}"
     link: "../../../src/apps/ingestion_app/runtime/websocket.py"
@@ -154,6 +158,47 @@ downstream: {
     label: "strategy_app"
     link: "../strategy_app/README.md"
   }
+
+  risk_app: {
+    label: "risk_app (target chain)"
+    link: "../risk_app/README.md"
+  }
+
+  execution_app: {
+    label: "execution_app (target chain)"
+    link: "../execution_app/README.md"
+  }
+}
+
+quality: {
+  label: "Quality / Safety"
+  style.fill: "#EAF7F0"
+
+  validator: {
+    label: "candle_validator"
+    link: "../../../src/apps/ingestion_app/runtime/websocket.py"
+  }
+}
+
+observability: {
+  label: "Observability"
+  style.fill: "#F8F1E8"
+
+  metrics: {
+    label: "Prometheus metrics"
+  }
+
+  dashboards: {
+    label: "Grafana dashboards"
+  }
+
+  logs: {
+    label: "Loki / structured logs"
+  }
+
+  alerts: {
+    label: "future alerting"
+  }
 }
 
 inputs.api_client -> ingestion_app.ingress_routes: "HTTP"
@@ -178,14 +223,23 @@ ingestion_app.runtime_reconciler -> ingestion_app.websocket_pipeline: "start / s
 ingestion_app.runtime_reconciler -> valkey.runtime_state: "warming / live / cold state"
 ingestion_app.runtime_reconciler -> valkey.arq_jobs: "purge / backfill jobs"
 
-ingestion_app.websocket_pipeline -> timescaledb.ohlcv: "persist live bars"
-ingestion_app.websocket_pipeline -> valkey.ohlcv_stream: "publish closed candles"
+ingestion_app.websocket_pipeline -> quality.validator: "validate candle semantics"
+quality.validator -> timescaledb.ohlcv: "persist canonical candle"
+quality.validator -> valkey.ohlcv_stream: "publish closed candles only"
 ingestion_app.websocket_pipeline -> valkey.runtime_state: "state / liveness"
 
 ingestion_app.queue_worker -> timescaledb.ohlcv: "gap-fill / top-up writes"
 ingestion_app.queue_worker -> timescaledb.l2_depth_features: "depth writes"
 ingestion_app.queue_worker -> valkey.events_stream: "purge / failure events"
+ingestion_app.queue_worker -> valkey.dlq_stream: "non-recoverable failures (target)"
+
+ingestion_app.websocket_pipeline -> observability.metrics: "lag / latency / restart metrics"
+ingestion_app.queue_worker -> observability.logs: "job outcomes"
+valkey.events_stream -> observability.alerts: "future alerts"
 
 valkey.lifecycle -> downstream.signal_app: "subscribe"
 valkey.lifecycle -> downstream.strategy_app: "subscribe"
 valkey.ohlcv_stream -> downstream.signal_app: "consume"
+downstream.signal_app -> downstream.strategy_app: "features / triggers"
+downstream.strategy_app -> downstream.risk_app: "proposed trades"
+downstream.risk_app -> downstream.execution_app: "approved orders"
