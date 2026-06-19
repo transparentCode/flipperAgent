@@ -31,6 +31,8 @@ class IngestionAssetRecord(BaseModel):
     retention_days: int | None = None
     enabled: bool = True
     desired_state: IngestionAssetDesiredState = IngestionAssetDesiredState.LIVE
+    asset_version: int = 1
+    timeframe_version: int | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
     source: IngestionAssetSource = IngestionAssetSource.REGISTRY
@@ -62,6 +64,7 @@ class IngestionAssetUpsertRequest(BaseModel):
     retention_days: int | None = None
     enabled: bool = True
     desired_state: IngestionAssetDesiredState = IngestionAssetDesiredState.LIVE
+    request_id: str | None = None
     reason: str | None = None
     requested_by: str = "api_app"
 
@@ -77,6 +80,7 @@ class IngestionAssetPatchRequest(BaseModel):
     retention_days: int | None = None
     enabled: bool | None = None
     desired_state: IngestionAssetDesiredState | None = None
+    request_id: str | None = None
     reason: str | None = None
     requested_by: str = "api_app"
 
@@ -84,6 +88,7 @@ class IngestionAssetPatchRequest(BaseModel):
 class IngestionAssetActionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    request_id: str | None = None
     reason: str | None = None
     requested_by: str = "api_app"
 
@@ -99,6 +104,7 @@ class IngestionAssetBatchActionRequest(BaseModel):
 
     symbols: list[str] = Field(default_factory=list)
     desired_state: IngestionAssetDesiredState
+    request_id: str | None = None
     reason: str | None = None
     requested_by: str = "api_app"
 
@@ -116,7 +122,12 @@ class IngestionControlResult(BaseModel):
     asset: IngestionAssetRecord
     command_id: str
     command_type: str
+    request_id: str | None = None
+    asset_version: int = 1
+    timeframe_version: int | None = None
     command_published: bool
     event_published: bool
+    lifecycle_published: bool = False
+    deduplicated: bool = False
     command_stream_id: str | None = None
     event_stream_id: str | None = None

@@ -320,6 +320,88 @@ async def test_run_websocket_pipeline_transitions_live_after_first_valid_payload
 
 
 @pytest.mark.asyncio
+async def test_run_websocket_pipeline_uses_asset_specific_base_timeframe_v2():
+    mock_coordinator = MagicMock()
+    mock_coordinator.transition = AsyncMock()
+    mock_coordinator.get_disconnect_count = AsyncMock(return_value=1)
+    mock_arq_pool = AsyncMock()
+    mock_redis_client = AsyncMock()
+    mock_pipe = MagicMock()
+    mock_pipe.execute = AsyncMock(return_value=[])
+    mock_redis_client.pipeline = MagicMock(return_value=mock_pipe)
+    mock_writer = MagicMock()
+    mock_writer.insert_ohlcv = AsyncMock()
+
+    valid_message = {
+        "data": {
+            "k": {
+                "t": 1704067200000,
+                "T": 1704067499999,
+                "o": "100.0",
+                "h": "110.0",
+                "l": "95.0",
+                "c": "105.0",
+                "v": "42.0",
+                "Q": "21.0",
+                "i": "5m",
+                "x": True,
+            }
+        }
+    }
+
+    async def fake_stream(_symbols_timeframes, _loop, _queue):
+        yield valid_message
+        raise asyncio.CancelledError()
+
+    mock_adapter = MagicMock()
+    mock_adapter.stream_multiplex_socket = fake_stream
+
+    with (
+        patch(
+            "apps.ingestion_app.runtime.websocket.create_valkey_client",
+            new=AsyncMock(return_value=mock_redis_client),
+        ),
+        patch("apps.ingestion_app.runtime.websocket.DBPoolManager") as mock_db_pool,
+        patch("apps.ingestion_app.runtime.websocket.TimescaleWriter", return_value=mock_writer),
+        patch("apps.ingestion_app.runtime.websocket.BinanceNativeAdapter", return_value=mock_adapter),
+        patch("apps.ingestion_app.runtime.websocket.config_manager") as mock_config,
+    ):
+        mock_db_pool.get_writer_pool.return_value = MagicMock()
+        mock_config.get.side_effect = lambda key, default=None: {
+            "ingestion.timeframes.base_gap_fill": "1m",
+            "ingestion.websocket.reconnect_sleep_seconds": 5,
+            "ingestion.websocket.queue_maxsize": 10,
+        }.get(key, default)
+
+        await run_websocket_pipeline(
+            "BTCUSDT",
+            ["15m"],
+            arq_pool=mock_arq_pool,
+            coordinator=mock_coordinator,
+            base_timeframe="5m",
+        )
+
+    assert mock_coordinator.transition.await_args_list == [
+        call(
+            "BTCUSDT",
+            "5m",
+            IngestionState.LIVE,
+            reason="first_live_bar",
+            provenance="websocket",
+        ),
+        call(
+            "BTCUSDT",
+            "5m",
+            IngestionState.COLD,
+            reason="websocket_cancelled",
+            provenance="websocket",
+        ),
+    ]
+    payload = mock_redis_client.pipeline.return_value.xadd.call_args.args[1]
+    assert payload["base_timeframe"] == "5m"
+
+
+@pytest.mark.asyncio
 async def test_run_websocket_pipeline_closes_valkey_clients_across_reconnect_v2():
     mock_coordinator = MagicMock()
     mock_coordinator.transition = AsyncMock()
@@ -666,6 +748,54 @@ async def test_coordinator_transition_publishes_runtime_status_v2():
 
 
 @pytest.mark.asyncio
+async def test_coordinator_transition_counts_only_real_disconnects_v2():
+    symbol = "BTCUSDT"
+    timeframe = "1m"
+    storage: dict[str, str] = {}
+    disconnect_counter = {"count": 0}
+
+    async def fake_get(key: str):
+        if key == IngestionCoordinator._disconnect_count_key(symbol, timeframe):
+            return str(disconnect_counter["count"]) if disconnect_counter["count"] else None
+        return storage.get(key)
+
+    async def fake_set(key: str, value: str):
+        storage[key] = value
+        return True
+
+    async def fake_incr(_key: str):
+        disconnect_counter["count"] += 1
+        return disconnect_counter["count"]
+
+    valkey_client = MagicMock()
+    valkey_client.get = AsyncMock(side_effect=fake_get)
+    valkey_client.set = AsyncMock(side_effect=fake_set)
+    valkey_client.hset = AsyncMock(return_value=1)
+    valkey_client.xadd = AsyncMock(return_value="1-0")
+    valkey_client.incr = AsyncMock(side_effect=fake_incr)
+    valkey_client.expire = AsyncMock(return_value=True)
+    coordinator = IngestionCoordinator(valkey_client)
+
+    await coordinator.transition(
+        symbol,
+        timeframe,
+        IngestionState.COLD,
+        reason="runtime_stopped",
+        provenance="reconciler",
+    )
+    await coordinator.transition(
+        symbol,
+        timeframe,
+        IngestionState.COLD,
+        reason="websocket_disconnected",
+        provenance="websocket",
+    )
+
+    assert disconnect_counter["count"] == 1
+    valkey_client.expire.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_run_websocket_pipeline_emits_retry_exhausted_event_v2():
     mock_coordinator = MagicMock()
     mock_coordinator.transition = AsyncMock()
@@ -714,3 +844,75 @@ async def test_run_websocket_pipeline_emits_retry_exhausted_event_v2():
             await run_websocket_pipeline("BTCUSDT", [], arq_pool=mock_arq_pool, coordinator=mock_coordinator)
 
     mock_event.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_run_websocket_pipeline_skips_duplicate_closed_candle_publication_v2():
+    mock_coordinator = MagicMock()
+    mock_coordinator.transition = AsyncMock()
+    mock_coordinator.get_disconnect_count = AsyncMock(return_value=1)
+    mock_arq_pool = AsyncMock()
+    mock_writer = MagicMock()
+    mock_writer.insert_ohlcv = AsyncMock()
+    dedupe_storage: dict[str, str] = {}
+    mock_pipe = MagicMock()
+    mock_pipe.execute = AsyncMock(return_value=[])
+
+    valid_message = {
+        "data": {
+            "k": {
+                "t": 1704067200000,
+                "T": 1704067259999,
+                "o": "100.0",
+                "h": "110.0",
+                "l": "95.0",
+                "c": "105.0",
+                "v": "42.0",
+                "Q": "21.0",
+                "i": "1m",
+                "x": True,
+            }
+        }
+    }
+
+    async def fake_stream(_symbols_timeframes, _loop, _queue):
+        yield valid_message
+        yield valid_message
+        raise asyncio.CancelledError()
+
+    async def fake_get(key: str):
+        return dedupe_storage.get(key)
+
+    async def fake_set(key: str, value: str):
+        dedupe_storage[key] = value
+        return True
+
+    mock_redis_client = MagicMock()
+    mock_redis_client.get = AsyncMock(side_effect=fake_get)
+    mock_redis_client.set = AsyncMock(side_effect=fake_set)
+    mock_redis_client.aclose = AsyncMock()
+    mock_redis_client.pipeline = MagicMock(return_value=mock_pipe)
+    mock_adapter = MagicMock()
+    mock_adapter.stream_multiplex_socket = fake_stream
+
+    with (
+        patch(
+            "apps.ingestion_app.runtime.websocket.create_valkey_client",
+            new=AsyncMock(return_value=mock_redis_client),
+        ),
+        patch("apps.ingestion_app.runtime.websocket.DBPoolManager") as mock_db_pool,
+        patch("apps.ingestion_app.runtime.websocket.TimescaleWriter", return_value=mock_writer),
+        patch("apps.ingestion_app.runtime.websocket.BinanceNativeAdapter", return_value=mock_adapter),
+        patch("apps.ingestion_app.runtime.websocket.config_manager") as mock_config,
+    ):
+        mock_db_pool.get_writer_pool.return_value = MagicMock()
+        mock_config.get.side_effect = lambda key, default=None: {
+            "ingestion.timeframes.base_gap_fill": "1m",
+            "ingestion.websocket.reconnect_sleep_seconds": 5,
+            "ingestion.websocket.queue_maxsize": 10,
+        }.get(key, default)
+
+        await run_websocket_pipeline("BTCUSDT", [], arq_pool=mock_arq_pool, coordinator=mock_coordinator)
+
+    assert mock_writer.insert_ohlcv.await_count == 2
+    assert mock_pipe.xadd.call_count == 1

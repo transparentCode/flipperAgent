@@ -121,7 +121,9 @@ CREATE TABLE IF NOT EXISTS ingestion_assets (
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
     desired_state TEXT NOT NULL DEFAULT 'LIVE'
         CHECK (desired_state IN ('LIVE', 'RESUMING', 'PAUSED', 'STOPPED', 'REMOVING')),
+    asset_version BIGINT NOT NULL DEFAULT 1,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE ingestion_assets ADD COLUMN IF NOT EXISTS asset_version BIGINT NOT NULL DEFAULT 1;
 CREATE INDEX IF NOT EXISTS idx_ingestion_assets_enabled ON ingestion_assets (enabled);

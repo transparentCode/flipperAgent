@@ -60,17 +60,40 @@ async def _promote_resuming_asset_live(ctx: dict[str, Any], symbol: str) -> None
     )
 
 
+async def _resolve_gap_fill_contract(symbol: str) -> tuple[str, int]:
+    default_base_timeframe = config_manager.get("ingestion.timeframes.base_gap_fill", "1m")
+    default_backfill_days = config_manager.get("ingestion.assets.historical_backfill_days", 2)
+    try:
+        pool = DBPoolManager.get_writer_pool()
+    except RuntimeError:
+        return default_base_timeframe, default_backfill_days
+
+    try:
+        asset = await IngestionAssetRegistryRepository(pool).get_asset(symbol)
+    except Exception:
+        logger.warning("Falling back to default gap-fill contract for %s", symbol, exc_info=True)
+        return default_base_timeframe, default_backfill_days
+    if asset is None:
+        return default_base_timeframe, default_backfill_days
+    return asset.base_timeframe, asset.historical_backfill_days
+
+
 @retry(
     retry=retry_if_exception_type(DataIngestionError),
     stop=stop_after_attempt(5),
     wait=wait_exponential(min=4, max=60),
     reraise=True,
 )
-async def _fetch_asset_gap(ctx: dict[str, Any], ccxt_adapter: Any, symbol: str) -> None:
+async def _fetch_asset_gap(
+    ctx: dict[str, Any],
+    ccxt_adapter: Any,
+    symbol: str,
+    *,
+    base_timeframe: str,
+    historical_backfill_days: int,
+) -> None:
     logger.info(f"Fetching REST data for asset: {symbol}")
 
-    historical_backfill_days = config_manager.get("ingestion.assets.historical_backfill_days", 2)
-    base_timeframe = config_manager.get("ingestion.timeframes.base_gap_fill", "1m")
     since_ms = utc_now_ms() - historical_backfill_days * 86400 * 1000
 
     try:
@@ -129,16 +152,18 @@ async def run_rest_gap_fill(ctx: dict[str, Any], assets: list[str], exchange: st
         context={"exchange": exchange, "assets": assets},
     )
     valkey_client = ctx.get("valkey_client")
-    base_timeframe = config_manager.get("ingestion.timeframes.base_gap_fill", "1m")
     concurrency_limit = config_manager.get("ingestion.concurrency.gap_fill_limit", 5)
     sleep_seconds = config_manager.get("ingestion.concurrency.gap_fill_sleep_seconds", 0.5)
 
     semaphore = asyncio.Semaphore(concurrency_limit)
     successful_assets: list[str] = []
     failed_assets: list[str] = []
+    observed_timeframes: set[str] = set()
 
     async def process_asset(symbol: str) -> None:
         async with semaphore:
+            base_timeframe, historical_backfill_days = await _resolve_gap_fill_contract(symbol)
+            observed_timeframes.add(base_timeframe)
             current_state = await coordinator.get_state(symbol, base_timeframe)
             should_mutate_runtime_state = current_state != IngestionState.LIVE
 
@@ -151,7 +176,13 @@ async def run_rest_gap_fill(ctx: dict[str, Any], assets: list[str], exchange: st
                     provenance="gap_fill",
                 )
             try:
-                await _fetch_asset_gap(ctx, ccxt_adapter, symbol)
+                await _fetch_asset_gap(
+                    ctx,
+                    ccxt_adapter,
+                    symbol,
+                    base_timeframe=base_timeframe,
+                    historical_backfill_days=historical_backfill_days,
+                )
                 await coordinator.clear_resume_backfill_required(symbol, base_timeframe)
                 await _promote_resuming_asset_live(ctx, symbol)
                 if should_mutate_runtime_state:
@@ -177,18 +208,20 @@ async def run_rest_gap_fill(ctx: dict[str, Any], assets: list[str], exchange: st
             await asyncio.sleep(sleep_seconds)
 
     await asyncio.gather(*(process_asset(symbol) for symbol in assets))
+    summary_timeframe = next(iter(observed_timeframes)) if len(observed_timeframes) == 1 else None
     if failed_assets:
         await publish_ingestion_runtime_event(
             valkey_client,
             event_type=IngestionEventType.GAP_FILL_FAILED,
             symbol=exchange.upper(),
-            timeframe=base_timeframe,
+            timeframe=summary_timeframe,
             severity="error",
             detail={
                 "exchange": exchange,
                 "successful_assets": successful_assets,
                 "failed_assets": failed_assets,
                 "asset_count": len(assets),
+                "timeframes": sorted(observed_timeframes),
             },
         )
         logger.warning(
@@ -212,12 +245,13 @@ async def run_rest_gap_fill(ctx: dict[str, Any], assets: list[str], exchange: st
         valkey_client,
         event_type=IngestionEventType.GAP_FILL_COMPLETED,
         symbol=exchange.upper(),
-        timeframe=base_timeframe,
+        timeframe=summary_timeframe,
         severity="info",
         detail={
             "exchange": exchange,
             "successful_assets": successful_assets,
             "asset_count": len(successful_assets),
+            "timeframes": sorted(observed_timeframes),
         },
     )
     logger.info(f"Gap fill task completed successfully for {exchange}.")

@@ -177,7 +177,11 @@ async def batch_apply_ingestion_asset_action(
             valkey_client=valkey_client,
         )
         results: list[IngestionControlResult] = []
-        action_body = IngestionAssetActionRequest(reason=body.reason, requested_by=body.requested_by)
+        action_body = IngestionAssetActionRequest(
+            request_id=body.request_id,
+            reason=body.reason,
+            requested_by=body.requested_by,
+        )
         for symbol in body.symbols:
             existing = await _require_effective_asset(symbol)
             results.append(

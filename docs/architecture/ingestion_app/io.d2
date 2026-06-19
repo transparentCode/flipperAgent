@@ -12,6 +12,7 @@ classes: {
   storage: { style.fill: "#F4EAFE" }
   consumer: { style.fill: "#FCE8E8" }
   control: { style.fill: "#EAF7F0" }
+  rule: { style.fill: "#F3FAEF" }
 }
 
 sources: {
@@ -88,13 +89,13 @@ contracts: {
 
   asset_manifest: {
     class: contract
-    label: "asset:{symbol}"
+    label: "asset:{symbol}\nprojection"
     shape: stored_data
   }
 
   asset_manifest_tf: {
     class: contract
-    label: "asset:{symbol}:tf:{tf}"
+    label: "asset:{symbol}:tf:{tf}\nprojection"
     shape: stored_data
   }
 
@@ -159,13 +160,42 @@ contracts: {
   }
 }
 
+rules: {
+  label: "Operating Rules"
+
+  truth_policy: {
+    class: rule
+    label: "truth policy\nTimescaleDB `ingestion_assets` = canonical durable registry\nValkey keys/streams = projection + transport\nnever independent dual truth"
+  }
+
+  idempotency_policy: {
+    class: rule
+    label: "idempotency policy\nrequest_id\ncommand_id\nasset_version\ntimeframe_version\nsame request must converge to one runtime + one backfill"
+  }
+
+  recovery_policy: {
+    class: rule
+    label: "recovery policy\ndisconnect/restart/late/duplicate/REST-vs-WS mismatch\ngap-fill from last persisted closed candle + overlap\nmust recover before LIVE"
+  }
+
+  candle_policy: {
+    class: rule
+    label: "candle policy\nclosed only by default for downstream\nforming candle stays internal or opt-in\ncorrected_closed explicit"
+  }
+
+  parity_policy: {
+    class: rule
+    label: "parity policy\nhistorical and live share close timestamp/finality/correction semantics"
+  }
+}
+
 storage: {
   label: "Persistence"
 
   ingestion_assets: {
     class: storage
     shape: cylinder
-    label: "ingestion_assets"
+    label: "ingestion_assets\ncanonical"
   }
 
   ohlcv: {
@@ -183,7 +213,7 @@ storage: {
   failures: {
     class: storage
     shape: cylinder
-    label: "ingestion_failures (target)"
+    label: "ingestion_failures (target)\ndurable terminal failure sink"
   }
 }
 
@@ -229,18 +259,23 @@ components.control -> contracts.asset_manifest_tf: "write"
 components.control -> contracts.lifecycle_stream: "publish"
 components.control -> contracts.control_stream: "publish"
 components.control -> contracts.events_stream: "publish"
+components.control -> rules.truth_policy: "must obey"
+components.control -> rules.idempotency_policy: "must obey"
 
 storage.ingestion_assets -> components.reconciler: "effective state"
 contracts.control_stream -> components.reconciler: "consume"
 components.reconciler -> contracts.gap_fill_job: "enqueue"
 components.reconciler -> contracts.purge_job: "enqueue"
 components.reconciler -> contracts.runtime_state: "write lifecycle state"
+components.reconciler -> rules.recovery_policy: "must obey"
 
 components.ws -> components.validator: "candidate closed candle"
 components.validator -> storage.ohlcv: "persist canonical candle"
 components.validator -> contracts.ohlcv_stream: "publish closed candle"
 components.ws -> contracts.runtime_state: "write"
 components.ws -> contracts.gap_fill_job: "enqueue on recovery"
+components.validator -> rules.candle_policy: "must obey"
+components.validator -> rules.parity_policy: "must obey"
 
 contracts.gap_fill_job -> components.jobs: "consume"
 contracts.topup_job -> components.jobs: "scheduled consume"
@@ -251,6 +286,7 @@ components.jobs -> storage.l2: "depth writes"
 components.jobs -> contracts.events_stream: "publish outcomes"
 components.jobs -> contracts.dlq_stream: "terminal failures (target)"
 components.jobs -> storage.failures: "durable failures (target)"
+components.jobs -> rules.recovery_policy: "repair gaps / corrections"
 
 contracts.lifecycle_stream -> consumers.signal_app: "consume"
 contracts.lifecycle_stream -> consumers.strategy_app: "consume"

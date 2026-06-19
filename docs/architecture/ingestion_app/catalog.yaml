@@ -57,9 +57,10 @@ architecture_decisions:
         - asset:{symbol}
         - asset:{symbol}:tf:{timeframe}
         - asset:lifecycle
-    rule: Timescale-backed registry is canonical; Valkey is projection and stream distribution.
+    rule: Timescale-backed registry is the only durable canonical truth; Valkey is projection and stream distribution and must always be reconstructible from Timescale state.
   candle_semantics:
     default_downstream_trigger: closed_candles_only
+    forming_candle_policy: internal_or_explicit_opt_in_only
     provisional_support: optional
     correction_mode: explicit_not_implicit
   lifecycle_idempotency:
@@ -71,7 +72,71 @@ architecture_decisions:
     convergence_rule: Replayed equivalent commands must not create duplicate runtimes or duplicate backfill work.
   source_reconciliation:
     conflict_case: websocket_vs_rest
+    precedence: websocket_for_live_closed_candles__rest_for_backfill_and_repair
     requirement: Explicit source precedence and observable correction path.
+  downstream_guardrail:
+    rule: strategy_app must not bypass risk_app on the path to execution_app.
+
+operational_contracts:
+  lifecycle_write_order:
+    sequence:
+      - persist_timescaledb_registry
+      - project_valkey_manifest
+      - publish_lifecycle_and_control_streams
+    rule: Valkey projection must be reconstructible from durable registry.
+  lifecycle_idempotency:
+    keys:
+      - request_id
+      - command_id
+      - asset_version
+      - timeframe_version
+    guarantees:
+      - duplicate_enable_requests_do_not_spawn_duplicate_runtimes
+      - duplicate_resume_requests_do_not_spawn_duplicate_gap_fill_jobs
+      - replayed_batch_requests_converge_to_same_effective_state
+  runtime_recovery:
+    disconnect_rule: websocket_disconnect_demotes_runtime_to_warming_until_gap_fill_completes_and_live_feed_is_healthy
+    restart_rule: process_restart_rebuilds_from_timescaledb_registry_then_reprimes_before_returning_live
+    backfill_anchor_rule: recover_from_last_persisted_closed_candle_with_overlap_window
+    duplicate_rule: closed_candle_dedupes_on_symbol_timeframe_open_timestamp
+    late_data_rule: late_or_corrected_data_uses_explicit_correction_path
+    conflict_rule: rest_vs_websocket_source_precedence_must_be_observable
+  candle_finality:
+    default_trigger: closed_only
+    optional_states:
+      - provisional
+      - corrected_closed
+    forming_candle_scope: not_part_of_default_downstream_contract
+    downstream_default:
+      - signal_app
+      - strategy_app
+  backtest_live_parity:
+    parity_dimensions:
+      - timeframe_alignment
+      - close_timestamp_convention
+      - finality_semantics
+      - duplicate_correction_policy
+      - source_precedence
+      - storage_schema_compatibility
+  failure_handling:
+    operator_stream: stream:events:ingestion
+    terminal_failure_stream: stream:dlq:ingestion
+    durable_failure_sink: ingestion_failures
+    rule: Silent non-recoverable ingestion failure is not acceptable.
+  observability:
+    metrics:
+      - ws_connected
+      - last_candle_lag_seconds
+      - gap_fill_pending_count
+      - failed_jobs_count
+      - duplicate_candle_count
+      - runtime_restarts_total
+      - candle_publish_latency_ms
+    surfaces:
+      - prometheus
+      - grafana
+      - loki_or_structured_logs
+      - future_alerting
 
 internal_components:
   - name: control_plane
@@ -107,6 +172,7 @@ internal_components:
       - Consume live kline feeds
       - Persist OHLCV
       - Publish closed-candle streams
+      - Keep forming candle handling outside the default downstream trigger contract
       - Write runtime liveness/state
       - Trigger recovery gap-fill jobs on disconnect/gap
       - Enforce candle finality and publication semantics
@@ -267,6 +333,8 @@ api:
 validated_behaviors:
   - initial gap-fill before websocket live handoff
   - closed-candle publication to downstream signal consumers
+  - canonical truth stored durably and projected into Valkey manifests
+  - idempotent lifecycle replay convergence on runtime and backfill behavior
   - runtime asset add remove flows
   - pause and resume with backfill-before-live semantics
   - canonical lifecycle fan-out to downstream apps

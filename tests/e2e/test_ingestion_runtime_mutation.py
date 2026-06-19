@@ -288,7 +288,7 @@ async def test_runtime_asset_pause_and_resume_lifecycle(db_pools, valkey_client)
             interval_s=1,
             description=f"{TEST_SYMBOL} to transition back to LIVE after resume",
         )
-        assert resumed_snapshot["disconnects_in_window"] >= 1
+        assert resumed_snapshot["disconnects_in_window"] == 0
 
         resumed_stream_len = await _wait_until(
             lambda: _stream_len_greater_than(valkey_client, paused_stream_len),

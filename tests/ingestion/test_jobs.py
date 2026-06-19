@@ -10,6 +10,7 @@ from apps.ingestion_app.jobs.gap_fill import run_rest_gap_fill, scheduled_gap_fi
 from apps.ingestion_app.models.asset_registry import IngestionAssetDesiredState, IngestionAssetRecord
 from apps.ingestion_app.jobs.l2_depth import poll_l2_depth
 from apps.ingestion_app.jobs.topup import poll_binance_ohlcv
+from libs.common.asset_manifest import asset_manifest_key, asset_timeframe_manifest_key
 from libs.common.exceptions import DataIngestionError
 
 
@@ -182,6 +183,58 @@ async def test_v2_gap_fill_does_not_downgrade_live_runtime_state():
 
 
 @pytest.mark.asyncio
+async def test_v2_gap_fill_uses_asset_specific_base_timeframe_from_registry():
+    ctx = {
+        "ccxt_adapter": AsyncMock(),
+        "coordinator": MagicMock(
+            transition=AsyncMock(),
+            clear_resume_backfill_required=AsyncMock(),
+            get_state=AsyncMock(return_value="WARMING"),
+        ),
+        "valkey_client": None,
+    }
+    asset = IngestionAssetRecord(
+        symbol="BTCUSDT",
+        base_timeframe="5m",
+        historical_backfill_days=7,
+        source="registry",
+    )
+    repo = MagicMock()
+    repo.get_asset = AsyncMock(return_value=asset)
+
+    with patch(
+        "apps.ingestion_app.jobs.gap_fill._fetch_asset_gap",
+        new=AsyncMock(return_value=None),
+    ) as mock_fetch, patch(
+        "apps.ingestion_app.jobs.gap_fill.IngestionAssetRegistryRepository",
+        return_value=repo,
+    ), patch(
+        "apps.ingestion_app.jobs.gap_fill.config_manager"
+    ) as mock_config, patch(
+        "apps.ingestion_app.jobs.gap_fill.publish_ingestion_runtime_event",
+        new=AsyncMock(),
+    ) as mock_event:
+        mock_config.get.side_effect = lambda key, default=None: {
+            "ingestion.timeframes.base_gap_fill": "1m",
+            "ingestion.assets.historical_backfill_days": 2,
+            "ingestion.concurrency.gap_fill_limit": 1,
+            "ingestion.concurrency.gap_fill_sleep_seconds": 0.0,
+        }.get(key, default)
+        await run_rest_gap_fill(ctx, ["BTCUSDT"], EXCHANGE_BINANCE)
+
+    mock_fetch.assert_awaited_once()
+    assert mock_fetch.await_args.kwargs["base_timeframe"] == "5m"
+    assert mock_fetch.await_args.kwargs["historical_backfill_days"] == 7
+    assert ctx["coordinator"].transition.await_args_list[0].args == (
+        "BTCUSDT",
+        "5m",
+        "BACKFILLING",
+    )
+    assert ctx["coordinator"].clear_resume_backfill_required.await_args.args == ("BTCUSDT", "5m")
+    assert mock_event.await_args.kwargs["timeframe"] == "5m"
+
+
+@pytest.mark.asyncio
 async def test_v2_poll_binance_topup_uses_ctx_adapter():
     ctx = {"binance_adapter": AsyncMock()}
 
@@ -227,7 +280,11 @@ async def test_v2_purge_removed_asset_clears_keys_and_emits_completion_event():
         patch("apps.ingestion_app.jobs.cleanup.publish_ingestion_runtime_event", new=AsyncMock()) as mock_publish:
         await purge_removed_asset(ctx, "BTCUSDT", "1m")
 
-    assert ctx["valkey_client"].delete.await_count == 10
+    assert ctx["valkey_client"].delete.await_count == 15
+    deleted_keys = [call.args[0] for call in ctx["valkey_client"].delete.await_args_list]
+    assert asset_manifest_key("BTCUSDT") in deleted_keys
+    assert asset_timeframe_manifest_key("BTCUSDT", "1m") in deleted_keys
+    assert asset_timeframe_manifest_key("BTCUSDT", "1h") in deleted_keys
     mock_publish.assert_awaited_once()
 
 

@@ -59,6 +59,7 @@ async def initialize_asset_runtime(
             arq_pool,
             coordinator,
             task_registry,
+            base_timeframe=base_timeframe,
         )
     except asyncio.CancelledError:
         await coordinator.transition(

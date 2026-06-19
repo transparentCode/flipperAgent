@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import inspect
 from typing import Any
+from unittest.mock import Mock
 
 import asyncpg
 
@@ -23,6 +25,7 @@ class IngestionAssetRegistryRepository:
                 retention_days,
                 enabled,
                 desired_state,
+                asset_version,
                 created_at,
                 updated_at
             FROM ingestion_assets
@@ -44,6 +47,7 @@ class IngestionAssetRegistryRepository:
                 retention_days,
                 enabled,
                 desired_state,
+                asset_version,
                 created_at,
                 updated_at
             FROM ingestion_assets
@@ -56,62 +60,142 @@ class IngestionAssetRegistryRepository:
         return self._to_model(row)
 
     async def upsert_asset(self, asset: IngestionAssetRecord) -> IngestionAssetRecord:
-        query = """
-            INSERT INTO ingestion_assets (
-                symbol,
-                exchange,
-                provider,
-                base_timeframe,
-                publish_timeframes,
-                historical_backfill_days,
-                retention_days,
-                enabled,
-                desired_state
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-            ON CONFLICT (symbol) DO UPDATE SET
-                exchange = EXCLUDED.exchange,
-                provider = EXCLUDED.provider,
-                base_timeframe = EXCLUDED.base_timeframe,
-                publish_timeframes = EXCLUDED.publish_timeframes,
-                historical_backfill_days = EXCLUDED.historical_backfill_days,
-                retention_days = EXCLUDED.retention_days,
-                enabled = EXCLUDED.enabled,
-                desired_state = EXCLUDED.desired_state,
-                updated_at = NOW()
-            RETURNING
-                symbol,
-                exchange,
-                provider,
-                base_timeframe,
-                publish_timeframes,
-                historical_backfill_days,
-                retention_days,
-                enabled,
-                desired_state,
-                created_at,
-                updated_at
-        """
         async with self.pool.acquire() as conn:
-            row = await conn.fetchrow(
-                query,
-                asset.symbol,
-                asset.exchange,
-                asset.provider,
-                asset.base_timeframe,
-                asset.publish_timeframes,
-                asset.historical_backfill_days,
-                asset.retention_days,
-                asset.enabled,
-                asset.desired_state.value,
-            )
+            async with conn.transaction():
+                existing_row = await conn.fetchrow(
+                    """
+                    SELECT
+                        symbol,
+                        exchange,
+                        provider,
+                        base_timeframe,
+                        publish_timeframes,
+                        historical_backfill_days,
+                        retention_days,
+                        enabled,
+                        desired_state,
+                        asset_version,
+                        created_at,
+                        updated_at
+                    FROM ingestion_assets
+                    WHERE symbol = $1
+                    FOR UPDATE
+                    """,
+                    asset.symbol,
+                )
+
+                if existing_row is None:
+                    row = await conn.fetchrow(
+                        """
+                        INSERT INTO ingestion_assets (
+                            symbol,
+                            exchange,
+                            provider,
+                            base_timeframe,
+                            publish_timeframes,
+                            historical_backfill_days,
+                            retention_days,
+                            enabled,
+                            desired_state,
+                            asset_version
+                        )
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1)
+                        RETURNING
+                            symbol,
+                            exchange,
+                            provider,
+                            base_timeframe,
+                            publish_timeframes,
+                            historical_backfill_days,
+                            retention_days,
+                            enabled,
+                            desired_state,
+                            asset_version,
+                            created_at,
+                            updated_at
+                        """,
+                        asset.symbol,
+                        asset.exchange,
+                        asset.provider,
+                        asset.base_timeframe,
+                        asset.publish_timeframes,
+                        asset.historical_backfill_days,
+                        asset.retention_days,
+                        asset.enabled,
+                        asset.desired_state.value,
+                    )
+                else:
+                    existing = self._to_model(existing_row)
+                    state_changed = self._state_payload(existing) != self._state_payload(asset)
+                    next_version = existing.asset_version + 1 if state_changed else existing.asset_version
+                    row = await conn.fetchrow(
+                        """
+                        UPDATE ingestion_assets
+                        SET
+                            exchange = $2,
+                            provider = $3,
+                            base_timeframe = $4,
+                            publish_timeframes = $5,
+                            historical_backfill_days = $6,
+                            retention_days = $7,
+                            enabled = $8,
+                            desired_state = $9,
+                            asset_version = $10,
+                            updated_at = CASE WHEN $11 THEN NOW() ELSE updated_at END
+                        WHERE symbol = $1
+                        RETURNING
+                            symbol,
+                            exchange,
+                            provider,
+                            base_timeframe,
+                            publish_timeframes,
+                            historical_backfill_days,
+                            retention_days,
+                            enabled,
+                            desired_state,
+                            asset_version,
+                            created_at,
+                            updated_at
+                        """,
+                        asset.symbol,
+                        asset.exchange,
+                        asset.provider,
+                        asset.base_timeframe,
+                        asset.publish_timeframes,
+                        asset.historical_backfill_days,
+                        asset.retention_days,
+                        asset.enabled,
+                        asset.desired_state.value,
+                        next_version,
+                        state_changed,
+                    )
         if row is None:
             raise RuntimeError(f"Failed to persist ingestion asset '{asset.symbol}'.")
         return self._to_model(row)
 
     @staticmethod
     def _to_model(row: Any) -> IngestionAssetRecord:
-        payload = dict(row)
+        if inspect.isawaitable(row) or isinstance(row, Mock):
+            raise TypeError(f"Unsupported ingestion asset row type: {type(row)!r}")
+        try:
+            payload = dict(row)
+        except TypeError as exc:
+            raise TypeError(f"Unsupported ingestion asset row type: {type(row)!r}") from exc
         payload["source"] = IngestionAssetSource.REGISTRY
+        payload["timeframe_version"] = payload.get("asset_version", 1)
         return IngestionAssetRecord.model_validate(payload)
 
+    @staticmethod
+    def _state_payload(asset: IngestionAssetRecord) -> dict[str, Any]:
+        desired_state = getattr(asset.desired_state, "value", asset.desired_state)
+        return {
+            "symbol": asset.symbol,
+            "exchange": asset.exchange,
+            "provider": asset.provider,
+            "base_timeframe": asset.base_timeframe,
+            "publish_timeframes": list(asset.publish_timeframes),
+            "historical_backfill_days": asset.historical_backfill_days,
+            "retention_days": asset.retention_days,
+            "enabled": asset.enabled,
+            "desired_state": str(desired_state),
+        }

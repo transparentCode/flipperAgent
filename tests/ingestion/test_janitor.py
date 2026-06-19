@@ -6,6 +6,7 @@ import pytest
 
 from apps.ingestion_app.storage.janitor import IngestionStorageJanitor
 from apps.ingestion_app.jobs.cleanup import purge_removed_asset, scheduled_asset_cleanup
+from libs.common.asset_manifest import asset_manifest_key, asset_timeframe_manifest_key
 
 
 class FakeConnection:
@@ -91,7 +92,11 @@ async def test_purge_removed_asset_clears_keys_and_emits_completion_event():
 
     janitor.purge_asset_data.assert_awaited_once_with("BTCUSDT")
     janitor.finalize_asset_removal.assert_awaited_once_with("BTCUSDT")
-    assert ctx["valkey_client"].delete.await_count == 10
+    assert ctx["valkey_client"].delete.await_count == 15
+    deleted_keys = [call.args[0] for call in ctx["valkey_client"].delete.await_args_list]
+    assert asset_manifest_key("BTCUSDT") in deleted_keys
+    assert asset_timeframe_manifest_key("BTCUSDT", "1m") in deleted_keys
+    assert asset_timeframe_manifest_key("BTCUSDT", "1h") in deleted_keys
     mock_publish.assert_awaited_once()
 
 

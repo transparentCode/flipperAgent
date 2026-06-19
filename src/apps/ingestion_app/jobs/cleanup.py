@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from apps.ingestion_app.constants import INGESTION_LAST_CLOSED_PUBLISHED_PREFIX
 from apps.ingestion_app.control_plane.repository import IngestionAssetRegistryRepository
 from apps.ingestion_app.coordination import IngestionCoordinator
 from apps.ingestion_app.events import publish_ingestion_runtime_event
 from apps.ingestion_app.storage.janitor import IngestionStorageJanitor
 from libs.common.asset_status import asset_runtime_status_key
+from libs.common.asset_manifest import asset_manifest_key, asset_timeframe_manifest_key
 from libs.common.db.pool_manager import DBPoolManager
 from libs.common.exceptions import DataIngestionError
 from libs.contracts.schemas import IngestionEventType
@@ -95,5 +97,22 @@ async def _clear_ingestion_observability_keys_and_streams(
     await _clear_ingestion_observability_keys(valkey_client, symbol, timeframe)
     if valkey_client is None:
         return
-    for publish_timeframe in (publish_timeframes or [timeframe]):
-        await valkey_client.delete(f"stream:ohlcv:{symbol.lower()}:{publish_timeframe}")
+    runtime_timeframes = _runtime_timeframes(timeframe, publish_timeframes)
+    await valkey_client.delete(asset_manifest_key(symbol))
+    for runtime_timeframe in runtime_timeframes:
+        await valkey_client.delete(asset_timeframe_manifest_key(symbol, runtime_timeframe))
+        await valkey_client.delete(f"stream:ohlcv:{symbol.lower()}:{runtime_timeframe}")
+        await valkey_client.delete(_last_closed_published_key(symbol, runtime_timeframe))
+
+
+def _runtime_timeframes(base_timeframe: str, publish_timeframes: list[str]) -> list[str]:
+    ordered: list[str] = []
+    for timeframe in [base_timeframe, *list(publish_timeframes)]:
+        normalized = str(timeframe).strip()
+        if normalized and normalized not in ordered:
+            ordered.append(normalized)
+    return ordered
+
+
+def _last_closed_published_key(symbol: str, timeframe: str) -> str:
+    return f"{INGESTION_LAST_CLOSED_PUBLISHED_PREFIX}:{str(symbol).upper().strip()}:{str(timeframe).strip()}"

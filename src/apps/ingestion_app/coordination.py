@@ -113,6 +113,7 @@ class IngestionCoordinator:
         tf: str,
         state: IngestionState,
         *,
+        count_disconnect: bool | None = None,
         reason: str | None = None,
         provenance: str = "ingestion_runtime",
     ) -> None:
@@ -121,7 +122,8 @@ class IngestionCoordinator:
         Side-effects on specific states:
         - LIVE  → records last_live_ts
         - WARMING/LIVE → records last_ready_ts
-        - COLD  → records disconnect_ts, increments rolling disconnect counter
+        - COLD  → records disconnect_ts and increments rolling disconnect counter
+                   only for real live-feed disconnects unless explicitly overridden
                    (counter TTL = ingestion.observability.disconnect_window_seconds)
         """
         now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
@@ -136,14 +138,17 @@ class IngestionCoordinator:
 
         elif state == IngestionState.COLD:
             await self._valkey.set(self._disconnect_ts_key(symbol, tf), str(now_ms))
-            window_s: int = self._config.get(
-                "ingestion.observability.disconnect_window_seconds", 3600
+            should_count_disconnect = (
+                count_disconnect if count_disconnect is not None else reason == "websocket_disconnected"
             )
-            count_key = self._disconnect_count_key(symbol, tf)
-            count = await self._valkey.incr(count_key)
-            if count == 1:
-                # First increment in this window — set the TTL
-                await self._valkey.expire(count_key, window_s)
+            if should_count_disconnect:
+                window_s: int = self._config.get(
+                    "ingestion.observability.disconnect_window_seconds", 3600
+                )
+                count_key = self._disconnect_count_key(symbol, tf)
+                count = await self._valkey.incr(count_key)
+                if count == 1:
+                    await self._valkey.expire(count_key, window_s)
 
         await self._publish_runtime_status(
             symbol,

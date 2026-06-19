@@ -57,6 +57,7 @@ class IngestionControlService:
         return await self.publisher.publish(
             asset=persisted,
             command_type=command_type,
+            request_id=request.request_id,
             requested_by=request.requested_by,
             reason=request.reason,
         )
@@ -75,6 +76,7 @@ class IngestionControlService:
         return await self.publisher.publish(
             asset=persisted,
             command_type=IngestionCommandType.UPDATE_ASSET,
+            request_id=patch.request_id,
             requested_by=patch.requested_by,
             reason=patch.reason,
         )
@@ -114,6 +116,7 @@ class IngestionControlService:
         return await self.publisher.publish(
             asset=persisted,
             command_type=action,
+            request_id=body.request_id,
             requested_by=body.requested_by,
             reason=body.reason,
         )

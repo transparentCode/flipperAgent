@@ -5,7 +5,7 @@ import json
 from typing import Any
 
 from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
-from apps.ingestion_app.constants import EXCHANGE_BINANCE
+from apps.ingestion_app.constants import EXCHANGE_BINANCE, INGESTION_LAST_CLOSED_PUBLISHED_PREFIX
 from apps.ingestion_app.coordination import IngestionCoordinator, IngestionState
 from apps.ingestion_app.events import publish_ingestion_runtime_event
 from apps.ingestion_app.models.tick_models import OHLCVRecord
@@ -37,11 +37,16 @@ async def verify_and_launch_ws(
     arq_pool: Any,
     coordinator: IngestionCoordinator,
     task_registry: set[asyncio.Task[Any]] | None = None,
+    *,
+    base_timeframe: str | None = None,
 ) -> None:
-    base_timeframe = config_manager.get("ingestion.timeframes.base_gap_fill", "1m")
+    runtime_base_timeframe = base_timeframe or config_manager.get(
+        "ingestion.timeframes.base_gap_fill",
+        "1m",
+    )
     logger.info(f"[{symbol}] Starting Verification Gate...")
     try:
-        ready = await coordinator.wait_until_warmed(symbol, base_timeframe)
+        ready = await coordinator.wait_until_warmed(symbol, runtime_base_timeframe)
         if not ready:
             logger.error(f"[{symbol}] Gap-fill entered ERROR state. WebSocket launch aborted.")
             return
@@ -49,7 +54,7 @@ async def verify_and_launch_ws(
         logger.error(f"[{symbol}] Warmup timed out. WebSocket launch aborted.")
         await coordinator.transition(
             symbol,
-            base_timeframe,
+            runtime_base_timeframe,
             IngestionState.ERROR,
             reason="warmup_timeout",
             provenance="verification_gate",
@@ -58,7 +63,13 @@ async def verify_and_launch_ws(
 
     logger.info(f"[{symbol}] Data warmed up. Launching WebSocket pipeline.")
     websocket_task = asyncio.create_task(
-        run_websocket_pipeline(symbol, stream_timeframes, arq_pool=arq_pool, coordinator=coordinator)
+        run_websocket_pipeline(
+            symbol,
+            stream_timeframes,
+            arq_pool=arq_pool,
+            coordinator=coordinator,
+            base_timeframe=runtime_base_timeframe,
+        )
     )
     if task_registry is not None:
         track_task(task_registry, websocket_task)
@@ -70,9 +81,13 @@ async def run_websocket_pipeline(
     *,
     arq_pool: Any = None,
     coordinator: IngestionCoordinator | None = None,
+    base_timeframe: str | None = None,
 ) -> None:
-    base_timeframe = config_manager.get("ingestion.timeframes.base_gap_fill", "1m")
-    live_stream_timeframes = runtime_stream_timeframes(base_timeframe, stream_timeframes)
+    runtime_base_timeframe = base_timeframe or config_manager.get(
+        "ingestion.timeframes.base_gap_fill",
+        "1m",
+    )
+    live_stream_timeframes = runtime_stream_timeframes(runtime_base_timeframe, stream_timeframes)
     loop = asyncio.get_running_loop()
     reconnect_sleep_seconds = config_manager.get("ingestion.websocket.reconnect_sleep_seconds", 5)
     queue_maxsize = max(1, int(config_manager.get("ingestion.websocket.queue_maxsize", 1000)))
@@ -116,7 +131,7 @@ async def run_websocket_pipeline(
                     if coordinator and not live_confirmed:
                         await coordinator.transition(
                             symbol,
-                            base_timeframe,
+                            runtime_base_timeframe,
                             IngestionState.LIVE,
                             reason="first_live_bar",
                             provenance="websocket",
@@ -141,6 +156,17 @@ async def run_websocket_pipeline(
 
                     if is_closed and timeframe in live_stream_timeframes:
                         stream_key = f"stream:ohlcv:{symbol.lower()}:{timeframe}"
+                        dedupe_key = _last_closed_published_key(symbol, timeframe)
+                        open_timestamp_ms = int(kline["t"])
+                        last_published_raw = await redis_client.get(dedupe_key)
+                        if last_published_raw is not None and open_timestamp_ms <= int(last_published_raw):
+                            logger.info(
+                                "[%s:%s] Skipping duplicate/out-of-order closed candle at %s",
+                                symbol,
+                                timeframe,
+                                open_timestamp_ms,
+                            )
+                            continue
                         bar_span_seconds = timeframe_to_seconds(timeframe)
                         close_timestamp = float(kline.get("T", 0.0)) / 1000.0
                         if close_timestamp <= 0:
@@ -160,7 +186,7 @@ async def run_websocket_pipeline(
                                 taker_buy_base=record.taker_buy_base,
                                 bar_closed=True,
                                 ingestion_timestamp=emitted_at_ms,
-                                base_timeframe=base_timeframe,
+                                base_timeframe=runtime_base_timeframe,
                                 bar_span_seconds=bar_span_seconds,
                                 close_timestamp=close_timestamp,
                                 publication_lag_ms=max(0, emitted_at_ms - int(close_timestamp * 1000)),
@@ -189,6 +215,7 @@ async def run_websocket_pipeline(
                                     approximate=stream_approximate,
                                 )
                                 await pipe.execute()
+                                await redis_client.set(dedupe_key, str(open_timestamp_ms))
                         else:
                             pipe = redis_client.pipeline(transaction=False)
                             pipe.xadd(
@@ -198,13 +225,14 @@ async def run_websocket_pipeline(
                                 approximate=stream_approximate,
                             )
                             await pipe.execute()
+                            await redis_client.set(dedupe_key, str(open_timestamp_ms))
 
             except asyncio.CancelledError:
                 logger.info(f"[{symbol}] WebSocket task canceled.")
                 if coordinator:
                     await coordinator.transition(
                         symbol,
-                        base_timeframe,
+                        runtime_base_timeframe,
                         IngestionState.COLD,
                         reason="websocket_cancelled",
                         provenance="websocket",
@@ -217,7 +245,7 @@ async def run_websocket_pipeline(
                 if coordinator:
                     await coordinator.transition(
                         symbol,
-                        base_timeframe,
+                        runtime_base_timeframe,
                         IngestionState.COLD,
                         reason="websocket_disconnected",
                         provenance="websocket",
@@ -240,7 +268,10 @@ async def run_websocket_pipeline(
                         "ingestion.observability.circuit_breaker_sleep_seconds",
                         300,
                     )
-                    disconnect_count = await coordinator.get_disconnect_count(symbol, base_timeframe)
+                    disconnect_count = await coordinator.get_disconnect_count(
+                        symbol,
+                        runtime_base_timeframe,
+                    )
                     if disconnect_count >= breaker_threshold:
                         logger.critical(
                             f"[{symbol}] Circuit breaker triggered: {disconnect_count} disconnects "
@@ -252,7 +283,7 @@ async def run_websocket_pipeline(
                                 redis_client,
                                 event_type=IngestionEventType.RUNTIME_RETRY_EXHAUSTED,
                                 symbol=symbol,
-                                timeframe=base_timeframe,
+                                timeframe=runtime_base_timeframe,
                                 severity="critical",
                                 detail={
                                     "disconnect_count": disconnect_count,
@@ -266,3 +297,7 @@ async def run_websocket_pipeline(
     finally:
         if redis_client is not None:
             await redis_client.aclose()
+
+
+def _last_closed_published_key(symbol: str, timeframe: str) -> str:
+    return f"{INGESTION_LAST_CLOSED_PUBLISHED_PREFIX}:{str(symbol).upper().strip()}:{str(timeframe).strip()}"

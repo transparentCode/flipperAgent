@@ -51,6 +51,9 @@ class FakeConnection:
             return self.fetchrow_results.pop(0)
         return None
 
+    def transaction(self):
+        return _Ctx(None)
+
 
 class FakePool:
     def __init__(self, conn: FakeConnection):
@@ -96,7 +99,9 @@ class FakeValkey:
         prefix = pattern.rstrip("*")
         return [key for key in self.hashes if key.startswith(prefix)]
 
-    async def set(self, key: str, value: str):
+    async def set(self, key: str, value: str, **kwargs):
+        if kwargs.get("nx") and key in self.values:
+            return None
         self.set_calls.append((key, value))
         self.values[key] = value
         return True
@@ -429,6 +434,10 @@ async def test_v2_control_publisher_publishes_two_stream_messages():
     assert asset_timeframe_manifest_key("SOLUSDT", "1m") in publisher.valkey_client.hashes
     assert asset_timeframe_manifest_key("SOLUSDT", "1h") in publisher.valkey_client.hashes
     assert asset_timeframe_manifest_key("SOLUSDT", "4h") in publisher.valkey_client.hashes
+    control_payload = publisher.valkey_client.calls[0][1]
+    lifecycle_payload = publisher.valkey_client.calls[2][1]
+    assert control_payload["asset_version"] == "1"
+    assert lifecycle_payload["asset_version"] == "1"
 
 
 @pytest.mark.asyncio
@@ -476,7 +485,50 @@ async def test_v2_control_publisher_emits_effective_runtime_lanes_in_manifest_an
     assert manifest is not None
     assert manifest.publish_timeframes == ["1h"]
     assert manifest.timeframes == ["1m", "1h"]
+    assert manifest.asset_version == 1
     assert asset_timeframe_manifest_key("SOLUSDT", "1h") in valkey.hashes
+
+
+@pytest.mark.asyncio
+async def test_v2_control_publisher_deduplicates_replayed_command_and_event_ids():
+    asset = IngestionAssetRecord(
+        symbol="SOLUSDT",
+        publish_timeframes=["1h"],
+        asset_version=3,
+        timeframe_version=3,
+        source=IngestionAssetSource.REGISTRY,
+    )
+    valkey = FakeValkey()
+    publisher = IngestionControlPublisher(valkey)
+
+    first = await publisher.publish(
+        asset=asset,
+        command_type=IngestionCommandType.UPSERT_ASSET,
+        request_id="req-1",
+        requested_by="api_app",
+        reason="new asset",
+    )
+    second = await publisher.publish(
+        asset=asset,
+        command_type=IngestionCommandType.UPSERT_ASSET,
+        request_id="req-1",
+        requested_by="api_app",
+        reason="new asset",
+    )
+
+    assert first.command_published is True
+    assert first.event_published is True
+    assert first.lifecycle_published is True
+    assert second.command_published is False
+    assert second.event_published is False
+    assert second.lifecycle_published is False
+    assert second.deduplicated is True
+    assert first.command_id == second.command_id
+    assert [stream for stream, _ in valkey.calls] == [
+        INGESTION_CONTROL_STREAM,
+        INGESTION_EVENTS_STREAM,
+        ASSET_LIFECYCLE_STREAM,
+    ]
 
 
 @pytest.mark.asyncio
@@ -502,6 +554,7 @@ async def test_v2_control_service_upsert_persists_and_publishes():
     assert result.command_type == IngestionCommandType.UPSERT_ASSET.value
     assert result.command_published is True
     assert result.event_published is True
+    assert result.asset_version == 1
 
 
 @pytest.mark.asyncio
@@ -554,7 +607,7 @@ async def test_v2_control_service_apply_action_persists_and_publishes():
     assert result.command_type == IngestionCommandType.PAUSE_ASSET.value
     assert result.command_published is True
     assert result.event_published is True
-    assert valkey.set_calls == [("ingestion:resume_backfill_required:BTCUSDT:1m", "1")]
+    assert ("ingestion:resume_backfill_required:BTCUSDT:1m", "1") in valkey.set_calls
 
 
 @pytest.mark.asyncio
@@ -611,7 +664,7 @@ async def test_v2_control_service_apply_action_keeps_registry_persistence_raw_bu
     persisted_arg = service.repo.upsert_asset.await_args.args[0]
     assert persisted_arg.publish_timeframes == []
     assert result.asset.publish_timeframes == ["1h"]
-    assert valkey.set_calls == [("ingestion:resume_backfill_required:BTCUSDT:1m", "1")]
+    assert ("ingestion:resume_backfill_required:BTCUSDT:1m", "1") in valkey.set_calls
 
 
 @pytest.mark.asyncio
@@ -642,6 +695,102 @@ async def test_v2_control_service_resume_persists_resuming_without_lifecycle_eve
         INGESTION_CONTROL_STREAM,
         INGESTION_EVENTS_STREAM,
     ]
+
+
+@pytest.mark.asyncio
+async def test_v2_registry_repository_keeps_asset_version_for_noop_update():
+    conn = FakeConnection(
+        fetchrow_results=[
+            {
+                "symbol": "BTCUSDT",
+                "exchange": "binance",
+                "provider": "binance_native",
+                "base_timeframe": "1m",
+                "publish_timeframes": ["1h"],
+                "historical_backfill_days": 2,
+                "retention_days": None,
+                "enabled": True,
+                "desired_state": "LIVE",
+                "asset_version": 5,
+                "created_at": None,
+                "updated_at": None,
+            },
+            {
+                "symbol": "BTCUSDT",
+                "exchange": "binance",
+                "provider": "binance_native",
+                "base_timeframe": "1m",
+                "publish_timeframes": ["1h"],
+                "historical_backfill_days": 2,
+                "retention_days": None,
+                "enabled": True,
+                "desired_state": "LIVE",
+                "asset_version": 5,
+                "created_at": None,
+                "updated_at": None,
+            },
+        ]
+    )
+
+    repo = IngestionAssetRegistryRepository(FakePool(conn))
+    record = await repo.upsert_asset(
+        IngestionAssetRecord(
+            symbol="BTCUSDT",
+            publish_timeframes=["1h"],
+            asset_version=5,
+            source=IngestionAssetSource.REGISTRY,
+        )
+    )
+
+    assert record.asset_version == 5
+
+
+@pytest.mark.asyncio
+async def test_v2_registry_repository_bumps_asset_version_for_material_change():
+    conn = FakeConnection(
+        fetchrow_results=[
+            {
+                "symbol": "BTCUSDT",
+                "exchange": "binance",
+                "provider": "binance_native",
+                "base_timeframe": "1m",
+                "publish_timeframes": ["1h"],
+                "historical_backfill_days": 2,
+                "retention_days": None,
+                "enabled": True,
+                "desired_state": "LIVE",
+                "asset_version": 5,
+                "created_at": None,
+                "updated_at": None,
+            },
+            {
+                "symbol": "BTCUSDT",
+                "exchange": "binance",
+                "provider": "binance_native",
+                "base_timeframe": "1m",
+                "publish_timeframes": ["4h"],
+                "historical_backfill_days": 2,
+                "retention_days": None,
+                "enabled": True,
+                "desired_state": "LIVE",
+                "asset_version": 6,
+                "created_at": None,
+                "updated_at": None,
+            },
+        ]
+    )
+
+    repo = IngestionAssetRegistryRepository(FakePool(conn))
+    record = await repo.upsert_asset(
+        IngestionAssetRecord(
+            symbol="BTCUSDT",
+            publish_timeframes=["4h"],
+            asset_version=5,
+            source=IngestionAssetSource.REGISTRY,
+        )
+    )
+
+    assert record.asset_version == 6
 
 
 @pytest.mark.asyncio

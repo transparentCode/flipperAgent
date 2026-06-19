@@ -38,6 +38,9 @@ class IngestionControlCommand(BaseModel):
     retention_days: int | None = None
     enabled: bool = True
     desired_state: str = "LIVE"
+    request_id: str | None = None
+    asset_version: int = 1
+    timeframe_version: int | None = None
     requested_by: str = "api_app"
     reason: str | None = None
     requested_at: float
@@ -50,6 +53,9 @@ class IngestionControlEvent(BaseModel):
     command_type: IngestionCommandType
     symbol: str
     status: Literal["accepted"] = "accepted"
+    request_id: str | None = None
+    asset_version: int = 1
+    timeframe_version: int | None = None
     requested_by: str = "api_app"
     detail: dict[str, Any] = Field(default_factory=dict)
     emitted_at: float

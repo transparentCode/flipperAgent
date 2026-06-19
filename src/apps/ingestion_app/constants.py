@@ -13,6 +13,7 @@ BINANCE_KLINE_STREAM_TEMPLATE = "{symbol}@kline_{interval}"
 EXCHANGE_BINANCE = "binance"
 INGESTION_CONTROL_STREAM = "stream:control:ingestion"
 INGESTION_EVENTS_STREAM = "stream:events:ingestion"
+INGESTION_LAST_CLOSED_PUBLISHED_PREFIX = "ingestion:last_closed_published"
 
 # Storage Constants (Phase 4)
 TABLE_OHLCV = "ohlcv"

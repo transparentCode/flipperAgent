@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from enum import Enum
+import hashlib
 from time import time
-import uuid
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -35,6 +35,9 @@ class AssetManifest(BaseModel):
     retention_days: int | None = None
     enabled: bool = True
     desired_state: str = "LIVE"
+    asset_version: int = 1
+    timeframe_version: int | None = None
+    request_id: str | None = None
     updated_at: float
     source: str = "ingestion_app"
 
@@ -57,6 +60,9 @@ class AssetTimeframeManifest(BaseModel):
     retention_days: int | None = None
     enabled: bool = True
     desired_state: str = "LIVE"
+    asset_version: int = 1
+    timeframe_version: int | None = None
+    request_id: str | None = None
     updated_at: float
     source: str = "ingestion_app"
 
@@ -71,6 +77,7 @@ class AssetLifecycleEvent(BaseModel):
 
     event_id: str
     event_type: AssetLifecycleEventType
+    command_id: str | None = None
     command_type: str
     symbol: str
     exchange: str = "binance"
@@ -80,6 +87,9 @@ class AssetLifecycleEvent(BaseModel):
     timeframes: list[str] = Field(default_factory=list)
     enabled: bool = True
     desired_state: str = "LIVE"
+    request_id: str | None = None
+    asset_version: int = 1
+    timeframe_version: int | None = None
     requested_by: str = "api_app"
     reason: str | None = None
     emitted_at: float
@@ -108,6 +118,17 @@ def lifecycle_event_type(command_type: IngestionCommandType) -> AssetLifecycleEv
         IngestionCommandType.REMOVE_ASSET: AssetLifecycleEventType.ASSET_REMOVE_REQUESTED,
     }
     return mapping[command_type]
+
+
+def make_lifecycle_event_id(
+    *,
+    symbol: str,
+    command_type: str,
+    asset_version: int,
+    request_id: str | None = None,
+) -> str:
+    raw = f"lifecycle|{str(symbol).upper().strip()}|{command_type}|{asset_version}|{request_id or ''}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
 
 
 def manifest_runtime_timeframes(manifest: AssetManifest) -> list[str]:
@@ -184,6 +205,7 @@ class AssetManifestStore:
         asset: Any,
         *,
         updated_at: float | None = None,
+        request_id: str | None = None,
     ) -> tuple[AssetManifest, list[AssetTimeframeManifest]]:
         timestamp = updated_at if updated_at is not None else time()
         previous = await self.read_asset(asset.symbol)
@@ -202,6 +224,11 @@ class AssetManifestStore:
             retention_days=asset.retention_days,
             enabled=asset.enabled,
             desired_state=self._enum_value(asset.desired_state),
+            asset_version=int(getattr(asset, "asset_version", 1)),
+            timeframe_version=int(
+                getattr(asset, "timeframe_version", None) or getattr(asset, "asset_version", 1)
+            ),
+            request_id=request_id,
             updated_at=timestamp,
         )
         await self.redis_client.hset(
@@ -222,6 +249,11 @@ class AssetManifestStore:
                 retention_days=asset.retention_days,
                 enabled=asset.enabled,
                 desired_state=self._enum_value(asset.desired_state),
+                asset_version=int(getattr(asset, "asset_version", 1)),
+                timeframe_version=int(
+                    getattr(asset, "timeframe_version", None) or getattr(asset, "asset_version", 1)
+                ),
+                request_id=request_id,
                 updated_at=timestamp,
             )
             await self.redis_client.hset(
@@ -243,11 +275,23 @@ class AssetManifestStore:
         requested_by: str,
         reason: str | None,
         emitted_at: float | None = None,
+        event_id: str | None = None,
+        command_id: str | None = None,
+        request_id: str | None = None,
     ) -> str:
         timestamp = emitted_at if emitted_at is not None else time()
+        asset_version = int(getattr(asset, "asset_version", 1))
+        timeframe_version = int(getattr(asset, "timeframe_version", None) or asset_version)
         event = AssetLifecycleEvent(
-            event_id=str(uuid.uuid4()),
+            event_id=event_id
+            or make_lifecycle_event_id(
+                symbol=asset.symbol,
+                command_type=command_type.value,
+                asset_version=asset_version,
+                request_id=request_id,
+            ),
             event_type=lifecycle_event_type(command_type),
+            command_id=command_id,
             command_type=command_type.value,
             symbol=asset.symbol,
             exchange=asset.exchange,
@@ -257,6 +301,9 @@ class AssetManifestStore:
             timeframes=self._all_timeframes(asset),
             enabled=asset.enabled,
             desired_state=self._enum_value(asset.desired_state),
+            request_id=request_id,
+            asset_version=asset_version,
+            timeframe_version=timeframe_version,
             requested_by=requested_by,
             reason=reason,
             emitted_at=timestamp,
