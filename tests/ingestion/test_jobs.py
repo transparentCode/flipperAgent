@@ -8,8 +8,8 @@ from apps.ingestion_app.coordination import IngestionCoordinator
 from apps.ingestion_app.jobs.cleanup import purge_removed_asset, scheduled_asset_cleanup
 from apps.ingestion_app.jobs.gap_fill import run_rest_gap_fill, scheduled_gap_fill
 from apps.ingestion_app.models.asset_registry import IngestionAssetDesiredState, IngestionAssetRecord
-from apps.ingestion_app.jobs.l2_depth import poll_l2_depth
-from apps.ingestion_app.jobs.topup import poll_binance_ohlcv
+from apps.ingestion_app.jobs.l2_depth import _fetch_l2_depth_snapshot, poll_l2_depth
+from apps.ingestion_app.jobs.topup import _top_up_binance_ohlcv, poll_binance_ohlcv
 from libs.common.asset_manifest import asset_manifest_key, asset_timeframe_manifest_key
 from libs.common.exceptions import DataIngestionError
 
@@ -250,6 +250,27 @@ async def test_v2_poll_binance_topup_uses_ctx_adapter():
 
 
 @pytest.mark.asyncio
+async def test_v2_topup_skips_persist_when_asset_becomes_unschedulable():
+    frame = pd.DataFrame(
+        [[DEFAULT_MOCK_TIMESTAMP, 16000.0, 16100.0, 15900.0, 16050.0, 100.0]],
+        columns=["timestamp", "open", "high", "low", "close", "volume"],
+    )
+    adapter = AsyncMock()
+    adapter.get_historical_ohlcv.return_value = frame
+    reader = MagicMock(get_max_timestamp=AsyncMock(return_value=0))
+    writer = MagicMock(insert_ohlcv=AsyncMock())
+
+    with patch("apps.ingestion_app.jobs.topup.is_asset_schedulable", new=AsyncMock(side_effect=[True, False])), \
+         patch("apps.ingestion_app.jobs.topup.TimescaleReader", return_value=reader), \
+         patch("apps.ingestion_app.jobs.topup.TimescaleWriter", return_value=writer), \
+         patch("apps.ingestion_app.jobs.topup.DBPoolManager.get_reader_pool", return_value=MagicMock()), \
+         patch("apps.ingestion_app.jobs.topup.DBPoolManager.get_writer_pool", return_value=MagicMock()):
+        await _top_up_binance_ohlcv(adapter, "BTCUSDT", "1m")
+
+    writer.insert_ohlcv.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_v2_scheduled_gap_fill_uses_effective_asset_catalog():
     ctx = {"ccxt_adapter": AsyncMock(), "coordinator": MagicMock(transition=AsyncMock())}
 
@@ -272,7 +293,12 @@ async def test_v2_purge_removed_asset_clears_keys_and_emits_completion_event():
     janitor.purge_asset_data = AsyncMock(return_value={"ohlcv": 5})
     janitor.finalize_asset_removal = AsyncMock(return_value=True)
     registry = MagicMock()
-    registry.get_asset = AsyncMock(return_value=MagicMock(publish_timeframes=["1m", "1h"]))
+    registry.get_asset = AsyncMock(
+        return_value=MagicMock(
+            desired_state=IngestionAssetDesiredState.REMOVING,
+            publish_timeframes=["1m", "1h"],
+        )
+    )
 
     with patch("apps.ingestion_app.jobs.cleanup.IngestionStorageJanitor", return_value=janitor), \
          patch("apps.ingestion_app.jobs.cleanup.IngestionAssetRegistryRepository", return_value=registry), \
@@ -280,12 +306,46 @@ async def test_v2_purge_removed_asset_clears_keys_and_emits_completion_event():
         patch("apps.ingestion_app.jobs.cleanup.publish_ingestion_runtime_event", new=AsyncMock()) as mock_publish:
         await purge_removed_asset(ctx, "BTCUSDT", "1m")
 
-    assert ctx["valkey_client"].delete.await_count == 15
+    assert ctx["valkey_client"].delete.await_count == 23
     deleted_keys = [call.args[0] for call in ctx["valkey_client"].delete.await_args_list]
     assert asset_manifest_key("BTCUSDT") in deleted_keys
     assert asset_timeframe_manifest_key("BTCUSDT", "1m") in deleted_keys
     assert asset_timeframe_manifest_key("BTCUSDT", "1h") in deleted_keys
+    assert "features:BTCUSDT:1m" in deleted_keys
+    assert "features:BTCUSDT:1h" in deleted_keys
+    assert "price_update:BTCUSDT:1m" in deleted_keys
+    assert "price_update:BTCUSDT:1h" in deleted_keys
+    assert "signals:BTCUSDT:1m" in deleted_keys
+    assert "signals:BTCUSDT:1h" in deleted_keys
+    assert "derivatives:latest:BTCUSDT:oi" in deleted_keys
+    assert "derivatives:latest:BTCUSDT:funding" in deleted_keys
     mock_publish.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_v2_purge_removed_asset_skips_stale_job_for_live_asset():
+    ctx = {"valkey_client": AsyncMock()}
+    janitor = MagicMock()
+    janitor.purge_asset_data = AsyncMock()
+    janitor.finalize_asset_removal = AsyncMock()
+    registry = MagicMock()
+    registry.get_asset = AsyncMock(
+        return_value=MagicMock(
+            desired_state=IngestionAssetDesiredState.LIVE,
+            publish_timeframes=["1m"],
+        )
+    )
+
+    with patch("apps.ingestion_app.jobs.cleanup.IngestionStorageJanitor", return_value=janitor), \
+         patch("apps.ingestion_app.jobs.cleanup.IngestionAssetRegistryRepository", return_value=registry), \
+         patch("apps.ingestion_app.jobs.cleanup.DBPoolManager.get_writer_pool", return_value=MagicMock()), \
+         patch("apps.ingestion_app.jobs.cleanup.publish_ingestion_runtime_event", new=AsyncMock()) as mock_publish:
+        await purge_removed_asset(ctx, "BTCUSDT", "1m")
+
+    janitor.purge_asset_data.assert_not_awaited()
+    janitor.finalize_asset_removal.assert_not_awaited()
+    ctx["valkey_client"].delete.assert_not_awaited()
+    mock_publish.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -315,3 +375,22 @@ async def test_v2_poll_l2_depth_raises_when_all_assets_fail():
         }.get(key, default)
         with pytest.raises(DataIngestionError):
             await poll_l2_depth(ctx)
+
+
+@pytest.mark.asyncio
+async def test_v2_l2_depth_skips_persist_when_asset_becomes_unschedulable():
+    binance_adapter = MagicMock()
+    binance_adapter.client.depth = MagicMock(
+        return_value={
+            "bids": [["100.0", "2.0"], ["99.5", "1.5"]],
+            "asks": [["100.5", "1.0"], ["101.0", "2.5"]],
+        }
+    )
+    writer = MagicMock(insert_l2_depth=AsyncMock())
+
+    with patch("apps.ingestion_app.jobs.l2_depth.is_asset_schedulable", new=AsyncMock(side_effect=[True, False])), \
+         patch("apps.ingestion_app.jobs.l2_depth.TimescaleWriter", return_value=writer), \
+         patch("apps.ingestion_app.jobs.l2_depth.DBPoolManager.get_writer_pool", return_value=MagicMock()):
+        await _fetch_l2_depth_snapshot(binance_adapter, "BTCUSDT", depth_limit=2)
+
+    writer.insert_l2_depth.assert_not_awaited()

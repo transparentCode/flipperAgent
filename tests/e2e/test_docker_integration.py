@@ -3,6 +3,7 @@ import json
 import subprocess
 import time
 import uuid
+from urllib import request
 
 import pytest
 import asyncpg
@@ -83,6 +84,65 @@ async def test_websocket_live_streaming(db_pools):
         await asyncio.sleep(delay_seconds)
         
     assert live_stream_active, f"Timeout after {max_retries * delay_seconds}s waiting for live stream handoff."
+
+
+async def _wait_until(
+    predicate,
+    *,
+    timeout_s: float,
+    interval_s: float = 1.0,
+    description: str,
+):
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        value = await predicate()
+        if value:
+            return value
+        await asyncio.sleep(interval_s)
+    raise AssertionError(f"Timed out waiting for {description}")
+
+
+async def _latest_stream_payload(valkey_client, stream_key: str):
+    entries = await valkey_client.xrevrange(stream_key, count=1)
+    if not entries:
+        return None
+    _, payload = entries[0]
+    return payload
+
+
+async def _latest_stream_timestamp(valkey_client, stream_key: str) -> float | None:
+    payload = await _latest_stream_payload(valkey_client, stream_key)
+    if not payload:
+        return None
+    raw = payload.get("timestamp")
+    if raw in (None, ""):
+        return None
+    ts = float(raw)
+    return ts / 1000.0 if ts > 1e12 else ts
+
+
+async def _wait_for_ingestion_health_after_restart(timeout_s: float = 60.0) -> None:
+    health_url = "http://127.0.0.1:8002/health"
+
+    async def _healthy():
+        def _probe():
+            with request.urlopen(health_url, timeout=5) as response:
+                if response.status != 200:
+                    return False
+                payload = json.loads(response.read().decode("utf-8"))
+                return payload.get("status") == "ok"
+
+        try:
+            return await asyncio.to_thread(_probe)
+        except Exception:
+            return None
+
+    await _wait_until(
+        _healthy,
+        timeout_s=timeout_s,
+        interval_s=2.0,
+        description="ingestion healthcheck after restart",
+    )
 
 @pytest.mark.asyncio
 async def test_continuous_aggregates_exist(db_pools):
@@ -558,44 +618,168 @@ async def test_all_consumer_groups_comprehensive(db_pools, valkey_client):
 @pytest.mark.asyncio
 @pytest.mark.slow
 async def test_organic_candle_full_roundtrip(db_pools, valkey_client):
-    """Wait for a real candle to flow from ingestion through the entire pipeline.
+    """Verify organic ingestion/signal/strategy liveness with cadence-aware freshness.
 
-    This test requires live Binance connectivity and may take several minutes.
-    Run with: pytest -m slow
-    Skip with: pytest -m 'not slow' (default in CI)
+    The prior version waited for a fresh 4h candle inside a 2-minute wall clock window,
+    which was timing-fragile outside exact higher-timeframe closes. After a cold boot,
+    higher-timeframe close streams may legitimately stay empty until the next scheduled
+    close, while downstream apps can still be live from bootstrap snapshots. This version checks:
+    - ingestion keeps the canonical 1m lane near real time
+    - signal_app has produced bootstrap/live feature payloads for active BTCUSDT model lanes
+    - strategy_app is attached to those feature streams via consumer groups
     """
-    # 1. Wait for a fresh OHLCV entry (timestamp within last 2 min)
-    max_retries = 120  # 4 min
-    fresh_candle = False
-    for _ in range(max_retries):
-        entries = await valkey_client.xrange("stream:ohlcv:btcusdt:4h", count=5)
-        for _, data in reversed(entries):
-            ts = float(data.get("timestamp", "0"))
-            # timestamps from ingestion may be epoch seconds or ms
-            if ts > 1e12:
-                ts = ts / 1000
-            if time.time() - ts < 120:  # within last 2 min
-                fresh_candle = True
-                break
-        if fresh_candle:
-            break
-        await asyncio.sleep(2)
+    from libs.common.db.timescale_reader import TimescaleReader
 
-    if not fresh_candle:
-        pytest.skip("No fresh candle within 2 min — Binance connectivity may be down")
+    reader = TimescaleReader(DBPoolManager.get_reader_pool())
 
-    # 2. Check features were computed
-    features_len = await valkey_client.xlen("features:BTCUSDT:4h")
-    assert features_len > 0, "No features produced for BTCUSDT:4h"
+    async def _latest_stream_ts_seconds(stream_key: str) -> float | None:
+        entries = await valkey_client.xrevrange(stream_key, count=1)
+        if not entries:
+            return None
+        _, data = entries[0]
+        ts = float(data.get("timestamp", "0"))
+        if ts <= 0:
+            return None
+        return ts / 1000 if ts > 1e12 else ts
 
-    # 3. Check signal stream has entries (may be 0 if no signal triggered — that's OK)
+    async def _feature_stream_exists(stream_key: str) -> bool:
+        latest_ts = await _latest_stream_ts_seconds(stream_key)
+        return latest_ts is not None
+
+    async def _wait_for_feature_stream(stream_key: str) -> None:
+        max_retries = 60
+        for _ in range(max_retries):
+            if await _feature_stream_exists(stream_key):
+                return
+            await asyncio.sleep(2)
+        pytest.skip(
+            f"Feature stream {stream_key} did not appear after bootstrap; "
+            "downstream warmup may still be incomplete."
+        )
+
+    def _group_name(group: dict) -> str:
+        name = group.get("name") or group.get(b"name", b"")
+        return name.decode() if isinstance(name, bytes) else str(name)
+
+    max_ts = await reader.get_max_timestamp("BTCUSDT", "1m")
+    assert max_ts > 0, "No canonical BTCUSDT 1m data in Timescale"
+    now_ms = time.time() * 1000
+    assert now_ms - max_ts <= 5 * 60 * 1000, (
+        f"Canonical BTCUSDT 1m lane is stale by {(now_ms - max_ts) / 1000:.1f}s"
+    )
+
+    await _wait_for_feature_stream("features:BTCUSDT:1h")
+    await _wait_for_feature_stream("features:BTCUSDT:4h")
+
+    strategy_groups_1h = await valkey_client.xinfo_groups("features:BTCUSDT:1h")
+    strategy_groups_4h = await valkey_client.xinfo_groups("features:BTCUSDT:4h")
+    assert any(
+        _group_name(group) == "strategy_app_group"
+        for group in strategy_groups_1h
+    ), "strategy_app_group missing on features:BTCUSDT:1h"
+    assert any(
+        _group_name(group) == "strategy_app_group"
+        for group in strategy_groups_4h
+    ), "strategy_app_group missing on features:BTCUSDT:4h"
+
     try:
         signals_len = await valkey_client.xlen("signals:BTCUSDT:4h")
         print(f"Signals on signals:BTCUSDT:4h: {signals_len}")
     except Exception:
-        print("signals:BTCUSDT:4h stream doesn't exist yet (OK — no signals triggered)")
+        print("signals:BTCUSDT:4h stream doesn't exist yet (OK — no signal triggered)")
 
-    print("Organic candle roundtrip verified!")
+    print("Organic pipeline liveness verified!")
+
+
+@pytest.mark.asyncio
+@pytest.mark.slow
+async def test_ingestion_restart_recovers_and_strategy_consumes_after_restart(
+    db_pools,
+    valkey_client,
+):
+    """Restart ingestion runtime, verify canonical lane recovers, then strategy still consumes."""
+    from apps.strategy_app.observability.runtime_state import StrategyRuntimeStateStore
+    from apps.strategy_app.state import StrategyPair, StrategyPairState
+    from libs.common.db.timescale_reader import TimescaleReader
+    from libs.contracts.schemas import FeatureVector
+    from libs.contracts.serialization import valkey_decode, valkey_encode
+
+    reader = TimescaleReader(DBPoolManager.get_reader_pool())
+    feature_stream = "features:BTCUSDT:1h"
+    pair = StrategyPair(asset="BTCUSDT", timeframe="1h")
+    state_store = StrategyRuntimeStateStore(valkey_client)
+
+    max_ts_before = await reader.get_max_timestamp("BTCUSDT", "1m")
+    assert max_ts_before > 0, "Need live BTCUSDT 1m data before restart"
+
+    latest_feature_payload = await _wait_until(
+        lambda: _latest_stream_payload(valkey_client, feature_stream),
+        timeout_s=120,
+        interval_s=2,
+        description=f"{feature_stream} latest payload before restart",
+    )
+    latest_feature = valkey_decode(latest_feature_payload, FeatureVector)
+
+    status_before = await _wait_until(
+        lambda: state_store.read(pair),
+        timeout_s=60,
+        interval_s=1,
+        description="strategy runtime status before restart",
+    )
+    assert status_before.state == StrategyPairState.LIVE
+
+    subprocess.run(
+        [*docker_compose_command(), "restart", "worker-streams"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    await _wait_for_ingestion_health_after_restart()
+
+    max_ts_after = await _wait_until(
+        lambda: _newer_canonical_timestamp(reader, max_ts_before),
+        timeout_s=180,
+        interval_s=2,
+        description="canonical BTCUSDT 1m timestamp to advance after restart",
+    )
+    assert max_ts_after > max_ts_before
+
+    injected_ts = max(time.time(), float(latest_feature.timestamp) + 1.0)
+    injected_feature = latest_feature.model_copy(update={"timestamp": injected_ts})
+    await valkey_client.xadd(feature_stream, valkey_encode(injected_feature), maxlen=5000)
+
+    status_after = await _wait_until(
+        lambda: _strategy_status_at_or_after(
+            state_store,
+            pair,
+            min_last_feature_ts=injected_ts,
+        ),
+        timeout_s=120,
+        interval_s=2,
+        description="strategy runtime to consume a fresh feature after restart",
+    )
+    assert status_after.state == StrategyPairState.LIVE
+    assert (status_after.last_feature_ts or 0.0) >= injected_ts
+
+
+async def _newer_canonical_timestamp(reader, previous_ts: float):
+    current = await reader.get_max_timestamp("BTCUSDT", "1m")
+    if current > previous_ts:
+        return current
+    return None
+
+
+async def _strategy_status_at_or_after(state_store, pair, *, min_last_feature_ts: float):
+    from apps.strategy_app.state import StrategyPairState
+
+    status = await state_store.read(pair)
+    if status is None:
+        return None
+    if status.state != StrategyPairState.LIVE:
+        return None
+    if (status.last_feature_ts or 0.0) >= min_last_feature_ts:
+        return status
+    return None
 
 
 @pytest.mark.asyncio

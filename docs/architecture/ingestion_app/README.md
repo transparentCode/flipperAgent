@@ -9,6 +9,7 @@ and control move through it, and which contracts downstream apps can rely on.**
 - `catalog.yaml` — machine-readable app metadata
 - `overview.d2` — component and dependency map
 - `io.d2` — contract-level streams, keys, jobs, and storage map
+- `lifecycle_sequence.d2` — add/resume, pause/stop, and remove lifecycle sequences
 - this file — narrative overview and review guide
 
 ## Purpose

@@ -15,6 +15,7 @@ from libs.common.logging.logger_utils import bind_logger
 from apps.ingestion_app.jobs.shared import (
     build_ohlcv_records,
     config_manager,
+    is_asset_schedulable,
     list_schedulable_symbols,
     require_context_value,
 )
@@ -29,6 +30,10 @@ logger = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_E
     reraise=True,
 )
 async def _top_up_binance_ohlcv(binance_adapter: Any, symbol: str, timeframe: str) -> None:
+    if not await is_asset_schedulable(symbol):
+        logger.info(f"[{symbol}:{timeframe}] Skipping top-up; asset is no longer schedulable.")
+        return
+
     try:
         reader = TimescaleReader(DBPoolManager.get_reader_pool())
         max_ts = await reader.get_max_timestamp(symbol, timeframe)
@@ -51,6 +56,10 @@ async def _top_up_binance_ohlcv(binance_adapter: Any, symbol: str, timeframe: st
     frame = await binance_adapter.get_historical_ohlcv(symbol, timeframe, since=since_ms, limit=1000)
     if frame.empty:
         logger.info(f"[{symbol}:{timeframe}] No new candles to top-up.")
+        return
+
+    if not await is_asset_schedulable(symbol):
+        logger.info(f"[{symbol}:{timeframe}] Skipping top-up persist; asset became unschedulable mid-run.")
         return
 
     await ts_writer.insert_ohlcv(build_ohlcv_records(symbol, frame), timeframe=timeframe)

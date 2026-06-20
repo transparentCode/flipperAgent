@@ -6,11 +6,13 @@ from apps.ingestion_app.constants import INGESTION_LAST_CLOSED_PUBLISHED_PREFIX
 from apps.ingestion_app.control_plane.repository import IngestionAssetRegistryRepository
 from apps.ingestion_app.coordination import IngestionCoordinator
 from apps.ingestion_app.events import publish_ingestion_runtime_event
+from apps.ingestion_app.models.asset_registry import IngestionAssetDesiredState
 from apps.ingestion_app.storage.janitor import IngestionStorageJanitor
 from libs.common.asset_status import asset_runtime_status_key
 from libs.common.asset_manifest import asset_manifest_key, asset_timeframe_manifest_key
 from libs.common.db.pool_manager import DBPoolManager
 from libs.common.exceptions import DataIngestionError
+from libs.common.stream_keys import feature_stream_key, price_update_stream_key
 from libs.contracts.schemas import IngestionEventType
 
 from apps.ingestion_app.jobs.shared import config_manager
@@ -29,6 +31,8 @@ async def purge_removed_asset(
 
     try:
         asset = await registry.get_asset(symbol)
+        if asset is not None and asset.desired_state != IngestionAssetDesiredState.REMOVING:
+            return
         deleted_rows = await janitor.purge_asset_data(symbol)
         registry_deleted = await janitor.finalize_asset_removal(symbol)
         await _clear_ingestion_observability_keys_and_streams(
@@ -103,6 +107,11 @@ async def _clear_ingestion_observability_keys_and_streams(
         await valkey_client.delete(asset_timeframe_manifest_key(symbol, runtime_timeframe))
         await valkey_client.delete(f"stream:ohlcv:{symbol.lower()}:{runtime_timeframe}")
         await valkey_client.delete(_last_closed_published_key(symbol, runtime_timeframe))
+        await valkey_client.delete(feature_stream_key(symbol, runtime_timeframe))
+        await valkey_client.delete(price_update_stream_key(symbol, runtime_timeframe))
+        await valkey_client.delete(f"signals:{str(symbol).upper().strip()}:{runtime_timeframe}")
+    await valkey_client.delete(f"derivatives:latest:{str(symbol).upper().strip()}:oi")
+    await valkey_client.delete(f"derivatives:latest:{str(symbol).upper().strip()}:funding")
 
 
 def _runtime_timeframes(base_timeframe: str, publish_timeframes: list[str]) -> list[str]:

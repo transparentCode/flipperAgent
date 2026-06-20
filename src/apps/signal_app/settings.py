@@ -24,9 +24,9 @@ class SignalWorkerSettings:
     consumer_name_prefix: str = "signal_worker"
     batch_size: int = 10
     block_ms: int = 1000
-    feature_stream_maxlen: int = 5000
+    feature_stream_maxlen: int = 1000
     feature_stream_approximate: bool = True
-    price_update_stream_maxlen: int = 500
+    price_update_stream_maxlen: int = 200
     price_update_stream_approximate: bool = True
     ltf_context_ttl_seconds: int = 21_600
     priming_retry_delay_sec: float = 1.0

@@ -223,3 +223,109 @@ async def test_strategy_runtime_runner_passes_trigger_lane_metadata_to_worker() 
     assert workers[0].trigger_timeframe == "1m"
     assert workers[0].trigger_mode == "on_base_bar_close"
     assert workers[0].allowed_model_names == ["Momentum"]
+
+
+def test_strategy_runtime_runner_event_timeframes_fall_back_to_publish_timeframes() -> None:
+    from libs.common.asset_manifest import AssetLifecycleEvent
+
+    event = AssetLifecycleEvent.model_validate(
+        {
+            "event_id": "evt-runtime-timeframes",
+            "event_type": "ASSET_UPDATED",
+            "command_type": "UPDATE_ASSET",
+            "symbol": "BTCUSDT",
+            "base_timeframe": "1m",
+            "publish_timeframes": ["1h", "4h", "1h"],
+            "timeframes": [],
+            "desired_state": "LIVE",
+            "emitted_at": 1,
+        }
+    )
+
+    assert StrategyRuntimeRunner._event_timeframes(event) == ["1m", "1h", "4h"]
+
+
+@pytest.mark.asyncio
+async def test_strategy_runtime_runner_clears_app_streams_on_remove() -> None:
+    _StubWorker.created = []
+    redis = _FakeLifecycleRedis()
+    pairs = [
+        StrategyPair(asset="BTCUSDT", timeframe="1h"),
+        StrategyPair(
+            asset="BTCUSDT",
+            timeframe="4h",
+            trigger_timeframe="1m",
+            trigger_mode="on_base_bar_close",
+            base_timeframe="1m",
+        ),
+    ]
+    runner = StrategyRuntimeRunner(
+        pairs,
+        worker_factory=_StubWorker,
+        worker_settings=StrategyWorkerSettings(consumer_group="strategy_lifecycle_remove_test"),
+    )
+
+    await runner.connect(redis)
+    start_task = asyncio.create_task(runner.start())
+    await asyncio.gather(*[worker.started.wait() for worker in _StubWorker.created[:2]])
+
+    await redis.emit(
+        "3-0",
+        {
+            "event_id": "evt-remove",
+            "event_type": "ASSET_REMOVE_REQUESTED",
+            "command_type": "REMOVE_ASSET",
+            "symbol": "BTCUSDT",
+            "base_timeframe": "1m",
+            "publish_timeframes": '["1h","4h"]',
+            "timeframes": '["1m","1h","4h"]',
+            "enabled": "False",
+            "desired_state": "REMOVING",
+            "requested_by": "test",
+            "reason": "remove",
+            "emitted_at": "3",
+        },
+    )
+
+    async def _workers_cancelled() -> None:
+        await asyncio.gather(*[worker.cancelled.wait() for worker in _StubWorker.created[:2]])
+
+    await asyncio.wait_for(_workers_cancelled(), timeout=2)
+    await asyncio.sleep(0.05)
+
+    await runner.stop()
+    await start_task
+
+    assert "strategy:control:BTCUSDT:1h" in redis.deleted
+    assert "strategy:control:BTCUSDT:4h@1m" in redis.deleted
+    assert "strategy:status:BTCUSDT:1h" in redis.deleted
+    assert "strategy:status:BTCUSDT:4h@1m" in redis.deleted
+    assert "signals:BTCUSDT:1h" in redis.deleted
+    assert "signals:BTCUSDT:4h" in redis.deleted
+
+
+@pytest.mark.asyncio
+async def test_strategy_runtime_runner_scales_to_large_pair_counts() -> None:
+    _StubWorker.created = []
+    redis = _FakeLifecycleRedis()
+    pairs = [
+        StrategyPair(asset=f"ASSET{i:03d}", timeframe=timeframe)
+        for i in range(200)
+        for timeframe in ("1h", "4h")
+    ]
+    runner = StrategyRuntimeRunner(
+        pairs,
+        worker_factory=_StubWorker,
+        worker_settings=StrategyWorkerSettings(consumer_group="strategy_scale_test"),
+    )
+
+    workers = await runner.connect(redis)
+    assert len(workers) == 400
+
+    async def _all_started() -> None:
+        await asyncio.gather(*(worker.started.wait() for worker in _StubWorker.created))
+
+    await asyncio.wait_for(_all_started(), timeout=5)
+    await runner.stop()
+
+    assert len(_StubWorker.created) == 400

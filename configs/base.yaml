@@ -78,15 +78,15 @@ ingestion:
     min_seconds: 4
     multiplier: 1
   streams:
-    control_maxlen: 5000
+    control_maxlen: 1000
     control_approximate: true
-    events_maxlen: 5000
+    events_maxlen: 1000
     events_approximate: true
-    lifecycle_maxlen: 5000
+    lifecycle_maxlen: 1000
     lifecycle_approximate: true
-    runtime_status_maxlen: 5000
+    runtime_status_maxlen: 1000
     runtime_status_approximate: true
-    ohlcv_maxlen: 5000
+    ohlcv_maxlen: 1000
     ohlcv_approximate: true
   server:
     host: 0.0.0.0
@@ -127,8 +127,20 @@ scraper_service:
 
 signal:
   runtime:
-    feature_stream_maxlen: 5000
+    feature_stream_maxlen: 1000
     feature_stream_approximate: true
-    price_update_stream_maxlen: 500
+    price_update_stream_maxlen: 200
     price_update_stream_approximate: true
     ltf_context_ttl_seconds: 21600
+
+risk:
+  runtime:
+    order_stream_maxlen: 1000
+    order_stream_approximate: true
+
+execution:
+  runtime:
+    fill_stream_maxlen: 1000
+    fill_stream_approximate: true
+    failure_stream_maxlen: 1000
+    failure_stream_approximate: true

@@ -42,10 +42,17 @@ class ExecutionWorker(BaseStreamConsumer):
         self.runtime_state_store = runtime_state_store
         self.execution_asset = ExecutionAsset(asset=asset)
         self.execution_mode = str(exec_config.get("mode", "paper"))
+        runtime_config = exec_config.get("runtime", {})
 
         self.order_stream_key = self.stream_key
         self.fill_stream_key = f"fills:{asset}"
         self.failure_stream_key = failure_stream_key(asset)
+        self.fill_stream_maxlen = int(runtime_config.get("fill_stream_maxlen", 1000))
+        self.fill_stream_approximate = bool(runtime_config.get("fill_stream_approximate", True))
+        self.failure_stream_maxlen = int(runtime_config.get("failure_stream_maxlen", 1000))
+        self.failure_stream_approximate = bool(
+            runtime_config.get("failure_stream_approximate", True)
+        )
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -102,8 +109,8 @@ class ExecutionWorker(BaseStreamConsumer):
             await self.redis_client.xadd(
                 self.fill_stream_key,
                 self._encode_report(report),
-                maxlen=5000,
-                approximate=True,
+                maxlen=self.fill_stream_maxlen,
+                approximate=self.fill_stream_approximate,
             )
             logger.info(
                 f"Published fill for {self.asset}: "
@@ -163,8 +170,8 @@ class ExecutionWorker(BaseStreamConsumer):
         await self.redis_client.xadd(
             self.failure_stream_key,
             serialize_valkey(event, inject_trace=False),
-            maxlen=5000,
-            approximate=True,
+            maxlen=self.failure_stream_maxlen,
+            approximate=self.failure_stream_approximate,
         )
 
     async def _update_runtime_status(

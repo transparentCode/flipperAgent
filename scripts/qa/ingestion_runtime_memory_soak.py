@@ -21,7 +21,6 @@ from apps.ingestion_app.models.asset_registry import (
     IngestionAssetDesiredState,
     IngestionAssetUpsertRequest,
 )
-from libs.common.config import ConfigManager
 from libs.common.db.pool_manager import DBPoolManager
 from libs.contracts.schemas import IngestionCommandType
 
@@ -57,7 +56,7 @@ class DockerMemoryPoint:
     memory_percent: float | None
 
 
-class SoakConfigManager(ConfigManager):
+class SoakRuntimeConfig:
     def get(self, key_path: str, default: Any = None):
         mapping = {
             "postgres.user": os.getenv("POSTGRES_USER", "flipper"),
@@ -71,7 +70,7 @@ class SoakConfigManager(ConfigManager):
         }
         if key_path in mapping:
             return mapping[key_path]
-        return super().get(key_path, default)
+        return default
 
 
 def parse_args() -> argparse.Namespace:
@@ -530,7 +529,11 @@ async def run_cycle(
         if remove_requested:
             print(f"[cycle {cycle_index}] waiting for removal cleanup")
             await wait_until(
-                lambda: asset_removed(symbol),
+                lambda: asset_cleanup_completed(
+                    symbol,
+                    base_timeframe=base_timeframe,
+                    publish_timeframes=publish_timeframes,
+                ),
                 timeout_seconds=remove_timeout_seconds,
                 interval_seconds=2.0,
                 description=f"{symbol} removal cleanup",
@@ -541,6 +544,74 @@ async def run_cycle(
 
 async def asset_removed(symbol: str) -> bool:
     return not await ingestion_asset_exists(symbol)
+
+
+async def symbol_count_zero(table: str, symbol: str) -> bool:
+    pool = DBPoolManager.get_reader_pool()
+    async with pool.acquire() as conn:
+        count = await conn.fetchval(f"SELECT COUNT(*) FROM {table} WHERE symbol = $1", symbol)
+    return int(count or 0) == 0
+
+
+async def broker_key_absent(key: str) -> bool:
+    def _exists() -> bool:
+        raw = broker_cli("EXISTS", key)
+        return raw == "0"
+
+    return await asyncio.to_thread(_exists)
+
+
+async def asset_cleanup_completed(
+    symbol: str,
+    *,
+    base_timeframe: str,
+    publish_timeframes: list[str],
+) -> bool:
+    flags = await fetch_asset_flags(symbol)
+    tombstoned = flags == (IngestionAssetDesiredState.STOPPED.value, False)
+    deleted = flags is None
+    if not tombstoned and not deleted:
+        return False
+
+    runtime_timeframes: list[str] = []
+    for timeframe in [base_timeframe, *publish_timeframes]:
+        normalized = str(timeframe).strip()
+        if normalized and normalized not in runtime_timeframes:
+            runtime_timeframes.append(normalized)
+
+    storage_ok = all(
+        await asyncio.gather(
+            symbol_count_zero("ohlcv", symbol),
+            symbol_count_zero("ticks", symbol),
+            symbol_count_zero("open_interest", symbol),
+            symbol_count_zero("funding_rate", symbol),
+            symbol_count_zero("l2_depth_features", symbol),
+        )
+    )
+    if not storage_ok:
+        return False
+
+    broker_tasks: list[asyncio.Future] = []
+    for timeframe in runtime_timeframes:
+        broker_tasks.extend(
+            [
+                broker_key_absent(f"stream:ohlcv:{symbol.lower()}:{timeframe}"),
+                broker_key_absent(f"features:{symbol}:{timeframe}"),
+                broker_key_absent(f"price_update:{symbol}:{timeframe}"),
+                broker_key_absent(f"signals:{symbol}:{timeframe}"),
+                broker_key_absent(IngestionCoordinator._state_key(symbol, timeframe)),
+                broker_key_absent(IngestionCoordinator._disconnect_ts_key(symbol, timeframe)),
+                broker_key_absent(IngestionCoordinator._last_live_ts_key(symbol, timeframe)),
+                broker_key_absent(IngestionCoordinator._disconnect_count_key(symbol, timeframe)),
+            ]
+        )
+    broker_tasks.extend(
+        [
+            broker_key_absent(f"derivatives:latest:{symbol}:oi"),
+            broker_key_absent(f"derivatives:latest:{symbol}:funding"),
+        ]
+    )
+    return all(await asyncio.gather(*broker_tasks))
 
 
 def summarize_memory(
@@ -596,14 +667,14 @@ async def async_main(args: argparse.Namespace) -> int:
         started_stack = True
         wait_for_stack_ready()
 
-    config_manager = SoakConfigManager()
-    await DBPoolManager.init_pools(config_manager=config_manager)
-    valkey_client = avalkey.Valkey.from_url(config_manager.get("valkey.uri"), decode_responses=True)
+    runtime_config = SoakRuntimeConfig()
+    await DBPoolManager.init_pools(config_manager=runtime_config)
+    valkey_client = avalkey.Valkey.from_url(runtime_config.get("valkey.uri"), decode_responses=True)
     service = IngestionControlService(
         pool=DBPoolManager.get_writer_pool(),
         valkey_client=valkey_client,
     )
-    coordinator = IngestionCoordinator(valkey_client, config_manager)
+    coordinator = IngestionCoordinator(valkey_client, runtime_config)
 
     memory_points: list[DockerMemoryPoint] = []
     stop_event = asyncio.Event()
@@ -647,7 +718,6 @@ async def async_main(args: argparse.Namespace) -> int:
         await DBPoolManager.close_pools()
         DBPoolManager._writer_pool = None
         DBPoolManager._reader_pool = None
-        ConfigManager._instance = None
         if started_stack and not args.keep_stack:
             compose_down()
 

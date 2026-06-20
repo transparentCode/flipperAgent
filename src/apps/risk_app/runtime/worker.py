@@ -62,11 +62,14 @@ class RiskWorker(BaseStreamConsumer):
         self.account = account
         self.positions = positions
         self.risk_config = risk_config
+        runtime_config = risk_config.get("runtime", {})
 
         self.signal_stream_keys = [f"signals:{asset}:{tf}" for tf in timeframes]
         self.price_stream_keys = [f"price_update:{asset}:{tf}" for tf in timeframes]
         self.order_stream_key = f"orders:{asset}"
         self.price_group_name = "risk_app_price_group"
+        self.order_stream_maxlen = int(runtime_config.get("order_stream_maxlen", 1000))
+        self.order_stream_approximate = bool(runtime_config.get("order_stream_approximate", True))
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -349,8 +352,8 @@ class RiskWorker(BaseStreamConsumer):
                 await self.redis_client.xadd(
                     self.order_stream_key,
                     valkey_encode(order),
-                    maxlen=5000,
-                    approximate=True,
+                    maxlen=self.order_stream_maxlen,
+                    approximate=self.order_stream_approximate,
                 )
                 logger.info(
                     f"Published order for {self.asset}: "
@@ -412,8 +415,8 @@ class RiskWorker(BaseStreamConsumer):
                 await self.redis_client.xadd(
                     self.order_stream_key,
                     valkey_encode(order),
-                    maxlen=5000,
-                    approximate=True,
+                    maxlen=self.order_stream_maxlen,
+                    approximate=self.order_stream_approximate,
                 )
                 self.positions.mark_pending_close(
                     self.asset,
@@ -459,8 +462,8 @@ class RiskWorker(BaseStreamConsumer):
                 await self.redis_client.xadd(
                     self.order_stream_key,
                     valkey_encode(order),
-                    maxlen=5000,
-                    approximate=True,
+                    maxlen=self.order_stream_maxlen,
+                    approximate=self.order_stream_approximate,
                 )
                 self.positions.mark_pending_close(
                     self.asset,

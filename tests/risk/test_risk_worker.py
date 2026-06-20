@@ -156,6 +156,40 @@ class TestProcessSignalBatch:
         worker.redis_client.xadd.assert_called_once()
         call_args = worker.redis_client.xadd.call_args
         assert call_args[0][0] == "orders:BTCUSDT"
+        assert call_args.kwargs["maxlen"] == 1000
+        assert call_args.kwargs["approximate"] is True
+
+    @pytest.mark.asyncio
+    async def test_allowed_signal_honors_order_stream_runtime_cap(self) -> None:
+        worker = _make_worker(
+            risk_config={
+                "runtime": {
+                    "order_stream_maxlen": 600,
+                    "order_stream_approximate": False,
+                }
+            }
+        )
+        worker.redis_client = AsyncMock()
+
+        signal = _make_signal()
+        worker.signal_aggregator.aggregate.return_value = signal
+
+        assessment = MagicMock(spec=RiskAssessment)
+        assessment.allowed = True
+        assessment.proposed_size = 0.01
+        assessment.stop_loss_price = 49_000.0
+        assessment.take_profit_price = 52_000.0
+        assessment.tp_levels = []
+        assessment.tp_portions = []
+        assessment.trail_to_breakeven = False
+        worker.risk_engine.assess.return_value = assessment
+
+        await worker._process_signal_batch([signal])
+
+        call_args = worker.redis_client.xadd.call_args
+        assert call_args[0][0] == "orders:BTCUSDT"
+        assert call_args.kwargs["maxlen"] == 600
+        assert call_args.kwargs["approximate"] is False
 
     @pytest.mark.asyncio
     async def test_model_profile_override_is_passed_to_risk_engine(self) -> None:
@@ -323,6 +357,8 @@ class TestProcessSignalBatch:
         worker.redis_client.xadd.assert_called_once()
         call_args = worker.redis_client.xadd.call_args
         assert call_args[0][0] == "orders:BTCUSDT"
+        assert call_args.kwargs["maxlen"] == 1000
+        assert call_args.kwargs["approximate"] is True
 
     @pytest.mark.asyncio
     async def test_daily_reset_called(self) -> None:

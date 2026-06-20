@@ -16,6 +16,7 @@ from libs.models.regime_classification.l2_features import compute_l2_features
 
 from apps.ingestion_app.jobs.shared import (
     config_manager,
+    is_asset_schedulable,
     list_schedulable_symbols,
     require_context_value,
 )
@@ -31,6 +32,10 @@ logger = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_E
 )
 async def _fetch_l2_depth_snapshot(binance_adapter: Any, symbol: str, depth_limit: int = 20) -> None:
     import numpy as np
+
+    if not await is_asset_schedulable(symbol):
+        logger.info(f"[{symbol}] Skipping L2 snapshot; asset is no longer schedulable.")
+        return
 
     try:
         raw = await asyncio.to_thread(binance_adapter.client.depth, symbol=symbol, limit=depth_limit)
@@ -77,6 +82,10 @@ async def _fetch_l2_depth_snapshot(binance_adapter: Any, symbol: str, depth_limi
             f"[{symbol}] DB writer pool not initialized for L2 depth",
             context={"symbol": symbol},
         ) from exc
+
+    if not await is_asset_schedulable(symbol):
+        logger.info(f"[{symbol}] Skipping L2 persist; asset became unschedulable mid-run.")
+        return
 
     await ts_writer.insert_l2_depth([record])
     logger.info(

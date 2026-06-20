@@ -11,6 +11,7 @@ from apps.signal_app.catalog import SignalPairCatalog
 from apps.signal_app.models import SignalPair
 from apps.signal_app.models import SignalPairState
 from apps.signal_app.observability.runtime_state import SignalRuntimeStateStore
+from libs.common.stream_keys import feature_stream_key, price_update_stream_key
 from apps.signal_app.runtime.worker import SignalRuntimeWorker
 from apps.signal_app.settings import SignalWorkerSettings
 from libs.common.asset_manifest import ASSET_LIFECYCLE_STREAM, AssetLifecycleEvent
@@ -170,6 +171,7 @@ class SignalRuntimeRunner:
         if pair is not None and self._state_store is not None:
             if clear_status:
                 await self._state_store.delete(pair)
+                await self._clear_pair_streams(pair)
             elif state is not None:
                 await self._state_store.update(
                     pair,
@@ -183,6 +185,20 @@ class SignalRuntimeRunner:
         elif worker is None and pair is None:
             self._pairs_by_key.pop(pair_key, None)
         self.workers = list(self._workers_by_key.values())
+
+    async def _clear_pair_streams(self, pair: SignalPair) -> None:
+        if self.redis_client is None:
+            return
+        await self.redis_client.delete(
+            feature_stream_key(
+                pair.asset,
+                pair.timeframe,
+                trigger_timeframe=pair.trigger_timeframe,
+            )
+        )
+        await self.redis_client.delete(
+            price_update_stream_key(pair.asset, pair.timeframe)
+        )
 
     async def _watch_lifecycle(self) -> None:
         assert self.redis_client is not None

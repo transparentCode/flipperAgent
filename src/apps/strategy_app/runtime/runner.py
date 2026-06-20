@@ -144,6 +144,7 @@ class StrategyRuntimeRunner:
         if pair is not None and self._runtime_state is not None:
             if clear_status:
                 await self._runtime_state.delete(pair)
+                await self._clear_pair_streams(pair)
             elif state is not None:
                 await self._runtime_state.update(
                     pair,
@@ -154,6 +155,11 @@ class StrategyRuntimeRunner:
                 )
         if clear_status:
             self._pairs_by_key.pop(pair_key, None)
+
+    async def _clear_pair_streams(self, pair: StrategyPair) -> None:
+        if self.redis_client is None:
+            return
+        await self.redis_client.delete(f"signals:{pair.asset}:{pair.timeframe}")
 
     async def _watch_lifecycle(self) -> None:
         assert self.redis_client is not None
@@ -283,7 +289,7 @@ class StrategyRuntimeRunner:
     def _event_timeframes(event: AssetLifecycleEvent) -> list[str]:
         timeframes = list(event.timeframes or [])
         if not timeframes:
-            timeframes = [event.base_timeframe]
+            timeframes = [event.base_timeframe, *list(event.publish_timeframes or [])]
         ordered: list[str] = []
         for timeframe in timeframes:
             normalized = str(timeframe).strip()

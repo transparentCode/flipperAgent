@@ -217,6 +217,55 @@ class TestProcessMessagePublishesFill:
         worker.redis_client.xadd.assert_called_once()
         call_args = worker.redis_client.xadd.call_args
         assert call_args[0][0] == "fills:BTCUSDT"
+        assert call_args.kwargs["maxlen"] == 1000
+        assert call_args.kwargs["approximate"] is True
+
+    @pytest.mark.asyncio
+    async def test_process_message_honors_fill_stream_runtime_cap(self) -> None:
+        report = ExecutionReport(
+            order_id="ord-cap",
+            idempotency_key="idem-cap",
+            asset="BTCUSDT",
+            side="buy",
+            requested_size=0.1,
+            filled_size=0.1,
+            requested_price=50_000.0,
+            average_fill_price=50_000.0,
+            status=OrderStatus.FILLED,
+            fills=[],
+            timestamp=1_700_000_000.0,
+        )
+        mock_order_manager = AsyncMock()
+        mock_order_manager.process_order.return_value = report
+
+        worker = ExecutionWorker(
+            asset="BTCUSDT",
+            order_manager=mock_order_manager,
+            exec_config={
+                "runtime": {
+                    "fill_stream_maxlen": 750,
+                    "fill_stream_approximate": False,
+                }
+            },
+        )
+        worker.redis_client = AsyncMock()
+
+        payload = valkey_encode(
+            OrderExecutionRequest(
+                asset="BTCUSDT",
+                side="buy",
+                size=0.1,
+                timestamp=1_700_000_000.0,
+                requested_price=50_000.0,
+                idempotency_key="test-key",
+            )
+        )
+
+        await worker.process_message("msg-1", payload)
+
+        call_args = worker.redis_client.xadd.call_args
+        assert call_args.kwargs["maxlen"] == 750
+        assert call_args.kwargs["approximate"] is False
 
     @pytest.mark.asyncio
     async def test_process_message_publishes_failure_and_updates_runtime_state(self) -> None:
@@ -260,9 +309,47 @@ class TestProcessMessagePublishesFill:
         assert worker.redis_client.xadd.await_count == 1
         stream_name = worker.redis_client.xadd.call_args.args[0]
         assert stream_name == failure_stream_key("BTCUSDT")
+        assert worker.redis_client.xadd.call_args.kwargs["maxlen"] == 1000
+        assert worker.redis_client.xadd.call_args.kwargs["approximate"] is True
 
         stored = await worker.runtime_state_store.read(ExecutionAsset(asset="BTCUSDT"))
         assert stored is not None
         assert stored.state == ExecutionAssetState.FAILED
         assert stored.failure_count == 1
         assert stored.last_error == "broker unavailable"
+
+    @pytest.mark.asyncio
+    async def test_process_message_honors_failure_stream_runtime_cap(self) -> None:
+        mock_order_manager = AsyncMock()
+        mock_order_manager.process_order.side_effect = RuntimeError("broker unavailable")
+
+        worker = ExecutionWorker(
+            asset="BTCUSDT",
+            order_manager=mock_order_manager,
+            exec_config={
+                "runtime": {
+                    "failure_stream_maxlen": 250,
+                    "failure_stream_approximate": False,
+                }
+            },
+        )
+        worker.redis_client = AsyncMock()
+
+        payload = valkey_encode(
+            OrderExecutionRequest(
+                asset="BTCUSDT",
+                side="buy",
+                size=0.1,
+                timestamp=1_700_000_000.0,
+                requested_price=50_000.0,
+                idempotency_key="test-key",
+            )
+        )
+
+        with pytest.raises(RuntimeError, match="broker unavailable"):
+            await worker.process_message("msg-1", payload)
+
+        call_args = worker.redis_client.xadd.call_args
+        assert call_args.args[0] == failure_stream_key("BTCUSDT")
+        assert call_args.kwargs["maxlen"] == 250
+        assert call_args.kwargs["approximate"] is False

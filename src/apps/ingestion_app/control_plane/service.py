@@ -108,7 +108,10 @@ class IngestionControlService:
             IngestionCommandType.PAUSE_ASSET,
             IngestionCommandType.STOP_ASSET,
         }:
-            coordinator = IngestionCoordinator(self.publisher.valkey_client)
+            coordinator = IngestionCoordinator(
+                self.publisher.valkey_client,
+                self.config_manager,
+            )
             await coordinator.mark_resume_backfill_required(
                 persisted.symbol,
                 persisted.base_timeframe,

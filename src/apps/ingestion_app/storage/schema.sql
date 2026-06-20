@@ -76,7 +76,8 @@ GROUP BY symbol, bucket;
 SELECT add_continuous_aggregate_policy('market_1m_bars',
     start_offset => INTERVAL '3 days',
     end_offset => INTERVAL '1 minute',
-    schedule_interval => INTERVAL '1 minute');
+    schedule_interval => INTERVAL '1 minute',
+    if_not_exists => true);
 
 -- 3. Add 30-day retention on raw ticks
 ALTER TABLE ticks SET (
@@ -109,6 +110,28 @@ ALTER TABLE l2_depth_features SET (
 );
 SELECT add_compression_policy('l2_depth_features', INTERVAL '7 days', if_not_exists => true);
 SELECT add_retention_policy('l2_depth_features', INTERVAL '90 days', if_not_exists => true);
+
+CREATE TABLE IF NOT EXISTS tv_index_ohlcv (
+    symbol TEXT NOT NULL,
+    timeframe TEXT NOT NULL,
+    timestamp TIMESTAMPTZ NOT NULL,
+    open DOUBLE PRECISION,
+    high DOUBLE PRECISION,
+    low DOUBLE PRECISION,
+    close DOUBLE PRECISION,
+    volume DOUBLE PRECISION DEFAULT 0.0,
+    fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY(symbol, timeframe, timestamp)
+);
+SELECT create_hypertable('tv_index_ohlcv', 'timestamp', if_not_exists => true, migrate_data => true);
+CREATE INDEX IF NOT EXISTS idx_tv_index_symbol_tf
+    ON tv_index_ohlcv (symbol, timeframe, timestamp DESC);
+ALTER TABLE tv_index_ohlcv SET (
+    timescaledb.compress,
+    timescaledb.compress_segmentby = 'symbol,timeframe'
+);
+SELECT add_compression_policy('tv_index_ohlcv', INTERVAL '14 days', if_not_exists => true);
+SELECT add_retention_policy('tv_index_ohlcv', INTERVAL '180 days', if_not_exists => true);
 
 CREATE TABLE IF NOT EXISTS ingestion_assets (
     symbol TEXT PRIMARY KEY,

@@ -60,5 +60,15 @@ async def list_schedulable_symbols() -> list[str]:
     return [asset.symbol for asset in assets]
 
 
+async def is_asset_schedulable(symbol: str) -> bool:
+    catalog = IngestionAssetCatalog(config_manager=config_manager)
+    asset = await catalog.get_effective_asset(str(symbol).upper())
+    return bool(
+        asset is not None
+        and asset.enabled
+        and asset.desired_state == IngestionAssetDesiredState.LIVE
+    )
+
+
 def utc_now_ms() -> int:
     return int(datetime.now(timezone.utc).timestamp() * 1000)

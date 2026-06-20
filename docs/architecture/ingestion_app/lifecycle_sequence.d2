@@ -1,0 +1,230 @@
+direction: down
+
+title: {
+  label: "ingestion_app lifecycle sequences"
+  near: top-center
+}
+
+classes: {
+  actor: { style.fill: "#E8F1FF" }
+  component: { style.fill: "#EEF7EA" }
+  contract: { style.fill: "#FFF2D8" }
+  storage: { style.fill: "#F4EAFE" }
+  consumer: { style.fill: "#FCE8E8" }
+  state: { style.fill: "#F3FAEF" }
+}
+
+actors: {
+  label: "Actors"
+
+  caller: {
+    class: actor
+    label: "api_app / operator"
+    link: "../../../src/apps/api_app/routers/ingestion.py"
+  }
+
+  signal_app: {
+    class: consumer
+    label: "signal_app"
+    link: "../signal_app/README.md"
+  }
+
+  strategy_app: {
+    class: consumer
+    label: "strategy_app"
+    link: "../strategy_app/README.md"
+  }
+}
+
+ingestion: {
+  label: "ingestion_app"
+
+  control_plane: {
+    class: component
+    label: "control_plane"
+    link: "../../../src/apps/ingestion_app/control_plane/service.py"
+  }
+
+  runtime_reconciler: {
+    class: component
+    label: "runtime_reconciler"
+    link: "../../../src/apps/ingestion_app/runtime/reconciler.py"
+  }
+
+  runtime_bootstrap: {
+    class: component
+    label: "runtime_bootstrap"
+    link: "../../../src/apps/ingestion_app/runtime/bootstrap.py"
+  }
+
+  websocket_pipeline: {
+    class: component
+    label: "websocket_pipeline"
+    link: "../../../src/apps/ingestion_app/runtime/websocket.py"
+  }
+
+  queue_worker: {
+    class: component
+    label: "queue_worker"
+    link: "../../../src/apps/ingestion_app/worker.py"
+  }
+}
+
+contracts: {
+  label: "Contracts / State"
+
+  registry: {
+    class: storage
+    label: "TimescaleDB\ningestion_assets"
+    shape: cylinder
+    link: "../../../src/apps/ingestion_app/storage/schema.sql"
+  }
+
+  manifest: {
+    class: contract
+    label: "asset:{symbol}\nasset:{symbol}:tf:{tf}"
+    shape: stored_data
+    link: "../../../src/libs/common/asset_manifest.py"
+  }
+
+  lifecycle: {
+    class: contract
+    label: "asset:lifecycle"
+    shape: queue
+    link: "../../../src/libs/common/asset_manifest.py"
+  }
+
+  control_stream: {
+    class: contract
+    label: "stream:control:ingestion"
+    shape: queue
+    link: "../../../src/apps/ingestion_app/control_plane/publisher.py"
+  }
+
+  runtime_state: {
+    class: state
+    label: "ingestion:state:{symbol}:{tf}\nCOLD / WARMING / LIVE"
+    shape: stored_data
+    link: "../../../src/apps/ingestion_app/coordination.py"
+  }
+
+  ohlcv_stream: {
+    class: contract
+    label: "stream:ohlcv:{symbol}:{tf}"
+    shape: queue
+    link: "../../../src/apps/ingestion_app/runtime/websocket.py"
+  }
+
+  gap_fill_job: {
+    class: contract
+    label: "run_rest_gap_fill"
+    shape: queue
+  }
+
+  purge_job: {
+    class: contract
+    label: "purge_removed_asset"
+    shape: queue
+  }
+}
+
+add_resume: {
+  label: "Sequence A — add / resume to live"
+
+  a1: { class: state; label: "1. request add/resume" }
+  a2: { class: state; label: "2. persist durable desired state" }
+  a3: { class: state; label: "3. project manifest + publish lifecycle/control" }
+  a4: { class: state; label: "4. reconciler converges runtime set" }
+  a5: { class: state; label: "5. bootstrap checks freshness / resume gap" }
+  a6: { class: state; label: "6. enqueue gap-fill if stale or resuming" }
+  a7: { class: state; label: "7. move runtime to WARMING" }
+  a8: { class: state; label: "8. queue worker repairs history" }
+  a9: { class: state; label: "9. websocket launches after warmup" }
+  a10: { class: state; label: "10. first valid live close promotes LIVE" }
+  a11: { class: state; label: "11. closed candles publish downstream" }
+}
+
+pause_stop: {
+  label: "Sequence B — pause / stop"
+
+  b1: { class: state; label: "1. request pause/stop" }
+  b2: { class: state; label: "2. persist registry state" }
+  b3: { class: state; label: "3. project manifest + publish lifecycle/control" }
+  b4: { class: state; label: "4. reconciler stops runtime tasks" }
+  b5: { class: state; label: "5. runtime state demotes to COLD" }
+  b6: { class: state; label: "6. downstream sees lifecycle change" }
+}
+
+remove_flow: {
+  label: "Sequence C — remove"
+
+  c1: { class: state; label: "1. request remove" }
+  c2: { class: state; label: "2. persist REMOVING in registry" }
+  c3: { class: state; label: "3. publish manifest/lifecycle/control change" }
+  c4: { class: state; label: "4. reconciler stops runtime" }
+  c5: { class: state; label: "5. enqueue purge job" }
+  c6: { class: state; label: "6. queue worker clears owned runtime/storage state" }
+  c7: { class: state; label: "7. publish operator outcome event" }
+}
+
+actors.caller -> add_resume.a1
+add_resume.a1 -> ingestion.control_plane
+ingestion.control_plane -> add_resume.a2
+add_resume.a2 -> contracts.registry: "write"
+contracts.registry -> add_resume.a3
+add_resume.a3 -> contracts.manifest: "sync"
+add_resume.a3 -> contracts.lifecycle: "publish"
+add_resume.a3 -> contracts.control_stream: "publish"
+contracts.lifecycle -> actors.signal_app: "fan-out"
+contracts.lifecycle -> actors.strategy_app: "fan-out"
+contracts.control_stream -> ingestion.runtime_reconciler
+ingestion.runtime_reconciler -> add_resume.a4
+add_resume.a4 -> ingestion.runtime_bootstrap
+ingestion.runtime_bootstrap -> add_resume.a5
+add_resume.a5 -> add_resume.a6
+add_resume.a6 -> contracts.gap_fill_job: "optional"
+contracts.gap_fill_job -> ingestion.queue_worker
+ingestion.runtime_bootstrap -> add_resume.a7
+add_resume.a7 -> contracts.runtime_state: "WARMING"
+ingestion.queue_worker -> add_resume.a8
+add_resume.a8 -> ingestion.websocket_pipeline
+ingestion.websocket_pipeline -> add_resume.a9
+add_resume.a9 -> add_resume.a10
+add_resume.a10 -> contracts.runtime_state: "LIVE"
+ingestion.websocket_pipeline -> contracts.ohlcv_stream: "closed only"
+contracts.ohlcv_stream -> add_resume.a11
+add_resume.a11 -> actors.signal_app
+
+actors.caller -> pause_stop.b1
+pause_stop.b1 -> ingestion.control_plane
+ingestion.control_plane -> pause_stop.b2
+pause_stop.b2 -> contracts.registry: "write"
+contracts.registry -> pause_stop.b3
+pause_stop.b3 -> contracts.manifest: "sync"
+pause_stop.b3 -> contracts.lifecycle: "publish"
+pause_stop.b3 -> contracts.control_stream: "publish"
+contracts.control_stream -> ingestion.runtime_reconciler
+ingestion.runtime_reconciler -> pause_stop.b4
+pause_stop.b4 -> pause_stop.b5
+pause_stop.b5 -> contracts.runtime_state: "COLD"
+contracts.lifecycle -> pause_stop.b6
+pause_stop.b6 -> actors.signal_app
+pause_stop.b6 -> actors.strategy_app
+
+actors.caller -> remove_flow.c1
+remove_flow.c1 -> ingestion.control_plane
+ingestion.control_plane -> remove_flow.c2
+remove_flow.c2 -> contracts.registry: "write"
+contracts.registry -> remove_flow.c3
+remove_flow.c3 -> contracts.manifest: "sync"
+remove_flow.c3 -> contracts.lifecycle: "publish"
+remove_flow.c3 -> contracts.control_stream: "publish"
+contracts.control_stream -> ingestion.runtime_reconciler
+ingestion.runtime_reconciler -> remove_flow.c4
+remove_flow.c4 -> remove_flow.c5
+remove_flow.c5 -> contracts.purge_job: "enqueue"
+contracts.purge_job -> ingestion.queue_worker
+ingestion.queue_worker -> remove_flow.c6
+remove_flow.c6 -> contracts.runtime_state: "clear owned keys"
+remove_flow.c6 -> contracts.registry: "final durable cleanup policy"
+ingestion.queue_worker -> remove_flow.c7

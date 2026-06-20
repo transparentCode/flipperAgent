@@ -501,8 +501,8 @@ async def test_signal_stream_publisher_uses_current_stream_contracts() -> None:
 
     assert redis_client.xadd.await_args_list[0].args[0] == "features:BTCUSDT:1h"
     assert redis_client.xadd.await_args_list[1].args[0] == "price_update:BTCUSDT:1h"
-    assert redis_client.xadd.await_args_list[0].kwargs["maxlen"] == 5000
-    assert redis_client.xadd.await_args_list[1].kwargs["maxlen"] == 500
+    assert redis_client.xadd.await_args_list[0].kwargs["maxlen"] == 1000
+    assert redis_client.xadd.await_args_list[1].kwargs["maxlen"] == 200
 
 
 @pytest.mark.asyncio

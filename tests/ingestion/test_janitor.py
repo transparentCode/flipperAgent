@@ -6,6 +6,7 @@ import pytest
 
 from apps.ingestion_app.storage.janitor import IngestionStorageJanitor
 from apps.ingestion_app.jobs.cleanup import purge_removed_asset, scheduled_asset_cleanup
+from apps.ingestion_app.models.asset_registry import IngestionAssetDesiredState
 from libs.common.asset_manifest import asset_manifest_key, asset_timeframe_manifest_key
 
 
@@ -25,7 +26,14 @@ class FakeConnection:
     async def execute(self, query, *args):
         if "UPDATE ingestion_assets" in query:
             return "UPDATE 1"
-        for table in ("ohlcv", "ticks", "open_interest", "funding_rate", "l2_depth_features"):
+        for table in (
+            "ohlcv",
+            "ticks",
+            "open_interest",
+            "funding_rate",
+            "l2_depth_features",
+            "tv_index_ohlcv",
+        ):
             if f"DELETE FROM {table}" in query:
                 self.deleted_tables.append(table)
                 return "DELETE 2"
@@ -63,6 +71,7 @@ async def test_storage_janitor_lists_pending_removals_and_purges_rows():
     assert pending == [("BTCUSDT", "1m"), ("ETHUSDT", "1m")]
     assert deleted["ohlcv"] == 2
     assert deleted["l2_depth_features"] == 2
+    assert deleted["tv_index_ohlcv"] == 2
     assert finalized is True
 
 
@@ -73,7 +82,12 @@ async def test_purge_removed_asset_clears_keys_and_emits_completion_event():
     janitor.purge_asset_data = AsyncMock(return_value={"ohlcv": 5})
     janitor.finalize_asset_removal = AsyncMock(return_value=True)
     registry = MagicMock()
-    registry.get_asset = AsyncMock(return_value=MagicMock(publish_timeframes=["1m", "1h"]))
+    registry.get_asset = AsyncMock(
+        return_value=MagicMock(
+            desired_state=IngestionAssetDesiredState.REMOVING,
+            publish_timeframes=["1m", "1h"],
+        )
+    )
 
     with patch(
         "apps.ingestion_app.jobs.cleanup.IngestionStorageJanitor",
@@ -92,11 +106,19 @@ async def test_purge_removed_asset_clears_keys_and_emits_completion_event():
 
     janitor.purge_asset_data.assert_awaited_once_with("BTCUSDT")
     janitor.finalize_asset_removal.assert_awaited_once_with("BTCUSDT")
-    assert ctx["valkey_client"].delete.await_count == 15
+    assert ctx["valkey_client"].delete.await_count == 23
     deleted_keys = [call.args[0] for call in ctx["valkey_client"].delete.await_args_list]
     assert asset_manifest_key("BTCUSDT") in deleted_keys
     assert asset_timeframe_manifest_key("BTCUSDT", "1m") in deleted_keys
     assert asset_timeframe_manifest_key("BTCUSDT", "1h") in deleted_keys
+    assert "features:BTCUSDT:1m" in deleted_keys
+    assert "features:BTCUSDT:1h" in deleted_keys
+    assert "price_update:BTCUSDT:1m" in deleted_keys
+    assert "price_update:BTCUSDT:1h" in deleted_keys
+    assert "signals:BTCUSDT:1m" in deleted_keys
+    assert "signals:BTCUSDT:1h" in deleted_keys
+    assert "derivatives:latest:BTCUSDT:oi" in deleted_keys
+    assert "derivatives:latest:BTCUSDT:funding" in deleted_keys
     mock_publish.assert_awaited_once()
 
 

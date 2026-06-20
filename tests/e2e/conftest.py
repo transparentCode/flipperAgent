@@ -12,7 +12,6 @@ import pytest
 import pytest_asyncio
 import valkey.asyncio as avalkey
 
-from libs.common.config import ConfigManager
 from libs.common.db.pool_manager import DBPoolManager
 
 
@@ -32,6 +31,27 @@ def _postgres_connection_kwargs() -> dict[str, object]:
         "port": int(os.getenv("POSTGRES_PORT", "5432")),
         "database": os.getenv("POSTGRES_DB", "flipper_db"),
     }
+
+
+class E2ERuntimeConfig:
+    def get(self, key_path: str, default=None):
+        postgres = _postgres_connection_kwargs()
+        mapping = {
+            "postgres.user": postgres["user"],
+            "postgres.password": postgres["password"],
+            "postgres.host": postgres["host"],
+            "postgres.port": postgres["port"],
+            "postgres.database": postgres["database"],
+            "postgres.pool.min_size": 1,
+            "postgres.pool.max_size": 2,
+            "valkey.uri": os.getenv("VALKEY_URI", "redis://localhost:6380/0"),
+            "ingestion.streams.runtime_status_maxlen": 5000,
+            "ingestion.streams.runtime_status_approximate": True,
+            "ingestion.observability.disconnect_window_seconds": 3600,
+        }
+        if key_path in mapping:
+            return mapping[key_path]
+        return default
 
 
 async def _wait_for_postgres() -> None:
@@ -94,11 +114,9 @@ async def _wait_for_ingestion_health() -> None:
 @pytest.fixture(autouse=True, scope="session")
 def _reset_singletons():
     """Reset singletons before E2E session to avoid leftover unit-test state."""
-    ConfigManager._instance = None
     DBPoolManager._writer_pool = None
     DBPoolManager._reader_pool = None
     yield
-    ConfigManager._instance = None
     DBPoolManager._writer_pool = None
     DBPoolManager._reader_pool = None
 
@@ -114,28 +132,17 @@ async def docker_services_ready():
 @pytest_asyncio.fixture
 async def db_pools():
     """Function-scoped DB pools pointing at the Docker TimescaleDB."""
-    class E2EConfigManager(ConfigManager):
-        def get(self, key_path: str, default=None):
-            connection_kwargs = _postgres_connection_kwargs()
-            mapping = {
-                "postgres.user": connection_kwargs["user"],
-                "postgres.password": connection_kwargs["password"],
-                "postgres.host": connection_kwargs["host"],
-                "postgres.port": connection_kwargs["port"],
-                "postgres.database": connection_kwargs["database"],
-                "postgres.pool.min_size": 1,
-                "postgres.pool.max_size": 2,
-            }
-            if key_path in mapping:
-                return mapping[key_path]
-            return super().get(key_path, default)
-
-    config = E2EConfigManager()
+    config = E2ERuntimeConfig()
     await DBPoolManager.init_pools(config_manager=config)
     yield
     await DBPoolManager.close_pools()
     DBPoolManager._writer_pool = None
     DBPoolManager._reader_pool = None
+
+
+@pytest.fixture
+def runtime_config():
+    return E2ERuntimeConfig()
 
 
 @pytest_asyncio.fixture

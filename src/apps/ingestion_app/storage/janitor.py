@@ -8,6 +8,7 @@ from apps.ingestion_app.constants import (
     TABLE_OHLCV,
     TABLE_OPEN_INTEREST,
     TABLE_TICKS,
+    TABLE_TV_INDEX_OHLCV,
 )
 
 
@@ -18,6 +19,7 @@ class IngestionStorageJanitor:
         TABLE_OPEN_INTEREST,
         TABLE_FUNDING_RATE,
         TABLE_L2_DEPTH_FEATURES,
+        TABLE_TV_INDEX_OHLCV,
     )
 
     def __init__(self, pool: asyncpg.Pool) -> None:

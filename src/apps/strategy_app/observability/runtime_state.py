@@ -7,8 +7,17 @@ from apps.strategy_app.state import StrategyPair, StrategyRuntimeStatus
 from libs.contracts.serialization import valkey_decode, valkey_encode
 
 
-def runtime_status_key(asset: str, timeframe: str) -> str:
-    return f"strategy:status:{asset.upper()}:{timeframe}"
+def runtime_status_key(
+    asset: str,
+    timeframe: str,
+    trigger_timeframe: str | None = None,
+) -> str:
+    normalized_asset = asset.upper()
+    normalized_timeframe = timeframe.strip()
+    normalized_trigger = str(trigger_timeframe or "").strip()
+    if normalized_trigger and normalized_trigger != normalized_timeframe:
+        return f"strategy:status:{normalized_asset}:{normalized_timeframe}@{normalized_trigger}"
+    return f"strategy:status:{normalized_asset}:{normalized_timeframe}"
 
 
 class StrategyRuntimeStateStore:
@@ -18,7 +27,9 @@ class StrategyRuntimeStateStore:
     async def read(self, pair: StrategyPair) -> StrategyRuntimeStatus | None:
         if self.redis_client is None:
             return None
-        raw = await self.redis_client.hgetall(runtime_status_key(pair.asset, pair.timeframe))
+        raw = await self.redis_client.hgetall(
+            runtime_status_key(pair.asset, pair.timeframe, pair.trigger_timeframe)
+        )
         if not raw:
             return None
         normalized = dict(raw)
@@ -36,7 +47,11 @@ class StrategyRuntimeStateStore:
         if self.redis_client is None:
             return status
         await self.redis_client.hset(
-            runtime_status_key(status.pair.asset, status.pair.timeframe),
+            runtime_status_key(
+                status.pair.asset,
+                status.pair.timeframe,
+                status.pair.trigger_timeframe,
+            ),
             mapping=valkey_encode(status, inject_trace=False),
         )
         return status
@@ -44,7 +59,9 @@ class StrategyRuntimeStateStore:
     async def delete(self, pair: StrategyPair) -> None:
         if self.redis_client is None:
             return
-        await self.redis_client.delete(runtime_status_key(pair.asset, pair.timeframe))
+        await self.redis_client.delete(
+            runtime_status_key(pair.asset, pair.timeframe, pair.trigger_timeframe)
+        )
 
     async def update(
         self,

@@ -50,7 +50,7 @@ class StrategyWorkerSettings:
     consumer_name_prefix: str = "strategy_worker"
     batch_size: int = 10
     block_ms: int = 1000
-    signal_stream_maxlen: int = 5000
+    signal_stream_maxlen: int = 1000
     signal_stream_approximate: bool = True
     blender_enabled: bool = False
     blender_config: dict[str, Any] | None = None

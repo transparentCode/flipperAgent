@@ -1,0 +1,58 @@
+{
+  "configured_stream_caps": {
+    "control_maxlen": 1000,
+    "events_maxlen": 1000,
+    "failure_stream_maxlen": 1000,
+    "feature_stream_maxlen": 1000,
+    "fill_stream_maxlen": 1000,
+    "lifecycle_maxlen": 1000,
+    "ohlcv_maxlen": 1000,
+    "order_stream_maxlen": 1000,
+    "price_update_stream_maxlen": 200,
+    "runtime_status_maxlen": 1000,
+    "signal_stream_maxlen": 1000
+  },
+  "current": {
+    "configured_asset_count": 6,
+    "runtime_timeframes_per_asset": 4.0,
+    "runtime_timeframes_total": 24,
+    "signal_pair_count": 7,
+    "signal_pairs_per_asset": 1.1666666666666667,
+    "strategy_pair_count": 7,
+    "strategy_pairs_per_asset": 1.1666666666666667
+  },
+  "projected": {
+    "asset_count": 300,
+    "execution_worker_count": 300,
+    "failure_stream_count": 300,
+    "feature_stream_count": 350,
+    "fill_stream_count": 300,
+    "ingestion_runtime_count": 300,
+    "ohlcv_stream_count": 1200,
+    "order_stream_count": 300,
+    "price_update_stream_count": 350,
+    "replay_entry_upper_bounds": {
+      "failures": 300000,
+      "features": 350000,
+      "fills": 300000,
+      "ohlcv": 1200000,
+      "orders": 300000,
+      "price_update": 70000,
+      "signals": 350000
+    },
+    "risk_worker_count": 300,
+    "runtime_timeframes_per_asset": 4.0,
+    "shared_stream_upper_bounds": {
+      "control": 1000,
+      "events": 1000,
+      "lifecycle": 1000,
+      "runtime_status": 1000
+    },
+    "signal_pairs_per_asset": 1.1666666666666667,
+    "signal_stream_count": 350,
+    "signal_worker_count": 350,
+    "strategy_pairs_per_asset": 1.1666666666666667,
+    "strategy_worker_count": 350,
+    "total_worker_count": 1600
+  }
+}

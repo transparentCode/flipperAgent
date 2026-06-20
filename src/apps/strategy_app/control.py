@@ -30,8 +30,17 @@ class StrategyControlRecord(BaseModel):
         return float(value)
 
 
-def strategy_control_key(asset: str, timeframe: str) -> str:
-    return f"strategy:control:{asset.upper()}:{timeframe}"
+def strategy_control_key(
+    asset: str,
+    timeframe: str,
+    trigger_timeframe: str | None = None,
+) -> str:
+    normalized_asset = asset.upper()
+    normalized_timeframe = timeframe.strip()
+    normalized_trigger = str(trigger_timeframe or "").strip()
+    if normalized_trigger and normalized_trigger != normalized_timeframe:
+        return f"strategy:control:{normalized_asset}:{normalized_timeframe}@{normalized_trigger}"
+    return f"strategy:control:{normalized_asset}:{normalized_timeframe}"
 
 
 class StrategyControlStore:
@@ -41,7 +50,9 @@ class StrategyControlStore:
     async def read(self, pair: StrategyPair) -> StrategyControlRecord | None:
         if self.redis_client is None:
             return None
-        raw = await self.redis_client.hgetall(strategy_control_key(pair.asset, pair.timeframe))
+        raw = await self.redis_client.hgetall(
+            strategy_control_key(pair.asset, pair.timeframe, pair.trigger_timeframe)
+        )
         if not raw:
             return None
         normalized = dict(raw)
@@ -59,7 +70,11 @@ class StrategyControlStore:
         if self.redis_client is None:
             return record
         await self.redis_client.hset(
-            strategy_control_key(record.pair.asset, record.pair.timeframe),
+            strategy_control_key(
+                record.pair.asset,
+                record.pair.timeframe,
+                record.pair.trigger_timeframe,
+            ),
             mapping=valkey_encode(record, inject_trace=False),
         )
         return record
@@ -67,7 +82,9 @@ class StrategyControlStore:
     async def delete(self, pair: StrategyPair) -> None:
         if self.redis_client is None:
             return
-        await self.redis_client.delete(strategy_control_key(pair.asset, pair.timeframe))
+        await self.redis_client.delete(
+            strategy_control_key(pair.asset, pair.timeframe, pair.trigger_timeframe)
+        )
 
     async def set_desired_state(
         self,

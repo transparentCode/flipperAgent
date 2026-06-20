@@ -260,3 +260,91 @@ async def test_signal_runtime_runner_uses_full_catalog_metadata_for_lifecycle_ad
 
     resumed_pairs = {(worker.asset, worker.timeframe): worker for worker in _StubWorker.created}
     assert resumed_pairs[("BTCUSDT", "1m")].required_context_profiles == ["volatility_60m"]
+
+
+@pytest.mark.asyncio
+async def test_signal_runtime_runner_clears_app_streams_on_remove() -> None:
+    _StubWorker.created = []
+    redis = _FakeLifecycleRedis()
+    runner = SignalRuntimeRunner(
+        catalog=StaticSignalPairCatalog(
+            [
+                SignalPair(asset="BTCUSDT", timeframe="1h"),
+                SignalPair(
+                    asset="BTCUSDT",
+                    timeframe="4h",
+                    trigger_timeframe="1m",
+                    trigger_mode="on_base_bar_close",
+                    base_timeframe="1m",
+                ),
+            ]
+        ),
+        worker_factory=_StubWorker,
+        worker_settings=SignalWorkerSettings(consumer_group="signal_lifecycle_remove_test"),
+    )
+
+    await runner.connect(redis)
+    start_task = asyncio.create_task(runner.start())
+    await asyncio.gather(*[worker.started.wait() for worker in _StubWorker.created[:2]])
+
+    await redis.emit(
+        "3-0",
+        {
+            "event_id": "evt-remove",
+            "event_type": "ASSET_REMOVE_REQUESTED",
+            "command_type": "REMOVE_ASSET",
+            "symbol": "BTCUSDT",
+            "base_timeframe": "1m",
+            "publish_timeframes": '["1h","4h"]',
+            "timeframes": '["1m","1h","4h"]',
+            "enabled": "False",
+            "desired_state": "REMOVING",
+            "requested_by": "test",
+            "reason": "remove",
+            "emitted_at": "3",
+        },
+    )
+
+    async def _workers_cancelled() -> None:
+        await asyncio.gather(*[worker.cancelled.wait() for worker in _StubWorker.created[:2]])
+
+    await asyncio.wait_for(_workers_cancelled(), timeout=2)
+    await asyncio.sleep(0.05)
+
+    await runner.stop()
+    await start_task
+
+    assert "signal:status:BTCUSDT:1h" in redis.deleted
+    assert "signal:status:BTCUSDT:4h@1m" in redis.deleted
+    assert "features:BTCUSDT:1h" in redis.deleted
+    assert "features:BTCUSDT:4h@1m" in redis.deleted
+    assert "price_update:BTCUSDT:1h" in redis.deleted
+    assert "price_update:BTCUSDT:4h" in redis.deleted
+
+
+@pytest.mark.asyncio
+async def test_signal_runtime_runner_scales_to_large_pair_counts() -> None:
+    _StubWorker.created = []
+    redis = _FakeLifecycleRedis()
+    pairs = [
+        SignalPair(asset=f"ASSET{i:03d}", timeframe=timeframe)
+        for i in range(200)
+        for timeframe in ("1h", "4h")
+    ]
+    runner = SignalRuntimeRunner(
+        catalog=StaticSignalPairCatalog(pairs),
+        worker_factory=_StubWorker,
+        worker_settings=SignalWorkerSettings(consumer_group="signal_scale_test"),
+    )
+
+    workers = await runner.connect(redis)
+    assert len(workers) == 400
+
+    async def _all_started() -> None:
+        await asyncio.gather(*(worker.started.wait() for worker in _StubWorker.created))
+
+    await asyncio.wait_for(_all_started(), timeout=5)
+    await runner.stop()
+
+    assert len(_StubWorker.created) == 400
+    assert len(runner.workers) == 0
