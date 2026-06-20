@@ -40,8 +40,6 @@ def build_signal_pairs(
     manager = config_manager or ConfigManager()
     manager.register_file(CONFIG_FILE_MODELS)
     manager.register_file(CONFIG_FILE_FEATURES)
-    models_config = manager.get("models", {})
-    assets_config = models_config.get("assets", {})
     if live_pairs is None and live_manifests:
         live_pairs = live_manifest_pairs(live_manifests)
     live_pair_set = {
@@ -51,14 +49,11 @@ def build_signal_pairs(
     accumulators: dict[tuple[str, str, str], _PairAccumulator] = {}
     base_pair_profiles: dict[tuple[str, str], set[str]] = defaultdict(set)
 
-    for asset, asset_config in assets_config.items():
-        if asset == "default" or not isinstance(asset_config, dict):
-            continue
-        normalized_asset = str(asset).upper().strip()
+    for normalized_asset in _iter_runtime_assets(manager):
         for runtime_spec in iter_enabled_runtime_specs(
             manager,
             asset=normalized_asset,
-            roots=("models",),
+            roots=("models", "scoring_models", "strategy_models"),
         ):
             validate_supported_runtime_spec(
                 runtime_spec,
@@ -133,6 +128,18 @@ def build_signal_pairs(
 
     pairs.sort(key=lambda pair: (pair.asset, pair.timeframe, pair.trigger_timeframe or pair.timeframe))
     return pairs
+
+
+def _iter_runtime_assets(manager: ConfigManager) -> list[str]:
+    assets: set[str] = set()
+    for root_key in ("models", "scoring_models", "strategy_models"):
+        root = manager.get(root_key, {})
+        root_assets = root.get("assets", {}) if isinstance(root, dict) else {}
+        for asset, asset_config in root_assets.items():
+            if asset == "default" or not isinstance(asset_config, dict):
+                continue
+            assets.add(str(asset).upper().strip())
+    return sorted(assets)
 
 
 def _pair_is_live(

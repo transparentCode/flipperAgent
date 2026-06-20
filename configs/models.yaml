@@ -1,11 +1,14 @@
-models:
+strategy_models:
   assets:
-    BTCUSDT:
+    default:
       timeframes:
-        1h:
-          MeanReversion:
+        default:
+          MeanReversionV2:
             enabled: true
-            migration_mode: scoring
+            runtime:
+              decision_timeframe: 1h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
             params:
               rsi_scale: 15.0
               w_rsi: 0.4
@@ -13,26 +16,88 @@ models:
               w_kama: 0.2
               adx_center: 25.0
               adx_steepness: 5.0
-          TrendFollowing:
-            enabled: false  # Deprecated: negative Sharpe even after 300-trial NSGA-II optimization
-            params:
-              ema_fast_period: 10
-              ema_slow_period: 49
-              require_macd_confirm: true
-              atr_conviction_scale: 0.9
-          Momentum:
+    BTCUSDT:
+      timeframes:
+        1h:
+          MeanReversionV2:
             enabled: true
-            # Optimized 2yr multi-TP: Sharpe +0.94, WR 64%, 315 trades
+            runtime:
+              decision_timeframe: 1h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
+            params:
+              rsi_scale: 15.0
+              w_rsi: 0.4
+              w_bb: 0.4
+              w_kama: 0.2
+              adx_center: 25.0
+              adx_steepness: 5.0
+          PriceActionV2:
+            enabled: true
+            runtime:
+              decision_timeframe: 1h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
+            params:
+              swing_lookback: 5
+          MomentumV2:
+            enabled: true
+            runtime:
+              decision_timeframe: 1h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
             params:
               rsi_long_threshold: 70
               rsi_short_threshold: 34
               require_macd_positive: true
               histogram_min_abs: 0.7
-          SqueezeBreakout:
+          KyleTFIV2:
             enabled: true
-            migration_mode: adapted
-            comparison_logging: true
-            # 3-param reduced grid: PBO=0.46 GO, Sharpe +1.43 (vs defaults +0.89, v7 +0.26)
+            runtime:
+              decision_timeframe: 1h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
+            params:
+              kyle_smooth: 24
+              kyle_lookback: 200
+              informed_z_threshold: 1.25
+              tfi_z_long: 1.0
+              tfi_z_short: -1.0
+              atr_tp_mult: 3.0
+              atr_sl_mult: 2.0
+          VPINKyleV2:
+            enabled: true
+            runtime:
+              decision_timeframe: 1h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
+            params:
+              vpin_z_threshold: 1.25
+              kyle_z_threshold: 1.0
+              buy_ratio_long: 0.58
+              buy_ratio_short: 0.42
+              atr_tp_mult: 2.0
+              atr_sl_mult: 1.5
+          RegimePullbackV2:
+            enabled: true
+            runtime:
+              decision_timeframe: 1h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
+            params:
+              btc_dom_weight: 0.0
+          DivergenceEdgeV2:
+            enabled: true
+            runtime:
+              decision_timeframe: 1h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
+          SqueezeBreakoutV2:
+            enabled: true
+            runtime:
+              decision_timeframe: 1h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
             params:
               kama_fast_period: 10
               kama_slow_period: 25
@@ -47,34 +112,13 @@ models:
               mfi_sma_period: 9
               mom_lr_period: 14
               mom_lr_mom_period: 10
-          PriceAction:
-            enabled: true
-            migration_mode: scoring
-            params:
-              swing_lookback: 5
-          KyleTFI:
-            enabled: true
-            params:
-              kyle_smooth: 24
-              kyle_lookback: 200
-              informed_z_threshold: 1.25
-              tfi_z_long: 1.0
-              tfi_z_short: -1.0
-              atr_tp_mult: 3.0
-              atr_sl_mult: 2.0
-          VPINKyle:
-            enabled: true
-            params:
-              vpin_z_threshold: 1.25
-              kyle_z_threshold: 1.0
-              buy_ratio_long: 0.58
-              buy_ratio_short: 0.42
-              atr_tp_mult: 2.0
-              atr_sl_mult: 1.5
         4h:
-          MeanReversion:
+          MeanReversionV2:
             enabled: true
-            migration_mode: scoring
+            runtime:
+              decision_timeframe: 4h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
             params:
               rsi_scale: 15.0
               w_rsi: 0.4
@@ -82,29 +126,26 @@ models:
               w_kama: 0.2
               adx_center: 25.0
               adx_steepness: 5.0
-          TrendFollowing:
-            enabled: false  # Deprecated: structurally negative for crypto
-            params:
-              ema_fast_period: 14
-              ema_slow_period: 20
-              require_macd_confirm: false
-              atr_conviction_scale: 1.6
-          Momentum:
+          MomentumV2:
             enabled: true
-            # Optimized 2yr multi-TP: Sharpe +0.28, WR 62%, 225 trades
+            runtime:
+              decision_timeframe: 4h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
             params:
               rsi_long_threshold: 61
               rsi_short_threshold: 37
               require_macd_positive: true
               histogram_min_abs: 0.35
-          SqueezeBreakout:
-            enabled: false
     ETHUSDT:
       timeframes:
         4h:
-          MeanReversion:
+          MeanReversionV2:
             enabled: true
-            migration_mode: scoring
+            runtime:
+              decision_timeframe: 4h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
             params:
               rsi_scale: 15.0
               w_rsi: 0.4
@@ -112,17 +153,24 @@ models:
               w_kama: 0.2
               adx_center: 25.0
               adx_steepness: 5.0
-          Momentum:
+          MomentumV2:
             enabled: true
+            runtime:
+              decision_timeframe: 4h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
             params:
               rsi_long_threshold: 55
               rsi_short_threshold: 45
     XRPUSDT:
       timeframes:
         1h:
-          MeanReversion:
+          MeanReversionV2:
             enabled: true
-            migration_mode: scoring
+            runtime:
+              decision_timeframe: 1h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
             params:
               rsi_scale: 15.0
               w_rsi: 0.4
@@ -130,8 +178,12 @@ models:
               w_kama: 0.2
               adx_center: 25.0
               adx_steepness: 5.0
-          SqueezeBreakout:
+          SqueezeBreakoutV2:
             enabled: true
+            runtime:
+              decision_timeframe: 1h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
             params:
               kama_fast_period: 4
               kama_slow_period: 28
@@ -149,8 +201,12 @@ models:
     SOLUSDT:
       timeframes:
         1h:
-          SqueezeBreakout:
+          SqueezeBreakoutV2:
             enabled: true
+            runtime:
+              decision_timeframe: 1h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
             params:
               kama_fast_period: 5
               kama_slow_period: 43
@@ -168,9 +224,12 @@ models:
     BNBUSDT:
       timeframes:
         30m:
-          MeanReversion:
+          MeanReversionV2:
             enabled: true
-            migration_mode: scoring
+            runtime:
+              decision_timeframe: 30m
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
             params:
               rsi_scale: 15.0
               w_rsi: 0.4
@@ -178,9 +237,12 @@ models:
               w_kama: 0.2
               adx_center: 25.0
               adx_steepness: 5.0
-          SqueezeBreakout:
+          SqueezeBreakoutV2:
             enabled: true
-            # 2yr validation: defaults Sharpe +1.22 vs v7 +0.77 — using model defaults
+            runtime:
+              decision_timeframe: 30m
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
             params:
               kama_fast_period: 5
               kama_slow_period: 30
@@ -198,9 +260,12 @@ models:
     DOGEUSDT:
       timeframes:
         4h:
-          SqueezeBreakout:
+          SqueezeBreakoutV2:
             enabled: true
-            # PBO=0.558 (overfit) with v7 params — reverted to defaults
+            runtime:
+              decision_timeframe: 4h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
             params:
               kama_fast_period: 5
               kama_slow_period: 30
@@ -215,19 +280,47 @@ models:
               mfi_sma_period: 9
               mom_lr_period: 14
               mom_lr_mom_period: 10
+
+models:
+  assets:
+    BTCUSDT:
+      timeframes:
+        1h:
+          TrendFollowing:
+            enabled: false  # Deprecated: negative Sharpe even after 300-trial NSGA-II optimization
+            params:
+              ema_fast_period: 10
+              ema_slow_period: 49
+              require_macd_confirm: true
+              atr_conviction_scale: 0.9
+        4h:
+          TrendFollowing:
+            enabled: false  # Deprecated: structurally negative for crypto
+            params:
+              ema_fast_period: 14
+              ema_slow_period: 20
+              require_macd_confirm: false
+              atr_conviction_scale: 1.6
+          SqueezeBreakout:
+            enabled: false
+    ETHUSDT:
+      timeframes:
+        4h: {}
+    XRPUSDT:
+      timeframes:
+        1h: {}
+    SOLUSDT:
+      timeframes:
+        1h:
+    BNBUSDT:
+      timeframes:
+        30m: {}
+    DOGEUSDT:
+      timeframes:
+        4h:
     default:
       timeframes:
-        default:
-          MeanReversion:
-            enabled: true
-            migration_mode: scoring
-            params:
-              rsi_scale: 15.0
-              w_rsi: 0.4
-              w_bb: 0.4
-              w_kama: 0.2
-              adx_center: 25.0
-              adx_steepness: 5.0
+        default: {}
 scoring_models:
   assets:
     default:
@@ -235,6 +328,7 @@ scoring_models:
         default:
           RegimePullbackScorer:
             enabled: true
+            migration_mode: native_scoring
             params:
               regime_threshold: -0.1
               min_z_depth: 1.0
@@ -247,6 +341,7 @@ scoring_models:
               suppress_broad_selloff: 1
           DivergenceEdgeScorer:
             enabled: true
+            migration_mode: native_scoring
             params:
               divergence_lookback: 14
               weight_rsi: 0.4
@@ -258,6 +353,7 @@ scoring_models:
               suppress_broad_selloff: 1
           RegimeRelativeValueScorer:
             enabled: true
+            migration_mode: native_scoring
             params:
               rs_underperformance_threshold: -0.5
               rsi_oversold_gate: 35
@@ -268,12 +364,19 @@ scoring_models:
     BTCUSDT:
       timeframes:
         1h:
-          RegimePullbackScorer:
-            enabled: true
-            params:
-              btc_dom_weight: 0.0
-          DivergenceEdgeScorer:
-            enabled: true
+          {}
+    XRPUSDT:
+      timeframes:
+        1h: {}
+    SOLUSDT:
+      timeframes:
+        1h: {}
+    BNBUSDT:
+      timeframes:
+        30m: {}
+    DOGEUSDT:
+      timeframes:
+        4h: {}
 
 blender:
   enabled: true

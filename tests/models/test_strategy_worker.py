@@ -27,7 +27,12 @@ class TestStrategyWorkerInit:
     def test_model_manager_loaded(self):
         ConfigManager.reset_singleton()
         sw = StrategyWorker("BTCUSDT", "1h")
-        assert len(sw.model_manager.models) >= 1
+        total_loaded = (
+            len(sw.model_manager.models)
+            + len(sw.model_manager.scoring_models)
+            + len(sw.unified_model_manager.models)
+        )
+        assert total_loaded >= 1
 
     def test_custom_worker_settings_applied(self):
         ConfigManager.reset_singleton()
@@ -53,7 +58,7 @@ class TestStrategyWorkerInit:
             "4h",
             trigger_timeframe="1m",
             trigger_mode="on_base_bar_close",
-            allowed_model_names=["Momentum"],
+            allowed_model_names=["MomentumV2"],
         )
         assert sw.feature_stream_key == "features:BTCUSDT:4h@1m"
         assert sw.signal_stream_key == "signals:BTCUSDT:4h"

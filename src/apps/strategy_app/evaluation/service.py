@@ -8,8 +8,11 @@ from apps.strategy_app.evaluation.migration import log_migration_comparison
 from apps.strategy_app.model_manager import ModelManager
 from apps.strategy_app.scoring_model_manager import ScoringModelManager
 from libs.contracts.schemas import FeatureVector
+from libs.contracts.signal import ScoringOutput
+from libs.contracts.strategy_model import ModelDecision
 from libs.models.blender.ensemble import RegimeEnsembleBlender
 from libs.selection.selection_layer import SelectionLayer
+from apps.strategy_app.models.unified_model_manager import UnifiedModelManager
 
 
 @dataclass(frozen=True)
@@ -26,6 +29,7 @@ class StrategyEvaluationService:
         timeframe: str,
         model_manager: ModelManager,
         scoring_model_manager: ScoringModelManager,
+        unified_model_manager: UnifiedModelManager | None = None,
         selection_layer: SelectionLayer,
         logger: Any,
         blender: RegimeEnsembleBlender | None = None,
@@ -34,6 +38,7 @@ class StrategyEvaluationService:
         self.timeframe = timeframe
         self.model_manager = model_manager
         self.scoring_model_manager = scoring_model_manager
+        self.unified_model_manager = unified_model_manager
         self.selection_layer = selection_layer
         self.logger = logger
         self.blender = blender
@@ -41,6 +46,8 @@ class StrategyEvaluationService:
     def validate_feature_coverage(self) -> None:
         self.model_manager.validate_feature_coverage()
         self.scoring_model_manager.validate_feature_coverage()
+        if self.unified_model_manager is not None:
+            self.unified_model_manager.validate_feature_coverage()
 
     def evaluate_feature_vector(self, feature_vec: FeatureVector) -> StrategyEvaluationResult:
         return self.evaluate_feature_vector_routed(feature_vec)
@@ -72,6 +79,12 @@ class StrategyEvaluationService:
             allowed_model_names,
         )
         scoring_outputs.extend(native_scoring_outputs)
+        unified_scoring_outputs = self._evaluate_unified_scoring_outputs(
+            feature_vec,
+            allowed_model_names=allowed_model_names,
+            runtime_metadata=runtime_metadata,
+        )
+        scoring_outputs.extend(unified_scoring_outputs)
 
         shadow_outputs = self._filter_outputs(
             self.model_manager.evaluate_shadow(feature_vec),
@@ -95,6 +108,22 @@ class StrategyEvaluationService:
             for result in selected:
                 result.candidate.metadata.update(runtime_metadata)
         return StrategyEvaluationResult(feature_vector=feature_vec, selected=selected)
+
+    def _evaluate_unified_scoring_outputs(
+        self,
+        feature_vec: FeatureVector,
+        *,
+        allowed_model_names: set[str] | None,
+        runtime_metadata: dict[str, Any] | None,
+    ) -> list[ScoringOutput]:
+        if self.unified_model_manager is None:
+            return []
+        decisions = self.unified_model_manager.evaluate(
+            feature_vec,
+            runtime_metadata=runtime_metadata,
+            allowed_model_names=allowed_model_names,
+        )
+        return [self._decision_to_scoring_output(decision) for decision in decisions]
 
     def _blend_outputs(
         self,
@@ -126,3 +155,19 @@ class StrategyEvaluationService:
             output for output in outputs
             if getattr(output, "model_name", "") in allowed_model_names
         ]
+
+    @staticmethod
+    def _decision_to_scoring_output(decision: ModelDecision) -> ScoringOutput:
+        return ScoringOutput(
+            model_name=decision.model_name,
+            asset=decision.asset,
+            timeframe=decision.decision_timeframe,
+            timestamp=decision.timestamp,
+            edge_score=decision.score,
+            conviction=decision.conviction,
+            metadata={
+                **decision.metadata,
+                "_trigger_timeframe": decision.trigger_timeframe,
+                "_direction_hint": decision.direction_hint,
+            },
+        )

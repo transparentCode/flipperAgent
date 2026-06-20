@@ -38,6 +38,62 @@ def test_collect_runtime_trigger_timeframes_uses_shared_resolution() -> None:
     assert collect_runtime_trigger_timeframes(config_manager, asset="BTCUSDT") == ["1m", "1h"]
 
 
+def test_iter_enabled_runtime_specs_inherits_default_default_models_for_asset_timeframes() -> None:
+    ConfigManager.reset_singleton()
+    config_manager = ConfigManager()
+    config_manager.register_file = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+    config_manager._load_configs = lambda trigger_callbacks=True: None  # type: ignore[method-assign]
+    config_manager._state = {
+        "models": {
+            "assets": {
+                "BTCUSDT": {
+                    "timeframes": {
+                        "1h": {
+                            "Momentum": {
+                                "enabled": True,
+                                "runtime": {
+                                    "decision_timeframe": "1h",
+                                    "base_timeframe": "1m",
+                                    "trigger_mode": "on_bar_close",
+                                },
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "scoring_models": {
+            "assets": {
+                "default": {
+                    "timeframes": {
+                        "default": {
+                            "ScoringOverlay": {
+                                "enabled": True,
+                                "runtime": {
+                                    "decision_timeframe": "1h",
+                                    "base_timeframe": "1m",
+                                    "trigger_mode": "on_bar_close",
+                                },
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    }
+
+    specs = iter_enabled_runtime_specs(
+        config_manager,
+        asset="BTCUSDT",
+        roots=("models", "scoring_models"),
+    )
+
+    assert [(spec.model_name, spec.config_timeframe) for spec in specs] == [
+        ("Momentum", "1h"),
+        ("ScoringOverlay", "1h"),
+    ]
+
+
 def _runtime_config_manager() -> ConfigManager:
     ConfigManager.reset_singleton()
     config_manager = ConfigManager()

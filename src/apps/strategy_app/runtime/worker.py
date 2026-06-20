@@ -15,7 +15,7 @@ from libs.contracts.schemas import FeatureVector, valkey_decode
 from apps.strategy_app.control import StrategyControlStore, StrategyDesiredState
 from apps.strategy_app.evaluation.service import StrategyEvaluationService
 from apps.strategy_app.evaluation.view_adapter import StrategyDecisionViewAdapter
-from apps.strategy_app.models import ModelManager, ScoringModelManager
+from apps.strategy_app.models import ModelManager, ScoringModelManager, UnifiedModelManager
 from apps.strategy_app.observability.runtime_state import StrategyRuntimeStateStore
 from apps.strategy_app.publishing.signals import (
     StrategySignalPublisher,
@@ -41,6 +41,7 @@ class StrategyWorker(BaseStreamConsumer):
         *,
         model_manager: ModelManager | None = None,
         scoring_model_manager: ScoringModelManager | None = None,
+        unified_model_manager: UnifiedModelManager | None = None,
         selection_layer: SelectionLayer | None = None,
         blender: RegimeEnsembleBlender | None = None,
         settings: StrategyWorkerSettings | None = None,
@@ -95,12 +96,19 @@ class StrategyWorker(BaseStreamConsumer):
             self.decision_timeframe,
             config_manager=self.config_manager,
         )
+        self.unified_model_manager = unified_model_manager or UnifiedModelManager(
+            asset,
+            self.decision_timeframe,
+            config_manager=self.config_manager,
+            bridge_legacy_roots=False,
+        )
         self.selection_layer = selection_layer or SelectionLayer(asset, self.decision_timeframe)
         self.evaluation_service = StrategyEvaluationService(
             asset=asset,
             timeframe=self.decision_timeframe,
             model_manager=self.model_manager,
             scoring_model_manager=self.scoring_model_manager,
+            unified_model_manager=self.unified_model_manager,
             selection_layer=self.selection_layer,
             logger=logger,
             blender=blender,

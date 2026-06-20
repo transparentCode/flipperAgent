@@ -8,6 +8,7 @@ from libs.common.logging.logger_utils import bind_logger
 
 from apps.strategy_app.evaluation.migration import log_migration_comparison
 from apps.strategy_app.model_manager import ModelManager
+from apps.strategy_app.models.unified_model_manager import UnifiedModelManager
 from apps.strategy_app.runtime.worker import StrategyWorker as _RuntimeStrategyWorker
 from apps.strategy_app.scoring_model_manager import ScoringModelManager
 from apps.strategy_app.settings import StrategyWorkerSettings, create_strategy_config_manager
@@ -27,6 +28,7 @@ class StrategyWorker(_RuntimeStrategyWorker):
         *,
         model_manager: ModelManager | None = None,
         scoring_model_manager: ScoringModelManager | None = None,
+        unified_model_manager: UnifiedModelManager | None = None,
         selection_layer: SelectionLayer | None = None,
         blender: RegimeEnsembleBlender | None = None,
         settings: StrategyWorkerSettings | None = None,
@@ -48,6 +50,12 @@ class StrategyWorker(_RuntimeStrategyWorker):
             timeframe,
             config_manager=config_manager,
         )
+        unified_model_manager = unified_model_manager or UnifiedModelManager(
+            asset,
+            timeframe,
+            config_manager=config_manager,
+            bridge_legacy_roots=False,
+        )
         selection_layer = selection_layer or SelectionLayer(asset, timeframe)
         if blender is None and settings.blender_enabled and settings.blender_config:
             try:
@@ -59,6 +67,7 @@ class StrategyWorker(_RuntimeStrategyWorker):
             timeframe,
             model_manager=model_manager,
             scoring_model_manager=scoring_model_manager,
+            unified_model_manager=unified_model_manager,
             selection_layer=selection_layer,
             blender=blender,
             settings=settings,

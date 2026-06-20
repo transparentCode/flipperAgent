@@ -86,6 +86,7 @@ def _make_model_manager(model_configs: dict[str, Any]):
         mgr.adapted_models = []
         mgr.scoring_models = []
         mgr.shadow_models = []
+        mgr.runtime_specs = {}
         mgr._resolve_config_node = mock_resolve
         mgr._load_models()
     return mgr

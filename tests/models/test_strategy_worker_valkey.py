@@ -104,13 +104,17 @@ class _FakeRawIndicators:
 class TestStrategyWorkerProcessFeatures:
     @pytest.mark.asyncio
     @patch("apps.strategy_app.strategy_worker.ModelManager")
-    async def test_process_features_publishes_signal(self, MockMM) -> None:
+    @patch("apps.strategy_app.strategy_worker.UnifiedModelManager")
+    async def test_process_features_publishes_signal(self, MockUnifiedMM, MockMM) -> None:
         """Valid FeatureVector payload → model evaluates → xadd called with signal stream."""
         from apps.strategy_app.strategy_worker import StrategyWorker
 
         mock_mm = MagicMock()
         mock_mm.evaluate.return_value = [_make_model_output(direction=1)]
         MockMM.return_value = mock_mm
+        mock_unified_mm = MagicMock()
+        mock_unified_mm.evaluate.return_value = []
+        MockUnifiedMM.return_value = mock_unified_mm
 
         worker = StrategyWorker("BTCUSDT", "4h")
         worker.redis_client = AsyncMock()
@@ -127,13 +131,17 @@ class TestStrategyWorkerProcessFeatures:
 
     @pytest.mark.asyncio
     @patch("apps.strategy_app.strategy_worker.ModelManager")
-    async def test_process_features_flat_direction_no_publish(self, MockMM) -> None:
+    @patch("apps.strategy_app.strategy_worker.UnifiedModelManager")
+    async def test_process_features_flat_direction_no_publish(self, MockUnifiedMM, MockMM) -> None:
         """When model returns direction=0, no signal should be published."""
         from apps.strategy_app.strategy_worker import StrategyWorker
 
         mock_mm = MagicMock()
         mock_mm.evaluate.return_value = [_make_model_output(direction=0)]
         MockMM.return_value = mock_mm
+        mock_unified_mm = MagicMock()
+        mock_unified_mm.evaluate.return_value = []
+        MockUnifiedMM.return_value = mock_unified_mm
 
         worker = StrategyWorker("BTCUSDT", "4h")
         worker.redis_client = AsyncMock()
@@ -148,12 +156,16 @@ class TestStrategyWorkerProcessFeatures:
 
     @pytest.mark.asyncio
     @patch("apps.strategy_app.strategy_worker.ModelManager")
-    async def test_feature_decode_error_no_crash(self, MockMM) -> None:
+    @patch("apps.strategy_app.strategy_worker.UnifiedModelManager")
+    async def test_feature_decode_error_no_crash(self, MockUnifiedMM, MockMM) -> None:
         """Malformed payload should not crash; no xadd should be called."""
         from apps.strategy_app.strategy_worker import StrategyWorker
 
         mock_mm = MagicMock()
         MockMM.return_value = mock_mm
+        mock_unified_mm = MagicMock()
+        mock_unified_mm.evaluate.return_value = []
+        MockUnifiedMM.return_value = mock_unified_mm
 
         worker = StrategyWorker("BTCUSDT", "4h")
         worker.redis_client = AsyncMock()
@@ -169,8 +181,10 @@ class TestStrategyWorkerProcessFeatures:
     @pytest.mark.asyncio
     @patch("apps.strategy_app.strategy_worker.ModelManager")
     @patch("apps.strategy_app.strategy_worker.ScoringModelManager")
+    @patch("apps.strategy_app.strategy_worker.UnifiedModelManager")
     async def test_process_features_blender_maps_runtime_model_names_and_publishes(
         self,
+        MockUnifiedMM,
         MockSMM,
         MockMM,
     ) -> None:
@@ -205,6 +219,9 @@ class TestStrategyWorkerProcessFeatures:
         mock_smm = MagicMock()
         mock_smm.evaluate.return_value = []
         MockSMM.return_value = mock_smm
+        mock_unified_mm = MagicMock()
+        mock_unified_mm.evaluate.return_value = []
+        MockUnifiedMM.return_value = mock_unified_mm
 
         worker = StrategyWorker("BTCUSDT", "1h")
         worker.redis_client = AsyncMock()
@@ -228,7 +245,12 @@ class TestStrategyWorkerProcessFeatures:
 
     @pytest.mark.asyncio
     @patch("apps.strategy_app.strategy_worker.ModelManager")
-    async def test_process_features_shadow_comparison_logging_does_not_break_publish(self, MockMM) -> None:
+    @patch("apps.strategy_app.strategy_worker.UnifiedModelManager")
+    async def test_process_features_shadow_comparison_logging_does_not_break_publish(
+        self,
+        MockUnifiedMM,
+        MockMM,
+    ) -> None:
         """Structured comparison logging should not raise and poison the message."""
         from apps.strategy_app.strategy_worker import StrategyWorker
 
@@ -257,6 +279,9 @@ class TestStrategyWorkerProcessFeatures:
             )
         ]
         MockMM.return_value = mock_mm
+        mock_unified_mm = MagicMock()
+        mock_unified_mm.evaluate.return_value = []
+        MockUnifiedMM.return_value = mock_unified_mm
 
         worker = StrategyWorker("BTCUSDT", "4h")
         worker.redis_client = AsyncMock()

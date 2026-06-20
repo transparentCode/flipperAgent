@@ -216,6 +216,60 @@ async def test_v2_asset_catalog_derives_runtime_trigger_lanes_from_models_config
 
 
 @pytest.mark.asyncio
+async def test_v2_asset_catalog_inherits_default_scoring_models_for_discovered_timeframes():
+    config_manager = FakeConfigManager(
+        {
+            "ingestion.assets.target_list": ["BTCUSDT"],
+            "ingestion.assets.publish_timeframes": {"BTCUSDT": []},
+            "ingestion.timeframes.base_gap_fill": "1m",
+            "models": {
+                "assets": {
+                    "BTCUSDT": {
+                        "timeframes": {
+                            "30m": {
+                                "Momentum": {
+                                    "enabled": True,
+                                    "runtime": {
+                                        "decision_timeframe": "30m",
+                                        "base_timeframe": "1m",
+                                        "trigger_mode": "on_bar_close",
+                                    },
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "scoring_models": {
+                "assets": {
+                    "default": {
+                        "timeframes": {
+                            "default": {
+                                "RegimePullbackScorer": {
+                                    "enabled": True,
+                                    "runtime": {
+                                        "decision_timeframe": "1h",
+                                        "base_timeframe": "1m",
+                                        "trigger_mode": "on_bar_close",
+                                    },
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+        }
+    )
+
+    catalog = IngestionAssetCatalog(config_manager=config_manager, pool=FakePool(FakeConnection()))
+    records = await catalog.list_effective_assets()
+
+    assert len(records) == 1
+    assert records[0].symbol == "BTCUSDT"
+    assert records[0].publish_timeframes == ["30m", "1h"]
+
+
+@pytest.mark.asyncio
 async def test_v2_asset_catalog_prefers_registry_over_config():
     config_manager = FakeConfigManager(
         {

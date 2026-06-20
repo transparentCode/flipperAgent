@@ -83,6 +83,89 @@ def test_build_strategy_pairs_supports_base_trigger_decision_projection() -> Non
     assert pairs[0].base_timeframe == "1m"
 
 
+def test_build_strategy_pairs_includes_scoring_model_only_assets() -> None:
+    ConfigManager.reset_singleton()
+    config_manager = ConfigManager()
+    config_manager.register_file = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+    config_manager._load_configs = lambda trigger_callbacks=True: None  # type: ignore[method-assign]
+    config_manager._state = {
+        "models": {"assets": {}},
+        "scoring_models": {
+            "assets": {
+                "BTCUSDT": {
+                    "timeframes": {
+                        "1h": {
+                            "RegimePullbackScorer": {
+                                "enabled": True,
+                                "runtime": {
+                                    "decision_timeframe": "1h",
+                                    "base_timeframe": "1m",
+                                    "trigger_mode": "on_bar_close",
+                                },
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    }
+
+    pairs = build_strategy_pairs(config_manager, live_pairs=[("BTCUSDT", "1h")])
+
+    assert [pair.key for pair in pairs] == ["BTCUSDT:1h"]
+    assert pairs[0].model_names == ["RegimePullbackScorer"]
+
+
+def test_build_strategy_pairs_inherits_default_scoring_models_for_asset_timeframes() -> None:
+    ConfigManager.reset_singleton()
+    config_manager = ConfigManager()
+    config_manager.register_file = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+    config_manager._load_configs = lambda trigger_callbacks=True: None  # type: ignore[method-assign]
+    config_manager._state = {
+        "models": {
+            "assets": {
+                "BTCUSDT": {
+                    "timeframes": {
+                        "1h": {
+                            "Momentum": {
+                                "enabled": True,
+                                "runtime": {
+                                    "decision_timeframe": "1h",
+                                    "base_timeframe": "1m",
+                                    "trigger_mode": "on_bar_close",
+                                },
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "scoring_models": {
+            "assets": {
+                "default": {
+                    "timeframes": {
+                        "default": {
+                            "RegimePullbackScorer": {
+                                "enabled": True,
+                                "runtime": {
+                                    "decision_timeframe": "1h",
+                                    "base_timeframe": "1m",
+                                    "trigger_mode": "on_bar_close",
+                                },
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    }
+
+    pairs = build_strategy_pairs(config_manager, live_pairs=[("BTCUSDT", "1h")])
+
+    assert [pair.key for pair in pairs] == ["BTCUSDT:1h"]
+    assert pairs[0].model_names == ["Momentum", "RegimePullbackScorer"]
+
+
 def test_build_strategy_pairs_adds_manifest_fallback_pairs_when_no_model_config_exists() -> None:
     ConfigManager.reset_singleton()
     config_manager = ConfigManager()

@@ -67,7 +67,8 @@ def _make_model_output(direction: int = 1) -> ModelOutput:
 @pytest.mark.asyncio
 @patch("apps.strategy_app.strategy_worker.ModelManager")
 @patch("apps.strategy_app.strategy_worker.ScoringModelManager")
-async def test_strategy_worker_updates_runtime_state_live(MockSMM, MockMM) -> None:
+@patch("apps.strategy_app.strategy_worker.UnifiedModelManager")
+async def test_strategy_worker_updates_runtime_state_live(MockUnifiedMM, MockSMM, MockMM) -> None:
     from apps.strategy_app.strategy_worker import StrategyWorker
 
     mock_mm = MagicMock()
@@ -80,6 +81,9 @@ async def test_strategy_worker_updates_runtime_state_live(MockSMM, MockMM) -> No
     mock_smm = MagicMock()
     mock_smm.evaluate.return_value = []
     MockSMM.return_value = mock_smm
+    mock_unified_mm = MagicMock()
+    mock_unified_mm.evaluate.return_value = []
+    MockUnifiedMM.return_value = mock_unified_mm
 
     worker = StrategyWorker("BTCUSDT", "4h")
     redis = _MemoryRedis()
@@ -99,10 +103,14 @@ async def test_strategy_worker_updates_runtime_state_live(MockSMM, MockMM) -> No
 
 @pytest.mark.asyncio
 @patch("apps.strategy_app.strategy_worker.ModelManager")
-async def test_strategy_worker_updates_runtime_state_on_decode_error(MockMM) -> None:
+@patch("apps.strategy_app.strategy_worker.UnifiedModelManager")
+async def test_strategy_worker_updates_runtime_state_on_decode_error(MockUnifiedMM, MockMM) -> None:
     from apps.strategy_app.strategy_worker import StrategyWorker
 
     MockMM.return_value = MagicMock()
+    mock_unified_mm = MagicMock()
+    mock_unified_mm.evaluate.return_value = []
+    MockUnifiedMM.return_value = mock_unified_mm
     worker = StrategyWorker("BTCUSDT", "4h")
     redis = _MemoryRedis()
     await worker.connect(redis)
@@ -121,7 +129,8 @@ async def test_strategy_worker_updates_runtime_state_on_decode_error(MockMM) -> 
 @pytest.mark.asyncio
 @patch("apps.strategy_app.strategy_worker.ModelManager")
 @patch("apps.strategy_app.strategy_worker.ScoringModelManager")
-async def test_strategy_worker_skips_publish_when_paused(MockSMM, MockMM) -> None:
+@patch("apps.strategy_app.strategy_worker.UnifiedModelManager")
+async def test_strategy_worker_skips_publish_when_paused(MockUnifiedMM, MockSMM, MockMM) -> None:
     from apps.strategy_app.strategy_worker import StrategyWorker
 
     mock_mm = MagicMock()
@@ -134,6 +143,9 @@ async def test_strategy_worker_skips_publish_when_paused(MockSMM, MockMM) -> Non
     mock_smm = MagicMock()
     mock_smm.evaluate.return_value = []
     MockSMM.return_value = mock_smm
+    mock_unified_mm = MagicMock()
+    mock_unified_mm.evaluate.return_value = []
+    MockUnifiedMM.return_value = mock_unified_mm
 
     worker = StrategyWorker("BTCUSDT", "4h")
     redis = _MemoryRedis()

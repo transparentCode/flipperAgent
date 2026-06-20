@@ -87,7 +87,7 @@ def collect_runtime_trigger_timeframes(
     config_manager: Any,
     *,
     asset: str,
-    roots: tuple[str, ...] = ("models", "scoring_models"),
+    roots: tuple[str, ...] = ("models", "scoring_models", "strategy_models"),
 ) -> list[str]:
     """Collect unique trigger lanes required by enabled model runtime specs for one asset."""
     ordered: list[str] = []
@@ -110,7 +110,7 @@ def iter_enabled_runtime_specs(
     config_manager: Any,
     *,
     asset: str,
-    roots: tuple[str, ...] = ("models", "scoring_models"),
+    roots: tuple[str, ...] = ("models", "scoring_models", "strategy_models"),
     fallback_warmup_bars: int = 0,
 ) -> list[ResolvedModelRuntimeSpec]:
     """Resolve enabled model runtime specs for one asset across config roots."""
@@ -121,19 +121,20 @@ def iter_enabled_runtime_specs(
 
     normalized_asset = str(asset).upper().strip()
     specs: list[ResolvedModelRuntimeSpec] = []
+    candidate_timeframes = _collect_candidate_timeframes(
+        config_manager,
+        asset=normalized_asset,
+        roots=roots,
+    )
 
     for root_key in roots:
-        root = config_manager.get(root_key, {})
-        assets = root.get("assets", {}) if isinstance(root, dict) else {}
-        asset_cfg = assets.get(normalized_asset, {})
-        if not isinstance(asset_cfg, dict):
-            continue
-        timeframes = asset_cfg.get("timeframes", {})
-        if not isinstance(timeframes, dict):
-            continue
-        for configured_timeframe, timeframe_cfg in timeframes.items():
-            if configured_timeframe == "default" or not isinstance(timeframe_cfg, dict):
-                continue
+        for configured_timeframe in candidate_timeframes:
+            timeframe_cfg = _resolve_asset_timeframe_node(
+                config_manager,
+                root_key=root_key,
+                asset=normalized_asset,
+                timeframe=configured_timeframe,
+            )
             for model_name, model_cfg in timeframe_cfg.items():
                 if not isinstance(model_cfg, dict) or not model_cfg.get("enabled", True):
                     continue
@@ -148,6 +149,68 @@ def iter_enabled_runtime_specs(
                 )
 
     return specs
+
+
+def _collect_candidate_timeframes(
+    config_manager: Any,
+    *,
+    asset: str,
+    roots: tuple[str, ...],
+) -> list[str]:
+    ordered: list[str] = []
+    seen: set[str] = set()
+
+    for root_key in roots:
+        root = config_manager.get(root_key, {})
+        assets = root.get("assets", {}) if isinstance(root, dict) else {}
+        for asset_key in (asset, "default"):
+            asset_cfg = assets.get(asset_key, {})
+            if not isinstance(asset_cfg, dict):
+                continue
+            timeframes = asset_cfg.get("timeframes", {})
+            if not isinstance(timeframes, dict):
+                continue
+            for timeframe in timeframes:
+                normalized = str(timeframe).strip()
+                if normalized == "default" or not normalized or normalized in seen:
+                    continue
+                seen.add(normalized)
+                ordered.append(normalized)
+
+    return ordered
+
+
+def _resolve_asset_timeframe_node(
+    config_manager: Any,
+    *,
+    root_key: str,
+    asset: str,
+    timeframe: str,
+) -> dict[str, Any]:
+    root = config_manager.get(root_key, {})
+    assets = root.get("assets", {}) if isinstance(root, dict) else {}
+
+    asset_node = assets.get(asset, {})
+    default_asset_node = assets.get("default", {})
+
+    def _timeframe_node(node: Any, key: str) -> dict[str, Any]:
+        if not isinstance(node, dict):
+            return {}
+        timeframes = node.get("timeframes", {})
+        if not isinstance(timeframes, dict):
+            return {}
+        timeframe_node = timeframes.get(key, {})
+        return timeframe_node if isinstance(timeframe_node, dict) else {}
+
+    merged: dict[str, Any] = {}
+    for node in (
+        _timeframe_node(default_asset_node, "default"),
+        _timeframe_node(default_asset_node, timeframe),
+        _timeframe_node(asset_node, "default"),
+        _timeframe_node(asset_node, timeframe),
+    ):
+        merged.update(node)
+    return merged
 
 
 def requires_decision_projection(runtime_spec: ModelRuntimeSpec) -> bool:
