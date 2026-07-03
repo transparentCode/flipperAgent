@@ -211,6 +211,53 @@ class TestRegimePipelineIntegration:
         assert resolved["params"]["hurst_lookback"] == 80
         assert resolved["frozen_overrides"]["hmm_crisis_vol_mult"] == 2.0
 
+    def test_regime_v2_config_fallback_keeps_defaults_disabled(self, monkeypatch) -> None:
+        ConfigManager.reset_singleton()
+        config_manager = ConfigManager()
+        monkeypatch.setattr(config_manager, "_load_configs", lambda trigger_callbacks=True: None)
+        monkeypatch.setattr(ConfigManager, "register_file", lambda self, _: None)
+        config_manager._state = {
+            "feature_producers": {
+                "assets": {
+                    "default": {
+                        "timeframes": {
+                            "default": {
+                                "RegimeV2": {
+                                    "enabled": False,
+                                    "params": {
+                                        "fusion.trend_threshold": 0.48,
+                                        "policy.trend_min_strength": 0.48,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    "BTCUSDT": {
+                        "timeframes": {
+                            "4h": {
+                                "RegimeV2": {
+                                    "params": {
+                                        "policy.min_confidence": 0.35,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        }
+
+        resolved = FeatureProducerConfigResolver(config_manager).resolve(
+            "BTCUSDT",
+            "4h",
+            "RegimeV2",
+        )
+
+        assert resolved["enabled"] is False
+        assert resolved["params"]["fusion.trend_threshold"] == 0.48
+        assert resolved["params"]["policy.trend_min_strength"] == 0.48
+        assert resolved["params"]["policy.min_confidence"] == 0.35
+
     @pytest.mark.asyncio
     async def test_regime_snapshot_injected_when_history_sufficient(self) -> None:
         mock_regime = MagicMock()
@@ -273,6 +320,69 @@ class TestRegimePipelineIntegration:
 
         assert enriched["RSI"] == 50.0
         assert "regime_snapshot" not in enriched
+
+
+    @pytest.mark.asyncio
+    async def test_regime_v2_injected_when_history_sufficient(self) -> None:
+        mock_regime_v2 = MagicMock()
+        mock_regime_v2.analyze.return_value = {
+            "summary_label": "bull_trend",
+            "confidence": 0.72,
+            "policy": {"allow_trend_following": True, "trend_score": 0.61},
+        }
+        regime = RegimeFeaturePipeline(
+            "BTCUSDT",
+            "4h",
+            min_bars=3,
+            orchestrator=None,
+            classifier=None,
+            regime_v2=mock_regime_v2,
+        )
+        regime.prime(_history(length=3))
+
+        enriched = await regime.enrich({"RSI": 50.0, "eng_regime_alignment_score": 0.4})
+
+        mock_regime_v2.analyze.assert_called_once()
+        assert enriched["regime_v2"]["summary_label"] == "bull_trend"
+        assert enriched["regime_v2"]["policy"]["trend_score"] == 0.61
+        assert mock_regime_v2.analyze.call_args.kwargs["latest_features"]["eng_regime_alignment_score"] == 0.4
+
+    @pytest.mark.asyncio
+    async def test_regime_v2_skipped_when_history_insufficient(self) -> None:
+        mock_regime_v2 = MagicMock()
+        regime = RegimeFeaturePipeline(
+            "BTCUSDT",
+            "4h",
+            min_bars=5,
+            orchestrator=None,
+            classifier=None,
+            regime_v2=mock_regime_v2,
+        )
+        regime.prime(_history(length=3))
+
+        enriched = await regime.enrich({"RSI": 50.0})
+
+        mock_regime_v2.analyze.assert_not_called()
+        assert "regime_v2" not in enriched
+
+    @pytest.mark.asyncio
+    async def test_regime_v2_failure_does_not_break_feature_enrichment(self) -> None:
+        mock_regime_v2 = MagicMock()
+        mock_regime_v2.analyze.side_effect = RuntimeError("RegimeV2 boom")
+        regime = RegimeFeaturePipeline(
+            "BTCUSDT",
+            "4h",
+            min_bars=3,
+            orchestrator=None,
+            classifier=None,
+            regime_v2=mock_regime_v2,
+        )
+        regime.prime(_history(length=3))
+
+        enriched = await regime.enrich({"RSI": 50.0})
+
+        assert enriched["RSI"] == 50.0
+        assert "regime_v2" not in enriched
 
 
 def _history(length: int) -> list[tuple[float, ...]]:

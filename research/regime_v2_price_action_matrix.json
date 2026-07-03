@@ -1,0 +1,682 @@
+{
+  "cells": [
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_shadow_minus_baseline": 0.0013097785898675733,
+          "count": 35,
+          "outcome_labels": {
+            "avoided_loss": 23,
+            "missed_win": 12
+          },
+          "positive_shadow_lift_rate": 0.6571428571428571
+        },
+        "BTCUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.0020193412201618558,
+          "count": 32,
+          "outcome_labels": {
+            "avoided_loss": 20,
+            "missed_win": 12
+          },
+          "positive_shadow_lift_rate": 0.625
+        },
+        "ETHUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.0047073974712943546,
+          "count": 45,
+          "outcome_labels": {
+            "avoided_loss": 27,
+            "missed_win": 18
+          },
+          "positive_shadow_lift_rate": 0.6
+        },
+        "SOLUSDT|4h": {
+          "avg_shadow_minus_baseline": -0.0007834802361589458,
+          "count": 31,
+          "outcome_labels": {
+            "avoided_loss": 14,
+            "missed_win": 17
+          },
+          "positive_shadow_lift_rate": 0.45161290322580644
+        }
+      },
+      "avg_baseline_net_return": -0.0020839592208242177,
+      "avg_shadow_minus_baseline": 0.0020839592208242177,
+      "avg_shadow_net_return": 0.0,
+      "count": 143,
+      "fee_bps": 2.0,
+      "horizon_bars": 3,
+      "median_shadow_minus_baseline": 0.002575000821269863,
+      "outcome_labels": {
+        "avoided_loss": 84,
+        "missed_win": 59
+      },
+      "positive_shadow_lift_rate": 0.5874125874125874,
+      "unlabeled_count": 0
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_shadow_minus_baseline": 0.0016097785898675737,
+          "count": 35,
+          "outcome_labels": {
+            "avoided_loss": 24,
+            "missed_win": 11
+          },
+          "positive_shadow_lift_rate": 0.6857142857142857
+        },
+        "BTCUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.002319341220161856,
+          "count": 32,
+          "outcome_labels": {
+            "avoided_loss": 22,
+            "missed_win": 10
+          },
+          "positive_shadow_lift_rate": 0.6875
+        },
+        "ETHUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.005007397471294355,
+          "count": 45,
+          "outcome_labels": {
+            "avoided_loss": 29,
+            "missed_win": 16
+          },
+          "positive_shadow_lift_rate": 0.6444444444444445
+        },
+        "SOLUSDT|4h": {
+          "avg_shadow_minus_baseline": -0.0004834802361589455,
+          "count": 31,
+          "outcome_labels": {
+            "avoided_loss": 15,
+            "missed_win": 16
+          },
+          "positive_shadow_lift_rate": 0.4838709677419355
+        }
+      },
+      "avg_baseline_net_return": -0.002383959220824218,
+      "avg_shadow_minus_baseline": 0.002383959220824218,
+      "avg_shadow_net_return": 0.0,
+      "count": 143,
+      "fee_bps": 5.0,
+      "horizon_bars": 3,
+      "median_shadow_minus_baseline": 0.002875000821269863,
+      "outcome_labels": {
+        "avoided_loss": 90,
+        "missed_win": 53
+      },
+      "positive_shadow_lift_rate": 0.6293706293706294,
+      "unlabeled_count": 0
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_shadow_minus_baseline": 0.0021097785898675737,
+          "count": 35,
+          "outcome_labels": {
+            "avoided_loss": 25,
+            "missed_win": 10
+          },
+          "positive_shadow_lift_rate": 0.7142857142857143
+        },
+        "BTCUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.002819341220161856,
+          "count": 32,
+          "outcome_labels": {
+            "avoided_loss": 23,
+            "missed_win": 9
+          },
+          "positive_shadow_lift_rate": 0.71875
+        },
+        "ETHUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.005507397471294355,
+          "count": 45,
+          "outcome_labels": {
+            "avoided_loss": 29,
+            "missed_win": 16
+          },
+          "positive_shadow_lift_rate": 0.6444444444444445
+        },
+        "SOLUSDT|4h": {
+          "avg_shadow_minus_baseline": 1.6519763841054422e-05,
+          "count": 31,
+          "outcome_labels": {
+            "avoided_loss": 15,
+            "missed_win": 16
+          },
+          "positive_shadow_lift_rate": 0.4838709677419355
+        }
+      },
+      "avg_baseline_net_return": -0.002883959220824218,
+      "avg_shadow_minus_baseline": 0.002883959220824218,
+      "avg_shadow_net_return": 0.0,
+      "count": 143,
+      "fee_bps": 10.0,
+      "horizon_bars": 3,
+      "median_shadow_minus_baseline": 0.003375000821269863,
+      "outcome_labels": {
+        "avoided_loss": 92,
+        "missed_win": 51
+      },
+      "positive_shadow_lift_rate": 0.6433566433566433,
+      "unlabeled_count": 0
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_shadow_minus_baseline": 0.003990026327890657,
+          "count": 35,
+          "outcome_labels": {
+            "avoided_loss": 21,
+            "missed_win": 14
+          },
+          "positive_shadow_lift_rate": 0.6
+        },
+        "BTCUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.006659350809862312,
+          "count": 32,
+          "outcome_labels": {
+            "avoided_loss": 22,
+            "missed_win": 10
+          },
+          "positive_shadow_lift_rate": 0.6875
+        },
+        "ETHUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.012066494615071671,
+          "count": 45,
+          "outcome_labels": {
+            "avoided_loss": 30,
+            "missed_win": 15
+          },
+          "positive_shadow_lift_rate": 0.6666666666666666
+        },
+        "SOLUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.0015748030835790988,
+          "count": 31,
+          "outcome_labels": {
+            "avoided_loss": 18,
+            "missed_win": 13
+          },
+          "positive_shadow_lift_rate": 0.5806451612903226
+        }
+      },
+      "avg_baseline_net_return": -0.006605323780845764,
+      "avg_shadow_minus_baseline": 0.006605323780845764,
+      "avg_shadow_net_return": 0.0,
+      "count": 143,
+      "fee_bps": 2.0,
+      "horizon_bars": 6,
+      "median_shadow_minus_baseline": 0.0036658075357610806,
+      "outcome_labels": {
+        "avoided_loss": 91,
+        "missed_win": 52
+      },
+      "positive_shadow_lift_rate": 0.6363636363636364,
+      "unlabeled_count": 0
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_shadow_minus_baseline": 0.004290026327890657,
+          "count": 35,
+          "outcome_labels": {
+            "avoided_loss": 21,
+            "missed_win": 14
+          },
+          "positive_shadow_lift_rate": 0.6
+        },
+        "BTCUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.006959350809862313,
+          "count": 32,
+          "outcome_labels": {
+            "avoided_loss": 22,
+            "missed_win": 10
+          },
+          "positive_shadow_lift_rate": 0.6875
+        },
+        "ETHUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.012366494615071671,
+          "count": 45,
+          "outcome_labels": {
+            "avoided_loss": 30,
+            "missed_win": 15
+          },
+          "positive_shadow_lift_rate": 0.6666666666666666
+        },
+        "SOLUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.0018748030835790991,
+          "count": 31,
+          "outcome_labels": {
+            "avoided_loss": 18,
+            "missed_win": 13
+          },
+          "positive_shadow_lift_rate": 0.5806451612903226
+        }
+      },
+      "avg_baseline_net_return": -0.0069053237808457645,
+      "avg_shadow_minus_baseline": 0.0069053237808457645,
+      "avg_shadow_net_return": 0.0,
+      "count": 143,
+      "fee_bps": 5.0,
+      "horizon_bars": 6,
+      "median_shadow_minus_baseline": 0.0039658075357610805,
+      "outcome_labels": {
+        "avoided_loss": 91,
+        "missed_win": 52
+      },
+      "positive_shadow_lift_rate": 0.6363636363636364,
+      "unlabeled_count": 0
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_shadow_minus_baseline": 0.0047900263278906575,
+          "count": 35,
+          "outcome_labels": {
+            "avoided_loss": 21,
+            "missed_win": 14
+          },
+          "positive_shadow_lift_rate": 0.6
+        },
+        "BTCUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.0074593508098623135,
+          "count": 32,
+          "outcome_labels": {
+            "avoided_loss": 23,
+            "missed_win": 9
+          },
+          "positive_shadow_lift_rate": 0.71875
+        },
+        "ETHUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.012866494615071673,
+          "count": 45,
+          "outcome_labels": {
+            "avoided_loss": 31,
+            "missed_win": 14
+          },
+          "positive_shadow_lift_rate": 0.6888888888888889
+        },
+        "SOLUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.002374803083579099,
+          "count": 31,
+          "outcome_labels": {
+            "avoided_loss": 18,
+            "missed_win": 13
+          },
+          "positive_shadow_lift_rate": 0.5806451612903226
+        }
+      },
+      "avg_baseline_net_return": -0.007405323780845765,
+      "avg_shadow_minus_baseline": 0.007405323780845765,
+      "avg_shadow_net_return": 0.0,
+      "count": 143,
+      "fee_bps": 10.0,
+      "horizon_bars": 6,
+      "median_shadow_minus_baseline": 0.00446580753576108,
+      "outcome_labels": {
+        "avoided_loss": 93,
+        "missed_win": 50
+      },
+      "positive_shadow_lift_rate": 0.6503496503496503,
+      "unlabeled_count": 0
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_shadow_minus_baseline": 0.004310955550331016,
+          "count": 35,
+          "outcome_labels": {
+            "avoided_loss": 18,
+            "missed_win": 17
+          },
+          "positive_shadow_lift_rate": 0.5142857142857142
+        },
+        "BTCUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.009355834170479253,
+          "count": 32,
+          "outcome_labels": {
+            "avoided_loss": 24,
+            "missed_win": 8
+          },
+          "positive_shadow_lift_rate": 0.75
+        },
+        "ETHUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.007773239571370083,
+          "count": 45,
+          "outcome_labels": {
+            "avoided_loss": 28,
+            "missed_win": 17
+          },
+          "positive_shadow_lift_rate": 0.6222222222222222
+        },
+        "SOLUSDT|4h": {
+          "avg_shadow_minus_baseline": -0.0014942866978378442,
+          "count": 31,
+          "outcome_labels": {
+            "avoided_loss": 17,
+            "missed_win": 14
+          },
+          "positive_shadow_lift_rate": 0.5483870967741935
+        }
+      },
+      "avg_baseline_net_return": -0.005270930285283932,
+      "avg_shadow_minus_baseline": 0.005270930285283932,
+      "avg_shadow_net_return": 0.0,
+      "count": 143,
+      "fee_bps": 2.0,
+      "horizon_bars": 12,
+      "median_shadow_minus_baseline": 0.005592559909670605,
+      "outcome_labels": {
+        "avoided_loss": 87,
+        "missed_win": 56
+      },
+      "positive_shadow_lift_rate": 0.6083916083916084,
+      "unlabeled_count": 0
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_shadow_minus_baseline": 0.004610955550331017,
+          "count": 35,
+          "outcome_labels": {
+            "avoided_loss": 18,
+            "missed_win": 17
+          },
+          "positive_shadow_lift_rate": 0.5142857142857142
+        },
+        "BTCUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.009655834170479253,
+          "count": 32,
+          "outcome_labels": {
+            "avoided_loss": 25,
+            "missed_win": 7
+          },
+          "positive_shadow_lift_rate": 0.78125
+        },
+        "ETHUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.008073239571370083,
+          "count": 45,
+          "outcome_labels": {
+            "avoided_loss": 28,
+            "missed_win": 17
+          },
+          "positive_shadow_lift_rate": 0.6222222222222222
+        },
+        "SOLUSDT|4h": {
+          "avg_shadow_minus_baseline": -0.0011942866978378438,
+          "count": 31,
+          "outcome_labels": {
+            "avoided_loss": 17,
+            "missed_win": 14
+          },
+          "positive_shadow_lift_rate": 0.5483870967741935
+        }
+      },
+      "avg_baseline_net_return": -0.005570930285283932,
+      "avg_shadow_minus_baseline": 0.005570930285283932,
+      "avg_shadow_net_return": 0.0,
+      "count": 143,
+      "fee_bps": 5.0,
+      "horizon_bars": 12,
+      "median_shadow_minus_baseline": 0.005892559909670605,
+      "outcome_labels": {
+        "avoided_loss": 88,
+        "missed_win": 55
+      },
+      "positive_shadow_lift_rate": 0.6153846153846154,
+      "unlabeled_count": 0
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_shadow_minus_baseline": 0.005110955550331017,
+          "count": 35,
+          "outcome_labels": {
+            "avoided_loss": 18,
+            "missed_win": 17
+          },
+          "positive_shadow_lift_rate": 0.5142857142857142
+        },
+        "BTCUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.010155834170479253,
+          "count": 32,
+          "outcome_labels": {
+            "avoided_loss": 25,
+            "missed_win": 7
+          },
+          "positive_shadow_lift_rate": 0.78125
+        },
+        "ETHUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.008573239571370083,
+          "count": 45,
+          "outcome_labels": {
+            "avoided_loss": 28,
+            "missed_win": 17
+          },
+          "positive_shadow_lift_rate": 0.6222222222222222
+        },
+        "SOLUSDT|4h": {
+          "avg_shadow_minus_baseline": -0.0006942866978378434,
+          "count": 31,
+          "outcome_labels": {
+            "avoided_loss": 17,
+            "missed_win": 14
+          },
+          "positive_shadow_lift_rate": 0.5483870967741935
+        }
+      },
+      "avg_baseline_net_return": -0.006070930285283932,
+      "avg_shadow_minus_baseline": 0.006070930285283932,
+      "avg_shadow_net_return": 0.0,
+      "count": 143,
+      "fee_bps": 10.0,
+      "horizon_bars": 12,
+      "median_shadow_minus_baseline": 0.006392559909670605,
+      "outcome_labels": {
+        "avoided_loss": 88,
+        "missed_win": 55
+      },
+      "positive_shadow_lift_rate": 0.6153846153846154,
+      "unlabeled_count": 0
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_shadow_minus_baseline": 0.0046809011972125366,
+          "count": 35,
+          "outcome_labels": {
+            "avoided_loss": 20,
+            "missed_win": 15
+          },
+          "positive_shadow_lift_rate": 0.5714285714285714
+        },
+        "BTCUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.02188708024724416,
+          "count": 32,
+          "outcome_labels": {
+            "avoided_loss": 22,
+            "missed_win": 10
+          },
+          "positive_shadow_lift_rate": 0.6875
+        },
+        "ETHUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.021645770535971796,
+          "count": 45,
+          "outcome_labels": {
+            "avoided_loss": 28,
+            "missed_win": 17
+          },
+          "positive_shadow_lift_rate": 0.6222222222222222
+        },
+        "SOLUSDT|4h": {
+          "avg_shadow_minus_baseline": -0.009786343724902506,
+          "count": 31,
+          "outcome_labels": {
+            "avoided_loss": 16,
+            "missed_win": 15
+          },
+          "positive_shadow_lift_rate": 0.5161290322580645
+        }
+      },
+      "avg_baseline_net_return": -0.010733574324902132,
+      "avg_shadow_minus_baseline": 0.010733574324902132,
+      "avg_shadow_net_return": 0.0,
+      "count": 143,
+      "fee_bps": 2.0,
+      "horizon_bars": 24,
+      "median_shadow_minus_baseline": 0.007788628821517692,
+      "outcome_labels": {
+        "avoided_loss": 86,
+        "missed_win": 57
+      },
+      "positive_shadow_lift_rate": 0.6013986013986014,
+      "unlabeled_count": 0
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_shadow_minus_baseline": 0.004980901197212538,
+          "count": 35,
+          "outcome_labels": {
+            "avoided_loss": 20,
+            "missed_win": 15
+          },
+          "positive_shadow_lift_rate": 0.5714285714285714
+        },
+        "BTCUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.022187080247244157,
+          "count": 32,
+          "outcome_labels": {
+            "avoided_loss": 22,
+            "missed_win": 10
+          },
+          "positive_shadow_lift_rate": 0.6875
+        },
+        "ETHUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.021945770535971795,
+          "count": 45,
+          "outcome_labels": {
+            "avoided_loss": 28,
+            "missed_win": 17
+          },
+          "positive_shadow_lift_rate": 0.6222222222222222
+        },
+        "SOLUSDT|4h": {
+          "avg_shadow_minus_baseline": -0.009486343724902509,
+          "count": 31,
+          "outcome_labels": {
+            "avoided_loss": 16,
+            "missed_win": 15
+          },
+          "positive_shadow_lift_rate": 0.5161290322580645
+        }
+      },
+      "avg_baseline_net_return": -0.011033574324902132,
+      "avg_shadow_minus_baseline": 0.011033574324902132,
+      "avg_shadow_net_return": 0.0,
+      "count": 143,
+      "fee_bps": 5.0,
+      "horizon_bars": 24,
+      "median_shadow_minus_baseline": 0.008088628821517693,
+      "outcome_labels": {
+        "avoided_loss": 86,
+        "missed_win": 57
+      },
+      "positive_shadow_lift_rate": 0.6013986013986014,
+      "unlabeled_count": 0
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_shadow_minus_baseline": 0.005480901197212538,
+          "count": 35,
+          "outcome_labels": {
+            "avoided_loss": 20,
+            "missed_win": 15
+          },
+          "positive_shadow_lift_rate": 0.5714285714285714
+        },
+        "BTCUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.022687080247244158,
+          "count": 32,
+          "outcome_labels": {
+            "avoided_loss": 22,
+            "missed_win": 10
+          },
+          "positive_shadow_lift_rate": 0.6875
+        },
+        "ETHUSDT|4h": {
+          "avg_shadow_minus_baseline": 0.02244577053597179,
+          "count": 45,
+          "outcome_labels": {
+            "avoided_loss": 28,
+            "missed_win": 17
+          },
+          "positive_shadow_lift_rate": 0.6222222222222222
+        },
+        "SOLUSDT|4h": {
+          "avg_shadow_minus_baseline": -0.008986343724902509,
+          "count": 31,
+          "outcome_labels": {
+            "avoided_loss": 16,
+            "missed_win": 15
+          },
+          "positive_shadow_lift_rate": 0.5161290322580645
+        }
+      },
+      "avg_baseline_net_return": -0.011533574324902133,
+      "avg_shadow_minus_baseline": 0.011533574324902133,
+      "avg_shadow_net_return": 0.0,
+      "count": 143,
+      "fee_bps": 10.0,
+      "horizon_bars": 24,
+      "median_shadow_minus_baseline": 0.008588628821517692,
+      "outcome_labels": {
+        "avoided_loss": 86,
+        "missed_win": 57
+      },
+      "positive_shadow_lift_rate": 0.6013986013986014,
+      "unlabeled_count": 0
+    }
+  ],
+  "fetch_errors": {},
+  "pairs": [
+    "BNBUSDT|1h",
+    "BTCUSDT|4h",
+    "ETHUSDT|4h",
+    "SOLUSDT|4h"
+  ],
+  "phase": "phase_6e_price_action_subset_matrix",
+  "source_invalid_shadow_records": 0,
+  "source_log": "logs/regime_v2_shadow_decisions.jsonl",
+  "summary": {
+    "best_cell": {
+      "avg_shadow_minus_baseline": 0.011533574324902133,
+      "count": 143,
+      "fee_bps": 10.0,
+      "horizon_bars": 24,
+      "positive_shadow_lift_rate": 0.6013986013986014
+    },
+    "cell_count": 12,
+    "fees_bps": [
+      2.0,
+      5.0,
+      10.0
+    ],
+    "horizons": [
+      3,
+      6,
+      12,
+      24
+    ],
+    "price_action_subset_removal_count": 143,
+    "price_action_subset_removal_rate": 0.446875,
+    "stable_positive_cell_count": 12,
+    "total_records": 320,
+    "worst_cell": {
+      "avg_shadow_minus_baseline": 0.0020839592208242177,
+      "count": 143,
+      "fee_bps": 2.0,
+      "horizon_bars": 3,
+      "positive_shadow_lift_rate": 0.5874125874125874
+    }
+  }
+}

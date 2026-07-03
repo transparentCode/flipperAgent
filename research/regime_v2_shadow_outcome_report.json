@@ -1,0 +1,220 @@
+{
+  "distributions": {
+    "asset_timeframe": {
+      "BNBUSDT|1h": 180,
+      "BTCUSDT|4h": 180,
+      "ETHUSDT|4h": 180,
+      "SOLUSDT|4h": 180
+    },
+    "baseline_model": {
+      "Momentum": 426,
+      "PriceAction": 185,
+      "RegimePullbackScorer": 23,
+      "SqueezeBreakout": 1,
+      "TrendFollowing": 85
+    },
+    "outcome_label": {
+      "avoided_loss": 94,
+      "missed_win": 103,
+      "unchanged": 523
+    },
+    "shadow_model": {
+      "Momentum": 425,
+      "RegimePullbackScorer": 17,
+      "SqueezeBreakout": 1,
+      "TrendFollowing": 85,
+      "none": 192
+    },
+    "unlabeled_reason": {}
+  },
+  "fetch_errors": {},
+  "gate_active_changed_outcomes": [
+    {
+      "avg_baseline_net_return": -0.011699059643006259,
+      "avg_shadow_minus_baseline": 0.011699059643006259,
+      "avg_shadow_net_return": 0.0,
+      "baseline_selected_model": "Momentum",
+      "count": 6,
+      "outcome_labels": {
+        "avoided_loss": 3,
+        "missed_win": 3
+      },
+      "positive_shadow_lift_rate": 0.5,
+      "shadow_selected_model": "none"
+    },
+    {
+      "avg_baseline_net_return": 0.055552356335264064,
+      "avg_shadow_minus_baseline": -0.11210471267052813,
+      "avg_shadow_net_return": -0.05655235633526405,
+      "baseline_selected_model": "RegimePullbackScorer",
+      "count": 5,
+      "outcome_labels": {
+        "missed_win": 5
+      },
+      "positive_shadow_lift_rate": 0.0,
+      "shadow_selected_model": "Momentum"
+    },
+    {
+      "avg_baseline_net_return": 0.007766498728055647,
+      "avg_shadow_minus_baseline": -0.007766498728055647,
+      "avg_shadow_net_return": 0.0,
+      "baseline_selected_model": "PriceAction",
+      "count": 3,
+      "outcome_labels": {
+        "avoided_loss": 2,
+        "missed_win": 1
+      },
+      "positive_shadow_lift_rate": 0.6666666666666666,
+      "shadow_selected_model": "none"
+    },
+    {
+      "avg_baseline_net_return": 0.07052822503443365,
+      "avg_shadow_minus_baseline": -0.07052822503443365,
+      "avg_shadow_net_return": 0.0,
+      "baseline_selected_model": "RegimePullbackScorer",
+      "count": 1,
+      "outcome_labels": {
+        "missed_win": 1
+      },
+      "positive_shadow_lift_rate": 0.0,
+      "shadow_selected_model": "none"
+    }
+  ],
+  "model_pair_outcomes": [
+    {
+      "avg_baseline_net_return": -0.015883322702972078,
+      "avg_shadow_minus_baseline": 0.0,
+      "avg_shadow_net_return": -0.015883322702972078,
+      "baseline_selected_model": "Momentum",
+      "count": 420,
+      "outcome_labels": {
+        "unchanged": 420
+      },
+      "positive_shadow_lift_rate": 0.0,
+      "shadow_selected_model": "Momentum"
+    },
+    {
+      "avg_baseline_net_return": 0.0010447234480054173,
+      "avg_shadow_minus_baseline": -0.0010447234480054173,
+      "avg_shadow_net_return": 0.0,
+      "baseline_selected_model": "PriceAction",
+      "count": 185,
+      "outcome_labels": {
+        "avoided_loss": 91,
+        "missed_win": 94
+      },
+      "positive_shadow_lift_rate": 0.4918918918918919,
+      "shadow_selected_model": "none"
+    },
+    {
+      "avg_baseline_net_return": 0.00937968813980004,
+      "avg_shadow_minus_baseline": 0.0,
+      "avg_shadow_net_return": 0.00937968813980004,
+      "baseline_selected_model": "TrendFollowing",
+      "count": 85,
+      "outcome_labels": {
+        "unchanged": 85
+      },
+      "positive_shadow_lift_rate": 0.0,
+      "shadow_selected_model": "TrendFollowing"
+    },
+    {
+      "avg_baseline_net_return": 0.01155479378116768,
+      "avg_shadow_minus_baseline": 0.0,
+      "avg_shadow_net_return": 0.01155479378116768,
+      "baseline_selected_model": "RegimePullbackScorer",
+      "count": 17,
+      "outcome_labels": {
+        "unchanged": 17
+      },
+      "positive_shadow_lift_rate": 0.0,
+      "shadow_selected_model": "RegimePullbackScorer"
+    },
+    {
+      "avg_baseline_net_return": -0.011699059643006259,
+      "avg_shadow_minus_baseline": 0.011699059643006259,
+      "avg_shadow_net_return": 0.0,
+      "baseline_selected_model": "Momentum",
+      "count": 6,
+      "outcome_labels": {
+        "avoided_loss": 3,
+        "missed_win": 3
+      },
+      "positive_shadow_lift_rate": 0.5,
+      "shadow_selected_model": "none"
+    },
+    {
+      "avg_baseline_net_return": 0.055552356335264064,
+      "avg_shadow_minus_baseline": -0.11210471267052813,
+      "avg_shadow_net_return": -0.05655235633526405,
+      "baseline_selected_model": "RegimePullbackScorer",
+      "count": 5,
+      "outcome_labels": {
+        "missed_win": 5
+      },
+      "positive_shadow_lift_rate": 0.0,
+      "shadow_selected_model": "Momentum"
+    },
+    {
+      "avg_baseline_net_return": 0.07052822503443365,
+      "avg_shadow_minus_baseline": -0.07052822503443365,
+      "avg_shadow_net_return": 0.0,
+      "baseline_selected_model": "RegimePullbackScorer",
+      "count": 1,
+      "outcome_labels": {
+        "missed_win": 1
+      },
+      "positive_shadow_lift_rate": 0.0,
+      "shadow_selected_model": "none"
+    },
+    {
+      "avg_baseline_net_return": 0.024849242950282232,
+      "avg_shadow_minus_baseline": 0.0,
+      "avg_shadow_net_return": 0.024849242950282232,
+      "baseline_selected_model": "SqueezeBreakout",
+      "count": 1,
+      "outcome_labels": {
+        "unchanged": 1
+      },
+      "positive_shadow_lift_rate": 0.0,
+      "shadow_selected_model": "SqueezeBreakout"
+    }
+  ],
+  "phase": "phase_6_shadow_outcome_labeling",
+  "source_invalid_shadow_records": 0,
+  "subset_only_outcomes": [
+    {
+      "avg_baseline_net_return": 0.0010447234480054173,
+      "avg_shadow_minus_baseline": -0.0010447234480054173,
+      "avg_shadow_net_return": 0.0,
+      "baseline_selected_model": "PriceAction",
+      "count": 185,
+      "outcome_labels": {
+        "avoided_loss": 91,
+        "missed_win": 94
+      },
+      "positive_shadow_lift_rate": 0.4918918918918919,
+      "shadow_selected_model": "none"
+    }
+  ],
+  "summary": {
+    "avg_baseline_net_return": -0.0071959330825019695,
+    "avg_changed_shadow_minus_baseline": -0.0038280775046194864,
+    "avg_gate_active_changed_shadow_minus_baseline": -0.03894379511421357,
+    "avg_gate_active_shadow_minus_baseline": -0.012428870781131992,
+    "avg_shadow_minus_baseline": -0.0010474045394583873,
+    "avg_shadow_net_return": -0.008243337621960358,
+    "changed_positive_shadow_lift_rate": 0.47715736040609136,
+    "gate_active_changed_count": 15,
+    "gate_active_changed_positive_shadow_lift_rate": 0.3333333333333333,
+    "gate_active_count": 47,
+    "invalid_record_count": 0,
+    "labeled_count": 720,
+    "positive_shadow_lift_rate": 0.13055555555555556,
+    "selection_changed_count": 197,
+    "source_path": "research/regime_v2_shadow_outcomes.jsonl",
+    "subset_only_changed_count": 185,
+    "total_records_read": 720,
+    "unlabeled_count": 0
+  }
+}

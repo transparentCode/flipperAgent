@@ -1,0 +1,751 @@
+{
+  "phase": "phase_6x_pa_paper_horizon_slice",
+  "source_gate_search": "research/regime_v2_pa_paper_gs.json",
+  "summary": {
+    "best_variant": {
+      "long_avg_improvement": 0.003234266325851628,
+      "long_cell_count": 6,
+      "long_horizon_candidate": true,
+      "long_lost_avoided_loss_count": 0,
+      "long_passing_cell_count": 6,
+      "mid_failed_cell_count": 0,
+      "name": "rolling_avg_below_002_3",
+      "short_failed_cell_count": 3
+    },
+    "long_horizon_candidate": true,
+    "long_horizons": [
+      12,
+      24
+    ],
+    "recommendation": "long_horizon_paper_candidate",
+    "short_horizons": [
+      3
+    ],
+    "source_phase": "phase_6w_pa_paper_gate_search",
+    "variant_count": 8
+  },
+  "variants": [
+    {
+      "long": {
+        "avg_improvement": 0.003234266325851628,
+        "cell_count": 6,
+        "failed_cell_count": 0,
+        "failed_cells": [],
+        "improved_cell_count": 6,
+        "lost_avoided_loss_count": 0,
+        "passing_cell_count": 6,
+        "recovered_missed_win_count": 36
+      },
+      "long_horizon_candidate": true,
+      "matrix_ready": false,
+      "mid": {
+        "avg_improvement": 0.0010486786595863115,
+        "cell_count": 3,
+        "failed_cell_count": 0,
+        "failed_cells": [],
+        "improved_cell_count": 3,
+        "lost_avoided_loss_count": 0,
+        "passing_cell_count": 3,
+        "recovered_missed_win_count": 9
+      },
+      "name": "rolling_avg_below_002_3",
+      "overall": {
+        "avg_improvement": 0.002141768351162817,
+        "cell_count": 12,
+        "passing_cell_count": 9,
+        "total_lost_avoided": 3,
+        "total_recovered": 51
+      },
+      "short": {
+        "avg_improvement": 0.0010498620933617011,
+        "cell_count": 3,
+        "failed_cell_count": 3,
+        "failed_cells": [
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 2.0,
+            "horizon_bars": 3,
+            "improvement": 0.001077362093361701,
+            "lost_avoided": 1.0,
+            "recovered": 2.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 5.0,
+            "horizon_bars": 3,
+            "improvement": 0.0010548620933617011,
+            "lost_avoided": 1.0,
+            "recovered": 2.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 10.0,
+            "horizon_bars": 3,
+            "improvement": 0.0010173620933617011,
+            "lost_avoided": 1.0,
+            "recovered": 2.0
+          }
+        ],
+        "improved_cell_count": 3,
+        "lost_avoided_loss_count": 3,
+        "passing_cell_count": 0,
+        "recovered_missed_win_count": 6
+      }
+    },
+    {
+      "long": {
+        "avg_improvement": 0.003054695193784221,
+        "cell_count": 6,
+        "failed_cell_count": 0,
+        "failed_cells": [],
+        "improved_cell_count": 6,
+        "lost_avoided_loss_count": 0,
+        "passing_cell_count": 6,
+        "recovered_missed_win_count": 33
+      },
+      "long_horizon_candidate": true,
+      "matrix_ready": false,
+      "mid": {
+        "avg_improvement": 0.0010486786595863115,
+        "cell_count": 3,
+        "failed_cell_count": 0,
+        "failed_cells": [],
+        "improved_cell_count": 3,
+        "lost_avoided_loss_count": 0,
+        "passing_cell_count": 3,
+        "recovered_missed_win_count": 9
+      },
+      "name": "rolling_avg_below_005_3",
+      "overall": {
+        "avg_improvement": 0.001901143861342579,
+        "cell_count": 12,
+        "passing_cell_count": 9,
+        "total_lost_avoided": 3,
+        "total_recovered": 45
+      },
+      "short": {
+        "avg_improvement": 0.0004465063982155623,
+        "cell_count": 3,
+        "failed_cell_count": 3,
+        "failed_cells": [
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 2.0,
+            "horizon_bars": 3,
+            "improvement": 0.0004648397315488957,
+            "lost_avoided": 1.0,
+            "recovered": 1.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 5.0,
+            "horizon_bars": 3,
+            "improvement": 0.0004498397315488956,
+            "lost_avoided": 1.0,
+            "recovered": 1.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 10.0,
+            "horizon_bars": 3,
+            "improvement": 0.0004248397315488956,
+            "lost_avoided": 1.0,
+            "recovered": 1.0
+          }
+        ],
+        "improved_cell_count": 3,
+        "lost_avoided_loss_count": 3,
+        "passing_cell_count": 0,
+        "recovered_missed_win_count": 3
+      }
+    },
+    {
+      "long": {
+        "avg_improvement": 0.002630719771688767,
+        "cell_count": 6,
+        "failed_cell_count": 0,
+        "failed_cells": [],
+        "improved_cell_count": 6,
+        "lost_avoided_loss_count": 0,
+        "passing_cell_count": 6,
+        "recovered_missed_win_count": 30
+      },
+      "long_horizon_candidate": true,
+      "matrix_ready": false,
+      "mid": {
+        "avg_improvement": 0.0010486786595863115,
+        "cell_count": 3,
+        "failed_cell_count": 0,
+        "failed_cells": [],
+        "improved_cell_count": 3,
+        "lost_avoided_loss_count": 0,
+        "passing_cell_count": 3,
+        "recovered_missed_win_count": 9
+      },
+      "name": "rolling_avg_neg_3_and_missed_streak_2",
+      "overall": {
+        "avg_improvement": 0.0018399950740813865,
+        "cell_count": 12,
+        "passing_cell_count": 9,
+        "total_lost_avoided": 3,
+        "total_recovered": 45
+      },
+      "short": {
+        "avg_improvement": 0.0010498620933617011,
+        "cell_count": 3,
+        "failed_cell_count": 3,
+        "failed_cells": [
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 2.0,
+            "horizon_bars": 3,
+            "improvement": 0.001077362093361701,
+            "lost_avoided": 1.0,
+            "recovered": 2.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 5.0,
+            "horizon_bars": 3,
+            "improvement": 0.0010548620933617011,
+            "lost_avoided": 1.0,
+            "recovered": 2.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 10.0,
+            "horizon_bars": 3,
+            "improvement": 0.0010173620933617011,
+            "lost_avoided": 1.0,
+            "recovered": 2.0
+          }
+        ],
+        "improved_cell_count": 3,
+        "lost_avoided_loss_count": 3,
+        "passing_cell_count": 0,
+        "recovered_missed_win_count": 6
+      }
+    },
+    {
+      "long": {
+        "avg_improvement": 0.002630719771688767,
+        "cell_count": 6,
+        "failed_cell_count": 0,
+        "failed_cells": [],
+        "improved_cell_count": 6,
+        "lost_avoided_loss_count": 0,
+        "passing_cell_count": 6,
+        "recovered_missed_win_count": 30
+      },
+      "long_horizon_candidate": true,
+      "matrix_ready": false,
+      "mid": {
+        "avg_improvement": 0.0010486786595863115,
+        "cell_count": 3,
+        "failed_cell_count": 0,
+        "failed_cells": [],
+        "improved_cell_count": 3,
+        "lost_avoided_loss_count": 0,
+        "passing_cell_count": 3,
+        "recovered_missed_win_count": 9
+      },
+      "name": "rolling_avg_below_002_5",
+      "overall": {
+        "avg_improvement": 0.001689156150294852,
+        "cell_count": 12,
+        "passing_cell_count": 9,
+        "total_lost_avoided": 3,
+        "total_recovered": 42
+      },
+      "short": {
+        "avg_improvement": 0.0004465063982155623,
+        "cell_count": 3,
+        "failed_cell_count": 3,
+        "failed_cells": [
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 2.0,
+            "horizon_bars": 3,
+            "improvement": 0.0004648397315488957,
+            "lost_avoided": 1.0,
+            "recovered": 1.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 5.0,
+            "horizon_bars": 3,
+            "improvement": 0.0004498397315488956,
+            "lost_avoided": 1.0,
+            "recovered": 1.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 10.0,
+            "horizon_bars": 3,
+            "improvement": 0.0004248397315488956,
+            "lost_avoided": 1.0,
+            "recovered": 1.0
+          }
+        ],
+        "improved_cell_count": 3,
+        "lost_avoided_loss_count": 3,
+        "passing_cell_count": 0,
+        "recovered_missed_win_count": 3
+      }
+    },
+    {
+      "long": {
+        "avg_improvement": 0.003234266325851628,
+        "cell_count": 6,
+        "failed_cell_count": 0,
+        "failed_cells": [],
+        "improved_cell_count": 6,
+        "lost_avoided_loss_count": 0,
+        "passing_cell_count": 6,
+        "recovered_missed_win_count": 36
+      },
+      "long_horizon_candidate": true,
+      "matrix_ready": false,
+      "mid": {
+        "avg_improvement": 0.0007316680275411114,
+        "cell_count": 3,
+        "failed_cell_count": 3,
+        "failed_cells": [
+          {
+            "failure_reasons": [
+              "lost_avoided_losses",
+              "rolling_not_stable"
+            ],
+            "fee_bps": 2.0,
+            "horizon_bars": 6,
+            "improvement": 0.0007683346942077781,
+            "lost_avoided": 1.0,
+            "recovered": 3.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses",
+              "rolling_not_stable"
+            ],
+            "fee_bps": 5.0,
+            "horizon_bars": 6,
+            "improvement": 0.0007383346942077781,
+            "lost_avoided": 1.0,
+            "recovered": 3.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses",
+              "rolling_not_stable"
+            ],
+            "fee_bps": 10.0,
+            "horizon_bars": 6,
+            "improvement": 0.000688334694207778,
+            "lost_avoided": 1.0,
+            "recovered": 3.0
+          }
+        ],
+        "improved_cell_count": 3,
+        "lost_avoided_loss_count": 3,
+        "passing_cell_count": 0,
+        "recovered_missed_win_count": 9
+      },
+      "name": "rolling_avg_neg_3_and_miss_gt_avoid_3",
+      "overall": {
+        "avg_improvement": 0.002062515693151517,
+        "cell_count": 12,
+        "passing_cell_count": 6,
+        "total_lost_avoided": 6,
+        "total_recovered": 51
+      },
+      "short": {
+        "avg_improvement": 0.0010498620933617011,
+        "cell_count": 3,
+        "failed_cell_count": 3,
+        "failed_cells": [
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 2.0,
+            "horizon_bars": 3,
+            "improvement": 0.001077362093361701,
+            "lost_avoided": 1.0,
+            "recovered": 2.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 5.0,
+            "horizon_bars": 3,
+            "improvement": 0.0010548620933617011,
+            "lost_avoided": 1.0,
+            "recovered": 2.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 10.0,
+            "horizon_bars": 3,
+            "improvement": 0.0010173620933617011,
+            "lost_avoided": 1.0,
+            "recovered": 2.0
+          }
+        ],
+        "improved_cell_count": 3,
+        "lost_avoided_loss_count": 3,
+        "passing_cell_count": 0,
+        "recovered_missed_win_count": 6
+      }
+    },
+    {
+      "long": {
+        "avg_improvement": 0.003234266325851628,
+        "cell_count": 6,
+        "failed_cell_count": 0,
+        "failed_cells": [],
+        "improved_cell_count": 6,
+        "lost_avoided_loss_count": 0,
+        "passing_cell_count": 6,
+        "recovered_missed_win_count": 36
+      },
+      "long_horizon_candidate": true,
+      "matrix_ready": false,
+      "mid": {
+        "avg_improvement": 0.0007170880386732468,
+        "cell_count": 3,
+        "failed_cell_count": 3,
+        "failed_cells": [
+          {
+            "failure_reasons": [
+              "lost_avoided_losses",
+              "rolling_not_stable"
+            ],
+            "fee_bps": 2.0,
+            "horizon_bars": 6,
+            "improvement": 0.0007629213720065803,
+            "lost_avoided": 2.0,
+            "recovered": 3.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses",
+              "rolling_not_stable"
+            ],
+            "fee_bps": 5.0,
+            "horizon_bars": 6,
+            "improvement": 0.0007254213720065802,
+            "lost_avoided": 2.0,
+            "recovered": 3.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses",
+              "rolling_not_stable"
+            ],
+            "fee_bps": 10.0,
+            "horizon_bars": 6,
+            "improvement": 0.0006629213720065803,
+            "lost_avoided": 2.0,
+            "recovered": 3.0
+          }
+        ],
+        "improved_cell_count": 3,
+        "lost_avoided_loss_count": 6,
+        "passing_cell_count": 0,
+        "recovered_missed_win_count": 9
+      },
+      "name": "miss_gt_avoid_3",
+      "overall": {
+        "avg_improvement": 0.002058870695934551,
+        "cell_count": 12,
+        "passing_cell_count": 6,
+        "total_lost_avoided": 9,
+        "total_recovered": 51
+      },
+      "short": {
+        "avg_improvement": 0.0010498620933617011,
+        "cell_count": 3,
+        "failed_cell_count": 3,
+        "failed_cells": [
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 2.0,
+            "horizon_bars": 3,
+            "improvement": 0.001077362093361701,
+            "lost_avoided": 1.0,
+            "recovered": 2.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 5.0,
+            "horizon_bars": 3,
+            "improvement": 0.0010548620933617011,
+            "lost_avoided": 1.0,
+            "recovered": 2.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 10.0,
+            "horizon_bars": 3,
+            "improvement": 0.0010173620933617011,
+            "lost_avoided": 1.0,
+            "recovered": 2.0
+          }
+        ],
+        "improved_cell_count": 3,
+        "lost_avoided_loss_count": 3,
+        "passing_cell_count": 0,
+        "recovered_missed_win_count": 6
+      }
+    },
+    {
+      "long": {
+        "avg_improvement": 0.002630719771688767,
+        "cell_count": 6,
+        "failed_cell_count": 0,
+        "failed_cells": [],
+        "improved_cell_count": 6,
+        "lost_avoided_loss_count": 0,
+        "passing_cell_count": 6,
+        "recovered_missed_win_count": 30
+      },
+      "long_horizon_candidate": true,
+      "matrix_ready": false,
+      "mid": {
+        "avg_improvement": 0.001034098670718447,
+        "cell_count": 3,
+        "failed_cell_count": 3,
+        "failed_cells": [
+          {
+            "failure_reasons": [
+              "lost_avoided_losses",
+              "rolling_not_stable"
+            ],
+            "fee_bps": 2.0,
+            "horizon_bars": 6,
+            "improvement": 0.0010707653373851138,
+            "lost_avoided": 1.0,
+            "recovered": 3.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses",
+              "rolling_not_stable"
+            ],
+            "fee_bps": 5.0,
+            "horizon_bars": 6,
+            "improvement": 0.0010407653373851137,
+            "lost_avoided": 1.0,
+            "recovered": 3.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses",
+              "rolling_not_stable"
+            ],
+            "fee_bps": 10.0,
+            "horizon_bars": 6,
+            "improvement": 0.0009907653373851136,
+            "lost_avoided": 1.0,
+            "recovered": 3.0
+          }
+        ],
+        "improved_cell_count": 3,
+        "lost_avoided_loss_count": 3,
+        "passing_cell_count": 0,
+        "recovered_missed_win_count": 9
+      },
+      "name": "missed_streak_2",
+      "overall": {
+        "avg_improvement": 0.0018363500768644205,
+        "cell_count": 12,
+        "passing_cell_count": 6,
+        "total_lost_avoided": 6,
+        "total_recovered": 45
+      },
+      "short": {
+        "avg_improvement": 0.0010498620933617011,
+        "cell_count": 3,
+        "failed_cell_count": 3,
+        "failed_cells": [
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 2.0,
+            "horizon_bars": 3,
+            "improvement": 0.001077362093361701,
+            "lost_avoided": 1.0,
+            "recovered": 2.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 5.0,
+            "horizon_bars": 3,
+            "improvement": 0.0010548620933617011,
+            "lost_avoided": 1.0,
+            "recovered": 2.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 10.0,
+            "horizon_bars": 3,
+            "improvement": 0.0010173620933617011,
+            "lost_avoided": 1.0,
+            "recovered": 2.0
+          }
+        ],
+        "improved_cell_count": 3,
+        "lost_avoided_loss_count": 3,
+        "passing_cell_count": 0,
+        "recovered_missed_win_count": 6
+      }
+    },
+    {
+      "long": {
+        "avg_improvement": 0.003234266325851628,
+        "cell_count": 6,
+        "failed_cell_count": 0,
+        "failed_cells": [],
+        "improved_cell_count": 6,
+        "lost_avoided_loss_count": 0,
+        "passing_cell_count": 6,
+        "recovered_missed_win_count": 36
+      },
+      "long_horizon_candidate": true,
+      "matrix_ready": false,
+      "mid": {
+        "avg_improvement": 0.000646007973237922,
+        "cell_count": 3,
+        "failed_cell_count": 3,
+        "failed_cells": [
+          {
+            "failure_reasons": [
+              "lost_avoided_losses",
+              "rolling_not_stable"
+            ],
+            "fee_bps": 2.0,
+            "horizon_bars": 6,
+            "improvement": 0.0006918413065712554,
+            "lost_avoided": 2.0,
+            "recovered": 3.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses",
+              "rolling_not_stable"
+            ],
+            "fee_bps": 5.0,
+            "horizon_bars": 6,
+            "improvement": 0.0006543413065712553,
+            "lost_avoided": 2.0,
+            "recovered": 3.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses",
+              "rolling_not_stable"
+            ],
+            "fee_bps": 10.0,
+            "horizon_bars": 6,
+            "improvement": 0.0005918413065712553,
+            "lost_avoided": 2.0,
+            "recovered": 3.0
+          }
+        ],
+        "improved_cell_count": 3,
+        "lost_avoided_loss_count": 6,
+        "passing_cell_count": 0,
+        "recovered_missed_win_count": 9
+      },
+      "name": "rolling_avg_neg_3",
+      "overall": {
+        "avg_improvement": 0.0019799039177739743,
+        "cell_count": 12,
+        "passing_cell_count": 6,
+        "total_lost_avoided": 11,
+        "total_recovered": 51
+      },
+      "short": {
+        "avg_improvement": 0.0008050750461547195,
+        "cell_count": 3,
+        "failed_cell_count": 3,
+        "failed_cells": [
+          {
+            "failure_reasons": [
+              "lost_avoided_losses",
+              "rolling_not_stable"
+            ],
+            "fee_bps": 2.0,
+            "horizon_bars": 3,
+            "improvement": 0.0007139315225512286,
+            "lost_avoided": 2.0,
+            "recovered": 2.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses",
+              "rolling_not_stable"
+            ],
+            "fee_bps": 5.0,
+            "horizon_bars": 3,
+            "improvement": 0.0006839315225512286,
+            "lost_avoided": 2.0,
+            "recovered": 2.0
+          },
+          {
+            "failure_reasons": [
+              "lost_avoided_losses"
+            ],
+            "fee_bps": 10.0,
+            "horizon_bars": 3,
+            "improvement": 0.0010173620933617011,
+            "lost_avoided": 1.0,
+            "recovered": 2.0
+          }
+        ],
+        "improved_cell_count": 3,
+        "lost_avoided_loss_count": 5,
+        "passing_cell_count": 0,
+        "recovered_missed_win_count": 6
+      }
+    }
+  ]
+}

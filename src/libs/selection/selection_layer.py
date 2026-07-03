@@ -14,6 +14,10 @@ from libs.contracts.signal import (
     SelectionResult,
 )
 from libs.selection.base import SelectionStrategy
+from libs.selection.overlays import apply_regime_v2_trend_gate, preview_regime_v2_trend_gate
+from libs.selection.regime_v2_pa_asset_paper_guardrail import preview_pa_asset_paper_guardrail
+from libs.selection.regime_v2_pa_paper_log import persist_pa_paper_decision
+from libs.selection.regime_v2_shadow_log import persist_regime_v2_shadow_decision
 from libs.selection.strategies import (
     ConvictionWeightedStrategy,
     OverlapPenalizedStrategy,
@@ -141,4 +145,316 @@ class SelectionLayer:
         if not candidates:
             return []
 
-        return self._strategy.select(candidates, feature_vec, self._config)
+        shadow_payload = self._build_regime_v2_shadow_payload(candidates, feature_vec)
+        pa_paper_payload = self._build_regime_v2_pa_paper_payload(candidates, feature_vec)
+
+        candidates = apply_regime_v2_trend_gate(candidates, feature_vec, self._config)
+        if not candidates:
+            return []
+
+        results = self._strategy.select(candidates, feature_vec, self._config)
+        if shadow_payload:
+            self._persist_regime_v2_shadow_payload(shadow_payload, feature_vec, selected_count=len(results))
+            for result in results:
+                result.candidate.metadata["regime_v2_trend_gate_shadow"] = shadow_payload
+        if pa_paper_payload:
+            self._persist_regime_v2_pa_paper_payload(pa_paper_payload, feature_vec, selected_count=len(results))
+            for result in results:
+                result.candidate.metadata["regime_v2_pa_asset_paper_guardrail"] = pa_paper_payload
+        return results
+
+    def _build_regime_v2_shadow_payload(
+        self,
+        candidates: list[SelectionCandidate],
+        feature_vec: FeatureVector,
+    ) -> dict | None:
+        gate_config = _regime_v2_gate_config(self._config)
+        if not gate_config.get("shadow_enabled", False):
+            return None
+
+        baseline_results = self._strategy.select(candidates, feature_vec, self._config)
+        shadow_candidates, decision = preview_regime_v2_trend_gate(
+            candidates,
+            feature_vec,
+            self._config,
+        )
+        shadow_results = (
+            self._strategy.select(shadow_candidates, feature_vec, self._config)
+            if shadow_candidates
+            else []
+        )
+        payload = _selection_shadow_payload(
+            baseline_results,
+            shadow_results,
+            decision,
+            shadow_candidate_count=len(shadow_candidates),
+        )
+        if gate_config.get("shadow_log_enabled", False):
+            logger.info(
+                f"RegimeV2 trend gate shadow for {self.asset}/{self.timeframe}: "
+                f"baseline={payload['baseline_selected_model']} "
+                f"shadow={payload['shadow_selected_model']} "
+                f"changed={payload['selection_changed']} "
+                f"reason={payload['reason']}"
+            )
+        return payload
+
+    def _build_regime_v2_pa_paper_payload(
+        self,
+        candidates: list[SelectionCandidate],
+        feature_vec: FeatureVector,
+    ) -> dict | None:
+        guardrail_config = _pa_asset_guardrail_config(self._config)
+        if not guardrail_config.get("paper_enabled", False):
+            return None
+
+        baseline_results = self._strategy.select(candidates, feature_vec, self._config)
+        paper_candidates, decision = preview_pa_asset_paper_guardrail(candidates, self._config)
+        paper_results = (
+            self._strategy.select(paper_candidates, feature_vec, self._config)
+            if paper_candidates
+            else []
+        )
+        payload = _pa_asset_paper_payload(
+            baseline_results,
+            paper_results,
+            decision,
+            paper_candidate_count=len(paper_candidates),
+        )
+        if guardrail_config.get("paper_log_enabled", False):
+            logger.info(
+                f"RegimeV2 PA asset paper guardrail for {self.asset}/{self.timeframe}: "
+                f"baseline={payload['baseline_selected_model']} "
+                f"paper={payload['paper_selected_model']} "
+                f"changed={payload['selection_changed']} "
+                f"reason={payload['paper_reason']}"
+            )
+        return payload
+
+    def _persist_regime_v2_shadow_payload(
+        self,
+        payload: dict,
+        feature_vec: FeatureVector,
+        *,
+        selected_count: int,
+    ) -> None:
+        gate_config = _regime_v2_gate_config(self._config)
+        try:
+            path = persist_regime_v2_shadow_decision(
+                payload,
+                asset=self.asset,
+                timeframe=self.timeframe,
+                timestamp=feature_vec.timestamp,
+                config=gate_config,
+                selected_count=selected_count,
+            )
+        except Exception:
+            logger.warning(
+                "RegimeV2 shadow decision persistence failed for "
+                f"{self.asset}/{self.timeframe}",
+                exc_info=True,
+            )
+            return
+        if path is not None and gate_config.get("shadow_log_enabled", False):
+            logger.info(f"RegimeV2 shadow decision persisted for {self.asset}/{self.timeframe}: {path}")
+
+    def _persist_regime_v2_pa_paper_payload(
+        self,
+        payload: dict,
+        feature_vec: FeatureVector,
+        *,
+        selected_count: int,
+    ) -> None:
+        guardrail_config = _pa_asset_guardrail_config(self._config)
+        try:
+            path = persist_pa_paper_decision(
+                payload,
+                asset=self.asset,
+                timeframe=self.timeframe,
+                timestamp=feature_vec.timestamp,
+                config=guardrail_config,
+                selected_count=selected_count,
+            )
+        except Exception:
+            logger.warning(
+                "RegimeV2 PA asset paper persistence failed for "
+                f"{self.asset}/{self.timeframe}",
+                exc_info=True,
+            )
+            return
+        if path is not None and guardrail_config.get("paper_log_enabled", False):
+            logger.info(f"RegimeV2 PA asset paper decision persisted for {self.asset}/{self.timeframe}: {path}")
+
+
+def _regime_v2_gate_config(config: dict) -> dict:
+    overlays = config.get("overlays", {})
+    if not isinstance(overlays, dict):
+        return {}
+    gate = overlays.get("regime_v2_trend_gate", {})
+    return gate if isinstance(gate, dict) else {}
+
+
+def _pa_asset_guardrail_config(config: dict) -> dict:
+    overlays = config.get("overlays", {})
+    if not isinstance(overlays, dict):
+        return {}
+    guardrail = overlays.get("regime_v2_pa_asset_guardrail", {})
+    return guardrail if isinstance(guardrail, dict) else {}
+
+
+def _selection_shadow_payload(
+    baseline_results: list[SelectionResult],
+    shadow_results: list[SelectionResult],
+    decision: dict,
+    *,
+    shadow_candidate_count: int,
+) -> dict:
+    baseline_top = _top_selection_summary(baseline_results)
+    shadow_top = _top_selection_summary(shadow_results)
+    baseline_score = baseline_top.get("selection_score")
+    shadow_score = shadow_top.get("selection_score")
+    edge_delta = (
+        float(shadow_score) - float(baseline_score)
+        if baseline_score is not None and shadow_score is not None
+        else None
+    )
+    baseline_model = baseline_top.get("model_name")
+    shadow_model = shadow_top.get("model_name")
+    selection_changed = baseline_model != shadow_model
+    conflict_models = list(decision.get("conflict_target_models", []))
+    aligned_models = list(decision.get("aligned_target_models", []))
+
+    if selection_changed:
+        comparison_reason = "shadow_changed_top_pick"
+    elif conflict_models:
+        comparison_reason = "conflicts_filtered_below_top_pick"
+    elif aligned_models:
+        comparison_reason = "top_pick_aligned_with_regime"
+    else:
+        comparison_reason = str(decision.get("reason", "unknown"))
+
+    return {
+        "baseline_selected_model": baseline_model,
+        "shadow_selected_model": shadow_model,
+        "baseline_selected_direction": baseline_top.get("direction"),
+        "shadow_selected_direction": shadow_top.get("direction"),
+        "baseline_edge_score": baseline_top.get("edge_score"),
+        "shadow_edge_score": shadow_top.get("edge_score"),
+        "baseline_conviction": baseline_top.get("conviction"),
+        "shadow_conviction": shadow_top.get("conviction"),
+        "baseline_selection_score": baseline_score,
+        "shadow_selection_score": shadow_score,
+        "edge_delta": edge_delta,
+        "selection_changed": selection_changed,
+        "reason": comparison_reason,
+        "gate_active": bool(decision.get("active", False)),
+        "gate_reason": decision.get("reason"),
+        "regime_side": decision.get("regime_side"),
+        "active_playbooks": list(decision.get("active_playbooks", [])),
+        "candidate_playbooks": dict(decision.get("candidate_playbooks", {})),
+        "shadow_subset_name": decision.get("shadow_subset_name"),
+        "shadow_subset_only": bool(decision.get("shadow_subset_only", False)),
+        "include_non_target_models": bool(decision.get("include_non_target_models", True)),
+        "target_models": list(decision.get("target_models", [])),
+        "allow_trend_following": decision.get("allow_trend_following"),
+        "allow_breakout": decision.get("allow_breakout"),
+        "allow_mean_reversion": decision.get("allow_mean_reversion"),
+        "trend_score": decision.get("trend_score"),
+        "breakout_score": decision.get("breakout_score"),
+        "mean_reversion_score": decision.get("mean_reversion_score"),
+        "min_trend_score": decision.get("min_trend_score"),
+        "min_breakout_score": decision.get("min_breakout_score"),
+        "min_mean_reversion_score": decision.get("min_mean_reversion_score"),
+        "min_confidence": decision.get("min_confidence"),
+        "confidence": decision.get("confidence"),
+        "uncertainty": decision.get("uncertainty"),
+        "baseline_candidate_count": decision.get("baseline_candidate_count"),
+        "shadow_candidate_count": shadow_candidate_count,
+        "shadow_selected_count": len(shadow_results),
+        "target_candidate_count": decision.get("target_candidate_count"),
+        "aligned_target_models": aligned_models,
+        "conflict_target_models": conflict_models,
+    }
+
+
+def _pa_asset_paper_payload(
+    baseline_results: list[SelectionResult],
+    paper_results: list[SelectionResult],
+    decision: dict,
+    *,
+    paper_candidate_count: int,
+) -> dict:
+    baseline_top = _top_selection_summary(baseline_results)
+    paper_top = _top_selection_summary(paper_results)
+    baseline_score = baseline_top.get("selection_score")
+    paper_score = paper_top.get("selection_score")
+    edge_delta = (
+        float(paper_score) - float(baseline_score)
+        if baseline_score is not None and paper_score is not None
+        else None
+    )
+    baseline_model = baseline_top.get("model_name")
+    paper_model = paper_top.get("model_name")
+    return {
+        "paper_active": bool(decision.get("active", False)),
+        "paper_reason": decision.get("reason"),
+        "target_model": decision.get("target_model"),
+        "target_asset": decision.get("target_asset"),
+        "target_timeframe": decision.get("target_timeframe"),
+        "target_direction": decision.get("target_direction"),
+        "suppressed_count": decision.get("suppressed_count"),
+        "suppressed_models": list(decision.get("suppressed_models", [])),
+        "suppressed_edge_scores": list(decision.get("suppressed_edge_scores", [])),
+        "suppressed_convictions": list(decision.get("suppressed_convictions", [])),
+        "baseline_selected_model": baseline_model,
+        "paper_selected_model": paper_model,
+        "baseline_selected_direction": baseline_top.get("direction"),
+        "paper_selected_direction": paper_top.get("direction"),
+        "baseline_edge_score": baseline_top.get("edge_score"),
+        "paper_edge_score": paper_top.get("edge_score"),
+        "baseline_conviction": baseline_top.get("conviction"),
+        "paper_conviction": paper_top.get("conviction"),
+        "baseline_selection_score": baseline_score,
+        "paper_selection_score": paper_score,
+        "edge_delta": edge_delta,
+        "selection_changed": baseline_model != paper_model,
+        "candidate_count": decision.get("candidate_count"),
+        "paper_candidate_count": paper_candidate_count,
+        "paper_selected_count": len(paper_results),
+        "candidate_snapshot_schema_version": 1,
+        "baseline_ranked_candidates": _ranked_selection_snapshot(baseline_results),
+        "paper_ranked_candidates": _ranked_selection_snapshot(paper_results),
+    }
+
+
+def _top_selection_summary(results: list[SelectionResult]) -> dict:
+    if not results:
+        return {}
+    top = results[0]
+    return {
+        "model_name": top.candidate.model_name,
+        "direction": int(top.candidate.direction),
+        "edge_score": float(top.candidate.edge_score),
+        "conviction": float(top.candidate.conviction),
+        "selection_score": float(top.selection_score),
+    }
+
+
+def _ranked_selection_snapshot(results: list[SelectionResult]) -> list[dict]:
+    snapshots: list[dict] = []
+    for result in results:
+        candidate = result.candidate
+        snapshots.append(
+            {
+                "rank": int(result.rank),
+                "model_name": candidate.model_name,
+                "asset": candidate.asset,
+                "timeframe": candidate.timeframe,
+                "direction": int(candidate.direction),
+                "edge_score": float(candidate.edge_score),
+                "conviction": float(candidate.conviction),
+                "selection_score": float(result.selection_score),
+                "penalties": dict(result.penalties),
+            }
+        )
+    return snapshots

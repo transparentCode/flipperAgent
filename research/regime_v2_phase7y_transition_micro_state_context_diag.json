@@ -1,0 +1,452 @@
+{
+  "asset": [
+    "BNBUSDT",
+    "ETHUSDT",
+    "BTCUSDT"
+  ],
+  "input_rows": 720,
+  "matrix_report": {
+    "global_candidate_tags": [],
+    "phase": "phase_7y_transition_micro_state_context_diag_matrix",
+    "summary": {
+      "assets": [
+        "BNBUSDT",
+        "BTCUSDT",
+        "ETHUSDT"
+      ],
+      "candidate_tag_count": 0,
+      "mixed_window_count": 3,
+      "recommendation": "no_context_tag_found",
+      "top_global_candidate_tag": null,
+      "variant_count": 3
+    },
+    "variants": [
+      {
+        "asset": "BNBUSDT",
+        "candidate_tag_count": 0,
+        "mixed_window_count": 2,
+        "passing_window_count": 2,
+        "recommendation": "no_context_tag_found",
+        "support_thin_count": 0,
+        "timeframe": "1h",
+        "top_candidate_tag": null
+      },
+      {
+        "asset": "ETHUSDT",
+        "candidate_tag_count": 0,
+        "mixed_window_count": 0,
+        "passing_window_count": 3,
+        "recommendation": "no_context_tag_found",
+        "support_thin_count": 1,
+        "timeframe": "1h",
+        "top_candidate_tag": null
+      },
+      {
+        "asset": "BTCUSDT",
+        "candidate_tag_count": 0,
+        "mixed_window_count": 1,
+        "passing_window_count": 3,
+        "recommendation": "no_context_tag_found",
+        "support_thin_count": 0,
+        "timeframe": "1h",
+        "top_candidate_tag": null
+      }
+    ]
+  },
+  "phase": "phase_7y_transition_micro_state_context_diag_runner",
+  "timeframe": [
+    "1h"
+  ],
+  "variant_reports": [
+    {
+      "context_diag_report": {
+        "candidate_tags": [],
+        "feature_baselines": {
+          "breakout_transition_continuation_score": {
+            "high": 0.85921725,
+            "low": 0.73489925
+          },
+          "breakout_transition_score": {
+            "high": 0.7736825,
+            "low": 0.685225
+          },
+          "setup_transition_score_gap": {
+            "high": null,
+            "low": null
+          },
+          "setup_transition_volatility": {
+            "high": 0.0066127344774779846,
+            "low": 0.0040267421603199325
+          }
+        },
+        "phase": "phase_7y_transition_micro_state_context_diag",
+        "summary": {
+          "asset": "BNBUSDT",
+          "candidate_tag_count": 0,
+          "config": {
+            "lookback_bars": 8,
+            "min_candidate_score": 0.62,
+            "min_state_active": 6,
+            "step_size": 180,
+            "window_size": 360
+          },
+          "mixed_window_count": 2,
+          "passing_window_count": 2,
+          "recommendation": "no_context_tag_found",
+          "support_thin_count": 0,
+          "tag_distribution": {
+            "compression_count_dominant": 1
+          },
+          "timeframe": "1h",
+          "top_candidate_tag": null,
+          "window_count": 4
+        },
+        "windows": [
+          {
+            "asset": "BNBUSDT",
+            "breakout_active": 39,
+            "breakout_better": true,
+            "breakout_score_mean": 0.7521988974358974,
+            "compression_active": 45,
+            "compression_score_mean": 0.7142448666666666,
+            "compression_share": 0.5357142857142857,
+            "support_ok": true,
+            "tags": [],
+            "timeframe": "1h",
+            "window_class": "supported_breakout",
+            "window_id": "full"
+          },
+          {
+            "asset": "BNBUSDT",
+            "breakout_active": 22,
+            "breakout_better": false,
+            "breakout_score_mean": 0.7554561363636363,
+            "compression_active": 21,
+            "compression_score_mean": 0.7035006666666666,
+            "compression_share": 0.4883720930232558,
+            "support_ok": true,
+            "tags": [],
+            "timeframe": "1h",
+            "window_class": "supported_mixed",
+            "window_id": "w1_0_360"
+          },
+          {
+            "asset": "BNBUSDT",
+            "breakout_active": 18,
+            "breakout_better": false,
+            "breakout_score_mean": 0.7365687777777777,
+            "compression_active": 20,
+            "compression_score_mean": 0.71816435,
+            "compression_share": 0.5263157894736842,
+            "support_ok": true,
+            "tags": [],
+            "timeframe": "1h",
+            "window_class": "supported_mixed",
+            "window_id": "w2_180_540"
+          },
+          {
+            "asset": "BNBUSDT",
+            "breakout_active": 17,
+            "breakout_better": true,
+            "breakout_score_mean": 0.7479836470588236,
+            "compression_active": 24,
+            "compression_score_mean": 0.7236460416666667,
+            "compression_share": 0.5853658536585366,
+            "support_ok": true,
+            "tags": [
+              "compression_count_dominant"
+            ],
+            "timeframe": "1h",
+            "window_class": "supported_breakout",
+            "window_id": "w3_360_720"
+          }
+        ]
+      },
+      "phase": "phase_7y_transition_micro_state_context_diag_retest",
+      "summary": {
+        "asset": "BNBUSDT",
+        "candidate_tag_count": 0,
+        "config": {
+          "lookback_bars": 8,
+          "min_candidate_score": 0.62,
+          "min_state_active": 6,
+          "step_size": 180,
+          "window_size": 360
+        },
+        "mixed_window_count": 2,
+        "passing_window_count": 2,
+        "recommendation": "no_context_tag_found",
+        "support_thin_count": 0,
+        "tag_distribution": {
+          "compression_count_dominant": 1
+        },
+        "timeframe": "1h",
+        "top_candidate_tag": null,
+        "window_count": 4
+      }
+    },
+    {
+      "context_diag_report": {
+        "candidate_tags": [],
+        "feature_baselines": {
+          "breakout_transition_continuation_score": {
+            "high": 0.836608,
+            "low": 0.698165
+          },
+          "breakout_transition_score": {
+            "high": 0.778051,
+            "low": 0.683211
+          },
+          "setup_transition_score_gap": {
+            "high": null,
+            "low": null
+          },
+          "setup_transition_volatility": {
+            "high": 0.009168469137466934,
+            "low": 0.004786922896801209
+          }
+        },
+        "phase": "phase_7y_transition_micro_state_context_diag",
+        "summary": {
+          "asset": "ETHUSDT",
+          "candidate_tag_count": 0,
+          "config": {
+            "lookback_bars": 8,
+            "min_candidate_score": 0.62,
+            "min_state_active": 6,
+            "step_size": 180,
+            "window_size": 360
+          },
+          "mixed_window_count": 0,
+          "passing_window_count": 3,
+          "recommendation": "no_context_tag_found",
+          "support_thin_count": 1,
+          "tag_distribution": {
+            "breakout_support_low": 1,
+            "compression_count_dominant": 4
+          },
+          "timeframe": "1h",
+          "top_candidate_tag": null,
+          "window_count": 4
+        },
+        "windows": [
+          {
+            "asset": "ETHUSDT",
+            "breakout_active": 18,
+            "breakout_better": true,
+            "breakout_score_mean": 0.7494885,
+            "compression_active": 47,
+            "compression_score_mean": 0.7272155106382978,
+            "compression_share": 0.7230769230769231,
+            "support_ok": true,
+            "tags": [
+              "compression_count_dominant"
+            ],
+            "timeframe": "1h",
+            "window_class": "supported_breakout",
+            "window_id": "full"
+          },
+          {
+            "asset": "ETHUSDT",
+            "breakout_active": 13,
+            "breakout_better": true,
+            "breakout_score_mean": 0.7641060000000001,
+            "compression_active": 21,
+            "compression_score_mean": 0.7340649047619048,
+            "compression_share": 0.6176470588235294,
+            "support_ok": true,
+            "tags": [
+              "compression_count_dominant"
+            ],
+            "timeframe": "1h",
+            "window_class": "supported_breakout",
+            "window_id": "w1_0_360"
+          },
+          {
+            "asset": "ETHUSDT",
+            "breakout_active": 8,
+            "breakout_better": true,
+            "breakout_score_mean": 0.73317375,
+            "compression_active": 21,
+            "compression_score_mean": 0.7260608571428571,
+            "compression_share": 0.7241379310344828,
+            "support_ok": true,
+            "tags": [
+              "compression_count_dominant"
+            ],
+            "timeframe": "1h",
+            "window_class": "supported_breakout",
+            "window_id": "w2_180_540"
+          },
+          {
+            "asset": "ETHUSDT",
+            "breakout_active": 5,
+            "breakout_better": true,
+            "breakout_score_mean": 0.711483,
+            "compression_active": 26,
+            "compression_score_mean": 0.7216833076923076,
+            "compression_share": 0.8387096774193549,
+            "support_ok": false,
+            "tags": [
+              "breakout_support_low",
+              "compression_count_dominant"
+            ],
+            "timeframe": "1h",
+            "window_class": "support_thin",
+            "window_id": "w3_360_720"
+          }
+        ]
+      },
+      "phase": "phase_7y_transition_micro_state_context_diag_retest",
+      "summary": {
+        "asset": "ETHUSDT",
+        "candidate_tag_count": 0,
+        "config": {
+          "lookback_bars": 8,
+          "min_candidate_score": 0.62,
+          "min_state_active": 6,
+          "step_size": 180,
+          "window_size": 360
+        },
+        "mixed_window_count": 0,
+        "passing_window_count": 3,
+        "recommendation": "no_context_tag_found",
+        "support_thin_count": 1,
+        "tag_distribution": {
+          "breakout_support_low": 1,
+          "compression_count_dominant": 4
+        },
+        "timeframe": "1h",
+        "top_candidate_tag": null,
+        "window_count": 4
+      }
+    },
+    {
+      "context_diag_report": {
+        "candidate_tags": [],
+        "feature_baselines": {
+          "breakout_transition_continuation_score": {
+            "high": 0.859459,
+            "low": 0.72069875
+          },
+          "breakout_transition_score": {
+            "high": 0.7642662499999999,
+            "low": 0.68851375
+          },
+          "setup_transition_score_gap": {
+            "high": null,
+            "low": null
+          },
+          "setup_transition_volatility": {
+            "high": 0.006915974615523021,
+            "low": 0.0041096146178417605
+          }
+        },
+        "phase": "phase_7y_transition_micro_state_context_diag",
+        "summary": {
+          "asset": "BTCUSDT",
+          "candidate_tag_count": 0,
+          "config": {
+            "lookback_bars": 8,
+            "min_candidate_score": 0.62,
+            "min_state_active": 6,
+            "step_size": 180,
+            "window_size": 360
+          },
+          "mixed_window_count": 1,
+          "passing_window_count": 3,
+          "recommendation": "no_context_tag_found",
+          "support_thin_count": 0,
+          "tag_distribution": {
+            "compression_count_dominant": 1
+          },
+          "timeframe": "1h",
+          "top_candidate_tag": null,
+          "window_count": 4
+        },
+        "windows": [
+          {
+            "asset": "BTCUSDT",
+            "breakout_active": 39,
+            "breakout_better": true,
+            "breakout_score_mean": 0.7261573846153847,
+            "compression_active": 33,
+            "compression_score_mean": 0.7336717272727273,
+            "compression_share": 0.4583333333333333,
+            "support_ok": true,
+            "tags": [],
+            "timeframe": "1h",
+            "window_class": "supported_breakout",
+            "window_id": "full"
+          },
+          {
+            "asset": "BTCUSDT",
+            "breakout_active": 28,
+            "breakout_better": true,
+            "breakout_score_mean": 0.7224938928571428,
+            "compression_active": 13,
+            "compression_score_mean": 0.7116410000000001,
+            "compression_share": 0.3170731707317073,
+            "support_ok": true,
+            "tags": [],
+            "timeframe": "1h",
+            "window_class": "supported_breakout",
+            "window_id": "w1_0_360"
+          },
+          {
+            "asset": "BTCUSDT",
+            "breakout_active": 21,
+            "breakout_better": false,
+            "breakout_score_mean": 0.7178137142857144,
+            "compression_active": 9,
+            "compression_score_mean": 0.729940111111111,
+            "compression_share": 0.3,
+            "support_ok": true,
+            "tags": [],
+            "timeframe": "1h",
+            "window_class": "supported_mixed",
+            "window_id": "w2_180_540"
+          },
+          {
+            "asset": "BTCUSDT",
+            "breakout_active": 11,
+            "breakout_better": true,
+            "breakout_score_mean": 0.7354826363636363,
+            "compression_active": 20,
+            "compression_score_mean": 0.7479916999999999,
+            "compression_share": 0.6451612903225806,
+            "support_ok": true,
+            "tags": [
+              "compression_count_dominant"
+            ],
+            "timeframe": "1h",
+            "window_class": "supported_breakout",
+            "window_id": "w3_360_720"
+          }
+        ]
+      },
+      "phase": "phase_7y_transition_micro_state_context_diag_retest",
+      "summary": {
+        "asset": "BTCUSDT",
+        "candidate_tag_count": 0,
+        "config": {
+          "lookback_bars": 8,
+          "min_candidate_score": 0.62,
+          "min_state_active": 6,
+          "step_size": 180,
+          "window_size": 360
+        },
+        "mixed_window_count": 1,
+        "passing_window_count": 3,
+        "recommendation": "no_context_tag_found",
+        "support_thin_count": 0,
+        "tag_distribution": {
+          "compression_count_dominant": 1
+        },
+        "timeframe": "1h",
+        "top_candidate_tag": null,
+        "window_count": 4
+      }
+    }
+  ]
+}

@@ -288,6 +288,84 @@ services:
     networks:
       - flipper-net
 
+  alert-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m apps.alert_app.main
+    env_file:
+      - .env
+    volumes:
+      - ./configs:/app/configs:ro
+      - flipper-logs:/app/logs
+    tmpfs:
+      - /tmp
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
+      VALKEY_URI: redis://broker:6379/0
+      LOG_FILE: /app/logs/alert_worker.log
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: alert_app
+      ALERT_API_HOST: 0.0.0.0
+      ALERT_API_PORT: 8096
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - flipper-net
+
+  alert-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m apps.alert_app.api.main
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:8096:8096"
+    volumes:
+      - ./configs:/app/configs:ro
+      - flipper-logs:/app/logs
+    tmpfs:
+      - /tmp
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
+      VALKEY_URI: redis://broker:6379/0
+      LOG_FILE: /app/logs/alert_api.log
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: alert_api
+      ALERT_API_HOST: 0.0.0.0
+      ALERT_API_PORT: 8096
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+      alert-worker:
+        condition: service_started
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    networks:
+      - flipper-net
+
   portfolio-worker:
     build:
       context: .

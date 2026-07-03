@@ -1,0 +1,114 @@
+{
+  "active_changed_outcomes": [
+    {
+      "avg_baseline_net_return": -0.019337334305283522,
+      "avg_paper_minus_baseline": 0.019337334305283522,
+      "avg_paper_net_return": 0.0,
+      "baseline_selected_model": "PriceAction",
+      "count": 40,
+      "outcome_labels": {
+        "avoided_loss": 31,
+        "missed_win": 9
+      },
+      "paper_selected_model": null,
+      "positive_paper_lift_rate": 0.775
+    }
+  ],
+  "distributions": {
+    "asset_timeframe": {
+      "BNBUSDT|1h": 180
+    },
+    "baseline_model": {
+      "Momentum": 91,
+      "PriceAction": 83,
+      "TrendFollowing": 6
+    },
+    "outcome_label": {
+      "avoided_loss": 31,
+      "missed_win": 9,
+      "unchanged": 140
+    },
+    "paper_model": {
+      "Momentum": 91,
+      "None": 40,
+      "PriceAction": 43,
+      "TrendFollowing": 6
+    },
+    "unlabeled_reason": {}
+  },
+  "fetch_errors": {},
+  "model_pair_outcomes": [
+    {
+      "avg_baseline_net_return": 0.012468198105881503,
+      "avg_paper_minus_baseline": 0.0,
+      "avg_paper_net_return": 0.012468198105881503,
+      "baseline_selected_model": "Momentum",
+      "count": 91,
+      "outcome_labels": {
+        "unchanged": 91
+      },
+      "paper_selected_model": "Momentum",
+      "positive_paper_lift_rate": 0.0
+    },
+    {
+      "avg_baseline_net_return": 0.006257752686988637,
+      "avg_paper_minus_baseline": 0.0,
+      "avg_paper_net_return": 0.006257752686988637,
+      "baseline_selected_model": "PriceAction",
+      "count": 43,
+      "outcome_labels": {
+        "unchanged": 43
+      },
+      "paper_selected_model": "PriceAction",
+      "positive_paper_lift_rate": 0.0
+    },
+    {
+      "avg_baseline_net_return": -0.019337334305283522,
+      "avg_paper_minus_baseline": 0.019337334305283522,
+      "avg_paper_net_return": 0.0,
+      "baseline_selected_model": "PriceAction",
+      "count": 40,
+      "outcome_labels": {
+        "avoided_loss": 31,
+        "missed_win": 9
+      },
+      "paper_selected_model": null,
+      "positive_paper_lift_rate": 0.775
+    },
+    {
+      "avg_baseline_net_return": 0.022045729936271168,
+      "avg_paper_minus_baseline": 0.0,
+      "avg_paper_net_return": 0.022045729936271168,
+      "baseline_selected_model": "TrendFollowing",
+      "count": 6,
+      "outcome_labels": {
+        "unchanged": 6
+      },
+      "paper_selected_model": "TrendFollowing",
+      "positive_paper_lift_rate": 0.0
+    }
+  ],
+  "pairs": [
+    "BNBUSDT|1h"
+  ],
+  "phase": "phase_6k_pa_paper_outcome_labeling",
+  "source_log": "logs/regime_v2_pa_asset_paper_decisions.jsonl",
+  "summary": {
+    "active_changed_positive_paper_lift_rate": 0.775,
+    "avg_active_changed_paper_minus_baseline": 0.019337334305283522,
+    "avg_baseline_net_return": 0.00423594666990008,
+    "avg_changed_paper_minus_baseline": 0.019337334305283522,
+    "avg_paper_minus_baseline": 0.004297185401174116,
+    "avg_paper_net_return": 0.008533132071074196,
+    "changed_positive_paper_lift_rate": 0.775,
+    "invalid_record_count": 0,
+    "labeled_count": 180,
+    "paper_active_changed_count": 40,
+    "paper_active_count": 99,
+    "positive_paper_lift_rate": 0.17222222222222222,
+    "selection_changed_count": 40,
+    "source_path": "research/regime_v2_pa_paper_outcomes.jsonl",
+    "total_records_read": 180,
+    "unlabeled_count": 0
+  }
+}

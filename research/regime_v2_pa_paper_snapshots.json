@@ -1,0 +1,47 @@
+{
+  "changed_alternates": [
+    {
+      "avg_baseline_selection_score": 0.03295425133809775,
+      "avg_paper_selection_score": null,
+      "baseline_selected_model": "PriceAction",
+      "count": 40,
+      "paper_top_model": "None"
+    }
+  ],
+  "distributions": {
+    "baseline_top_model": {
+      "Momentum": 91,
+      "PriceAction": 83,
+      "TrendFollowing": 6
+    },
+    "changed_paper_top_model": {
+      "None": 40
+    },
+    "paper_top_model": {
+      "Momentum": 91,
+      "None": 40,
+      "PriceAction": 43,
+      "TrendFollowing": 6
+    },
+    "snapshot_schema_version": {
+      "1": 180
+    }
+  },
+  "invalid_record_count": 0,
+  "phase": "phase_6r_pa_paper_snapshot_coverage",
+  "source_log": "logs/regime_v2_pa_asset_paper_decisions.jsonl",
+  "summary": {
+    "alternate_action_ready": false,
+    "avg_baseline_snapshot_size": 2.033333333333333,
+    "avg_paper_snapshot_size": 1.9428571428571428,
+    "baseline_snapshot_count": 180,
+    "both_snapshot_count": 140,
+    "changed_alternate_coverage_rate": 0.0,
+    "changed_with_alternate_count": 0,
+    "paper_active_count": 99,
+    "paper_snapshot_count": 140,
+    "selection_changed_count": 40,
+    "snapshot_coverage_rate": 0.7777777777777778,
+    "total_records": 180
+  }
+}

@@ -1,0 +1,216 @@
+direction: right
+
+title: {
+  label: "alert_app IO contracts"
+  near: top-center
+}
+
+classes: {
+  source: { style.fill: "#E8F1FF" }
+  component: { style.fill: "#EEF7EA" }
+  contract: { style.fill: "#FFF2D8" }
+  storage: { style.fill: "#F4EAFE" }
+  transport: { style.fill: "#FCE8E8" }
+  rule: { style.fill: "#F3FAEF" }
+}
+
+sources: {
+  label: "Consumed Contracts"
+
+  lifecycle: {
+    class: source
+    label: "asset:lifecycle"
+    shape: queue
+  }
+
+  ingestion_events: {
+    class: source
+    label: "stream:events:ingestion"
+    shape: queue
+  }
+
+  execution_failures: {
+    class: source
+    label: "execution:failures:{asset}"
+    shape: queue
+  }
+
+  ingestion_runtime: {
+    class: source
+    label: "ingestion:runtime_status:{asset}:{tf}"
+    shape: stored_data
+  }
+
+  signal_runtime: {
+    class: source
+    label: "signal:status:{asset}:{tf}"
+    shape: stored_data
+  }
+
+  strategy_runtime: {
+    class: source
+    label: "strategy:status:{asset}:{tf}"
+    shape: stored_data
+  }
+
+  scraper_jobs: {
+    class: source
+    label: "scraper:job:{job_id}"
+    shape: stored_data
+  }
+
+  health_checks: {
+    class: source
+    label: "alerts.health_checks"
+    shape: document
+    link: "../../../configs/alerts.yaml"
+  }
+}
+
+components: {
+  label: "Runtime Components"
+
+  consumer: {
+    class: component
+    label: "AlertEventConsumer"
+    link: "../../../src/apps/alert_app/runtime/consumer.py"
+  }
+
+  reconciler: {
+    class: component
+    label: "AlertFreshnessReconciler"
+    link: "../../../src/apps/alert_app/runtime/reconciler.py"
+  }
+
+  service: {
+    class: component
+    label: "AlertIncidentService"
+    link: "../../../src/apps/alert_app/incidents/service.py"
+  }
+
+  dispatcher: {
+    class: component
+    label: "AlertNotificationDispatcher"
+    link: "../../../src/apps/alert_app/notifications/dispatcher.py"
+  }
+
+  api: {
+    class: component
+    label: "AlertObservabilityService + API"
+    link: "../../../src/apps/alert_app/observability/service.py"
+  }
+}
+
+contracts: {
+  label: "Owned Hot Contracts"
+
+  incident_hot: {
+    class: contract
+    label: "alert:incident:{incident_id}"
+    shape: stored_data
+  }
+
+  dedupe: {
+    class: contract
+    label: "alert:dedupe:{dedupe_key}"
+    shape: stored_data
+  }
+
+  hot_summary: {
+    class: contract
+    label: "alert:summary:hot"
+    shape: stored_data
+  }
+}
+
+storage: {
+  label: "Durable Storage"
+
+  incidents: {
+    class: storage
+    shape: cylinder
+    label: "alert_incidents"
+  }
+
+  notifications: {
+    class: storage
+    shape: cylinder
+    label: "alert_notifications"
+  }
+
+  silences: {
+    class: storage
+    shape: cylinder
+    label: "alert_silences"
+  }
+}
+
+transports: {
+  label: "Transports"
+
+  telegram: {
+    class: transport
+    label: "Telegram transport"
+    link: "../../../src/apps/alert_app/notifications/transports/telegram.py"
+  }
+
+  webhook: {
+    class: transport
+    label: "Webhook transport"
+    link: "../../../src/apps/alert_app/notifications/transports/webhook.py"
+  }
+}
+
+rules: {
+  label: "Implemented Rules"
+
+  dedupe_rule: {
+    class: rule
+    label: "dedupe by incident key\nopen incident reused"
+  }
+
+  recovery_rule: {
+    class: rule
+    label: "recovery requires matching\nopen incident"
+  }
+
+  throttle_rule: {
+    class: rule
+    label: "route burst limit + renotify"
+  }
+
+  health_rule: {
+    class: rule
+    label: "health probe status in configured\nhealthy_statuses set"
+  }
+}
+
+sources.lifecycle -> components.consumer: "normalize"
+sources.ingestion_events -> components.consumer: "normalize"
+sources.execution_failures -> components.consumer: "normalize"
+sources.ingestion_runtime -> components.reconciler: "scan"
+sources.signal_runtime -> components.reconciler: "scan"
+sources.strategy_runtime -> components.reconciler: "scan"
+sources.scraper_jobs -> components.reconciler: "scan"
+sources.health_checks -> components.reconciler: "probe"
+
+components.consumer -> components.service: "record_event"
+components.reconciler -> components.service: "record_event"
+components.service -> contracts.incident_hot: "write/read"
+components.service -> contracts.dedupe: "write/read"
+components.service -> contracts.hot_summary: "write"
+components.service -> storage.incidents: "upsert/read"
+components.service -> storage.silences: "read/write"
+components.service -> components.dispatcher: "enqueue incident"
+components.dispatcher -> storage.notifications: "record delivery"
+components.dispatcher -> transports.telegram: "send"
+components.dispatcher -> transports.webhook: "send"
+components.api -> storage.incidents: "query"
+components.api -> storage.notifications: "query"
+components.api -> storage.silences: "query"
+components.api -> components.service: "ack/resolve"
+
+rules.dedupe_rule -> components.service: "guardrail"
+rules.recovery_rule -> components.reconciler: "guardrail"
+rules.throttle_rule -> components.dispatcher: "guardrail"
+rules.health_rule -> components.reconciler: "guardrail"

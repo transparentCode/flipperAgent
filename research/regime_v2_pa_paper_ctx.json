@@ -1,0 +1,115 @@
+{
+  "baseline": {
+    "avg_baseline_conviction": 0.12782734223324205,
+    "avg_baseline_edge_score": 0.12782734223324205,
+    "avg_baseline_selection_score": 0.03295425133809775,
+    "avg_forward_log_return": -0.028453237975449,
+    "avg_paper_minus_baseline": 0.028653237975448997,
+    "bad_count": 8,
+    "bad_rate": 0.2,
+    "count": 40,
+    "name": "all_active_changed",
+    "outcome_labels": {
+      "avoided_loss": 32,
+      "missed_win": 8
+    },
+    "positive_paper_lift_rate": 0.8
+  },
+  "candidate_filters": [
+    {
+      "all_avg_lift": 0.028653237975448997,
+      "failure_window_coverage_rate": 1.0,
+      "kept_avg_lift": 0.04459116659724163,
+      "kept_avg_lift_minus_all_avg_lift": 0.015937928621792635,
+      "kept_bad_rate": 0.0,
+      "kept_count": 30,
+      "kept_outcome_labels": {
+        "avoided_loss": 30
+      },
+      "rejected_avg_lift": -0.019160547889928922,
+      "rejected_bad_rate": 0.8,
+      "rejected_count": 10,
+      "rejected_failure_count": 10,
+      "rejected_outcome_labels": {
+        "avoided_loss": 2,
+        "missed_win": 8
+      },
+      "rule": "recent_window_position >= 0.75"
+    },
+    {
+      "all_avg_lift": 0.028653237975448997,
+      "failure_window_coverage_rate": 1.0,
+      "kept_avg_lift": 0.04459116659724163,
+      "kept_avg_lift_minus_all_avg_lift": 0.015937928621792635,
+      "kept_bad_rate": 0.0,
+      "kept_count": 30,
+      "kept_outcome_labels": {
+        "avoided_loss": 30
+      },
+      "rejected_avg_lift": -0.019160547889928922,
+      "rejected_bad_rate": 0.8,
+      "rejected_count": 10,
+      "rejected_failure_count": 10,
+      "rejected_outcome_labels": {
+        "avoided_loss": 2,
+        "missed_win": 8
+      },
+      "rule": "timestamp >= failure_window_start"
+    }
+  ],
+  "failure_window": {
+    "avg_baseline_conviction": 0.127661923899346,
+    "avg_baseline_edge_score": 0.127661923899346,
+    "avg_baseline_selection_score": 0.03646293146001987,
+    "avg_forward_log_return": 0.01936054788992892,
+    "avg_paper_minus_baseline": -0.019160547889928922,
+    "bad_count": 8,
+    "bad_rate": 0.8,
+    "count": 10,
+    "name": "failure_window",
+    "outcome_labels": {
+      "avoided_loss": 2,
+      "missed_win": 8
+    },
+    "positive_paper_lift_rate": 0.2
+  },
+  "fetch_errors": {},
+  "invalid_record_count": 0,
+  "labeling_fee_bps": 2.0,
+  "labeling_horizon_bars": 24,
+  "pairs": [
+    "BNBUSDT|1h"
+  ],
+  "phase": "phase_6t_pa_paper_context_filter_discovery",
+  "source_log": "logs/regime_v2_pa_asset_paper_decisions.jsonl",
+  "source_robustness": "research/regime_v2_pa_paper_robustness.json",
+  "summary": {
+    "active_changed_count": 40,
+    "best_filter": {
+      "all_avg_lift": 0.028653237975448997,
+      "failure_window_coverage_rate": 1.0,
+      "kept_avg_lift": 0.04459116659724163,
+      "kept_avg_lift_minus_all_avg_lift": 0.015937928621792635,
+      "kept_bad_rate": 0.0,
+      "kept_count": 30,
+      "kept_outcome_labels": {
+        "avoided_loss": 30
+      },
+      "rejected_avg_lift": -0.019160547889928922,
+      "rejected_bad_rate": 0.8,
+      "rejected_count": 10,
+      "rejected_failure_count": 10,
+      "rejected_outcome_labels": {
+        "avoided_loss": 2,
+        "missed_win": 8
+      },
+      "rule": "recent_window_position >= 0.75"
+    },
+    "candidate_filter_count": 2,
+    "failure_window_count": 10,
+    "max_kept_bad_rate": 0.35,
+    "min_rejected_bad_rate": 0.6,
+    "min_support": 5,
+    "recommendation": "candidate_filter_found"
+  }
+}

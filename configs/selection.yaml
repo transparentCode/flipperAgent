@@ -2,9 +2,119 @@ selection:
   assets:
     default:
       timeframes:
-        default:
+        default: &selection_default
           strategy: overlap_penalized_top_k
           top_k: 3
           min_edge_threshold: 0.0
           same_direction_penalty: 0.3
           max_penalty: 0.8
+          overlays:
+            regime_v2_trend_gate: &regime_v2_shadow_default
+              enabled: false
+              shadow_enabled: false
+              shadow_log_enabled: false
+              shadow_persist_enabled: false
+              shadow_persist_path: logs/regime_v2_shadow_decisions.jsonl
+              mode: gated
+              # Live target_models stays trend-only. Shadow mode defaults to the
+              # validated Phase 5A subset below when shadow_target_models is not
+              # overridden.
+              target_models:
+                - Momentum
+                - MomentumV2
+                - TrendFollowing
+                - TrendFollowingModel
+              shadow_target_models:
+                - Momentum
+                - MomentumV2
+                - TrendFollowing
+                - TrendFollowingModel
+                - RegimePullbackScorer
+                - SqueezeBreakout
+              shadow_subset_only: true
+              shadow_include_non_targets: false
+              min_trend_score: 0.24
+              min_breakout_score: 0.24
+              min_mean_reversion_score: 0.24
+              min_confidence: 0.0
+              keep_conflicts_with_penalty: false
+              notes: "Disabled by default. Do not enable globally."
+
+            regime_v2_pa_asset_guardrail: &regime_v2_pa_asset_guardrail_default
+              paper_enabled: false
+              paper_log_enabled: false
+              paper_persist_enabled: false
+              paper_persist_path: logs/regime_v2_pa_asset_paper_decisions.jsonl
+              model_name: PriceAction
+              asset: BNBUSDT
+              timeframe: 1h
+              direction: 1
+              long_horizon_candidate:
+                candidate_enabled: false
+                paper_runtime_enabled: false
+                rule_name: rolling_avg_below_002_3
+                rule_type: rolling_avg_below
+                window: 3
+                threshold: -0.002
+                valid_horizons_bars:
+                  - 6
+                  - 12
+                  - 24
+                invalid_horizons_bars:
+                  - 3
+                source_report: research/regime_v2_pa_paper_hz.json
+                notes: "Phase 6Y long-horizon-only descriptor. Metadata only; disabled by default."
+              notes: "Phase 6J paper-only guardrail candidate. Disabled by default."
+
+    # Phase 5D controlled shadow rollout. Live gate remains disabled; only
+    # shadow comparison and JSONL persistence are enabled for these pairs.
+    BTCUSDT:
+      timeframes:
+        default: *selection_default
+        4h:
+          <<: *selection_default
+          overlays:
+            regime_v2_trend_gate:
+              <<: *regime_v2_shadow_default
+              shadow_enabled: true
+              shadow_persist_enabled: true
+              notes: "Phase 5D shadow-only rollout for BTCUSDT 4h. Live gate remains disabled."
+
+    ETHUSDT:
+      timeframes:
+        default: *selection_default
+        4h:
+          <<: *selection_default
+          overlays:
+            regime_v2_trend_gate:
+              <<: *regime_v2_shadow_default
+              shadow_enabled: true
+              shadow_persist_enabled: true
+              notes: "Phase 5D shadow-only rollout for ETHUSDT 4h. Live gate remains disabled."
+
+    SOLUSDT:
+      timeframes:
+        default: *selection_default
+        4h:
+          <<: *selection_default
+          overlays:
+            regime_v2_trend_gate:
+              <<: *regime_v2_shadow_default
+              shadow_enabled: true
+              shadow_persist_enabled: true
+              notes: "Phase 5D shadow-only rollout for SOLUSDT 4h. Live gate remains disabled."
+
+    BNBUSDT:
+      timeframes:
+        default: *selection_default
+        1h:
+          <<: *selection_default
+          overlays:
+            regime_v2_trend_gate:
+              <<: *regime_v2_shadow_default
+              shadow_enabled: true
+              shadow_persist_enabled: true
+              notes: "Phase 5D shadow-only rollout for BNBUSDT 1h. Live gate remains disabled."
+            regime_v2_pa_asset_guardrail:
+              <<: *regime_v2_pa_asset_guardrail_default
+              notes: "Phase 6J BNBUSDT 1h paper guardrail candidate. Disabled by default."

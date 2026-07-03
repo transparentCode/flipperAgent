@@ -1,0 +1,60 @@
+{
+  "phase": "phase_8c_repo_hygiene",
+  "summary": {
+    "status": "commit_readiness_inventory_complete",
+    "gitnexus_status": "up_to_date",
+    "regime_v2_file_count": 126,
+    "selection_regime_v2_file_count": 27,
+    "regime_v2_test_file_count": 59,
+    "safe_regression": {
+      "passed": 57,
+      "failed": 0,
+      "command_scope": [
+        "tests/test_regime_v2_orchestration_shadow_report.py",
+        "tests/test_regime_v2_playbook_orchestration_gate.py",
+        "tests/test_regime_v2_shadow_report.py",
+        "tests/test_regime_v2_transition_stop_gate.py",
+        "tests/test_selection_layer.py",
+        "tests/signals/test_regime_wiring.py"
+      ]
+    },
+    "docker_e2e_not_run": true,
+    "cleanup_files": [
+      "research/p7v.json",
+      "research/p7v.md"
+    ],
+    "recommended_next_phase": "phase_8d_runtime_safety_validator"
+  },
+  "modified_tracked_files": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    "configs/models.yaml",
+    "configs/selection.yaml",
+    "docker-compose.yml",
+    "pyproject.toml",
+    "src/apps/signal_app/pipeline/regime.py",
+    "src/libs/common/constants.py",
+    "src/libs/selection/selection_layer.py",
+    "tests/e2e/test_docker_integration.py",
+    "tests/signals/test_regime_wiring.py",
+    "tests/test_selection_layer.py"
+  ],
+  "commit_grouping": [
+    {
+      "group": "regime_v2_core_and_policy",
+      "paths": ["src/libs/models/regime_v2/", "tests/test_regime_v2*.py", "research/regime_v2_*.md", "research/regime_v2_*.json"]
+    },
+    {
+      "group": "selection_shadow_and_pa_safety",
+      "paths": ["src/libs/selection/regime_v2_*.py", "src/libs/selection/overlays/", "src/libs/selection/selection_layer.py", "tests/test_selection_layer.py", "tests/signals/test_regime_wiring.py"]
+    },
+    {
+      "group": "config_and_runtime_wiring",
+      "paths": ["configs/models.yaml", "configs/selection.yaml", "src/apps/signal_app/pipeline/regime.py", "src/libs/common/constants.py"]
+    },
+    {
+      "group": "alert_app_or_unrelated_work",
+      "paths": ["configs/alerts.yaml", "docs/architecture/alert_app/", "plans/alert_app_hld_lld_2026-06-21.md", "src/apps/alert_app/", "tests/alerts/"]
+    }
+  ]
+}

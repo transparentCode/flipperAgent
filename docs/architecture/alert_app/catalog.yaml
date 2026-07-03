@@ -1,0 +1,184 @@
+app:
+  name: alert_app
+  path: src/apps/alert_app
+  purpose: >
+    Consumes pipeline operational facts, opens and maintains incidents,
+    reconciles silent failure conditions, and routes alert notifications over
+    internal transports such as Telegram and webhook.
+
+entrypoints:
+  runtime_process:
+    path: src/apps/alert_app/main.py
+    role: Launches alert runtime worker process
+  runtime_runner:
+    path: src/apps/alert_app/runtime/runner.py
+    role: Wires consumers, reconciler, incident service, and dispatcher
+  internal_api:
+    path: src/apps/alert_app/api/main.py
+    role: Serves alert observability and operator control routes
+
+features:
+  - key: lifecycle_event_alerting
+    summary: Consumes canonical asset lifecycle events and opens informational/warning incidents
+  - key: ingestion_runtime_alerting
+    summary: Consumes ingestion runtime events and normalizes operational failures
+  - key: execution_failure_alerting
+    summary: Watches execution failure streams and raises critical incidents
+  - key: freshness_reconciliation
+    summary: Detects ingestion warming timeouts and signal/strategy freshness breaches
+  - key: scraper_job_alerting
+    summary: Detects failed scraper jobs and resolves incidents when jobs recover
+  - key: health_probe_alerting
+    summary: Probes configured app health endpoints and emits breach/recovery incidents
+  - key: incident_api
+    summary: Exposes alert summary, incidents, routes, silences, and delivery history
+  - key: notification_dispatch
+    summary: Sends notifications via webhook and Telegram with retry and burst limiting
+  - key: hot_cold_state_split
+    summary: Uses Valkey for hot incident state and Postgres for durable audit/history
+
+architecture_decisions:
+  alert_policy_ownership:
+    rule: alert_app owns normalized alert policy and incident lifecycle; upstream apps emit facts, not alert decisions.
+  storage_split:
+    hot_state:
+      kind: valkey
+      contracts:
+        - alert:incident:{incident_id}
+        - alert:dedupe:{dedupe_key}
+        - alert:summary:hot
+    durable_state:
+      kind: postgres
+      contracts:
+        - alert_incidents
+        - alert_notifications
+        - alert_silences
+  recovery_rule:
+    rule: recovery incidents emit only when a matching open incident exists; healthy state alone must not create standalone recoveries.
+  notification_rule:
+    rule: route burst limiting and renotify cadence are enforced in alert_app, not by source apps.
+
+internal_components:
+  - name: runtime_consumer
+    paths:
+      - src/apps/alert_app/runtime/consumer.py
+      - src/apps/alert_app/runtime/normalizers.py
+    responsibilities:
+      - Consume lifecycle stream
+      - Consume ingestion runtime stream
+      - Discover and consume execution failure streams
+      - Normalize raw source payloads into alert events
+
+  - name: freshness_reconciler
+    paths:
+      - src/apps/alert_app/runtime/reconciler.py
+    responsibilities:
+      - Scan ingestion/signal/strategy runtime status keys
+      - Scan scraper job state keys
+      - Probe configured health endpoints
+      - Emit breach and recovery events for silent-failure cases
+
+  - name: incident_engine
+    paths:
+      - src/apps/alert_app/incidents/service.py
+      - src/apps/alert_app/incidents/store.py
+      - src/apps/alert_app/incidents/repository.py
+    responsibilities:
+      - Dedupe by incident key
+      - Open and update incidents
+      - Resolve incidents from recovery events
+      - Project hot summary state
+      - Persist durable incident state
+
+  - name: notifications
+    paths:
+      - src/apps/alert_app/notifications/dispatcher.py
+      - src/apps/alert_app/notifications/transports/webhook.py
+      - src/apps/alert_app/notifications/transports/telegram.py
+    responsibilities:
+      - Resolve routes
+      - Enforce burst limits
+      - Retry failed sends
+      - Record delivery audit rows
+
+  - name: observability_api
+    paths:
+      - src/apps/alert_app/api/routes.py
+      - src/apps/alert_app/observability/service.py
+    responsibilities:
+      - Serve health and summary
+      - Serve incident list/detail
+      - Support ack, resolve, silence create/delete
+      - Serve route and delivery views
+
+tech_stack:
+  language: python
+  framework:
+    - fastapi
+    - asyncio
+    - asyncpg
+  infra:
+    - valkey
+    - postgres
+  transports:
+    - webhook
+    - telegram
+
+valkey:
+  consumes:
+    - name: asset:lifecycle
+      producer: ingestion_app
+    - name: stream:events:ingestion
+      producer: ingestion_app
+    - name: execution:failures:{asset}
+      producer: execution_app
+    - name: ingestion:runtime_status:{asset}:{tf}
+      producer: ingestion_app
+    - name: signal:status:{asset}:{tf}
+      producer: signal_app
+    - name: strategy:status:{asset}:{tf}
+      producer: strategy_app
+    - name: scraper:job:{job_id}
+      producer: scraper_app
+  owns:
+    - name: alert:incident:{incident_id}
+      purpose: hot incident state projection
+    - name: alert:dedupe:{dedupe_key}
+      purpose: dedupe and hot incident lookup
+    - name: alert:summary:hot
+      purpose: hot summary cache
+
+storage:
+  postgres_tables:
+    - alert_incidents
+    - alert_notifications
+    - alert_silences
+
+api:
+  base_path: /alerts
+  routes:
+    - GET /alerts/health
+    - GET /alerts/summary
+    - GET /alerts/incidents
+    - GET /alerts/incidents/{incident_id}
+    - POST /alerts/incidents/{incident_id}/ack
+    - POST /alerts/incidents/{incident_id}/resolve
+    - GET /alerts/routes
+    - GET /alerts/silences
+    - POST /alerts/silences
+    - DELETE /alerts/silences/{silence_id}
+    - GET /alerts/notifications
+
+validated_tests:
+  unit_and_integration:
+    - tests/alerts/test_api.py
+    - tests/alerts/test_reconciler.py
+    - tests/alerts/test_consumer.py
+    - tests/alerts/test_dispatcher.py
+    - tests/alerts/test_settings.py
+    - tests/alerts/test_incident_service.py
+    - tests/alerts/test_observability_service.py
+    - tests/alerts/test_telegram_transport.py
+    - tests/alerts/test_webhook_transport.py
+  docker_backed:
+    - tests/alerts/test_docker_alerts.py

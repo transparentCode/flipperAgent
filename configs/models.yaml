@@ -427,3 +427,40 @@ feature_producers:
               hilbert_min_period: 10
               hilbert_max_period: 40
             frozen_overrides: {}
+          RegimeV2:
+            enabled: false
+            params: {}
+    BTCUSDT:
+      timeframes:
+        4h:
+          RegimeV2:
+            enabled: false
+            params:
+              # Validated offline candidate; keep disabled until explicit shadow promotion.
+              "fusion.trend_threshold": 0.48
+              "policy.trend_min_strength": 0.48
+        1h:
+          RegimeV2:
+            enabled: false
+            params:
+              # Skeleton only; requires wider OOS proof before shadow enablement.
+              "fusion.trend_threshold": 0.48
+              "policy.trend_min_strength": 0.48
+    ETHUSDT:
+      timeframes:
+        4h:
+          RegimeV2:
+            enabled: false
+            params: {}
+    SOLUSDT:
+      timeframes:
+        4h:
+          RegimeV2:
+            enabled: false
+            params: {}
+    BNBUSDT:
+      timeframes:
+        4h:
+          RegimeV2:
+            enabled: false
+            params: {}

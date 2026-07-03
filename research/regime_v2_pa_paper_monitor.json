@@ -1,0 +1,108 @@
+{
+  "all_time": {
+    "active_changed_count": 40,
+    "avg_baseline_net_return": -0.019337334305283522,
+    "avg_paper_minus_baseline": 0.019337334305283522,
+    "avg_paper_net_return": 0.0,
+    "avoided_loss_count": 31,
+    "changed_count": 40,
+    "changed_positive_paper_lift_rate": 0.775,
+    "count": 180,
+    "missed_win_count": 9,
+    "monitor_flags": [],
+    "name": "all_time",
+    "outcome_labels": {
+      "avoided_loss": 31,
+      "missed_win": 9
+    },
+    "paper_active_count": 99,
+    "status": "ok"
+  },
+  "invalid_record_count": 0,
+  "phase": "phase_6o_pa_paper_monitor",
+  "source_path": "research/regime_v2_pa_paper_outcomes.jsonl",
+  "summary": {
+    "all_time_active_changed_count": 40,
+    "all_time_avg_paper_minus_baseline": 0.019337334305283522,
+    "all_time_changed_count": 40,
+    "all_time_changed_positive_rate": 0.775,
+    "labeled_count": 180,
+    "latest_timestamp": 1780891200.0,
+    "min_changed_rows": 10,
+    "overall_status": "watch",
+    "total_records": 180,
+    "unlabeled_count": 0,
+    "window_count": 3
+  },
+  "windows": [
+    {
+      "active_changed_count": 3,
+      "avg_baseline_net_return": 0.010979592596494184,
+      "avg_paper_minus_baseline": -0.010979592596494184,
+      "avg_paper_net_return": 0.0,
+      "avoided_loss_count": 0,
+      "changed_count": 3,
+      "changed_positive_paper_lift_rate": 0.0,
+      "count": 25,
+      "end_timestamp": 1780891200.0,
+      "missed_win_count": 3,
+      "monitor_flags": [
+        "low_changed_sample",
+        "negative_avg_lift",
+        "missed_wins_exceed_avoided_losses"
+      ],
+      "name": "last_24h",
+      "outcome_labels": {
+        "missed_win": 3
+      },
+      "paper_active_count": 20,
+      "start_timestamp": 1780804800.0,
+      "status": "watch",
+      "window_hours": 24
+    },
+    {
+      "active_changed_count": 37,
+      "avg_baseline_net_return": -0.02002004587635331,
+      "avg_paper_minus_baseline": 0.02002004587635331,
+      "avg_paper_net_return": 0.0,
+      "avoided_loss_count": 29,
+      "changed_count": 37,
+      "changed_positive_paper_lift_rate": 0.7837837837837838,
+      "count": 169,
+      "end_timestamp": 1780891200.0,
+      "missed_win_count": 8,
+      "monitor_flags": [],
+      "name": "last_168h",
+      "outcome_labels": {
+        "avoided_loss": 29,
+        "missed_win": 8
+      },
+      "paper_active_count": 94,
+      "start_timestamp": 1780286400.0,
+      "status": "ok",
+      "window_hours": 168
+    },
+    {
+      "active_changed_count": 40,
+      "avg_baseline_net_return": -0.019337334305283522,
+      "avg_paper_minus_baseline": 0.019337334305283522,
+      "avg_paper_net_return": 0.0,
+      "avoided_loss_count": 31,
+      "changed_count": 40,
+      "changed_positive_paper_lift_rate": 0.775,
+      "count": 180,
+      "end_timestamp": 1780891200.0,
+      "missed_win_count": 9,
+      "monitor_flags": [],
+      "name": "last_720h",
+      "outcome_labels": {
+        "avoided_loss": 31,
+        "missed_win": 9
+      },
+      "paper_active_count": 99,
+      "start_timestamp": 1778299200.0,
+      "status": "ok",
+      "window_hours": 720
+    }
+  ]
+}

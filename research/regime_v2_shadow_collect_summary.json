@@ -1,0 +1,88 @@
+{
+  "log_path": "logs/regime_v2_shadow_decisions.jsonl",
+  "pairs": [
+    {
+      "asset": "BTCUSDT",
+      "candidate_rows": 2209,
+      "comparison_rows": 1000,
+      "missing_candidate_bars": 0,
+      "models": [
+        "Momentum",
+        "TrendFollowing",
+        "PriceAction",
+        "RegimePullbackScorer",
+        "SqueezeBreakout"
+      ],
+      "ohlcv_rows": 1000,
+      "selected_total": 432,
+      "shadow_records_attempted": 180,
+      "skipped_warmup_or_horizon": 220,
+      "status": "ok",
+      "timeframe": "4h"
+    },
+    {
+      "asset": "ETHUSDT",
+      "candidate_rows": 2199,
+      "comparison_rows": 1000,
+      "missing_candidate_bars": 0,
+      "models": [
+        "Momentum",
+        "TrendFollowing",
+        "PriceAction",
+        "RegimePullbackScorer",
+        "SqueezeBreakout"
+      ],
+      "ohlcv_rows": 1000,
+      "selected_total": 428,
+      "shadow_records_attempted": 180,
+      "skipped_warmup_or_horizon": 220,
+      "status": "ok",
+      "timeframe": "4h"
+    },
+    {
+      "asset": "SOLUSDT",
+      "candidate_rows": 2284,
+      "comparison_rows": 1000,
+      "missing_candidate_bars": 0,
+      "models": [
+        "Momentum",
+        "TrendFollowing",
+        "PriceAction",
+        "RegimePullbackScorer",
+        "SqueezeBreakout"
+      ],
+      "ohlcv_rows": 1000,
+      "selected_total": 430,
+      "shadow_records_attempted": 180,
+      "skipped_warmup_or_horizon": 220,
+      "status": "ok",
+      "timeframe": "4h"
+    },
+    {
+      "asset": "BNBUSDT",
+      "candidate_rows": 2193,
+      "comparison_rows": 1000,
+      "missing_candidate_bars": 0,
+      "models": [
+        "Momentum",
+        "TrendFollowing",
+        "PriceAction",
+        "RegimePullbackScorer",
+        "SqueezeBreakout"
+      ],
+      "ohlcv_rows": 1000,
+      "selected_total": 360,
+      "shadow_records_attempted": 180,
+      "skipped_warmup_or_horizon": 220,
+      "status": "ok",
+      "timeframe": "1h"
+    }
+  ],
+  "phase": "phase_5_shadow_binance_collection",
+  "summary": {
+    "failed_pair_count": 0,
+    "pair_count": 4,
+    "shadow_records_attempted": 720,
+    "successful_pair_count": 4
+  }
+}

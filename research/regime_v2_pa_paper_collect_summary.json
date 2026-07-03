@@ -1,0 +1,23 @@
+{
+  "log_path": "logs/regime_v2_pa_asset_paper_decisions.jsonl",
+  "phase": "phase_6l_pa_paper_binance_collection",
+  "summary": {
+    "asset": "BNBUSDT",
+    "candidate_rows": 2173,
+    "comparison_rows": 1000,
+    "missing_candidate_bars": 0,
+    "models": [
+      "Momentum",
+      "TrendFollowing",
+      "PriceAction",
+      "RegimePullbackScorer",
+      "SqueezeBreakout"
+    ],
+    "ohlcv_rows": 1000,
+    "paper_records_attempted": 180,
+    "selected_total": 366,
+    "skipped_warmup_or_horizon": 220,
+    "status": "ok",
+    "timeframe": "1h"
+  }
+}

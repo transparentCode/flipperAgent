@@ -1,0 +1,1900 @@
+{
+  "cells": [
+    {
+      "active_changed": {
+        "avg_baseline_net_return": -0.006701542048503745,
+        "avg_paper_minus_baseline": 0.006701542048503745,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 32,
+        "bad_rate": 0.8,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8
+        },
+        "positive_paper_lift_rate": 0.8
+      },
+      "changed": {
+        "avg_baseline_net_return": -0.006701542048503745,
+        "avg_paper_minus_baseline": 0.006701542048503745,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 32,
+        "bad_rate": 0.8,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8
+        },
+        "positive_paper_lift_rate": 0.8
+      },
+      "failure_reasons": [
+        "rolling_not_stable"
+      ],
+      "fee_bps": 2.0,
+      "horizon_bars": 3,
+      "labeled_count": 180,
+      "paper_active": {
+        "avg_baseline_net_return": 7.717825990481718e-05,
+        "avg_paper_minus_baseline": 0.00270769375697121,
+        "avg_paper_net_return": 0.0027848720168760274,
+        "bad_count": 55,
+        "bad_rate": 0.5555555555555556,
+        "count": 99,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8,
+          "unchanged": 59
+        },
+        "positive_paper_lift_rate": 0.32323232323232326
+      },
+      "rolling": {
+        "20": {
+          "max_avg_paper_minus_baseline": 0.010081977332643242,
+          "min_avg_paper_minus_baseline": 0.0033211067643642476,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.010081977332643242,
+              "avg_paper_minus_baseline": 0.010081977332643242,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 18,
+              "bad_rate": 0.9,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 18,
+                "missed_win": 2
+              },
+              "positive_paper_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.0033211067643642476,
+              "avg_paper_minus_baseline": 0.0033211067643642476,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 14,
+              "bad_rate": 0.7,
+              "count": 20,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 14,
+                "missed_win": 6
+              },
+              "positive_paper_lift_rate": 0.7,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_paper_minus_baseline": 0.010647942269262644,
+          "min_avg_paper_minus_baseline": -0.005137658613772955,
+          "positive_window_count": 1,
+          "positive_window_rate": 0.5,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.010647942269262644,
+              "avg_paper_minus_baseline": 0.010647942269262644,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 27,
+              "bad_rate": 0.9,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 27,
+                "missed_win": 3
+              },
+              "positive_paper_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": 0.005137658613772955,
+              "avg_paper_minus_baseline": -0.005137658613772955,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 5,
+              "bad_rate": 0.5,
+              "count": 10,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 5,
+                "missed_win": 5
+              },
+              "positive_paper_lift_rate": 0.5,
+              "start_timestamp": 1780696800.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_paper_minus_baseline": 0.006701542048503745,
+          "min_avg_paper_minus_baseline": 0.006701542048503745,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.006701542048503745,
+              "avg_paper_minus_baseline": 0.006701542048503745,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 32,
+              "bad_rate": 0.8,
+              "count": 40,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 32,
+                "missed_win": 8
+              },
+              "positive_paper_lift_rate": 0.8,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": false,
+      "status": "fail"
+    },
+    {
+      "active_changed": {
+        "avg_baseline_net_return": -0.007001542048503745,
+        "avg_paper_minus_baseline": 0.007001542048503745,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 32,
+        "bad_rate": 0.8,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8
+        },
+        "positive_paper_lift_rate": 0.8
+      },
+      "changed": {
+        "avg_baseline_net_return": -0.007001542048503745,
+        "avg_paper_minus_baseline": 0.007001542048503745,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 32,
+        "bad_rate": 0.8,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8
+        },
+        "positive_paper_lift_rate": 0.8
+      },
+      "failure_reasons": [
+        "rolling_not_stable"
+      ],
+      "fee_bps": 5.0,
+      "horizon_bars": 3,
+      "labeled_count": 180,
+      "paper_active": {
+        "avg_baseline_net_return": -0.00022282174009518327,
+        "avg_paper_minus_baseline": 0.0028289058781833312,
+        "avg_paper_net_return": 0.0026060841380881484,
+        "bad_count": 56,
+        "bad_rate": 0.5656565656565656,
+        "count": 99,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8,
+          "unchanged": 59
+        },
+        "positive_paper_lift_rate": 0.32323232323232326
+      },
+      "rolling": {
+        "20": {
+          "max_avg_paper_minus_baseline": 0.010381977332643243,
+          "min_avg_paper_minus_baseline": 0.003621106764364248,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.010381977332643243,
+              "avg_paper_minus_baseline": 0.010381977332643243,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 18,
+              "bad_rate": 0.9,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 18,
+                "missed_win": 2
+              },
+              "positive_paper_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.003621106764364248,
+              "avg_paper_minus_baseline": 0.003621106764364248,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 14,
+              "bad_rate": 0.7,
+              "count": 20,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 14,
+                "missed_win": 6
+              },
+              "positive_paper_lift_rate": 0.7,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_paper_minus_baseline": 0.010947942269262646,
+          "min_avg_paper_minus_baseline": -0.004837658613772955,
+          "positive_window_count": 1,
+          "positive_window_rate": 0.5,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.010947942269262646,
+              "avg_paper_minus_baseline": 0.010947942269262646,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 27,
+              "bad_rate": 0.9,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 27,
+                "missed_win": 3
+              },
+              "positive_paper_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": 0.004837658613772955,
+              "avg_paper_minus_baseline": -0.004837658613772955,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 5,
+              "bad_rate": 0.5,
+              "count": 10,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 5,
+                "missed_win": 5
+              },
+              "positive_paper_lift_rate": 0.5,
+              "start_timestamp": 1780696800.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_paper_minus_baseline": 0.007001542048503745,
+          "min_avg_paper_minus_baseline": 0.007001542048503745,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.007001542048503745,
+              "avg_paper_minus_baseline": 0.007001542048503745,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 32,
+              "bad_rate": 0.8,
+              "count": 40,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 32,
+                "missed_win": 8
+              },
+              "positive_paper_lift_rate": 0.8,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": false,
+      "status": "fail"
+    },
+    {
+      "active_changed": {
+        "avg_baseline_net_return": -0.007501542048503745,
+        "avg_paper_minus_baseline": 0.007501542048503745,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 32,
+        "bad_rate": 0.8,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8
+        },
+        "positive_paper_lift_rate": 0.8
+      },
+      "changed": {
+        "avg_baseline_net_return": -0.007501542048503745,
+        "avg_paper_minus_baseline": 0.007501542048503745,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 32,
+        "bad_rate": 0.8,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8
+        },
+        "positive_paper_lift_rate": 0.8
+      },
+      "failure_reasons": [
+        "rolling_not_stable"
+      ],
+      "fee_bps": 10.0,
+      "horizon_bars": 3,
+      "labeled_count": 180,
+      "paper_active": {
+        "avg_baseline_net_return": -0.0007228217400951834,
+        "avg_paper_minus_baseline": 0.0030309260802035337,
+        "avg_paper_net_return": 0.0023081043401083504,
+        "bad_count": 57,
+        "bad_rate": 0.5757575757575758,
+        "count": 99,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8,
+          "unchanged": 59
+        },
+        "positive_paper_lift_rate": 0.32323232323232326
+      },
+      "rolling": {
+        "20": {
+          "max_avg_paper_minus_baseline": 0.010881977332643244,
+          "min_avg_paper_minus_baseline": 0.004121106764364248,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.010881977332643244,
+              "avg_paper_minus_baseline": 0.010881977332643244,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 18,
+              "bad_rate": 0.9,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 18,
+                "missed_win": 2
+              },
+              "positive_paper_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.004121106764364248,
+              "avg_paper_minus_baseline": 0.004121106764364248,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 14,
+              "bad_rate": 0.7,
+              "count": 20,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 14,
+                "missed_win": 6
+              },
+              "positive_paper_lift_rate": 0.7,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_paper_minus_baseline": 0.011447942269262646,
+          "min_avg_paper_minus_baseline": -0.0043376586137729555,
+          "positive_window_count": 1,
+          "positive_window_rate": 0.5,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.011447942269262646,
+              "avg_paper_minus_baseline": 0.011447942269262646,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 27,
+              "bad_rate": 0.9,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 27,
+                "missed_win": 3
+              },
+              "positive_paper_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": 0.0043376586137729555,
+              "avg_paper_minus_baseline": -0.0043376586137729555,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 5,
+              "bad_rate": 0.5,
+              "count": 10,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 5,
+                "missed_win": 5
+              },
+              "positive_paper_lift_rate": 0.5,
+              "start_timestamp": 1780696800.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_paper_minus_baseline": 0.007501542048503745,
+          "min_avg_paper_minus_baseline": 0.007501542048503745,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.007501542048503745,
+              "avg_paper_minus_baseline": 0.007501542048503745,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 32,
+              "bad_rate": 0.8,
+              "count": 40,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 32,
+                "missed_win": 8
+              },
+              "positive_paper_lift_rate": 0.8,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": false,
+      "status": "fail"
+    },
+    {
+      "active_changed": {
+        "avg_baseline_net_return": -0.01036419087119552,
+        "avg_paper_minus_baseline": 0.01036419087119552,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 31,
+        "bad_rate": 0.775,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 31,
+          "missed_win": 9
+        },
+        "positive_paper_lift_rate": 0.775
+      },
+      "changed": {
+        "avg_baseline_net_return": -0.01036419087119552,
+        "avg_paper_minus_baseline": 0.01036419087119552,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 31,
+        "bad_rate": 0.775,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 31,
+          "missed_win": 9
+        },
+        "positive_paper_lift_rate": 0.775
+      },
+      "failure_reasons": [
+        "rolling_not_stable"
+      ],
+      "fee_bps": 2.0,
+      "horizon_bars": 6,
+      "labeled_count": 180,
+      "paper_active": {
+        "avg_baseline_net_return": 0.0010370677725414724,
+        "avg_paper_minus_baseline": 0.004187551867149706,
+        "avg_paper_net_return": 0.005224619639691177,
+        "bad_count": 47,
+        "bad_rate": 0.47474747474747475,
+        "count": 99,
+        "outcome_labels": {
+          "avoided_loss": 31,
+          "missed_win": 9,
+          "unchanged": 59
+        },
+        "positive_paper_lift_rate": 0.31313131313131315
+      },
+      "rolling": {
+        "20": {
+          "max_avg_paper_minus_baseline": 0.013053489150769709,
+          "min_avg_paper_minus_baseline": 0.007674892591621333,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.013053489150769709,
+              "avg_paper_minus_baseline": 0.013053489150769709,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 18,
+              "bad_rate": 0.9,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 18,
+                "missed_win": 2
+              },
+              "positive_paper_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.007674892591621333,
+              "avg_paper_minus_baseline": 0.007674892591621333,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 13,
+              "bad_rate": 0.65,
+              "count": 20,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 13,
+                "missed_win": 7
+              },
+              "positive_paper_lift_rate": 0.65,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_paper_minus_baseline": 0.015731036976986305,
+          "min_avg_paper_minus_baseline": -0.005736347446176826,
+          "positive_window_count": 1,
+          "positive_window_rate": 0.5,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.015731036976986305,
+              "avg_paper_minus_baseline": 0.015731036976986305,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 27,
+              "bad_rate": 0.9,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 27,
+                "missed_win": 3
+              },
+              "positive_paper_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": 0.005736347446176826,
+              "avg_paper_minus_baseline": -0.005736347446176826,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 4,
+              "bad_rate": 0.4,
+              "count": 10,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 4,
+                "missed_win": 6
+              },
+              "positive_paper_lift_rate": 0.4,
+              "start_timestamp": 1780696800.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_paper_minus_baseline": 0.01036419087119552,
+          "min_avg_paper_minus_baseline": 0.01036419087119552,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.01036419087119552,
+              "avg_paper_minus_baseline": 0.01036419087119552,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 31,
+              "bad_rate": 0.775,
+              "count": 40,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 31,
+                "missed_win": 9
+              },
+              "positive_paper_lift_rate": 0.775,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": false,
+      "status": "fail"
+    },
+    {
+      "active_changed": {
+        "avg_baseline_net_return": -0.01066419087119552,
+        "avg_paper_minus_baseline": 0.01066419087119552,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 31,
+        "bad_rate": 0.775,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 31,
+          "missed_win": 9
+        },
+        "positive_paper_lift_rate": 0.775
+      },
+      "changed": {
+        "avg_baseline_net_return": -0.01066419087119552,
+        "avg_paper_minus_baseline": 0.01066419087119552,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 31,
+        "bad_rate": 0.775,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 31,
+          "missed_win": 9
+        },
+        "positive_paper_lift_rate": 0.775
+      },
+      "failure_reasons": [
+        "rolling_not_stable"
+      ],
+      "fee_bps": 5.0,
+      "horizon_bars": 6,
+      "labeled_count": 180,
+      "paper_active": {
+        "avg_baseline_net_return": 0.0007370677725414718,
+        "avg_paper_minus_baseline": 0.004308763988361827,
+        "avg_paper_net_return": 0.0050458317609032985,
+        "bad_count": 48,
+        "bad_rate": 0.48484848484848486,
+        "count": 99,
+        "outcome_labels": {
+          "avoided_loss": 31,
+          "missed_win": 9,
+          "unchanged": 59
+        },
+        "positive_paper_lift_rate": 0.31313131313131315
+      },
+      "rolling": {
+        "20": {
+          "max_avg_paper_minus_baseline": 0.013353489150769709,
+          "min_avg_paper_minus_baseline": 0.007974892591621333,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.013353489150769709,
+              "avg_paper_minus_baseline": 0.013353489150769709,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 18,
+              "bad_rate": 0.9,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 18,
+                "missed_win": 2
+              },
+              "positive_paper_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.007974892591621333,
+              "avg_paper_minus_baseline": 0.007974892591621333,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 13,
+              "bad_rate": 0.65,
+              "count": 20,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 13,
+                "missed_win": 7
+              },
+              "positive_paper_lift_rate": 0.65,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_paper_minus_baseline": 0.016031036976986303,
+          "min_avg_paper_minus_baseline": -0.005436347446176824,
+          "positive_window_count": 1,
+          "positive_window_rate": 0.5,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.016031036976986303,
+              "avg_paper_minus_baseline": 0.016031036976986303,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 27,
+              "bad_rate": 0.9,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 27,
+                "missed_win": 3
+              },
+              "positive_paper_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": 0.005436347446176824,
+              "avg_paper_minus_baseline": -0.005436347446176824,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 4,
+              "bad_rate": 0.4,
+              "count": 10,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 4,
+                "missed_win": 6
+              },
+              "positive_paper_lift_rate": 0.4,
+              "start_timestamp": 1780696800.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_paper_minus_baseline": 0.01066419087119552,
+          "min_avg_paper_minus_baseline": 0.01066419087119552,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.01066419087119552,
+              "avg_paper_minus_baseline": 0.01066419087119552,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 31,
+              "bad_rate": 0.775,
+              "count": 40,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 31,
+                "missed_win": 9
+              },
+              "positive_paper_lift_rate": 0.775,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": false,
+      "status": "fail"
+    },
+    {
+      "active_changed": {
+        "avg_baseline_net_return": -0.011164190871195521,
+        "avg_paper_minus_baseline": 0.011164190871195521,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 32,
+        "bad_rate": 0.8,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8
+        },
+        "positive_paper_lift_rate": 0.8
+      },
+      "changed": {
+        "avg_baseline_net_return": -0.011164190871195521,
+        "avg_paper_minus_baseline": 0.011164190871195521,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 32,
+        "bad_rate": 0.8,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8
+        },
+        "positive_paper_lift_rate": 0.8
+      },
+      "failure_reasons": [
+        "rolling_not_stable"
+      ],
+      "fee_bps": 10.0,
+      "horizon_bars": 6,
+      "labeled_count": 180,
+      "paper_active": {
+        "avg_baseline_net_return": 0.0002370677725414718,
+        "avg_paper_minus_baseline": 0.004510784190382029,
+        "avg_paper_net_return": 0.0047478519629235005,
+        "bad_count": 50,
+        "bad_rate": 0.5050505050505051,
+        "count": 99,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8,
+          "unchanged": 59
+        },
+        "positive_paper_lift_rate": 0.32323232323232326
+      },
+      "rolling": {
+        "20": {
+          "max_avg_paper_minus_baseline": 0.01385348915076971,
+          "min_avg_paper_minus_baseline": 0.008474892591621333,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.01385348915076971,
+              "avg_paper_minus_baseline": 0.01385348915076971,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 18,
+              "bad_rate": 0.9,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 18,
+                "missed_win": 2
+              },
+              "positive_paper_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.008474892591621333,
+              "avg_paper_minus_baseline": 0.008474892591621333,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 14,
+              "bad_rate": 0.7,
+              "count": 20,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 14,
+                "missed_win": 6
+              },
+              "positive_paper_lift_rate": 0.7,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_paper_minus_baseline": 0.016531036976986303,
+          "min_avg_paper_minus_baseline": -0.0049363474461768244,
+          "positive_window_count": 1,
+          "positive_window_rate": 0.5,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.016531036976986303,
+              "avg_paper_minus_baseline": 0.016531036976986303,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 28,
+              "bad_rate": 0.9333333333333333,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 28,
+                "missed_win": 2
+              },
+              "positive_paper_lift_rate": 0.9333333333333333,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": 0.0049363474461768244,
+              "avg_paper_minus_baseline": -0.0049363474461768244,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 4,
+              "bad_rate": 0.4,
+              "count": 10,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 4,
+                "missed_win": 6
+              },
+              "positive_paper_lift_rate": 0.4,
+              "start_timestamp": 1780696800.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_paper_minus_baseline": 0.011164190871195521,
+          "min_avg_paper_minus_baseline": 0.011164190871195521,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.011164190871195521,
+              "avg_paper_minus_baseline": 0.011164190871195521,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 32,
+              "bad_rate": 0.8,
+              "count": 40,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 32,
+                "missed_win": 8
+              },
+              "positive_paper_lift_rate": 0.8,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": false,
+      "status": "fail"
+    },
+    {
+      "active_changed": {
+        "avg_baseline_net_return": -0.01903733430528352,
+        "avg_paper_minus_baseline": 0.01903733430528352,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 31,
+        "bad_rate": 0.775,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 31,
+          "missed_win": 9
+        },
+        "positive_paper_lift_rate": 0.775
+      },
+      "changed": {
+        "avg_baseline_net_return": -0.01903733430528352,
+        "avg_paper_minus_baseline": 0.01903733430528352,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 31,
+        "bad_rate": 0.775,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 31,
+          "missed_win": 9
+        },
+        "positive_paper_lift_rate": 0.775
+      },
+      "failure_reasons": [
+        "rolling_not_stable"
+      ],
+      "fee_bps": 2.0,
+      "horizon_bars": 12,
+      "labeled_count": 180,
+      "paper_active": {
+        "avg_baseline_net_return": 0.001153410388834408,
+        "avg_paper_minus_baseline": 0.007691852244558998,
+        "avg_paper_net_return": 0.008845262633393407,
+        "bad_count": 42,
+        "bad_rate": 0.42424242424242425,
+        "count": 99,
+        "outcome_labels": {
+          "avoided_loss": 31,
+          "missed_win": 9,
+          "unchanged": 59
+        },
+        "positive_paper_lift_rate": 0.31313131313131315
+      },
+      "rolling": {
+        "20": {
+          "max_avg_paper_minus_baseline": 0.030008584926089942,
+          "min_avg_paper_minus_baseline": 0.008066083684477098,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.030008584926089942,
+              "avg_paper_minus_baseline": 0.030008584926089942,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 19,
+              "bad_rate": 0.95,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 19,
+                "missed_win": 1
+              },
+              "positive_paper_lift_rate": 0.95,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.008066083684477098,
+              "avg_paper_minus_baseline": 0.008066083684477098,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 12,
+              "bad_rate": 0.6,
+              "count": 20,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 12,
+                "missed_win": 8
+              },
+              "positive_paper_lift_rate": 0.6,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_paper_minus_baseline": 0.02849259939533878,
+          "min_avg_paper_minus_baseline": -0.009328460964882256,
+          "positive_window_count": 1,
+          "positive_window_rate": 0.5,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.02849259939533878,
+              "avg_paper_minus_baseline": 0.02849259939533878,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 29,
+              "bad_rate": 0.9666666666666667,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 29,
+                "missed_win": 1
+              },
+              "positive_paper_lift_rate": 0.9666666666666667,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": 0.009328460964882256,
+              "avg_paper_minus_baseline": -0.009328460964882256,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 2,
+              "bad_rate": 0.2,
+              "count": 10,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 2,
+                "missed_win": 8
+              },
+              "positive_paper_lift_rate": 0.2,
+              "start_timestamp": 1780696800.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_paper_minus_baseline": 0.01903733430528352,
+          "min_avg_paper_minus_baseline": 0.01903733430528352,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.01903733430528352,
+              "avg_paper_minus_baseline": 0.01903733430528352,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 31,
+              "bad_rate": 0.775,
+              "count": 40,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 31,
+                "missed_win": 9
+              },
+              "positive_paper_lift_rate": 0.775,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": false,
+      "status": "fail"
+    },
+    {
+      "active_changed": {
+        "avg_baseline_net_return": -0.019337334305283522,
+        "avg_paper_minus_baseline": 0.019337334305283522,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 31,
+        "bad_rate": 0.775,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 31,
+          "missed_win": 9
+        },
+        "positive_paper_lift_rate": 0.775
+      },
+      "changed": {
+        "avg_baseline_net_return": -0.019337334305283522,
+        "avg_paper_minus_baseline": 0.019337334305283522,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 31,
+        "bad_rate": 0.775,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 31,
+          "missed_win": 9
+        },
+        "positive_paper_lift_rate": 0.775
+      },
+      "failure_reasons": [
+        "rolling_not_stable"
+      ],
+      "fee_bps": 5.0,
+      "horizon_bars": 12,
+      "labeled_count": 180,
+      "paper_active": {
+        "avg_baseline_net_return": 0.000853410388834407,
+        "avg_paper_minus_baseline": 0.00781306436577112,
+        "avg_paper_net_return": 0.008666474754605528,
+        "bad_count": 42,
+        "bad_rate": 0.42424242424242425,
+        "count": 99,
+        "outcome_labels": {
+          "avoided_loss": 31,
+          "missed_win": 9,
+          "unchanged": 59
+        },
+        "positive_paper_lift_rate": 0.31313131313131315
+      },
+      "rolling": {
+        "20": {
+          "max_avg_paper_minus_baseline": 0.030308584926089944,
+          "min_avg_paper_minus_baseline": 0.0083660836844771,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.030308584926089944,
+              "avg_paper_minus_baseline": 0.030308584926089944,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 19,
+              "bad_rate": 0.95,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 19,
+                "missed_win": 1
+              },
+              "positive_paper_lift_rate": 0.95,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.0083660836844771,
+              "avg_paper_minus_baseline": 0.0083660836844771,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 12,
+              "bad_rate": 0.6,
+              "count": 20,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 12,
+                "missed_win": 8
+              },
+              "positive_paper_lift_rate": 0.6,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_paper_minus_baseline": 0.02879259939533878,
+          "min_avg_paper_minus_baseline": -0.009028460964882256,
+          "positive_window_count": 1,
+          "positive_window_rate": 0.5,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.02879259939533878,
+              "avg_paper_minus_baseline": 0.02879259939533878,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 29,
+              "bad_rate": 0.9666666666666667,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 29,
+                "missed_win": 1
+              },
+              "positive_paper_lift_rate": 0.9666666666666667,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": 0.009028460964882256,
+              "avg_paper_minus_baseline": -0.009028460964882256,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 2,
+              "bad_rate": 0.2,
+              "count": 10,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 2,
+                "missed_win": 8
+              },
+              "positive_paper_lift_rate": 0.2,
+              "start_timestamp": 1780696800.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_paper_minus_baseline": 0.019337334305283522,
+          "min_avg_paper_minus_baseline": 0.019337334305283522,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.019337334305283522,
+              "avg_paper_minus_baseline": 0.019337334305283522,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 31,
+              "bad_rate": 0.775,
+              "count": 40,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 31,
+                "missed_win": 9
+              },
+              "positive_paper_lift_rate": 0.775,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": false,
+      "status": "fail"
+    },
+    {
+      "active_changed": {
+        "avg_baseline_net_return": -0.019837334305283522,
+        "avg_paper_minus_baseline": 0.019837334305283522,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 32,
+        "bad_rate": 0.8,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8
+        },
+        "positive_paper_lift_rate": 0.8
+      },
+      "changed": {
+        "avg_baseline_net_return": -0.019837334305283522,
+        "avg_paper_minus_baseline": 0.019837334305283522,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 32,
+        "bad_rate": 0.8,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8
+        },
+        "positive_paper_lift_rate": 0.8
+      },
+      "failure_reasons": [
+        "rolling_not_stable"
+      ],
+      "fee_bps": 10.0,
+      "horizon_bars": 12,
+      "labeled_count": 180,
+      "paper_active": {
+        "avg_baseline_net_return": 0.0003534103888344068,
+        "avg_paper_minus_baseline": 0.008015084567791321,
+        "avg_paper_net_return": 0.008368494956625729,
+        "bad_count": 43,
+        "bad_rate": 0.43434343434343436,
+        "count": 99,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8,
+          "unchanged": 59
+        },
+        "positive_paper_lift_rate": 0.32323232323232326
+      },
+      "rolling": {
+        "20": {
+          "max_avg_paper_minus_baseline": 0.030808584926089944,
+          "min_avg_paper_minus_baseline": 0.008866083684477099,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.030808584926089944,
+              "avg_paper_minus_baseline": 0.030808584926089944,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 20,
+              "bad_rate": 1.0,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 20
+              },
+              "positive_paper_lift_rate": 1.0,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.008866083684477099,
+              "avg_paper_minus_baseline": 0.008866083684477099,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 12,
+              "bad_rate": 0.6,
+              "count": 20,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 12,
+                "missed_win": 8
+              },
+              "positive_paper_lift_rate": 0.6,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_paper_minus_baseline": 0.02929259939533878,
+          "min_avg_paper_minus_baseline": -0.008528460964882256,
+          "positive_window_count": 1,
+          "positive_window_rate": 0.5,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.02929259939533878,
+              "avg_paper_minus_baseline": 0.02929259939533878,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 30,
+              "bad_rate": 1.0,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 30
+              },
+              "positive_paper_lift_rate": 1.0,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": 0.008528460964882256,
+              "avg_paper_minus_baseline": -0.008528460964882256,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 2,
+              "bad_rate": 0.2,
+              "count": 10,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 2,
+                "missed_win": 8
+              },
+              "positive_paper_lift_rate": 0.2,
+              "start_timestamp": 1780696800.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_paper_minus_baseline": 0.019837334305283522,
+          "min_avg_paper_minus_baseline": 0.019837334305283522,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.019837334305283522,
+              "avg_paper_minus_baseline": 0.019837334305283522,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 32,
+              "bad_rate": 0.8,
+              "count": 40,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 32,
+                "missed_win": 8
+              },
+              "positive_paper_lift_rate": 0.8,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": false,
+      "status": "fail"
+    },
+    {
+      "active_changed": {
+        "avg_baseline_net_return": -0.028653237975448997,
+        "avg_paper_minus_baseline": 0.028653237975448997,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 32,
+        "bad_rate": 0.8,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8
+        },
+        "positive_paper_lift_rate": 0.8
+      },
+      "changed": {
+        "avg_baseline_net_return": -0.028653237975448997,
+        "avg_paper_minus_baseline": 0.028653237975448997,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 32,
+        "bad_rate": 0.8,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8
+        },
+        "positive_paper_lift_rate": 0.8
+      },
+      "failure_reasons": [
+        "rolling_not_stable"
+      ],
+      "fee_bps": 2.0,
+      "horizon_bars": 24,
+      "labeled_count": 180,
+      "paper_active": {
+        "avg_baseline_net_return": 0.00436637418019321,
+        "avg_paper_minus_baseline": 0.011577065848666261,
+        "avg_paper_net_return": 0.01594344002885947,
+        "bad_count": 38,
+        "bad_rate": 0.3838383838383838,
+        "count": 99,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8,
+          "unchanged": 59
+        },
+        "positive_paper_lift_rate": 0.32323232323232326
+      },
+      "rolling": {
+        "20": {
+          "max_avg_paper_minus_baseline": 0.04612896541309314,
+          "min_avg_paper_minus_baseline": 0.011177510537804853,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.04612896541309314,
+              "avg_paper_minus_baseline": 0.04612896541309314,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 20,
+              "bad_rate": 1.0,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 20
+              },
+              "positive_paper_lift_rate": 1.0,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.011177510537804853,
+              "avg_paper_minus_baseline": 0.011177510537804853,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 12,
+              "bad_rate": 0.6,
+              "count": 20,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 12,
+                "missed_win": 8
+              },
+              "positive_paper_lift_rate": 0.6,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_paper_minus_baseline": 0.04459116659724163,
+          "min_avg_paper_minus_baseline": -0.019160547889928922,
+          "positive_window_count": 1,
+          "positive_window_rate": 0.5,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.04459116659724163,
+              "avg_paper_minus_baseline": 0.04459116659724163,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 30,
+              "bad_rate": 1.0,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 30
+              },
+              "positive_paper_lift_rate": 1.0,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": 0.019160547889928922,
+              "avg_paper_minus_baseline": -0.019160547889928922,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 2,
+              "bad_rate": 0.2,
+              "count": 10,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 2,
+                "missed_win": 8
+              },
+              "positive_paper_lift_rate": 0.2,
+              "start_timestamp": 1780696800.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_paper_minus_baseline": 0.028653237975448997,
+          "min_avg_paper_minus_baseline": 0.028653237975448997,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.028653237975448997,
+              "avg_paper_minus_baseline": 0.028653237975448997,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 32,
+              "bad_rate": 0.8,
+              "count": 40,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 32,
+                "missed_win": 8
+              },
+              "positive_paper_lift_rate": 0.8,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": false,
+      "status": "fail"
+    },
+    {
+      "active_changed": {
+        "avg_baseline_net_return": -0.028953237975449,
+        "avg_paper_minus_baseline": 0.028953237975449,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 32,
+        "bad_rate": 0.8,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8
+        },
+        "positive_paper_lift_rate": 0.8
+      },
+      "changed": {
+        "avg_baseline_net_return": -0.028953237975449,
+        "avg_paper_minus_baseline": 0.028953237975449,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 32,
+        "bad_rate": 0.8,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8
+        },
+        "positive_paper_lift_rate": 0.8
+      },
+      "failure_reasons": [
+        "rolling_not_stable"
+      ],
+      "fee_bps": 5.0,
+      "horizon_bars": 24,
+      "labeled_count": 180,
+      "paper_active": {
+        "avg_baseline_net_return": 0.00406637418019321,
+        "avg_paper_minus_baseline": 0.011698277969878382,
+        "avg_paper_net_return": 0.01576465215007159,
+        "bad_count": 38,
+        "bad_rate": 0.3838383838383838,
+        "count": 99,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8,
+          "unchanged": 59
+        },
+        "positive_paper_lift_rate": 0.32323232323232326
+      },
+      "rolling": {
+        "20": {
+          "max_avg_paper_minus_baseline": 0.04642896541309314,
+          "min_avg_paper_minus_baseline": 0.011477510537804854,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.04642896541309314,
+              "avg_paper_minus_baseline": 0.04642896541309314,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 20,
+              "bad_rate": 1.0,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 20
+              },
+              "positive_paper_lift_rate": 1.0,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.011477510537804854,
+              "avg_paper_minus_baseline": 0.011477510537804854,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 12,
+              "bad_rate": 0.6,
+              "count": 20,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 12,
+                "missed_win": 8
+              },
+              "positive_paper_lift_rate": 0.6,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_paper_minus_baseline": 0.04489116659724164,
+          "min_avg_paper_minus_baseline": -0.01886054788992892,
+          "positive_window_count": 1,
+          "positive_window_rate": 0.5,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.04489116659724164,
+              "avg_paper_minus_baseline": 0.04489116659724164,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 30,
+              "bad_rate": 1.0,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 30
+              },
+              "positive_paper_lift_rate": 1.0,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": 0.01886054788992892,
+              "avg_paper_minus_baseline": -0.01886054788992892,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 2,
+              "bad_rate": 0.2,
+              "count": 10,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 2,
+                "missed_win": 8
+              },
+              "positive_paper_lift_rate": 0.2,
+              "start_timestamp": 1780696800.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_paper_minus_baseline": 0.028953237975449,
+          "min_avg_paper_minus_baseline": 0.028953237975449,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.028953237975449,
+              "avg_paper_minus_baseline": 0.028953237975449,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 32,
+              "bad_rate": 0.8,
+              "count": 40,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 32,
+                "missed_win": 8
+              },
+              "positive_paper_lift_rate": 0.8,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": false,
+      "status": "fail"
+    },
+    {
+      "active_changed": {
+        "avg_baseline_net_return": -0.029453237975449,
+        "avg_paper_minus_baseline": 0.029453237975449,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 32,
+        "bad_rate": 0.8,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8
+        },
+        "positive_paper_lift_rate": 0.8
+      },
+      "changed": {
+        "avg_baseline_net_return": -0.029453237975449,
+        "avg_paper_minus_baseline": 0.029453237975449,
+        "avg_paper_net_return": 0.0,
+        "bad_count": 32,
+        "bad_rate": 0.8,
+        "count": 40,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8
+        },
+        "positive_paper_lift_rate": 0.8
+      },
+      "failure_reasons": [
+        "rolling_not_stable"
+      ],
+      "fee_bps": 10.0,
+      "horizon_bars": 24,
+      "labeled_count": 180,
+      "paper_active": {
+        "avg_baseline_net_return": 0.00356637418019321,
+        "avg_paper_minus_baseline": 0.011900298171898586,
+        "avg_paper_net_return": 0.015466672352091796,
+        "bad_count": 38,
+        "bad_rate": 0.3838383838383838,
+        "count": 99,
+        "outcome_labels": {
+          "avoided_loss": 32,
+          "missed_win": 8,
+          "unchanged": 59
+        },
+        "positive_paper_lift_rate": 0.32323232323232326
+      },
+      "rolling": {
+        "20": {
+          "max_avg_paper_minus_baseline": 0.04692896541309314,
+          "min_avg_paper_minus_baseline": 0.011977510537804855,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.04692896541309314,
+              "avg_paper_minus_baseline": 0.04692896541309314,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 20,
+              "bad_rate": 1.0,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 20
+              },
+              "positive_paper_lift_rate": 1.0,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.011977510537804855,
+              "avg_paper_minus_baseline": 0.011977510537804855,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 12,
+              "bad_rate": 0.6,
+              "count": 20,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 12,
+                "missed_win": 8
+              },
+              "positive_paper_lift_rate": 0.6,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_paper_minus_baseline": 0.045391166597241635,
+          "min_avg_paper_minus_baseline": -0.01836054788992892,
+          "positive_window_count": 1,
+          "positive_window_rate": 0.5,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.045391166597241635,
+              "avg_paper_minus_baseline": 0.045391166597241635,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 30,
+              "bad_rate": 1.0,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 30
+              },
+              "positive_paper_lift_rate": 1.0,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": 0.01836054788992892,
+              "avg_paper_minus_baseline": -0.01836054788992892,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 2,
+              "bad_rate": 0.2,
+              "count": 10,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 2,
+                "missed_win": 8
+              },
+              "positive_paper_lift_rate": 0.2,
+              "start_timestamp": 1780696800.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_paper_minus_baseline": 0.029453237975449,
+          "min_avg_paper_minus_baseline": 0.029453237975449,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.029453237975449,
+              "avg_paper_minus_baseline": 0.029453237975449,
+              "avg_paper_net_return": 0.0,
+              "bad_count": 32,
+              "bad_rate": 0.8,
+              "count": 40,
+              "end_timestamp": 1780891200.0,
+              "outcome_labels": {
+                "avoided_loss": 32,
+                "missed_win": 8
+              },
+              "positive_paper_lift_rate": 0.8,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": false,
+      "status": "fail"
+    }
+  ],
+  "fetch_errors": {},
+  "invalid_record_count": 0,
+  "pairs": [
+    "BNBUSDT|1h"
+  ],
+  "phase": "phase_6m_pa_paper_robustness",
+  "source_log": "logs/regime_v2_pa_asset_paper_decisions.jsonl",
+  "summary": {
+    "best_cell": {
+      "avg_paper_minus_baseline": 0.029453237975449,
+      "bad_rate": 0.8,
+      "count": 40,
+      "fee_bps": 10.0,
+      "horizon_bars": 24,
+      "positive_paper_lift_rate": 0.8
+    },
+    "candidate_count": 40,
+    "cell_count": 12,
+    "max_negative_cells": 1,
+    "min_positive_rate": 0.6,
+    "min_support": 30,
+    "negative_cell_count": 0,
+    "paper_ready": false,
+    "passing_cell_count": 0,
+    "passing_cell_floor": 10,
+    "recommendation": "hold_off",
+    "rolling_stable_cell_count": 0,
+    "rolling_stable_floor": 8,
+    "total_records": 180,
+    "worst_cell": {
+      "avg_paper_minus_baseline": 0.006701542048503745,
+      "bad_rate": 0.8,
+      "count": 40,
+      "fee_bps": 2.0,
+      "horizon_bars": 3,
+      "positive_paper_lift_rate": 0.8
+    },
+    "worst_rolling_window": {
+      "avg_baseline_net_return": 0.019160547889928922,
+      "avg_paper_minus_baseline": -0.019160547889928922,
+      "avg_paper_net_return": 0.0,
+      "bad_count": 2,
+      "bad_rate": 0.2,
+      "count": 10,
+      "end_timestamp": 1780891200.0,
+      "fee_bps": 2.0,
+      "horizon_bars": 24,
+      "outcome_labels": {
+        "avoided_loss": 2,
+        "missed_win": 8
+      },
+      "positive_paper_lift_rate": 0.2,
+      "rolling_window": 30,
+      "start_timestamp": 1780696800.0
+    }
+  }
+}

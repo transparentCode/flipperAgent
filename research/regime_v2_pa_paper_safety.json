@@ -1,0 +1,32 @@
+{
+  "expected_guardrail": {
+    "asset": "BNBUSDT",
+    "direction": 1,
+    "model_name": "PriceAction",
+    "notes": "Phase 6J BNBUSDT 1h paper guardrail candidate. Disabled by default.",
+    "paper_enabled": false,
+    "paper_log_enabled": false,
+    "paper_persist_enabled": false,
+    "paper_persist_path": "logs/regime_v2_pa_asset_paper_decisions.jsonl",
+    "timeframe": "1h"
+  },
+  "phase": "phase_6n_pa_paper_rollout_safety",
+  "summary": {
+    "enabled_pair_count": 0,
+    "enabled_pairs": [],
+    "expected_asset": "BNBUSDT",
+    "expected_pair_configured": true,
+    "expected_pair_paper_enabled": false,
+    "expected_pair_persist_enabled": false,
+    "expected_timeframe": "1h",
+    "live_gate_enabled_count": 0,
+    "live_gate_enabled_pairs": [],
+    "persist_enabled_pair_count": 0,
+    "persist_enabled_pairs": [],
+    "require_enabled": false,
+    "rollout_ready": false,
+    "safe": true,
+    "violation_count": 0
+  },
+  "violations": []
+}

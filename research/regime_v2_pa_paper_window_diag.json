@@ -1,0 +1,252 @@
+{
+  "failure_rows": [
+    {
+      "baseline_conviction": 0.34081054349822243,
+      "baseline_edge_score": 0.34081054349822243,
+      "baseline_net_return": -0.008321854400757887,
+      "baseline_selection_score": 0.11615182655955376,
+      "forward_log_return": -0.008121854400757886,
+      "outcome_label": "avoided_loss",
+      "paper_minus_baseline": 0.008321854400757887,
+      "paper_net_return": 0.0,
+      "paper_top_model": "None",
+      "timestamp": 1780696800.0
+    },
+    {
+      "baseline_conviction": 0.43458279966919694,
+      "baseline_edge_score": 0.43458279966919694,
+      "baseline_net_return": 0.003775039231104916,
+      "baseline_selection_score": 0.18886220976831736,
+      "forward_log_return": 0.003975039231104916,
+      "outcome_label": "missed_win",
+      "paper_minus_baseline": -0.003775039231104916,
+      "paper_net_return": 0.0,
+      "paper_top_model": "None",
+      "timestamp": 1780700400.0
+    },
+    {
+      "baseline_conviction": 0.10450932156126398,
+      "baseline_edge_score": 0.10450932156126398,
+      "baseline_net_return": -0.004682442614130613,
+      "baseline_selection_score": 0.010922198293195677,
+      "forward_log_return": -0.004482442614130613,
+      "outcome_label": "avoided_loss",
+      "paper_minus_baseline": 0.004682442614130613,
+      "paper_net_return": 0.0,
+      "paper_top_model": "None",
+      "timestamp": 1780704000.0
+    },
+    {
+      "baseline_conviction": 0.12534093833112067,
+      "baseline_edge_score": 0.12534093833112067,
+      "baseline_net_return": 0.026859225354962095,
+      "baseline_selection_score": 0.015710350821725796,
+      "forward_log_return": 0.027059225354962094,
+      "outcome_label": "missed_win",
+      "paper_minus_baseline": -0.026859225354962095,
+      "paper_net_return": 0.0,
+      "paper_top_model": "None",
+      "timestamp": 1780758000.0
+    },
+    {
+      "baseline_conviction": 0.03588787107108015,
+      "baseline_edge_score": 0.03588787107108015,
+      "baseline_net_return": 0.03428470043430299,
+      "baseline_selection_score": 0.0012879392900144715,
+      "forward_log_return": 0.03448470043430299,
+      "outcome_label": "missed_win",
+      "paper_minus_baseline": -0.03428470043430299,
+      "paper_net_return": 0.0,
+      "paper_top_model": "None",
+      "timestamp": 1780761600.0
+    },
+    {
+      "baseline_conviction": 0.010565309762861111,
+      "baseline_edge_score": 0.010565309762861111,
+      "baseline_net_return": 0.037991818554363746,
+      "baseline_selection_score": 0.0001116257703852083,
+      "forward_log_return": 0.038191818554363745,
+      "outcome_label": "missed_win",
+      "paper_minus_baseline": -0.037991818554363746,
+      "paper_net_return": 0.0,
+      "paper_top_model": "None",
+      "timestamp": 1780765200.0
+    },
+    {
+      "baseline_conviction": 0.04224900185724338,
+      "baseline_edge_score": 0.04224900185724338,
+      "baseline_net_return": 0.0385180081982893,
+      "baseline_selection_score": 0.0017849781579333548,
+      "forward_log_return": 0.0387180081982893,
+      "outcome_label": "missed_win",
+      "paper_minus_baseline": -0.0385180081982893,
+      "paper_net_return": 0.0,
+      "paper_top_model": "None",
+      "timestamp": 1780797600.0
+    },
+    {
+      "baseline_conviction": 0.00413236294794695,
+      "baseline_edge_score": 0.00413236294794695,
+      "baseline_net_return": 0.03141711070994268,
+      "baseline_selection_score": 1.7076423533564804e-05,
+      "forward_log_return": 0.03161711070994268,
+      "outcome_label": "missed_win",
+      "paper_minus_baseline": -0.03141711070994268,
+      "paper_net_return": 0.0,
+      "paper_top_model": "None",
+      "timestamp": 1780858800.0
+    },
+    {
+      "baseline_conviction": 0.17246504332400708,
+      "baseline_edge_score": 0.17246504332400708,
+      "baseline_net_return": 0.022057518444427278,
+      "baseline_selection_score": 0.02974419116875164,
+      "forward_log_return": 0.022257518444427277,
+      "outcome_label": "missed_win",
+      "paper_minus_baseline": -0.022057518444427278,
+      "paper_net_return": 0.0,
+      "paper_top_model": "None",
+      "timestamp": 1780866000.0
+    },
+    {
+      "baseline_conviction": 0.006076046970517464,
+      "baseline_edge_score": 0.006076046970517464,
+      "baseline_net_return": 0.009706354986784717,
+      "baseline_selection_score": 3.691834678793445e-05,
+      "forward_log_return": 0.009906354986784717,
+      "outcome_label": "missed_win",
+      "paper_minus_baseline": -0.009706354986784717,
+      "paper_net_return": 0.0,
+      "paper_top_model": "None",
+      "timestamp": 1780891200.0
+    }
+  ],
+  "fetch_errors": {},
+  "invalid_record_count": 0,
+  "pairs": [
+    "BNBUSDT|1h"
+  ],
+  "phase": "phase_6s_pa_paper_failure_window_diagnostics",
+  "segments": {
+    "after_failure_window": {
+      "avg_baseline_conviction": null,
+      "avg_baseline_edge_score": null,
+      "avg_baseline_net_return": null,
+      "avg_baseline_selection_score": null,
+      "avg_forward_log_return": null,
+      "avg_paper_minus_baseline": null,
+      "avg_paper_net_return": null,
+      "avoided_loss_count": 0,
+      "count": 0,
+      "missed_win_count": 0,
+      "name": "after_failure_window",
+      "outcome_labels": {},
+      "paper_top_models": {},
+      "positive_paper_lift_rate": null
+    },
+    "all_active_changed": {
+      "avg_baseline_conviction": 0.12782734223324205,
+      "avg_baseline_edge_score": 0.12782734223324205,
+      "avg_baseline_net_return": -0.028653237975448997,
+      "avg_baseline_selection_score": 0.03295425133809775,
+      "avg_forward_log_return": -0.028453237975449,
+      "avg_paper_minus_baseline": 0.028653237975448997,
+      "avg_paper_net_return": 0.0,
+      "avoided_loss_count": 32,
+      "count": 40,
+      "missed_win_count": 8,
+      "name": "all_active_changed",
+      "outcome_labels": {
+        "avoided_loss": 32,
+        "missed_win": 8
+      },
+      "paper_top_models": {
+        "None": 40
+      },
+      "positive_paper_lift_rate": 0.8
+    },
+    "before_failure_window": {
+      "avg_baseline_conviction": 0.12788248167787405,
+      "avg_baseline_edge_score": 0.12788248167787405,
+      "avg_baseline_net_return": -0.04459116659724163,
+      "avg_baseline_selection_score": 0.03178469129745704,
+      "avg_forward_log_return": -0.044391166597241634,
+      "avg_paper_minus_baseline": 0.04459116659724163,
+      "avg_paper_net_return": 0.0,
+      "avoided_loss_count": 30,
+      "count": 30,
+      "missed_win_count": 0,
+      "name": "before_failure_window",
+      "outcome_labels": {
+        "avoided_loss": 30
+      },
+      "paper_top_models": {
+        "None": 30
+      },
+      "positive_paper_lift_rate": 1.0
+    },
+    "failure_window": {
+      "avg_baseline_conviction": 0.127661923899346,
+      "avg_baseline_edge_score": 0.127661923899346,
+      "avg_baseline_net_return": 0.019160547889928922,
+      "avg_baseline_selection_score": 0.03646293146001987,
+      "avg_forward_log_return": 0.01936054788992892,
+      "avg_paper_minus_baseline": -0.019160547889928922,
+      "avg_paper_net_return": 0.0,
+      "avoided_loss_count": 2,
+      "count": 10,
+      "missed_win_count": 8,
+      "name": "failure_window",
+      "outcome_labels": {
+        "avoided_loss": 2,
+        "missed_win": 8
+      },
+      "paper_top_models": {
+        "None": 10
+      },
+      "positive_paper_lift_rate": 0.2
+    }
+  },
+  "source_log": "logs/regime_v2_pa_asset_paper_decisions.jsonl",
+  "source_robustness": "research/regime_v2_pa_paper_robustness.json",
+  "summary": {
+    "active_changed_count": 40,
+    "diagnosis": [
+      "negative_window_lift",
+      "missed_wins_dominate",
+      "flat_after_suppression",
+      "baseline_price_action_worked_in_window"
+    ],
+    "failure_avg_paper_minus_baseline": -0.019160547889928922,
+    "failure_avoided_loss_count": 2,
+    "failure_missed_win_count": 8,
+    "failure_positive_lift_rate": 0.2,
+    "failure_window_count": 10,
+    "fee_bps": 2.0,
+    "horizon_bars": 24,
+    "min_changed_rows": 10,
+    "recommendation": "hold_off_and_investigate_window",
+    "rolling_window": 30,
+    "total_labeled_records": 180,
+    "window_end_timestamp": 1780891200.0,
+    "window_start_timestamp": 1780696800.0
+  },
+  "window": {
+    "avg_baseline_net_return": 0.019160547889928922,
+    "avg_paper_minus_baseline": -0.019160547889928922,
+    "avg_paper_net_return": 0.0,
+    "bad_count": 2,
+    "bad_rate": 0.2,
+    "count": 10,
+    "end_timestamp": 1780891200.0,
+    "fee_bps": 2.0,
+    "horizon_bars": 24,
+    "outcome_labels": {
+      "avoided_loss": 2,
+      "missed_win": 8
+    },
+    "positive_paper_lift_rate": 0.2,
+    "rolling_window": 30,
+    "start_timestamp": 1780696800.0
+  }
+}

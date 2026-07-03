@@ -1,0 +1,369 @@
+{
+  "phase": "phase_7q_setup_transition_diagnostics",
+  "summary": {
+    "asset_summary": {
+      "BNBUSDT": {
+        "best_avg_split_directional_return": 0.0014702568291734288,
+        "best_passed_split_count": 2,
+        "best_worst_split_directional_return": -0.005427503391288226,
+        "max_active_count": 92,
+        "variant_count": 9
+      },
+      "BTCUSDT": {
+        "best_avg_split_directional_return": 0.0009192539894406193,
+        "best_passed_split_count": 1,
+        "best_worst_split_directional_return": -0.0025965827966905348,
+        "max_active_count": 76,
+        "variant_count": 9
+      },
+      "ETHUSDT": {
+        "best_avg_split_directional_return": 0.0047578560351840115,
+        "best_passed_split_count": 3,
+        "best_worst_split_directional_return": -0.0027732003430175805,
+        "max_active_count": 66,
+        "variant_count": 9
+      }
+    },
+    "best_failure_profile": {
+      "failed_direction_distribution": {
+        "down": 8,
+        "up": 5
+      },
+      "failed_split_count": 1,
+      "failure_reason_distribution": {
+        "avg_return_too_low": 1,
+        "low_passing_rate": 1,
+        "worst_cell_too_negative": 1
+      },
+      "worst_failed_split": {
+        "active_count": 13,
+        "avg_directional_net_return": -0.0004858095056605013,
+        "direction_distribution": {
+          "down": 8,
+          "up": 5
+        },
+        "end_timestamp": "2026-06-26 01:00:00+00:00",
+        "failure_reasons": [
+          "low_passing_rate",
+          "avg_return_too_low",
+          "worst_cell_too_negative"
+        ],
+        "passing_cell_rate": 0.5,
+        "split_index": 3,
+        "start_timestamp": "2026-06-18 14:00:00+00:00",
+        "worst_directional_net_return": -0.003882197085900328
+      }
+    },
+    "best_variant": {
+      "active_count": 61,
+      "asset": "ETHUSDT",
+      "avg_split_directional_return": 0.0039739721595662865,
+      "config": {
+        "lookback_bars": 8,
+        "max_conflict_count": 1,
+        "max_risk_score": 0.72,
+        "min_attempt_score": 0.5,
+        "min_candidate_score": 0.62,
+        "min_context_score": 0.7,
+        "min_wick_score": 0.35
+      },
+      "direction_distribution": {
+        "down": 31,
+        "up": 30
+      },
+      "passed_split_count": 3,
+      "ready": false,
+      "split_count": 4,
+      "state_distribution": {
+        "BREAKOUT_EXHAUSTION_TRANSITION": 1,
+        "FAILED_BREAKOUT_REVERSAL_SETUP": 60,
+        "NO_BREAKOUT_TRANSITION": 659
+      },
+      "timeframe": "1h",
+      "worst_split_directional_return": -0.003882197085900328
+    },
+    "recommendation": "diagnose_worst_cell_prune_before_promotion",
+    "variant_count": 27
+  },
+  "top_variants": [
+    {
+      "active_count": 61,
+      "asset": "ETHUSDT",
+      "avg_split_directional_return": 0.0039739721595662865,
+      "config": {
+        "lookback_bars": 8,
+        "max_conflict_count": 1,
+        "max_risk_score": 0.72,
+        "min_attempt_score": 0.5,
+        "min_candidate_score": 0.62,
+        "min_context_score": 0.7,
+        "min_wick_score": 0.35
+      },
+      "direction_distribution": {
+        "down": 31,
+        "up": 30
+      },
+      "passed_split_count": 3,
+      "ready": false,
+      "split_count": 4,
+      "state_distribution": {
+        "BREAKOUT_EXHAUSTION_TRANSITION": 1,
+        "FAILED_BREAKOUT_REVERSAL_SETUP": 60,
+        "NO_BREAKOUT_TRANSITION": 659
+      },
+      "timeframe": "1h",
+      "worst_split_directional_return": -0.003882197085900328
+    },
+    {
+      "active_count": 66,
+      "asset": "ETHUSDT",
+      "avg_split_directional_return": 0.003671589930131386,
+      "config": {
+        "lookback_bars": 8,
+        "max_conflict_count": 1,
+        "max_risk_score": 0.72,
+        "min_attempt_score": 0.5,
+        "min_candidate_score": 0.58,
+        "min_context_score": 0.7,
+        "min_wick_score": 0.35
+      },
+      "direction_distribution": {
+        "down": 33,
+        "up": 33
+      },
+      "passed_split_count": 3,
+      "ready": false,
+      "split_count": 4,
+      "state_distribution": {
+        "BREAKOUT_EXHAUSTION_TRANSITION": 2,
+        "FAILED_BREAKOUT_REVERSAL_SETUP": 64,
+        "NO_BREAKOUT_TRANSITION": 654
+      },
+      "timeframe": "1h",
+      "worst_split_directional_return": -0.003882197085900328
+    },
+    {
+      "active_count": 52,
+      "asset": "ETHUSDT",
+      "avg_split_directional_return": 0.004598568998353891,
+      "config": {
+        "lookback_bars": 8,
+        "max_conflict_count": 1,
+        "max_risk_score": 0.72,
+        "min_attempt_score": 0.5,
+        "min_candidate_score": 0.66,
+        "min_context_score": 0.7,
+        "min_wick_score": 0.35
+      },
+      "direction_distribution": {
+        "down": 25,
+        "up": 27
+      },
+      "passed_split_count": 2,
+      "ready": false,
+      "split_count": 4,
+      "state_distribution": {
+        "FAILED_BREAKOUT_REVERSAL_SETUP": 52,
+        "NO_BREAKOUT_TRANSITION": 668
+      },
+      "timeframe": "1h",
+      "worst_split_directional_return": -0.0028739044176989913
+    },
+    {
+      "active_count": 40,
+      "asset": "ETHUSDT",
+      "avg_split_directional_return": 0.004074906459843064,
+      "config": {
+        "lookback_bars": 20,
+        "max_conflict_count": 1,
+        "max_risk_score": 0.72,
+        "min_attempt_score": 0.5,
+        "min_candidate_score": 0.62,
+        "min_context_score": 0.7,
+        "min_wick_score": 0.35
+      },
+      "direction_distribution": {
+        "down": 24,
+        "up": 16
+      },
+      "passed_split_count": 2,
+      "ready": false,
+      "split_count": 4,
+      "state_distribution": {
+        "BREAKOUT_EXHAUSTION_TRANSITION": 9,
+        "FAILED_BREAKOUT_REVERSAL_SETUP": 31,
+        "NO_BREAKOUT_TRANSITION": 680
+      },
+      "timeframe": "1h",
+      "worst_split_directional_return": -0.006713553121788876
+    },
+    {
+      "active_count": 57,
+      "asset": "ETHUSDT",
+      "avg_split_directional_return": 0.0035872482982254035,
+      "config": {
+        "lookback_bars": 12,
+        "max_conflict_count": 1,
+        "max_risk_score": 0.72,
+        "min_attempt_score": 0.5,
+        "min_candidate_score": 0.58,
+        "min_context_score": 0.7,
+        "min_wick_score": 0.35
+      },
+      "direction_distribution": {
+        "down": 31,
+        "up": 26
+      },
+      "passed_split_count": 2,
+      "ready": false,
+      "split_count": 4,
+      "state_distribution": {
+        "BREAKOUT_EXHAUSTION_TRANSITION": 7,
+        "FAILED_BREAKOUT_REVERSAL_SETUP": 50,
+        "NO_BREAKOUT_TRANSITION": 663
+      },
+      "timeframe": "1h",
+      "worst_split_directional_return": -0.003829429381405423
+    },
+    {
+      "active_count": 45,
+      "asset": "ETHUSDT",
+      "avg_split_directional_return": 0.0034032068067827307,
+      "config": {
+        "lookback_bars": 20,
+        "max_conflict_count": 1,
+        "max_risk_score": 0.72,
+        "min_attempt_score": 0.5,
+        "min_candidate_score": 0.58,
+        "min_context_score": 0.7,
+        "min_wick_score": 0.35
+      },
+      "direction_distribution": {
+        "down": 28,
+        "up": 17
+      },
+      "passed_split_count": 2,
+      "ready": false,
+      "split_count": 4,
+      "state_distribution": {
+        "BREAKOUT_EXHAUSTION_TRANSITION": 14,
+        "FAILED_BREAKOUT_REVERSAL_SETUP": 31,
+        "NO_BREAKOUT_TRANSITION": 675
+      },
+      "timeframe": "1h",
+      "worst_split_directional_return": -0.006819196861712534
+    },
+    {
+      "active_count": 47,
+      "asset": "BNBUSDT",
+      "avg_split_directional_return": 0.0014702568291734288,
+      "config": {
+        "lookback_bars": 20,
+        "max_conflict_count": 1,
+        "max_risk_score": 0.72,
+        "min_attempt_score": 0.5,
+        "min_candidate_score": 0.66,
+        "min_context_score": 0.7,
+        "min_wick_score": 0.35
+      },
+      "direction_distribution": {
+        "down": 25,
+        "up": 22
+      },
+      "passed_split_count": 2,
+      "ready": false,
+      "split_count": 4,
+      "state_distribution": {
+        "BREAKOUT_EXHAUSTION_TRANSITION": 3,
+        "FAILED_BREAKOUT_REVERSAL_SETUP": 44,
+        "NO_BREAKOUT_TRANSITION": 673
+      },
+      "timeframe": "1h",
+      "worst_split_directional_return": -0.006266821230584193
+    },
+    {
+      "active_count": 73,
+      "asset": "BNBUSDT",
+      "avg_split_directional_return": 0.00021240966946155048,
+      "config": {
+        "lookback_bars": 20,
+        "max_conflict_count": 1,
+        "max_risk_score": 0.72,
+        "min_attempt_score": 0.5,
+        "min_candidate_score": 0.58,
+        "min_context_score": 0.7,
+        "min_wick_score": 0.35
+      },
+      "direction_distribution": {
+        "down": 43,
+        "up": 30
+      },
+      "passed_split_count": 2,
+      "ready": false,
+      "split_count": 4,
+      "state_distribution": {
+        "BREAKOUT_EXHAUSTION_TRANSITION": 27,
+        "FAILED_BREAKOUT_REVERSAL_SETUP": 46,
+        "NO_BREAKOUT_TRANSITION": 647
+      },
+      "timeframe": "1h",
+      "worst_split_directional_return": -0.005969409615809888
+    },
+    {
+      "active_count": 83,
+      "asset": "BNBUSDT",
+      "avg_split_directional_return": 0.00013537456011377476,
+      "config": {
+        "lookback_bars": 8,
+        "max_conflict_count": 1,
+        "max_risk_score": 0.72,
+        "min_attempt_score": 0.5,
+        "min_candidate_score": 0.62,
+        "min_context_score": 0.7,
+        "min_wick_score": 0.35
+      },
+      "direction_distribution": {
+        "down": 43,
+        "up": 40
+      },
+      "passed_split_count": 2,
+      "ready": false,
+      "split_count": 4,
+      "state_distribution": {
+        "BREAKOUT_EXHAUSTION_TRANSITION": 3,
+        "FAILED_BREAKOUT_REVERSAL_SETUP": 80,
+        "NO_BREAKOUT_TRANSITION": 637
+      },
+      "timeframe": "1h",
+      "worst_split_directional_return": -0.0056916472959480146
+    },
+    {
+      "active_count": 92,
+      "asset": "BNBUSDT",
+      "avg_split_directional_return": -6.948577422411363e-05,
+      "config": {
+        "lookback_bars": 8,
+        "max_conflict_count": 1,
+        "max_risk_score": 0.72,
+        "min_attempt_score": 0.5,
+        "min_candidate_score": 0.58,
+        "min_context_score": 0.7,
+        "min_wick_score": 0.35
+      },
+      "direction_distribution": {
+        "down": 43,
+        "up": 49
+      },
+      "passed_split_count": 2,
+      "ready": false,
+      "split_count": 4,
+      "state_distribution": {
+        "BREAKOUT_EXHAUSTION_TRANSITION": 6,
+        "FAILED_BREAKOUT_REVERSAL_SETUP": 86,
+        "NO_BREAKOUT_TRANSITION": 628
+      },
+      "timeframe": "1h",
+      "worst_split_directional_return": -0.005427503391288226
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "actions": [
+    {
+      "action": "suppress_to_paper",
+      "action_labels": {
+        "avoided_loss": 31,
+        "missed_win": 9
+      },
+      "avg_action_minus_baseline": 0.019337334305283522,
+      "avg_action_net_return": 0.0,
+      "avg_baseline_net_return": -0.019337334305283522,
+      "avoided_loss_count": 31,
+      "count": 40,
+      "missed_win_count": 9,
+      "positive_action_lift_rate": 0.775
+    },
+    {
+      "action": "scale_baseline_0.25",
+      "action_labels": {
+        "avoided_loss": 31,
+        "missed_win": 9
+      },
+      "avg_action_minus_baseline": 0.014503000728962642,
+      "avg_action_net_return": -0.0048343335763208805,
+      "avg_baseline_net_return": -0.019337334305283522,
+      "avoided_loss_count": 31,
+      "count": 40,
+      "missed_win_count": 9,
+      "positive_action_lift_rate": 0.775
+    },
+    {
+      "action": "scale_baseline_0.5",
+      "action_labels": {
+        "avoided_loss": 31,
+        "missed_win": 9
+      },
+      "avg_action_minus_baseline": 0.009668667152641761,
+      "avg_action_net_return": -0.009668667152641761,
+      "avg_baseline_net_return": -0.019337334305283522,
+      "avoided_loss_count": 31,
+      "count": 40,
+      "missed_win_count": 9,
+      "positive_action_lift_rate": 0.775
+    },
+    {
+      "action": "scale_baseline_0.75",
+      "action_labels": {
+        "avoided_loss": 31,
+        "missed_win": 9
+      },
+      "avg_action_minus_baseline": 0.0048343335763208805,
+      "avg_action_net_return": -0.014503000728962642,
+      "avg_baseline_net_return": -0.019337334305283522,
+      "avoided_loss_count": 31,
+      "count": 40,
+      "missed_win_count": 9,
+      "positive_action_lift_rate": 0.775
+    },
+    {
+      "action": "keep_baseline",
+      "action_labels": {
+        "unchanged": 40
+      },
+      "avg_action_minus_baseline": 0.0,
+      "avg_action_net_return": -0.019337334305283522,
+      "avg_baseline_net_return": -0.019337334305283522,
+      "avoided_loss_count": 0,
+      "count": 40,
+      "missed_win_count": 0,
+      "positive_action_lift_rate": 0.0
+    }
+  ],
+  "invalid_record_count": 0,
+  "phase": "phase_6q_pa_paper_action_comparison",
+  "source_path": "research/regime_v2_pa_paper_outcomes.jsonl",
+  "summary": {
+    "action_count": 5,
+    "best_action": "suppress_to_paper",
+    "best_avg_action_minus_baseline": 0.019337334305283522,
+    "changed_only": true,
+    "cohort_count": 40,
+    "current_action": "suppress_to_paper",
+    "current_avg_action_minus_baseline": 0.019337334305283522,
+    "current_rank": 1,
+    "recommendation": "keep_suppress_to_paper",
+    "total_records": 180
+  }
+}

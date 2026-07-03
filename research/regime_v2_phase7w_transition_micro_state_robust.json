@@ -1,0 +1,438 @@
+{
+  "asset": [
+    "BNBUSDT",
+    "ETHUSDT",
+    "BTCUSDT"
+  ],
+  "input_rows": 720,
+  "matrix_report": {
+    "phase": "phase_7w_transition_micro_state_robust_matrix",
+    "summary": {
+      "assets": [
+        "BNBUSDT",
+        "BTCUSDT",
+        "ETHUSDT"
+      ],
+      "best_variant": {
+        "asset": "BTCUSDT",
+        "breakout_better_count": 3,
+        "recommendation": "micro_state_split_window_mixed",
+        "runtime_enabled_count": 0,
+        "support_ready": false,
+        "supported_breakout_better_count": 3,
+        "supported_window_count": 4,
+        "timeframe": "1h",
+        "window_count": 4,
+        "worst_breakout_return": -0.019998023133609776,
+        "worst_compression_return": -0.028108162456439937
+      },
+      "recommendation": "keep_diagnostic_not_robust",
+      "runtime_enabled_count": 0,
+      "support_ready_asset_count": 1,
+      "supported_breakout_better_count": 8,
+      "supported_window_count": 11,
+      "variant_count": 3
+    },
+    "variants": [
+      {
+        "asset": "BNBUSDT",
+        "breakout_better_count": 2,
+        "recommendation": "micro_state_split_window_mixed",
+        "runtime_enabled_count": 0,
+        "support_ready": false,
+        "supported_breakout_better_count": 2,
+        "supported_window_count": 4,
+        "timeframe": "1h",
+        "window_count": 4,
+        "worst_breakout_return": -0.021807424769890588,
+        "worst_compression_return": -0.04197438881769332
+      },
+      {
+        "asset": "ETHUSDT",
+        "breakout_better_count": 4,
+        "recommendation": "micro_state_split_window_supported",
+        "runtime_enabled_count": 0,
+        "support_ready": true,
+        "supported_breakout_better_count": 3,
+        "supported_window_count": 3,
+        "timeframe": "1h",
+        "window_count": 4,
+        "worst_breakout_return": -0.01993357142384784,
+        "worst_compression_return": -0.1372625352770353
+      },
+      {
+        "asset": "BTCUSDT",
+        "breakout_better_count": 3,
+        "recommendation": "micro_state_split_window_mixed",
+        "runtime_enabled_count": 0,
+        "support_ready": false,
+        "supported_breakout_better_count": 3,
+        "supported_window_count": 4,
+        "timeframe": "1h",
+        "window_count": 4,
+        "worst_breakout_return": -0.019998023133609776,
+        "worst_compression_return": -0.028108162456439937
+      }
+    ]
+  },
+  "phase": "phase_7w_transition_micro_state_robust_runner",
+  "timeframe": [
+    "1h"
+  ],
+  "variant_reports": [
+    {
+      "phase": "phase_7w_transition_micro_state_robust_retest",
+      "robust_report": {
+        "phase": "phase_7w_transition_micro_state_robust_report",
+        "summary": {
+          "asset": "BNBUSDT",
+          "breakout_better_count": 2,
+          "config": {
+            "lookback_bars": 8,
+            "max_conflict_count": 1,
+            "max_risk_score": 0.72,
+            "min_attempt_score": 0.5,
+            "min_candidate_score": 0.62,
+            "min_context_score": 0.7,
+            "min_state_active": 6,
+            "min_wick_score": 0.35,
+            "step_size": 180,
+            "window_size": 360
+          },
+          "recommendation": "micro_state_split_window_mixed",
+          "runtime_enabled_count": 0,
+          "support_ready": false,
+          "supported_breakout_better_count": 2,
+          "supported_window_count": 4,
+          "timeframe": "1h",
+          "window_count": 4,
+          "worst_breakout_return": -0.021807424769890588,
+          "worst_compression_return": -0.04197438881769332
+        },
+        "windows": [
+          {
+            "breakout_better": true,
+            "breakout_setup_active": 39,
+            "breakout_setup_avg_return": 0.0014352216200371594,
+            "breakout_setup_worst_return": -0.021807424769890588,
+            "compression_active": 45,
+            "compression_avg_return": -0.0005480744473349018,
+            "compression_worst_return": -0.04197438881769332,
+            "end": 720,
+            "is_full": true,
+            "row_count": 720,
+            "start": 0,
+            "support_ok": true,
+            "window_id": "full"
+          },
+          {
+            "breakout_better": false,
+            "breakout_setup_active": 22,
+            "breakout_setup_avg_return": 0.0035391219565613884,
+            "breakout_setup_worst_return": -0.021807424769890588,
+            "compression_active": 21,
+            "compression_avg_return": 0.0045237654657116905,
+            "compression_worst_return": -0.04197438881769332,
+            "end": 360,
+            "is_full": false,
+            "row_count": 360,
+            "start": 0,
+            "support_ok": true,
+            "window_id": "w1_0_360"
+          },
+          {
+            "breakout_better": false,
+            "breakout_setup_active": 18,
+            "breakout_setup_avg_return": -0.0012778797671538413,
+            "breakout_setup_worst_return": -0.02134833623786879,
+            "compression_active": 20,
+            "compression_avg_return": 0.0037243122660583793,
+            "compression_worst_return": -0.0175542812581269,
+            "end": 540,
+            "is_full": false,
+            "row_count": 360,
+            "start": 180,
+            "support_ok": true,
+            "window_id": "w2_180_540"
+          },
+          {
+            "breakout_better": true,
+            "breakout_setup_active": 17,
+            "breakout_setup_avg_return": -0.0012874729331118432,
+            "breakout_setup_worst_return": -0.02134833623786879,
+            "compression_active": 24,
+            "compression_avg_return": -0.005743617772894826,
+            "compression_worst_return": -0.022016503711447092,
+            "end": 720,
+            "is_full": false,
+            "row_count": 360,
+            "start": 360,
+            "support_ok": true,
+            "window_id": "w3_360_720"
+          }
+        ]
+      },
+      "summary": {
+        "asset": "BNBUSDT",
+        "breakout_better_count": 2,
+        "config": {
+          "lookback_bars": 8,
+          "max_conflict_count": 1,
+          "max_risk_score": 0.72,
+          "min_attempt_score": 0.5,
+          "min_candidate_score": 0.62,
+          "min_context_score": 0.7,
+          "min_state_active": 6,
+          "min_wick_score": 0.35,
+          "step_size": 180,
+          "window_size": 360
+        },
+        "recommendation": "micro_state_split_window_mixed",
+        "runtime_enabled_count": 0,
+        "support_ready": false,
+        "supported_breakout_better_count": 2,
+        "supported_window_count": 4,
+        "timeframe": "1h",
+        "window_count": 4,
+        "worst_breakout_return": -0.021807424769890588,
+        "worst_compression_return": -0.04197438881769332
+      }
+    },
+    {
+      "phase": "phase_7w_transition_micro_state_robust_retest",
+      "robust_report": {
+        "phase": "phase_7w_transition_micro_state_robust_report",
+        "summary": {
+          "asset": "ETHUSDT",
+          "breakout_better_count": 4,
+          "config": {
+            "lookback_bars": 8,
+            "max_conflict_count": 1,
+            "max_risk_score": 0.72,
+            "min_attempt_score": 0.5,
+            "min_candidate_score": 0.62,
+            "min_context_score": 0.7,
+            "min_state_active": 6,
+            "min_wick_score": 0.35,
+            "step_size": 180,
+            "window_size": 360
+          },
+          "recommendation": "micro_state_split_window_supported",
+          "runtime_enabled_count": 0,
+          "support_ready": true,
+          "supported_breakout_better_count": 3,
+          "supported_window_count": 3,
+          "timeframe": "1h",
+          "window_count": 4,
+          "worst_breakout_return": -0.01993357142384784,
+          "worst_compression_return": -0.1372625352770353
+        },
+        "windows": [
+          {
+            "breakout_better": true,
+            "breakout_setup_active": 18,
+            "breakout_setup_avg_return": 0.00787076545146753,
+            "breakout_setup_worst_return": -0.01993357142384784,
+            "compression_active": 47,
+            "compression_avg_return": -0.002290854221035898,
+            "compression_worst_return": -0.1372625352770353,
+            "end": 720,
+            "is_full": true,
+            "row_count": 720,
+            "start": 0,
+            "support_ok": true,
+            "window_id": "full"
+          },
+          {
+            "breakout_better": true,
+            "breakout_setup_active": 13,
+            "breakout_setup_avg_return": 0.007913134902957643,
+            "breakout_setup_worst_return": -0.01993357142384784,
+            "compression_active": 21,
+            "compression_avg_return": -0.007491768095328713,
+            "compression_worst_return": -0.1372625352770353,
+            "end": 360,
+            "is_full": false,
+            "row_count": 360,
+            "start": 0,
+            "support_ok": true,
+            "window_id": "w1_0_360"
+          },
+          {
+            "breakout_better": true,
+            "breakout_setup_active": 8,
+            "breakout_setup_avg_return": 0.005009967911902386,
+            "breakout_setup_worst_return": -0.01993357142384784,
+            "compression_active": 21,
+            "compression_avg_return": 0.004075798534069051,
+            "compression_worst_return": -0.020131315969715274,
+            "end": 540,
+            "is_full": false,
+            "row_count": 360,
+            "start": 180,
+            "support_ok": true,
+            "window_id": "w2_180_540"
+          },
+          {
+            "breakout_better": true,
+            "breakout_setup_active": 5,
+            "breakout_setup_avg_return": 0.00776060487759324,
+            "breakout_setup_worst_return": -0.005929702566776486,
+            "compression_active": 26,
+            "compression_avg_return": 0.0019098839082006063,
+            "compression_worst_return": -0.029277202292140207,
+            "end": 720,
+            "is_full": false,
+            "row_count": 360,
+            "start": 360,
+            "support_ok": false,
+            "window_id": "w3_360_720"
+          }
+        ]
+      },
+      "summary": {
+        "asset": "ETHUSDT",
+        "breakout_better_count": 4,
+        "config": {
+          "lookback_bars": 8,
+          "max_conflict_count": 1,
+          "max_risk_score": 0.72,
+          "min_attempt_score": 0.5,
+          "min_candidate_score": 0.62,
+          "min_context_score": 0.7,
+          "min_state_active": 6,
+          "min_wick_score": 0.35,
+          "step_size": 180,
+          "window_size": 360
+        },
+        "recommendation": "micro_state_split_window_supported",
+        "runtime_enabled_count": 0,
+        "support_ready": true,
+        "supported_breakout_better_count": 3,
+        "supported_window_count": 3,
+        "timeframe": "1h",
+        "window_count": 4,
+        "worst_breakout_return": -0.01993357142384784,
+        "worst_compression_return": -0.1372625352770353
+      }
+    },
+    {
+      "phase": "phase_7w_transition_micro_state_robust_retest",
+      "robust_report": {
+        "phase": "phase_7w_transition_micro_state_robust_report",
+        "summary": {
+          "asset": "BTCUSDT",
+          "breakout_better_count": 3,
+          "config": {
+            "lookback_bars": 8,
+            "max_conflict_count": 1,
+            "max_risk_score": 0.72,
+            "min_attempt_score": 0.5,
+            "min_candidate_score": 0.62,
+            "min_context_score": 0.7,
+            "min_state_active": 6,
+            "min_wick_score": 0.35,
+            "step_size": 180,
+            "window_size": 360
+          },
+          "recommendation": "micro_state_split_window_mixed",
+          "runtime_enabled_count": 0,
+          "support_ready": false,
+          "supported_breakout_better_count": 3,
+          "supported_window_count": 4,
+          "timeframe": "1h",
+          "window_count": 4,
+          "worst_breakout_return": -0.019998023133609776,
+          "worst_compression_return": -0.028108162456439937
+        },
+        "windows": [
+          {
+            "breakout_better": true,
+            "breakout_setup_active": 39,
+            "breakout_setup_avg_return": 0.0026041664575172,
+            "breakout_setup_worst_return": -0.019998023133609776,
+            "compression_active": 33,
+            "compression_avg_return": -0.001907064733628705,
+            "compression_worst_return": -0.028108162456439937,
+            "end": 720,
+            "is_full": true,
+            "row_count": 720,
+            "start": 0,
+            "support_ok": true,
+            "window_id": "full"
+          },
+          {
+            "breakout_better": true,
+            "breakout_setup_active": 28,
+            "breakout_setup_avg_return": 0.003208774791077652,
+            "breakout_setup_worst_return": -0.019998023133609776,
+            "compression_active": 13,
+            "compression_avg_return": -0.0046655879885625536,
+            "compression_worst_return": -0.028108162456439937,
+            "end": 360,
+            "is_full": false,
+            "row_count": 360,
+            "start": 0,
+            "support_ok": true,
+            "window_id": "w1_0_360"
+          },
+          {
+            "breakout_better": false,
+            "breakout_setup_active": 21,
+            "breakout_setup_avg_return": -0.0018810264745594473,
+            "breakout_setup_worst_return": -0.019998023133609776,
+            "compression_active": 9,
+            "compression_avg_return": 0.0012511215426398408,
+            "compression_worst_return": -0.013014756176057456,
+            "end": 540,
+            "is_full": false,
+            "row_count": 360,
+            "start": 180,
+            "support_ok": true,
+            "window_id": "w2_180_540"
+          },
+          {
+            "breakout_better": true,
+            "breakout_setup_active": 11,
+            "breakout_setup_avg_return": 0.0010651634266360486,
+            "breakout_setup_worst_return": -0.014025133318603444,
+            "compression_active": 20,
+            "compression_avg_return": 0.00036981160377701086,
+            "compression_worst_return": -0.020526904277584756,
+            "end": 720,
+            "is_full": false,
+            "row_count": 360,
+            "start": 360,
+            "support_ok": true,
+            "window_id": "w3_360_720"
+          }
+        ]
+      },
+      "summary": {
+        "asset": "BTCUSDT",
+        "breakout_better_count": 3,
+        "config": {
+          "lookback_bars": 8,
+          "max_conflict_count": 1,
+          "max_risk_score": 0.72,
+          "min_attempt_score": 0.5,
+          "min_candidate_score": 0.62,
+          "min_context_score": 0.7,
+          "min_state_active": 6,
+          "min_wick_score": 0.35,
+          "step_size": 180,
+          "window_size": 360
+        },
+        "recommendation": "micro_state_split_window_mixed",
+        "runtime_enabled_count": 0,
+        "support_ready": false,
+        "supported_breakout_better_count": 3,
+        "supported_window_count": 4,
+        "timeframe": "1h",
+        "window_count": 4,
+        "worst_breakout_return": -0.019998023133609776,
+        "worst_compression_return": -0.028108162456439937
+      }
+    }
+  ]
+}

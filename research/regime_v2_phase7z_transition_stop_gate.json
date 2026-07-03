@@ -1,0 +1,105 @@
+{
+  "asset_gate": [
+    {
+      "asset": "BNBUSDT",
+      "asset_decision": "blocked",
+      "candidate_tag_count": 0,
+      "context_status": "no_context_tag",
+      "key_blocker": "robustness_mixed_or_support_thin",
+      "mixed_window_count": 2,
+      "robust_status": "not_support_ready",
+      "supported_breakout_better_count": 2,
+      "supported_window_count": 4
+    },
+    {
+      "asset": "ETHUSDT",
+      "asset_decision": "diagnostic_watch",
+      "candidate_tag_count": 0,
+      "context_status": "no_mixed_failures",
+      "key_blocker": "tail_or_support_review_required",
+      "mixed_window_count": 0,
+      "robust_status": "support_ready",
+      "supported_breakout_better_count": 3,
+      "supported_window_count": 3
+    },
+    {
+      "asset": "BTCUSDT",
+      "asset_decision": "blocked",
+      "candidate_tag_count": 0,
+      "context_status": "no_context_tag",
+      "key_blocker": "robustness_mixed_or_support_thin",
+      "mixed_window_count": 1,
+      "robust_status": "not_support_ready",
+      "supported_breakout_better_count": 3,
+      "supported_window_count": 4
+    }
+  ],
+  "evidence": {
+    "context_summary": {
+      "assets": [
+        "BNBUSDT",
+        "BTCUSDT",
+        "ETHUSDT"
+      ],
+      "candidate_tag_count": 0,
+      "mixed_window_count": 3,
+      "recommendation": "no_context_tag_found",
+      "top_global_candidate_tag": null,
+      "variant_count": 3
+    },
+    "robust_summary": {
+      "assets": [
+        "BNBUSDT",
+        "BTCUSDT",
+        "ETHUSDT"
+      ],
+      "best_variant": {
+        "asset": "BTCUSDT",
+        "breakout_better_count": 3,
+        "recommendation": "micro_state_split_window_mixed",
+        "runtime_enabled_count": 0,
+        "support_ready": false,
+        "supported_breakout_better_count": 3,
+        "supported_window_count": 4,
+        "timeframe": "1h",
+        "window_count": 4,
+        "worst_breakout_return": -0.019998023133609776,
+        "worst_compression_return": -0.028108162456439937
+      },
+      "recommendation": "keep_diagnostic_not_robust",
+      "runtime_enabled_count": 0,
+      "support_ready_asset_count": 1,
+      "supported_breakout_better_count": 8,
+      "supported_window_count": 11,
+      "variant_count": 3
+    }
+  },
+  "phase": "phase_7z_transition_stop_gate",
+  "summary": {
+    "blockers": [
+      "insufficient_support_ready_assets",
+      "not_all_supported_windows_breakout_better",
+      "no_policy_safe_context_tag_for_mixed_failures",
+      "asset_level_mixed_robustness"
+    ],
+    "candidate_context_tag_count": 0,
+    "criteria": {
+      "min_support_ready_assets": 2,
+      "require_context_tag": true,
+      "require_runtime_disabled": true
+    },
+    "decision": "freeze_transition_micro_states_diagnostic",
+    "mixed_window_count": 3,
+    "next_allowed_paths": [
+      "freeze_transition_micro_states_as_diagnostic_only",
+      "return_to_broader_playbook_orchestration",
+      "optional_later_feature_enrichment_branch",
+      "collect_more_assets_or_longer_history_before_promotion"
+    ],
+    "promotion_ready": false,
+    "runtime_enabled_count": 0,
+    "support_ready_asset_count": 1,
+    "supported_breakout_better_count": 8,
+    "supported_window_count": 11
+  }
+}

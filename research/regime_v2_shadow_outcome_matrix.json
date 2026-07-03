@@ -1,0 +1,1832 @@
+{
+  "cells": [
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_baseline_net_return": -0.0012692582684459817,
+          "avg_shadow_minus_baseline": 0.0005730281330670634,
+          "avg_shadow_net_return": -0.0006962301353789185,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 23,
+            "missed_win": 12,
+            "unchanged": 45
+          },
+          "positive_shadow_lift_rate": 0.2875
+        },
+        "BTCUSDT|4h": {
+          "avg_baseline_net_return": -0.0003835592058228718,
+          "avg_shadow_minus_baseline": 0.0008077364880647424,
+          "avg_shadow_net_return": 0.0004241772822418705,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 20,
+            "missed_win": 12,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.25
+        },
+        "ETHUSDT|4h": {
+          "avg_baseline_net_return": -0.001602345095833432,
+          "avg_shadow_minus_baseline": 0.0026479110776030748,
+          "avg_shadow_net_return": 0.0010455659817696426,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 27,
+            "missed_win": 18,
+            "unchanged": 35
+          },
+          "positive_shadow_lift_rate": 0.3375
+        },
+        "SOLUSDT|4h": {
+          "avg_baseline_net_return": 0.0011212002624931148,
+          "avg_shadow_minus_baseline": -0.00030359859151159153,
+          "avg_shadow_net_return": 0.0008176016709815232,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 14,
+            "missed_win": 17,
+            "neutral_changed": 1,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.175
+        }
+      },
+      "fee_bps": 2.0,
+      "horizon_bars": 3,
+      "labeled_count": 320,
+      "outcome_labels": {
+        "avoided_loss": 84,
+        "missed_win": 59,
+        "neutral_changed": 1,
+        "unchanged": 176
+      },
+      "segments": {
+        "all": {
+          "avg_baseline_net_return": -0.0005334905769022927,
+          "avg_shadow_minus_baseline": 0.0009312692768058222,
+          "avg_shadow_net_return": 0.0003977786999035295,
+          "count": 320,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 84,
+            "missed_win": 59,
+            "neutral_changed": 1,
+            "unchanged": 176
+          },
+          "positive_shadow_lift_rate": 0.2625
+        },
+        "changed": {
+          "avg_baseline_net_return": -0.002185147842391025,
+          "avg_shadow_minus_baseline": 0.002069487281790716,
+          "avg_shadow_net_return": -0.0001156605606003088,
+          "count": 144,
+          "median_shadow_minus_baseline": 0.0025378790203083833,
+          "outcome_labels": {
+            "avoided_loss": 84,
+            "missed_win": 59,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.5833333333333334
+        },
+        "gate_active": {
+          "avg_baseline_net_return": 0.0018410910779436043,
+          "avg_shadow_minus_baseline": -0.0019565485390732663,
+          "avg_shadow_net_return": -0.00011545746112966188,
+          "count": 14,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1,
+            "unchanged": 9
+          },
+          "positive_shadow_lift_rate": 0.07142857142857142
+        },
+        "gate_active_changed": {
+          "avg_baseline_net_return": 0.002147311764116252,
+          "avg_shadow_minus_baseline": -0.005478335909405145,
+          "avg_shadow_net_return": -0.003331024145288893,
+          "count": 5,
+          "median_shadow_minus_baseline": -0.007970933752440436,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.2
+        },
+        "non_subset_changed": {
+          "avg_baseline_net_return": -0.016655120726444466,
+          "avg_shadow_minus_baseline": 0.0,
+          "avg_shadow_net_return": -0.016655120726444466,
+          "count": 1,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.0
+        },
+        "subset_only_changed": {
+          "avg_baseline_net_return": -0.0020839592208242177,
+          "avg_shadow_minus_baseline": 0.0020839592208242177,
+          "avg_shadow_net_return": 0.0,
+          "count": 143,
+          "median_shadow_minus_baseline": 0.002575000821269863,
+          "outcome_labels": {
+            "avoided_loss": 84,
+            "missed_win": 59
+          },
+          "positive_shadow_lift_rate": 0.5874125874125874
+        }
+      },
+      "total_records": 320,
+      "unlabeled_count": 0,
+      "unlabeled_reasons": {}
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_baseline_net_return": -0.0015692582684459823,
+          "avg_shadow_minus_baseline": 0.0007042781330670635,
+          "avg_shadow_net_return": -0.0008649801353789188,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 24,
+            "missed_win": 11,
+            "unchanged": 45
+          },
+          "positive_shadow_lift_rate": 0.3
+        },
+        "BTCUSDT|4h": {
+          "avg_baseline_net_return": -0.0006835592058228722,
+          "avg_shadow_minus_baseline": 0.0009277364880647425,
+          "avg_shadow_net_return": 0.00024417728224187016,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 22,
+            "missed_win": 10,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.275
+        },
+        "ETHUSDT|4h": {
+          "avg_baseline_net_return": -0.0019023450958334325,
+          "avg_shadow_minus_baseline": 0.002816661077603075,
+          "avg_shadow_net_return": 0.0009143159817696424,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 29,
+            "missed_win": 16,
+            "unchanged": 35
+          },
+          "positive_shadow_lift_rate": 0.3625
+        },
+        "SOLUSDT|4h": {
+          "avg_baseline_net_return": 0.0008212002624931143,
+          "avg_shadow_minus_baseline": -0.00018734859151159136,
+          "avg_shadow_net_return": 0.0006338516709815229,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 15,
+            "missed_win": 16,
+            "neutral_changed": 1,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.1875
+        }
+      },
+      "fee_bps": 5.0,
+      "horizon_bars": 3,
+      "labeled_count": 320,
+      "outcome_labels": {
+        "avoided_loss": 90,
+        "missed_win": 53,
+        "neutral_changed": 1,
+        "unchanged": 176
+      },
+      "segments": {
+        "all": {
+          "avg_baseline_net_return": -0.0008334905769022932,
+          "avg_shadow_minus_baseline": 0.0010653317768058224,
+          "avg_shadow_net_return": 0.0002318411999035292,
+          "count": 320,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 90,
+            "missed_win": 53,
+            "neutral_changed": 1,
+            "unchanged": 176
+          },
+          "positive_shadow_lift_rate": 0.28125
+        },
+        "changed": {
+          "avg_baseline_net_return": -0.002485147842391025,
+          "avg_shadow_minus_baseline": 0.002367403948457383,
+          "avg_shadow_net_return": -0.00011774389393364213,
+          "count": 144,
+          "median_shadow_minus_baseline": 0.002837879020308383,
+          "outcome_labels": {
+            "avoided_loss": 90,
+            "missed_win": 53,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.625
+        },
+        "gate_active": {
+          "avg_baseline_net_return": 0.001541091077943604,
+          "avg_shadow_minus_baseline": -0.0018708342533589803,
+          "avg_shadow_net_return": -0.0003297431754153766,
+          "count": 14,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1,
+            "unchanged": 9
+          },
+          "positive_shadow_lift_rate": 0.07142857142857142
+        },
+        "gate_active_changed": {
+          "avg_baseline_net_return": 0.0018473117641162515,
+          "avg_shadow_minus_baseline": -0.005238335909405145,
+          "avg_shadow_net_return": -0.0033910241452888936,
+          "count": 5,
+          "median_shadow_minus_baseline": -0.007670933752440436,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.2
+        },
+        "non_subset_changed": {
+          "avg_baseline_net_return": -0.016955120726444468,
+          "avg_shadow_minus_baseline": 0.0,
+          "avg_shadow_net_return": -0.016955120726444468,
+          "count": 1,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.0
+        },
+        "subset_only_changed": {
+          "avg_baseline_net_return": -0.002383959220824218,
+          "avg_shadow_minus_baseline": 0.002383959220824218,
+          "avg_shadow_net_return": 0.0,
+          "count": 143,
+          "median_shadow_minus_baseline": 0.002875000821269863,
+          "outcome_labels": {
+            "avoided_loss": 90,
+            "missed_win": 53
+          },
+          "positive_shadow_lift_rate": 0.6293706293706294
+        }
+      },
+      "total_records": 320,
+      "unlabeled_count": 0,
+      "unlabeled_reasons": {}
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_baseline_net_return": -0.0020692582684459825,
+          "avg_shadow_minus_baseline": 0.0009230281330670634,
+          "avg_shadow_net_return": -0.0011462301353789186,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 25,
+            "missed_win": 10,
+            "unchanged": 45
+          },
+          "positive_shadow_lift_rate": 0.3125
+        },
+        "BTCUSDT|4h": {
+          "avg_baseline_net_return": -0.0011835592058228722,
+          "avg_shadow_minus_baseline": 0.0011277364880647425,
+          "avg_shadow_net_return": -5.582271775812986e-05,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 23,
+            "missed_win": 9,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.2875
+        },
+        "ETHUSDT|4h": {
+          "avg_baseline_net_return": -0.0024023450958334325,
+          "avg_shadow_minus_baseline": 0.0030979110776030746,
+          "avg_shadow_net_return": 0.0006955659817696423,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 29,
+            "missed_win": 16,
+            "unchanged": 35
+          },
+          "positive_shadow_lift_rate": 0.3625
+        },
+        "SOLUSDT|4h": {
+          "avg_baseline_net_return": 0.00032120026249311416,
+          "avg_shadow_minus_baseline": 6.401408488408589e-06,
+          "avg_shadow_net_return": 0.00032760167098152274,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 15,
+            "missed_win": 16,
+            "neutral_changed": 1,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.1875
+        }
+      },
+      "fee_bps": 10.0,
+      "horizon_bars": 3,
+      "labeled_count": 320,
+      "outcome_labels": {
+        "avoided_loss": 92,
+        "missed_win": 51,
+        "neutral_changed": 1,
+        "unchanged": 176
+      },
+      "segments": {
+        "all": {
+          "avg_baseline_net_return": -0.0013334905769022932,
+          "avg_shadow_minus_baseline": 0.0012887692768058223,
+          "avg_shadow_net_return": -4.4721300096470874e-05,
+          "count": 320,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 92,
+            "missed_win": 51,
+            "neutral_changed": 1,
+            "unchanged": 176
+          },
+          "positive_shadow_lift_rate": 0.2875
+        },
+        "changed": {
+          "avg_baseline_net_return": -0.002985147842391025,
+          "avg_shadow_minus_baseline": 0.0028639317262351607,
+          "avg_shadow_net_return": -0.00012121611615586436,
+          "count": 144,
+          "median_shadow_minus_baseline": 0.0033378790203083828,
+          "outcome_labels": {
+            "avoided_loss": 92,
+            "missed_win": 51,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.6388888888888888
+        },
+        "gate_active": {
+          "avg_baseline_net_return": 0.0010410910779436037,
+          "avg_shadow_minus_baseline": -0.0017279771105018376,
+          "avg_shadow_net_return": -0.0006868860325582339,
+          "count": 14,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1,
+            "unchanged": 9
+          },
+          "positive_shadow_lift_rate": 0.07142857142857142
+        },
+        "gate_active_changed": {
+          "avg_baseline_net_return": 0.0013473117641162517,
+          "avg_shadow_minus_baseline": -0.004838335909405146,
+          "avg_shadow_net_return": -0.0034910241452888935,
+          "count": 5,
+          "median_shadow_minus_baseline": -0.007170933752440436,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.2
+        },
+        "non_subset_changed": {
+          "avg_baseline_net_return": -0.017455120726444468,
+          "avg_shadow_minus_baseline": 0.0,
+          "avg_shadow_net_return": -0.017455120726444468,
+          "count": 1,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.0
+        },
+        "subset_only_changed": {
+          "avg_baseline_net_return": -0.002883959220824218,
+          "avg_shadow_minus_baseline": 0.002883959220824218,
+          "avg_shadow_net_return": 0.0,
+          "count": 143,
+          "median_shadow_minus_baseline": 0.003375000821269863,
+          "outcome_labels": {
+            "avoided_loss": 92,
+            "missed_win": 51
+          },
+          "positive_shadow_lift_rate": 0.6433566433566433
+        }
+      },
+      "total_records": 320,
+      "unlabeled_count": 0,
+      "unlabeled_reasons": {}
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_baseline_net_return": -0.0017685683007764605,
+          "avg_shadow_minus_baseline": 0.0017456365184521626,
+          "avg_shadow_net_return": -2.293178232429815e-05,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 21,
+            "missed_win": 14,
+            "unchanged": 45
+          },
+          "positive_shadow_lift_rate": 0.2625
+        },
+        "BTCUSDT|4h": {
+          "avg_baseline_net_return": 6.199566128922305e-05,
+          "avg_shadow_minus_baseline": 0.002663740323944925,
+          "avg_shadow_net_return": 0.002725735985234148,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 22,
+            "missed_win": 10,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.275
+        },
+        "ETHUSDT|4h": {
+          "avg_baseline_net_return": -0.0044168884144488284,
+          "avg_shadow_minus_baseline": 0.006787403220977815,
+          "avg_shadow_net_return": 0.002370514806528986,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 30,
+            "missed_win": 15,
+            "unchanged": 35
+          },
+          "positive_shadow_lift_rate": 0.375
+        },
+        "SOLUSDT|4h": {
+          "avg_baseline_net_return": 0.0031332701189530307,
+          "avg_shadow_minus_baseline": 0.0006102361948869008,
+          "avg_shadow_net_return": 0.0037435063138399312,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 18,
+            "missed_win": 13,
+            "neutral_changed": 1,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.225
+        }
+      },
+      "fee_bps": 2.0,
+      "horizon_bars": 6,
+      "labeled_count": 320,
+      "outcome_labels": {
+        "avoided_loss": 91,
+        "missed_win": 52,
+        "neutral_changed": 1,
+        "unchanged": 176
+      },
+      "segments": {
+        "all": {
+          "avg_baseline_net_return": -0.000747547733745759,
+          "avg_shadow_minus_baseline": 0.0029517540645654507,
+          "avg_shadow_net_return": 0.002204206330819692,
+          "count": 320,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 91,
+            "missed_win": 52,
+            "neutral_changed": 1,
+            "unchanged": 176
+          },
+          "positive_shadow_lift_rate": 0.284375
+        },
+        "changed": {
+          "avg_baseline_net_return": -0.006272117179272249,
+          "avg_shadow_minus_baseline": 0.006559453476812113,
+          "avg_shadow_net_return": 0.0002873362975398642,
+          "count": 144,
+          "median_shadow_minus_baseline": 0.003571098540153795,
+          "outcome_labels": {
+            "avoided_loss": 91,
+            "missed_win": 52,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.6319444444444444
+        },
+        "gate_active": {
+          "avg_baseline_net_return": 0.02172100287074203,
+          "avg_shadow_minus_baseline": -0.00013151467506926863,
+          "avg_shadow_net_return": 0.021589488195672763,
+          "count": 14,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1,
+            "unchanged": 9
+          },
+          "positive_shadow_lift_rate": 0.07142857142857142
+        },
+        "gate_active_changed": {
+          "avg_baseline_net_return": 0.00864352645934204,
+          "avg_shadow_minus_baseline": -0.0003682410901939522,
+          "avg_shadow_net_return": 0.008275285369148089,
+          "count": 5,
+          "median_shadow_minus_baseline": -0.0010795907056250814,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.2
+        },
+        "non_subset_changed": {
+          "avg_baseline_net_return": 0.041376426845740444,
+          "avg_shadow_minus_baseline": 0.0,
+          "avg_shadow_net_return": 0.041376426845740444,
+          "count": 1,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.0
+        },
+        "subset_only_changed": {
+          "avg_baseline_net_return": -0.006605323780845764,
+          "avg_shadow_minus_baseline": 0.006605323780845764,
+          "avg_shadow_net_return": 0.0,
+          "count": 143,
+          "median_shadow_minus_baseline": 0.0036658075357610806,
+          "outcome_labels": {
+            "avoided_loss": 91,
+            "missed_win": 52
+          },
+          "positive_shadow_lift_rate": 0.6363636363636364
+        }
+      },
+      "total_records": 320,
+      "unlabeled_count": 0,
+      "unlabeled_reasons": {}
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_baseline_net_return": -0.002068568300776461,
+          "avg_shadow_minus_baseline": 0.0018768865184521626,
+          "avg_shadow_net_return": -0.0001916817823242984,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 21,
+            "missed_win": 14,
+            "unchanged": 45
+          },
+          "positive_shadow_lift_rate": 0.2625
+        },
+        "BTCUSDT|4h": {
+          "avg_baseline_net_return": -0.00023800433871077752,
+          "avg_shadow_minus_baseline": 0.0027837403239449254,
+          "avg_shadow_net_return": 0.0025457359852341477,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 22,
+            "missed_win": 10,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.275
+        },
+        "ETHUSDT|4h": {
+          "avg_baseline_net_return": -0.00471688841444883,
+          "avg_shadow_minus_baseline": 0.006956153220977815,
+          "avg_shadow_net_return": 0.002239264806528986,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 30,
+            "missed_win": 15,
+            "unchanged": 35
+          },
+          "positive_shadow_lift_rate": 0.375
+        },
+        "SOLUSDT|4h": {
+          "avg_baseline_net_return": 0.00283327011895303,
+          "avg_shadow_minus_baseline": 0.0007264861948869009,
+          "avg_shadow_net_return": 0.0035597563138399313,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 18,
+            "missed_win": 13,
+            "neutral_changed": 1,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.225
+        }
+      },
+      "fee_bps": 5.0,
+      "horizon_bars": 6,
+      "labeled_count": 320,
+      "outcome_labels": {
+        "avoided_loss": 91,
+        "missed_win": 52,
+        "neutral_changed": 1,
+        "unchanged": 176
+      },
+      "segments": {
+        "all": {
+          "avg_baseline_net_return": -0.0010475477337457595,
+          "avg_shadow_minus_baseline": 0.0030858165645654507,
+          "avg_shadow_net_return": 0.0020382688308196915,
+          "count": 320,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 91,
+            "missed_win": 52,
+            "neutral_changed": 1,
+            "unchanged": 176
+          },
+          "positive_shadow_lift_rate": 0.284375
+        },
+        "changed": {
+          "avg_baseline_net_return": -0.006572117179272249,
+          "avg_shadow_minus_baseline": 0.00685737014347878,
+          "avg_shadow_net_return": 0.00028525296420653086,
+          "count": 144,
+          "median_shadow_minus_baseline": 0.003871098540153795,
+          "outcome_labels": {
+            "avoided_loss": 91,
+            "missed_win": 52,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.6319444444444444
+        },
+        "gate_active": {
+          "avg_baseline_net_return": 0.02142100287074203,
+          "avg_shadow_minus_baseline": -4.580038935498289e-05,
+          "avg_shadow_net_return": 0.021375202481387048,
+          "count": 14,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1,
+            "unchanged": 9
+          },
+          "positive_shadow_lift_rate": 0.07142857142857142
+        },
+        "gate_active_changed": {
+          "avg_baseline_net_return": 0.00834352645934204,
+          "avg_shadow_minus_baseline": -0.00012824109019395207,
+          "avg_shadow_net_return": 0.008215285369148088,
+          "count": 5,
+          "median_shadow_minus_baseline": -0.0007795907056250815,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.2
+        },
+        "non_subset_changed": {
+          "avg_baseline_net_return": 0.04107642684574044,
+          "avg_shadow_minus_baseline": 0.0,
+          "avg_shadow_net_return": 0.04107642684574044,
+          "count": 1,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.0
+        },
+        "subset_only_changed": {
+          "avg_baseline_net_return": -0.0069053237808457645,
+          "avg_shadow_minus_baseline": 0.0069053237808457645,
+          "avg_shadow_net_return": 0.0,
+          "count": 143,
+          "median_shadow_minus_baseline": 0.0039658075357610805,
+          "outcome_labels": {
+            "avoided_loss": 91,
+            "missed_win": 52
+          },
+          "positive_shadow_lift_rate": 0.6363636363636364
+        }
+      },
+      "total_records": 320,
+      "unlabeled_count": 0,
+      "unlabeled_reasons": {}
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_baseline_net_return": -0.002568568300776461,
+          "avg_shadow_minus_baseline": 0.0020956365184521624,
+          "avg_shadow_net_return": -0.00047293178232429844,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 21,
+            "missed_win": 14,
+            "unchanged": 45
+          },
+          "positive_shadow_lift_rate": 0.2625
+        },
+        "BTCUSDT|4h": {
+          "avg_baseline_net_return": -0.0007380043387107777,
+          "avg_shadow_minus_baseline": 0.0029837403239449255,
+          "avg_shadow_net_return": 0.0022457359852341473,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 23,
+            "missed_win": 9,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.2875
+        },
+        "ETHUSDT|4h": {
+          "avg_baseline_net_return": -0.00521688841444883,
+          "avg_shadow_minus_baseline": 0.007237403220977816,
+          "avg_shadow_net_return": 0.002020514806528986,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 31,
+            "missed_win": 14,
+            "unchanged": 35
+          },
+          "positive_shadow_lift_rate": 0.3875
+        },
+        "SOLUSDT|4h": {
+          "avg_baseline_net_return": 0.00233327011895303,
+          "avg_shadow_minus_baseline": 0.0009202361948869008,
+          "avg_shadow_net_return": 0.003253506313839931,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 18,
+            "missed_win": 13,
+            "neutral_changed": 1,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.225
+        }
+      },
+      "fee_bps": 10.0,
+      "horizon_bars": 6,
+      "labeled_count": 320,
+      "outcome_labels": {
+        "avoided_loss": 93,
+        "missed_win": 50,
+        "neutral_changed": 1,
+        "unchanged": 176
+      },
+      "segments": {
+        "all": {
+          "avg_baseline_net_return": -0.0015475477337457597,
+          "avg_shadow_minus_baseline": 0.0033092540645654513,
+          "avg_shadow_net_return": 0.0017617063308196916,
+          "count": 320,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 93,
+            "missed_win": 50,
+            "neutral_changed": 1,
+            "unchanged": 176
+          },
+          "positive_shadow_lift_rate": 0.290625
+        },
+        "changed": {
+          "avg_baseline_net_return": -0.007072117179272249,
+          "avg_shadow_minus_baseline": 0.007353897921256559,
+          "avg_shadow_net_return": 0.0002817807419843086,
+          "count": 144,
+          "median_shadow_minus_baseline": 0.004371098540153794,
+          "outcome_labels": {
+            "avoided_loss": 93,
+            "missed_win": 50,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.6458333333333334
+        },
+        "gate_active": {
+          "avg_baseline_net_return": 0.020921002870742028,
+          "avg_shadow_minus_baseline": 9.705675350215997e-05,
+          "avg_shadow_net_return": 0.02101805962424419,
+          "count": 14,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1,
+            "unchanged": 9
+          },
+          "positive_shadow_lift_rate": 0.07142857142857142
+        },
+        "gate_active_changed": {
+          "avg_baseline_net_return": 0.00784352645934204,
+          "avg_shadow_minus_baseline": 0.0002717589098060479,
+          "avg_shadow_net_return": 0.008115285369148089,
+          "count": 5,
+          "median_shadow_minus_baseline": -0.0002795907056250815,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.2
+        },
+        "non_subset_changed": {
+          "avg_baseline_net_return": 0.04057642684574044,
+          "avg_shadow_minus_baseline": 0.0,
+          "avg_shadow_net_return": 0.04057642684574044,
+          "count": 1,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.0
+        },
+        "subset_only_changed": {
+          "avg_baseline_net_return": -0.007405323780845765,
+          "avg_shadow_minus_baseline": 0.007405323780845765,
+          "avg_shadow_net_return": 0.0,
+          "count": 143,
+          "median_shadow_minus_baseline": 0.00446580753576108,
+          "outcome_labels": {
+            "avoided_loss": 93,
+            "missed_win": 50
+          },
+          "positive_shadow_lift_rate": 0.6503496503496503
+        }
+      },
+      "total_records": 320,
+      "unlabeled_count": 0,
+      "unlabeled_reasons": {}
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_baseline_net_return": -0.002788854787707293,
+          "avg_shadow_minus_baseline": 0.0018860430532698196,
+          "avg_shadow_net_return": -0.0009028117344374736,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 18,
+            "missed_win": 17,
+            "unchanged": 45
+          },
+          "positive_shadow_lift_rate": 0.225
+        },
+        "BTCUSDT|4h": {
+          "avg_baseline_net_return": 0.00011390168282902861,
+          "avg_shadow_minus_baseline": 0.0037423336681917012,
+          "avg_shadow_net_return": 0.0038562353510207294,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 24,
+            "missed_win": 8,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.3
+        },
+        "ETHUSDT|4h": {
+          "avg_baseline_net_return": -0.0007862687279798674,
+          "avg_shadow_minus_baseline": 0.004372447258895672,
+          "avg_shadow_net_return": 0.0035861785309158046,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 28,
+            "missed_win": 17,
+            "unchanged": 35
+          },
+          "positive_shadow_lift_rate": 0.35
+        },
+        "SOLUSDT|4h": {
+          "avg_baseline_net_return": 0.013350149377361458,
+          "avg_shadow_minus_baseline": -0.0005790360954121646,
+          "avg_shadow_net_return": 0.012771113281949294,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 17,
+            "missed_win": 14,
+            "neutral_changed": 1,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.2125
+        }
+      },
+      "fee_bps": 2.0,
+      "horizon_bars": 12,
+      "labeled_count": 320,
+      "outcome_labels": {
+        "avoided_loss": 87,
+        "missed_win": 56,
+        "neutral_changed": 1,
+        "unchanged": 176
+      },
+      "segments": {
+        "all": {
+          "avg_baseline_net_return": 0.002472231886125832,
+          "avg_shadow_minus_baseline": 0.002355446971236257,
+          "avg_shadow_net_return": 0.004827678857362089,
+          "count": 320,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 87,
+            "missed_win": 56,
+            "neutral_changed": 1,
+            "unchanged": 176
+          },
+          "positive_shadow_lift_rate": 0.271875
+        },
+        "changed": {
+          "avg_baseline_net_return": -0.004660925670945421,
+          "avg_shadow_minus_baseline": 0.005234326602747238,
+          "avg_shadow_net_return": 0.0005734009318018162,
+          "count": 144,
+          "median_shadow_minus_baseline": 0.005515557908189787,
+          "outcome_labels": {
+            "avoided_loss": 87,
+            "missed_win": 56,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.6041666666666666
+        },
+        "gate_active": {
+          "avg_baseline_net_return": 0.045945496936499866,
+          "avg_shadow_minus_baseline": -6.766661628086304e-05,
+          "avg_shadow_net_return": 0.045877830320219005,
+          "count": 14,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1,
+            "unchanged": 9
+          },
+          "positive_shadow_lift_rate": 0.07142857142857142
+        },
+        "gate_active_changed": {
+          "avg_baseline_net_return": 0.016703413361478722,
+          "avg_shadow_minus_baseline": -0.00018946652558641652,
+          "avg_shadow_net_return": 0.01651394683589231,
+          "count": 5,
+          "median_shadow_minus_baseline": -0.002188654326381145,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.2
+        },
+        "non_subset_changed": {
+          "avg_baseline_net_return": 0.08256973417946153,
+          "avg_shadow_minus_baseline": 0.0,
+          "avg_shadow_net_return": 0.08256973417946153,
+          "count": 1,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.0
+        },
+        "subset_only_changed": {
+          "avg_baseline_net_return": -0.005270930285283932,
+          "avg_shadow_minus_baseline": 0.005270930285283932,
+          "avg_shadow_net_return": 0.0,
+          "count": 143,
+          "median_shadow_minus_baseline": 0.005592559909670605,
+          "outcome_labels": {
+            "avoided_loss": 87,
+            "missed_win": 56
+          },
+          "positive_shadow_lift_rate": 0.6083916083916084
+        }
+      },
+      "total_records": 320,
+      "unlabeled_count": 0,
+      "unlabeled_reasons": {}
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_baseline_net_return": -0.0030888547877072937,
+          "avg_shadow_minus_baseline": 0.00201729305326982,
+          "avg_shadow_net_return": -0.001071561734437474,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 18,
+            "missed_win": 17,
+            "unchanged": 45
+          },
+          "positive_shadow_lift_rate": 0.225
+        },
+        "BTCUSDT|4h": {
+          "avg_baseline_net_return": -0.00018609831717097128,
+          "avg_shadow_minus_baseline": 0.003862333668191701,
+          "avg_shadow_net_return": 0.0036762353510207298,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 25,
+            "missed_win": 7,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.3125
+        },
+        "ETHUSDT|4h": {
+          "avg_baseline_net_return": -0.0010862687279798674,
+          "avg_shadow_minus_baseline": 0.004541197258895672,
+          "avg_shadow_net_return": 0.0034549285309158047,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 28,
+            "missed_win": 17,
+            "unchanged": 35
+          },
+          "positive_shadow_lift_rate": 0.35
+        },
+        "SOLUSDT|4h": {
+          "avg_baseline_net_return": 0.013050149377361462,
+          "avg_shadow_minus_baseline": -0.00046278609541216447,
+          "avg_shadow_net_return": 0.012587363281949296,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 17,
+            "missed_win": 14,
+            "neutral_changed": 1,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.2125
+        }
+      },
+      "fee_bps": 5.0,
+      "horizon_bars": 12,
+      "labeled_count": 320,
+      "outcome_labels": {
+        "avoided_loss": 88,
+        "missed_win": 55,
+        "neutral_changed": 1,
+        "unchanged": 176
+      },
+      "segments": {
+        "all": {
+          "avg_baseline_net_return": 0.0021722318861258317,
+          "avg_shadow_minus_baseline": 0.002489509471236257,
+          "avg_shadow_net_return": 0.004661741357362089,
+          "count": 320,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 88,
+            "missed_win": 55,
+            "neutral_changed": 1,
+            "unchanged": 176
+          },
+          "positive_shadow_lift_rate": 0.275
+        },
+        "changed": {
+          "avg_baseline_net_return": -0.004960925670945421,
+          "avg_shadow_minus_baseline": 0.0055322432694139044,
+          "avg_shadow_net_return": 0.0005713175984684829,
+          "count": 144,
+          "median_shadow_minus_baseline": 0.005815557908189787,
+          "outcome_labels": {
+            "avoided_loss": 88,
+            "missed_win": 55,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.6111111111111112
+        },
+        "gate_active": {
+          "avg_baseline_net_return": 0.04564549693649987,
+          "avg_shadow_minus_baseline": 1.80476694334229e-05,
+          "avg_shadow_net_return": 0.0456635446059333,
+          "count": 14,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1,
+            "unchanged": 9
+          },
+          "positive_shadow_lift_rate": 0.07142857142857142
+        },
+        "gate_active_changed": {
+          "avg_baseline_net_return": 0.016403413361478724,
+          "avg_shadow_minus_baseline": 5.053347441358411e-05,
+          "avg_shadow_net_return": 0.016453946835892307,
+          "count": 5,
+          "median_shadow_minus_baseline": -0.0018886543263811452,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.2
+        },
+        "non_subset_changed": {
+          "avg_baseline_net_return": 0.08226973417946154,
+          "avg_shadow_minus_baseline": 0.0,
+          "avg_shadow_net_return": 0.08226973417946154,
+          "count": 1,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.0
+        },
+        "subset_only_changed": {
+          "avg_baseline_net_return": -0.005570930285283932,
+          "avg_shadow_minus_baseline": 0.005570930285283932,
+          "avg_shadow_net_return": 0.0,
+          "count": 143,
+          "median_shadow_minus_baseline": 0.005892559909670605,
+          "outcome_labels": {
+            "avoided_loss": 88,
+            "missed_win": 55
+          },
+          "positive_shadow_lift_rate": 0.6153846153846154
+        }
+      },
+      "total_records": 320,
+      "unlabeled_count": 0,
+      "unlabeled_reasons": {}
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_baseline_net_return": -0.003588854787707294,
+          "avg_shadow_minus_baseline": 0.00223604305326982,
+          "avg_shadow_net_return": -0.001352811734437474,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 18,
+            "missed_win": 17,
+            "unchanged": 45
+          },
+          "positive_shadow_lift_rate": 0.225
+        },
+        "BTCUSDT|4h": {
+          "avg_baseline_net_return": -0.0006860983171709716,
+          "avg_shadow_minus_baseline": 0.004062333668191701,
+          "avg_shadow_net_return": 0.0033762353510207294,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 25,
+            "missed_win": 7,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.3125
+        },
+        "ETHUSDT|4h": {
+          "avg_baseline_net_return": -0.0015862687279798674,
+          "avg_shadow_minus_baseline": 0.004822447258895671,
+          "avg_shadow_net_return": 0.0032361785309158045,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 28,
+            "missed_win": 17,
+            "unchanged": 35
+          },
+          "positive_shadow_lift_rate": 0.35
+        },
+        "SOLUSDT|4h": {
+          "avg_baseline_net_return": 0.012550149377361462,
+          "avg_shadow_minus_baseline": -0.00026903609541216434,
+          "avg_shadow_net_return": 0.012281113281949295,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 17,
+            "missed_win": 14,
+            "neutral_changed": 1,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.2125
+        }
+      },
+      "fee_bps": 10.0,
+      "horizon_bars": 12,
+      "labeled_count": 320,
+      "outcome_labels": {
+        "avoided_loss": 88,
+        "missed_win": 55,
+        "neutral_changed": 1,
+        "unchanged": 176
+      },
+      "segments": {
+        "all": {
+          "avg_baseline_net_return": 0.0016722318861258317,
+          "avg_shadow_minus_baseline": 0.002712946971236257,
+          "avg_shadow_net_return": 0.004385178857362089,
+          "count": 320,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 88,
+            "missed_win": 55,
+            "neutral_changed": 1,
+            "unchanged": 176
+          },
+          "positive_shadow_lift_rate": 0.275
+        },
+        "changed": {
+          "avg_baseline_net_return": -0.005460925670945422,
+          "avg_shadow_minus_baseline": 0.0060287710471916825,
+          "avg_shadow_net_return": 0.0005678453762462607,
+          "count": 144,
+          "median_shadow_minus_baseline": 0.0063155579081897876,
+          "outcome_labels": {
+            "avoided_loss": 88,
+            "missed_win": 55,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.6111111111111112
+        },
+        "gate_active": {
+          "avg_baseline_net_return": 0.04514549693649987,
+          "avg_shadow_minus_baseline": 0.00016090481229056572,
+          "avg_shadow_net_return": 0.045306401748790436,
+          "count": 14,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1,
+            "unchanged": 9
+          },
+          "positive_shadow_lift_rate": 0.07142857142857142
+        },
+        "gate_active_changed": {
+          "avg_baseline_net_return": 0.015903413361478724,
+          "avg_shadow_minus_baseline": 0.000450533474413584,
+          "avg_shadow_net_return": 0.016353946835892308,
+          "count": 5,
+          "median_shadow_minus_baseline": -0.0013886543263811452,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.2
+        },
+        "non_subset_changed": {
+          "avg_baseline_net_return": 0.08176973417946154,
+          "avg_shadow_minus_baseline": 0.0,
+          "avg_shadow_net_return": 0.08176973417946154,
+          "count": 1,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.0
+        },
+        "subset_only_changed": {
+          "avg_baseline_net_return": -0.006070930285283932,
+          "avg_shadow_minus_baseline": 0.006070930285283932,
+          "avg_shadow_net_return": 0.0,
+          "count": 143,
+          "median_shadow_minus_baseline": 0.006392559909670605,
+          "outcome_labels": {
+            "avoided_loss": 88,
+            "missed_win": 55
+          },
+          "positive_shadow_lift_rate": 0.6153846153846154
+        }
+      },
+      "total_records": 320,
+      "unlabeled_count": 0,
+      "unlabeled_reasons": {}
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_baseline_net_return": -0.001824816140370511,
+          "avg_shadow_minus_baseline": 0.002047894273780485,
+          "avg_shadow_net_return": 0.00022307813340997372,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 20,
+            "missed_win": 15,
+            "unchanged": 45
+          },
+          "positive_shadow_lift_rate": 0.25
+        },
+        "BTCUSDT|4h": {
+          "avg_baseline_net_return": 0.0077972000705544015,
+          "avg_shadow_minus_baseline": 0.008754832098897663,
+          "avg_shadow_net_return": 0.016552032169452065,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 22,
+            "missed_win": 10,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.275
+        },
+        "ETHUSDT|4h": {
+          "avg_baseline_net_return": 0.0004721312989002644,
+          "avg_shadow_minus_baseline": 0.012175745926484136,
+          "avg_shadow_net_return": 0.012647877225384399,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 28,
+            "missed_win": 17,
+            "unchanged": 35
+          },
+          "positive_shadow_lift_rate": 0.35
+        },
+        "SOLUSDT|4h": {
+          "avg_baseline_net_return": 0.031674164901684836,
+          "avg_shadow_minus_baseline": -0.0037922081933997208,
+          "avg_shadow_net_return": 0.027881956708285117,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 16,
+            "missed_win": 15,
+            "neutral_changed": 1,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.2
+        }
+      },
+      "fee_bps": 2.0,
+      "horizon_bars": 24,
+      "labeled_count": 320,
+      "outcome_labels": {
+        "avoided_loss": 86,
+        "missed_win": 57,
+        "neutral_changed": 1,
+        "unchanged": 176
+      },
+      "segments": {
+        "all": {
+          "avg_baseline_net_return": 0.009529670032692249,
+          "avg_shadow_minus_baseline": 0.004796566026440641,
+          "avg_shadow_net_return": 0.014326236059132889,
+          "count": 320,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 86,
+            "missed_win": 57,
+            "neutral_changed": 1,
+            "unchanged": 176
+          },
+          "positive_shadow_lift_rate": 0.26875
+        },
+        "changed": {
+          "avg_baseline_net_return": -0.009170783924799647,
+          "avg_shadow_minus_baseline": 0.010659035614312536,
+          "avg_shadow_net_return": 0.0014882516895128883,
+          "count": 144,
+          "median_shadow_minus_baseline": 0.007100304315979428,
+          "outcome_labels": {
+            "avoided_loss": 86,
+            "missed_win": 57,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.5972222222222222
+        },
+        "gate_active": {
+          "avg_baseline_net_return": 0.09929543725499228,
+          "avg_shadow_minus_baseline": -0.0044093252814254155,
+          "avg_shadow_net_return": 0.09488611197356688,
+          "count": 14,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1,
+            "unchanged": 9
+          },
+          "positive_shadow_lift_rate": 0.07142857142857142
+        },
+        "gate_active_changed": {
+          "avg_baseline_net_return": 0.055207759445962346,
+          "avg_shadow_minus_baseline": -0.012346110787991164,
+          "avg_shadow_net_return": 0.04286164865797119,
+          "count": 5,
+          "median_shadow_minus_baseline": -0.05758774048123517,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.2
+        },
+        "non_subset_changed": {
+          "avg_baseline_net_return": 0.21430824328985593,
+          "avg_shadow_minus_baseline": 0.0,
+          "avg_shadow_net_return": 0.21430824328985593,
+          "count": 1,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.0
+        },
+        "subset_only_changed": {
+          "avg_baseline_net_return": -0.010733574324902132,
+          "avg_shadow_minus_baseline": 0.010733574324902132,
+          "avg_shadow_net_return": 0.0,
+          "count": 143,
+          "median_shadow_minus_baseline": 0.007788628821517692,
+          "outcome_labels": {
+            "avoided_loss": 86,
+            "missed_win": 57
+          },
+          "positive_shadow_lift_rate": 0.6013986013986014
+        }
+      },
+      "total_records": 320,
+      "unlabeled_count": 0,
+      "unlabeled_reasons": {}
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_baseline_net_return": -0.002124816140370512,
+          "avg_shadow_minus_baseline": 0.0021791442737804853,
+          "avg_shadow_net_return": 5.4328133409973145e-05,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 20,
+            "missed_win": 15,
+            "unchanged": 45
+          },
+          "positive_shadow_lift_rate": 0.25
+        },
+        "BTCUSDT|4h": {
+          "avg_baseline_net_return": 0.0074972000705544025,
+          "avg_shadow_minus_baseline": 0.008874832098897664,
+          "avg_shadow_net_return": 0.016372032169452065,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 22,
+            "missed_win": 10,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.275
+        },
+        "ETHUSDT|4h": {
+          "avg_baseline_net_return": 0.00017213129890026569,
+          "avg_shadow_minus_baseline": 0.012344495926484133,
+          "avg_shadow_net_return": 0.0125166272253844,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 28,
+            "missed_win": 17,
+            "unchanged": 35
+          },
+          "positive_shadow_lift_rate": 0.35
+        },
+        "SOLUSDT|4h": {
+          "avg_baseline_net_return": 0.031374164901684834,
+          "avg_shadow_minus_baseline": -0.003675958193399722,
+          "avg_shadow_net_return": 0.027698206708285118,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 16,
+            "missed_win": 15,
+            "neutral_changed": 1,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.2
+        }
+      },
+      "fee_bps": 5.0,
+      "horizon_bars": 24,
+      "labeled_count": 320,
+      "outcome_labels": {
+        "avoided_loss": 86,
+        "missed_win": 57,
+        "neutral_changed": 1,
+        "unchanged": 176
+      },
+      "segments": {
+        "all": {
+          "avg_baseline_net_return": 0.009229670032692249,
+          "avg_shadow_minus_baseline": 0.0049306285264406405,
+          "avg_shadow_net_return": 0.01416029855913289,
+          "count": 320,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 86,
+            "missed_win": 57,
+            "neutral_changed": 1,
+            "unchanged": 176
+          },
+          "positive_shadow_lift_rate": 0.26875
+        },
+        "changed": {
+          "avg_baseline_net_return": -0.009470783924799645,
+          "avg_shadow_minus_baseline": 0.0109569522809792,
+          "avg_shadow_net_return": 0.001486168356179555,
+          "count": 144,
+          "median_shadow_minus_baseline": 0.007400304315979429,
+          "outcome_labels": {
+            "avoided_loss": 86,
+            "missed_win": 57,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.5972222222222222
+        },
+        "gate_active": {
+          "avg_baseline_net_return": 0.09899543725499228,
+          "avg_shadow_minus_baseline": -0.004323610995711131,
+          "avg_shadow_net_return": 0.09467182625928117,
+          "count": 14,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1,
+            "unchanged": 9
+          },
+          "positive_shadow_lift_rate": 0.07142857142857142
+        },
+        "gate_active_changed": {
+          "avg_baseline_net_return": 0.05490775944596236,
+          "avg_shadow_minus_baseline": -0.012106110787991165,
+          "avg_shadow_net_return": 0.04280164865797119,
+          "count": 5,
+          "median_shadow_minus_baseline": -0.057287740481235166,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.2
+        },
+        "non_subset_changed": {
+          "avg_baseline_net_return": 0.21400824328985593,
+          "avg_shadow_minus_baseline": 0.0,
+          "avg_shadow_net_return": 0.21400824328985593,
+          "count": 1,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.0
+        },
+        "subset_only_changed": {
+          "avg_baseline_net_return": -0.011033574324902132,
+          "avg_shadow_minus_baseline": 0.011033574324902132,
+          "avg_shadow_net_return": 0.0,
+          "count": 143,
+          "median_shadow_minus_baseline": 0.008088628821517693,
+          "outcome_labels": {
+            "avoided_loss": 86,
+            "missed_win": 57
+          },
+          "positive_shadow_lift_rate": 0.6013986013986014
+        }
+      },
+      "total_records": 320,
+      "unlabeled_count": 0,
+      "unlabeled_reasons": {}
+    },
+    {
+      "asset_timeframe": {
+        "BNBUSDT|1h": {
+          "avg_baseline_net_return": -0.002624816140370512,
+          "avg_shadow_minus_baseline": 0.002397894273780485,
+          "avg_shadow_net_return": -0.00022692186659002694,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 20,
+            "missed_win": 15,
+            "unchanged": 45
+          },
+          "positive_shadow_lift_rate": 0.25
+        },
+        "BTCUSDT|4h": {
+          "avg_baseline_net_return": 0.006997200070554402,
+          "avg_shadow_minus_baseline": 0.009074832098897662,
+          "avg_shadow_net_return": 0.016072032169452067,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 22,
+            "missed_win": 10,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.275
+        },
+        "ETHUSDT|4h": {
+          "avg_baseline_net_return": -0.0003278687010997345,
+          "avg_shadow_minus_baseline": 0.012625745926484133,
+          "avg_shadow_net_return": 0.0122978772253844,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 28,
+            "missed_win": 17,
+            "unchanged": 35
+          },
+          "positive_shadow_lift_rate": 0.35
+        },
+        "SOLUSDT|4h": {
+          "avg_baseline_net_return": 0.030874164901684837,
+          "avg_shadow_minus_baseline": -0.0034822081933997217,
+          "avg_shadow_net_return": 0.027391956708285113,
+          "count": 80,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 16,
+            "missed_win": 15,
+            "neutral_changed": 1,
+            "unchanged": 48
+          },
+          "positive_shadow_lift_rate": 0.2
+        }
+      },
+      "fee_bps": 10.0,
+      "horizon_bars": 24,
+      "labeled_count": 320,
+      "outcome_labels": {
+        "avoided_loss": 86,
+        "missed_win": 57,
+        "neutral_changed": 1,
+        "unchanged": 176
+      },
+      "segments": {
+        "all": {
+          "avg_baseline_net_return": 0.008729670032692248,
+          "avg_shadow_minus_baseline": 0.00515406602644064,
+          "avg_shadow_net_return": 0.01388373605913289,
+          "count": 320,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 86,
+            "missed_win": 57,
+            "neutral_changed": 1,
+            "unchanged": 176
+          },
+          "positive_shadow_lift_rate": 0.26875
+        },
+        "changed": {
+          "avg_baseline_net_return": -0.009970783924799645,
+          "avg_shadow_minus_baseline": 0.011453480058756979,
+          "avg_shadow_net_return": 0.0014826961339573328,
+          "count": 144,
+          "median_shadow_minus_baseline": 0.007900304315979429,
+          "outcome_labels": {
+            "avoided_loss": 86,
+            "missed_win": 57,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.5972222222222222
+        },
+        "gate_active": {
+          "avg_baseline_net_return": 0.0984954372549923,
+          "avg_shadow_minus_baseline": -0.004180753852853988,
+          "avg_shadow_net_return": 0.0943146834021383,
+          "count": 14,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1,
+            "unchanged": 9
+          },
+          "positive_shadow_lift_rate": 0.07142857142857142
+        },
+        "gate_active_changed": {
+          "avg_baseline_net_return": 0.05440775944596236,
+          "avg_shadow_minus_baseline": -0.011706110787991166,
+          "avg_shadow_net_return": 0.042701648657971186,
+          "count": 5,
+          "median_shadow_minus_baseline": -0.056787740481235166,
+          "outcome_labels": {
+            "avoided_loss": 1,
+            "missed_win": 3,
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.2
+        },
+        "non_subset_changed": {
+          "avg_baseline_net_return": 0.21350824328985593,
+          "avg_shadow_minus_baseline": 0.0,
+          "avg_shadow_net_return": 0.21350824328985593,
+          "count": 1,
+          "median_shadow_minus_baseline": 0.0,
+          "outcome_labels": {
+            "neutral_changed": 1
+          },
+          "positive_shadow_lift_rate": 0.0
+        },
+        "subset_only_changed": {
+          "avg_baseline_net_return": -0.011533574324902133,
+          "avg_shadow_minus_baseline": 0.011533574324902133,
+          "avg_shadow_net_return": 0.0,
+          "count": 143,
+          "median_shadow_minus_baseline": 0.008588628821517692,
+          "outcome_labels": {
+            "avoided_loss": 86,
+            "missed_win": 57
+          },
+          "positive_shadow_lift_rate": 0.6013986013986014
+        }
+      },
+      "total_records": 320,
+      "unlabeled_count": 0,
+      "unlabeled_reasons": {}
+    }
+  ],
+  "fetch_errors": {},
+  "pairs": [
+    "BNBUSDT|1h",
+    "BTCUSDT|4h",
+    "ETHUSDT|4h",
+    "SOLUSDT|4h"
+  ],
+  "phase": "phase_6_shadow_outcome_matrix",
+  "source_invalid_shadow_records": 0,
+  "source_log": "logs/regime_v2_shadow_decisions.jsonl",
+  "summary": {
+    "best_changed_cell": {
+      "avg_shadow_minus_baseline": 0.011453480058756979,
+      "count": 144,
+      "fee_bps": 10.0,
+      "horizon_bars": 24,
+      "positive_shadow_lift_rate": 0.5972222222222222
+    },
+    "best_gate_active_changed_cell": {
+      "avg_shadow_minus_baseline": 0.000450533474413584,
+      "count": 5,
+      "fee_bps": 10.0,
+      "horizon_bars": 12,
+      "positive_shadow_lift_rate": 0.2
+    },
+    "cell_count": 12,
+    "fees_bps": [
+      2.0,
+      5.0,
+      10.0
+    ],
+    "horizons": [
+      3,
+      6,
+      12,
+      24
+    ],
+    "worst_changed_cell": {
+      "avg_shadow_minus_baseline": 0.002069487281790716,
+      "count": 144,
+      "fee_bps": 2.0,
+      "horizon_bars": 3,
+      "positive_shadow_lift_rate": 0.5833333333333334
+    },
+    "worst_gate_active_changed_cell": {
+      "avg_shadow_minus_baseline": -0.012346110787991164,
+      "count": 5,
+      "fee_bps": 2.0,
+      "horizon_bars": 24,
+      "positive_shadow_lift_rate": 0.2
+    }
+  }
+}

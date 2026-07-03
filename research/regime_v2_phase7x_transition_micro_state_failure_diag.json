@@ -1,0 +1,483 @@
+{
+  "failure_signatures": [
+    {
+      "assets": [
+        "BNBUSDT",
+        "BTCUSDT",
+        "ETHUSDT"
+      ],
+      "avg_breakout_return": 0.0020352051481103348,
+      "avg_compression_return": 0.0028522707956526294,
+      "signature": "compression_avg_positive",
+      "window_count": 4,
+      "worst_compression_return": -0.04197438881769332
+    },
+    {
+      "assets": [
+        "BNBUSDT",
+        "BTCUSDT"
+      ],
+      "avg_breakout_return": 0.00012673857161603323,
+      "avg_compression_return": 0.003166399758136637,
+      "signature": "compression_beats_breakout",
+      "window_count": 3,
+      "worst_compression_return": -0.04197438881769332
+    },
+    {
+      "assets": [
+        "BNBUSDT",
+        "BTCUSDT"
+      ],
+      "avg_breakout_return": -0.0015794531208566443,
+      "avg_compression_return": 0.00248771690434911,
+      "signature": "breakout_avg_negative",
+      "window_count": 2,
+      "worst_compression_return": -0.0175542812581269
+    },
+    {
+      "assets": [
+        "BNBUSDT",
+        "BTCUSDT"
+      ],
+      "avg_breakout_return": -0.0015794531208566443,
+      "avg_compression_return": 0.00248771690434911,
+      "signature": "state_inversion",
+      "window_count": 2,
+      "worst_compression_return": -0.0175542812581269
+    },
+    {
+      "assets": [
+        "BNBUSDT"
+      ],
+      "avg_breakout_return": 0.0011306210947037735,
+      "avg_compression_return": 0.004124038865885035,
+      "signature": "breakout_tail_loss",
+      "window_count": 2,
+      "worst_compression_return": -0.04197438881769332
+    },
+    {
+      "assets": [
+        "BNBUSDT",
+        "ETHUSDT"
+      ],
+      "avg_breakout_return": 0.005649863417077314,
+      "avg_compression_return": 0.0032168246869561483,
+      "signature": "compression_tail_loss",
+      "window_count": 2,
+      "worst_compression_return": -0.04197438881769332
+    },
+    {
+      "assets": [
+        "ETHUSDT"
+      ],
+      "avg_breakout_return": 0.00776060487759324,
+      "avg_compression_return": 0.0019098839082006063,
+      "signature": "support_thin",
+      "window_count": 1,
+      "worst_compression_return": -0.029277202292140207
+    }
+  ],
+  "failure_windows": [
+    {
+      "asset": "BNBUSDT",
+      "breakout_better": false,
+      "breakout_setup_active": 22,
+      "breakout_setup_avg_return": 0.0035391219565613884,
+      "breakout_setup_worst_return": -0.021807424769890588,
+      "compression_active": 21,
+      "compression_avg_return": 0.0045237654657116905,
+      "compression_worst_return": -0.04197438881769332,
+      "failure_class": "supported_mixed_failure",
+      "failure_tags": [
+        "breakout_tail_loss",
+        "compression_avg_positive",
+        "compression_beats_breakout",
+        "compression_tail_loss"
+      ],
+      "is_full": false,
+      "support_ok": true,
+      "timeframe": "1h",
+      "window_id": "w1_0_360"
+    },
+    {
+      "asset": "BNBUSDT",
+      "breakout_better": false,
+      "breakout_setup_active": 18,
+      "breakout_setup_avg_return": -0.0012778797671538413,
+      "breakout_setup_worst_return": -0.02134833623786879,
+      "compression_active": 20,
+      "compression_avg_return": 0.0037243122660583793,
+      "compression_worst_return": -0.0175542812581269,
+      "failure_class": "supported_mixed_failure",
+      "failure_tags": [
+        "breakout_avg_negative",
+        "breakout_tail_loss",
+        "compression_avg_positive",
+        "compression_beats_breakout",
+        "state_inversion"
+      ],
+      "is_full": false,
+      "support_ok": true,
+      "timeframe": "1h",
+      "window_id": "w2_180_540"
+    },
+    {
+      "asset": "ETHUSDT",
+      "breakout_better": true,
+      "breakout_setup_active": 5,
+      "breakout_setup_avg_return": 0.00776060487759324,
+      "breakout_setup_worst_return": -0.005929702566776486,
+      "compression_active": 26,
+      "compression_avg_return": 0.0019098839082006063,
+      "compression_worst_return": -0.029277202292140207,
+      "failure_class": "support_thin",
+      "failure_tags": [
+        "compression_avg_positive",
+        "compression_tail_loss",
+        "support_thin"
+      ],
+      "is_full": false,
+      "support_ok": false,
+      "timeframe": "1h",
+      "window_id": "w3_360_720"
+    },
+    {
+      "asset": "BTCUSDT",
+      "breakout_better": false,
+      "breakout_setup_active": 21,
+      "breakout_setup_avg_return": -0.0018810264745594473,
+      "breakout_setup_worst_return": -0.019998023133609776,
+      "compression_active": 9,
+      "compression_avg_return": 0.0012511215426398408,
+      "compression_worst_return": -0.013014756176057456,
+      "failure_class": "supported_mixed_failure",
+      "failure_tags": [
+        "breakout_avg_negative",
+        "compression_avg_positive",
+        "compression_beats_breakout",
+        "state_inversion"
+      ],
+      "is_full": false,
+      "support_ok": true,
+      "timeframe": "1h",
+      "window_id": "w2_180_540"
+    }
+  ],
+  "phase": "phase_7x_transition_micro_state_failure_diag",
+  "summary": {
+    "asset_summary": {
+      "BNBUSDT": {
+        "support_thin_count": 0,
+        "supported_failure_count": 2,
+        "top_signatures": {
+          "breakout_avg_negative": 1,
+          "breakout_tail_loss": 2,
+          "compression_avg_positive": 2,
+          "compression_beats_breakout": 2,
+          "compression_tail_loss": 1
+        },
+        "window_count": 4,
+        "worst_breakout_return": -0.021807424769890588,
+        "worst_compression_return": -0.04197438881769332
+      },
+      "BTCUSDT": {
+        "support_thin_count": 0,
+        "supported_failure_count": 1,
+        "top_signatures": {
+          "breakout_avg_negative": 1,
+          "compression_avg_positive": 1,
+          "compression_beats_breakout": 1,
+          "state_inversion": 1
+        },
+        "window_count": 4,
+        "worst_breakout_return": -0.019998023133609776,
+        "worst_compression_return": -0.028108162456439937
+      },
+      "ETHUSDT": {
+        "support_thin_count": 1,
+        "supported_failure_count": 0,
+        "top_signatures": {
+          "compression_avg_positive": 1,
+          "compression_tail_loss": 1,
+          "support_thin": 1
+        },
+        "window_count": 4,
+        "worst_breakout_return": -0.01993357142384784,
+        "worst_compression_return": -0.1372625352770353
+      }
+    },
+    "assets": [
+      "BNBUSDT",
+      "BTCUSDT",
+      "ETHUSDT"
+    ],
+    "criteria": {
+      "min_tail_loss": 0.02
+    },
+    "failure_class_distribution": {
+      "support_thin": 1,
+      "supported_breakout_better": 8,
+      "supported_mixed_failure": 3
+    },
+    "failure_window_count": 4,
+    "recommendation": "diagnose_supported_mixed_windows_next",
+    "signature_distribution": {
+      "breakout_avg_negative": 2,
+      "breakout_tail_loss": 2,
+      "compression_avg_positive": 4,
+      "compression_beats_breakout": 3,
+      "compression_tail_loss": 2,
+      "state_inversion": 2,
+      "support_thin": 1
+    },
+    "support_thin_count": 1,
+    "supported_failure_count": 3,
+    "window_count": 12,
+    "worst_window": {
+      "asset": "ETHUSDT",
+      "breakout_setup_worst_return": -0.01993357142384784,
+      "compression_worst_return": -0.1372625352770353,
+      "failure_class": "supported_breakout_better",
+      "failure_tags": [
+        "compression_tail_loss"
+      ],
+      "window_id": "full"
+    }
+  },
+  "windows": [
+    {
+      "asset": "BNBUSDT",
+      "breakout_better": true,
+      "breakout_setup_active": 39,
+      "breakout_setup_avg_return": 0.0014352216200371594,
+      "breakout_setup_worst_return": -0.021807424769890588,
+      "compression_active": 45,
+      "compression_avg_return": -0.0005480744473349018,
+      "compression_worst_return": -0.04197438881769332,
+      "failure_class": "supported_breakout_better",
+      "failure_tags": [
+        "breakout_tail_loss",
+        "compression_tail_loss"
+      ],
+      "is_full": true,
+      "support_ok": true,
+      "timeframe": "1h",
+      "window_id": "full"
+    },
+    {
+      "asset": "BNBUSDT",
+      "breakout_better": false,
+      "breakout_setup_active": 22,
+      "breakout_setup_avg_return": 0.0035391219565613884,
+      "breakout_setup_worst_return": -0.021807424769890588,
+      "compression_active": 21,
+      "compression_avg_return": 0.0045237654657116905,
+      "compression_worst_return": -0.04197438881769332,
+      "failure_class": "supported_mixed_failure",
+      "failure_tags": [
+        "breakout_tail_loss",
+        "compression_avg_positive",
+        "compression_beats_breakout",
+        "compression_tail_loss"
+      ],
+      "is_full": false,
+      "support_ok": true,
+      "timeframe": "1h",
+      "window_id": "w1_0_360"
+    },
+    {
+      "asset": "BNBUSDT",
+      "breakout_better": false,
+      "breakout_setup_active": 18,
+      "breakout_setup_avg_return": -0.0012778797671538413,
+      "breakout_setup_worst_return": -0.02134833623786879,
+      "compression_active": 20,
+      "compression_avg_return": 0.0037243122660583793,
+      "compression_worst_return": -0.0175542812581269,
+      "failure_class": "supported_mixed_failure",
+      "failure_tags": [
+        "breakout_avg_negative",
+        "breakout_tail_loss",
+        "compression_avg_positive",
+        "compression_beats_breakout",
+        "state_inversion"
+      ],
+      "is_full": false,
+      "support_ok": true,
+      "timeframe": "1h",
+      "window_id": "w2_180_540"
+    },
+    {
+      "asset": "BNBUSDT",
+      "breakout_better": true,
+      "breakout_setup_active": 17,
+      "breakout_setup_avg_return": -0.0012874729331118432,
+      "breakout_setup_worst_return": -0.02134833623786879,
+      "compression_active": 24,
+      "compression_avg_return": -0.005743617772894826,
+      "compression_worst_return": -0.022016503711447092,
+      "failure_class": "supported_breakout_better",
+      "failure_tags": [
+        "both_avg_negative",
+        "breakout_avg_negative",
+        "breakout_tail_loss",
+        "compression_tail_loss"
+      ],
+      "is_full": false,
+      "support_ok": true,
+      "timeframe": "1h",
+      "window_id": "w3_360_720"
+    },
+    {
+      "asset": "ETHUSDT",
+      "breakout_better": true,
+      "breakout_setup_active": 18,
+      "breakout_setup_avg_return": 0.00787076545146753,
+      "breakout_setup_worst_return": -0.01993357142384784,
+      "compression_active": 47,
+      "compression_avg_return": -0.002290854221035898,
+      "compression_worst_return": -0.1372625352770353,
+      "failure_class": "supported_breakout_better",
+      "failure_tags": [
+        "compression_tail_loss"
+      ],
+      "is_full": true,
+      "support_ok": true,
+      "timeframe": "1h",
+      "window_id": "full"
+    },
+    {
+      "asset": "ETHUSDT",
+      "breakout_better": true,
+      "breakout_setup_active": 13,
+      "breakout_setup_avg_return": 0.007913134902957643,
+      "breakout_setup_worst_return": -0.01993357142384784,
+      "compression_active": 21,
+      "compression_avg_return": -0.007491768095328713,
+      "compression_worst_return": -0.1372625352770353,
+      "failure_class": "supported_breakout_better",
+      "failure_tags": [
+        "compression_tail_loss"
+      ],
+      "is_full": false,
+      "support_ok": true,
+      "timeframe": "1h",
+      "window_id": "w1_0_360"
+    },
+    {
+      "asset": "ETHUSDT",
+      "breakout_better": true,
+      "breakout_setup_active": 8,
+      "breakout_setup_avg_return": 0.005009967911902386,
+      "breakout_setup_worst_return": -0.01993357142384784,
+      "compression_active": 21,
+      "compression_avg_return": 0.004075798534069051,
+      "compression_worst_return": -0.020131315969715274,
+      "failure_class": "supported_breakout_better",
+      "failure_tags": [
+        "compression_avg_positive",
+        "compression_tail_loss"
+      ],
+      "is_full": false,
+      "support_ok": true,
+      "timeframe": "1h",
+      "window_id": "w2_180_540"
+    },
+    {
+      "asset": "ETHUSDT",
+      "breakout_better": true,
+      "breakout_setup_active": 5,
+      "breakout_setup_avg_return": 0.00776060487759324,
+      "breakout_setup_worst_return": -0.005929702566776486,
+      "compression_active": 26,
+      "compression_avg_return": 0.0019098839082006063,
+      "compression_worst_return": -0.029277202292140207,
+      "failure_class": "support_thin",
+      "failure_tags": [
+        "compression_avg_positive",
+        "compression_tail_loss",
+        "support_thin"
+      ],
+      "is_full": false,
+      "support_ok": false,
+      "timeframe": "1h",
+      "window_id": "w3_360_720"
+    },
+    {
+      "asset": "BTCUSDT",
+      "breakout_better": true,
+      "breakout_setup_active": 39,
+      "breakout_setup_avg_return": 0.0026041664575172,
+      "breakout_setup_worst_return": -0.019998023133609776,
+      "compression_active": 33,
+      "compression_avg_return": -0.001907064733628705,
+      "compression_worst_return": -0.028108162456439937,
+      "failure_class": "supported_breakout_better",
+      "failure_tags": [
+        "compression_tail_loss"
+      ],
+      "is_full": true,
+      "support_ok": true,
+      "timeframe": "1h",
+      "window_id": "full"
+    },
+    {
+      "asset": "BTCUSDT",
+      "breakout_better": true,
+      "breakout_setup_active": 28,
+      "breakout_setup_avg_return": 0.003208774791077652,
+      "breakout_setup_worst_return": -0.019998023133609776,
+      "compression_active": 13,
+      "compression_avg_return": -0.0046655879885625536,
+      "compression_worst_return": -0.028108162456439937,
+      "failure_class": "supported_breakout_better",
+      "failure_tags": [
+        "compression_tail_loss"
+      ],
+      "is_full": false,
+      "support_ok": true,
+      "timeframe": "1h",
+      "window_id": "w1_0_360"
+    },
+    {
+      "asset": "BTCUSDT",
+      "breakout_better": false,
+      "breakout_setup_active": 21,
+      "breakout_setup_avg_return": -0.0018810264745594473,
+      "breakout_setup_worst_return": -0.019998023133609776,
+      "compression_active": 9,
+      "compression_avg_return": 0.0012511215426398408,
+      "compression_worst_return": -0.013014756176057456,
+      "failure_class": "supported_mixed_failure",
+      "failure_tags": [
+        "breakout_avg_negative",
+        "compression_avg_positive",
+        "compression_beats_breakout",
+        "state_inversion"
+      ],
+      "is_full": false,
+      "support_ok": true,
+      "timeframe": "1h",
+      "window_id": "w2_180_540"
+    },
+    {
+      "asset": "BTCUSDT",
+      "breakout_better": true,
+      "breakout_setup_active": 11,
+      "breakout_setup_avg_return": 0.0010651634266360486,
+      "breakout_setup_worst_return": -0.014025133318603444,
+      "compression_active": 20,
+      "compression_avg_return": 0.00036981160377701086,
+      "compression_worst_return": -0.020526904277584756,
+      "failure_class": "supported_breakout_better",
+      "failure_tags": [
+        "compression_avg_positive",
+        "compression_tail_loss"
+      ],
+      "is_full": false,
+      "support_ok": true,
+      "timeframe": "1h",
+      "window_id": "w3_360_720"
+    }
+  ]
+}

@@ -1,0 +1,145 @@
+{
+  "input_rows": 720,
+  "phase": "phase_7a_playbook_context_report",
+  "recent_context": [
+    {
+      "conflict_tags": "uncertainty_high",
+      "dominant_playbook": "scalping",
+      "horizon_bias": "none",
+      "market_phase": "uncertain_no_trade",
+      "recommended_next_step": "skip_or_reduce_until_risk_clears",
+      "risk_state": "blocked",
+      "timestamp": "2026-07-02 22:00:00+00:00"
+    },
+    {
+      "conflict_tags": "uncertainty_high",
+      "dominant_playbook": "scalping",
+      "horizon_bias": "none",
+      "market_phase": "uncertain_no_trade",
+      "recommended_next_step": "skip_or_reduce_until_risk_clears",
+      "risk_state": "blocked",
+      "timestamp": "2026-07-02 23:00:00+00:00"
+    },
+    {
+      "conflict_tags": "",
+      "dominant_playbook": "scalping",
+      "horizon_bias": "none",
+      "market_phase": "uncertain_no_trade",
+      "recommended_next_step": "skip_or_reduce_until_risk_clears",
+      "risk_state": "blocked",
+      "timestamp": "2026-07-03 00:00:00+00:00"
+    },
+    {
+      "conflict_tags": "uncertainty_high",
+      "dominant_playbook": "scalping",
+      "horizon_bias": "none",
+      "market_phase": "uncertain_no_trade",
+      "recommended_next_step": "skip_or_reduce_until_risk_clears",
+      "risk_state": "blocked",
+      "timestamp": "2026-07-03 01:00:00+00:00"
+    },
+    {
+      "conflict_tags": "uncertainty_high",
+      "dominant_playbook": "scalping",
+      "horizon_bias": "none",
+      "market_phase": "uncertain_no_trade",
+      "recommended_next_step": "skip_or_reduce_until_risk_clears",
+      "risk_state": "blocked",
+      "timestamp": "2026-07-03 02:00:00+00:00"
+    },
+    {
+      "conflict_tags": "",
+      "dominant_playbook": "scalping",
+      "horizon_bias": "mid",
+      "market_phase": "neutral_context",
+      "recommended_next_step": "observe_or_shadow_only",
+      "risk_state": "ok",
+      "timestamp": "2026-07-03 03:00:00+00:00"
+    },
+    {
+      "conflict_tags": "",
+      "dominant_playbook": "scalping",
+      "horizon_bias": "mid",
+      "market_phase": "neutral_context",
+      "recommended_next_step": "observe_or_shadow_only",
+      "risk_state": "ok",
+      "timestamp": "2026-07-03 04:00:00+00:00"
+    },
+    {
+      "conflict_tags": "",
+      "dominant_playbook": "scalping",
+      "horizon_bias": "mid",
+      "market_phase": "neutral_context",
+      "recommended_next_step": "observe_or_shadow_only",
+      "risk_state": "ok",
+      "timestamp": "2026-07-03 05:00:00+00:00"
+    },
+    {
+      "conflict_tags": "compression_without_breakout",
+      "dominant_playbook": "scalping",
+      "horizon_bias": "wait_for_expansion",
+      "market_phase": "compressed_wait",
+      "recommended_next_step": "watch_for_breakout_expansion",
+      "risk_state": "ok",
+      "timestamp": "2026-07-03 06:00:00+00:00"
+    },
+    {
+      "conflict_tags": "compression_without_breakout",
+      "dominant_playbook": "scalping",
+      "horizon_bias": "wait_for_expansion",
+      "market_phase": "compressed_wait",
+      "recommended_next_step": "watch_for_breakout_expansion",
+      "risk_state": "ok",
+      "timestamp": "2026-07-03 07:00:00+00:00"
+    }
+  ],
+  "summary": {
+    "active_context_count": 366,
+    "active_context_rate": 0.5083333333333333,
+    "asset": "BNBUSDT",
+    "avg_conflict_count": 0.9069444444444444,
+    "avg_risk_score": 0.5322576388888889,
+    "confirmed_context_count": 720,
+    "confirmed_context_rate": 1.0,
+    "context_alignment": {
+      "neutral_or_missing": 720
+    },
+    "dominant_playbook": {
+      "mean_reversion": 5,
+      "none": 84,
+      "scalping": 631
+    },
+    "horizon_bias": {
+      "mid": 44,
+      "none": 354,
+      "short_to_mid": 8,
+      "wait_for_expansion": 314
+    },
+    "market_phase": {
+      "breakout_setup": 146,
+      "compressed_wait": 177,
+      "neutral_context": 40,
+      "range_reversion": 3,
+      "shock_no_trade": 27,
+      "uncertain_no_trade": 327
+    },
+    "recommended_next_step": {
+      "mean_reversion_candidate": 4,
+      "observe_or_shadow_only": 185,
+      "skip_or_reduce_until_risk_clears": 354,
+      "watch_for_breakout_expansion": 177
+    },
+    "risk_state": {
+      "blocked": 354,
+      "ok": 361,
+      "watch": 5
+    },
+    "row_count": 720,
+    "source": "binance_native_ohlcv",
+    "timeframe": "1h",
+    "top_conflict_tags": {
+      "compression_without_breakout": 333,
+      "uncertainty_high": 320
+    }
+  }
+}

@@ -1,0 +1,466 @@
+{
+  "asset": [
+    "BNBUSDT",
+    "ETHUSDT",
+    "BTCUSDT"
+  ],
+  "asset_reports": [
+    {
+      "phase": "phase_8a_playbook_orchestration_gate",
+      "recent_rows": [
+        {
+          "routeable": true,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "SCALP_ONLY",
+          "timestamp": "2026-07-03 04:00:00+00:00"
+        },
+        {
+          "routeable": true,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "SCALP_ONLY",
+          "timestamp": "2026-07-03 05:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "WAIT_COMPRESSION",
+          "timestamp": "2026-07-03 06:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "WAIT_COMPRESSION",
+          "timestamp": "2026-07-03 07:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "WAIT_COMPRESSION",
+          "timestamp": "2026-07-03 08:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "WAIT_COMPRESSION",
+          "timestamp": "2026-07-03 09:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "WAIT_COMPRESSION",
+          "timestamp": "2026-07-03 10:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "WAIT_COMPRESSION",
+          "timestamp": "2026-07-03 11:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "WAIT_COMPRESSION",
+          "timestamp": "2026-07-03 12:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "WAIT_COMPRESSION",
+          "timestamp": "2026-07-03 13:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "WAIT_COMPRESSION",
+          "timestamp": "2026-07-03 14:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "WAIT_COMPRESSION",
+          "timestamp": "2026-07-03 15:00:00+00:00"
+        }
+      ],
+      "summary": {
+        "asset": "BNBUSDT",
+        "base_state_group_distribution": {
+          "executable": 45,
+          "risk": 340,
+          "wait": 335
+        },
+        "orchestration_state_distribution": {
+          "BREAKOUT_SETUP": 9,
+          "NO_TRADE_RISK": 340,
+          "RANGE_REVERSION": 3,
+          "SCALP_ONLY": 42,
+          "WAIT_COMPRESSION": 326
+        },
+        "recommended_next_step": "resume_base_playbook_orchestration_and_shadow_reporting",
+        "routeable_count": 45,
+        "routeable_rate": 0.0625,
+        "row_count": 720,
+        "runtime_action_distribution": {
+          "base_playbook_only_transition_diagnostic": 720
+        },
+        "source": "binance_native",
+        "timeframe": "1h",
+        "transition_gate_blockers": [
+          "insufficient_support_ready_assets",
+          "not_all_supported_windows_breakout_better",
+          "no_policy_safe_context_tag_for_mixed_failures",
+          "asset_level_mixed_robustness"
+        ],
+        "transition_gate_decision": "freeze_transition_micro_states_diagnostic",
+        "transition_posture": "frozen_diagnostic",
+        "transition_promotion_ready": false,
+        "transition_runtime_enabled_count": 0
+      }
+    },
+    {
+      "phase": "phase_8a_playbook_orchestration_gate",
+      "recent_rows": [
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "NO_TRADE_RISK",
+          "timestamp": "2026-07-03 04:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "NO_TRADE_RISK",
+          "timestamp": "2026-07-03 05:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "NO_TRADE_RISK",
+          "timestamp": "2026-07-03 06:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "NO_TRADE_RISK",
+          "timestamp": "2026-07-03 07:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "NO_TRADE_RISK",
+          "timestamp": "2026-07-03 08:00:00+00:00"
+        },
+        {
+          "routeable": true,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "SCALP_ONLY",
+          "timestamp": "2026-07-03 09:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "NO_TRADE_RISK",
+          "timestamp": "2026-07-03 10:00:00+00:00"
+        },
+        {
+          "routeable": true,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "SCALP_ONLY",
+          "timestamp": "2026-07-03 11:00:00+00:00"
+        },
+        {
+          "routeable": true,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "SCALP_ONLY",
+          "timestamp": "2026-07-03 12:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "WAIT_COMPRESSION",
+          "timestamp": "2026-07-03 13:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "WAIT_COMPRESSION",
+          "timestamp": "2026-07-03 14:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "WAIT_COMPRESSION",
+          "timestamp": "2026-07-03 15:00:00+00:00"
+        }
+      ],
+      "summary": {
+        "asset": "ETHUSDT",
+        "base_state_group_distribution": {
+          "executable": 61,
+          "risk": 333,
+          "wait": 326
+        },
+        "orchestration_state_distribution": {
+          "BREAKOUT_SETUP": 11,
+          "NO_TRADE_RISK": 333,
+          "RANGE_REVERSION": 2,
+          "SCALP_ONLY": 59,
+          "WAIT_COMPRESSION": 315
+        },
+        "recommended_next_step": "resume_base_playbook_orchestration_and_shadow_reporting",
+        "routeable_count": 61,
+        "routeable_rate": 0.08472222222222223,
+        "row_count": 720,
+        "runtime_action_distribution": {
+          "base_playbook_only_transition_diagnostic": 720
+        },
+        "source": "binance_native",
+        "timeframe": "1h",
+        "transition_gate_blockers": [
+          "insufficient_support_ready_assets",
+          "not_all_supported_windows_breakout_better",
+          "no_policy_safe_context_tag_for_mixed_failures",
+          "asset_level_mixed_robustness"
+        ],
+        "transition_gate_decision": "freeze_transition_micro_states_diagnostic",
+        "transition_posture": "frozen_diagnostic",
+        "transition_promotion_ready": false,
+        "transition_runtime_enabled_count": 0
+      }
+    },
+    {
+      "phase": "phase_8a_playbook_orchestration_gate",
+      "recent_rows": [
+        {
+          "routeable": true,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "SCALP_ONLY",
+          "timestamp": "2026-07-03 04:00:00+00:00"
+        },
+        {
+          "routeable": true,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "SCALP_ONLY",
+          "timestamp": "2026-07-03 05:00:00+00:00"
+        },
+        {
+          "routeable": true,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "SCALP_ONLY",
+          "timestamp": "2026-07-03 06:00:00+00:00"
+        },
+        {
+          "routeable": true,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "SCALP_ONLY",
+          "timestamp": "2026-07-03 07:00:00+00:00"
+        },
+        {
+          "routeable": true,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "SCALP_ONLY",
+          "timestamp": "2026-07-03 08:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "WAIT_COMPRESSION",
+          "timestamp": "2026-07-03 09:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "WAIT_COMPRESSION",
+          "timestamp": "2026-07-03 10:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "WAIT_COMPRESSION",
+          "timestamp": "2026-07-03 11:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "WAIT_COMPRESSION",
+          "timestamp": "2026-07-03 12:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "WAIT_COMPRESSION",
+          "timestamp": "2026-07-03 13:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "WAIT_COMPRESSION",
+          "timestamp": "2026-07-03 14:00:00+00:00"
+        },
+        {
+          "routeable": false,
+          "runtime_action": "base_playbook_only_transition_diagnostic",
+          "state": "WAIT_COMPRESSION",
+          "timestamp": "2026-07-03 15:00:00+00:00"
+        }
+      ],
+      "summary": {
+        "asset": "BTCUSDT",
+        "base_state_group_distribution": {
+          "executable": 58,
+          "risk": 335,
+          "wait": 327
+        },
+        "orchestration_state_distribution": {
+          "BREAKOUT_SETUP": 9,
+          "NO_TRADE_RISK": 335,
+          "SCALP_ONLY": 58,
+          "WAIT_COMPRESSION": 318
+        },
+        "recommended_next_step": "resume_base_playbook_orchestration_and_shadow_reporting",
+        "routeable_count": 58,
+        "routeable_rate": 0.08055555555555556,
+        "row_count": 720,
+        "runtime_action_distribution": {
+          "base_playbook_only_transition_diagnostic": 720
+        },
+        "source": "binance_native",
+        "timeframe": "1h",
+        "transition_gate_blockers": [
+          "insufficient_support_ready_assets",
+          "not_all_supported_windows_breakout_better",
+          "no_policy_safe_context_tag_for_mixed_failures",
+          "asset_level_mixed_robustness"
+        ],
+        "transition_gate_decision": "freeze_transition_micro_states_diagnostic",
+        "transition_posture": "frozen_diagnostic",
+        "transition_promotion_ready": false,
+        "transition_runtime_enabled_count": 0
+      }
+    }
+  ],
+  "input_rows": 720,
+  "phase": "phase_8a_playbook_orchestration_gate_runner",
+  "report": {
+    "asset_summaries": [
+      {
+        "asset": "BNBUSDT",
+        "base_state_group_distribution": {
+          "executable": 45,
+          "risk": 340,
+          "wait": 335
+        },
+        "orchestration_state_distribution": {
+          "BREAKOUT_SETUP": 9,
+          "NO_TRADE_RISK": 340,
+          "RANGE_REVERSION": 3,
+          "SCALP_ONLY": 42,
+          "WAIT_COMPRESSION": 326
+        },
+        "recommended_next_step": "resume_base_playbook_orchestration_and_shadow_reporting",
+        "routeable_count": 45,
+        "routeable_rate": 0.0625,
+        "row_count": 720,
+        "runtime_action_distribution": {
+          "base_playbook_only_transition_diagnostic": 720
+        },
+        "source": "binance_native",
+        "timeframe": "1h",
+        "transition_gate_blockers": [
+          "insufficient_support_ready_assets",
+          "not_all_supported_windows_breakout_better",
+          "no_policy_safe_context_tag_for_mixed_failures",
+          "asset_level_mixed_robustness"
+        ],
+        "transition_gate_decision": "freeze_transition_micro_states_diagnostic",
+        "transition_posture": "frozen_diagnostic",
+        "transition_promotion_ready": false,
+        "transition_runtime_enabled_count": 0
+      },
+      {
+        "asset": "ETHUSDT",
+        "base_state_group_distribution": {
+          "executable": 61,
+          "risk": 333,
+          "wait": 326
+        },
+        "orchestration_state_distribution": {
+          "BREAKOUT_SETUP": 11,
+          "NO_TRADE_RISK": 333,
+          "RANGE_REVERSION": 2,
+          "SCALP_ONLY": 59,
+          "WAIT_COMPRESSION": 315
+        },
+        "recommended_next_step": "resume_base_playbook_orchestration_and_shadow_reporting",
+        "routeable_count": 61,
+        "routeable_rate": 0.08472222222222223,
+        "row_count": 720,
+        "runtime_action_distribution": {
+          "base_playbook_only_transition_diagnostic": 720
+        },
+        "source": "binance_native",
+        "timeframe": "1h",
+        "transition_gate_blockers": [
+          "insufficient_support_ready_assets",
+          "not_all_supported_windows_breakout_better",
+          "no_policy_safe_context_tag_for_mixed_failures",
+          "asset_level_mixed_robustness"
+        ],
+        "transition_gate_decision": "freeze_transition_micro_states_diagnostic",
+        "transition_posture": "frozen_diagnostic",
+        "transition_promotion_ready": false,
+        "transition_runtime_enabled_count": 0
+      },
+      {
+        "asset": "BTCUSDT",
+        "base_state_group_distribution": {
+          "executable": 58,
+          "risk": 335,
+          "wait": 327
+        },
+        "orchestration_state_distribution": {
+          "BREAKOUT_SETUP": 9,
+          "NO_TRADE_RISK": 335,
+          "SCALP_ONLY": 58,
+          "WAIT_COMPRESSION": 318
+        },
+        "recommended_next_step": "resume_base_playbook_orchestration_and_shadow_reporting",
+        "routeable_count": 58,
+        "routeable_rate": 0.08055555555555556,
+        "row_count": 720,
+        "runtime_action_distribution": {
+          "base_playbook_only_transition_diagnostic": 720
+        },
+        "source": "binance_native",
+        "timeframe": "1h",
+        "transition_gate_blockers": [
+          "insufficient_support_ready_assets",
+          "not_all_supported_windows_breakout_better",
+          "no_policy_safe_context_tag_for_mixed_failures",
+          "asset_level_mixed_robustness"
+        ],
+        "transition_gate_decision": "freeze_transition_micro_states_diagnostic",
+        "transition_posture": "frozen_diagnostic",
+        "transition_promotion_ready": false,
+        "transition_runtime_enabled_count": 0
+      }
+    ],
+    "phase": "phase_8a_playbook_orchestration_gate_matrix",
+    "summary": {
+      "assets": [
+        "BNBUSDT",
+        "BTCUSDT",
+        "ETHUSDT"
+      ],
+      "recommended_next_step": "resume_base_playbook_orchestration_and_shadow_reporting",
+      "routeable_count": 164,
+      "row_count": 2160,
+      "transition_postures": [
+        "frozen_diagnostic"
+      ],
+      "transition_promotion_ready_count": 0,
+      "transition_runtime_enabled_count": 0,
+      "variant_count": 3
+    }
+  },
+  "timeframe": "1h"
+}

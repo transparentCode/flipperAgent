@@ -1,0 +1,274 @@
+{
+  "asset_timeframe": {
+    "BNBUSDT|1h": {
+      "active_playbooks": {
+        "none": 80
+      },
+      "avg_breakout_score": 0.00046875,
+      "avg_confidence": 0.37377837028443156,
+      "avg_mean_reversion_score": 0.0060750000000000005,
+      "avg_trend_score": 0.0215125,
+      "count": 80,
+      "gate_active_count": 0,
+      "gate_active_rate": 0.0,
+      "gate_reason": {
+        "inactive_playbook_policy": 80
+      },
+      "selection_changed_count": 35,
+      "target_candidate_absent_count": 35
+    },
+    "BTCUSDT|4h": {
+      "active_playbooks": {
+        "none": 76,
+        "trend": 4
+      },
+      "avg_breakout_score": 0.0122375,
+      "avg_confidence": 0.5371393680870462,
+      "avg_mean_reversion_score": 0.0087075,
+      "avg_trend_score": 0.05119,
+      "count": 80,
+      "gate_active_count": 4,
+      "gate_active_rate": 0.05,
+      "gate_reason": {
+        "active": 4,
+        "inactive_playbook_policy": 76
+      },
+      "selection_changed_count": 32,
+      "target_candidate_absent_count": 32
+    },
+    "ETHUSDT|4h": {
+      "active_playbooks": {
+        "breakout": 1,
+        "none": 76,
+        "trend": 4
+      },
+      "avg_breakout_score": 0.00918625,
+      "avg_confidence": 0.5579622356920101,
+      "avg_mean_reversion_score": 0.004095,
+      "avg_trend_score": 0.03657375,
+      "count": 80,
+      "gate_active_count": 4,
+      "gate_active_rate": 0.05,
+      "gate_reason": {
+        "active": 4,
+        "inactive_playbook_policy": 76
+      },
+      "selection_changed_count": 45,
+      "target_candidate_absent_count": 45
+    },
+    "SOLUSDT|4h": {
+      "active_playbooks": {
+        "breakout": 4,
+        "none": 74,
+        "trend": 5
+      },
+      "avg_breakout_score": 0.0239575,
+      "avg_confidence": 0.5605342099493523,
+      "avg_mean_reversion_score": 0.008765,
+      "avg_trend_score": 0.035536250000000005,
+      "count": 80,
+      "gate_active_count": 6,
+      "gate_active_rate": 0.075,
+      "gate_reason": {
+        "active": 6,
+        "inactive_playbook_policy": 74
+      },
+      "selection_changed_count": 32,
+      "target_candidate_absent_count": 31
+    }
+  },
+  "distributions": {
+    "active_playbooks": {
+      "breakout": 5,
+      "none": 306,
+      "trend": 13
+    },
+    "asset_timeframe": {
+      "BNBUSDT|1h": 80,
+      "BTCUSDT|4h": 80,
+      "ETHUSDT|4h": 80,
+      "SOLUSDT|4h": 80
+    },
+    "baseline_model": {
+      "Momentum": 133,
+      "PriceAction": 143,
+      "RegimePullbackScorer": 19,
+      "TrendFollowing": 25
+    },
+    "changed_by_gate_reason": {
+      "active": 5,
+      "inactive_playbook_policy": 139
+    },
+    "gate_reason": {
+      "active": 14,
+      "inactive_playbook_policy": 306
+    },
+    "shadow_model": {
+      "Momentum": 132,
+      "RegimePullbackScorer": 19,
+      "SqueezeBreakout": 1,
+      "TrendFollowing": 25,
+      "none": 143
+    }
+  },
+  "phase": "phase_6c_activation_diagnostics",
+  "playbooks": {
+    "breakout": {
+      "active_count": 5,
+      "active_rate": 0.015625,
+      "allow_and_score_pass_count": 5,
+      "allow_and_score_pass_rate": 0.015625,
+      "allow_false_count": 315,
+      "allow_true_count": 5,
+      "allow_true_rate": 0.015625,
+      "avg_score": 0.0114625,
+      "default_floor": 0.24,
+      "score_below_floor_count": 315,
+      "score_pass_count": 5,
+      "score_pass_rate": 0.015625,
+      "score_quantiles": {
+        "p50": 0.0,
+        "p75": 0.0,
+        "p90": 0.0024,
+        "p95": 0.0853
+      }
+    },
+    "mean_reversion": {
+      "active_count": 0,
+      "active_rate": 0.0,
+      "allow_and_score_pass_count": 0,
+      "allow_and_score_pass_rate": 0.0,
+      "allow_false_count": 320,
+      "allow_true_count": 0,
+      "allow_true_rate": 0.0,
+      "avg_score": 0.006910625000000001,
+      "default_floor": 0.24,
+      "score_below_floor_count": 320,
+      "score_pass_count": 0,
+      "score_pass_rate": 0.0,
+      "score_quantiles": {
+        "p50": 0.0,
+        "p75": 0.0,
+        "p90": 0.0147,
+        "p95": 0.0326
+      }
+    },
+    "trend": {
+      "active_count": 13,
+      "active_rate": 0.040625,
+      "allow_and_score_pass_count": 13,
+      "allow_and_score_pass_rate": 0.040625,
+      "allow_false_count": 307,
+      "allow_true_count": 13,
+      "allow_true_rate": 0.040625,
+      "avg_score": 0.036203125,
+      "default_floor": 0.24,
+      "score_below_floor_count": 307,
+      "score_pass_count": 13,
+      "score_pass_rate": 0.040625,
+      "score_quantiles": {
+        "p50": 0.0,
+        "p75": 0.0345,
+        "p90": 0.1131,
+        "p95": 0.1821
+      }
+    }
+  },
+  "relaxed_floor_scenarios": [
+    {
+      "breakout_count": 5,
+      "floor": 0.18,
+      "mean_reversion_count": 0,
+      "potential_active_count": 14,
+      "potential_active_rate": 0.04375,
+      "score_only_breakout_count": 5,
+      "score_only_mean_reversion_count": 3,
+      "score_only_potential_active_count": 21,
+      "score_only_potential_active_rate": 0.065625,
+      "score_only_trend_count": 18,
+      "trend_count": 13
+    },
+    {
+      "breakout_count": 5,
+      "floor": 0.2,
+      "mean_reversion_count": 0,
+      "potential_active_count": 14,
+      "potential_active_rate": 0.04375,
+      "score_only_breakout_count": 5,
+      "score_only_mean_reversion_count": 1,
+      "score_only_potential_active_count": 15,
+      "score_only_potential_active_rate": 0.046875,
+      "score_only_trend_count": 14,
+      "trend_count": 13
+    },
+    {
+      "breakout_count": 5,
+      "floor": 0.22,
+      "mean_reversion_count": 0,
+      "potential_active_count": 14,
+      "potential_active_rate": 0.04375,
+      "score_only_breakout_count": 5,
+      "score_only_mean_reversion_count": 1,
+      "score_only_potential_active_count": 14,
+      "score_only_potential_active_rate": 0.04375,
+      "score_only_trend_count": 13,
+      "trend_count": 13
+    },
+    {
+      "breakout_count": 5,
+      "floor": 0.24,
+      "mean_reversion_count": 0,
+      "potential_active_count": 14,
+      "potential_active_rate": 0.04375,
+      "score_only_breakout_count": 5,
+      "score_only_mean_reversion_count": 0,
+      "score_only_potential_active_count": 14,
+      "score_only_potential_active_rate": 0.04375,
+      "score_only_trend_count": 13,
+      "trend_count": 13
+    }
+  ],
+  "source_invalid_shadow_records": 0,
+  "source_log": "logs/regime_v2_shadow_decisions.jsonl",
+  "summary": {
+    "gate_active_changed_count": 5,
+    "gate_active_count": 14,
+    "gate_active_rate": 0.04375,
+    "gate_inactive_count": 306,
+    "missing_policy_context_count": 0,
+    "selection_changed_count": 144,
+    "target_candidate_absent_count": 143,
+    "target_candidate_absent_rate": 0.446875,
+    "total_records": 320
+  },
+  "top_blockers": [
+    {
+      "blocker": "breakout_allow_false",
+      "count": 306
+    },
+    {
+      "blocker": "breakout_score_below_floor",
+      "count": 306
+    },
+    {
+      "blocker": "mean_reversion_allow_false",
+      "count": 306
+    },
+    {
+      "blocker": "mean_reversion_score_below_floor",
+      "count": 306
+    },
+    {
+      "blocker": "trend_allow_false",
+      "count": 306
+    },
+    {
+      "blocker": "trend_score_below_floor",
+      "count": 306
+    },
+    {
+      "blocker": "no_target_candidate",
+      "count": 139
+    }
+  ]
+}

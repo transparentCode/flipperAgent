@@ -1,0 +1,2 @@
+"""alert_app package."""
+

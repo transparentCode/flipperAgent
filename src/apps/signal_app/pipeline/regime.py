@@ -67,6 +67,7 @@ class RegimeFeaturePipeline:
         settings: SignalWorkerSettings | None = None,
         orchestrator: Any | None = None,
         classifier: Any | None = None,
+        regime_v2: Any | None = None,
         l2_reader: L2FeatureReader | None = None,
     ) -> None:
         settings = settings or SignalWorkerSettings()
@@ -83,6 +84,7 @@ class RegimeFeaturePipeline:
         )
         self.orchestrator = orchestrator
         self.classifier = classifier
+        self.regime_v2 = regime_v2
         self.l2_reader = l2_reader or _load_latest_l2_features
         self._price_history: list[PriceBar] = []
         self._classification_cache: dict[str, Any] | None = None
@@ -98,11 +100,17 @@ class RegimeFeaturePipeline:
         settings: SignalWorkerSettings | None = None,
     ) -> "RegimeFeaturePipeline":
         settings = settings or SignalWorkerSettings()
+        resolver = config_resolver or FeatureProducerConfigResolver()
         orchestrator = _create_regime_orchestrator(asset, timeframe)
         classifier = _create_regime_classifier(
             asset,
             timeframe,
-            config_resolver=config_resolver,
+            config_resolver=resolver,
+        )
+        regime_v2 = _create_regime_v2(
+            asset,
+            timeframe,
+            config_resolver=resolver,
         )
         return cls(
             asset,
@@ -110,6 +118,7 @@ class RegimeFeaturePipeline:
             settings=settings,
             orchestrator=orchestrator,
             classifier=classifier,
+            regime_v2=regime_v2,
         )
 
     @property
@@ -138,6 +147,7 @@ class RegimeFeaturePipeline:
         enriched = dict(features)
         self._attach_regime_snapshot(enriched)
         await self._attach_regime_classification(enriched)
+        self._attach_regime_v2(enriched)
         return enriched
 
     def _attach_regime_snapshot(self, features: dict[str, Any]) -> None:
@@ -186,6 +196,18 @@ class RegimeFeaturePipeline:
             )
 
         features["regime_classification"] = last_features
+
+    def _attach_regime_v2(self, features: dict[str, Any]) -> None:
+        if self.regime_v2 is None or len(self._price_history) < self.min_bars:
+            return
+
+        try:
+            features["regime_v2"] = self.regime_v2.analyze(
+                self._price_history,
+                latest_features=features,
+            )
+        except Exception:
+            logger.warning("RegimeV2 analysis failed for current bar", exc_info=True)
 
     def _trim_history(self) -> None:
         if len(self._price_history) > self.max_history:
@@ -244,6 +266,35 @@ def _create_regime_classifier(
     except Exception:
         logger.warning(
             "RegimeClassificationModel unavailable for %s:%s",
+            asset,
+            timeframe,
+            exc_info=True,
+        )
+        return None
+
+
+def _create_regime_v2(
+    asset: str,
+    timeframe: str,
+    *,
+    config_resolver: FeatureProducerConfigResolver | None = None,
+) -> Any | None:
+    resolver = config_resolver or FeatureProducerConfigResolver()
+    regime_config = resolver.resolve(asset, timeframe, "RegimeV2")
+    if not regime_config or not regime_config.get("enabled", False):
+        return None
+
+    try:
+        from libs.models.regime_v2.adapters import RegimeV2FeatureProducer
+
+        return RegimeV2FeatureProducer(
+            asset,
+            timeframe,
+            params=regime_config.get("params") or {},
+        )
+    except Exception:
+        logger.warning(
+            "RegimeV2FeatureProducer unavailable for %s:%s",
             asset,
             timeframe,
             exc_info=True,

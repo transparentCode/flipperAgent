@@ -1,0 +1,1336 @@
+{
+  "cells": [
+    {
+      "avg_baseline_net_return": -0.006866099415516237,
+      "avg_shadow_minus_baseline": 0.006866099415516237,
+      "bad_count": 31,
+      "bad_rate": 0.7948717948717948,
+      "count": 39,
+      "failure_reasons": [],
+      "fee_bps": 2.0,
+      "horizon_bars": 3,
+      "outcome_labels": {
+        "avoided_loss": 31,
+        "missed_win": 8
+      },
+      "positive_shadow_lift_rate": 0.7948717948717948,
+      "rolling": {
+        "20": {
+          "max_avg_shadow_minus_baseline": 0.010081977332643242,
+          "min_avg_shadow_minus_baseline": 0.003480964765908864,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.010081977332643242,
+              "avg_shadow_minus_baseline": 0.010081977332643242,
+              "bad_count": 18,
+              "bad_rate": 0.9,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 18,
+                "missed_win": 2
+              },
+              "positive_shadow_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.003480964765908864,
+              "avg_shadow_minus_baseline": 0.003480964765908864,
+              "bad_count": 13,
+              "bad_rate": 0.6842105263157895,
+              "count": 19,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 13,
+                "missed_win": 6
+              },
+              "positive_shadow_lift_rate": 0.6842105263157895,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_shadow_minus_baseline": 0.010647942269262644,
+          "min_avg_shadow_minus_baseline": 0.010647942269262644,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.010647942269262644,
+              "avg_shadow_minus_baseline": 0.010647942269262644,
+              "bad_count": 27,
+              "bad_rate": 0.9,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 27,
+                "missed_win": 3
+              },
+              "positive_shadow_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_shadow_minus_baseline": 0.006866099415516237,
+          "min_avg_shadow_minus_baseline": 0.006866099415516237,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.006866099415516237,
+              "avg_shadow_minus_baseline": 0.006866099415516237,
+              "bad_count": 31,
+              "bad_rate": 0.7948717948717948,
+              "count": 39,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 31,
+                "missed_win": 8
+              },
+              "positive_shadow_lift_rate": 0.7948717948717948,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": true,
+      "status": "pass"
+    },
+    {
+      "avg_baseline_net_return": -0.007166099415516238,
+      "avg_shadow_minus_baseline": 0.007166099415516238,
+      "bad_count": 31,
+      "bad_rate": 0.7948717948717948,
+      "count": 39,
+      "failure_reasons": [],
+      "fee_bps": 5.0,
+      "horizon_bars": 3,
+      "outcome_labels": {
+        "avoided_loss": 31,
+        "missed_win": 8
+      },
+      "positive_shadow_lift_rate": 0.7948717948717948,
+      "rolling": {
+        "20": {
+          "max_avg_shadow_minus_baseline": 0.010381977332643243,
+          "min_avg_shadow_minus_baseline": 0.003780964765908864,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.010381977332643243,
+              "avg_shadow_minus_baseline": 0.010381977332643243,
+              "bad_count": 18,
+              "bad_rate": 0.9,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 18,
+                "missed_win": 2
+              },
+              "positive_shadow_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.003780964765908864,
+              "avg_shadow_minus_baseline": 0.003780964765908864,
+              "bad_count": 13,
+              "bad_rate": 0.6842105263157895,
+              "count": 19,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 13,
+                "missed_win": 6
+              },
+              "positive_shadow_lift_rate": 0.6842105263157895,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_shadow_minus_baseline": 0.010947942269262646,
+          "min_avg_shadow_minus_baseline": 0.010947942269262646,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.010947942269262646,
+              "avg_shadow_minus_baseline": 0.010947942269262646,
+              "bad_count": 27,
+              "bad_rate": 0.9,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 27,
+                "missed_win": 3
+              },
+              "positive_shadow_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_shadow_minus_baseline": 0.007166099415516238,
+          "min_avg_shadow_minus_baseline": 0.007166099415516238,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.007166099415516238,
+              "avg_shadow_minus_baseline": 0.007166099415516238,
+              "bad_count": 31,
+              "bad_rate": 0.7948717948717948,
+              "count": 39,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 31,
+                "missed_win": 8
+              },
+              "positive_shadow_lift_rate": 0.7948717948717948,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": true,
+      "status": "pass"
+    },
+    {
+      "avg_baseline_net_return": -0.007666099415516239,
+      "avg_shadow_minus_baseline": 0.007666099415516239,
+      "bad_count": 31,
+      "bad_rate": 0.7948717948717948,
+      "count": 39,
+      "failure_reasons": [],
+      "fee_bps": 10.0,
+      "horizon_bars": 3,
+      "outcome_labels": {
+        "avoided_loss": 31,
+        "missed_win": 8
+      },
+      "positive_shadow_lift_rate": 0.7948717948717948,
+      "rolling": {
+        "20": {
+          "max_avg_shadow_minus_baseline": 0.010881977332643244,
+          "min_avg_shadow_minus_baseline": 0.004280964765908865,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.010881977332643244,
+              "avg_shadow_minus_baseline": 0.010881977332643244,
+              "bad_count": 18,
+              "bad_rate": 0.9,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 18,
+                "missed_win": 2
+              },
+              "positive_shadow_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.004280964765908865,
+              "avg_shadow_minus_baseline": 0.004280964765908865,
+              "bad_count": 13,
+              "bad_rate": 0.6842105263157895,
+              "count": 19,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 13,
+                "missed_win": 6
+              },
+              "positive_shadow_lift_rate": 0.6842105263157895,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_shadow_minus_baseline": 0.011447942269262646,
+          "min_avg_shadow_minus_baseline": 0.011447942269262646,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.011447942269262646,
+              "avg_shadow_minus_baseline": 0.011447942269262646,
+              "bad_count": 27,
+              "bad_rate": 0.9,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 27,
+                "missed_win": 3
+              },
+              "positive_shadow_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_shadow_minus_baseline": 0.007666099415516239,
+          "min_avg_shadow_minus_baseline": 0.007666099415516239,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.007666099415516239,
+              "avg_shadow_minus_baseline": 0.007666099415516239,
+              "bad_count": 31,
+              "bad_rate": 0.7948717948717948,
+              "count": 39,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 31,
+                "missed_win": 8
+              },
+              "positive_shadow_lift_rate": 0.7948717948717948,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": true,
+      "status": "pass"
+    },
+    {
+      "avg_baseline_net_return": -0.010694764867263637,
+      "avg_shadow_minus_baseline": 0.010694764867263637,
+      "bad_count": 31,
+      "bad_rate": 0.7948717948717948,
+      "count": 39,
+      "failure_reasons": [],
+      "fee_bps": 2.0,
+      "horizon_bars": 6,
+      "outcome_labels": {
+        "avoided_loss": 31,
+        "missed_win": 8
+      },
+      "positive_shadow_lift_rate": 0.7948717948717948,
+      "rolling": {
+        "20": {
+          "max_avg_shadow_minus_baseline": 0.013053489150769709,
+          "min_avg_shadow_minus_baseline": 0.00821189720041514,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.013053489150769709,
+              "avg_shadow_minus_baseline": 0.013053489150769709,
+              "bad_count": 18,
+              "bad_rate": 0.9,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 18,
+                "missed_win": 2
+              },
+              "positive_shadow_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.00821189720041514,
+              "avg_shadow_minus_baseline": 0.00821189720041514,
+              "bad_count": 13,
+              "bad_rate": 0.6842105263157895,
+              "count": 19,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 13,
+                "missed_win": 6
+              },
+              "positive_shadow_lift_rate": 0.6842105263157895,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_shadow_minus_baseline": 0.015731036976986305,
+          "min_avg_shadow_minus_baseline": 0.015731036976986305,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.015731036976986305,
+              "avg_shadow_minus_baseline": 0.015731036976986305,
+              "bad_count": 27,
+              "bad_rate": 0.9,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 27,
+                "missed_win": 3
+              },
+              "positive_shadow_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_shadow_minus_baseline": 0.010694764867263637,
+          "min_avg_shadow_minus_baseline": 0.010694764867263637,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.010694764867263637,
+              "avg_shadow_minus_baseline": 0.010694764867263637,
+              "bad_count": 31,
+              "bad_rate": 0.7948717948717948,
+              "count": 39,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 31,
+                "missed_win": 8
+              },
+              "positive_shadow_lift_rate": 0.7948717948717948,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": true,
+      "status": "pass"
+    },
+    {
+      "avg_baseline_net_return": -0.010994764867263638,
+      "avg_shadow_minus_baseline": 0.010994764867263638,
+      "bad_count": 31,
+      "bad_rate": 0.7948717948717948,
+      "count": 39,
+      "failure_reasons": [],
+      "fee_bps": 5.0,
+      "horizon_bars": 6,
+      "outcome_labels": {
+        "avoided_loss": 31,
+        "missed_win": 8
+      },
+      "positive_shadow_lift_rate": 0.7948717948717948,
+      "rolling": {
+        "20": {
+          "max_avg_shadow_minus_baseline": 0.013353489150769709,
+          "min_avg_shadow_minus_baseline": 0.008511897200415142,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.013353489150769709,
+              "avg_shadow_minus_baseline": 0.013353489150769709,
+              "bad_count": 18,
+              "bad_rate": 0.9,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 18,
+                "missed_win": 2
+              },
+              "positive_shadow_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.008511897200415142,
+              "avg_shadow_minus_baseline": 0.008511897200415142,
+              "bad_count": 13,
+              "bad_rate": 0.6842105263157895,
+              "count": 19,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 13,
+                "missed_win": 6
+              },
+              "positive_shadow_lift_rate": 0.6842105263157895,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_shadow_minus_baseline": 0.016031036976986303,
+          "min_avg_shadow_minus_baseline": 0.016031036976986303,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.016031036976986303,
+              "avg_shadow_minus_baseline": 0.016031036976986303,
+              "bad_count": 27,
+              "bad_rate": 0.9,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 27,
+                "missed_win": 3
+              },
+              "positive_shadow_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_shadow_minus_baseline": 0.010994764867263638,
+          "min_avg_shadow_minus_baseline": 0.010994764867263638,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.010994764867263638,
+              "avg_shadow_minus_baseline": 0.010994764867263638,
+              "bad_count": 31,
+              "bad_rate": 0.7948717948717948,
+              "count": 39,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 31,
+                "missed_win": 8
+              },
+              "positive_shadow_lift_rate": 0.7948717948717948,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": true,
+      "status": "pass"
+    },
+    {
+      "avg_baseline_net_return": -0.011494764867263639,
+      "avg_shadow_minus_baseline": 0.011494764867263639,
+      "bad_count": 32,
+      "bad_rate": 0.8205128205128205,
+      "count": 39,
+      "failure_reasons": [],
+      "fee_bps": 10.0,
+      "horizon_bars": 6,
+      "outcome_labels": {
+        "avoided_loss": 32,
+        "missed_win": 7
+      },
+      "positive_shadow_lift_rate": 0.8205128205128205,
+      "rolling": {
+        "20": {
+          "max_avg_shadow_minus_baseline": 0.01385348915076971,
+          "min_avg_shadow_minus_baseline": 0.009011897200415142,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.01385348915076971,
+              "avg_shadow_minus_baseline": 0.01385348915076971,
+              "bad_count": 18,
+              "bad_rate": 0.9,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 18,
+                "missed_win": 2
+              },
+              "positive_shadow_lift_rate": 0.9,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.009011897200415142,
+              "avg_shadow_minus_baseline": 0.009011897200415142,
+              "bad_count": 14,
+              "bad_rate": 0.7368421052631579,
+              "count": 19,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 14,
+                "missed_win": 5
+              },
+              "positive_shadow_lift_rate": 0.7368421052631579,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_shadow_minus_baseline": 0.016531036976986303,
+          "min_avg_shadow_minus_baseline": 0.016531036976986303,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.016531036976986303,
+              "avg_shadow_minus_baseline": 0.016531036976986303,
+              "bad_count": 28,
+              "bad_rate": 0.9333333333333333,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 28,
+                "missed_win": 2
+              },
+              "positive_shadow_lift_rate": 0.9333333333333333,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_shadow_minus_baseline": 0.011494764867263639,
+          "min_avg_shadow_minus_baseline": 0.011494764867263639,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.011494764867263639,
+              "avg_shadow_minus_baseline": 0.011494764867263639,
+              "bad_count": 32,
+              "bad_rate": 0.8205128205128205,
+              "count": 39,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 32,
+                "missed_win": 7
+              },
+              "positive_shadow_lift_rate": 0.8205128205128205,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": true,
+      "status": "pass"
+    },
+    {
+      "avg_baseline_net_return": -0.019839373053687614,
+      "avg_shadow_minus_baseline": 0.019839373053687614,
+      "bad_count": 31,
+      "bad_rate": 0.7948717948717948,
+      "count": 39,
+      "failure_reasons": [],
+      "fee_bps": 2.0,
+      "horizon_bars": 12,
+      "outcome_labels": {
+        "avoided_loss": 31,
+        "missed_win": 8
+      },
+      "positive_shadow_lift_rate": 0.7948717948717948,
+      "rolling": {
+        "20": {
+          "max_avg_shadow_minus_baseline": 0.030008584926089942,
+          "min_avg_shadow_minus_baseline": 0.00913493950379042,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.030008584926089942,
+              "avg_shadow_minus_baseline": 0.030008584926089942,
+              "bad_count": 19,
+              "bad_rate": 0.95,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 19,
+                "missed_win": 1
+              },
+              "positive_shadow_lift_rate": 0.95,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.00913493950379042,
+              "avg_shadow_minus_baseline": 0.00913493950379042,
+              "bad_count": 12,
+              "bad_rate": 0.631578947368421,
+              "count": 19,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 12,
+                "missed_win": 7
+              },
+              "positive_shadow_lift_rate": 0.631578947368421,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_shadow_minus_baseline": 0.02849259939533878,
+          "min_avg_shadow_minus_baseline": 0.02849259939533878,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.02849259939533878,
+              "avg_shadow_minus_baseline": 0.02849259939533878,
+              "bad_count": 29,
+              "bad_rate": 0.9666666666666667,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 29,
+                "missed_win": 1
+              },
+              "positive_shadow_lift_rate": 0.9666666666666667,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_shadow_minus_baseline": 0.019839373053687614,
+          "min_avg_shadow_minus_baseline": 0.019839373053687614,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.019839373053687614,
+              "avg_shadow_minus_baseline": 0.019839373053687614,
+              "bad_count": 31,
+              "bad_rate": 0.7948717948717948,
+              "count": 39,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 31,
+                "missed_win": 8
+              },
+              "positive_shadow_lift_rate": 0.7948717948717948,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": true,
+      "status": "pass"
+    },
+    {
+      "avg_baseline_net_return": -0.020139373053687615,
+      "avg_shadow_minus_baseline": 0.020139373053687615,
+      "bad_count": 31,
+      "bad_rate": 0.7948717948717948,
+      "count": 39,
+      "failure_reasons": [],
+      "fee_bps": 5.0,
+      "horizon_bars": 12,
+      "outcome_labels": {
+        "avoided_loss": 31,
+        "missed_win": 8
+      },
+      "positive_shadow_lift_rate": 0.7948717948717948,
+      "rolling": {
+        "20": {
+          "max_avg_shadow_minus_baseline": 0.030308584926089944,
+          "min_avg_shadow_minus_baseline": 0.009434939503790424,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.030308584926089944,
+              "avg_shadow_minus_baseline": 0.030308584926089944,
+              "bad_count": 19,
+              "bad_rate": 0.95,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 19,
+                "missed_win": 1
+              },
+              "positive_shadow_lift_rate": 0.95,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.009434939503790424,
+              "avg_shadow_minus_baseline": 0.009434939503790424,
+              "bad_count": 12,
+              "bad_rate": 0.631578947368421,
+              "count": 19,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 12,
+                "missed_win": 7
+              },
+              "positive_shadow_lift_rate": 0.631578947368421,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_shadow_minus_baseline": 0.02879259939533878,
+          "min_avg_shadow_minus_baseline": 0.02879259939533878,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.02879259939533878,
+              "avg_shadow_minus_baseline": 0.02879259939533878,
+              "bad_count": 29,
+              "bad_rate": 0.9666666666666667,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 29,
+                "missed_win": 1
+              },
+              "positive_shadow_lift_rate": 0.9666666666666667,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_shadow_minus_baseline": 0.020139373053687615,
+          "min_avg_shadow_minus_baseline": 0.020139373053687615,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.020139373053687615,
+              "avg_shadow_minus_baseline": 0.020139373053687615,
+              "bad_count": 31,
+              "bad_rate": 0.7948717948717948,
+              "count": 39,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 31,
+                "missed_win": 8
+              },
+              "positive_shadow_lift_rate": 0.7948717948717948,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": true,
+      "status": "pass"
+    },
+    {
+      "avg_baseline_net_return": -0.020639373053687612,
+      "avg_shadow_minus_baseline": 0.020639373053687612,
+      "bad_count": 32,
+      "bad_rate": 0.8205128205128205,
+      "count": 39,
+      "failure_reasons": [],
+      "fee_bps": 10.0,
+      "horizon_bars": 12,
+      "outcome_labels": {
+        "avoided_loss": 32,
+        "missed_win": 7
+      },
+      "positive_shadow_lift_rate": 0.8205128205128205,
+      "rolling": {
+        "20": {
+          "max_avg_shadow_minus_baseline": 0.030808584926089944,
+          "min_avg_shadow_minus_baseline": 0.009934939503790425,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.030808584926089944,
+              "avg_shadow_minus_baseline": 0.030808584926089944,
+              "bad_count": 20,
+              "bad_rate": 1.0,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 20
+              },
+              "positive_shadow_lift_rate": 1.0,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.009934939503790425,
+              "avg_shadow_minus_baseline": 0.009934939503790425,
+              "bad_count": 12,
+              "bad_rate": 0.631578947368421,
+              "count": 19,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 12,
+                "missed_win": 7
+              },
+              "positive_shadow_lift_rate": 0.631578947368421,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_shadow_minus_baseline": 0.02929259939533878,
+          "min_avg_shadow_minus_baseline": 0.02929259939533878,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.02929259939533878,
+              "avg_shadow_minus_baseline": 0.02929259939533878,
+              "bad_count": 30,
+              "bad_rate": 1.0,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 30
+              },
+              "positive_shadow_lift_rate": 1.0,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_shadow_minus_baseline": 0.020639373053687612,
+          "min_avg_shadow_minus_baseline": 0.020639373053687612,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.020639373053687612,
+              "avg_shadow_minus_baseline": 0.020639373053687612,
+              "bad_count": 32,
+              "bad_rate": 0.8205128205128205,
+              "count": 39,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 32,
+                "missed_win": 7
+              },
+              "positive_shadow_lift_rate": 0.8205128205128205,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": true,
+      "status": "pass"
+    },
+    {
+      "avg_baseline_net_return": -0.029636817282172937,
+      "avg_shadow_minus_baseline": 0.029636817282172937,
+      "bad_count": 32,
+      "bad_rate": 0.8205128205128205,
+      "count": 39,
+      "failure_reasons": [],
+      "fee_bps": 2.0,
+      "horizon_bars": 24,
+      "outcome_labels": {
+        "avoided_loss": 32,
+        "missed_win": 7
+      },
+      "positive_shadow_lift_rate": 0.8205128205128205,
+      "rolling": {
+        "20": {
+          "max_avg_shadow_minus_baseline": 0.04612896541309314,
+          "min_avg_shadow_minus_baseline": 0.012276661354888514,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.04612896541309314,
+              "avg_shadow_minus_baseline": 0.04612896541309314,
+              "bad_count": 20,
+              "bad_rate": 1.0,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 20
+              },
+              "positive_shadow_lift_rate": 1.0,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.012276661354888514,
+              "avg_shadow_minus_baseline": 0.012276661354888514,
+              "bad_count": 12,
+              "bad_rate": 0.631578947368421,
+              "count": 19,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 12,
+                "missed_win": 7
+              },
+              "positive_shadow_lift_rate": 0.631578947368421,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_shadow_minus_baseline": 0.04459116659724163,
+          "min_avg_shadow_minus_baseline": 0.04459116659724163,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.04459116659724163,
+              "avg_shadow_minus_baseline": 0.04459116659724163,
+              "bad_count": 30,
+              "bad_rate": 1.0,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 30
+              },
+              "positive_shadow_lift_rate": 1.0,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_shadow_minus_baseline": 0.029636817282172937,
+          "min_avg_shadow_minus_baseline": 0.029636817282172937,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.029636817282172937,
+              "avg_shadow_minus_baseline": 0.029636817282172937,
+              "bad_count": 32,
+              "bad_rate": 0.8205128205128205,
+              "count": 39,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 32,
+                "missed_win": 7
+              },
+              "positive_shadow_lift_rate": 0.8205128205128205,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": true,
+      "status": "pass"
+    },
+    {
+      "avg_baseline_net_return": -0.02993681728217294,
+      "avg_shadow_minus_baseline": 0.02993681728217294,
+      "bad_count": 32,
+      "bad_rate": 0.8205128205128205,
+      "count": 39,
+      "failure_reasons": [],
+      "fee_bps": 5.0,
+      "horizon_bars": 24,
+      "outcome_labels": {
+        "avoided_loss": 32,
+        "missed_win": 7
+      },
+      "positive_shadow_lift_rate": 0.8205128205128205,
+      "rolling": {
+        "20": {
+          "max_avg_shadow_minus_baseline": 0.04642896541309314,
+          "min_avg_shadow_minus_baseline": 0.012576661354888516,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.04642896541309314,
+              "avg_shadow_minus_baseline": 0.04642896541309314,
+              "bad_count": 20,
+              "bad_rate": 1.0,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 20
+              },
+              "positive_shadow_lift_rate": 1.0,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.012576661354888516,
+              "avg_shadow_minus_baseline": 0.012576661354888516,
+              "bad_count": 12,
+              "bad_rate": 0.631578947368421,
+              "count": 19,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 12,
+                "missed_win": 7
+              },
+              "positive_shadow_lift_rate": 0.631578947368421,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_shadow_minus_baseline": 0.04489116659724164,
+          "min_avg_shadow_minus_baseline": 0.04489116659724164,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.04489116659724164,
+              "avg_shadow_minus_baseline": 0.04489116659724164,
+              "bad_count": 30,
+              "bad_rate": 1.0,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 30
+              },
+              "positive_shadow_lift_rate": 1.0,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_shadow_minus_baseline": 0.02993681728217294,
+          "min_avg_shadow_minus_baseline": 0.02993681728217294,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.02993681728217294,
+              "avg_shadow_minus_baseline": 0.02993681728217294,
+              "bad_count": 32,
+              "bad_rate": 0.8205128205128205,
+              "count": 39,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 32,
+                "missed_win": 7
+              },
+              "positive_shadow_lift_rate": 0.8205128205128205,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": true,
+      "status": "pass"
+    },
+    {
+      "avg_baseline_net_return": -0.03043681728217294,
+      "avg_shadow_minus_baseline": 0.03043681728217294,
+      "bad_count": 32,
+      "bad_rate": 0.8205128205128205,
+      "count": 39,
+      "failure_reasons": [],
+      "fee_bps": 10.0,
+      "horizon_bars": 24,
+      "outcome_labels": {
+        "avoided_loss": 32,
+        "missed_win": 7
+      },
+      "positive_shadow_lift_rate": 0.8205128205128205,
+      "rolling": {
+        "20": {
+          "max_avg_shadow_minus_baseline": 0.04692896541309314,
+          "min_avg_shadow_minus_baseline": 0.013076661354888516,
+          "positive_window_count": 2,
+          "positive_window_rate": 1.0,
+          "window_count": 2,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.04692896541309314,
+              "avg_shadow_minus_baseline": 0.04692896541309314,
+              "bad_count": 20,
+              "bad_rate": 1.0,
+              "count": 20,
+              "end_timestamp": 1780603200.0,
+              "outcome_labels": {
+                "avoided_loss": 20
+              },
+              "positive_shadow_lift_rate": 1.0,
+              "start_timestamp": 1780261200.0
+            },
+            {
+              "avg_baseline_net_return": -0.013076661354888516,
+              "avg_shadow_minus_baseline": 0.013076661354888516,
+              "bad_count": 12,
+              "bad_rate": 0.631578947368421,
+              "count": 19,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 12,
+                "missed_win": 7
+              },
+              "positive_shadow_lift_rate": 0.631578947368421,
+              "start_timestamp": 1780606800.0
+            }
+          ]
+        },
+        "30": {
+          "max_avg_shadow_minus_baseline": 0.045391166597241635,
+          "min_avg_shadow_minus_baseline": 0.045391166597241635,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.045391166597241635,
+              "avg_shadow_minus_baseline": 0.045391166597241635,
+              "bad_count": 30,
+              "bad_rate": 1.0,
+              "count": 30,
+              "end_timestamp": 1780660800.0,
+              "outcome_labels": {
+                "avoided_loss": 30
+              },
+              "positive_shadow_lift_rate": 1.0,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        },
+        "50": {
+          "max_avg_shadow_minus_baseline": 0.03043681728217294,
+          "min_avg_shadow_minus_baseline": 0.03043681728217294,
+          "positive_window_count": 1,
+          "positive_window_rate": 1.0,
+          "window_count": 1,
+          "windows": [
+            {
+              "avg_baseline_net_return": -0.03043681728217294,
+              "avg_shadow_minus_baseline": 0.03043681728217294,
+              "bad_count": 32,
+              "bad_rate": 0.8205128205128205,
+              "count": 39,
+              "end_timestamp": 1780866000.0,
+              "outcome_labels": {
+                "avoided_loss": 32,
+                "missed_win": 7
+              },
+              "positive_shadow_lift_rate": 0.8205128205128205,
+              "start_timestamp": 1780261200.0
+            }
+          ]
+        }
+      },
+      "rolling_stable": true,
+      "status": "pass"
+    }
+  ],
+  "comparison": [
+    {
+      "asset_timeframe": "BNBUSDT|1h",
+      "avg_baseline_net_return": -0.017125930321326775,
+      "avg_shadow_minus_baseline": 0.017125930321326775,
+      "bad_count": 377,
+      "bad_rate": 0.8055555555555556,
+      "count": 468,
+      "outcome_labels": {
+        "avoided_loss": 377,
+        "missed_win": 91
+      },
+      "positive_shadow_lift_rate": 0.8055555555555556
+    },
+    {
+      "asset_timeframe": "BTCUSDT|4h",
+      "avg_baseline_net_return": 0.009219100927506059,
+      "avg_shadow_minus_baseline": -0.009219100927506059,
+      "bad_count": 65,
+      "bad_rate": 0.31862745098039214,
+      "count": 204,
+      "outcome_labels": {
+        "avoided_loss": 65,
+        "missed_win": 139
+      },
+      "positive_shadow_lift_rate": 0.31862745098039214
+    },
+    {
+      "asset_timeframe": "SOLUSDT|4h",
+      "avg_baseline_net_return": 0.011510433970034668,
+      "avg_shadow_minus_baseline": -0.011510433970034668,
+      "bad_count": 57,
+      "bad_rate": 0.3958333333333333,
+      "count": 144,
+      "outcome_labels": {
+        "avoided_loss": 57,
+        "missed_win": 87
+      },
+      "positive_shadow_lift_rate": 0.3958333333333333
+    },
+    {
+      "asset_timeframe": "ETHUSDT|4h",
+      "avg_baseline_net_return": 0.027960638036179316,
+      "avg_shadow_minus_baseline": -0.027960638036179316,
+      "bad_count": 69,
+      "bad_rate": 0.2875,
+      "count": 240,
+      "outcome_labels": {
+        "avoided_loss": 69,
+        "missed_win": 171
+      },
+      "positive_shadow_lift_rate": 0.2875
+    }
+  ],
+  "fetch_errors": {},
+  "pairs": [
+    "BNBUSDT|1h",
+    "BTCUSDT|4h",
+    "ETHUSDT|4h",
+    "SOLUSDT|4h"
+  ],
+  "phase": "phase_6i_pa_asset_candidate_validation",
+  "source_invalid_shadow_records": 0,
+  "source_log": "logs/regime_v2_shadow_decisions.jsonl",
+  "summary": {
+    "asset": "BNBUSDT",
+    "best_cell": {
+      "avg_shadow_minus_baseline": 0.03043681728217294,
+      "bad_rate": 0.8205128205128205,
+      "count": 39,
+      "fee_bps": 10.0,
+      "horizon_bars": 24,
+      "positive_shadow_lift_rate": 0.8205128205128205
+    },
+    "candidate_count": 39,
+    "candidate_rate": 0.05416666666666667,
+    "cell_count": 12,
+    "direction": 1,
+    "max_negative_cells": 1,
+    "min_positive_rate": 0.6,
+    "min_support": 30,
+    "negative_cell_count": 0,
+    "passing_cell_count": 12,
+    "passing_cell_floor": 10,
+    "promote_ready": true,
+    "recommendation": "paper_candidate",
+    "rolling_stable_cell_count": 12,
+    "rolling_stable_floor": 8,
+    "timeframe": "1h",
+    "total_records": 720,
+    "worst_cell": {
+      "avg_shadow_minus_baseline": 0.006866099415516237,
+      "bad_rate": 0.7948717948717948,
+      "count": 39,
+      "fee_bps": 2.0,
+      "horizon_bars": 3,
+      "positive_shadow_lift_rate": 0.7948717948717948
+    },
+    "worst_rolling_window": {
+      "avg_baseline_net_return": -0.003480964765908864,
+      "avg_shadow_minus_baseline": 0.003480964765908864,
+      "bad_count": 13,
+      "bad_rate": 0.6842105263157895,
+      "count": 19,
+      "end_timestamp": 1780866000.0,
+      "fee_bps": 2.0,
+      "horizon_bars": 3,
+      "outcome_labels": {
+        "avoided_loss": 13,
+        "missed_win": 6
+      },
+      "positive_shadow_lift_rate": 0.6842105263157895,
+      "rolling_window": 20,
+      "start_timestamp": 1780606800.0
+    }
+  }
+}

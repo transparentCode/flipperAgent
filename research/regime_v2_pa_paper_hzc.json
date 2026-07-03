@@ -1,0 +1,72 @@
+{
+  "descriptor": {
+    "candidate_enabled": false,
+    "invalid_horizons_bars": [
+      3
+    ],
+    "notes": "Phase 6Y long-horizon-only descriptor. Metadata only; disabled by default.",
+    "paper_runtime_enabled": false,
+    "rule_name": "rolling_avg_below_002_3",
+    "rule_type": "rolling_avg_below",
+    "source_report": "research/regime_v2_pa_paper_hz.json",
+    "threshold": -0.002,
+    "valid_horizons_bars": [
+      6,
+      12,
+      24
+    ],
+    "window": 3
+  },
+  "horizon_summary": {
+    "best_variant": {
+      "long_avg_improvement": 0.003234266325851628,
+      "long_cell_count": 6,
+      "long_horizon_candidate": true,
+      "long_lost_avoided_loss_count": 0,
+      "long_passing_cell_count": 6,
+      "mid_failed_cell_count": 0,
+      "name": "rolling_avg_below_002_3",
+      "short_failed_cell_count": 3
+    },
+    "long_horizon_candidate": true,
+    "long_horizons": [
+      12,
+      24
+    ],
+    "recommendation": "long_horizon_paper_candidate",
+    "short_horizons": [
+      3
+    ],
+    "source_phase": "phase_6w_pa_paper_gate_search",
+    "variant_count": 8
+  },
+  "phase": "phase_6y_pa_paper_long_horizon_candidate",
+  "summary": {
+    "asset": "BNBUSDT",
+    "candidate_enabled": false,
+    "horizon_report_recommendation": "long_horizon_paper_candidate",
+    "invalid_horizons_bars": [
+      3
+    ],
+    "live_gate_enabled": false,
+    "paper_log_enabled": false,
+    "paper_persist_enabled": false,
+    "paper_runtime_enabled": false,
+    "recommendation": "metadata_candidate_disabled_ok",
+    "rule_name": "rolling_avg_below_002_3",
+    "safe": true,
+    "source_report": "research/regime_v2_pa_paper_hz.json",
+    "target_direction": 1,
+    "target_model": "PriceAction",
+    "timeframe": "1h",
+    "valid_horizons_bars": [
+      6,
+      12,
+      24
+    ],
+    "violation_count": 0,
+    "warning_count": 0
+  },
+  "violations": [],
+  "warnings": []
+}

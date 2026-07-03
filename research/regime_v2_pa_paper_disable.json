@@ -1,0 +1,112 @@
+{
+  "actionable_failures": [],
+  "insufficient_failures": [
+    {
+      "action": "continue_monitoring_insufficient_sample",
+      "active_changed_count": 3,
+      "avg_paper_minus_baseline": -0.010979592596494184,
+      "avoided_loss_count": 0,
+      "enough_sample": false,
+      "hard_failure": true,
+      "missed_win_count": 3,
+      "monitor_flags": [
+        "low_changed_sample",
+        "negative_avg_lift",
+        "missed_wins_exceed_avoided_losses"
+      ],
+      "name": "last_24h",
+      "reasons": [
+        "insufficient_changed_sample",
+        "negative_avg_lift",
+        "missed_wins_exceed_avoided_losses"
+      ],
+      "role": "action_window",
+      "window_hours": 24
+    }
+  ],
+  "phase": "phase_6p_pa_paper_disable_recommendation",
+  "segments": [
+    {
+      "action": "continue_monitoring",
+      "active_changed_count": 40,
+      "avg_paper_minus_baseline": 0.019337334305283522,
+      "avoided_loss_count": 31,
+      "enough_sample": true,
+      "hard_failure": false,
+      "missed_win_count": 9,
+      "monitor_flags": [],
+      "name": "all_time",
+      "reasons": [],
+      "role": "all_time",
+      "window_hours": null
+    },
+    {
+      "action": "continue_monitoring_insufficient_sample",
+      "active_changed_count": 3,
+      "avg_paper_minus_baseline": -0.010979592596494184,
+      "avoided_loss_count": 0,
+      "enough_sample": false,
+      "hard_failure": true,
+      "missed_win_count": 3,
+      "monitor_flags": [
+        "low_changed_sample",
+        "negative_avg_lift",
+        "missed_wins_exceed_avoided_losses"
+      ],
+      "name": "last_24h",
+      "reasons": [
+        "insufficient_changed_sample",
+        "negative_avg_lift",
+        "missed_wins_exceed_avoided_losses"
+      ],
+      "role": "action_window",
+      "window_hours": 24
+    },
+    {
+      "action": "continue_monitoring",
+      "active_changed_count": 37,
+      "avg_paper_minus_baseline": 0.02002004587635331,
+      "avoided_loss_count": 29,
+      "enough_sample": true,
+      "hard_failure": false,
+      "missed_win_count": 8,
+      "monitor_flags": [],
+      "name": "last_168h",
+      "reasons": [],
+      "role": "action_window",
+      "window_hours": 168
+    },
+    {
+      "action": "continue_monitoring",
+      "active_changed_count": 40,
+      "avg_paper_minus_baseline": 0.019337334305283522,
+      "avoided_loss_count": 31,
+      "enough_sample": true,
+      "hard_failure": false,
+      "missed_win_count": 9,
+      "monitor_flags": [],
+      "name": "last_720h",
+      "reasons": [],
+      "role": "observation_window",
+      "window_hours": 720
+    }
+  ],
+  "source_path": "research/regime_v2_pa_paper_monitor.json",
+  "summary": {
+    "action_windows_hours": [
+      24,
+      168
+    ],
+    "actionable_failure_count": 0,
+    "disable_recommended": false,
+    "hard_failure_count": 1,
+    "include_all_time_for_disable": true,
+    "insufficient_failure_count": 1,
+    "low_sample_segment_count": 1,
+    "min_changed_rows": 10,
+    "monitor_overall_status": "watch",
+    "pause_recommended": false,
+    "recommendation": "continue_monitoring_insufficient_sample",
+    "segment_count": 4
+  }
+}

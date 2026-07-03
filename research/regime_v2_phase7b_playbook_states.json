@@ -1,0 +1,130 @@
+{
+  "input_rows": 720,
+  "phase": "phase_7b_playbook_state_machine_report",
+  "recent_states": [
+    {
+      "conflict_tags": "uncertainty_high",
+      "dominant_playbook": "scalping",
+      "horizon_bias": "none",
+      "reason": "risk_blocked",
+      "state": "NO_TRADE_RISK",
+      "timestamp": "2026-07-02 23:00:00+00:00"
+    },
+    {
+      "conflict_tags": "",
+      "dominant_playbook": "scalping",
+      "horizon_bias": "none",
+      "reason": "risk_blocked",
+      "state": "NO_TRADE_RISK",
+      "timestamp": "2026-07-03 00:00:00+00:00"
+    },
+    {
+      "conflict_tags": "uncertainty_high",
+      "dominant_playbook": "scalping",
+      "horizon_bias": "none",
+      "reason": "risk_blocked",
+      "state": "NO_TRADE_RISK",
+      "timestamp": "2026-07-03 01:00:00+00:00"
+    },
+    {
+      "conflict_tags": "uncertainty_high",
+      "dominant_playbook": "scalping",
+      "horizon_bias": "none",
+      "reason": "risk_blocked",
+      "state": "NO_TRADE_RISK",
+      "timestamp": "2026-07-03 02:00:00+00:00"
+    },
+    {
+      "conflict_tags": "",
+      "dominant_playbook": "scalping",
+      "horizon_bias": "mid",
+      "reason": "scalp_only_context",
+      "state": "SCALP_ONLY",
+      "timestamp": "2026-07-03 03:00:00+00:00"
+    },
+    {
+      "conflict_tags": "",
+      "dominant_playbook": "scalping",
+      "horizon_bias": "mid",
+      "reason": "scalp_only_context",
+      "state": "SCALP_ONLY",
+      "timestamp": "2026-07-03 04:00:00+00:00"
+    },
+    {
+      "conflict_tags": "",
+      "dominant_playbook": "scalping",
+      "horizon_bias": "mid",
+      "reason": "scalp_only_context",
+      "state": "SCALP_ONLY",
+      "timestamp": "2026-07-03 05:00:00+00:00"
+    },
+    {
+      "conflict_tags": "compression_without_breakout",
+      "dominant_playbook": "scalping",
+      "horizon_bias": "wait_for_expansion",
+      "reason": "compression_wait",
+      "state": "WAIT_COMPRESSION",
+      "timestamp": "2026-07-03 06:00:00+00:00"
+    },
+    {
+      "conflict_tags": "compression_without_breakout",
+      "dominant_playbook": "scalping",
+      "horizon_bias": "wait_for_expansion",
+      "reason": "compression_wait",
+      "state": "WAIT_COMPRESSION",
+      "timestamp": "2026-07-03 07:00:00+00:00"
+    },
+    {
+      "conflict_tags": "compression_without_breakout",
+      "dominant_playbook": "scalping",
+      "horizon_bias": "wait_for_expansion",
+      "reason": "compression_wait",
+      "state": "WAIT_COMPRESSION",
+      "timestamp": "2026-07-03 08:00:00+00:00"
+    }
+  ],
+  "summary": {
+    "asset": "BNBUSDT",
+    "avg_conflict_count": 0.9069444444444444,
+    "avg_risk_score": 0.5308023611111111,
+    "dominant_playbook_distribution": {
+      "mean_reversion": 5,
+      "none": 84,
+      "scalping": 631
+    },
+    "executable_count": 43,
+    "executable_rate": 0.059722222222222225,
+    "horizon_bias_distribution": {
+      "mid": 44,
+      "none": 352,
+      "short_to_mid": 8,
+      "wait_for_expansion": 316
+    },
+    "reason_distribution": {
+      "compression_wait": 316,
+      "pre_breakout_setup": 9,
+      "range_reversion_context": 3,
+      "risk_blocked": 352,
+      "scalp_only_context": 40
+    },
+    "risk_count": 352,
+    "risk_rate": 0.4888888888888889,
+    "row_count": 720,
+    "source": "binance_native_ohlcv",
+    "state_distribution": {
+      "BREAKOUT_SETUP": 9,
+      "NO_TRADE_RISK": 352,
+      "RANGE_REVERSION": 3,
+      "SCALP_ONLY": 40,
+      "WAIT_COMPRESSION": 316
+    },
+    "state_group_distribution": {
+      "executable": 43,
+      "risk": 352,
+      "wait": 325
+    },
+    "timeframe": "1h",
+    "wait_count": 325,
+    "wait_rate": 0.4513888888888889
+  }
+}

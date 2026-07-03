@@ -1,0 +1,726 @@
+{
+  "asset": [
+    "BNBUSDT",
+    "ETHUSDT",
+    "BTCUSDT"
+  ],
+  "input_rows": 720,
+  "matrix_report": {
+    "phase": "phase_7v_transition_micro_state_matrix",
+    "summary": {
+      "assets": [
+        "BNBUSDT",
+        "BTCUSDT",
+        "ETHUSDT"
+      ],
+      "best_variant": {
+        "active_count": 65,
+        "asset": "ETHUSDT",
+        "breakout_setup_active": 18,
+        "breakout_setup_avg_return": 0.00787076545146753,
+        "breakout_setup_worst_return": -0.01993357142384784,
+        "compression_active": 47,
+        "compression_avg_return": -0.002290854221035898,
+        "compression_worst_return": -0.1372625352770353,
+        "observation_only_count": 47,
+        "recommendation": "split_state_supported_but_runtime_disabled",
+        "research_candidate_count": 18,
+        "runtime_enabled_count": 0,
+        "timeframe": "1h"
+      },
+      "breakout_better_count": 3,
+      "recommendation": "keep_micro_state_split_diagnostic",
+      "runtime_enabled_count": 0,
+      "variant_count": 3
+    },
+    "variants": [
+      {
+        "active_count": 65,
+        "asset": "ETHUSDT",
+        "breakout_setup_active": 18,
+        "breakout_setup_avg_return": 0.00787076545146753,
+        "breakout_setup_worst_return": -0.01993357142384784,
+        "compression_active": 47,
+        "compression_avg_return": -0.002290854221035898,
+        "compression_worst_return": -0.1372625352770353,
+        "observation_only_count": 47,
+        "recommendation": "split_state_supported_but_runtime_disabled",
+        "research_candidate_count": 18,
+        "runtime_enabled_count": 0,
+        "timeframe": "1h"
+      },
+      {
+        "active_count": 71,
+        "asset": "BTCUSDT",
+        "breakout_setup_active": 39,
+        "breakout_setup_avg_return": 0.0026041664575172,
+        "breakout_setup_worst_return": -0.019998023133609776,
+        "compression_active": 32,
+        "compression_avg_return": -0.0019173813647387896,
+        "compression_worst_return": -0.028108162456439937,
+        "observation_only_count": 32,
+        "recommendation": "split_state_supported_but_runtime_disabled",
+        "research_candidate_count": 39,
+        "runtime_enabled_count": 0,
+        "timeframe": "1h"
+      },
+      {
+        "active_count": 83,
+        "asset": "BNBUSDT",
+        "breakout_setup_active": 39,
+        "breakout_setup_avg_return": 0.0014352216200371594,
+        "breakout_setup_worst_return": -0.021807424769890588,
+        "compression_active": 44,
+        "compression_avg_return": -0.0005459484582395352,
+        "compression_worst_return": -0.04197438881769332,
+        "observation_only_count": 44,
+        "recommendation": "split_state_supported_but_runtime_disabled",
+        "research_candidate_count": 39,
+        "runtime_enabled_count": 0,
+        "timeframe": "1h"
+      }
+    ]
+  },
+  "phase": "phase_7v_transition_micro_state_runner",
+  "timeframe": [
+    "1h"
+  ],
+  "variant_reports": [
+    {
+      "micro_state_report": {
+        "micro_states": [
+          {
+            "active_count": 39,
+            "avg_directional_net_return": 0.0014352216200371594,
+            "direction_distribution": {
+              "down": 26,
+              "up": 13
+            },
+            "labeled_count": 468,
+            "micro_state": "BREAKOUT_SETUP_TRANSITION_CANDIDATE",
+            "phase_distribution": {
+              "breakout_setup": 39
+            },
+            "positive_rate": 0.5277777777777778,
+            "worst_directional_net_return": -0.021807424769890588
+          },
+          {
+            "active_count": 44,
+            "avg_directional_net_return": -0.0005459484582395352,
+            "direction_distribution": {
+              "down": 17,
+              "up": 27
+            },
+            "labeled_count": 498,
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase_distribution": {
+              "compressed_wait": 44
+            },
+            "positive_rate": 0.39558232931726905,
+            "worst_directional_net_return": -0.04197438881769332
+          }
+        ],
+        "phase": "phase_7v_transition_micro_state_report",
+        "recent_active": [
+          {
+            "direction": "down",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.66345,
+            "timestamp": "2026-06-29 12:00:00+00:00"
+          },
+          {
+            "direction": "up",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.759117,
+            "timestamp": "2026-06-30 01:00:00+00:00"
+          },
+          {
+            "direction": "up",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.749032,
+            "timestamp": "2026-06-30 02:00:00+00:00"
+          },
+          {
+            "direction": "up",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.700902,
+            "timestamp": "2026-06-30 08:00:00+00:00"
+          },
+          {
+            "direction": "up",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.749853,
+            "timestamp": "2026-06-30 09:00:00+00:00"
+          },
+          {
+            "direction": "up",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.725325,
+            "timestamp": "2026-06-30 10:00:00+00:00"
+          },
+          {
+            "direction": "up",
+            "micro_state": "BREAKOUT_SETUP_TRANSITION_CANDIDATE",
+            "phase": "breakout_setup",
+            "runtime_enabled": false,
+            "score": 0.760564,
+            "timestamp": "2026-06-30 11:00:00+00:00"
+          },
+          {
+            "direction": "up",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.621606,
+            "timestamp": "2026-07-01 01:00:00+00:00"
+          },
+          {
+            "direction": "down",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.813568,
+            "timestamp": "2026-07-03 08:00:00+00:00"
+          },
+          {
+            "direction": "down",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.689048,
+            "timestamp": "2026-07-03 09:00:00+00:00"
+          },
+          {
+            "direction": "down",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.768231,
+            "timestamp": "2026-07-03 11:00:00+00:00"
+          },
+          {
+            "direction": "down",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.678153,
+            "timestamp": "2026-07-03 12:00:00+00:00"
+          }
+        ],
+        "summary": {
+          "active_count": 83,
+          "asset": "BNBUSDT",
+          "best_state": {
+            "active_count": 39,
+            "avg_directional_net_return": 0.0014352216200371594,
+            "direction_distribution": {
+              "down": 26,
+              "up": 13
+            },
+            "labeled_count": 468,
+            "micro_state": "BREAKOUT_SETUP_TRANSITION_CANDIDATE",
+            "phase_distribution": {
+              "breakout_setup": 39
+            },
+            "positive_rate": 0.5277777777777778,
+            "worst_directional_net_return": -0.021807424769890588
+          },
+          "config": {
+            "lookback_bars": 8,
+            "max_conflict_count": 1,
+            "max_risk_score": 0.72,
+            "min_attempt_score": 0.5,
+            "min_candidate_score": 0.62,
+            "min_context_score": 0.7,
+            "min_wick_score": 0.35
+          },
+          "micro_state_distribution": {
+            "BREAKOUT_SETUP_TRANSITION_CANDIDATE": 39,
+            "COMPRESSION_TRANSITION_OBSERVE_ONLY": 44
+          },
+          "observation_only_count": 44,
+          "recommendation": "split_state_supported_but_runtime_disabled",
+          "research_candidate_count": 39,
+          "row_count": 720,
+          "runtime_enabled_count": 0,
+          "timeframe": "1h"
+        }
+      },
+      "phase": "phase_7v_transition_micro_state_retest",
+      "summary": {
+        "active_count": 83,
+        "asset": "BNBUSDT",
+        "best_state": {
+          "active_count": 39,
+          "avg_directional_net_return": 0.0014352216200371594,
+          "direction_distribution": {
+            "down": 26,
+            "up": 13
+          },
+          "labeled_count": 468,
+          "micro_state": "BREAKOUT_SETUP_TRANSITION_CANDIDATE",
+          "phase_distribution": {
+            "breakout_setup": 39
+          },
+          "positive_rate": 0.5277777777777778,
+          "worst_directional_net_return": -0.021807424769890588
+        },
+        "config": {
+          "lookback_bars": 8,
+          "max_conflict_count": 1,
+          "max_risk_score": 0.72,
+          "min_attempt_score": 0.5,
+          "min_candidate_score": 0.62,
+          "min_context_score": 0.7,
+          "min_wick_score": 0.35
+        },
+        "micro_state_distribution": {
+          "BREAKOUT_SETUP_TRANSITION_CANDIDATE": 39,
+          "COMPRESSION_TRANSITION_OBSERVE_ONLY": 44
+        },
+        "observation_only_count": 44,
+        "recommendation": "split_state_supported_but_runtime_disabled",
+        "research_candidate_count": 39,
+        "row_count": 720,
+        "runtime_enabled_count": 0,
+        "timeframe": "1h"
+      }
+    },
+    {
+      "micro_state_report": {
+        "micro_states": [
+          {
+            "active_count": 18,
+            "avg_directional_net_return": 0.00787076545146753,
+            "direction_distribution": {
+              "down": 9,
+              "up": 9
+            },
+            "labeled_count": 216,
+            "micro_state": "BREAKOUT_SETUP_TRANSITION_CANDIDATE",
+            "phase_distribution": {
+              "breakout_setup": 18
+            },
+            "positive_rate": 0.7361111111111112,
+            "worst_directional_net_return": -0.01993357142384784
+          },
+          {
+            "active_count": 47,
+            "avg_directional_net_return": -0.002290854221035898,
+            "direction_distribution": {
+              "down": 23,
+              "up": 24
+            },
+            "labeled_count": 564,
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase_distribution": {
+              "compressed_wait": 47
+            },
+            "positive_rate": 0.4521276595744681,
+            "worst_directional_net_return": -0.1372625352770353
+          }
+        ],
+        "phase": "phase_7v_transition_micro_state_report",
+        "recent_active": [
+          {
+            "direction": "down",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.665945,
+            "timestamp": "2026-06-28 08:00:00+00:00"
+          },
+          {
+            "direction": "down",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.679705,
+            "timestamp": "2026-06-28 09:00:00+00:00"
+          },
+          {
+            "direction": "down",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.715059,
+            "timestamp": "2026-06-28 12:00:00+00:00"
+          },
+          {
+            "direction": "up",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.686353,
+            "timestamp": "2026-06-28 16:00:00+00:00"
+          },
+          {
+            "direction": "up",
+            "micro_state": "BREAKOUT_SETUP_TRANSITION_CANDIDATE",
+            "phase": "breakout_setup",
+            "runtime_enabled": false,
+            "score": 0.707617,
+            "timestamp": "2026-06-28 17:00:00+00:00"
+          },
+          {
+            "direction": "up",
+            "micro_state": "BREAKOUT_SETUP_TRANSITION_CANDIDATE",
+            "phase": "breakout_setup",
+            "runtime_enabled": false,
+            "score": 0.774265,
+            "timestamp": "2026-06-28 19:00:00+00:00"
+          },
+          {
+            "direction": "up",
+            "micro_state": "BREAKOUT_SETUP_TRANSITION_CANDIDATE",
+            "phase": "breakout_setup",
+            "runtime_enabled": false,
+            "score": 0.715962,
+            "timestamp": "2026-06-28 22:00:00+00:00"
+          },
+          {
+            "direction": "down",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.631816,
+            "timestamp": "2026-06-29 12:00:00+00:00"
+          },
+          {
+            "direction": "up",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.72235,
+            "timestamp": "2026-06-29 14:00:00+00:00"
+          },
+          {
+            "direction": "up",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.669849,
+            "timestamp": "2026-06-30 11:00:00+00:00"
+          },
+          {
+            "direction": "down",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.699994,
+            "timestamp": "2026-06-30 20:00:00+00:00"
+          },
+          {
+            "direction": "up",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.847554,
+            "timestamp": "2026-07-01 12:00:00+00:00"
+          }
+        ],
+        "summary": {
+          "active_count": 65,
+          "asset": "ETHUSDT",
+          "best_state": {
+            "active_count": 18,
+            "avg_directional_net_return": 0.00787076545146753,
+            "direction_distribution": {
+              "down": 9,
+              "up": 9
+            },
+            "labeled_count": 216,
+            "micro_state": "BREAKOUT_SETUP_TRANSITION_CANDIDATE",
+            "phase_distribution": {
+              "breakout_setup": 18
+            },
+            "positive_rate": 0.7361111111111112,
+            "worst_directional_net_return": -0.01993357142384784
+          },
+          "config": {
+            "lookback_bars": 8,
+            "max_conflict_count": 1,
+            "max_risk_score": 0.72,
+            "min_attempt_score": 0.5,
+            "min_candidate_score": 0.62,
+            "min_context_score": 0.7,
+            "min_wick_score": 0.35
+          },
+          "micro_state_distribution": {
+            "BREAKOUT_SETUP_TRANSITION_CANDIDATE": 18,
+            "COMPRESSION_TRANSITION_OBSERVE_ONLY": 47
+          },
+          "observation_only_count": 47,
+          "recommendation": "split_state_supported_but_runtime_disabled",
+          "research_candidate_count": 18,
+          "row_count": 720,
+          "runtime_enabled_count": 0,
+          "timeframe": "1h"
+        }
+      },
+      "phase": "phase_7v_transition_micro_state_retest",
+      "summary": {
+        "active_count": 65,
+        "asset": "ETHUSDT",
+        "best_state": {
+          "active_count": 18,
+          "avg_directional_net_return": 0.00787076545146753,
+          "direction_distribution": {
+            "down": 9,
+            "up": 9
+          },
+          "labeled_count": 216,
+          "micro_state": "BREAKOUT_SETUP_TRANSITION_CANDIDATE",
+          "phase_distribution": {
+            "breakout_setup": 18
+          },
+          "positive_rate": 0.7361111111111112,
+          "worst_directional_net_return": -0.01993357142384784
+        },
+        "config": {
+          "lookback_bars": 8,
+          "max_conflict_count": 1,
+          "max_risk_score": 0.72,
+          "min_attempt_score": 0.5,
+          "min_candidate_score": 0.62,
+          "min_context_score": 0.7,
+          "min_wick_score": 0.35
+        },
+        "micro_state_distribution": {
+          "BREAKOUT_SETUP_TRANSITION_CANDIDATE": 18,
+          "COMPRESSION_TRANSITION_OBSERVE_ONLY": 47
+        },
+        "observation_only_count": 47,
+        "recommendation": "split_state_supported_but_runtime_disabled",
+        "research_candidate_count": 18,
+        "row_count": 720,
+        "runtime_enabled_count": 0,
+        "timeframe": "1h"
+      }
+    },
+    {
+      "micro_state_report": {
+        "micro_states": [
+          {
+            "active_count": 39,
+            "avg_directional_net_return": 0.0026041664575172,
+            "direction_distribution": {
+              "down": 24,
+              "up": 15
+            },
+            "labeled_count": 468,
+            "micro_state": "BREAKOUT_SETUP_TRANSITION_CANDIDATE",
+            "phase_distribution": {
+              "breakout_setup": 39
+            },
+            "positive_rate": 0.561965811965812,
+            "worst_directional_net_return": -0.019998023133609776
+          },
+          {
+            "active_count": 32,
+            "avg_directional_net_return": -0.0019173813647387896,
+            "direction_distribution": {
+              "down": 15,
+              "up": 17
+            },
+            "labeled_count": 345,
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase_distribution": {
+              "compressed_wait": 32
+            },
+            "positive_rate": 0.42028985507246375,
+            "worst_directional_net_return": -0.028108162456439937
+          }
+        ],
+        "phase": "phase_7v_transition_micro_state_report",
+        "recent_active": [
+          {
+            "direction": "up",
+            "micro_state": "BREAKOUT_SETUP_TRANSITION_CANDIDATE",
+            "phase": "breakout_setup",
+            "runtime_enabled": false,
+            "score": 0.763836,
+            "timestamp": "2026-06-28 16:00:00+00:00"
+          },
+          {
+            "direction": "up",
+            "micro_state": "BREAKOUT_SETUP_TRANSITION_CANDIDATE",
+            "phase": "breakout_setup",
+            "runtime_enabled": false,
+            "score": 0.801742,
+            "timestamp": "2026-06-28 17:00:00+00:00"
+          },
+          {
+            "direction": "up",
+            "micro_state": "BREAKOUT_SETUP_TRANSITION_CANDIDATE",
+            "phase": "breakout_setup",
+            "runtime_enabled": false,
+            "score": 0.827564,
+            "timestamp": "2026-06-28 19:00:00+00:00"
+          },
+          {
+            "direction": "up",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.770153,
+            "timestamp": "2026-06-29 14:00:00+00:00"
+          },
+          {
+            "direction": "up",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.735623,
+            "timestamp": "2026-06-30 04:00:00+00:00"
+          },
+          {
+            "direction": "up",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.75161,
+            "timestamp": "2026-06-30 08:00:00+00:00"
+          },
+          {
+            "direction": "up",
+            "micro_state": "BREAKOUT_SETUP_TRANSITION_CANDIDATE",
+            "phase": "breakout_setup",
+            "runtime_enabled": false,
+            "score": 0.718193,
+            "timestamp": "2026-06-30 11:00:00+00:00"
+          },
+          {
+            "direction": "up",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.749636,
+            "timestamp": "2026-06-30 15:00:00+00:00"
+          },
+          {
+            "direction": "down",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.744333,
+            "timestamp": "2026-07-03 10:00:00+00:00"
+          },
+          {
+            "direction": "down",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.762705,
+            "timestamp": "2026-07-03 11:00:00+00:00"
+          },
+          {
+            "direction": "down",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.780222,
+            "timestamp": "2026-07-03 12:00:00+00:00"
+          },
+          {
+            "direction": "down",
+            "micro_state": "COMPRESSION_TRANSITION_OBSERVE_ONLY",
+            "phase": "compressed_wait",
+            "runtime_enabled": false,
+            "score": 0.759514,
+            "timestamp": "2026-07-03 13:00:00+00:00"
+          }
+        ],
+        "summary": {
+          "active_count": 71,
+          "asset": "BTCUSDT",
+          "best_state": {
+            "active_count": 39,
+            "avg_directional_net_return": 0.0026041664575172,
+            "direction_distribution": {
+              "down": 24,
+              "up": 15
+            },
+            "labeled_count": 468,
+            "micro_state": "BREAKOUT_SETUP_TRANSITION_CANDIDATE",
+            "phase_distribution": {
+              "breakout_setup": 39
+            },
+            "positive_rate": 0.561965811965812,
+            "worst_directional_net_return": -0.019998023133609776
+          },
+          "config": {
+            "lookback_bars": 8,
+            "max_conflict_count": 1,
+            "max_risk_score": 0.72,
+            "min_attempt_score": 0.5,
+            "min_candidate_score": 0.62,
+            "min_context_score": 0.7,
+            "min_wick_score": 0.35
+          },
+          "micro_state_distribution": {
+            "BREAKOUT_SETUP_TRANSITION_CANDIDATE": 39,
+            "COMPRESSION_TRANSITION_OBSERVE_ONLY": 32
+          },
+          "observation_only_count": 32,
+          "recommendation": "split_state_supported_but_runtime_disabled",
+          "research_candidate_count": 39,
+          "row_count": 720,
+          "runtime_enabled_count": 0,
+          "timeframe": "1h"
+        }
+      },
+      "phase": "phase_7v_transition_micro_state_retest",
+      "summary": {
+        "active_count": 71,
+        "asset": "BTCUSDT",
+        "best_state": {
+          "active_count": 39,
+          "avg_directional_net_return": 0.0026041664575172,
+          "direction_distribution": {
+            "down": 24,
+            "up": 15
+          },
+          "labeled_count": 468,
+          "micro_state": "BREAKOUT_SETUP_TRANSITION_CANDIDATE",
+          "phase_distribution": {
+            "breakout_setup": 39
+          },
+          "positive_rate": 0.561965811965812,
+          "worst_directional_net_return": -0.019998023133609776
+        },
+        "config": {
+          "lookback_bars": 8,
+          "max_conflict_count": 1,
+          "max_risk_score": 0.72,
+          "min_attempt_score": 0.5,
+          "min_candidate_score": 0.62,
+          "min_context_score": 0.7,
+          "min_wick_score": 0.35
+        },
+        "micro_state_distribution": {
+          "BREAKOUT_SETUP_TRANSITION_CANDIDATE": 39,
+          "COMPRESSION_TRANSITION_OBSERVE_ONLY": 32
+        },
+        "observation_only_count": 32,
+        "recommendation": "split_state_supported_but_runtime_disabled",
+        "research_candidate_count": 39,
+        "row_count": 720,
+        "runtime_enabled_count": 0,
+        "timeframe": "1h"
+      }
+    }
+  ]
+}

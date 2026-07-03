@@ -1,0 +1,3551 @@
+{
+  "asset": "BNBUSDT",
+  "cells": [
+    {
+      "labeled_count": 717,
+      "outcome_horizon_bars": 3,
+      "segments": {
+        "all": {
+          "avg_abs_forward_log_return": 0.006180740766578573,
+          "avg_forward_log_return": -0.0005290875599203343,
+          "changed_rate": 0.1394700139470014,
+          "count": 717,
+          "intent_distribution": {
+            "other": 654,
+            "range_invalidated": 2,
+            "risk_recovery": 44,
+            "scalp_exit": 17
+          },
+          "large_move_rate": 0.7238493723849372,
+          "negative_return_rate": 0.5299860529986054,
+          "positive_return_rate": 0.4700139470013947,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 3,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 4,
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 307,
+            "NO_TRADE_RISK->SCALP_ONLY": 16,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 23,
+            "SCALP_ONLY->NO_TRADE_RISK": 13,
+            "SCALP_ONLY->SCALP_ONLY": 23,
+            "SCALP_ONLY->WAIT_COMPRESSION": 3,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 27,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 2,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 285
+          }
+        },
+        "changed": {
+          "avg_abs_forward_log_return": 0.00750271112683386,
+          "avg_forward_log_return": 0.0002389210903196772,
+          "changed_rate": 1.0,
+          "count": 100,
+          "intent_distribution": {
+            "other": 37,
+            "range_invalidated": 2,
+            "risk_recovery": 44,
+            "scalp_exit": 17
+          },
+          "large_move_rate": 0.8,
+          "negative_return_rate": 0.55,
+          "positive_return_rate": 0.45,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 3,
+            "BREAKOUT_SETUP->SCALP_ONLY": 1,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 4,
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+            "NO_TRADE_RISK->SCALP_ONLY": 16,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 23,
+            "RANGE_REVERSION->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->BREAKOUT_SETUP": 1,
+            "SCALP_ONLY->NO_TRADE_RISK": 13,
+            "SCALP_ONLY->WAIT_COMPRESSION": 3,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 27,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 2
+          }
+        },
+        "intentful": {
+          "avg_abs_forward_log_return": 0.006465374917791728,
+          "avg_forward_log_return": 0.0002942236787451772,
+          "changed_rate": 1.0,
+          "count": 63,
+          "intent_distribution": {
+            "range_invalidated": 2,
+            "risk_recovery": 44,
+            "scalp_exit": 17
+          },
+          "large_move_rate": 0.7142857142857143,
+          "negative_return_rate": 0.5238095238095238,
+          "positive_return_rate": 0.47619047619047616,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+            "NO_TRADE_RISK->SCALP_ONLY": 16,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 23,
+            "RANGE_REVERSION->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->BREAKOUT_SETUP": 1,
+            "SCALP_ONLY->NO_TRADE_RISK": 13,
+            "SCALP_ONLY->WAIT_COMPRESSION": 3
+          }
+        },
+        "range_to_any": {
+          "avg_abs_forward_log_return": 0.004556793719894197,
+          "avg_forward_log_return": 0.004556793719894197,
+          "changed_rate": 0.6666666666666666,
+          "count": 3,
+          "intent_distribution": {
+            "other": 1,
+            "range_invalidated": 2
+          },
+          "large_move_rate": 0.6666666666666666,
+          "negative_return_rate": 0.0,
+          "positive_return_rate": 1.0,
+          "transition_distribution": {
+            "RANGE_REVERSION->BREAKOUT_SETUP": 2,
+            "RANGE_REVERSION->RANGE_REVERSION": 1
+          }
+        },
+        "risk_recovery": {
+          "avg_abs_forward_log_return": 0.005129334228578203,
+          "avg_forward_log_return": -0.00010014317712251515,
+          "changed_rate": 1.0,
+          "count": 44,
+          "intent_distribution": {
+            "risk_recovery": 44
+          },
+          "large_move_rate": 0.7045454545454546,
+          "negative_return_rate": 0.5454545454545454,
+          "positive_return_rate": 0.45454545454545453,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+            "NO_TRADE_RISK->SCALP_ONLY": 16,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 23
+          }
+        },
+        "risk_to_any": {
+          "avg_abs_forward_log_return": 0.007143759946900995,
+          "avg_forward_log_return": -0.0013701761989765014,
+          "changed_rate": 0.12535612535612536,
+          "count": 351,
+          "intent_distribution": {
+            "other": 307,
+            "risk_recovery": 44
+          },
+          "large_move_rate": 0.7549857549857549,
+          "negative_return_rate": 0.5498575498575499,
+          "positive_return_rate": 0.45014245014245013,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 307,
+            "NO_TRADE_RISK->SCALP_ONLY": 16,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 23
+          }
+        },
+        "scalp_exit": {
+          "avg_abs_forward_log_return": 0.010334723121802602,
+          "avg_forward_log_return": 0.0010002806389143015,
+          "changed_rate": 1.0,
+          "count": 17,
+          "intent_distribution": {
+            "scalp_exit": 17
+          },
+          "large_move_rate": 0.7647058823529411,
+          "negative_return_rate": 0.5294117647058824,
+          "positive_return_rate": 0.47058823529411764,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 1,
+            "SCALP_ONLY->NO_TRADE_RISK": 13,
+            "SCALP_ONLY->WAIT_COMPRESSION": 3
+          }
+        },
+        "scalp_to_any": {
+          "avg_abs_forward_log_return": 0.006316328347736133,
+          "avg_forward_log_return": 0.0013290520026675947,
+          "changed_rate": 0.425,
+          "count": 40,
+          "intent_distribution": {
+            "other": 23,
+            "scalp_exit": 17
+          },
+          "large_move_rate": 0.625,
+          "negative_return_rate": 0.425,
+          "positive_return_rate": 0.575,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 1,
+            "SCALP_ONLY->NO_TRADE_RISK": 13,
+            "SCALP_ONLY->SCALP_ONLY": 23,
+            "SCALP_ONLY->WAIT_COMPRESSION": 3
+          }
+        },
+        "setup_to_any": {
+          "avg_abs_forward_log_return": 0.009739535196141683,
+          "avg_forward_log_return": -0.0017225533429926375,
+          "changed_rate": 0.8888888888888888,
+          "count": 9,
+          "intent_distribution": {
+            "other": 9
+          },
+          "large_move_rate": 0.8888888888888888,
+          "negative_return_rate": 0.5555555555555556,
+          "positive_return_rate": 0.4444444444444444,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->BREAKOUT_SETUP": 1,
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 3,
+            "BREAKOUT_SETUP->SCALP_ONLY": 1,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 4
+          }
+        },
+        "setup_to_confirmation": {
+          "avg_abs_forward_log_return": null,
+          "avg_forward_log_return": null,
+          "changed_rate": null,
+          "count": 0,
+          "intent_distribution": {},
+          "large_move_rate": null,
+          "negative_return_rate": null,
+          "positive_return_rate": null,
+          "transition_distribution": {}
+        },
+        "unchanged": {
+          "avg_abs_forward_log_return": 0.005966483009649028,
+          "avg_forward_log_return": -0.0006535622196026699,
+          "changed_rate": 0.0,
+          "count": 617,
+          "intent_distribution": {
+            "other": 617
+          },
+          "large_move_rate": 0.7115072933549432,
+          "negative_return_rate": 0.526742301458671,
+          "positive_return_rate": 0.473257698541329,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->BREAKOUT_SETUP": 1,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 307,
+            "RANGE_REVERSION->RANGE_REVERSION": 1,
+            "SCALP_ONLY->SCALP_ONLY": 23,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 285
+          }
+        },
+        "wait_to_any": {
+          "avg_abs_forward_log_return": 0.005132532115187179,
+          "avg_forward_log_return": 0.00010756533780645813,
+          "changed_rate": 0.11455108359133127,
+          "count": 323,
+          "intent_distribution": {
+            "other": 323
+          },
+          "large_move_rate": 0.7027863777089783,
+          "negative_return_rate": 0.5263157894736842,
+          "positive_return_rate": 0.47368421052631576,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->BREAKOUT_SETUP": 1,
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 3,
+            "BREAKOUT_SETUP->SCALP_ONLY": 1,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 4,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 27,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 2,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 285
+          }
+        },
+        "wait_to_setup": {
+          "avg_abs_forward_log_return": null,
+          "avg_forward_log_return": null,
+          "changed_rate": null,
+          "count": 0,
+          "intent_distribution": {},
+          "large_move_rate": null,
+          "negative_return_rate": null,
+          "positive_return_rate": null,
+          "transition_distribution": {}
+        }
+      },
+      "state_changed_rate": 0.1394700139470014,
+      "total_records": 720,
+      "transition_bars": 1,
+      "transition_distribution": {
+        "BREAKOUT_SETUP->BREAKOUT_SETUP": 1,
+        "BREAKOUT_SETUP->NO_TRADE_RISK": 3,
+        "BREAKOUT_SETUP->SCALP_ONLY": 1,
+        "BREAKOUT_SETUP->WAIT_COMPRESSION": 4,
+        "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+        "NO_TRADE_RISK->NO_TRADE_RISK": 307,
+        "NO_TRADE_RISK->SCALP_ONLY": 16,
+        "NO_TRADE_RISK->WAIT_COMPRESSION": 23,
+        "RANGE_REVERSION->BREAKOUT_SETUP": 2,
+        "RANGE_REVERSION->RANGE_REVERSION": 1,
+        "SCALP_ONLY->BREAKOUT_SETUP": 1,
+        "SCALP_ONLY->NO_TRADE_RISK": 13,
+        "SCALP_ONLY->SCALP_ONLY": 23,
+        "SCALP_ONLY->WAIT_COMPRESSION": 3,
+        "WAIT_COMPRESSION->NO_TRADE_RISK": 27,
+        "WAIT_COMPRESSION->RANGE_REVERSION": 2,
+        "WAIT_COMPRESSION->WAIT_COMPRESSION": 285
+      },
+      "transition_intent_distribution": {
+        "other": 654,
+        "range_invalidated": 2,
+        "risk_recovery": 44,
+        "scalp_exit": 17
+      },
+      "unlabeled_count": 3,
+      "unlabeled_reasons": {
+        "missing_outcome_state": 2,
+        "missing_transition_state": 1
+      }
+    },
+    {
+      "labeled_count": 714,
+      "outcome_horizon_bars": 6,
+      "segments": {
+        "all": {
+          "avg_abs_forward_log_return": 0.008436240823118044,
+          "avg_forward_log_return": -0.001043745615584968,
+          "changed_rate": 0.13865546218487396,
+          "count": 714,
+          "intent_distribution": {
+            "other": 652,
+            "range_invalidated": 2,
+            "risk_recovery": 44,
+            "scalp_exit": 16
+          },
+          "large_move_rate": 0.8109243697478992,
+          "negative_return_rate": 0.5056022408963585,
+          "positive_return_rate": 0.49299719887955185,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 3,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 4,
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 307,
+            "NO_TRADE_RISK->SCALP_ONLY": 16,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 23,
+            "SCALP_ONLY->NO_TRADE_RISK": 13,
+            "SCALP_ONLY->SCALP_ONLY": 22,
+            "SCALP_ONLY->WAIT_COMPRESSION": 2,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 27,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 2,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 284
+          }
+        },
+        "changed": {
+          "avg_abs_forward_log_return": 0.009626420824792837,
+          "avg_forward_log_return": -0.00079763473064904,
+          "changed_rate": 1.0,
+          "count": 99,
+          "intent_distribution": {
+            "other": 37,
+            "range_invalidated": 2,
+            "risk_recovery": 44,
+            "scalp_exit": 16
+          },
+          "large_move_rate": 0.8484848484848485,
+          "negative_return_rate": 0.494949494949495,
+          "positive_return_rate": 0.5050505050505051,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 3,
+            "BREAKOUT_SETUP->SCALP_ONLY": 1,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 4,
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+            "NO_TRADE_RISK->SCALP_ONLY": 16,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 23,
+            "RANGE_REVERSION->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->BREAKOUT_SETUP": 1,
+            "SCALP_ONLY->NO_TRADE_RISK": 13,
+            "SCALP_ONLY->WAIT_COMPRESSION": 2,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 27,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 2
+          }
+        },
+        "intentful": {
+          "avg_abs_forward_log_return": 0.008905886328026245,
+          "avg_forward_log_return": -0.0013327282924082045,
+          "changed_rate": 1.0,
+          "count": 62,
+          "intent_distribution": {
+            "range_invalidated": 2,
+            "risk_recovery": 44,
+            "scalp_exit": 16
+          },
+          "large_move_rate": 0.7903225806451613,
+          "negative_return_rate": 0.5161290322580645,
+          "positive_return_rate": 0.4838709677419355,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+            "NO_TRADE_RISK->SCALP_ONLY": 16,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 23,
+            "RANGE_REVERSION->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->BREAKOUT_SETUP": 1,
+            "SCALP_ONLY->NO_TRADE_RISK": 13,
+            "SCALP_ONLY->WAIT_COMPRESSION": 2
+          }
+        },
+        "range_to_any": {
+          "avg_abs_forward_log_return": 0.0009629930380489162,
+          "avg_forward_log_return": -0.0008497607076819696,
+          "changed_rate": 0.6666666666666666,
+          "count": 3,
+          "intent_distribution": {
+            "other": 1,
+            "range_invalidated": 2
+          },
+          "large_move_rate": 0.0,
+          "negative_return_rate": 0.6666666666666666,
+          "positive_return_rate": 0.3333333333333333,
+          "transition_distribution": {
+            "RANGE_REVERSION->BREAKOUT_SETUP": 2,
+            "RANGE_REVERSION->RANGE_REVERSION": 1
+          }
+        },
+        "risk_recovery": {
+          "avg_abs_forward_log_return": 0.008983254511067747,
+          "avg_forward_log_return": -0.001015634535132681,
+          "changed_rate": 1.0,
+          "count": 44,
+          "intent_distribution": {
+            "risk_recovery": 44
+          },
+          "large_move_rate": 0.7954545454545454,
+          "negative_return_rate": 0.4772727272727273,
+          "positive_return_rate": 0.5227272727272727,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+            "NO_TRADE_RISK->SCALP_ONLY": 16,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 23
+          }
+        },
+        "risk_to_any": {
+          "avg_abs_forward_log_return": 0.009563642421824883,
+          "avg_forward_log_return": -0.002560651572528166,
+          "changed_rate": 0.12535612535612536,
+          "count": 351,
+          "intent_distribution": {
+            "other": 307,
+            "risk_recovery": 44
+          },
+          "large_move_rate": 0.8176638176638177,
+          "negative_return_rate": 0.5356125356125356,
+          "positive_return_rate": 0.46153846153846156,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 307,
+            "NO_TRADE_RISK->SCALP_ONLY": 16,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 23
+          }
+        },
+        "scalp_exit": {
+          "avg_abs_forward_log_return": 0.009636413952003124,
+          "avg_forward_log_return": -0.0022013814978046487,
+          "changed_rate": 1.0,
+          "count": 16,
+          "intent_distribution": {
+            "scalp_exit": 16
+          },
+          "large_move_rate": 0.875,
+          "negative_return_rate": 0.5625,
+          "positive_return_rate": 0.4375,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 1,
+            "SCALP_ONLY->NO_TRADE_RISK": 13,
+            "SCALP_ONLY->WAIT_COMPRESSION": 2
+          }
+        },
+        "scalp_to_any": {
+          "avg_abs_forward_log_return": 0.007310342802279655,
+          "avg_forward_log_return": -0.0001330005026885611,
+          "changed_rate": 0.42105263157894735,
+          "count": 38,
+          "intent_distribution": {
+            "other": 22,
+            "scalp_exit": 16
+          },
+          "large_move_rate": 0.7894736842105263,
+          "negative_return_rate": 0.4473684210526316,
+          "positive_return_rate": 0.5526315789473685,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 1,
+            "SCALP_ONLY->NO_TRADE_RISK": 13,
+            "SCALP_ONLY->SCALP_ONLY": 22,
+            "SCALP_ONLY->WAIT_COMPRESSION": 2
+          }
+        },
+        "setup_to_any": {
+          "avg_abs_forward_log_return": 0.010705516029582281,
+          "avg_forward_log_return": -0.004177319878746569,
+          "changed_rate": 0.8888888888888888,
+          "count": 9,
+          "intent_distribution": {
+            "other": 9
+          },
+          "large_move_rate": 1.0,
+          "negative_return_rate": 0.5555555555555556,
+          "positive_return_rate": 0.4444444444444444,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->BREAKOUT_SETUP": 1,
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 3,
+            "BREAKOUT_SETUP->SCALP_ONLY": 1,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 4
+          }
+        },
+        "setup_to_confirmation": {
+          "avg_abs_forward_log_return": null,
+          "avg_forward_log_return": null,
+          "changed_rate": null,
+          "count": 0,
+          "intent_distribution": {},
+          "large_move_rate": null,
+          "negative_return_rate": null,
+          "positive_return_rate": null,
+          "transition_distribution": {}
+        },
+        "unchanged": {
+          "avg_abs_forward_log_return": 0.00824465087162893,
+          "avg_forward_log_return": -0.0010833634653551417,
+          "changed_rate": 0.0,
+          "count": 615,
+          "intent_distribution": {
+            "other": 615
+          },
+          "large_move_rate": 0.8048780487804879,
+          "negative_return_rate": 0.5073170731707317,
+          "positive_return_rate": 0.49105691056910566,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->BREAKOUT_SETUP": 1,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 307,
+            "RANGE_REVERSION->RANGE_REVERSION": 1,
+            "SCALP_ONLY->SCALP_ONLY": 22,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 284
+          }
+        },
+        "wait_to_any": {
+          "avg_abs_forward_log_return": 0.007409799540512346,
+          "avg_forward_log_return": 0.0005004895455122063,
+          "changed_rate": 0.11490683229813664,
+          "count": 322,
+          "intent_distribution": {
+            "other": 322
+          },
+          "large_move_rate": 0.8136645962732919,
+          "negative_return_rate": 0.4782608695652174,
+          "positive_return_rate": 0.5217391304347826,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->BREAKOUT_SETUP": 1,
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 3,
+            "BREAKOUT_SETUP->SCALP_ONLY": 1,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 4,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 27,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 2,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 284
+          }
+        },
+        "wait_to_setup": {
+          "avg_abs_forward_log_return": null,
+          "avg_forward_log_return": null,
+          "changed_rate": null,
+          "count": 0,
+          "intent_distribution": {},
+          "large_move_rate": null,
+          "negative_return_rate": null,
+          "positive_return_rate": null,
+          "transition_distribution": {}
+        }
+      },
+      "state_changed_rate": 0.13865546218487396,
+      "total_records": 720,
+      "transition_bars": 1,
+      "transition_distribution": {
+        "BREAKOUT_SETUP->BREAKOUT_SETUP": 1,
+        "BREAKOUT_SETUP->NO_TRADE_RISK": 3,
+        "BREAKOUT_SETUP->SCALP_ONLY": 1,
+        "BREAKOUT_SETUP->WAIT_COMPRESSION": 4,
+        "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+        "NO_TRADE_RISK->NO_TRADE_RISK": 307,
+        "NO_TRADE_RISK->SCALP_ONLY": 16,
+        "NO_TRADE_RISK->WAIT_COMPRESSION": 23,
+        "RANGE_REVERSION->BREAKOUT_SETUP": 2,
+        "RANGE_REVERSION->RANGE_REVERSION": 1,
+        "SCALP_ONLY->BREAKOUT_SETUP": 1,
+        "SCALP_ONLY->NO_TRADE_RISK": 13,
+        "SCALP_ONLY->SCALP_ONLY": 22,
+        "SCALP_ONLY->WAIT_COMPRESSION": 2,
+        "WAIT_COMPRESSION->NO_TRADE_RISK": 27,
+        "WAIT_COMPRESSION->RANGE_REVERSION": 2,
+        "WAIT_COMPRESSION->WAIT_COMPRESSION": 284
+      },
+      "transition_intent_distribution": {
+        "other": 652,
+        "range_invalidated": 2,
+        "risk_recovery": 44,
+        "scalp_exit": 16
+      },
+      "unlabeled_count": 6,
+      "unlabeled_reasons": {
+        "missing_outcome_state": 5,
+        "missing_transition_state": 1
+      }
+    },
+    {
+      "labeled_count": 708,
+      "outcome_horizon_bars": 12,
+      "segments": {
+        "all": {
+          "avg_abs_forward_log_return": 0.011216525297602316,
+          "avg_forward_log_return": -0.0019999916088906068,
+          "changed_rate": 0.1384180790960452,
+          "count": 708,
+          "intent_distribution": {
+            "other": 647,
+            "range_invalidated": 2,
+            "risk_recovery": 43,
+            "scalp_exit": 16
+          },
+          "large_move_rate": 0.884180790960452,
+          "negative_return_rate": 0.518361581920904,
+          "positive_return_rate": 0.481638418079096,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 3,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 4,
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 303,
+            "NO_TRADE_RISK->SCALP_ONLY": 15,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 23,
+            "SCALP_ONLY->NO_TRADE_RISK": 13,
+            "SCALP_ONLY->SCALP_ONLY": 21,
+            "SCALP_ONLY->WAIT_COMPRESSION": 2,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 27,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 2,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 284
+          }
+        },
+        "changed": {
+          "avg_abs_forward_log_return": 0.011281648840618446,
+          "avg_forward_log_return": -0.002283432986497949,
+          "changed_rate": 1.0,
+          "count": 98,
+          "intent_distribution": {
+            "other": 37,
+            "range_invalidated": 2,
+            "risk_recovery": 43,
+            "scalp_exit": 16
+          },
+          "large_move_rate": 0.8775510204081632,
+          "negative_return_rate": 0.46938775510204084,
+          "positive_return_rate": 0.5306122448979592,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 3,
+            "BREAKOUT_SETUP->SCALP_ONLY": 1,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 4,
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+            "NO_TRADE_RISK->SCALP_ONLY": 15,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 23,
+            "RANGE_REVERSION->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->BREAKOUT_SETUP": 1,
+            "SCALP_ONLY->NO_TRADE_RISK": 13,
+            "SCALP_ONLY->WAIT_COMPRESSION": 2,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 27,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 2
+          }
+        },
+        "intentful": {
+          "avg_abs_forward_log_return": 0.012561455666979514,
+          "avg_forward_log_return": -0.004010439851916833,
+          "changed_rate": 1.0,
+          "count": 61,
+          "intent_distribution": {
+            "range_invalidated": 2,
+            "risk_recovery": 43,
+            "scalp_exit": 16
+          },
+          "large_move_rate": 0.9180327868852459,
+          "negative_return_rate": 0.5245901639344263,
+          "positive_return_rate": 0.47540983606557374,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+            "NO_TRADE_RISK->SCALP_ONLY": 15,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 23,
+            "RANGE_REVERSION->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->BREAKOUT_SETUP": 1,
+            "SCALP_ONLY->NO_TRADE_RISK": 13,
+            "SCALP_ONLY->WAIT_COMPRESSION": 2
+          }
+        },
+        "range_to_any": {
+          "avg_abs_forward_log_return": 0.005524677897767851,
+          "avg_forward_log_return": 0.0020868602502649236,
+          "changed_rate": 0.6666666666666666,
+          "count": 3,
+          "intent_distribution": {
+            "other": 1,
+            "range_invalidated": 2
+          },
+          "large_move_rate": 0.6666666666666666,
+          "negative_return_rate": 0.6666666666666666,
+          "positive_return_rate": 0.3333333333333333,
+          "transition_distribution": {
+            "RANGE_REVERSION->BREAKOUT_SETUP": 2,
+            "RANGE_REVERSION->RANGE_REVERSION": 1
+          }
+        },
+        "risk_recovery": {
+          "avg_abs_forward_log_return": 0.01194699334883781,
+          "avg_forward_log_return": -0.002603455257407686,
+          "changed_rate": 1.0,
+          "count": 43,
+          "intent_distribution": {
+            "risk_recovery": 43
+          },
+          "large_move_rate": 0.9069767441860465,
+          "negative_return_rate": 0.4883720930232558,
+          "positive_return_rate": 0.5116279069767442,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+            "NO_TRADE_RISK->SCALP_ONLY": 15,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 23
+          }
+        },
+        "risk_to_any": {
+          "avg_abs_forward_log_return": 0.013319732902090283,
+          "avg_forward_log_return": -0.005401523507299468,
+          "changed_rate": 0.12427745664739884,
+          "count": 346,
+          "intent_distribution": {
+            "other": 303,
+            "risk_recovery": 43
+          },
+          "large_move_rate": 0.9075144508670521,
+          "negative_return_rate": 0.6127167630057804,
+          "positive_return_rate": 0.3872832369942196,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 303,
+            "NO_TRADE_RISK->SCALP_ONLY": 15,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 23
+          }
+        },
+        "scalp_exit": {
+          "avg_abs_forward_log_return": 0.015460709700904383,
+          "avg_forward_log_return": -0.007970720526696373,
+          "changed_rate": 1.0,
+          "count": 16,
+          "intent_distribution": {
+            "scalp_exit": 16
+          },
+          "large_move_rate": 1.0,
+          "negative_return_rate": 0.5625,
+          "positive_return_rate": 0.4375,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 1,
+            "SCALP_ONLY->NO_TRADE_RISK": 13,
+            "SCALP_ONLY->WAIT_COMPRESSION": 2
+          }
+        },
+        "scalp_to_any": {
+          "avg_abs_forward_log_return": 0.011387531079361711,
+          "avg_forward_log_return": -0.0032610989789070718,
+          "changed_rate": 0.43243243243243246,
+          "count": 37,
+          "intent_distribution": {
+            "other": 21,
+            "scalp_exit": 16
+          },
+          "large_move_rate": 0.972972972972973,
+          "negative_return_rate": 0.4594594594594595,
+          "positive_return_rate": 0.5405405405405406,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 1,
+            "SCALP_ONLY->NO_TRADE_RISK": 13,
+            "SCALP_ONLY->SCALP_ONLY": 21,
+            "SCALP_ONLY->WAIT_COMPRESSION": 2
+          }
+        },
+        "setup_to_any": {
+          "avg_abs_forward_log_return": 0.010367380749610935,
+          "avg_forward_log_return": -0.006790765403596906,
+          "changed_rate": 0.8888888888888888,
+          "count": 9,
+          "intent_distribution": {
+            "other": 9
+          },
+          "large_move_rate": 0.8888888888888888,
+          "negative_return_rate": 0.7777777777777778,
+          "positive_return_rate": 0.2222222222222222,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->BREAKOUT_SETUP": 1,
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 3,
+            "BREAKOUT_SETUP->SCALP_ONLY": 1,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 4
+          }
+        },
+        "setup_to_confirmation": {
+          "avg_abs_forward_log_return": null,
+          "avg_forward_log_return": null,
+          "changed_rate": null,
+          "count": 0,
+          "intent_distribution": {},
+          "large_move_rate": null,
+          "negative_return_rate": null,
+          "positive_return_rate": null,
+          "transition_distribution": {}
+        },
+        "unchanged": {
+          "avg_abs_forward_log_return": 0.011206062826757103,
+          "avg_forward_log_return": -0.0019544551252750012,
+          "changed_rate": 0.0,
+          "count": 610,
+          "intent_distribution": {
+            "other": 610
+          },
+          "large_move_rate": 0.8852459016393442,
+          "negative_return_rate": 0.5262295081967213,
+          "positive_return_rate": 0.4737704918032787,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->BREAKOUT_SETUP": 1,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 303,
+            "RANGE_REVERSION->RANGE_REVERSION": 1,
+            "SCALP_ONLY->SCALP_ONLY": 21,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 284
+          }
+        },
+        "wait_to_any": {
+          "avg_abs_forward_log_return": 0.00898993677934632,
+          "avg_forward_log_return": 0.0017619042108690474,
+          "changed_rate": 0.11490683229813664,
+          "count": 322,
+          "intent_distribution": {
+            "other": 322
+          },
+          "large_move_rate": 0.8509316770186336,
+          "negative_return_rate": 0.422360248447205,
+          "positive_return_rate": 0.577639751552795,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->BREAKOUT_SETUP": 1,
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 3,
+            "BREAKOUT_SETUP->SCALP_ONLY": 1,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 4,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 27,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 2,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 284
+          }
+        },
+        "wait_to_setup": {
+          "avg_abs_forward_log_return": null,
+          "avg_forward_log_return": null,
+          "changed_rate": null,
+          "count": 0,
+          "intent_distribution": {},
+          "large_move_rate": null,
+          "negative_return_rate": null,
+          "positive_return_rate": null,
+          "transition_distribution": {}
+        }
+      },
+      "state_changed_rate": 0.1384180790960452,
+      "total_records": 720,
+      "transition_bars": 1,
+      "transition_distribution": {
+        "BREAKOUT_SETUP->BREAKOUT_SETUP": 1,
+        "BREAKOUT_SETUP->NO_TRADE_RISK": 3,
+        "BREAKOUT_SETUP->SCALP_ONLY": 1,
+        "BREAKOUT_SETUP->WAIT_COMPRESSION": 4,
+        "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+        "NO_TRADE_RISK->NO_TRADE_RISK": 303,
+        "NO_TRADE_RISK->SCALP_ONLY": 15,
+        "NO_TRADE_RISK->WAIT_COMPRESSION": 23,
+        "RANGE_REVERSION->BREAKOUT_SETUP": 2,
+        "RANGE_REVERSION->RANGE_REVERSION": 1,
+        "SCALP_ONLY->BREAKOUT_SETUP": 1,
+        "SCALP_ONLY->NO_TRADE_RISK": 13,
+        "SCALP_ONLY->SCALP_ONLY": 21,
+        "SCALP_ONLY->WAIT_COMPRESSION": 2,
+        "WAIT_COMPRESSION->NO_TRADE_RISK": 27,
+        "WAIT_COMPRESSION->RANGE_REVERSION": 2,
+        "WAIT_COMPRESSION->WAIT_COMPRESSION": 284
+      },
+      "transition_intent_distribution": {
+        "other": 647,
+        "range_invalidated": 2,
+        "risk_recovery": 43,
+        "scalp_exit": 16
+      },
+      "unlabeled_count": 12,
+      "unlabeled_reasons": {
+        "missing_outcome_state": 11,
+        "missing_transition_state": 1
+      }
+    },
+    {
+      "labeled_count": 696,
+      "outcome_horizon_bars": 24,
+      "segments": {
+        "all": {
+          "avg_abs_forward_log_return": 0.016364943390001004,
+          "avg_forward_log_return": -0.0034882518861276733,
+          "changed_rate": 0.14080459770114942,
+          "count": 696,
+          "intent_distribution": {
+            "other": 635,
+            "range_invalidated": 2,
+            "risk_recovery": 43,
+            "scalp_exit": 16
+          },
+          "large_move_rate": 0.9295977011494253,
+          "negative_return_rate": 0.5172413793103449,
+          "positive_return_rate": 0.4827586206896552,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 3,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 4,
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 291,
+            "NO_TRADE_RISK->SCALP_ONLY": 15,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 23,
+            "SCALP_ONLY->NO_TRADE_RISK": 13,
+            "SCALP_ONLY->SCALP_ONLY": 21,
+            "SCALP_ONLY->WAIT_COMPRESSION": 2,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 27,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 2,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 284
+          }
+        },
+        "changed": {
+          "avg_abs_forward_log_return": 0.017012191930326635,
+          "avg_forward_log_return": -0.0015013026813986013,
+          "changed_rate": 1.0,
+          "count": 98,
+          "intent_distribution": {
+            "other": 37,
+            "range_invalidated": 2,
+            "risk_recovery": 43,
+            "scalp_exit": 16
+          },
+          "large_move_rate": 0.9285714285714286,
+          "negative_return_rate": 0.45918367346938777,
+          "positive_return_rate": 0.5408163265306123,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 3,
+            "BREAKOUT_SETUP->SCALP_ONLY": 1,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 4,
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+            "NO_TRADE_RISK->SCALP_ONLY": 15,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 23,
+            "RANGE_REVERSION->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->BREAKOUT_SETUP": 1,
+            "SCALP_ONLY->NO_TRADE_RISK": 13,
+            "SCALP_ONLY->WAIT_COMPRESSION": 2,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 27,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 2
+          }
+        },
+        "intentful": {
+          "avg_abs_forward_log_return": 0.018336568999350884,
+          "avg_forward_log_return": -0.0036434914945755845,
+          "changed_rate": 1.0,
+          "count": 61,
+          "intent_distribution": {
+            "range_invalidated": 2,
+            "risk_recovery": 43,
+            "scalp_exit": 16
+          },
+          "large_move_rate": 0.9344262295081968,
+          "negative_return_rate": 0.5081967213114754,
+          "positive_return_rate": 0.4918032786885246,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+            "NO_TRADE_RISK->SCALP_ONLY": 15,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 23,
+            "RANGE_REVERSION->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->BREAKOUT_SETUP": 1,
+            "SCALP_ONLY->NO_TRADE_RISK": 13,
+            "SCALP_ONLY->WAIT_COMPRESSION": 2
+          }
+        },
+        "range_to_any": {
+          "avg_abs_forward_log_return": 0.009596878596775264,
+          "avg_forward_log_return": 0.009596878596775264,
+          "changed_rate": 0.6666666666666666,
+          "count": 3,
+          "intent_distribution": {
+            "other": 1,
+            "range_invalidated": 2
+          },
+          "large_move_rate": 1.0,
+          "negative_return_rate": 0.0,
+          "positive_return_rate": 1.0,
+          "transition_distribution": {
+            "RANGE_REVERSION->BREAKOUT_SETUP": 2,
+            "RANGE_REVERSION->RANGE_REVERSION": 1
+          }
+        },
+        "risk_recovery": {
+          "avg_abs_forward_log_return": 0.016605273965668483,
+          "avg_forward_log_return": -0.0009481792252456497,
+          "changed_rate": 1.0,
+          "count": 43,
+          "intent_distribution": {
+            "risk_recovery": 43
+          },
+          "large_move_rate": 0.9302325581395349,
+          "negative_return_rate": 0.4186046511627907,
+          "positive_return_rate": 0.5813953488372093,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+            "NO_TRADE_RISK->SCALP_ONLY": 15,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 23
+          }
+        },
+        "risk_to_any": {
+          "avg_abs_forward_log_return": 0.018953522819723696,
+          "avg_forward_log_return": -0.008910642440803111,
+          "changed_rate": 0.12874251497005987,
+          "count": 334,
+          "intent_distribution": {
+            "other": 291,
+            "risk_recovery": 43
+          },
+          "large_move_rate": 0.9311377245508982,
+          "negative_return_rate": 0.6197604790419161,
+          "positive_return_rate": 0.38023952095808383,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 291,
+            "NO_TRADE_RISK->SCALP_ONLY": 15,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 23
+          }
+        },
+        "scalp_exit": {
+          "avg_abs_forward_log_return": 0.024273284010881004,
+          "avg_forward_log_return": -0.012350791171631927,
+          "changed_rate": 1.0,
+          "count": 16,
+          "intent_distribution": {
+            "scalp_exit": 16
+          },
+          "large_move_rate": 0.9375,
+          "negative_return_rate": 0.8125,
+          "positive_return_rate": 0.1875,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 1,
+            "SCALP_ONLY->NO_TRADE_RISK": 13,
+            "SCALP_ONLY->WAIT_COMPRESSION": 2
+          }
+        },
+        "scalp_to_any": {
+          "avg_abs_forward_log_return": 0.02290668099329933,
+          "avg_forward_log_return": -0.015571842940993234,
+          "changed_rate": 0.43243243243243246,
+          "count": 37,
+          "intent_distribution": {
+            "other": 21,
+            "scalp_exit": 16
+          },
+          "large_move_rate": 0.972972972972973,
+          "negative_return_rate": 0.8378378378378378,
+          "positive_return_rate": 0.16216216216216217,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 1,
+            "SCALP_ONLY->NO_TRADE_RISK": 13,
+            "SCALP_ONLY->SCALP_ONLY": 21,
+            "SCALP_ONLY->WAIT_COMPRESSION": 2
+          }
+        },
+        "setup_to_any": {
+          "avg_abs_forward_log_return": 0.02022170977741707,
+          "avg_forward_log_return": -0.015159368153442512,
+          "changed_rate": 0.8888888888888888,
+          "count": 9,
+          "intent_distribution": {
+            "other": 9
+          },
+          "large_move_rate": 0.8888888888888888,
+          "negative_return_rate": 0.6666666666666666,
+          "positive_return_rate": 0.3333333333333333,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->BREAKOUT_SETUP": 1,
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 3,
+            "BREAKOUT_SETUP->SCALP_ONLY": 1,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 4
+          }
+        },
+        "setup_to_confirmation": {
+          "avg_abs_forward_log_return": null,
+          "avg_forward_log_return": null,
+          "changed_rate": null,
+          "count": 0,
+          "intent_distribution": {},
+          "large_move_rate": null,
+          "negative_return_rate": null,
+          "positive_return_rate": null,
+          "transition_distribution": {}
+        },
+        "unchanged": {
+          "avg_abs_forward_log_return": 0.016258872558977736,
+          "avg_forward_log_return": -0.0038138723243608653,
+          "changed_rate": 0.0,
+          "count": 598,
+          "intent_distribution": {
+            "other": 598
+          },
+          "large_move_rate": 0.9297658862876255,
+          "negative_return_rate": 0.5267558528428093,
+          "positive_return_rate": 0.47324414715719065,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->BREAKOUT_SETUP": 1,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 291,
+            "RANGE_REVERSION->RANGE_REVERSION": 1,
+            "SCALP_ONLY->SCALP_ONLY": 21,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 284
+          }
+        },
+        "wait_to_any": {
+          "avg_abs_forward_log_return": 0.012991261320219202,
+          "avg_forward_log_return": 0.0034027913525149136,
+          "changed_rate": 0.11490683229813664,
+          "count": 322,
+          "intent_distribution": {
+            "other": 322
+          },
+          "large_move_rate": 0.922360248447205,
+          "negative_return_rate": 0.37888198757763975,
+          "positive_return_rate": 0.6211180124223602,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->BREAKOUT_SETUP": 1,
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 3,
+            "BREAKOUT_SETUP->SCALP_ONLY": 1,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 4,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 27,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 2,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 284
+          }
+        },
+        "wait_to_setup": {
+          "avg_abs_forward_log_return": null,
+          "avg_forward_log_return": null,
+          "changed_rate": null,
+          "count": 0,
+          "intent_distribution": {},
+          "large_move_rate": null,
+          "negative_return_rate": null,
+          "positive_return_rate": null,
+          "transition_distribution": {}
+        }
+      },
+      "state_changed_rate": 0.14080459770114942,
+      "total_records": 720,
+      "transition_bars": 1,
+      "transition_distribution": {
+        "BREAKOUT_SETUP->BREAKOUT_SETUP": 1,
+        "BREAKOUT_SETUP->NO_TRADE_RISK": 3,
+        "BREAKOUT_SETUP->SCALP_ONLY": 1,
+        "BREAKOUT_SETUP->WAIT_COMPRESSION": 4,
+        "NO_TRADE_RISK->BREAKOUT_SETUP": 5,
+        "NO_TRADE_RISK->NO_TRADE_RISK": 291,
+        "NO_TRADE_RISK->SCALP_ONLY": 15,
+        "NO_TRADE_RISK->WAIT_COMPRESSION": 23,
+        "RANGE_REVERSION->BREAKOUT_SETUP": 2,
+        "RANGE_REVERSION->RANGE_REVERSION": 1,
+        "SCALP_ONLY->BREAKOUT_SETUP": 1,
+        "SCALP_ONLY->NO_TRADE_RISK": 13,
+        "SCALP_ONLY->SCALP_ONLY": 21,
+        "SCALP_ONLY->WAIT_COMPRESSION": 2,
+        "WAIT_COMPRESSION->NO_TRADE_RISK": 27,
+        "WAIT_COMPRESSION->RANGE_REVERSION": 2,
+        "WAIT_COMPRESSION->WAIT_COMPRESSION": 284
+      },
+      "transition_intent_distribution": {
+        "other": 635,
+        "range_invalidated": 2,
+        "risk_recovery": 43,
+        "scalp_exit": 16
+      },
+      "unlabeled_count": 24,
+      "unlabeled_reasons": {
+        "missing_outcome_state": 23,
+        "missing_transition_state": 1
+      }
+    },
+    {
+      "labeled_count": 717,
+      "outcome_horizon_bars": 3,
+      "segments": {
+        "all": {
+          "avg_abs_forward_log_return": 0.006180740766578573,
+          "avg_forward_log_return": -0.0005290875599203343,
+          "changed_rate": 0.18828451882845187,
+          "count": 717,
+          "intent_distribution": {
+            "compression_to_setup": 3,
+            "other": 629,
+            "range_invalidated": 3,
+            "risk_recovery": 55,
+            "scalp_exit": 27
+          },
+          "large_move_rate": 0.7238493723849372,
+          "negative_return_rate": 0.5299860529986054,
+          "positive_return_rate": 0.4700139470013947,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 296,
+            "NO_TRADE_RISK->SCALP_ONLY": 22,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 29,
+            "SCALP_ONLY->NO_TRADE_RISK": 16,
+            "SCALP_ONLY->SCALP_ONLY": 13,
+            "SCALP_ONLY->WAIT_COMPRESSION": 9,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 31,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 4,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 273
+          }
+        },
+        "changed": {
+          "avg_abs_forward_log_return": 0.0067443104357439426,
+          "avg_forward_log_return": -0.000149252041650234,
+          "changed_rate": 1.0,
+          "count": 135,
+          "intent_distribution": {
+            "compression_to_setup": 3,
+            "other": 47,
+            "range_invalidated": 3,
+            "risk_recovery": 55,
+            "scalp_exit": 27
+          },
+          "large_move_rate": 0.7037037037037037,
+          "negative_return_rate": 0.5185185185185185,
+          "positive_return_rate": 0.48148148148148145,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+            "NO_TRADE_RISK->SCALP_ONLY": 22,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 29,
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+            "SCALP_ONLY->NO_TRADE_RISK": 16,
+            "SCALP_ONLY->WAIT_COMPRESSION": 9,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 3,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 31,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 4
+          }
+        },
+        "intentful": {
+          "avg_abs_forward_log_return": 0.005656579443025603,
+          "avg_forward_log_return": -0.0001667271636938537,
+          "changed_rate": 1.0,
+          "count": 88,
+          "intent_distribution": {
+            "compression_to_setup": 3,
+            "range_invalidated": 3,
+            "risk_recovery": 55,
+            "scalp_exit": 27
+          },
+          "large_move_rate": 0.6477272727272727,
+          "negative_return_rate": 0.48863636363636365,
+          "positive_return_rate": 0.5113636363636364,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+            "NO_TRADE_RISK->SCALP_ONLY": 22,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 29,
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 16,
+            "SCALP_ONLY->WAIT_COMPRESSION": 9,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 3
+          }
+        },
+        "range_to_any": {
+          "avg_abs_forward_log_return": 0.004556793719894197,
+          "avg_forward_log_return": 0.004556793719894197,
+          "changed_rate": 1.0,
+          "count": 3,
+          "intent_distribution": {
+            "range_invalidated": 3
+          },
+          "large_move_rate": 0.6666666666666666,
+          "negative_return_rate": 0.0,
+          "positive_return_rate": 1.0,
+          "transition_distribution": {
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3
+          }
+        },
+        "risk_recovery": {
+          "avg_abs_forward_log_return": 0.004397560653037913,
+          "avg_forward_log_return": -0.000979871869391716,
+          "changed_rate": 1.0,
+          "count": 55,
+          "intent_distribution": {
+            "risk_recovery": 55
+          },
+          "large_move_rate": 0.6545454545454545,
+          "negative_return_rate": 0.5272727272727272,
+          "positive_return_rate": 0.4727272727272727,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+            "NO_TRADE_RISK->SCALP_ONLY": 22,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 29
+          }
+        },
+        "risk_to_any": {
+          "avg_abs_forward_log_return": 0.007143759946900995,
+          "avg_forward_log_return": -0.0013701761989765014,
+          "changed_rate": 0.15669515669515668,
+          "count": 351,
+          "intent_distribution": {
+            "other": 296,
+            "risk_recovery": 55
+          },
+          "large_move_rate": 0.7549857549857549,
+          "negative_return_rate": 0.5498575498575499,
+          "positive_return_rate": 0.45014245014245013,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 296,
+            "NO_TRADE_RISK->SCALP_ONLY": 22,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 29
+          }
+        },
+        "scalp_exit": {
+          "avg_abs_forward_log_return": 0.007095937488061243,
+          "avg_forward_log_return": 0.0003806059509721917,
+          "changed_rate": 1.0,
+          "count": 27,
+          "intent_distribution": {
+            "scalp_exit": 27
+          },
+          "large_move_rate": 0.5925925925925926,
+          "negative_return_rate": 0.48148148148148145,
+          "positive_return_rate": 0.5185185185185185,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 16,
+            "SCALP_ONLY->WAIT_COMPRESSION": 9
+          }
+        },
+        "scalp_to_any": {
+          "avg_abs_forward_log_return": 0.006316328347736133,
+          "avg_forward_log_return": 0.0013290520026675947,
+          "changed_rate": 0.675,
+          "count": 40,
+          "intent_distribution": {
+            "other": 13,
+            "scalp_exit": 27
+          },
+          "large_move_rate": 0.625,
+          "negative_return_rate": 0.425,
+          "positive_return_rate": 0.575,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 16,
+            "SCALP_ONLY->SCALP_ONLY": 13,
+            "SCALP_ONLY->WAIT_COMPRESSION": 9
+          }
+        },
+        "setup_to_any": {
+          "avg_abs_forward_log_return": 0.009739535196141683,
+          "avg_forward_log_return": -0.0017225533429926375,
+          "changed_rate": 1.0,
+          "count": 9,
+          "intent_distribution": {
+            "other": 9
+          },
+          "large_move_rate": 0.8888888888888888,
+          "negative_return_rate": 0.5555555555555556,
+          "positive_return_rate": 0.4444444444444444,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3
+          }
+        },
+        "setup_to_confirmation": {
+          "avg_abs_forward_log_return": null,
+          "avg_forward_log_return": null,
+          "changed_rate": null,
+          "count": 0,
+          "intent_distribution": {},
+          "large_move_rate": null,
+          "negative_return_rate": null,
+          "positive_return_rate": null,
+          "transition_distribution": {}
+        },
+        "unchanged": {
+          "avg_abs_forward_log_return": 0.006050015843318563,
+          "avg_forward_log_return": -0.0006171937368386564,
+          "changed_rate": 0.0,
+          "count": 582,
+          "intent_distribution": {
+            "other": 582
+          },
+          "large_move_rate": 0.7285223367697594,
+          "negative_return_rate": 0.5326460481099656,
+          "positive_return_rate": 0.46735395189003437,
+          "transition_distribution": {
+            "NO_TRADE_RISK->NO_TRADE_RISK": 296,
+            "SCALP_ONLY->SCALP_ONLY": 13,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 273
+          }
+        },
+        "wait_to_any": {
+          "avg_abs_forward_log_return": 0.005132532115187179,
+          "avg_forward_log_return": 0.00010756533780645813,
+          "changed_rate": 0.15479876160990713,
+          "count": 323,
+          "intent_distribution": {
+            "compression_to_setup": 3,
+            "other": 320
+          },
+          "large_move_rate": 0.7027863777089783,
+          "negative_return_rate": 0.5263157894736842,
+          "positive_return_rate": 0.47368421052631576,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 3,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 31,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 4,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 273
+          }
+        },
+        "wait_to_setup": {
+          "avg_abs_forward_log_return": 0.016884153910610586,
+          "avg_forward_log_return": 0.00509140685851783,
+          "changed_rate": 1.0,
+          "count": 3,
+          "intent_distribution": {
+            "compression_to_setup": 3
+          },
+          "large_move_rate": 1.0,
+          "negative_return_rate": 0.3333333333333333,
+          "positive_return_rate": 0.6666666666666666,
+          "transition_distribution": {
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 3
+          }
+        }
+      },
+      "state_changed_rate": 0.18828451882845187,
+      "total_records": 720,
+      "transition_bars": 3,
+      "transition_distribution": {
+        "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+        "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+        "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+        "NO_TRADE_RISK->NO_TRADE_RISK": 296,
+        "NO_TRADE_RISK->SCALP_ONLY": 22,
+        "NO_TRADE_RISK->WAIT_COMPRESSION": 29,
+        "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+        "SCALP_ONLY->BREAKOUT_SETUP": 2,
+        "SCALP_ONLY->NO_TRADE_RISK": 16,
+        "SCALP_ONLY->SCALP_ONLY": 13,
+        "SCALP_ONLY->WAIT_COMPRESSION": 9,
+        "WAIT_COMPRESSION->BREAKOUT_SETUP": 3,
+        "WAIT_COMPRESSION->NO_TRADE_RISK": 31,
+        "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+        "WAIT_COMPRESSION->SCALP_ONLY": 4,
+        "WAIT_COMPRESSION->WAIT_COMPRESSION": 273
+      },
+      "transition_intent_distribution": {
+        "compression_to_setup": 3,
+        "other": 629,
+        "range_invalidated": 3,
+        "risk_recovery": 55,
+        "scalp_exit": 27
+      },
+      "unlabeled_count": 3,
+      "unlabeled_reasons": {
+        "missing_transition_state": 3
+      }
+    },
+    {
+      "labeled_count": 714,
+      "outcome_horizon_bars": 6,
+      "segments": {
+        "all": {
+          "avg_abs_forward_log_return": 0.008436240823118044,
+          "avg_forward_log_return": -0.001043745615584968,
+          "changed_rate": 0.18627450980392157,
+          "count": 714,
+          "intent_distribution": {
+            "compression_to_setup": 3,
+            "other": 628,
+            "range_invalidated": 3,
+            "risk_recovery": 55,
+            "scalp_exit": 25
+          },
+          "large_move_rate": 0.8109243697478992,
+          "negative_return_rate": 0.5056022408963585,
+          "positive_return_rate": 0.49299719887955185,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 296,
+            "NO_TRADE_RISK->SCALP_ONLY": 22,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 29,
+            "SCALP_ONLY->NO_TRADE_RISK": 16,
+            "SCALP_ONLY->SCALP_ONLY": 13,
+            "SCALP_ONLY->WAIT_COMPRESSION": 7,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 31,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 4,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 272
+          }
+        },
+        "changed": {
+          "avg_abs_forward_log_return": 0.0091056708788946,
+          "avg_forward_log_return": -0.0007270475849788124,
+          "changed_rate": 1.0,
+          "count": 133,
+          "intent_distribution": {
+            "compression_to_setup": 3,
+            "other": 47,
+            "range_invalidated": 3,
+            "risk_recovery": 55,
+            "scalp_exit": 25
+          },
+          "large_move_rate": 0.8421052631578947,
+          "negative_return_rate": 0.47368421052631576,
+          "positive_return_rate": 0.5263157894736842,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+            "NO_TRADE_RISK->SCALP_ONLY": 22,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 29,
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+            "SCALP_ONLY->NO_TRADE_RISK": 16,
+            "SCALP_ONLY->WAIT_COMPRESSION": 7,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 3,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 31,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 4
+          }
+        },
+        "intentful": {
+          "avg_abs_forward_log_return": 0.007606368716839274,
+          "avg_forward_log_return": -0.0014929202017565687,
+          "changed_rate": 1.0,
+          "count": 86,
+          "intent_distribution": {
+            "compression_to_setup": 3,
+            "range_invalidated": 3,
+            "risk_recovery": 55,
+            "scalp_exit": 25
+          },
+          "large_move_rate": 0.7790697674418605,
+          "negative_return_rate": 0.5,
+          "positive_return_rate": 0.5,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+            "NO_TRADE_RISK->SCALP_ONLY": 22,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 29,
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 16,
+            "SCALP_ONLY->WAIT_COMPRESSION": 7,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 3
+          }
+        },
+        "range_to_any": {
+          "avg_abs_forward_log_return": 0.0009629930380489162,
+          "avg_forward_log_return": -0.0008497607076819696,
+          "changed_rate": 1.0,
+          "count": 3,
+          "intent_distribution": {
+            "range_invalidated": 3
+          },
+          "large_move_rate": 0.0,
+          "negative_return_rate": 0.6666666666666666,
+          "positive_return_rate": 0.3333333333333333,
+          "transition_distribution": {
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3
+          }
+        },
+        "risk_recovery": {
+          "avg_abs_forward_log_return": 0.007709167097040535,
+          "avg_forward_log_return": -0.0014229477327461664,
+          "changed_rate": 1.0,
+          "count": 55,
+          "intent_distribution": {
+            "risk_recovery": 55
+          },
+          "large_move_rate": 0.7818181818181819,
+          "negative_return_rate": 0.4727272727272727,
+          "positive_return_rate": 0.5272727272727272,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+            "NO_TRADE_RISK->SCALP_ONLY": 22,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 29
+          }
+        },
+        "risk_to_any": {
+          "avg_abs_forward_log_return": 0.009563642421824883,
+          "avg_forward_log_return": -0.002560651572528166,
+          "changed_rate": 0.15669515669515668,
+          "count": 351,
+          "intent_distribution": {
+            "other": 296,
+            "risk_recovery": 55
+          },
+          "large_move_rate": 0.8176638176638177,
+          "negative_return_rate": 0.5356125356125356,
+          "positive_return_rate": 0.46153846153846156,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 296,
+            "NO_TRADE_RISK->SCALP_ONLY": 22,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 29
+          }
+        },
+        "scalp_exit": {
+          "avg_abs_forward_log_return": 0.007938296218236184,
+          "avg_forward_log_return": -0.0026484953269946144,
+          "changed_rate": 1.0,
+          "count": 25,
+          "intent_distribution": {
+            "scalp_exit": 25
+          },
+          "large_move_rate": 0.84,
+          "negative_return_rate": 0.56,
+          "positive_return_rate": 0.44,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 16,
+            "SCALP_ONLY->WAIT_COMPRESSION": 7
+          }
+        },
+        "scalp_to_any": {
+          "avg_abs_forward_log_return": 0.007310342802279655,
+          "avg_forward_log_return": -0.0001330005026885611,
+          "changed_rate": 0.6578947368421053,
+          "count": 38,
+          "intent_distribution": {
+            "other": 13,
+            "scalp_exit": 25
+          },
+          "large_move_rate": 0.7894736842105263,
+          "negative_return_rate": 0.4473684210526316,
+          "positive_return_rate": 0.5526315789473685,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 16,
+            "SCALP_ONLY->SCALP_ONLY": 13,
+            "SCALP_ONLY->WAIT_COMPRESSION": 7
+          }
+        },
+        "setup_to_any": {
+          "avg_abs_forward_log_return": 0.010705516029582281,
+          "avg_forward_log_return": -0.004177319878746569,
+          "changed_rate": 1.0,
+          "count": 9,
+          "intent_distribution": {
+            "other": 9
+          },
+          "large_move_rate": 1.0,
+          "negative_return_rate": 0.5555555555555556,
+          "positive_return_rate": 0.4444444444444444,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3
+          }
+        },
+        "setup_to_confirmation": {
+          "avg_abs_forward_log_return": null,
+          "avg_forward_log_return": null,
+          "changed_rate": null,
+          "count": 0,
+          "intent_distribution": {},
+          "large_move_rate": null,
+          "negative_return_rate": null,
+          "positive_return_rate": null,
+          "transition_distribution": {}
+        },
+        "unchanged": {
+          "avg_abs_forward_log_return": 0.008282997798301724,
+          "avg_forward_log_return": -0.001116242755121317,
+          "changed_rate": 0.0,
+          "count": 581,
+          "intent_distribution": {
+            "other": 581
+          },
+          "large_move_rate": 0.8037865748709122,
+          "negative_return_rate": 0.5129087779690189,
+          "positive_return_rate": 0.4853700516351119,
+          "transition_distribution": {
+            "NO_TRADE_RISK->NO_TRADE_RISK": 296,
+            "SCALP_ONLY->SCALP_ONLY": 13,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 272
+          }
+        },
+        "wait_to_any": {
+          "avg_abs_forward_log_return": 0.007409799540512346,
+          "avg_forward_log_return": 0.0005004895455122063,
+          "changed_rate": 0.15527950310559005,
+          "count": 322,
+          "intent_distribution": {
+            "compression_to_setup": 3,
+            "other": 319
+          },
+          "large_move_rate": 0.8136645962732919,
+          "negative_return_rate": 0.4782608695652174,
+          "positive_return_rate": 0.5217391304347826,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 3,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 31,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 4,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 272
+          }
+        },
+        "wait_to_setup": {
+          "avg_abs_forward_log_return": 0.009599044913632285,
+          "avg_forward_log_return": 0.006210884415961833,
+          "changed_rate": 1.0,
+          "count": 3,
+          "intent_distribution": {
+            "compression_to_setup": 3
+          },
+          "large_move_rate": 1.0,
+          "negative_return_rate": 0.3333333333333333,
+          "positive_return_rate": 0.6666666666666666,
+          "transition_distribution": {
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 3
+          }
+        }
+      },
+      "state_changed_rate": 0.18627450980392157,
+      "total_records": 720,
+      "transition_bars": 3,
+      "transition_distribution": {
+        "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+        "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+        "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+        "NO_TRADE_RISK->NO_TRADE_RISK": 296,
+        "NO_TRADE_RISK->SCALP_ONLY": 22,
+        "NO_TRADE_RISK->WAIT_COMPRESSION": 29,
+        "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+        "SCALP_ONLY->BREAKOUT_SETUP": 2,
+        "SCALP_ONLY->NO_TRADE_RISK": 16,
+        "SCALP_ONLY->SCALP_ONLY": 13,
+        "SCALP_ONLY->WAIT_COMPRESSION": 7,
+        "WAIT_COMPRESSION->BREAKOUT_SETUP": 3,
+        "WAIT_COMPRESSION->NO_TRADE_RISK": 31,
+        "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+        "WAIT_COMPRESSION->SCALP_ONLY": 4,
+        "WAIT_COMPRESSION->WAIT_COMPRESSION": 272
+      },
+      "transition_intent_distribution": {
+        "compression_to_setup": 3,
+        "other": 628,
+        "range_invalidated": 3,
+        "risk_recovery": 55,
+        "scalp_exit": 25
+      },
+      "unlabeled_count": 6,
+      "unlabeled_reasons": {
+        "missing_outcome_state": 3,
+        "missing_transition_state": 3
+      }
+    },
+    {
+      "labeled_count": 708,
+      "outcome_horizon_bars": 12,
+      "segments": {
+        "all": {
+          "avg_abs_forward_log_return": 0.011216525297602316,
+          "avg_forward_log_return": -0.0019999916088906068,
+          "changed_rate": 0.18220338983050846,
+          "count": 708,
+          "intent_distribution": {
+            "compression_to_setup": 3,
+            "other": 626,
+            "range_invalidated": 3,
+            "risk_recovery": 52,
+            "scalp_exit": 24
+          },
+          "large_move_rate": 0.884180790960452,
+          "negative_return_rate": 0.518361581920904,
+          "positive_return_rate": 0.481638418079096,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 294,
+            "NO_TRADE_RISK->SCALP_ONLY": 19,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 29,
+            "SCALP_ONLY->NO_TRADE_RISK": 16,
+            "SCALP_ONLY->SCALP_ONLY": 13,
+            "SCALP_ONLY->WAIT_COMPRESSION": 6,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 31,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 4,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 272
+          }
+        },
+        "changed": {
+          "avg_abs_forward_log_return": 0.012442310079079397,
+          "avg_forward_log_return": -0.0022487481469243417,
+          "changed_rate": 1.0,
+          "count": 129,
+          "intent_distribution": {
+            "compression_to_setup": 3,
+            "other": 47,
+            "range_invalidated": 3,
+            "risk_recovery": 52,
+            "scalp_exit": 24
+          },
+          "large_move_rate": 0.9302325581395349,
+          "negative_return_rate": 0.49612403100775193,
+          "positive_return_rate": 0.5038759689922481,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+            "NO_TRADE_RISK->SCALP_ONLY": 19,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 29,
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+            "SCALP_ONLY->NO_TRADE_RISK": 16,
+            "SCALP_ONLY->WAIT_COMPRESSION": 6,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 3,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 31,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 4
+          }
+        },
+        "intentful": {
+          "avg_abs_forward_log_return": 0.013217962954530042,
+          "avg_forward_log_return": -0.004486788557387934,
+          "changed_rate": 1.0,
+          "count": 82,
+          "intent_distribution": {
+            "compression_to_setup": 3,
+            "range_invalidated": 3,
+            "risk_recovery": 52,
+            "scalp_exit": 24
+          },
+          "large_move_rate": 0.926829268292683,
+          "negative_return_rate": 0.524390243902439,
+          "positive_return_rate": 0.47560975609756095,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+            "NO_TRADE_RISK->SCALP_ONLY": 19,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 29,
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 16,
+            "SCALP_ONLY->WAIT_COMPRESSION": 6,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 3
+          }
+        },
+        "range_to_any": {
+          "avg_abs_forward_log_return": 0.005524677897767851,
+          "avg_forward_log_return": 0.0020868602502649236,
+          "changed_rate": 1.0,
+          "count": 3,
+          "intent_distribution": {
+            "range_invalidated": 3
+          },
+          "large_move_rate": 0.6666666666666666,
+          "negative_return_rate": 0.6666666666666666,
+          "positive_return_rate": 0.3333333333333333,
+          "transition_distribution": {
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3
+          }
+        },
+        "risk_recovery": {
+          "avg_abs_forward_log_return": 0.013357251094299718,
+          "avg_forward_log_return": -0.004166918635815028,
+          "changed_rate": 1.0,
+          "count": 52,
+          "intent_distribution": {
+            "risk_recovery": 52
+          },
+          "large_move_rate": 0.9038461538461539,
+          "negative_return_rate": 0.5,
+          "positive_return_rate": 0.5,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+            "NO_TRADE_RISK->SCALP_ONLY": 19,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 29
+          }
+        },
+        "risk_to_any": {
+          "avg_abs_forward_log_return": 0.013319732902090283,
+          "avg_forward_log_return": -0.005401523507299468,
+          "changed_rate": 0.15028901734104047,
+          "count": 346,
+          "intent_distribution": {
+            "other": 294,
+            "risk_recovery": 52
+          },
+          "large_move_rate": 0.9075144508670521,
+          "negative_return_rate": 0.6127167630057804,
+          "positive_return_rate": 0.3872832369942196,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 294,
+            "NO_TRADE_RISK->SCALP_ONLY": 19,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 29
+          }
+        },
+        "scalp_exit": {
+          "avg_abs_forward_log_return": 0.01408514883438988,
+          "avg_forward_log_return": -0.007467413520859534,
+          "changed_rate": 1.0,
+          "count": 24,
+          "intent_distribution": {
+            "scalp_exit": 24
+          },
+          "large_move_rate": 1.0,
+          "negative_return_rate": 0.5833333333333334,
+          "positive_return_rate": 0.4166666666666667,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 16,
+            "SCALP_ONLY->WAIT_COMPRESSION": 6
+          }
+        },
+        "scalp_to_any": {
+          "avg_abs_forward_log_return": 0.011387531079361711,
+          "avg_forward_log_return": -0.0032610989789070718,
+          "changed_rate": 0.6486486486486487,
+          "count": 37,
+          "intent_distribution": {
+            "other": 13,
+            "scalp_exit": 24
+          },
+          "large_move_rate": 0.972972972972973,
+          "negative_return_rate": 0.4594594594594595,
+          "positive_return_rate": 0.5405405405405406,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 16,
+            "SCALP_ONLY->SCALP_ONLY": 13,
+            "SCALP_ONLY->WAIT_COMPRESSION": 6
+          }
+        },
+        "setup_to_any": {
+          "avg_abs_forward_log_return": 0.010367380749610935,
+          "avg_forward_log_return": -0.006790765403596906,
+          "changed_rate": 1.0,
+          "count": 9,
+          "intent_distribution": {
+            "other": 9
+          },
+          "large_move_rate": 0.8888888888888888,
+          "negative_return_rate": 0.7777777777777778,
+          "positive_return_rate": 0.2222222222222222,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3
+          }
+        },
+        "setup_to_confirmation": {
+          "avg_abs_forward_log_return": null,
+          "avg_forward_log_return": null,
+          "changed_rate": null,
+          "count": 0,
+          "intent_distribution": {},
+          "large_move_rate": null,
+          "negative_return_rate": null,
+          "positive_return_rate": null,
+          "transition_distribution": {}
+        },
+        "unchanged": {
+          "avg_abs_forward_log_return": 0.010943422988775818,
+          "avg_forward_log_return": -0.0019445691677742823,
+          "changed_rate": 0.0,
+          "count": 579,
+          "intent_distribution": {
+            "other": 579
+          },
+          "large_move_rate": 0.8739205526770294,
+          "negative_return_rate": 0.5233160621761658,
+          "positive_return_rate": 0.47668393782383417,
+          "transition_distribution": {
+            "NO_TRADE_RISK->NO_TRADE_RISK": 294,
+            "SCALP_ONLY->SCALP_ONLY": 13,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 272
+          }
+        },
+        "wait_to_any": {
+          "avg_abs_forward_log_return": 0.00898993677934632,
+          "avg_forward_log_return": 0.0017619042108690474,
+          "changed_rate": 0.15527950310559005,
+          "count": 322,
+          "intent_distribution": {
+            "compression_to_setup": 3,
+            "other": 319
+          },
+          "large_move_rate": 0.8509316770186336,
+          "negative_return_rate": 0.422360248447205,
+          "positive_return_rate": 0.577639751552795,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 3,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 31,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 4,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 272
+          }
+        },
+        "wait_to_setup": {
+          "avg_abs_forward_log_return": 0.011559433216405826,
+          "avg_forward_log_return": 0.007240150368801649,
+          "changed_rate": 1.0,
+          "count": 3,
+          "intent_distribution": {
+            "compression_to_setup": 3
+          },
+          "large_move_rate": 1.0,
+          "negative_return_rate": 0.3333333333333333,
+          "positive_return_rate": 0.6666666666666666,
+          "transition_distribution": {
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 3
+          }
+        }
+      },
+      "state_changed_rate": 0.18220338983050846,
+      "total_records": 720,
+      "transition_bars": 3,
+      "transition_distribution": {
+        "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+        "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+        "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+        "NO_TRADE_RISK->NO_TRADE_RISK": 294,
+        "NO_TRADE_RISK->SCALP_ONLY": 19,
+        "NO_TRADE_RISK->WAIT_COMPRESSION": 29,
+        "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+        "SCALP_ONLY->BREAKOUT_SETUP": 2,
+        "SCALP_ONLY->NO_TRADE_RISK": 16,
+        "SCALP_ONLY->SCALP_ONLY": 13,
+        "SCALP_ONLY->WAIT_COMPRESSION": 6,
+        "WAIT_COMPRESSION->BREAKOUT_SETUP": 3,
+        "WAIT_COMPRESSION->NO_TRADE_RISK": 31,
+        "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+        "WAIT_COMPRESSION->SCALP_ONLY": 4,
+        "WAIT_COMPRESSION->WAIT_COMPRESSION": 272
+      },
+      "transition_intent_distribution": {
+        "compression_to_setup": 3,
+        "other": 626,
+        "range_invalidated": 3,
+        "risk_recovery": 52,
+        "scalp_exit": 24
+      },
+      "unlabeled_count": 12,
+      "unlabeled_reasons": {
+        "missing_outcome_state": 9,
+        "missing_transition_state": 3
+      }
+    },
+    {
+      "labeled_count": 696,
+      "outcome_horizon_bars": 24,
+      "segments": {
+        "all": {
+          "avg_abs_forward_log_return": 0.016364943390001004,
+          "avg_forward_log_return": -0.0034882518861276733,
+          "changed_rate": 0.1853448275862069,
+          "count": 696,
+          "intent_distribution": {
+            "compression_to_setup": 3,
+            "other": 614,
+            "range_invalidated": 3,
+            "risk_recovery": 52,
+            "scalp_exit": 24
+          },
+          "large_move_rate": 0.9295977011494253,
+          "negative_return_rate": 0.5172413793103449,
+          "positive_return_rate": 0.4827586206896552,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 282,
+            "NO_TRADE_RISK->SCALP_ONLY": 19,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 29,
+            "SCALP_ONLY->NO_TRADE_RISK": 16,
+            "SCALP_ONLY->SCALP_ONLY": 13,
+            "SCALP_ONLY->WAIT_COMPRESSION": 6,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 31,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 4,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 272
+          }
+        },
+        "changed": {
+          "avg_abs_forward_log_return": 0.01749405234906148,
+          "avg_forward_log_return": -0.002874671614655899,
+          "changed_rate": 1.0,
+          "count": 129,
+          "intent_distribution": {
+            "compression_to_setup": 3,
+            "other": 47,
+            "range_invalidated": 3,
+            "risk_recovery": 52,
+            "scalp_exit": 24
+          },
+          "large_move_rate": 0.9457364341085271,
+          "negative_return_rate": 0.5038759689922481,
+          "positive_return_rate": 0.49612403100775193,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+            "NO_TRADE_RISK->SCALP_ONLY": 19,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 29,
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+            "SCALP_ONLY->NO_TRADE_RISK": 16,
+            "SCALP_ONLY->WAIT_COMPRESSION": 6,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 3,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 31,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 4
+          }
+        },
+        "intentful": {
+          "avg_abs_forward_log_return": 0.018354246409774268,
+          "avg_forward_log_return": -0.005594905110034431,
+          "changed_rate": 1.0,
+          "count": 82,
+          "intent_distribution": {
+            "compression_to_setup": 3,
+            "range_invalidated": 3,
+            "risk_recovery": 52,
+            "scalp_exit": 24
+          },
+          "large_move_rate": 0.9512195121951219,
+          "negative_return_rate": 0.5487804878048781,
+          "positive_return_rate": 0.45121951219512196,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+            "NO_TRADE_RISK->SCALP_ONLY": 19,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 29,
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 16,
+            "SCALP_ONLY->WAIT_COMPRESSION": 6,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 3
+          }
+        },
+        "range_to_any": {
+          "avg_abs_forward_log_return": 0.009596878596775264,
+          "avg_forward_log_return": 0.009596878596775264,
+          "changed_rate": 1.0,
+          "count": 3,
+          "intent_distribution": {
+            "range_invalidated": 3
+          },
+          "large_move_rate": 1.0,
+          "negative_return_rate": 0.0,
+          "positive_return_rate": 1.0,
+          "transition_distribution": {
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3
+          }
+        },
+        "risk_recovery": {
+          "avg_abs_forward_log_return": 0.016503992707156842,
+          "avg_forward_log_return": -0.0024540012618662543,
+          "changed_rate": 1.0,
+          "count": 52,
+          "intent_distribution": {
+            "risk_recovery": 52
+          },
+          "large_move_rate": 0.9423076923076923,
+          "negative_return_rate": 0.46153846153846156,
+          "positive_return_rate": 0.5384615384615384,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+            "NO_TRADE_RISK->SCALP_ONLY": 19,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 29
+          }
+        },
+        "risk_to_any": {
+          "avg_abs_forward_log_return": 0.018953522819723696,
+          "avg_forward_log_return": -0.008910642440803111,
+          "changed_rate": 0.15568862275449102,
+          "count": 334,
+          "intent_distribution": {
+            "other": 282,
+            "risk_recovery": 52
+          },
+          "large_move_rate": 0.9311377245508982,
+          "negative_return_rate": 0.6197604790419161,
+          "positive_return_rate": 0.38023952095808383,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 282,
+            "NO_TRADE_RISK->SCALP_ONLY": 19,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 29
+          }
+        },
+        "scalp_exit": {
+          "avg_abs_forward_log_return": 0.023891522456562005,
+          "avg_forward_log_return": -0.015679647844386704,
+          "changed_rate": 1.0,
+          "count": 24,
+          "intent_distribution": {
+            "scalp_exit": 24
+          },
+          "large_move_rate": 0.9583333333333334,
+          "negative_return_rate": 0.8333333333333334,
+          "positive_return_rate": 0.16666666666666666,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 16,
+            "SCALP_ONLY->WAIT_COMPRESSION": 6
+          }
+        },
+        "scalp_to_any": {
+          "avg_abs_forward_log_return": 0.02290668099329933,
+          "avg_forward_log_return": -0.015571842940993234,
+          "changed_rate": 0.6486486486486487,
+          "count": 37,
+          "intent_distribution": {
+            "other": 13,
+            "scalp_exit": 24
+          },
+          "large_move_rate": 0.972972972972973,
+          "negative_return_rate": 0.8378378378378378,
+          "positive_return_rate": 0.16216216216216217,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 16,
+            "SCALP_ONLY->SCALP_ONLY": 13,
+            "SCALP_ONLY->WAIT_COMPRESSION": 6
+          }
+        },
+        "setup_to_any": {
+          "avg_abs_forward_log_return": 0.02022170977741707,
+          "avg_forward_log_return": -0.015159368153442512,
+          "changed_rate": 1.0,
+          "count": 9,
+          "intent_distribution": {
+            "other": 9
+          },
+          "large_move_rate": 0.8888888888888888,
+          "negative_return_rate": 0.6666666666666666,
+          "positive_return_rate": 0.3333333333333333,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3
+          }
+        },
+        "setup_to_confirmation": {
+          "avg_abs_forward_log_return": null,
+          "avg_forward_log_return": null,
+          "changed_rate": null,
+          "count": 0,
+          "intent_distribution": {},
+          "large_move_rate": null,
+          "negative_return_rate": null,
+          "positive_return_rate": null,
+          "transition_distribution": {}
+        },
+        "unchanged": {
+          "avg_abs_forward_log_return": 0.016108056166511054,
+          "avg_forward_log_return": -0.003627849514028659,
+          "changed_rate": 0.0,
+          "count": 567,
+          "intent_distribution": {
+            "other": 567
+          },
+          "large_move_rate": 0.9259259259259259,
+          "negative_return_rate": 0.5202821869488536,
+          "positive_return_rate": 0.47971781305114636,
+          "transition_distribution": {
+            "NO_TRADE_RISK->NO_TRADE_RISK": 282,
+            "SCALP_ONLY->SCALP_ONLY": 13,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 272
+          }
+        },
+        "wait_to_any": {
+          "avg_abs_forward_log_return": 0.012991261320219202,
+          "avg_forward_log_return": 0.0034027913525149136,
+          "changed_rate": 0.15527950310559005,
+          "count": 322,
+          "intent_distribution": {
+            "compression_to_setup": 3,
+            "other": 319
+          },
+          "large_move_rate": 0.922360248447205,
+          "negative_return_rate": 0.37888198757763975,
+          "positive_return_rate": 0.6211180124223602,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 3,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 31,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 4,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 272
+          }
+        },
+        "wait_to_setup": {
+          "avg_abs_forward_log_return": 0.014884470027173427,
+          "avg_forward_log_return": 0.005448919689725655,
+          "changed_rate": 1.0,
+          "count": 3,
+          "intent_distribution": {
+            "compression_to_setup": 3
+          },
+          "large_move_rate": 1.0,
+          "negative_return_rate": 0.3333333333333333,
+          "positive_return_rate": 0.6666666666666666,
+          "transition_distribution": {
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 3
+          }
+        }
+      },
+      "state_changed_rate": 0.1853448275862069,
+      "total_records": 720,
+      "transition_bars": 3,
+      "transition_distribution": {
+        "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+        "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+        "NO_TRADE_RISK->BREAKOUT_SETUP": 4,
+        "NO_TRADE_RISK->NO_TRADE_RISK": 282,
+        "NO_TRADE_RISK->SCALP_ONLY": 19,
+        "NO_TRADE_RISK->WAIT_COMPRESSION": 29,
+        "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+        "SCALP_ONLY->BREAKOUT_SETUP": 2,
+        "SCALP_ONLY->NO_TRADE_RISK": 16,
+        "SCALP_ONLY->SCALP_ONLY": 13,
+        "SCALP_ONLY->WAIT_COMPRESSION": 6,
+        "WAIT_COMPRESSION->BREAKOUT_SETUP": 3,
+        "WAIT_COMPRESSION->NO_TRADE_RISK": 31,
+        "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+        "WAIT_COMPRESSION->SCALP_ONLY": 4,
+        "WAIT_COMPRESSION->WAIT_COMPRESSION": 272
+      },
+      "transition_intent_distribution": {
+        "compression_to_setup": 3,
+        "other": 614,
+        "range_invalidated": 3,
+        "risk_recovery": 52,
+        "scalp_exit": 24
+      },
+      "unlabeled_count": 24,
+      "unlabeled_reasons": {
+        "missing_outcome_state": 21,
+        "missing_transition_state": 3
+      }
+    },
+    {
+      "labeled_count": 714,
+      "outcome_horizon_bars": 3,
+      "segments": {
+        "all": {
+          "avg_abs_forward_log_return": 0.00619995959945863,
+          "avg_forward_log_return": -0.0005373644249890684,
+          "changed_rate": 0.21708683473389356,
+          "count": 714,
+          "intent_distribution": {
+            "compression_to_setup": 4,
+            "other": 615,
+            "range_invalidated": 3,
+            "risk_recovery": 64,
+            "scalp_exit": 28
+          },
+          "large_move_rate": 0.7254901960784313,
+          "negative_return_rate": 0.530812324929972,
+          "positive_return_rate": 0.469187675070028,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 287,
+            "NO_TRADE_RISK->SCALP_ONLY": 21,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 40,
+            "SCALP_ONLY->NO_TRADE_RISK": 17,
+            "SCALP_ONLY->SCALP_ONLY": 10,
+            "SCALP_ONLY->WAIT_COMPRESSION": 9,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 4,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 37,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 7,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 262
+          }
+        },
+        "changed": {
+          "avg_abs_forward_log_return": 0.005532240510049643,
+          "avg_forward_log_return": 0.0008631448906308762,
+          "changed_rate": 1.0,
+          "count": 155,
+          "intent_distribution": {
+            "compression_to_setup": 4,
+            "other": 56,
+            "range_invalidated": 3,
+            "risk_recovery": 64,
+            "scalp_exit": 28
+          },
+          "large_move_rate": 0.7032258064516129,
+          "negative_return_rate": 0.5225806451612903,
+          "positive_return_rate": 0.4774193548387097,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 3,
+            "NO_TRADE_RISK->SCALP_ONLY": 21,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 40,
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+            "SCALP_ONLY->NO_TRADE_RISK": 17,
+            "SCALP_ONLY->WAIT_COMPRESSION": 9,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 4,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 37,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 7
+          }
+        },
+        "intentful": {
+          "avg_abs_forward_log_return": 0.004975277850399261,
+          "avg_forward_log_return": 0.0017722753028159214,
+          "changed_rate": 1.0,
+          "count": 99,
+          "intent_distribution": {
+            "compression_to_setup": 4,
+            "range_invalidated": 3,
+            "risk_recovery": 64,
+            "scalp_exit": 28
+          },
+          "large_move_rate": 0.6565656565656566,
+          "negative_return_rate": 0.45454545454545453,
+          "positive_return_rate": 0.5454545454545454,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 3,
+            "NO_TRADE_RISK->SCALP_ONLY": 21,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 40,
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 17,
+            "SCALP_ONLY->WAIT_COMPRESSION": 9,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 4
+          }
+        },
+        "range_to_any": {
+          "avg_abs_forward_log_return": 0.004556793719894197,
+          "avg_forward_log_return": 0.004556793719894197,
+          "changed_rate": 1.0,
+          "count": 3,
+          "intent_distribution": {
+            "range_invalidated": 3
+          },
+          "large_move_rate": 0.6666666666666666,
+          "negative_return_rate": 0.0,
+          "positive_return_rate": 1.0,
+          "transition_distribution": {
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3
+          }
+        },
+        "risk_recovery": {
+          "avg_abs_forward_log_return": 0.004001619204383711,
+          "avg_forward_log_return": 0.0016085598356357373,
+          "changed_rate": 1.0,
+          "count": 64,
+          "intent_distribution": {
+            "risk_recovery": 64
+          },
+          "large_move_rate": 0.65625,
+          "negative_return_rate": 0.46875,
+          "positive_return_rate": 0.53125,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 3,
+            "NO_TRADE_RISK->SCALP_ONLY": 21,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 40
+          }
+        },
+        "risk_to_any": {
+          "avg_abs_forward_log_return": 0.007143759946900995,
+          "avg_forward_log_return": -0.0013701761989765014,
+          "changed_rate": 0.18233618233618235,
+          "count": 351,
+          "intent_distribution": {
+            "other": 287,
+            "risk_recovery": 64
+          },
+          "large_move_rate": 0.7549857549857549,
+          "negative_return_rate": 0.5498575498575499,
+          "positive_return_rate": 0.45014245014245013,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 3,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 287,
+            "NO_TRADE_RISK->SCALP_ONLY": 21,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 40
+          }
+        },
+        "scalp_exit": {
+          "avg_abs_forward_log_return": 0.006797732033840826,
+          "avg_forward_log_return": 0.0012832308083019419,
+          "changed_rate": 1.0,
+          "count": 28,
+          "intent_distribution": {
+            "scalp_exit": 28
+          },
+          "large_move_rate": 0.6428571428571429,
+          "negative_return_rate": 0.4642857142857143,
+          "positive_return_rate": 0.5357142857142857,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 17,
+            "SCALP_ONLY->WAIT_COMPRESSION": 9
+          }
+        },
+        "scalp_to_any": {
+          "avg_abs_forward_log_return": 0.00659535793426077,
+          "avg_forward_log_return": 0.0013586869564007058,
+          "changed_rate": 0.7368421052631579,
+          "count": 38,
+          "intent_distribution": {
+            "other": 10,
+            "scalp_exit": 28
+          },
+          "large_move_rate": 0.6578947368421053,
+          "negative_return_rate": 0.42105263157894735,
+          "positive_return_rate": 0.5789473684210527,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 17,
+            "SCALP_ONLY->SCALP_ONLY": 10,
+            "SCALP_ONLY->WAIT_COMPRESSION": 9
+          }
+        },
+        "setup_to_any": {
+          "avg_abs_forward_log_return": 0.009739535196141683,
+          "avg_forward_log_return": -0.0017225533429926375,
+          "changed_rate": 1.0,
+          "count": 9,
+          "intent_distribution": {
+            "other": 9
+          },
+          "large_move_rate": 0.8888888888888888,
+          "negative_return_rate": 0.5555555555555556,
+          "positive_return_rate": 0.4444444444444444,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3
+          }
+        },
+        "setup_to_confirmation": {
+          "avg_abs_forward_log_return": null,
+          "avg_forward_log_return": null,
+          "changed_rate": null,
+          "count": 0,
+          "intent_distribution": {},
+          "large_move_rate": null,
+          "negative_return_rate": null,
+          "positive_return_rate": null,
+          "transition_distribution": {}
+        },
+        "unchanged": {
+          "avg_abs_forward_log_return": 0.006385105321924449,
+          "avg_forward_log_return": -0.0009256988506081943,
+          "changed_rate": 0.0,
+          "count": 559,
+          "intent_distribution": {
+            "other": 559
+          },
+          "large_move_rate": 0.7316636851520573,
+          "negative_return_rate": 0.5330948121645797,
+          "positive_return_rate": 0.4669051878354204,
+          "transition_distribution": {
+            "NO_TRADE_RISK->NO_TRADE_RISK": 287,
+            "SCALP_ONLY->SCALP_ONLY": 10,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 262
+          }
+        },
+        "wait_to_any": {
+          "avg_abs_forward_log_return": 0.00513980568319758,
+          "avg_forward_log_return": 9.923341893058299e-05,
+          "changed_rate": 0.18633540372670807,
+          "count": 322,
+          "intent_distribution": {
+            "compression_to_setup": 4,
+            "other": 318
+          },
+          "large_move_rate": 0.7018633540372671,
+          "negative_return_rate": 0.5279503105590062,
+          "positive_return_rate": 0.4720496894409938,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 4,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 37,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 7,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 262
+          }
+        },
+        "wait_to_setup": {
+          "avg_abs_forward_log_return": 0.008110500000435901,
+          "avg_forward_log_return": 0.005726645426488018,
+          "changed_rate": 1.0,
+          "count": 4,
+          "intent_distribution": {
+            "compression_to_setup": 4
+          },
+          "large_move_rate": 0.75,
+          "negative_return_rate": 0.5,
+          "positive_return_rate": 0.5,
+          "transition_distribution": {
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 4
+          }
+        }
+      },
+      "state_changed_rate": 0.21708683473389356,
+      "total_records": 720,
+      "transition_bars": 6,
+      "transition_distribution": {
+        "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+        "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+        "NO_TRADE_RISK->BREAKOUT_SETUP": 3,
+        "NO_TRADE_RISK->NO_TRADE_RISK": 287,
+        "NO_TRADE_RISK->SCALP_ONLY": 21,
+        "NO_TRADE_RISK->WAIT_COMPRESSION": 40,
+        "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+        "SCALP_ONLY->BREAKOUT_SETUP": 2,
+        "SCALP_ONLY->NO_TRADE_RISK": 17,
+        "SCALP_ONLY->SCALP_ONLY": 10,
+        "SCALP_ONLY->WAIT_COMPRESSION": 9,
+        "WAIT_COMPRESSION->BREAKOUT_SETUP": 4,
+        "WAIT_COMPRESSION->NO_TRADE_RISK": 37,
+        "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+        "WAIT_COMPRESSION->SCALP_ONLY": 7,
+        "WAIT_COMPRESSION->WAIT_COMPRESSION": 262
+      },
+      "transition_intent_distribution": {
+        "compression_to_setup": 4,
+        "other": 615,
+        "range_invalidated": 3,
+        "risk_recovery": 64,
+        "scalp_exit": 28
+      },
+      "unlabeled_count": 6,
+      "unlabeled_reasons": {
+        "missing_transition_state": 6
+      }
+    },
+    {
+      "labeled_count": 714,
+      "outcome_horizon_bars": 6,
+      "segments": {
+        "all": {
+          "avg_abs_forward_log_return": 0.008436240823118044,
+          "avg_forward_log_return": -0.001043745615584968,
+          "changed_rate": 0.21708683473389356,
+          "count": 714,
+          "intent_distribution": {
+            "compression_to_setup": 4,
+            "other": 615,
+            "range_invalidated": 3,
+            "risk_recovery": 64,
+            "scalp_exit": 28
+          },
+          "large_move_rate": 0.8109243697478992,
+          "negative_return_rate": 0.5056022408963585,
+          "positive_return_rate": 0.49299719887955185,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 287,
+            "NO_TRADE_RISK->SCALP_ONLY": 21,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 40,
+            "SCALP_ONLY->NO_TRADE_RISK": 17,
+            "SCALP_ONLY->SCALP_ONLY": 10,
+            "SCALP_ONLY->WAIT_COMPRESSION": 9,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 4,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 37,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 7,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 262
+          }
+        },
+        "changed": {
+          "avg_abs_forward_log_return": 0.008463353352591994,
+          "avg_forward_log_return": 0.0006000471706303118,
+          "changed_rate": 1.0,
+          "count": 155,
+          "intent_distribution": {
+            "compression_to_setup": 4,
+            "other": 56,
+            "range_invalidated": 3,
+            "risk_recovery": 64,
+            "scalp_exit": 28
+          },
+          "large_move_rate": 0.8064516129032258,
+          "negative_return_rate": 0.4774193548387097,
+          "positive_return_rate": 0.5225806451612903,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 3,
+            "NO_TRADE_RISK->SCALP_ONLY": 21,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 40,
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+            "SCALP_ONLY->NO_TRADE_RISK": 17,
+            "SCALP_ONLY->WAIT_COMPRESSION": 9,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 4,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 37,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 7
+          }
+        },
+        "intentful": {
+          "avg_abs_forward_log_return": 0.006817850704149736,
+          "avg_forward_log_return": 0.0009621174401217915,
+          "changed_rate": 1.0,
+          "count": 99,
+          "intent_distribution": {
+            "compression_to_setup": 4,
+            "range_invalidated": 3,
+            "risk_recovery": 64,
+            "scalp_exit": 28
+          },
+          "large_move_rate": 0.7272727272727273,
+          "negative_return_rate": 0.47474747474747475,
+          "positive_return_rate": 0.5252525252525253,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 3,
+            "NO_TRADE_RISK->SCALP_ONLY": 21,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 40,
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 17,
+            "SCALP_ONLY->WAIT_COMPRESSION": 9,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 4
+          }
+        },
+        "range_to_any": {
+          "avg_abs_forward_log_return": 0.0009629930380489162,
+          "avg_forward_log_return": -0.0008497607076819696,
+          "changed_rate": 1.0,
+          "count": 3,
+          "intent_distribution": {
+            "range_invalidated": 3
+          },
+          "large_move_rate": 0.0,
+          "negative_return_rate": 0.6666666666666666,
+          "positive_return_rate": 0.3333333333333333,
+          "transition_distribution": {
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3
+          }
+        },
+        "risk_recovery": {
+          "avg_abs_forward_log_return": 0.0060568213356236664,
+          "avg_forward_log_return": 0.0013692013103297467,
+          "changed_rate": 1.0,
+          "count": 64,
+          "intent_distribution": {
+            "risk_recovery": 64
+          },
+          "large_move_rate": 0.734375,
+          "negative_return_rate": 0.453125,
+          "positive_return_rate": 0.546875,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 3,
+            "NO_TRADE_RISK->SCALP_ONLY": 21,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 40
+          }
+        },
+        "risk_to_any": {
+          "avg_abs_forward_log_return": 0.009563642421824883,
+          "avg_forward_log_return": -0.002560651572528166,
+          "changed_rate": 0.18233618233618235,
+          "count": 351,
+          "intent_distribution": {
+            "other": 287,
+            "risk_recovery": 64
+          },
+          "large_move_rate": 0.8176638176638177,
+          "negative_return_rate": 0.5356125356125356,
+          "positive_return_rate": 0.46153846153846156,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 3,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 287,
+            "NO_TRADE_RISK->SCALP_ONLY": 21,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 40
+          }
+        },
+        "scalp_exit": {
+          "avg_abs_forward_log_return": 0.007154021311486722,
+          "avg_forward_log_return": -0.0010619012432835646,
+          "changed_rate": 1.0,
+          "count": 28,
+          "intent_distribution": {
+            "scalp_exit": 28
+          },
+          "large_move_rate": 0.75,
+          "negative_return_rate": 0.5357142857142857,
+          "positive_return_rate": 0.4642857142857143,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 17,
+            "SCALP_ONLY->WAIT_COMPRESSION": 9
+          }
+        },
+        "scalp_to_any": {
+          "avg_abs_forward_log_return": 0.007310342802279655,
+          "avg_forward_log_return": -0.0001330005026885611,
+          "changed_rate": 0.7368421052631579,
+          "count": 38,
+          "intent_distribution": {
+            "other": 10,
+            "scalp_exit": 28
+          },
+          "large_move_rate": 0.7894736842105263,
+          "negative_return_rate": 0.4473684210526316,
+          "positive_return_rate": 0.5526315789473685,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 17,
+            "SCALP_ONLY->SCALP_ONLY": 10,
+            "SCALP_ONLY->WAIT_COMPRESSION": 9
+          }
+        },
+        "setup_to_any": {
+          "avg_abs_forward_log_return": 0.010705516029582281,
+          "avg_forward_log_return": -0.004177319878746569,
+          "changed_rate": 1.0,
+          "count": 9,
+          "intent_distribution": {
+            "other": 9
+          },
+          "large_move_rate": 1.0,
+          "negative_return_rate": 0.5555555555555556,
+          "positive_return_rate": 0.4444444444444444,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3
+          }
+        },
+        "setup_to_confirmation": {
+          "avg_abs_forward_log_return": null,
+          "avg_forward_log_return": null,
+          "changed_rate": null,
+          "count": 0,
+          "intent_distribution": {},
+          "large_move_rate": null,
+          "negative_return_rate": null,
+          "positive_return_rate": null,
+          "transition_distribution": {}
+        },
+        "unchanged": {
+          "avg_abs_forward_log_return": 0.008428723037664622,
+          "avg_forward_log_return": -0.0014995378908324963,
+          "changed_rate": 0.0,
+          "count": 559,
+          "intent_distribution": {
+            "other": 559
+          },
+          "large_move_rate": 0.8121645796064401,
+          "negative_return_rate": 0.5134168157423972,
+          "positive_return_rate": 0.4847942754919499,
+          "transition_distribution": {
+            "NO_TRADE_RISK->NO_TRADE_RISK": 287,
+            "SCALP_ONLY->SCALP_ONLY": 10,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 262
+          }
+        },
+        "wait_to_any": {
+          "avg_abs_forward_log_return": 0.007409799540512346,
+          "avg_forward_log_return": 0.0005004895455122063,
+          "changed_rate": 0.18633540372670807,
+          "count": 322,
+          "intent_distribution": {
+            "compression_to_setup": 4,
+            "other": 318
+          },
+          "large_move_rate": 0.8136645962732919,
+          "negative_return_rate": 0.4782608695652174,
+          "positive_return_rate": 0.5217391304347826,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 4,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 37,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 7,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 262
+          }
+        },
+        "wait_to_setup": {
+          "avg_abs_forward_log_return": 0.02103226959878355,
+          "avg_forward_log_return": 0.009975814911484823,
+          "changed_rate": 1.0,
+          "count": 4,
+          "intent_distribution": {
+            "compression_to_setup": 4
+          },
+          "large_move_rate": 1.0,
+          "negative_return_rate": 0.25,
+          "positive_return_rate": 0.75,
+          "transition_distribution": {
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 4
+          }
+        }
+      },
+      "state_changed_rate": 0.21708683473389356,
+      "total_records": 720,
+      "transition_bars": 6,
+      "transition_distribution": {
+        "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+        "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+        "NO_TRADE_RISK->BREAKOUT_SETUP": 3,
+        "NO_TRADE_RISK->NO_TRADE_RISK": 287,
+        "NO_TRADE_RISK->SCALP_ONLY": 21,
+        "NO_TRADE_RISK->WAIT_COMPRESSION": 40,
+        "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+        "SCALP_ONLY->BREAKOUT_SETUP": 2,
+        "SCALP_ONLY->NO_TRADE_RISK": 17,
+        "SCALP_ONLY->SCALP_ONLY": 10,
+        "SCALP_ONLY->WAIT_COMPRESSION": 9,
+        "WAIT_COMPRESSION->BREAKOUT_SETUP": 4,
+        "WAIT_COMPRESSION->NO_TRADE_RISK": 37,
+        "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+        "WAIT_COMPRESSION->SCALP_ONLY": 7,
+        "WAIT_COMPRESSION->WAIT_COMPRESSION": 262
+      },
+      "transition_intent_distribution": {
+        "compression_to_setup": 4,
+        "other": 615,
+        "range_invalidated": 3,
+        "risk_recovery": 64,
+        "scalp_exit": 28
+      },
+      "unlabeled_count": 6,
+      "unlabeled_reasons": {
+        "missing_transition_state": 6
+      }
+    },
+    {
+      "labeled_count": 708,
+      "outcome_horizon_bars": 12,
+      "segments": {
+        "all": {
+          "avg_abs_forward_log_return": 0.011216525297602316,
+          "avg_forward_log_return": -0.0019999916088906068,
+          "changed_rate": 0.21045197740112995,
+          "count": 708,
+          "intent_distribution": {
+            "compression_to_setup": 4,
+            "other": 615,
+            "range_invalidated": 3,
+            "risk_recovery": 59,
+            "scalp_exit": 27
+          },
+          "large_move_rate": 0.884180790960452,
+          "negative_return_rate": 0.518361581920904,
+          "positive_return_rate": 0.481638418079096,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 287,
+            "NO_TRADE_RISK->SCALP_ONLY": 19,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 37,
+            "SCALP_ONLY->NO_TRADE_RISK": 17,
+            "SCALP_ONLY->SCALP_ONLY": 10,
+            "SCALP_ONLY->WAIT_COMPRESSION": 8,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 4,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 37,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 7,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 262
+          }
+        },
+        "changed": {
+          "avg_abs_forward_log_return": 0.011338073810812218,
+          "avg_forward_log_return": 0.00025808576337625573,
+          "changed_rate": 1.0,
+          "count": 149,
+          "intent_distribution": {
+            "compression_to_setup": 4,
+            "other": 56,
+            "range_invalidated": 3,
+            "risk_recovery": 59,
+            "scalp_exit": 27
+          },
+          "large_move_rate": 0.9261744966442953,
+          "negative_return_rate": 0.436241610738255,
+          "positive_return_rate": 0.5637583892617449,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 3,
+            "NO_TRADE_RISK->SCALP_ONLY": 19,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 37,
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+            "SCALP_ONLY->NO_TRADE_RISK": 17,
+            "SCALP_ONLY->WAIT_COMPRESSION": 8,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 4,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 37,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 7
+          }
+        },
+        "intentful": {
+          "avg_abs_forward_log_return": 0.011167468085519402,
+          "avg_forward_log_return": -0.0015225765074453035,
+          "changed_rate": 1.0,
+          "count": 93,
+          "intent_distribution": {
+            "compression_to_setup": 4,
+            "range_invalidated": 3,
+            "risk_recovery": 59,
+            "scalp_exit": 27
+          },
+          "large_move_rate": 0.9247311827956989,
+          "negative_return_rate": 0.4731182795698925,
+          "positive_return_rate": 0.5268817204301075,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 3,
+            "NO_TRADE_RISK->SCALP_ONLY": 19,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 37,
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 17,
+            "SCALP_ONLY->WAIT_COMPRESSION": 8,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 4
+          }
+        },
+        "range_to_any": {
+          "avg_abs_forward_log_return": 0.005524677897767851,
+          "avg_forward_log_return": 0.0020868602502649236,
+          "changed_rate": 1.0,
+          "count": 3,
+          "intent_distribution": {
+            "range_invalidated": 3
+          },
+          "large_move_rate": 0.6666666666666666,
+          "negative_return_rate": 0.6666666666666666,
+          "positive_return_rate": 0.3333333333333333,
+          "transition_distribution": {
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3
+          }
+        },
+        "risk_recovery": {
+          "avg_abs_forward_log_return": 0.010886696707234642,
+          "avg_forward_log_return": -0.0006341751522580545,
+          "changed_rate": 1.0,
+          "count": 59,
+          "intent_distribution": {
+            "risk_recovery": 59
+          },
+          "large_move_rate": 0.9152542372881356,
+          "negative_return_rate": 0.4406779661016949,
+          "positive_return_rate": 0.559322033898305,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 3,
+            "NO_TRADE_RISK->SCALP_ONLY": 19,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 37
+          }
+        },
+        "risk_to_any": {
+          "avg_abs_forward_log_return": 0.013319732902090283,
+          "avg_forward_log_return": -0.005401523507299468,
+          "changed_rate": 0.17052023121387283,
+          "count": 346,
+          "intent_distribution": {
+            "other": 287,
+            "risk_recovery": 59
+          },
+          "large_move_rate": 0.9075144508670521,
+          "negative_return_rate": 0.6127167630057804,
+          "positive_return_rate": 0.3872832369942196,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 3,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 287,
+            "NO_TRADE_RISK->SCALP_ONLY": 19,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 37
+          }
+        },
+        "scalp_exit": {
+          "avg_abs_forward_log_return": 0.011927590366814579,
+          "avg_forward_log_return": -0.005562288454336779,
+          "changed_rate": 1.0,
+          "count": 27,
+          "intent_distribution": {
+            "scalp_exit": 27
+          },
+          "large_move_rate": 0.9629629629629629,
+          "negative_return_rate": 0.5555555555555556,
+          "positive_return_rate": 0.4444444444444444,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 17,
+            "SCALP_ONLY->WAIT_COMPRESSION": 8
+          }
+        },
+        "scalp_to_any": {
+          "avg_abs_forward_log_return": 0.011387531079361711,
+          "avg_forward_log_return": -0.0032610989789070718,
+          "changed_rate": 0.7297297297297297,
+          "count": 37,
+          "intent_distribution": {
+            "other": 10,
+            "scalp_exit": 27
+          },
+          "large_move_rate": 0.972972972972973,
+          "negative_return_rate": 0.4594594594594595,
+          "positive_return_rate": 0.5405405405405406,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 17,
+            "SCALP_ONLY->SCALP_ONLY": 10,
+            "SCALP_ONLY->WAIT_COMPRESSION": 8
+          }
+        },
+        "setup_to_any": {
+          "avg_abs_forward_log_return": 0.010367380749610935,
+          "avg_forward_log_return": -0.006790765403596906,
+          "changed_rate": 1.0,
+          "count": 9,
+          "intent_distribution": {
+            "other": 9
+          },
+          "large_move_rate": 0.8888888888888888,
+          "negative_return_rate": 0.7777777777777778,
+          "positive_return_rate": 0.2222222222222222,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3
+          }
+        },
+        "setup_to_confirmation": {
+          "avg_abs_forward_log_return": null,
+          "avg_forward_log_return": null,
+          "changed_rate": null,
+          "count": 0,
+          "intent_distribution": {},
+          "large_move_rate": null,
+          "negative_return_rate": null,
+          "positive_return_rate": null,
+          "transition_distribution": {}
+        },
+        "unchanged": {
+          "avg_abs_forward_log_return": 0.011184126856693058,
+          "avg_forward_log_return": -0.0026018762752014523,
+          "changed_rate": 0.0,
+          "count": 559,
+          "intent_distribution": {
+            "other": 559
+          },
+          "large_move_rate": 0.8729874776386404,
+          "negative_return_rate": 0.5402504472271914,
+          "positive_return_rate": 0.4597495527728086,
+          "transition_distribution": {
+            "NO_TRADE_RISK->NO_TRADE_RISK": 287,
+            "SCALP_ONLY->SCALP_ONLY": 10,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 262
+          }
+        },
+        "wait_to_any": {
+          "avg_abs_forward_log_return": 0.00898993677934632,
+          "avg_forward_log_return": 0.0017619042108690474,
+          "changed_rate": 0.18633540372670807,
+          "count": 322,
+          "intent_distribution": {
+            "compression_to_setup": 4,
+            "other": 318
+          },
+          "large_move_rate": 0.8509316770186336,
+          "negative_return_rate": 0.422360248447205,
+          "positive_return_rate": 0.577639751552795,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 4,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 37,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 7,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 262
+          }
+        },
+        "wait_to_setup": {
+          "avg_abs_forward_log_return": 0.014410113157290818,
+          "avg_forward_log_return": 0.00993448157677756,
+          "changed_rate": 1.0,
+          "count": 4,
+          "intent_distribution": {
+            "compression_to_setup": 4
+          },
+          "large_move_rate": 1.0,
+          "negative_return_rate": 0.25,
+          "positive_return_rate": 0.75,
+          "transition_distribution": {
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 4
+          }
+        }
+      },
+      "state_changed_rate": 0.21045197740112995,
+      "total_records": 720,
+      "transition_bars": 6,
+      "transition_distribution": {
+        "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+        "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+        "NO_TRADE_RISK->BREAKOUT_SETUP": 3,
+        "NO_TRADE_RISK->NO_TRADE_RISK": 287,
+        "NO_TRADE_RISK->SCALP_ONLY": 19,
+        "NO_TRADE_RISK->WAIT_COMPRESSION": 37,
+        "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+        "SCALP_ONLY->BREAKOUT_SETUP": 2,
+        "SCALP_ONLY->NO_TRADE_RISK": 17,
+        "SCALP_ONLY->SCALP_ONLY": 10,
+        "SCALP_ONLY->WAIT_COMPRESSION": 8,
+        "WAIT_COMPRESSION->BREAKOUT_SETUP": 4,
+        "WAIT_COMPRESSION->NO_TRADE_RISK": 37,
+        "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+        "WAIT_COMPRESSION->SCALP_ONLY": 7,
+        "WAIT_COMPRESSION->WAIT_COMPRESSION": 262
+      },
+      "transition_intent_distribution": {
+        "compression_to_setup": 4,
+        "other": 615,
+        "range_invalidated": 3,
+        "risk_recovery": 59,
+        "scalp_exit": 27
+      },
+      "unlabeled_count": 12,
+      "unlabeled_reasons": {
+        "missing_outcome_state": 6,
+        "missing_transition_state": 6
+      }
+    },
+    {
+      "labeled_count": 696,
+      "outcome_horizon_bars": 24,
+      "segments": {
+        "all": {
+          "avg_abs_forward_log_return": 0.016364943390001004,
+          "avg_forward_log_return": -0.0034882518861276733,
+          "changed_rate": 0.21264367816091953,
+          "count": 696,
+          "intent_distribution": {
+            "compression_to_setup": 4,
+            "other": 604,
+            "range_invalidated": 3,
+            "risk_recovery": 58,
+            "scalp_exit": 27
+          },
+          "large_move_rate": 0.9295977011494253,
+          "negative_return_rate": 0.5172413793103449,
+          "positive_return_rate": 0.4827586206896552,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 276,
+            "NO_TRADE_RISK->SCALP_ONLY": 18,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 37,
+            "SCALP_ONLY->NO_TRADE_RISK": 17,
+            "SCALP_ONLY->SCALP_ONLY": 10,
+            "SCALP_ONLY->WAIT_COMPRESSION": 8,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 4,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 37,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 7,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 262
+          }
+        },
+        "changed": {
+          "avg_abs_forward_log_return": 0.018042460351478693,
+          "avg_forward_log_return": -4.2129312680636086e-05,
+          "changed_rate": 1.0,
+          "count": 148,
+          "intent_distribution": {
+            "compression_to_setup": 4,
+            "other": 56,
+            "range_invalidated": 3,
+            "risk_recovery": 58,
+            "scalp_exit": 27
+          },
+          "large_move_rate": 0.9459459459459459,
+          "negative_return_rate": 0.4797297297297297,
+          "positive_return_rate": 0.5202702702702703,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 3,
+            "NO_TRADE_RISK->SCALP_ONLY": 18,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 37,
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+            "SCALP_ONLY->NO_TRADE_RISK": 17,
+            "SCALP_ONLY->WAIT_COMPRESSION": 8,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 4,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 37,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 7
+          }
+        },
+        "intentful": {
+          "avg_abs_forward_log_return": 0.019068768828306572,
+          "avg_forward_log_return": -0.0021343932546872544,
+          "changed_rate": 1.0,
+          "count": 92,
+          "intent_distribution": {
+            "compression_to_setup": 4,
+            "range_invalidated": 3,
+            "risk_recovery": 58,
+            "scalp_exit": 27
+          },
+          "large_move_rate": 0.9565217391304348,
+          "negative_return_rate": 0.5108695652173914,
+          "positive_return_rate": 0.4891304347826087,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 3,
+            "NO_TRADE_RISK->SCALP_ONLY": 18,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 37,
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 17,
+            "SCALP_ONLY->WAIT_COMPRESSION": 8,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 4
+          }
+        },
+        "range_to_any": {
+          "avg_abs_forward_log_return": 0.009596878596775264,
+          "avg_forward_log_return": 0.009596878596775264,
+          "changed_rate": 1.0,
+          "count": 3,
+          "intent_distribution": {
+            "range_invalidated": 3
+          },
+          "large_move_rate": 1.0,
+          "negative_return_rate": 0.0,
+          "positive_return_rate": 1.0,
+          "transition_distribution": {
+            "RANGE_REVERSION->WAIT_COMPRESSION": 3
+          }
+        },
+        "risk_recovery": {
+          "avg_abs_forward_log_return": 0.016617363659789473,
+          "avg_forward_log_return": 0.001959434528876435,
+          "changed_rate": 1.0,
+          "count": 58,
+          "intent_distribution": {
+            "risk_recovery": 58
+          },
+          "large_move_rate": 0.9482758620689655,
+          "negative_return_rate": 0.41379310344827586,
+          "positive_return_rate": 0.5862068965517241,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 3,
+            "NO_TRADE_RISK->SCALP_ONLY": 18,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 37
+          }
+        },
+        "risk_to_any": {
+          "avg_abs_forward_log_return": 0.018953522819723696,
+          "avg_forward_log_return": -0.008910642440803111,
+          "changed_rate": 0.17365269461077845,
+          "count": 334,
+          "intent_distribution": {
+            "other": 276,
+            "risk_recovery": 58
+          },
+          "large_move_rate": 0.9311377245508982,
+          "negative_return_rate": 0.6197604790419161,
+          "positive_return_rate": 0.38023952095808383,
+          "transition_distribution": {
+            "NO_TRADE_RISK->BREAKOUT_SETUP": 3,
+            "NO_TRADE_RISK->NO_TRADE_RISK": 276,
+            "NO_TRADE_RISK->SCALP_ONLY": 18,
+            "NO_TRADE_RISK->WAIT_COMPRESSION": 37
+          }
+        },
+        "scalp_exit": {
+          "avg_abs_forward_log_return": 0.02425272182461531,
+          "avg_forward_log_return": -0.014606853016414246,
+          "changed_rate": 1.0,
+          "count": 27,
+          "intent_distribution": {
+            "scalp_exit": 27
+          },
+          "large_move_rate": 0.9629629629629629,
+          "negative_return_rate": 0.8148148148148148,
+          "positive_return_rate": 0.18518518518518517,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 17,
+            "SCALP_ONLY->WAIT_COMPRESSION": 8
+          }
+        },
+        "scalp_to_any": {
+          "avg_abs_forward_log_return": 0.02290668099329933,
+          "avg_forward_log_return": -0.015571842940993234,
+          "changed_rate": 0.7297297297297297,
+          "count": 37,
+          "intent_distribution": {
+            "other": 10,
+            "scalp_exit": 27
+          },
+          "large_move_rate": 0.972972972972973,
+          "negative_return_rate": 0.8378378378378378,
+          "positive_return_rate": 0.16216216216216217,
+          "transition_distribution": {
+            "SCALP_ONLY->BREAKOUT_SETUP": 2,
+            "SCALP_ONLY->NO_TRADE_RISK": 17,
+            "SCALP_ONLY->SCALP_ONLY": 10,
+            "SCALP_ONLY->WAIT_COMPRESSION": 8
+          }
+        },
+        "setup_to_any": {
+          "avg_abs_forward_log_return": 0.02022170977741707,
+          "avg_forward_log_return": -0.015159368153442512,
+          "changed_rate": 1.0,
+          "count": 9,
+          "intent_distribution": {
+            "other": 9
+          },
+          "large_move_rate": 0.8888888888888888,
+          "negative_return_rate": 0.6666666666666666,
+          "positive_return_rate": 0.3333333333333333,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3
+          }
+        },
+        "setup_to_confirmation": {
+          "avg_abs_forward_log_return": null,
+          "avg_forward_log_return": null,
+          "changed_rate": null,
+          "count": 0,
+          "intent_distribution": {},
+          "large_move_rate": null,
+          "negative_return_rate": null,
+          "positive_return_rate": null,
+          "transition_distribution": {}
+        },
+        "unchanged": {
+          "avg_abs_forward_log_return": 0.015911891363908488,
+          "avg_forward_log_return": -0.004418956522752056,
+          "changed_rate": 0.0,
+          "count": 548,
+          "intent_distribution": {
+            "other": 548
+          },
+          "large_move_rate": 0.9251824817518248,
+          "negative_return_rate": 0.5273722627737226,
+          "positive_return_rate": 0.4726277372262774,
+          "transition_distribution": {
+            "NO_TRADE_RISK->NO_TRADE_RISK": 276,
+            "SCALP_ONLY->SCALP_ONLY": 10,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 262
+          }
+        },
+        "wait_to_any": {
+          "avg_abs_forward_log_return": 0.012991261320219202,
+          "avg_forward_log_return": 0.0034027913525149136,
+          "changed_rate": 0.18633540372670807,
+          "count": 322,
+          "intent_distribution": {
+            "compression_to_setup": 4,
+            "other": 318
+          },
+          "large_move_rate": 0.922360248447205,
+          "negative_return_rate": 0.37888198757763975,
+          "positive_return_rate": 0.6211180124223602,
+          "transition_distribution": {
+            "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+            "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 4,
+            "WAIT_COMPRESSION->NO_TRADE_RISK": 37,
+            "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+            "WAIT_COMPRESSION->SCALP_ONLY": 7,
+            "WAIT_COMPRESSION->WAIT_COMPRESSION": 262
+          }
+        },
+        "wait_to_setup": {
+          "avg_abs_forward_log_return": 0.02672637872036897,
+          "avg_forward_log_return": 0.013895753386699563,
+          "changed_rate": 1.0,
+          "count": 4,
+          "intent_distribution": {
+            "compression_to_setup": 4
+          },
+          "large_move_rate": 1.0,
+          "negative_return_rate": 0.25,
+          "positive_return_rate": 0.75,
+          "transition_distribution": {
+            "WAIT_COMPRESSION->BREAKOUT_SETUP": 4
+          }
+        }
+      },
+      "state_changed_rate": 0.21264367816091953,
+      "total_records": 720,
+      "transition_bars": 6,
+      "transition_distribution": {
+        "BREAKOUT_SETUP->NO_TRADE_RISK": 6,
+        "BREAKOUT_SETUP->WAIT_COMPRESSION": 3,
+        "NO_TRADE_RISK->BREAKOUT_SETUP": 3,
+        "NO_TRADE_RISK->NO_TRADE_RISK": 276,
+        "NO_TRADE_RISK->SCALP_ONLY": 18,
+        "NO_TRADE_RISK->WAIT_COMPRESSION": 37,
+        "RANGE_REVERSION->WAIT_COMPRESSION": 3,
+        "SCALP_ONLY->BREAKOUT_SETUP": 2,
+        "SCALP_ONLY->NO_TRADE_RISK": 17,
+        "SCALP_ONLY->SCALP_ONLY": 10,
+        "SCALP_ONLY->WAIT_COMPRESSION": 8,
+        "WAIT_COMPRESSION->BREAKOUT_SETUP": 4,
+        "WAIT_COMPRESSION->NO_TRADE_RISK": 37,
+        "WAIT_COMPRESSION->RANGE_REVERSION": 3,
+        "WAIT_COMPRESSION->SCALP_ONLY": 7,
+        "WAIT_COMPRESSION->WAIT_COMPRESSION": 262
+      },
+      "transition_intent_distribution": {
+        "compression_to_setup": 4,
+        "other": 604,
+        "range_invalidated": 3,
+        "risk_recovery": 58,
+        "scalp_exit": 27
+      },
+      "unlabeled_count": 24,
+      "unlabeled_reasons": {
+        "missing_outcome_state": 18,
+        "missing_transition_state": 6
+      }
+    }
+  ],
+  "input_rows": 720,
+  "phase": "phase_7d_playbook_state_transition_matrix",
+  "summary": {
+    "best_intent_cell": {
+      "count": 99,
+      "metric": "avg_forward_log_return",
+      "outcome_horizon_bars": 3,
+      "segment": "intentful",
+      "transition_bars": 6,
+      "value": 0.0017722753028159214
+    },
+    "best_risk_recovery_cell": {
+      "count": 58,
+      "metric": "avg_forward_log_return",
+      "outcome_horizon_bars": 24,
+      "segment": "risk_recovery",
+      "transition_bars": 6,
+      "value": 0.001959434528876435
+    },
+    "best_setup_cell": {
+      "count": 9,
+      "metric": "avg_forward_log_return",
+      "outcome_horizon_bars": 3,
+      "segment": "setup_to_any",
+      "transition_bars": 1,
+      "value": -0.0017225533429926375
+    },
+    "cell_count": 12,
+    "outcome_horizons": [
+      3,
+      6,
+      12,
+      24
+    ],
+    "transition_bars": [
+      1,
+      3,
+      6
+    ],
+    "wait_large_move_cell": {
+      "count": 322,
+      "metric": "large_move_rate",
+      "outcome_horizon_bars": 24,
+      "segment": "wait_to_any",
+      "transition_bars": 1,
+      "value": 0.922360248447205
+    },
+    "worst_scalp_exit_cell": {
+      "count": 24,
+      "metric": "avg_forward_log_return",
+      "outcome_horizon_bars": 24,
+      "segment": "scalp_exit",
+      "transition_bars": 3,
+      "value": -0.015679647844386704
+    }
+  },
+  "timeframe": "1h"
+}

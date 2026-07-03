@@ -1,0 +1,139 @@
+alerts:
+  runtime:
+    consumer_group: alert_app_group
+    consumer_name_prefix: alert_worker
+    poll_block_ms: 1000
+    idle_sleep_seconds: 5
+  streams:
+    lifecycle: "asset:lifecycle"
+    ingestion_events: "stream:events:ingestion"
+    execution_failure_prefix: "execution:failures:"
+  incidents:
+    dedupe_ttl_seconds: 900
+    renotify_seconds: 1800
+    open_state_ttl_seconds: 604800
+    hot_summary_ttl_seconds: 120
+  notifications:
+    queue_maxsize: 1000
+    worker_count: 1
+  routes:
+    system_alerts:
+      enabled: true
+      transport: webhook
+      destination: http://localhost:8088/alerts/system
+      timeout_seconds: 10
+      max_attempts: 3
+      backoff_seconds: 1
+      authorization_header:
+      headers: {}
+      severity_min: warning
+      burst_limit: 20
+      burst_window_seconds: 300
+      renotify_seconds: 1800
+    ops_alerts:
+      enabled: true
+      transport: telegram
+      destination: ops
+      severity_min: warning
+      burst_limit: 20
+      burst_window_seconds: 300
+      renotify_seconds: 900
+      parse_mode: HTML
+      bot_token: ""
+      bot_token_env: ALERTS_TELEGRAM_BOT_TOKEN
+      chat_id: ""
+      chat_id_env: ALERTS_TELEGRAM_OPS_CHAT_ID
+      thread_id:
+      thread_id_env: ALERTS_TELEGRAM_OPS_THREAD_ID
+    trading_alerts:
+      enabled: true
+      transport: telegram
+      destination: trading
+      severity_min: critical
+      burst_limit: 10
+      burst_window_seconds: 300
+      renotify_seconds: 900
+      parse_mode: HTML
+      bot_token: ""
+      bot_token_env: ALERTS_TELEGRAM_BOT_TOKEN
+      chat_id: ""
+      chat_id_env: ALERTS_TELEGRAM_TRADING_CHAT_ID
+      thread_id:
+      thread_id_env: ALERTS_TELEGRAM_TRADING_THREAD_ID
+    execution_alerts:
+      enabled: true
+      transport: telegram
+      destination: execution
+      severity_min: critical
+      burst_limit: 20
+      burst_window_seconds: 300
+      renotify_seconds: 600
+      parse_mode: HTML
+      bot_token: ""
+      bot_token_env: ALERTS_TELEGRAM_BOT_TOKEN
+      chat_id: ""
+      chat_id_env: ALERTS_TELEGRAM_TRADING_CHAT_ID
+      thread_id:
+      thread_id_env: ALERTS_TELEGRAM_TRADING_THREAD_ID
+    scraper_alerts:
+      enabled: true
+      transport: telegram
+      destination: scraper
+      severity_min: warning
+      burst_limit: 10
+      burst_window_seconds: 300
+      renotify_seconds: 900
+      parse_mode: HTML
+      bot_token: ""
+      bot_token_env: ALERTS_TELEGRAM_BOT_TOKEN
+      chat_id: ""
+      chat_id_env: ALERTS_TELEGRAM_OPS_CHAT_ID
+      thread_id:
+      thread_id_env: ALERTS_TELEGRAM_OPS_THREAD_ID
+  policies:
+    default:
+      routes:
+        - ops_alerts
+        - system_alerts
+    execution:
+      routes:
+        - execution_alerts
+        - ops_alerts
+        - system_alerts
+    scraper:
+      routes:
+        - scraper_alerts
+        - ops_alerts
+        - system_alerts
+    scraper_app:
+      routes:
+        - scraper_alerts
+        - ops_alerts
+        - system_alerts
+    system_health_breach:
+      routes:
+        - ops_alerts
+        - system_alerts
+  silences: []
+  health_checks:
+    ingestion_runtime:
+      enabled: true
+      source_app: ingestion_app
+      url: http://ingestion-worker-streams:8002/health
+      timeout_seconds: 5
+      healthy_statuses:
+        - ok
+    scraper_service:
+      enabled: true
+      source_app: scraper_app
+      url: http://scraper-service:8081/health
+      timeout_seconds: 5
+      healthy_statuses:
+        - ok
+  freshness:
+    ingestion:
+      warming_timeout_seconds: 900
+    signal:
+      max_lag_seconds: 1200
+    strategy:
+      max_lag_seconds: 1800

@@ -9,7 +9,7 @@ import pytest
 import asyncpg
 from libs.common.db.pool_manager import DBPoolManager
 
-from tests.e2e.helpers import docker_compose_command
+from helpers import docker_compose_command
 
 
 @pytest.mark.asyncio
@@ -84,22 +84,6 @@ async def test_websocket_live_streaming(db_pools):
         await asyncio.sleep(delay_seconds)
         
     assert live_stream_active, f"Timeout after {max_retries * delay_seconds}s waiting for live stream handoff."
-
-
-async def _wait_until(
-    predicate,
-    *,
-    timeout_s: float,
-    interval_s: float = 1.0,
-    description: str,
-):
-    deadline = time.time() + timeout_s
-    while time.time() < deadline:
-        value = await predicate()
-        if value:
-            return value
-        await asyncio.sleep(interval_s)
-    raise AssertionError(f"Timed out waiting for {description}")
 
 
 async def _latest_stream_payload(valkey_client, stream_key: str):
@@ -254,6 +238,8 @@ async def test_strategy_worker_consumes_features(db_pools, valkey_client):
     assert group_found, (
         f"Timeout: strategy_app_group not found on {features_key} after {max_retries * delay_seconds}s"
     )
+
+
 
 
 @pytest.mark.asyncio

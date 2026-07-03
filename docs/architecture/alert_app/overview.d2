@@ -1,0 +1,190 @@
+direction: right
+
+title: {
+  label: "alert_app architecture"
+  near: top-center
+}
+
+sources: {
+  label: "Operational Inputs"
+  style.fill: "#E8F1FF"
+
+  ingestion_lifecycle: {
+    label: "asset:lifecycle\ningestion_app"
+    link: "../../../src/apps/alert_app/runtime/consumer.py"
+  }
+
+  ingestion_events: {
+    label: "stream:events:ingestion\ningestion_app"
+    link: "../../../src/apps/alert_app/runtime/consumer.py"
+  }
+
+  execution_failures: {
+    label: "execution:failures:{asset}\nexecution_app"
+    link: "../../../src/apps/alert_app/runtime/consumer.py"
+  }
+
+  runtime_hashes: {
+    label: "runtime status hashes\ningestion/signal/strategy"
+    link: "../../../src/apps/alert_app/runtime/reconciler.py"
+  }
+
+  scraper_jobs: {
+    label: "scraper:job:{job_id}\nscraper_app"
+    link: "../../../src/apps/alert_app/runtime/reconciler.py"
+  }
+
+  health_endpoints: {
+    label: "configured /health probes"
+    link: "../../../configs/alerts.yaml"
+  }
+}
+
+alert_app: {
+  label: "alert_app"
+  style.fill: "#EEF7EA"
+  link: "./README.md"
+
+  runtime_process: {
+    label: "runtime_process"
+    link: "../../../src/apps/alert_app/main.py"
+  }
+
+  runner: {
+    label: "runtime_runner"
+    link: "../../../src/apps/alert_app/runtime/runner.py"
+  }
+
+  consumer: {
+    label: "stream_consumer"
+    link: "../../../src/apps/alert_app/runtime/consumer.py"
+  }
+
+  reconciler: {
+    label: "freshness_reconciler"
+    link: "../../../src/apps/alert_app/runtime/reconciler.py"
+  }
+
+  incident_engine: {
+    label: "incident_engine"
+    link: "../../../src/apps/alert_app/incidents/service.py"
+  }
+
+  dispatcher: {
+    label: "notification_dispatcher"
+    link: "../../../src/apps/alert_app/notifications/dispatcher.py"
+  }
+
+  api: {
+    label: "alert_api"
+    link: "../../../src/apps/alert_app/api/routes.py"
+  }
+}
+
+valkey: {
+  label: "Valkey"
+  style.fill: "#FFF2D8"
+
+  incident_hot: {
+    label: "alert:incident:{id}"
+    link: "../../../src/apps/alert_app/incidents/store.py"
+  }
+
+  dedupe: {
+    label: "alert:dedupe:{key}"
+    link: "../../../src/apps/alert_app/incidents/store.py"
+  }
+
+  hot_summary: {
+    label: "alert:summary:hot"
+    link: "../../../src/apps/alert_app/incidents/store.py"
+  }
+}
+
+postgres: {
+  label: "Postgres"
+  style.fill: "#F4EAFE"
+
+  incidents: {
+    label: "alert_incidents"
+    link: "../../../src/apps/alert_app/storage/schema.sql"
+  }
+
+  deliveries: {
+    label: "alert_notifications"
+    link: "../../../src/apps/alert_app/storage/schema.sql"
+  }
+
+  silences: {
+    label: "alert_silences"
+    link: "../../../src/apps/alert_app/storage/schema.sql"
+  }
+}
+
+transports: {
+  label: "Outbound"
+  style.fill: "#FCE8E8"
+
+  telegram: {
+    label: "Telegram"
+    link: "../../../src/apps/alert_app/notifications/transports/telegram.py"
+  }
+
+  webhook: {
+    label: "Webhook"
+    link: "../../../src/apps/alert_app/notifications/transports/webhook.py"
+  }
+
+  operators: {
+    label: "operators / channels"
+  }
+}
+
+rules: {
+  label: "Policy Rules"
+  style.fill: "#F3FAEF"
+
+  ownership: {
+    label: "alert policy owned here\nsource apps emit facts only"
+  }
+
+  recovery: {
+    label: "recovery only if matching\nopen incident exists"
+  }
+
+  throttling: {
+    label: "route burst limit + renotify\nenforced in dispatcher/incident engine"
+  }
+}
+
+sources.ingestion_lifecycle -> alert_app.consumer: "stream"
+sources.ingestion_events -> alert_app.consumer: "stream"
+sources.execution_failures -> alert_app.consumer: "stream family"
+sources.runtime_hashes -> alert_app.reconciler: "poll"
+sources.scraper_jobs -> alert_app.reconciler: "poll"
+sources.health_endpoints -> alert_app.reconciler: "HTTP probe"
+
+alert_app.runtime_process -> alert_app.runner: "boot"
+alert_app.runner -> alert_app.consumer: "start"
+alert_app.runner -> alert_app.reconciler: "start"
+alert_app.consumer -> alert_app.incident_engine: "normalized events"
+alert_app.reconciler -> alert_app.incident_engine: "synthetic events"
+alert_app.incident_engine -> valkey.incident_hot: "hot state"
+alert_app.incident_engine -> valkey.dedupe: "dedupe index"
+alert_app.incident_engine -> valkey.hot_summary: "summary"
+alert_app.incident_engine -> postgres.incidents: "upsert"
+alert_app.dispatcher -> postgres.deliveries: "audit"
+alert_app.incident_engine -> postgres.silences: "read/write"
+alert_app.incident_engine -> alert_app.dispatcher: "notify"
+alert_app.dispatcher -> transports.telegram: "send"
+alert_app.dispatcher -> transports.webhook: "send"
+transports.telegram -> transports.operators: "deliver"
+transports.webhook -> transports.operators: "deliver"
+alert_app.api -> alert_app.incident_engine: "ack/resolve"
+alert_app.api -> postgres.incidents: "query"
+alert_app.api -> postgres.deliveries: "query"
+alert_app.api -> postgres.silences: "query"
+
+rules.ownership -> alert_app.incident_engine: "policy"
+rules.recovery -> alert_app.reconciler: "guardrail"
+rules.throttling -> alert_app.dispatcher: "guardrail"

@@ -1,0 +1,687 @@
+{
+  "asset": "BNBUSDT",
+  "input_rows": 720,
+  "matrix_report": {
+    "phase": "phase_7h_ft_walkforward_matrix",
+    "summary": {
+      "best_ready_variant": null,
+      "best_variant": {
+        "active_total": 10,
+        "avg_split_directional_return": 0.0005860985837868407,
+        "passed_split_count": 2,
+        "ready": false,
+        "recommendation": "hold_off_walkforward_unstable",
+        "split_count": 4,
+        "threshold": 0.25,
+        "worst_split_directional_return": -0.009083108104077217
+      },
+      "ready_variant_count": 0,
+      "recommendation": "hold_off_walkforward_unstable",
+      "thresholds": [
+        0.25,
+        0.3
+      ],
+      "variant_count": 2
+    },
+    "variants": [
+      {
+        "active_total": 10,
+        "asset": "BNBUSDT",
+        "avg_split_directional_return": 0.0005860985837868407,
+        "direction_distribution": {
+          "down": 5,
+          "up": 5
+        },
+        "failed_split_count": 2,
+        "max_worst_loss": 0.001,
+        "min_avg_return": 0.0,
+        "min_passing_rate": 0.6,
+        "min_split_support": 2,
+        "negative_failure_count": 2,
+        "passed_split_count": 2,
+        "ready": false,
+        "recommendation": "hold_off_walkforward_unstable",
+        "split_count": 4,
+        "splits": [
+          {
+            "active_count": 2,
+            "avg_directional_net_return": 0.004423758027398304,
+            "best_cell": {
+              "avg_directional_net_return": 0.006660400185255859,
+              "count": 2,
+              "directional_positive_rate": 0.5,
+              "fee_bps": 2.0,
+              "horizon_bars": 3
+            },
+            "cell_count": 12,
+            "direction_distribution": {
+              "up": 2
+            },
+            "end_timestamp": "2026-06-10 22:00:00+00:00",
+            "failure_reasons": [],
+            "passing_cell_count": 12,
+            "passing_cell_rate": 1.0,
+            "row_count": 180,
+            "split_count": 4,
+            "split_index": 1,
+            "split_passed": true,
+            "start_timestamp": "2026-06-03 11:00:00+00:00",
+            "worst_cell": {
+              "avg_directional_net_return": 0.0003227611267069431,
+              "count": 2,
+              "directional_positive_rate": 0.5,
+              "fee_bps": 10.0,
+              "horizon_bars": 6
+            },
+            "worst_directional_net_return": 0.0003227611267069431
+          },
+          {
+            "active_count": 2,
+            "avg_directional_net_return": -0.005686912938308922,
+            "best_cell": {
+              "avg_directional_net_return": -0.003574156136517079,
+              "count": 2,
+              "directional_positive_rate": 0.0,
+              "fee_bps": 2.0,
+              "horizon_bars": 3
+            },
+            "cell_count": 12,
+            "direction_distribution": {
+              "down": 1,
+              "up": 1
+            },
+            "end_timestamp": "2026-06-18 10:00:00+00:00",
+            "failure_reasons": [
+              "low_passing_rate",
+              "avg_return_too_low",
+              "worst_cell_too_negative"
+            ],
+            "passing_cell_count": 0,
+            "passing_cell_rate": 0.0,
+            "row_count": 180,
+            "split_count": 4,
+            "split_index": 2,
+            "split_passed": false,
+            "start_timestamp": "2026-06-10 23:00:00+00:00",
+            "worst_cell": {
+              "avg_directional_net_return": -0.00765301617323444,
+              "count": 2,
+              "directional_positive_rate": 0.5,
+              "fee_bps": 10.0,
+              "horizon_bars": 12
+            },
+            "worst_directional_net_return": -0.00765301617323444
+          },
+          {
+            "active_count": 3,
+            "avg_directional_net_return": -0.00033636635900216166,
+            "best_cell": {
+              "avg_directional_net_return": 0.003953691419646735,
+              "count": 3,
+              "directional_positive_rate": 0.6666666666666666,
+              "fee_bps": 2.0,
+              "horizon_bars": 3
+            },
+            "cell_count": 12,
+            "direction_distribution": {
+              "down": 1,
+              "up": 2
+            },
+            "end_timestamp": "2026-06-25 22:00:00+00:00",
+            "failure_reasons": [
+              "avg_return_too_low",
+              "worst_cell_too_negative"
+            ],
+            "passing_cell_count": 9,
+            "passing_cell_rate": 0.75,
+            "row_count": 180,
+            "split_count": 4,
+            "split_index": 3,
+            "split_passed": false,
+            "start_timestamp": "2026-06-18 11:00:00+00:00",
+            "worst_cell": {
+              "avg_directional_net_return": -0.009083108104077217,
+              "count": 3,
+              "directional_positive_rate": 0.6666666666666666,
+              "fee_bps": 10.0,
+              "horizon_bars": 24
+            },
+            "worst_directional_net_return": -0.009083108104077217
+          },
+          {
+            "active_count": 3,
+            "avg_directional_net_return": 0.003943915605060142,
+            "best_cell": {
+              "avg_directional_net_return": 0.009048750653264947,
+              "count": 3,
+              "directional_positive_rate": 0.6666666666666666,
+              "fee_bps": 2.0,
+              "horizon_bars": 24
+            },
+            "cell_count": 12,
+            "direction_distribution": {
+              "down": 3
+            },
+            "end_timestamp": "2026-07-03 10:00:00+00:00",
+            "failure_reasons": [],
+            "passing_cell_count": 10,
+            "passing_cell_rate": 0.8333333333333334,
+            "row_count": 180,
+            "split_count": 4,
+            "split_index": 4,
+            "split_passed": true,
+            "start_timestamp": "2026-06-25 23:00:00+00:00",
+            "worst_cell": {
+              "avg_directional_net_return": 0.0012712894336871581,
+              "count": 3,
+              "directional_positive_rate": 0.3333333333333333,
+              "fee_bps": 10.0,
+              "horizon_bars": 3
+            },
+            "worst_directional_net_return": 0.0012712894336871581
+          }
+        ],
+        "support_failure_count": 0,
+        "threshold": 0.25,
+        "timeframe": "1h",
+        "worst_split_directional_return": -0.009083108104077217
+      },
+      {
+        "active_total": 10,
+        "asset": "BNBUSDT",
+        "avg_split_directional_return": 0.0005860985837868407,
+        "direction_distribution": {
+          "down": 5,
+          "up": 5
+        },
+        "failed_split_count": 2,
+        "max_worst_loss": 0.001,
+        "min_avg_return": 0.0,
+        "min_passing_rate": 0.6,
+        "min_split_support": 2,
+        "negative_failure_count": 2,
+        "passed_split_count": 2,
+        "ready": false,
+        "recommendation": "hold_off_walkforward_unstable",
+        "split_count": 4,
+        "splits": [
+          {
+            "active_count": 2,
+            "avg_directional_net_return": 0.004423758027398304,
+            "best_cell": {
+              "avg_directional_net_return": 0.006660400185255859,
+              "count": 2,
+              "directional_positive_rate": 0.5,
+              "fee_bps": 2.0,
+              "horizon_bars": 3
+            },
+            "cell_count": 12,
+            "direction_distribution": {
+              "up": 2
+            },
+            "end_timestamp": "2026-06-10 22:00:00+00:00",
+            "failure_reasons": [],
+            "passing_cell_count": 12,
+            "passing_cell_rate": 1.0,
+            "row_count": 180,
+            "split_count": 4,
+            "split_index": 1,
+            "split_passed": true,
+            "start_timestamp": "2026-06-03 11:00:00+00:00",
+            "worst_cell": {
+              "avg_directional_net_return": 0.0003227611267069431,
+              "count": 2,
+              "directional_positive_rate": 0.5,
+              "fee_bps": 10.0,
+              "horizon_bars": 6
+            },
+            "worst_directional_net_return": 0.0003227611267069431
+          },
+          {
+            "active_count": 2,
+            "avg_directional_net_return": -0.005686912938308922,
+            "best_cell": {
+              "avg_directional_net_return": -0.003574156136517079,
+              "count": 2,
+              "directional_positive_rate": 0.0,
+              "fee_bps": 2.0,
+              "horizon_bars": 3
+            },
+            "cell_count": 12,
+            "direction_distribution": {
+              "down": 1,
+              "up": 1
+            },
+            "end_timestamp": "2026-06-18 10:00:00+00:00",
+            "failure_reasons": [
+              "low_passing_rate",
+              "avg_return_too_low",
+              "worst_cell_too_negative"
+            ],
+            "passing_cell_count": 0,
+            "passing_cell_rate": 0.0,
+            "row_count": 180,
+            "split_count": 4,
+            "split_index": 2,
+            "split_passed": false,
+            "start_timestamp": "2026-06-10 23:00:00+00:00",
+            "worst_cell": {
+              "avg_directional_net_return": -0.00765301617323444,
+              "count": 2,
+              "directional_positive_rate": 0.5,
+              "fee_bps": 10.0,
+              "horizon_bars": 12
+            },
+            "worst_directional_net_return": -0.00765301617323444
+          },
+          {
+            "active_count": 3,
+            "avg_directional_net_return": -0.00033636635900216166,
+            "best_cell": {
+              "avg_directional_net_return": 0.003953691419646735,
+              "count": 3,
+              "directional_positive_rate": 0.6666666666666666,
+              "fee_bps": 2.0,
+              "horizon_bars": 3
+            },
+            "cell_count": 12,
+            "direction_distribution": {
+              "down": 1,
+              "up": 2
+            },
+            "end_timestamp": "2026-06-25 22:00:00+00:00",
+            "failure_reasons": [
+              "avg_return_too_low",
+              "worst_cell_too_negative"
+            ],
+            "passing_cell_count": 9,
+            "passing_cell_rate": 0.75,
+            "row_count": 180,
+            "split_count": 4,
+            "split_index": 3,
+            "split_passed": false,
+            "start_timestamp": "2026-06-18 11:00:00+00:00",
+            "worst_cell": {
+              "avg_directional_net_return": -0.009083108104077217,
+              "count": 3,
+              "directional_positive_rate": 0.6666666666666666,
+              "fee_bps": 10.0,
+              "horizon_bars": 24
+            },
+            "worst_directional_net_return": -0.009083108104077217
+          },
+          {
+            "active_count": 3,
+            "avg_directional_net_return": 0.003943915605060142,
+            "best_cell": {
+              "avg_directional_net_return": 0.009048750653264947,
+              "count": 3,
+              "directional_positive_rate": 0.6666666666666666,
+              "fee_bps": 2.0,
+              "horizon_bars": 24
+            },
+            "cell_count": 12,
+            "direction_distribution": {
+              "down": 3
+            },
+            "end_timestamp": "2026-07-03 10:00:00+00:00",
+            "failure_reasons": [],
+            "passing_cell_count": 10,
+            "passing_cell_rate": 0.8333333333333334,
+            "row_count": 180,
+            "split_count": 4,
+            "split_index": 4,
+            "split_passed": true,
+            "start_timestamp": "2026-06-25 23:00:00+00:00",
+            "worst_cell": {
+              "avg_directional_net_return": 0.0012712894336871581,
+              "count": 3,
+              "directional_positive_rate": 0.3333333333333333,
+              "fee_bps": 10.0,
+              "horizon_bars": 3
+            },
+            "worst_directional_net_return": 0.0012712894336871581
+          }
+        ],
+        "support_failure_count": 0,
+        "threshold": 0.3,
+        "timeframe": "1h",
+        "worst_split_directional_return": -0.009083108104077217
+      }
+    ]
+  },
+  "phase": "phase_7h_ft_walkforward_runner",
+  "timeframe": "1h",
+  "variant_reports": [
+    {
+      "phase": "phase_7h_ft_walkforward",
+      "splits": [
+        {
+          "active_count": 2,
+          "avg_directional_net_return": 0.004423758027398304,
+          "best_cell": {
+            "avg_directional_net_return": 0.006660400185255859,
+            "count": 2,
+            "directional_positive_rate": 0.5,
+            "fee_bps": 2.0,
+            "horizon_bars": 3
+          },
+          "cell_count": 12,
+          "direction_distribution": {
+            "up": 2
+          },
+          "end_timestamp": "2026-06-10 22:00:00+00:00",
+          "failure_reasons": [],
+          "passing_cell_count": 12,
+          "passing_cell_rate": 1.0,
+          "row_count": 180,
+          "split_count": 4,
+          "split_index": 1,
+          "split_passed": true,
+          "start_timestamp": "2026-06-03 11:00:00+00:00",
+          "worst_cell": {
+            "avg_directional_net_return": 0.0003227611267069431,
+            "count": 2,
+            "directional_positive_rate": 0.5,
+            "fee_bps": 10.0,
+            "horizon_bars": 6
+          },
+          "worst_directional_net_return": 0.0003227611267069431
+        },
+        {
+          "active_count": 2,
+          "avg_directional_net_return": -0.005686912938308922,
+          "best_cell": {
+            "avg_directional_net_return": -0.003574156136517079,
+            "count": 2,
+            "directional_positive_rate": 0.0,
+            "fee_bps": 2.0,
+            "horizon_bars": 3
+          },
+          "cell_count": 12,
+          "direction_distribution": {
+            "down": 1,
+            "up": 1
+          },
+          "end_timestamp": "2026-06-18 10:00:00+00:00",
+          "failure_reasons": [
+            "low_passing_rate",
+            "avg_return_too_low",
+            "worst_cell_too_negative"
+          ],
+          "passing_cell_count": 0,
+          "passing_cell_rate": 0.0,
+          "row_count": 180,
+          "split_count": 4,
+          "split_index": 2,
+          "split_passed": false,
+          "start_timestamp": "2026-06-10 23:00:00+00:00",
+          "worst_cell": {
+            "avg_directional_net_return": -0.00765301617323444,
+            "count": 2,
+            "directional_positive_rate": 0.5,
+            "fee_bps": 10.0,
+            "horizon_bars": 12
+          },
+          "worst_directional_net_return": -0.00765301617323444
+        },
+        {
+          "active_count": 3,
+          "avg_directional_net_return": -0.00033636635900216166,
+          "best_cell": {
+            "avg_directional_net_return": 0.003953691419646735,
+            "count": 3,
+            "directional_positive_rate": 0.6666666666666666,
+            "fee_bps": 2.0,
+            "horizon_bars": 3
+          },
+          "cell_count": 12,
+          "direction_distribution": {
+            "down": 1,
+            "up": 2
+          },
+          "end_timestamp": "2026-06-25 22:00:00+00:00",
+          "failure_reasons": [
+            "avg_return_too_low",
+            "worst_cell_too_negative"
+          ],
+          "passing_cell_count": 9,
+          "passing_cell_rate": 0.75,
+          "row_count": 180,
+          "split_count": 4,
+          "split_index": 3,
+          "split_passed": false,
+          "start_timestamp": "2026-06-18 11:00:00+00:00",
+          "worst_cell": {
+            "avg_directional_net_return": -0.009083108104077217,
+            "count": 3,
+            "directional_positive_rate": 0.6666666666666666,
+            "fee_bps": 10.0,
+            "horizon_bars": 24
+          },
+          "worst_directional_net_return": -0.009083108104077217
+        },
+        {
+          "active_count": 3,
+          "avg_directional_net_return": 0.003943915605060142,
+          "best_cell": {
+            "avg_directional_net_return": 0.009048750653264947,
+            "count": 3,
+            "directional_positive_rate": 0.6666666666666666,
+            "fee_bps": 2.0,
+            "horizon_bars": 24
+          },
+          "cell_count": 12,
+          "direction_distribution": {
+            "down": 3
+          },
+          "end_timestamp": "2026-07-03 10:00:00+00:00",
+          "failure_reasons": [],
+          "passing_cell_count": 10,
+          "passing_cell_rate": 0.8333333333333334,
+          "row_count": 180,
+          "split_count": 4,
+          "split_index": 4,
+          "split_passed": true,
+          "start_timestamp": "2026-06-25 23:00:00+00:00",
+          "worst_cell": {
+            "avg_directional_net_return": 0.0012712894336871581,
+            "count": 3,
+            "directional_positive_rate": 0.3333333333333333,
+            "fee_bps": 10.0,
+            "horizon_bars": 3
+          },
+          "worst_directional_net_return": 0.0012712894336871581
+        }
+      ],
+      "summary": {
+        "active_total": 10,
+        "asset": "BNBUSDT",
+        "avg_split_directional_return": 0.0005860985837868407,
+        "direction_distribution": {
+          "down": 5,
+          "up": 5
+        },
+        "failed_split_count": 2,
+        "max_worst_loss": 0.001,
+        "min_avg_return": 0.0,
+        "min_passing_rate": 0.6,
+        "min_split_support": 2,
+        "negative_failure_count": 2,
+        "passed_split_count": 2,
+        "ready": false,
+        "recommendation": "hold_off_walkforward_unstable",
+        "split_count": 4,
+        "support_failure_count": 0,
+        "threshold": 0.25,
+        "timeframe": "1h",
+        "worst_split_directional_return": -0.009083108104077217
+      }
+    },
+    {
+      "phase": "phase_7h_ft_walkforward",
+      "splits": [
+        {
+          "active_count": 2,
+          "avg_directional_net_return": 0.004423758027398304,
+          "best_cell": {
+            "avg_directional_net_return": 0.006660400185255859,
+            "count": 2,
+            "directional_positive_rate": 0.5,
+            "fee_bps": 2.0,
+            "horizon_bars": 3
+          },
+          "cell_count": 12,
+          "direction_distribution": {
+            "up": 2
+          },
+          "end_timestamp": "2026-06-10 22:00:00+00:00",
+          "failure_reasons": [],
+          "passing_cell_count": 12,
+          "passing_cell_rate": 1.0,
+          "row_count": 180,
+          "split_count": 4,
+          "split_index": 1,
+          "split_passed": true,
+          "start_timestamp": "2026-06-03 11:00:00+00:00",
+          "worst_cell": {
+            "avg_directional_net_return": 0.0003227611267069431,
+            "count": 2,
+            "directional_positive_rate": 0.5,
+            "fee_bps": 10.0,
+            "horizon_bars": 6
+          },
+          "worst_directional_net_return": 0.0003227611267069431
+        },
+        {
+          "active_count": 2,
+          "avg_directional_net_return": -0.005686912938308922,
+          "best_cell": {
+            "avg_directional_net_return": -0.003574156136517079,
+            "count": 2,
+            "directional_positive_rate": 0.0,
+            "fee_bps": 2.0,
+            "horizon_bars": 3
+          },
+          "cell_count": 12,
+          "direction_distribution": {
+            "down": 1,
+            "up": 1
+          },
+          "end_timestamp": "2026-06-18 10:00:00+00:00",
+          "failure_reasons": [
+            "low_passing_rate",
+            "avg_return_too_low",
+            "worst_cell_too_negative"
+          ],
+          "passing_cell_count": 0,
+          "passing_cell_rate": 0.0,
+          "row_count": 180,
+          "split_count": 4,
+          "split_index": 2,
+          "split_passed": false,
+          "start_timestamp": "2026-06-10 23:00:00+00:00",
+          "worst_cell": {
+            "avg_directional_net_return": -0.00765301617323444,
+            "count": 2,
+            "directional_positive_rate": 0.5,
+            "fee_bps": 10.0,
+            "horizon_bars": 12
+          },
+          "worst_directional_net_return": -0.00765301617323444
+        },
+        {
+          "active_count": 3,
+          "avg_directional_net_return": -0.00033636635900216166,
+          "best_cell": {
+            "avg_directional_net_return": 0.003953691419646735,
+            "count": 3,
+            "directional_positive_rate": 0.6666666666666666,
+            "fee_bps": 2.0,
+            "horizon_bars": 3
+          },
+          "cell_count": 12,
+          "direction_distribution": {
+            "down": 1,
+            "up": 2
+          },
+          "end_timestamp": "2026-06-25 22:00:00+00:00",
+          "failure_reasons": [
+            "avg_return_too_low",
+            "worst_cell_too_negative"
+          ],
+          "passing_cell_count": 9,
+          "passing_cell_rate": 0.75,
+          "row_count": 180,
+          "split_count": 4,
+          "split_index": 3,
+          "split_passed": false,
+          "start_timestamp": "2026-06-18 11:00:00+00:00",
+          "worst_cell": {
+            "avg_directional_net_return": -0.009083108104077217,
+            "count": 3,
+            "directional_positive_rate": 0.6666666666666666,
+            "fee_bps": 10.0,
+            "horizon_bars": 24
+          },
+          "worst_directional_net_return": -0.009083108104077217
+        },
+        {
+          "active_count": 3,
+          "avg_directional_net_return": 0.003943915605060142,
+          "best_cell": {
+            "avg_directional_net_return": 0.009048750653264947,
+            "count": 3,
+            "directional_positive_rate": 0.6666666666666666,
+            "fee_bps": 2.0,
+            "horizon_bars": 24
+          },
+          "cell_count": 12,
+          "direction_distribution": {
+            "down": 3
+          },
+          "end_timestamp": "2026-07-03 10:00:00+00:00",
+          "failure_reasons": [],
+          "passing_cell_count": 10,
+          "passing_cell_rate": 0.8333333333333334,
+          "row_count": 180,
+          "split_count": 4,
+          "split_index": 4,
+          "split_passed": true,
+          "start_timestamp": "2026-06-25 23:00:00+00:00",
+          "worst_cell": {
+            "avg_directional_net_return": 0.0012712894336871581,
+            "count": 3,
+            "directional_positive_rate": 0.3333333333333333,
+            "fee_bps": 10.0,
+            "horizon_bars": 3
+          },
+          "worst_directional_net_return": 0.0012712894336871581
+        }
+      ],
+      "summary": {
+        "active_total": 10,
+        "asset": "BNBUSDT",
+        "avg_split_directional_return": 0.0005860985837868407,
+        "direction_distribution": {
+          "down": 5,
+          "up": 5
+        },
+        "failed_split_count": 2,
+        "max_worst_loss": 0.001,
+        "min_avg_return": 0.0,
+        "min_passing_rate": 0.6,
+        "min_split_support": 2,
+        "negative_failure_count": 2,
+        "passed_split_count": 2,
+        "ready": false,
+        "recommendation": "hold_off_walkforward_unstable",
+        "split_count": 4,
+        "support_failure_count": 0,
+        "threshold": 0.3,
+        "timeframe": "1h",
+        "worst_split_directional_return": -0.009083108104077217
+      }
+    }
+  ]
+}

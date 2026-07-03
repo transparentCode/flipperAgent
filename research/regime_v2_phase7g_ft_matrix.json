@@ -1,0 +1,662 @@
+{
+  "errors": {},
+  "input": {
+    "breakout_window": 20,
+    "fees_bps": [
+      2.0,
+      5.0,
+      10.0
+    ],
+    "follow_bars": 3,
+    "hold_bars": 2,
+    "horizons": [
+      3,
+      6,
+      12,
+      24
+    ],
+    "limit": 720,
+    "pairs": [
+      "BNBUSDT|1h",
+      "BTCUSDT|4h",
+      "ETHUSDT|4h",
+      "SOLUSDT|4h"
+    ],
+    "thresholds": [
+      0.2,
+      0.25,
+      0.3,
+      0.35
+    ]
+  },
+  "phase": "phase_7g_ft_matrix",
+  "summary": {
+    "best_ready_variant": {
+      "active_count": 10,
+      "avg_dir_return": 0.0008296337916352706,
+      "cell_count": 12,
+      "pair": "BNBUSDT|1h",
+      "passing_cells": 8,
+      "ready": true,
+      "reasons": [],
+      "threshold": 0.25,
+      "worst_dir_return": -0.00025770518368077946
+    },
+    "best_variant": {
+      "active_count": 10,
+      "avg_dir_return": 0.0008296337916352706,
+      "cell_count": 12,
+      "pair": "BNBUSDT|1h",
+      "passing_cells": 8,
+      "ready": true,
+      "reasons": [],
+      "threshold": 0.25,
+      "worst_dir_return": -0.00025770518368077946
+    },
+    "max_cell_loss": 0.001,
+    "min_avg_return": 0.0,
+    "min_passing_rate": 0.6,
+    "min_support": 10,
+    "pair_count": 4,
+    "pairs": {
+      "BNBUSDT|1h": 4,
+      "BTCUSDT|4h": 4,
+      "ETHUSDT|4h": 4,
+      "SOLUSDT|4h": 4
+    },
+    "ready_pairs": {
+      "BNBUSDT|1h": 2
+    },
+    "ready_variant_count": 2,
+    "recommendation": "candidate_found",
+    "thresholds": [
+      0.2,
+      0.25,
+      0.3,
+      0.35
+    ],
+    "variant_count": 16
+  },
+  "variants": [
+    {
+      "active_count": 10,
+      "asset": "BNBUSDT",
+      "avg_dir_return": 0.0008296337916352706,
+      "best_cell": {
+        "avg_directional_net_return": 0.0024247430657479236,
+        "count": 10,
+        "directional_positive_rate": 0.5,
+        "fee_bps": 2.0,
+        "horizon_bars": 3
+      },
+      "cell_count": 12,
+      "directions": {
+        "down": 5,
+        "up": 5
+      },
+      "eligible_count": 327,
+      "pair": "BNBUSDT|1h",
+      "passing_cells": 8,
+      "passing_rate": 0.6666666666666666,
+      "ready": true,
+      "reasons": [],
+      "threshold": 0.25,
+      "timeframe": "1h",
+      "worst_cell": {
+        "avg_directional_net_return": -0.00025770518368077946,
+        "count": 10,
+        "directional_positive_rate": 0.6,
+        "fee_bps": 10.0,
+        "horizon_bars": 24
+      },
+      "worst_dir_return": -0.00025770518368077946
+    },
+    {
+      "active_count": 10,
+      "asset": "BNBUSDT",
+      "avg_dir_return": 0.0008296337916352706,
+      "best_cell": {
+        "avg_directional_net_return": 0.0024247430657479236,
+        "count": 10,
+        "directional_positive_rate": 0.5,
+        "fee_bps": 2.0,
+        "horizon_bars": 3
+      },
+      "cell_count": 12,
+      "directions": {
+        "down": 5,
+        "up": 5
+      },
+      "eligible_count": 327,
+      "pair": "BNBUSDT|1h",
+      "passing_cells": 8,
+      "passing_rate": 0.6666666666666666,
+      "ready": true,
+      "reasons": [],
+      "threshold": 0.3,
+      "timeframe": "1h",
+      "worst_cell": {
+        "avg_directional_net_return": -0.00025770518368077946,
+        "count": 10,
+        "directional_positive_rate": 0.6,
+        "fee_bps": 10.0,
+        "horizon_bars": 24
+      },
+      "worst_dir_return": -0.00025770518368077946
+    },
+    {
+      "active_count": 6,
+      "asset": "BNBUSDT",
+      "avg_dir_return": 0.001860899246010267,
+      "best_cell": {
+        "avg_directional_net_return": 0.0032960690088313775,
+        "count": 6,
+        "directional_positive_rate": 0.6666666666666666,
+        "fee_bps": 2.0,
+        "horizon_bars": 12
+      },
+      "cell_count": 12,
+      "directions": {
+        "down": 3,
+        "up": 3
+      },
+      "eligible_count": 327,
+      "pair": "BNBUSDT|1h",
+      "passing_cells": 9,
+      "passing_rate": 0.75,
+      "ready": false,
+      "reasons": [
+        "low_support"
+      ],
+      "threshold": 0.35,
+      "timeframe": "1h",
+      "worst_cell": {
+        "avg_directional_net_return": -1.2716217647209717e-05,
+        "count": 6,
+        "directional_positive_rate": 0.5,
+        "fee_bps": 10.0,
+        "horizon_bars": 6
+      },
+      "worst_dir_return": -1.2716217647209717e-05
+    },
+    {
+      "active_count": 14,
+      "asset": "BNBUSDT",
+      "avg_dir_return": -0.0006361139809291824,
+      "best_cell": {
+        "avg_directional_net_return": 0.0005845531184879845,
+        "count": 14,
+        "directional_positive_rate": 0.42857142857142855,
+        "fee_bps": 2.0,
+        "horizon_bars": 3
+      },
+      "cell_count": 12,
+      "directions": {
+        "down": 7,
+        "up": 7
+      },
+      "eligible_count": 327,
+      "pair": "BNBUSDT|1h",
+      "passing_cells": 1,
+      "passing_rate": 0.08333333333333333,
+      "ready": false,
+      "reasons": [
+        "low_passing_rate",
+        "avg_return_too_low",
+        "worst_cell_too_negative"
+      ],
+      "threshold": 0.2,
+      "timeframe": "1h",
+      "worst_cell": {
+        "avg_directional_net_return": -0.0020590951563904925,
+        "count": 14,
+        "directional_positive_rate": 0.5,
+        "fee_bps": 10.0,
+        "horizon_bars": 24
+      },
+      "worst_dir_return": -0.0020590951563904925
+    },
+    {
+      "active_count": 6,
+      "asset": "SOLUSDT",
+      "avg_dir_return": -0.00800098964622237,
+      "best_cell": {
+        "avg_directional_net_return": -0.004922756287065701,
+        "count": 6,
+        "directional_positive_rate": 0.5,
+        "fee_bps": 2.0,
+        "horizon_bars": 6
+      },
+      "cell_count": 12,
+      "directions": {
+        "down": 3,
+        "up": 3
+      },
+      "eligible_count": 290,
+      "pair": "SOLUSDT|4h",
+      "passing_cells": 0,
+      "passing_rate": 0.0,
+      "ready": false,
+      "reasons": [
+        "low_support",
+        "low_passing_rate",
+        "avg_return_too_low",
+        "worst_cell_too_negative"
+      ],
+      "threshold": 0.2,
+      "timeframe": "4h",
+      "worst_cell": {
+        "avg_directional_net_return": -0.013415330197434459,
+        "count": 6,
+        "directional_positive_rate": 0.5,
+        "fee_bps": 10.0,
+        "horizon_bars": 24
+      },
+      "worst_dir_return": -0.013415330197434459
+    },
+    {
+      "active_count": 2,
+      "asset": "ETHUSDT",
+      "avg_dir_return": -0.009977883530716963,
+      "best_cell": {
+        "avg_directional_net_return": -0.008005406735650476,
+        "count": 2,
+        "directional_positive_rate": 0.5,
+        "fee_bps": 2.0,
+        "horizon_bars": 24
+      },
+      "cell_count": 12,
+      "directions": {
+        "down": 1,
+        "up": 1
+      },
+      "eligible_count": 278,
+      "pair": "ETHUSDT|4h",
+      "passing_cells": 0,
+      "passing_rate": 0.0,
+      "ready": false,
+      "reasons": [
+        "low_support",
+        "low_passing_rate",
+        "avg_return_too_low",
+        "worst_cell_too_negative"
+      ],
+      "threshold": 0.3,
+      "timeframe": "4h",
+      "worst_cell": {
+        "avg_directional_net_return": -0.011972484841497698,
+        "count": 2,
+        "directional_positive_rate": 0.5,
+        "fee_bps": 10.0,
+        "horizon_bars": 12
+      },
+      "worst_dir_return": -0.011972484841497698
+    },
+    {
+      "active_count": 2,
+      "asset": "ETHUSDT",
+      "avg_dir_return": -0.009977883530716963,
+      "best_cell": {
+        "avg_directional_net_return": -0.008005406735650476,
+        "count": 2,
+        "directional_positive_rate": 0.5,
+        "fee_bps": 2.0,
+        "horizon_bars": 24
+      },
+      "cell_count": 12,
+      "directions": {
+        "down": 1,
+        "up": 1
+      },
+      "eligible_count": 278,
+      "pair": "ETHUSDT|4h",
+      "passing_cells": 0,
+      "passing_rate": 0.0,
+      "ready": false,
+      "reasons": [
+        "low_support",
+        "low_passing_rate",
+        "avg_return_too_low",
+        "worst_cell_too_negative"
+      ],
+      "threshold": 0.35,
+      "timeframe": "4h",
+      "worst_cell": {
+        "avg_directional_net_return": -0.011972484841497698,
+        "count": 2,
+        "directional_positive_rate": 0.5,
+        "fee_bps": 10.0,
+        "horizon_bars": 12
+      },
+      "worst_dir_return": -0.011972484841497698
+    },
+    {
+      "active_count": 4,
+      "asset": "SOLUSDT",
+      "avg_dir_return": -0.013880892321990268,
+      "best_cell": {
+        "avg_directional_net_return": -0.006797449511754758,
+        "count": 4,
+        "directional_positive_rate": 0.25,
+        "fee_bps": 2.0,
+        "horizon_bars": 3
+      },
+      "cell_count": 12,
+      "directions": {
+        "down": 2,
+        "up": 2
+      },
+      "eligible_count": 290,
+      "pair": "SOLUSDT|4h",
+      "passing_cells": 0,
+      "passing_rate": 0.0,
+      "ready": false,
+      "reasons": [
+        "low_support",
+        "low_passing_rate",
+        "avg_return_too_low",
+        "worst_cell_too_negative"
+      ],
+      "threshold": 0.25,
+      "timeframe": "4h",
+      "worst_cell": {
+        "avg_directional_net_return": -0.01661231746097854,
+        "count": 4,
+        "directional_positive_rate": 0.5,
+        "fee_bps": 10.0,
+        "horizon_bars": 24
+      },
+      "worst_dir_return": -0.01661231746097854
+    },
+    {
+      "active_count": 4,
+      "asset": "SOLUSDT",
+      "avg_dir_return": -0.013880892321990268,
+      "best_cell": {
+        "avg_directional_net_return": -0.006797449511754758,
+        "count": 4,
+        "directional_positive_rate": 0.25,
+        "fee_bps": 2.0,
+        "horizon_bars": 3
+      },
+      "cell_count": 12,
+      "directions": {
+        "down": 2,
+        "up": 2
+      },
+      "eligible_count": 290,
+      "pair": "SOLUSDT|4h",
+      "passing_cells": 0,
+      "passing_rate": 0.0,
+      "ready": false,
+      "reasons": [
+        "low_support",
+        "low_passing_rate",
+        "avg_return_too_low",
+        "worst_cell_too_negative"
+      ],
+      "threshold": 0.3,
+      "timeframe": "4h",
+      "worst_cell": {
+        "avg_directional_net_return": -0.01661231746097854,
+        "count": 4,
+        "directional_positive_rate": 0.5,
+        "fee_bps": 10.0,
+        "horizon_bars": 24
+      },
+      "worst_dir_return": -0.01661231746097854
+    },
+    {
+      "active_count": 4,
+      "asset": "SOLUSDT",
+      "avg_dir_return": -0.013880892321990268,
+      "best_cell": {
+        "avg_directional_net_return": -0.006797449511754758,
+        "count": 4,
+        "directional_positive_rate": 0.25,
+        "fee_bps": 2.0,
+        "horizon_bars": 3
+      },
+      "cell_count": 12,
+      "directions": {
+        "down": 2,
+        "up": 2
+      },
+      "eligible_count": 290,
+      "pair": "SOLUSDT|4h",
+      "passing_cells": 0,
+      "passing_rate": 0.0,
+      "ready": false,
+      "reasons": [
+        "low_support",
+        "low_passing_rate",
+        "avg_return_too_low",
+        "worst_cell_too_negative"
+      ],
+      "threshold": 0.35,
+      "timeframe": "4h",
+      "worst_cell": {
+        "avg_directional_net_return": -0.01661231746097854,
+        "count": 4,
+        "directional_positive_rate": 0.5,
+        "fee_bps": 10.0,
+        "horizon_bars": 24
+      },
+      "worst_dir_return": -0.01661231746097854
+    },
+    {
+      "active_count": 3,
+      "asset": "ETHUSDT",
+      "avg_dir_return": -0.014437740062094211,
+      "best_cell": {
+        "avg_directional_net_return": -0.005137323593305509,
+        "count": 3,
+        "directional_positive_rate": 0.3333333333333333,
+        "fee_bps": 2.0,
+        "horizon_bars": 3
+      },
+      "cell_count": 12,
+      "directions": {
+        "down": 2,
+        "up": 1
+      },
+      "eligible_count": 278,
+      "pair": "ETHUSDT|4h",
+      "passing_cells": 0,
+      "passing_rate": 0.0,
+      "ready": false,
+      "reasons": [
+        "low_support",
+        "low_passing_rate",
+        "avg_return_too_low",
+        "worst_cell_too_negative"
+      ],
+      "threshold": 0.25,
+      "timeframe": "4h",
+      "worst_cell": {
+        "avg_directional_net_return": -0.02161144898673341,
+        "count": 3,
+        "directional_positive_rate": 0.3333333333333333,
+        "fee_bps": 10.0,
+        "horizon_bars": 12
+      },
+      "worst_dir_return": -0.02161144898673341
+    },
+    {
+      "active_count": 7,
+      "asset": "BTCUSDT",
+      "avg_dir_return": -0.01477807489956777,
+      "best_cell": {
+        "avg_directional_net_return": -0.0067971022900285855,
+        "count": 7,
+        "directional_positive_rate": 0.2857142857142857,
+        "fee_bps": 2.0,
+        "horizon_bars": 3
+      },
+      "cell_count": 12,
+      "directions": {
+        "down": 3,
+        "up": 4
+      },
+      "eligible_count": 268,
+      "pair": "BTCUSDT|4h",
+      "passing_cells": 0,
+      "passing_rate": 0.0,
+      "ready": false,
+      "reasons": [
+        "low_support",
+        "low_passing_rate",
+        "avg_return_too_low",
+        "worst_cell_too_negative"
+      ],
+      "threshold": 0.2,
+      "timeframe": "4h",
+      "worst_cell": {
+        "avg_directional_net_return": -0.02293166400831916,
+        "count": 7,
+        "directional_positive_rate": 0.2857142857142857,
+        "fee_bps": 10.0,
+        "horizon_bars": 24
+      },
+      "worst_dir_return": -0.02293166400831916
+    },
+    {
+      "active_count": 4,
+      "asset": "ETHUSDT",
+      "avg_dir_return": -0.01748736622558294,
+      "best_cell": {
+        "avg_directional_net_return": -0.003897874961520765,
+        "count": 4,
+        "directional_positive_rate": 0.25,
+        "fee_bps": 2.0,
+        "horizon_bars": 3
+      },
+      "cell_count": 12,
+      "directions": {
+        "down": 3,
+        "up": 1
+      },
+      "eligible_count": 278,
+      "pair": "ETHUSDT|4h",
+      "passing_cells": 0,
+      "passing_rate": 0.0,
+      "ready": false,
+      "reasons": [
+        "low_support",
+        "low_passing_rate",
+        "avg_return_too_low",
+        "worst_cell_too_negative"
+      ],
+      "threshold": 0.2,
+      "timeframe": "4h",
+      "worst_cell": {
+        "avg_directional_net_return": -0.029472792794984482,
+        "count": 4,
+        "directional_positive_rate": 0.25,
+        "fee_bps": 10.0,
+        "horizon_bars": 24
+      },
+      "worst_dir_return": -0.029472792794984482
+    },
+    {
+      "active_count": 5,
+      "asset": "BTCUSDT",
+      "avg_dir_return": -0.01863823123876016,
+      "best_cell": {
+        "avg_directional_net_return": -0.009027391482558447,
+        "count": 5,
+        "directional_positive_rate": 0.2,
+        "fee_bps": 2.0,
+        "horizon_bars": 3
+      },
+      "cell_count": 12,
+      "directions": {
+        "down": 2,
+        "up": 3
+      },
+      "eligible_count": 268,
+      "pair": "BTCUSDT|4h",
+      "passing_cells": 0,
+      "passing_rate": 0.0,
+      "ready": false,
+      "reasons": [
+        "low_support",
+        "low_passing_rate",
+        "avg_return_too_low",
+        "worst_cell_too_negative"
+      ],
+      "threshold": 0.25,
+      "timeframe": "4h",
+      "worst_cell": {
+        "avg_directional_net_return": -0.025440570256328076,
+        "count": 5,
+        "directional_positive_rate": 0.2,
+        "fee_bps": 10.0,
+        "horizon_bars": 12
+      },
+      "worst_dir_return": -0.025440570256328076
+    },
+    {
+      "active_count": 3,
+      "asset": "BTCUSDT",
+      "avg_dir_return": -0.02646268095794545,
+      "best_cell": {
+        "avg_directional_net_return": -0.012906647976349097,
+        "count": 3,
+        "directional_positive_rate": 0.0,
+        "fee_bps": 2.0,
+        "horizon_bars": 3
+      },
+      "cell_count": 12,
+      "directions": {
+        "down": 1,
+        "up": 2
+      },
+      "eligible_count": 268,
+      "pair": "BTCUSDT|4h",
+      "passing_cells": 0,
+      "passing_rate": 0.0,
+      "ready": false,
+      "reasons": [
+        "low_support",
+        "low_passing_rate",
+        "avg_return_too_low",
+        "worst_cell_too_negative"
+      ],
+      "threshold": 0.3,
+      "timeframe": "4h",
+      "worst_cell": {
+        "avg_directional_net_return": -0.03921552780259227,
+        "count": 3,
+        "directional_positive_rate": 0.0,
+        "fee_bps": 10.0,
+        "horizon_bars": 12
+      },
+      "worst_dir_return": -0.03921552780259227
+    },
+    {
+      "active_count": 0,
+      "asset": "BTCUSDT",
+      "avg_dir_return": null,
+      "best_cell": null,
+      "cell_count": 12,
+      "directions": {},
+      "eligible_count": 268,
+      "pair": "BTCUSDT|4h",
+      "passing_cells": 0,
+      "passing_rate": 0.0,
+      "ready": false,
+      "reasons": [
+        "low_support",
+        "low_passing_rate",
+        "avg_return_too_low",
+        "worst_cell_too_negative",
+        "single_direction"
+      ],
+      "threshold": 0.35,
+      "timeframe": "4h",
+      "worst_cell": null,
+      "worst_dir_return": null
+    }
+  ]
+}

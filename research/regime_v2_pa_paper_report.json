@@ -1,0 +1,83 @@
+{
+  "changed_pick_groups": [
+    {
+      "avg_edge_delta": null,
+      "baseline_selected_model": "PriceAction",
+      "count": 40,
+      "paper_selected_model": null
+    }
+  ],
+  "distributions": {
+    "asset_timeframe": {
+      "BNBUSDT|1h": 180
+    },
+    "baseline_model": {
+      "Momentum": 91,
+      "PriceAction": 83,
+      "TrendFollowing": 6
+    },
+    "paper_model": {
+      "Momentum": 91,
+      "None": 40,
+      "PriceAction": 43,
+      "TrendFollowing": 6
+    },
+    "paper_reason": {
+      "no_matching_price_action_candidate": 81,
+      "price_action_asset_direction_suppressed": 99
+    },
+    "target": {
+      "BNBUSDT|1h|1": 180
+    }
+  },
+  "model_pair_summary": [
+    {
+      "avg_edge_delta": 0.0,
+      "baseline_selected_model": "Momentum",
+      "changed_count": 0,
+      "changed_rate": 0.0,
+      "count": 91,
+      "paper_selected_model": "Momentum"
+    },
+    {
+      "avg_edge_delta": 0.0,
+      "baseline_selected_model": "PriceAction",
+      "changed_count": 0,
+      "changed_rate": 0.0,
+      "count": 43,
+      "paper_selected_model": "PriceAction"
+    },
+    {
+      "avg_edge_delta": null,
+      "baseline_selected_model": "PriceAction",
+      "changed_count": 40,
+      "changed_rate": 1.0,
+      "count": 40,
+      "paper_selected_model": null
+    },
+    {
+      "avg_edge_delta": 0.0,
+      "baseline_selected_model": "TrendFollowing",
+      "changed_count": 0,
+      "changed_rate": 0.0,
+      "count": 6,
+      "paper_selected_model": "TrendFollowing"
+    }
+  ],
+  "phase": "phase_6k_pa_paper_report",
+  "summary": {
+    "asset_filter": null,
+    "avg_edge_delta": 0.0,
+    "avg_suppressed_count": 0.55,
+    "invalid_record_count": 0,
+    "paper_active_count": 99,
+    "paper_active_rate": 0.55,
+    "records_after_filter": 180,
+    "selection_changed_count": 40,
+    "selection_changed_rate": 0.2222222222222222,
+    "source_path": "logs/regime_v2_pa_asset_paper_decisions.jsonl",
+    "suppressed_total": 99,
+    "timeframe_filter": null,
+    "total_records_read": 180
+  }
+}

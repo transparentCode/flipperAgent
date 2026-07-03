@@ -1,0 +1,1329 @@
+{
+  "combos": [
+    {
+      "asset": "BTCUSDT",
+      "decision": "HOLD_FOR_MORE_EVIDENCE",
+      "failure_reasons": [
+        "fee_2.0_mean_lift_below_0.0",
+        "fee_2.0_positive_rate_below_0.55",
+        "fee_2.0_valid_windows_below_2"
+      ],
+      "horizon_bars": 6,
+      "ohlcv_rows": 600,
+      "passed": false,
+      "summary": {
+        "candidate_models": [
+          "Momentum",
+          "TrendFollowing",
+          "PriceAction",
+          "RegimePullbackScorer",
+          "SqueezeBreakout"
+        ],
+        "failure_diagnostics": {
+          "bad_row_count": 0,
+          "diagnostic_count": 0,
+          "reason_counts": {},
+          "reason_rates": {},
+          "top_reasons": []
+        },
+        "fee_bps_values": [
+          2.0
+        ],
+        "fee_summary": {
+          "2.0": {
+            "failure_diagnostics": {
+              "bad_row_count": 0,
+              "diagnostic_count": 0,
+              "reason_counts": {},
+              "reason_rates": {},
+              "top_reasons": []
+            },
+            "mean_gated_lift": null,
+            "median_gated_lift": null,
+            "median_gated_win_rate": null,
+            "positive_gated_rate": null,
+            "positive_gated_window_count": 0,
+            "valid_window_count": 0
+          }
+        },
+        "horizon_bars": 6,
+        "mean_gated_lift": null,
+        "median_gated_lift": null,
+        "median_gated_win_rate": null,
+        "positive_gated_rate": null,
+        "positive_gated_window_count": 0,
+        "step_bars": 100,
+        "valid_window_count": 0,
+        "window_bars": 200,
+        "window_count": 5
+      },
+      "timeframe": "1h"
+    },
+    {
+      "asset": "ETHUSDT",
+      "decision": "HOLD_FOR_MORE_EVIDENCE",
+      "failure_reasons": [
+        "fee_2.0_valid_windows_below_2"
+      ],
+      "horizon_bars": 6,
+      "ohlcv_rows": 600,
+      "passed": false,
+      "summary": {
+        "candidate_models": [
+          "Momentum",
+          "TrendFollowing",
+          "PriceAction",
+          "RegimePullbackScorer",
+          "SqueezeBreakout"
+        ],
+        "failure_diagnostics": {
+          "bad_row_count": 110,
+          "bad_row_rate": 0.6875,
+          "diagnostic_count": 1,
+          "reason_counts": {
+            "aligned_pick_lost": 0,
+            "chop_leakage": 6,
+            "conflict_penalty_selected": 0,
+            "false_breakout_risk": 0,
+            "high_uncertainty": 49,
+            "low_confidence": 28,
+            "low_trend_score": 110,
+            "missing_gated_pick": 108,
+            "overlay_changed_pick": 0,
+            "shock_risk": 0,
+            "trend_direction_wrong": 0
+          },
+          "reason_rates": {
+            "aligned_pick_lost": 0.0,
+            "chop_leakage": 0.05454545,
+            "conflict_penalty_selected": 0.0,
+            "false_breakout_risk": 0.0,
+            "high_uncertainty": 0.44545455,
+            "low_confidence": 0.25454545,
+            "low_trend_score": 1.0,
+            "missing_gated_pick": 0.98181818,
+            "overlay_changed_pick": 0.0,
+            "shock_risk": 0.0,
+            "trend_direction_wrong": 0.0
+          },
+          "row_count": 160,
+          "summary": "low_trend_score",
+          "top_reasons": [
+            {
+              "count": 110,
+              "rate": 1.0,
+              "reason": "low_trend_score"
+            },
+            {
+              "count": 108,
+              "rate": 0.98181818,
+              "reason": "missing_gated_pick"
+            },
+            {
+              "count": 49,
+              "rate": 0.44545455,
+              "reason": "high_uncertainty"
+            },
+            {
+              "count": 28,
+              "rate": 0.25454545,
+              "reason": "low_confidence"
+            },
+            {
+              "count": 6,
+              "rate": 0.05454545,
+              "reason": "chop_leakage"
+            }
+          ]
+        },
+        "fee_bps_values": [
+          2.0
+        ],
+        "fee_summary": {
+          "2.0": {
+            "failure_diagnostics": {
+              "bad_row_count": 110,
+              "bad_row_rate": 0.6875,
+              "diagnostic_count": 1,
+              "reason_counts": {
+                "aligned_pick_lost": 0,
+                "chop_leakage": 6,
+                "conflict_penalty_selected": 0,
+                "false_breakout_risk": 0,
+                "high_uncertainty": 49,
+                "low_confidence": 28,
+                "low_trend_score": 110,
+                "missing_gated_pick": 108,
+                "overlay_changed_pick": 0,
+                "shock_risk": 0,
+                "trend_direction_wrong": 0
+              },
+              "reason_rates": {
+                "aligned_pick_lost": 0.0,
+                "chop_leakage": 0.05454545,
+                "conflict_penalty_selected": 0.0,
+                "false_breakout_risk": 0.0,
+                "high_uncertainty": 0.44545455,
+                "low_confidence": 0.25454545,
+                "low_trend_score": 1.0,
+                "missing_gated_pick": 0.98181818,
+                "overlay_changed_pick": 0.0,
+                "shock_risk": 0.0,
+                "trend_direction_wrong": 0.0
+              },
+              "row_count": 160,
+              "summary": "low_trend_score",
+              "top_reasons": [
+                {
+                  "count": 110,
+                  "rate": 1.0,
+                  "reason": "low_trend_score"
+                },
+                {
+                  "count": 108,
+                  "rate": 0.98181818,
+                  "reason": "missing_gated_pick"
+                },
+                {
+                  "count": 49,
+                  "rate": 0.44545455,
+                  "reason": "high_uncertainty"
+                },
+                {
+                  "count": 28,
+                  "rate": 0.25454545,
+                  "reason": "low_confidence"
+                },
+                {
+                  "count": 6,
+                  "rate": 0.05454545,
+                  "reason": "chop_leakage"
+                }
+              ]
+            },
+            "mean_gated_lift": 0.0012561,
+            "median_gated_lift": 0.0012561,
+            "median_gated_win_rate": 0.71428571,
+            "positive_gated_rate": 1.0,
+            "positive_gated_window_count": 1,
+            "valid_window_count": 1
+          }
+        },
+        "horizon_bars": 6,
+        "mean_gated_lift": 0.0012561,
+        "median_gated_lift": 0.0012561,
+        "median_gated_win_rate": 0.71428571,
+        "positive_gated_rate": 1.0,
+        "positive_gated_window_count": 1,
+        "step_bars": 100,
+        "valid_window_count": 1,
+        "window_bars": 200,
+        "window_count": 5
+      },
+      "timeframe": "1h"
+    }
+  ],
+  "config": {
+    "aligned_boost": 0.35,
+    "assets": [
+      "BTCUSDT",
+      "ETHUSDT"
+    ],
+    "candidate_models": [
+      "Momentum",
+      "TrendFollowing",
+      "PriceAction",
+      "RegimePullbackScorer",
+      "SqueezeBreakout"
+    ],
+    "conflict_penalty": 0.7,
+    "decision": {
+      "min_combo_pass_rate": 0.6,
+      "min_mean_lift": 0.0,
+      "min_passed_combos": 2,
+      "min_positive_rate": 0.55,
+      "min_valid_windows_per_fee": 2,
+      "require_all_fees": true
+    },
+    "fee_bps_values": [
+      2.0
+    ],
+    "horizon_bars_values": [
+      6
+    ],
+    "include_window_metrics": true,
+    "min_abs_edge": 0.01,
+    "min_count": 5,
+    "step_bars": 100,
+    "timeframes": [
+      "1h"
+    ],
+    "top_k": 1,
+    "window_bars": 200
+  },
+  "decision": "HOLD_FOR_MORE_EVIDENCE",
+  "phase": "phase_4_downstream_validation",
+  "summary": {
+    "combo_count": 2,
+    "combo_pass_rate": 0.0,
+    "criteria": {
+      "min_combo_pass_rate": 0.6,
+      "min_mean_lift": 0.0,
+      "min_passed_combos": 2,
+      "min_positive_rate": 0.55,
+      "min_valid_windows_per_fee": 2,
+      "require_all_fees": true
+    },
+    "decision": "HOLD_FOR_MORE_EVIDENCE",
+    "failure_diagnostics": {
+      "bad_row_count": 110,
+      "bad_row_rate": 0.6875,
+      "diagnostic_count": 2,
+      "reason_counts": {
+        "aligned_pick_lost": 0,
+        "chop_leakage": 6,
+        "conflict_penalty_selected": 0,
+        "false_breakout_risk": 0,
+        "high_uncertainty": 49,
+        "low_confidence": 28,
+        "low_trend_score": 110,
+        "missing_gated_pick": 108,
+        "overlay_changed_pick": 0,
+        "shock_risk": 0,
+        "trend_direction_wrong": 0
+      },
+      "reason_rates": {
+        "aligned_pick_lost": 0.0,
+        "chop_leakage": 0.05454545,
+        "conflict_penalty_selected": 0.0,
+        "false_breakout_risk": 0.0,
+        "high_uncertainty": 0.44545455,
+        "low_confidence": 0.25454545,
+        "low_trend_score": 1.0,
+        "missing_gated_pick": 0.98181818,
+        "overlay_changed_pick": 0.0,
+        "shock_risk": 0.0,
+        "trend_direction_wrong": 0.0
+      },
+      "row_count": 160,
+      "summary": "low_trend_score",
+      "top_reasons": [
+        {
+          "count": 110,
+          "rate": 1.0,
+          "reason": "low_trend_score"
+        },
+        {
+          "count": 108,
+          "rate": 0.98181818,
+          "reason": "missing_gated_pick"
+        },
+        {
+          "count": 49,
+          "rate": 0.44545455,
+          "reason": "high_uncertainty"
+        },
+        {
+          "count": 28,
+          "rate": 0.25454545,
+          "reason": "low_confidence"
+        },
+        {
+          "count": 6,
+          "rate": 0.05454545,
+          "reason": "chop_leakage"
+        }
+      ]
+    },
+    "failure_reasons": [
+      "combo_pass_rate_below_0.6",
+      "fee_2.0_mean_lift_below_0.0",
+      "fee_2.0_positive_rate_below_0.55",
+      "fee_2.0_valid_windows_below_2",
+      "passed_combos_below_2"
+    ],
+    "passed_combo_count": 0
+  },
+  "window_metrics": [
+    {
+      "asset": "BTCUSDT",
+      "baseline_count": 167,
+      "baseline_mean_edge": 0.00044961,
+      "candidate_counts": {
+        "Momentum": 89,
+        "PriceAction": 158,
+        "RegimePullbackScorer": 11,
+        "SqueezeBreakout": 2,
+        "TrendFollowing": 91
+      },
+      "candidate_rows": 351,
+      "end": "2026-06-16 06:00:00+00:00",
+      "enough_samples": false,
+      "failure_diagnostics": {
+        "bad_row_count": 100,
+        "bad_row_rate": 0.5988024,
+        "config": {
+          "bad_edge_threshold": 0.0,
+          "high_chop_risk_threshold": 0.6,
+          "high_false_breakout_risk_threshold": 0.6,
+          "high_shock_risk_threshold": 0.6,
+          "high_uncertainty_threshold": 0.65,
+          "low_confidence_threshold": 0.35,
+          "low_trend_score_threshold": 0.35
+        },
+        "mean_bad_edge": -0.00364576,
+        "mean_edge_delta": -1.027e-05,
+        "reason_counts": {
+          "aligned_pick_lost": 1,
+          "chop_leakage": 3,
+          "conflict_penalty_selected": 0,
+          "false_breakout_risk": 0,
+          "high_uncertainty": 31,
+          "low_confidence": 25,
+          "low_trend_score": 100,
+          "missing_gated_pick": 98,
+          "overlay_changed_pick": 0,
+          "shock_risk": 0,
+          "trend_direction_wrong": 0
+        },
+        "reason_rates": {
+          "aligned_pick_lost": 0.01,
+          "chop_leakage": 0.03,
+          "conflict_penalty_selected": 0.0,
+          "false_breakout_risk": 0.0,
+          "high_uncertainty": 0.31,
+          "low_confidence": 0.25,
+          "low_trend_score": 1.0,
+          "missing_gated_pick": 0.98,
+          "overlay_changed_pick": 0.0,
+          "shock_risk": 0.0,
+          "trend_direction_wrong": 0.0
+        },
+        "row_count": 167,
+        "summary": "low_trend_score",
+        "top_reasons": [
+          {
+            "count": 100,
+            "rate": 1.0,
+            "reason": "low_trend_score"
+          },
+          {
+            "count": 98,
+            "rate": 0.98,
+            "reason": "missing_gated_pick"
+          },
+          {
+            "count": 31,
+            "rate": 0.31,
+            "reason": "high_uncertainty"
+          },
+          {
+            "count": 25,
+            "rate": 0.25,
+            "reason": "low_confidence"
+          },
+          {
+            "count": 3,
+            "rate": 0.03,
+            "reason": "chop_leakage"
+          },
+          {
+            "count": 1,
+            "rate": 0.01,
+            "reason": "aligned_pick_lost"
+          }
+        ]
+      },
+      "fee_bps": 2.0,
+      "gated_better": true,
+      "gated_count": 4,
+      "gated_lift": 0.00280649,
+      "gated_mean_edge": 0.0032561,
+      "gated_win_rate": 0.5,
+      "horizon_bars": 6,
+      "rows": 200,
+      "start": "2026-06-07 23:00:00+00:00",
+      "timeframe": "1h",
+      "window_id": 1
+    },
+    {
+      "asset": "BTCUSDT",
+      "baseline_count": 165,
+      "baseline_mean_edge": -3.15e-05,
+      "candidate_counts": {
+        "Momentum": 94,
+        "PriceAction": 156,
+        "RegimePullbackScorer": 17,
+        "SqueezeBreakout": 3,
+        "TrendFollowing": 101
+      },
+      "candidate_rows": 371,
+      "end": "2026-06-20 10:00:00+00:00",
+      "enough_samples": false,
+      "failure_diagnostics": {
+        "bad_row_count": 100,
+        "bad_row_rate": 0.60606061,
+        "config": {
+          "bad_edge_threshold": 0.0,
+          "high_chop_risk_threshold": 0.6,
+          "high_false_breakout_risk_threshold": 0.6,
+          "high_shock_risk_threshold": 0.6,
+          "high_uncertainty_threshold": 0.65,
+          "low_confidence_threshold": 0.35,
+          "low_trend_score_threshold": 0.35
+        },
+        "mean_bad_edge": -0.0039035,
+        "mean_edge_delta": -1.016e-05,
+        "reason_counts": {
+          "aligned_pick_lost": 1,
+          "chop_leakage": 2,
+          "conflict_penalty_selected": 0,
+          "false_breakout_risk": 0,
+          "high_uncertainty": 57,
+          "low_confidence": 54,
+          "low_trend_score": 100,
+          "missing_gated_pick": 98,
+          "overlay_changed_pick": 0,
+          "shock_risk": 0,
+          "trend_direction_wrong": 0
+        },
+        "reason_rates": {
+          "aligned_pick_lost": 0.01,
+          "chop_leakage": 0.02,
+          "conflict_penalty_selected": 0.0,
+          "false_breakout_risk": 0.0,
+          "high_uncertainty": 0.57,
+          "low_confidence": 0.54,
+          "low_trend_score": 1.0,
+          "missing_gated_pick": 0.98,
+          "overlay_changed_pick": 0.0,
+          "shock_risk": 0.0,
+          "trend_direction_wrong": 0.0
+        },
+        "row_count": 165,
+        "summary": "low_trend_score",
+        "top_reasons": [
+          {
+            "count": 100,
+            "rate": 1.0,
+            "reason": "low_trend_score"
+          },
+          {
+            "count": 98,
+            "rate": 0.98,
+            "reason": "missing_gated_pick"
+          },
+          {
+            "count": 57,
+            "rate": 0.57,
+            "reason": "high_uncertainty"
+          },
+          {
+            "count": 54,
+            "rate": 0.54,
+            "reason": "low_confidence"
+          },
+          {
+            "count": 2,
+            "rate": 0.02,
+            "reason": "chop_leakage"
+          },
+          {
+            "count": 1,
+            "rate": 0.01,
+            "reason": "aligned_pick_lost"
+          }
+        ]
+      },
+      "fee_bps": 2.0,
+      "gated_better": false,
+      "gated_count": 2,
+      "gated_lift": -0.00069906,
+      "gated_mean_edge": -0.00073056,
+      "gated_win_rate": 0.0,
+      "horizon_bars": 6,
+      "rows": 200,
+      "start": "2026-06-12 03:00:00+00:00",
+      "timeframe": "1h",
+      "window_id": 2
+    },
+    {
+      "asset": "BTCUSDT",
+      "baseline_count": 163,
+      "baseline_mean_edge": 0.00094317,
+      "candidate_counts": {
+        "Momentum": 80,
+        "PriceAction": 159,
+        "RegimePullbackScorer": 16,
+        "SqueezeBreakout": 4,
+        "TrendFollowing": 93
+      },
+      "candidate_rows": 352,
+      "end": "2026-06-24 14:00:00+00:00",
+      "enough_samples": false,
+      "failure_diagnostics": {
+        "bad_row_count": 107,
+        "bad_row_rate": 0.65644172,
+        "config": {
+          "bad_edge_threshold": 0.0,
+          "high_chop_risk_threshold": 0.6,
+          "high_false_breakout_risk_threshold": 0.6,
+          "high_shock_risk_threshold": 0.6,
+          "high_uncertainty_threshold": 0.65,
+          "low_confidence_threshold": 0.35,
+          "low_trend_score_threshold": 0.35
+        },
+        "mean_bad_edge": -0.0024956,
+        "mean_edge_delta": 0.0,
+        "reason_counts": {
+          "aligned_pick_lost": 0,
+          "chop_leakage": 3,
+          "conflict_penalty_selected": 0,
+          "false_breakout_risk": 0,
+          "high_uncertainty": 41,
+          "low_confidence": 35,
+          "low_trend_score": 107,
+          "missing_gated_pick": 107,
+          "overlay_changed_pick": 0,
+          "shock_risk": 0,
+          "trend_direction_wrong": 0
+        },
+        "reason_rates": {
+          "aligned_pick_lost": 0.0,
+          "chop_leakage": 0.02803738,
+          "conflict_penalty_selected": 0.0,
+          "false_breakout_risk": 0.0,
+          "high_uncertainty": 0.38317757,
+          "low_confidence": 0.3271028,
+          "low_trend_score": 1.0,
+          "missing_gated_pick": 1.0,
+          "overlay_changed_pick": 0.0,
+          "shock_risk": 0.0,
+          "trend_direction_wrong": 0.0
+        },
+        "row_count": 163,
+        "summary": "low_trend_score",
+        "top_reasons": [
+          {
+            "count": 107,
+            "rate": 1.0,
+            "reason": "low_trend_score"
+          },
+          {
+            "count": 107,
+            "rate": 1.0,
+            "reason": "missing_gated_pick"
+          },
+          {
+            "count": 41,
+            "rate": 0.38317757,
+            "reason": "high_uncertainty"
+          },
+          {
+            "count": 35,
+            "rate": 0.3271028,
+            "reason": "low_confidence"
+          },
+          {
+            "count": 3,
+            "rate": 0.02803738,
+            "reason": "chop_leakage"
+          }
+        ]
+      },
+      "fee_bps": 2.0,
+      "gated_better": true,
+      "gated_count": 1,
+      "gated_lift": 0.0015272,
+      "gated_mean_edge": 0.00247037,
+      "gated_win_rate": 1.0,
+      "horizon_bars": 6,
+      "rows": 200,
+      "start": "2026-06-16 07:00:00+00:00",
+      "timeframe": "1h",
+      "window_id": 3
+    },
+    {
+      "asset": "BTCUSDT",
+      "baseline_count": 164,
+      "baseline_mean_edge": -0.00029207,
+      "candidate_counts": {
+        "Momentum": 69,
+        "PriceAction": 159,
+        "RegimePullbackScorer": 18,
+        "SqueezeBreakout": 3,
+        "TrendFollowing": 94
+      },
+      "candidate_rows": 343,
+      "end": "2026-06-28 18:00:00+00:00",
+      "enough_samples": false,
+      "failure_diagnostics": {
+        "bad_row_count": 112,
+        "bad_row_rate": 0.68292683,
+        "config": {
+          "bad_edge_threshold": 0.0,
+          "high_chop_risk_threshold": 0.6,
+          "high_false_breakout_risk_threshold": 0.6,
+          "high_shock_risk_threshold": 0.6,
+          "high_uncertainty_threshold": 0.65,
+          "low_confidence_threshold": 0.35,
+          "low_trend_score_threshold": 0.35
+        },
+        "mean_bad_edge": -0.00422326,
+        "mean_edge_delta": 0.0,
+        "reason_counts": {
+          "aligned_pick_lost": 0,
+          "chop_leakage": 3,
+          "conflict_penalty_selected": 0,
+          "false_breakout_risk": 0,
+          "high_uncertainty": 63,
+          "low_confidence": 55,
+          "low_trend_score": 112,
+          "missing_gated_pick": 112,
+          "overlay_changed_pick": 0,
+          "shock_risk": 0,
+          "trend_direction_wrong": 0
+        },
+        "reason_rates": {
+          "aligned_pick_lost": 0.0,
+          "chop_leakage": 0.02678571,
+          "conflict_penalty_selected": 0.0,
+          "false_breakout_risk": 0.0,
+          "high_uncertainty": 0.5625,
+          "low_confidence": 0.49107143,
+          "low_trend_score": 1.0,
+          "missing_gated_pick": 1.0,
+          "overlay_changed_pick": 0.0,
+          "shock_risk": 0.0,
+          "trend_direction_wrong": 0.0
+        },
+        "row_count": 164,
+        "summary": "low_trend_score",
+        "top_reasons": [
+          {
+            "count": 112,
+            "rate": 1.0,
+            "reason": "low_trend_score"
+          },
+          {
+            "count": 112,
+            "rate": 1.0,
+            "reason": "missing_gated_pick"
+          },
+          {
+            "count": 63,
+            "rate": 0.5625,
+            "reason": "high_uncertainty"
+          },
+          {
+            "count": 55,
+            "rate": 0.49107143,
+            "reason": "low_confidence"
+          },
+          {
+            "count": 3,
+            "rate": 0.02678571,
+            "reason": "chop_leakage"
+          }
+        ]
+      },
+      "fee_bps": 2.0,
+      "gated_better": false,
+      "gated_count": 0,
+      "gated_lift": null,
+      "gated_mean_edge": null,
+      "gated_win_rate": null,
+      "horizon_bars": 6,
+      "rows": 200,
+      "start": "2026-06-20 11:00:00+00:00",
+      "timeframe": "1h",
+      "window_id": 4
+    },
+    {
+      "asset": "BTCUSDT",
+      "baseline_count": 174,
+      "baseline_mean_edge": 0.00031554,
+      "candidate_counts": {
+        "Momentum": 78,
+        "PriceAction": 157,
+        "RegimePullbackScorer": 16,
+        "SqueezeBreakout": 6,
+        "TrendFollowing": 105
+      },
+      "candidate_rows": 362,
+      "end": "2026-07-02 22:00:00+00:00",
+      "enough_samples": false,
+      "failure_diagnostics": {
+        "bad_row_count": 108,
+        "bad_row_rate": 0.62068966,
+        "config": {
+          "bad_edge_threshold": 0.0,
+          "high_chop_risk_threshold": 0.6,
+          "high_false_breakout_risk_threshold": 0.6,
+          "high_shock_risk_threshold": 0.6,
+          "high_uncertainty_threshold": 0.65,
+          "low_confidence_threshold": 0.35,
+          "low_trend_score_threshold": 0.35
+        },
+        "mean_bad_edge": -0.00368997,
+        "mean_edge_delta": 0.0,
+        "reason_counts": {
+          "aligned_pick_lost": 3,
+          "chop_leakage": 9,
+          "conflict_penalty_selected": 0,
+          "false_breakout_risk": 0,
+          "high_uncertainty": 29,
+          "low_confidence": 25,
+          "low_trend_score": 108,
+          "missing_gated_pick": 105,
+          "overlay_changed_pick": 0,
+          "shock_risk": 0,
+          "trend_direction_wrong": 0
+        },
+        "reason_rates": {
+          "aligned_pick_lost": 0.02777778,
+          "chop_leakage": 0.08333333,
+          "conflict_penalty_selected": 0.0,
+          "false_breakout_risk": 0.0,
+          "high_uncertainty": 0.26851852,
+          "low_confidence": 0.23148148,
+          "low_trend_score": 1.0,
+          "missing_gated_pick": 0.97222222,
+          "overlay_changed_pick": 0.0,
+          "shock_risk": 0.0,
+          "trend_direction_wrong": 0.0
+        },
+        "row_count": 174,
+        "summary": "low_trend_score",
+        "top_reasons": [
+          {
+            "count": 108,
+            "rate": 1.0,
+            "reason": "low_trend_score"
+          },
+          {
+            "count": 105,
+            "rate": 0.97222222,
+            "reason": "missing_gated_pick"
+          },
+          {
+            "count": 29,
+            "rate": 0.26851852,
+            "reason": "high_uncertainty"
+          },
+          {
+            "count": 25,
+            "rate": 0.23148148,
+            "reason": "low_confidence"
+          },
+          {
+            "count": 9,
+            "rate": 0.08333333,
+            "reason": "chop_leakage"
+          },
+          {
+            "count": 3,
+            "rate": 0.02777778,
+            "reason": "aligned_pick_lost"
+          }
+        ]
+      },
+      "fee_bps": 2.0,
+      "gated_better": false,
+      "gated_count": 4,
+      "gated_lift": -0.00540804,
+      "gated_mean_edge": -0.0050925,
+      "gated_win_rate": 0.25,
+      "horizon_bars": 6,
+      "rows": 200,
+      "start": "2026-06-24 15:00:00+00:00",
+      "timeframe": "1h",
+      "window_id": 5
+    },
+    {
+      "asset": "ETHUSDT",
+      "baseline_count": 169,
+      "baseline_mean_edge": 0.00066723,
+      "candidate_counts": {
+        "Momentum": 88,
+        "PriceAction": 150,
+        "RegimePullbackScorer": 16,
+        "SqueezeBreakout": 4,
+        "TrendFollowing": 105
+      },
+      "candidate_rows": 363,
+      "end": "2026-06-16 06:00:00+00:00",
+      "enough_samples": false,
+      "failure_diagnostics": {
+        "bad_row_count": 101,
+        "bad_row_rate": 0.59763314,
+        "config": {
+          "bad_edge_threshold": 0.0,
+          "high_chop_risk_threshold": 0.6,
+          "high_false_breakout_risk_threshold": 0.6,
+          "high_shock_risk_threshold": 0.6,
+          "high_uncertainty_threshold": 0.65,
+          "low_confidence_threshold": 0.35,
+          "low_trend_score_threshold": 0.35
+        },
+        "mean_bad_edge": -0.00634965,
+        "mean_edge_delta": 0.0,
+        "reason_counts": {
+          "aligned_pick_lost": 1,
+          "chop_leakage": 17,
+          "conflict_penalty_selected": 0,
+          "false_breakout_risk": 0,
+          "high_uncertainty": 56,
+          "low_confidence": 45,
+          "low_trend_score": 101,
+          "missing_gated_pick": 100,
+          "overlay_changed_pick": 0,
+          "shock_risk": 0,
+          "trend_direction_wrong": 0
+        },
+        "reason_rates": {
+          "aligned_pick_lost": 0.00990099,
+          "chop_leakage": 0.16831683,
+          "conflict_penalty_selected": 0.0,
+          "false_breakout_risk": 0.0,
+          "high_uncertainty": 0.55445545,
+          "low_confidence": 0.44554455,
+          "low_trend_score": 1.0,
+          "missing_gated_pick": 0.99009901,
+          "overlay_changed_pick": 0.0,
+          "shock_risk": 0.0,
+          "trend_direction_wrong": 0.0
+        },
+        "row_count": 169,
+        "summary": "low_trend_score",
+        "top_reasons": [
+          {
+            "count": 101,
+            "rate": 1.0,
+            "reason": "low_trend_score"
+          },
+          {
+            "count": 100,
+            "rate": 0.99009901,
+            "reason": "missing_gated_pick"
+          },
+          {
+            "count": 56,
+            "rate": 0.55445545,
+            "reason": "high_uncertainty"
+          },
+          {
+            "count": 45,
+            "rate": 0.44554455,
+            "reason": "low_confidence"
+          },
+          {
+            "count": 17,
+            "rate": 0.16831683,
+            "reason": "chop_leakage"
+          },
+          {
+            "count": 1,
+            "rate": 0.00990099,
+            "reason": "aligned_pick_lost"
+          }
+        ]
+      },
+      "fee_bps": 2.0,
+      "gated_better": false,
+      "gated_count": 2,
+      "gated_lift": -0.01281246,
+      "gated_mean_edge": -0.01214523,
+      "gated_win_rate": 0.5,
+      "horizon_bars": 6,
+      "rows": 200,
+      "start": "2026-06-07 23:00:00+00:00",
+      "timeframe": "1h",
+      "window_id": 1
+    },
+    {
+      "asset": "ETHUSDT",
+      "baseline_count": 160,
+      "baseline_mean_edge": 5.694e-05,
+      "candidate_counts": {
+        "Momentum": 79,
+        "PriceAction": 150,
+        "RegimePullbackScorer": 18,
+        "SqueezeBreakout": 4,
+        "TrendFollowing": 89
+      },
+      "candidate_rows": 340,
+      "end": "2026-06-20 10:00:00+00:00",
+      "enough_samples": false,
+      "failure_diagnostics": {
+        "bad_row_count": 114,
+        "bad_row_rate": 0.7125,
+        "config": {
+          "bad_edge_threshold": 0.0,
+          "high_chop_risk_threshold": 0.6,
+          "high_false_breakout_risk_threshold": 0.6,
+          "high_shock_risk_threshold": 0.6,
+          "high_uncertainty_threshold": 0.65,
+          "low_confidence_threshold": 0.35,
+          "low_trend_score_threshold": 0.35
+        },
+        "mean_bad_edge": -0.00493438,
+        "mean_edge_delta": 0.0,
+        "reason_counts": {
+          "aligned_pick_lost": 1,
+          "chop_leakage": 12,
+          "conflict_penalty_selected": 0,
+          "false_breakout_risk": 0,
+          "high_uncertainty": 64,
+          "low_confidence": 55,
+          "low_trend_score": 114,
+          "missing_gated_pick": 113,
+          "overlay_changed_pick": 0,
+          "shock_risk": 0,
+          "trend_direction_wrong": 0
+        },
+        "reason_rates": {
+          "aligned_pick_lost": 0.00877193,
+          "chop_leakage": 0.10526316,
+          "conflict_penalty_selected": 0.0,
+          "false_breakout_risk": 0.0,
+          "high_uncertainty": 0.56140351,
+          "low_confidence": 0.48245614,
+          "low_trend_score": 1.0,
+          "missing_gated_pick": 0.99122807,
+          "overlay_changed_pick": 0.0,
+          "shock_risk": 0.0,
+          "trend_direction_wrong": 0.0
+        },
+        "row_count": 160,
+        "summary": "low_trend_score",
+        "top_reasons": [
+          {
+            "count": 114,
+            "rate": 1.0,
+            "reason": "low_trend_score"
+          },
+          {
+            "count": 113,
+            "rate": 0.99122807,
+            "reason": "missing_gated_pick"
+          },
+          {
+            "count": 64,
+            "rate": 0.56140351,
+            "reason": "high_uncertainty"
+          },
+          {
+            "count": 55,
+            "rate": 0.48245614,
+            "reason": "low_confidence"
+          },
+          {
+            "count": 12,
+            "rate": 0.10526316,
+            "reason": "chop_leakage"
+          },
+          {
+            "count": 1,
+            "rate": 0.00877193,
+            "reason": "aligned_pick_lost"
+          }
+        ]
+      },
+      "fee_bps": 2.0,
+      "gated_better": false,
+      "gated_count": 1,
+      "gated_lift": -0.02950974,
+      "gated_mean_edge": -0.0294528,
+      "gated_win_rate": 0.0,
+      "horizon_bars": 6,
+      "rows": 200,
+      "start": "2026-06-12 03:00:00+00:00",
+      "timeframe": "1h",
+      "window_id": 2
+    },
+    {
+      "asset": "ETHUSDT",
+      "baseline_count": 160,
+      "baseline_mean_edge": 0.00113483,
+      "candidate_counts": {
+        "Momentum": 64,
+        "PriceAction": 156,
+        "RegimePullbackScorer": 26,
+        "SqueezeBreakout": 4,
+        "TrendFollowing": 85
+      },
+      "candidate_rows": 335,
+      "end": "2026-06-24 14:00:00+00:00",
+      "enough_samples": true,
+      "failure_diagnostics": {
+        "bad_row_count": 110,
+        "bad_row_rate": 0.6875,
+        "config": {
+          "bad_edge_threshold": 0.0,
+          "high_chop_risk_threshold": 0.6,
+          "high_false_breakout_risk_threshold": 0.6,
+          "high_shock_risk_threshold": 0.6,
+          "high_uncertainty_threshold": 0.65,
+          "low_confidence_threshold": 0.35,
+          "low_trend_score_threshold": 0.35
+        },
+        "mean_bad_edge": -0.00314817,
+        "mean_edge_delta": 0.00010691,
+        "reason_counts": {
+          "aligned_pick_lost": 0,
+          "chop_leakage": 6,
+          "conflict_penalty_selected": 0,
+          "false_breakout_risk": 0,
+          "high_uncertainty": 49,
+          "low_confidence": 28,
+          "low_trend_score": 110,
+          "missing_gated_pick": 108,
+          "overlay_changed_pick": 0,
+          "shock_risk": 0,
+          "trend_direction_wrong": 0
+        },
+        "reason_rates": {
+          "aligned_pick_lost": 0.0,
+          "chop_leakage": 0.05454545,
+          "conflict_penalty_selected": 0.0,
+          "false_breakout_risk": 0.0,
+          "high_uncertainty": 0.44545455,
+          "low_confidence": 0.25454545,
+          "low_trend_score": 1.0,
+          "missing_gated_pick": 0.98181818,
+          "overlay_changed_pick": 0.0,
+          "shock_risk": 0.0,
+          "trend_direction_wrong": 0.0
+        },
+        "row_count": 160,
+        "summary": "low_trend_score",
+        "top_reasons": [
+          {
+            "count": 110,
+            "rate": 1.0,
+            "reason": "low_trend_score"
+          },
+          {
+            "count": 108,
+            "rate": 0.98181818,
+            "reason": "missing_gated_pick"
+          },
+          {
+            "count": 49,
+            "rate": 0.44545455,
+            "reason": "high_uncertainty"
+          },
+          {
+            "count": 28,
+            "rate": 0.25454545,
+            "reason": "low_confidence"
+          },
+          {
+            "count": 6,
+            "rate": 0.05454545,
+            "reason": "chop_leakage"
+          }
+        ]
+      },
+      "fee_bps": 2.0,
+      "gated_better": true,
+      "gated_count": 7,
+      "gated_lift": 0.0012561,
+      "gated_mean_edge": 0.00239093,
+      "gated_win_rate": 0.71428571,
+      "horizon_bars": 6,
+      "rows": 200,
+      "start": "2026-06-16 07:00:00+00:00",
+      "timeframe": "1h",
+      "window_id": 3
+    },
+    {
+      "asset": "ETHUSDT",
+      "baseline_count": 166,
+      "baseline_mean_edge": -0.00053788,
+      "candidate_counts": {
+        "Momentum": 78,
+        "PriceAction": 162,
+        "RegimePullbackScorer": 26,
+        "SqueezeBreakout": 4,
+        "TrendFollowing": 98
+      },
+      "candidate_rows": 368,
+      "end": "2026-06-28 18:00:00+00:00",
+      "enough_samples": false,
+      "failure_diagnostics": {
+        "bad_row_count": 105,
+        "bad_row_rate": 0.63253012,
+        "config": {
+          "bad_edge_threshold": 0.0,
+          "high_chop_risk_threshold": 0.6,
+          "high_false_breakout_risk_threshold": 0.6,
+          "high_shock_risk_threshold": 0.6,
+          "high_uncertainty_threshold": 0.65,
+          "low_confidence_threshold": 0.35,
+          "low_trend_score_threshold": 0.35
+        },
+        "mean_bad_edge": -0.00714195,
+        "mean_edge_delta": 0.00010372,
+        "reason_counts": {
+          "aligned_pick_lost": 0,
+          "chop_leakage": 0,
+          "conflict_penalty_selected": 0,
+          "false_breakout_risk": 0,
+          "high_uncertainty": 69,
+          "low_confidence": 59,
+          "low_trend_score": 105,
+          "missing_gated_pick": 105,
+          "overlay_changed_pick": 0,
+          "shock_risk": 0,
+          "trend_direction_wrong": 0
+        },
+        "reason_rates": {
+          "aligned_pick_lost": 0.0,
+          "chop_leakage": 0.0,
+          "conflict_penalty_selected": 0.0,
+          "false_breakout_risk": 0.0,
+          "high_uncertainty": 0.65714286,
+          "low_confidence": 0.56190476,
+          "low_trend_score": 1.0,
+          "missing_gated_pick": 1.0,
+          "overlay_changed_pick": 0.0,
+          "shock_risk": 0.0,
+          "trend_direction_wrong": 0.0
+        },
+        "row_count": 166,
+        "summary": "low_trend_score",
+        "top_reasons": [
+          {
+            "count": 105,
+            "rate": 1.0,
+            "reason": "low_trend_score"
+          },
+          {
+            "count": 105,
+            "rate": 1.0,
+            "reason": "missing_gated_pick"
+          },
+          {
+            "count": 69,
+            "rate": 0.65714286,
+            "reason": "high_uncertainty"
+          },
+          {
+            "count": 59,
+            "rate": 0.56190476,
+            "reason": "low_confidence"
+          }
+        ]
+      },
+      "fee_bps": 2.0,
+      "gated_better": true,
+      "gated_count": 4,
+      "gated_lift": 0.02114851,
+      "gated_mean_edge": 0.02061063,
+      "gated_win_rate": 1.0,
+      "horizon_bars": 6,
+      "rows": 200,
+      "start": "2026-06-20 11:00:00+00:00",
+      "timeframe": "1h",
+      "window_id": 4
+    },
+    {
+      "asset": "ETHUSDT",
+      "baseline_count": 174,
+      "baseline_mean_edge": 0.00031739,
+      "candidate_counts": {
+        "Momentum": 81,
+        "PriceAction": 172,
+        "RegimePullbackScorer": 14,
+        "SqueezeBreakout": 5,
+        "TrendFollowing": 119
+      },
+      "candidate_rows": 391,
+      "end": "2026-07-02 22:00:00+00:00",
+      "enough_samples": false,
+      "failure_diagnostics": {
+        "bad_row_count": 104,
+        "bad_row_rate": 0.59770115,
+        "config": {
+          "bad_edge_threshold": 0.0,
+          "high_chop_risk_threshold": 0.6,
+          "high_false_breakout_risk_threshold": 0.6,
+          "high_shock_risk_threshold": 0.6,
+          "high_uncertainty_threshold": 0.65,
+          "low_confidence_threshold": 0.35,
+          "low_trend_score_threshold": 0.35
+        },
+        "mean_bad_edge": -0.0058608,
+        "mean_edge_delta": 0.0,
+        "reason_counts": {
+          "aligned_pick_lost": 0,
+          "chop_leakage": 10,
+          "conflict_penalty_selected": 0,
+          "false_breakout_risk": 0,
+          "high_uncertainty": 24,
+          "low_confidence": 19,
+          "low_trend_score": 104,
+          "missing_gated_pick": 104,
+          "overlay_changed_pick": 0,
+          "shock_risk": 0,
+          "trend_direction_wrong": 0
+        },
+        "reason_rates": {
+          "aligned_pick_lost": 0.0,
+          "chop_leakage": 0.09615385,
+          "conflict_penalty_selected": 0.0,
+          "false_breakout_risk": 0.0,
+          "high_uncertainty": 0.23076923,
+          "low_confidence": 0.18269231,
+          "low_trend_score": 1.0,
+          "missing_gated_pick": 1.0,
+          "overlay_changed_pick": 0.0,
+          "shock_risk": 0.0,
+          "trend_direction_wrong": 0.0
+        },
+        "row_count": 174,
+        "summary": "low_trend_score",
+        "top_reasons": [
+          {
+            "count": 104,
+            "rate": 1.0,
+            "reason": "low_trend_score"
+          },
+          {
+            "count": 104,
+            "rate": 1.0,
+            "reason": "missing_gated_pick"
+          },
+          {
+            "count": 24,
+            "rate": 0.23076923,
+            "reason": "high_uncertainty"
+          },
+          {
+            "count": 19,
+            "rate": 0.18269231,
+            "reason": "low_confidence"
+          },
+          {
+            "count": 10,
+            "rate": 0.09615385,
+            "reason": "chop_leakage"
+          }
+        ]
+      },
+      "fee_bps": 2.0,
+      "gated_better": true,
+      "gated_count": 2,
+      "gated_lift": 0.03354335,
+      "gated_mean_edge": 0.03386074,
+      "gated_win_rate": 1.0,
+      "horizon_bars": 6,
+      "rows": 200,
+      "start": "2026-06-24 15:00:00+00:00",
+      "timeframe": "1h",
+      "window_id": 5
+    }
+  ]
+}

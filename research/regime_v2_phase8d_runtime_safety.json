@@ -1,0 +1,254 @@
+{
+  "overlay_rows": [
+    {
+      "asset": "default",
+      "candidate_enabled": false,
+      "enabled": false,
+      "invalid_horizons_bars": [],
+      "overlay": "regime_v2_trend_gate",
+      "paper_enabled": false,
+      "paper_runtime_enabled": false,
+      "shadow_enabled": false,
+      "shadow_persist_enabled": false,
+      "timeframe": "default",
+      "valid_horizons_bars": []
+    },
+    {
+      "asset": "default",
+      "candidate_enabled": false,
+      "enabled": false,
+      "invalid_horizons_bars": [
+        3
+      ],
+      "overlay": "regime_v2_pa_asset_guardrail",
+      "paper_enabled": false,
+      "paper_runtime_enabled": false,
+      "shadow_enabled": false,
+      "shadow_persist_enabled": false,
+      "timeframe": "default",
+      "valid_horizons_bars": [
+        6,
+        12,
+        24
+      ]
+    },
+    {
+      "asset": "BTCUSDT",
+      "candidate_enabled": false,
+      "enabled": false,
+      "invalid_horizons_bars": [],
+      "overlay": "regime_v2_trend_gate",
+      "paper_enabled": false,
+      "paper_runtime_enabled": false,
+      "shadow_enabled": false,
+      "shadow_persist_enabled": false,
+      "timeframe": "default",
+      "valid_horizons_bars": []
+    },
+    {
+      "asset": "BTCUSDT",
+      "candidate_enabled": false,
+      "enabled": false,
+      "invalid_horizons_bars": [
+        3
+      ],
+      "overlay": "regime_v2_pa_asset_guardrail",
+      "paper_enabled": false,
+      "paper_runtime_enabled": false,
+      "shadow_enabled": false,
+      "shadow_persist_enabled": false,
+      "timeframe": "default",
+      "valid_horizons_bars": [
+        6,
+        12,
+        24
+      ]
+    },
+    {
+      "asset": "BTCUSDT",
+      "candidate_enabled": false,
+      "enabled": false,
+      "invalid_horizons_bars": [],
+      "overlay": "regime_v2_trend_gate",
+      "paper_enabled": false,
+      "paper_runtime_enabled": false,
+      "shadow_enabled": true,
+      "shadow_persist_enabled": true,
+      "timeframe": "4h",
+      "valid_horizons_bars": []
+    },
+    {
+      "asset": "ETHUSDT",
+      "candidate_enabled": false,
+      "enabled": false,
+      "invalid_horizons_bars": [],
+      "overlay": "regime_v2_trend_gate",
+      "paper_enabled": false,
+      "paper_runtime_enabled": false,
+      "shadow_enabled": false,
+      "shadow_persist_enabled": false,
+      "timeframe": "default",
+      "valid_horizons_bars": []
+    },
+    {
+      "asset": "ETHUSDT",
+      "candidate_enabled": false,
+      "enabled": false,
+      "invalid_horizons_bars": [
+        3
+      ],
+      "overlay": "regime_v2_pa_asset_guardrail",
+      "paper_enabled": false,
+      "paper_runtime_enabled": false,
+      "shadow_enabled": false,
+      "shadow_persist_enabled": false,
+      "timeframe": "default",
+      "valid_horizons_bars": [
+        6,
+        12,
+        24
+      ]
+    },
+    {
+      "asset": "ETHUSDT",
+      "candidate_enabled": false,
+      "enabled": false,
+      "invalid_horizons_bars": [],
+      "overlay": "regime_v2_trend_gate",
+      "paper_enabled": false,
+      "paper_runtime_enabled": false,
+      "shadow_enabled": true,
+      "shadow_persist_enabled": true,
+      "timeframe": "4h",
+      "valid_horizons_bars": []
+    },
+    {
+      "asset": "SOLUSDT",
+      "candidate_enabled": false,
+      "enabled": false,
+      "invalid_horizons_bars": [],
+      "overlay": "regime_v2_trend_gate",
+      "paper_enabled": false,
+      "paper_runtime_enabled": false,
+      "shadow_enabled": false,
+      "shadow_persist_enabled": false,
+      "timeframe": "default",
+      "valid_horizons_bars": []
+    },
+    {
+      "asset": "SOLUSDT",
+      "candidate_enabled": false,
+      "enabled": false,
+      "invalid_horizons_bars": [
+        3
+      ],
+      "overlay": "regime_v2_pa_asset_guardrail",
+      "paper_enabled": false,
+      "paper_runtime_enabled": false,
+      "shadow_enabled": false,
+      "shadow_persist_enabled": false,
+      "timeframe": "default",
+      "valid_horizons_bars": [
+        6,
+        12,
+        24
+      ]
+    },
+    {
+      "asset": "SOLUSDT",
+      "candidate_enabled": false,
+      "enabled": false,
+      "invalid_horizons_bars": [],
+      "overlay": "regime_v2_trend_gate",
+      "paper_enabled": false,
+      "paper_runtime_enabled": false,
+      "shadow_enabled": true,
+      "shadow_persist_enabled": true,
+      "timeframe": "4h",
+      "valid_horizons_bars": []
+    },
+    {
+      "asset": "BNBUSDT",
+      "candidate_enabled": false,
+      "enabled": false,
+      "invalid_horizons_bars": [],
+      "overlay": "regime_v2_trend_gate",
+      "paper_enabled": false,
+      "paper_runtime_enabled": false,
+      "shadow_enabled": false,
+      "shadow_persist_enabled": false,
+      "timeframe": "default",
+      "valid_horizons_bars": []
+    },
+    {
+      "asset": "BNBUSDT",
+      "candidate_enabled": false,
+      "enabled": false,
+      "invalid_horizons_bars": [
+        3
+      ],
+      "overlay": "regime_v2_pa_asset_guardrail",
+      "paper_enabled": false,
+      "paper_runtime_enabled": false,
+      "shadow_enabled": false,
+      "shadow_persist_enabled": false,
+      "timeframe": "default",
+      "valid_horizons_bars": [
+        6,
+        12,
+        24
+      ]
+    },
+    {
+      "asset": "BNBUSDT",
+      "candidate_enabled": false,
+      "enabled": false,
+      "invalid_horizons_bars": [],
+      "overlay": "regime_v2_trend_gate",
+      "paper_enabled": false,
+      "paper_runtime_enabled": false,
+      "shadow_enabled": true,
+      "shadow_persist_enabled": true,
+      "timeframe": "1h",
+      "valid_horizons_bars": []
+    },
+    {
+      "asset": "BNBUSDT",
+      "candidate_enabled": false,
+      "enabled": false,
+      "invalid_horizons_bars": [
+        3
+      ],
+      "overlay": "regime_v2_pa_asset_guardrail",
+      "paper_enabled": false,
+      "paper_runtime_enabled": false,
+      "shadow_enabled": false,
+      "shadow_persist_enabled": false,
+      "timeframe": "1h",
+      "valid_horizons_bars": [
+        6,
+        12,
+        24
+      ]
+    }
+  ],
+  "phase": "phase_8d_runtime_safety_validator",
+  "summary": {
+    "blockers": [],
+    "invalid_horizon_issues": [],
+    "pa_guardrail_config_count": 6,
+    "pa_guardrail_enabled_count": 0,
+    "runtime_posture": "safe_shadow_diagnostic",
+    "safe": true,
+    "transition_postures": [
+      "frozen_diagnostic"
+    ],
+    "transition_runtime_enabled_count": 0,
+    "transition_stop_gate_decision": "freeze_transition_micro_states_diagnostic",
+    "transition_stop_gate_promotion_ready": false,
+    "trend_gate_config_count": 9,
+    "trend_gate_live_enabled_count": 0,
+    "trend_gate_shadow_enabled_count": 4,
+    "warnings": []
+  }
+}
