@@ -99,3 +99,8 @@ To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
+
+## Squad Collaboration
+
+This project uses squad for multi-agent collaboration. Run `squad help` for all commands and usage guide.
+

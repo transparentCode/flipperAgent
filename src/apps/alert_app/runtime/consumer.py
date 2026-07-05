@@ -19,10 +19,15 @@ from libs.common.asset_manifest import ASSET_LIFECYCLE_STREAM, AssetLifecycleEve
 from libs.common.lifecycle_dedup import mark_lifecycle_event_processed
 from libs.common.logging.logger_utils import bind_logger
 from libs.common.stream_consumer import ensure_consumer_group
-from libs.contracts.ingestion import IngestionRuntimeEvent
+from libs.contracts.ingestion import IngestionEventType, IngestionRuntimeEvent
 from libs.contracts.serialization import valkey_decode
 
 logger = bind_logger(__name__, system_component="ALERTING")
+_NON_INCIDENT_INGESTION_EVENTS = {
+    IngestionEventType.COMMAND_ACCEPTED,
+    IngestionEventType.GAP_FILL_COMPLETED,
+    IngestionEventType.ASSET_PURGE_COMPLETED,
+}
 
 
 class AlertEventConsumer:
@@ -137,6 +142,13 @@ class AlertEventConsumer:
                 for _stream_name, messages in response:
                     for message_id, payload in messages:
                         event = valkey_decode(payload, IngestionRuntimeEvent)
+                        if event.event_type in _NON_INCIDENT_INGESTION_EVENTS:
+                            await self.redis_client.xack(
+                                self.settings.ingestion_events_stream,
+                                self.settings.consumer_group,
+                                message_id,
+                            )
+                            continue
                         normalized = normalize_ingestion_runtime_event(event)
                         routes = resolve_routes_for_event(
                             normalized,

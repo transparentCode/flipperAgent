@@ -29,9 +29,16 @@ class _FakeRedis:
     def __init__(self):
         self.hashes: dict[str, dict[str, str]] = {}
         self.values: dict[str, str] = {}
+        self.expirations: dict[str, int] = {}
 
     async def hgetall(self, key: str):
         return self.hashes.get(key, {})
+
+    async def hset(self, key: str, mapping: dict[str, str]):
+        self.hashes[key] = dict(mapping)
+
+    async def expire(self, key: str, ttl_seconds: int):
+        self.expirations[key] = ttl_seconds
 
     async def get(self, key: str):
         return self.values.get(key)
@@ -61,7 +68,13 @@ async def test_fetch_service_tradingview_ohlcv_live(monkeypatch):
         lambda cookies_path=None: fake_interceptor,
     )
 
-    service = ScraperFetchService()
+    monkeypatch.setattr(
+        "apps.scraper_app.service.fetch_service.tradingview_config.get",
+        lambda key, default=None: 1800 if key == "tradingview.staleness_ttl_seconds" else default,
+    )
+
+    redis = _FakeRedis()
+    service = ScraperFetchService(redis_client=redis)
     result = await service.fetch(
         ScrapeRequest(
             provider=ScraperProvider.TRADINGVIEW,
@@ -76,6 +89,10 @@ async def test_fetch_service_tradingview_ohlcv_live(monkeypatch):
     assert result.summary["rows"] == 2
     assert result.summary["last_timestamp"] == 2
     assert result.data[1]["close"] == 11.5
+    assert result.cache_key == "index:latest:TOTAL3ES"
+    assert redis.hashes["index:latest:TOTAL3ES"]["close"] == "11.5"
+    assert redis.hashes["index:latest:TOTAL3ES"]["timestamp"] == "2"
+    assert redis.expirations["index:latest:TOTAL3ES"] == 1800
     fake_interceptor.close.assert_awaited_once()
 
 

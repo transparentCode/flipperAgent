@@ -18,108 +18,108 @@ These are the foundational instructions for any AI assistant working on the `fli
 - Follow general Python best practices and PEP 8 guidelines.
 - **Link, don't embed:** Refer to [README.md](README.md) for project purpose and architectural overviews.
 ## Memory & Context Protocol (Applies to ALL Agents)
-- **NO PREASSUMPTIONS OR SHORTCUTS:** You must not assume context.
-- **START OF TASK:** Always utilize the MCP memory harness (`automem` / `memoir`) or read persistent memory files to retrieve past context, decisions, and history before beginning any solution architecture, coding, or review.
-- **END OF TASK:** Always save updated state, architectural outcomes, or major findings to the MCP memory harness before handing off or returning to the user.
+- **NO PREASSUMPTIONS OR SHORTCUTS:** You must not assume context. If a requirement, constraint, or fact is unclear, do not guess.
+- **START OF TASK:** Always retrieve prior context from the `mem0` memory harness before beginning any solution architecture, coding, or review.
+- **BUILD CONTEXT WHEN UNCLEAR:** When prior memory is incomplete or ambiguous, ask the user a focused series of related questions to establish facts. State your current understanding and ask for confirmation or correction before proceeding.
+- **FACT-CHECK BEFORE ACTING:** Validate assumptions against memory, the codebase, or explicit user input. If contradictions arise, surface them and ask the user to resolve.
+- **END OF TASK:** Always save updated state, architectural outcomes, or major findings to the `mem0` memory harness before handing off or returning to the user.
 
-<!-- gitnexus:start -->
-# GitNexus — Code Intelligence
+## Subagent Lifecycle (Applies to ALL Agents)
 
-This project is indexed by GitNexus as **flipperAgent** (13516 symbols, 37834 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+### When to Invoke a Subagent
+- Use a subagent when the task clearly maps to a specialist role:
+  - `quant-research` → hypothesis/experiment design
+  - `quant-architect` → architecture and tradeoffs
+  - `quant-coder` → implementation against approved handoff
+  - `quant-review` → safety and correctness review
+  - `quant-approval` → final sign-off
+- Do **not** spawn a subagent for trivial one-step tasks you can complete directly.
 
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
+### Before Invoking
+1. Retrieve prior context from `mem0`.
+2. Produce a concise, stage-correct handoff package (see `quant-handoff` skill).
+3. Include: objective, scope boundaries, explicit non-goals, acceptance criteria, and known risks.
+
+### During Subagent Execution
+- Do not spawn multiple subagents in parallel for the same task unless explicitly designed.
+- Do not interrupt a subagent unless it is blocked or has asked for input.
+
+### After Subagent Returns
+1. Validate the output against the handoff's acceptance criteria.
+2. Identify unresolved blockers or follow-ups.
+3. Decide next action:
+   - **Approve** → route to `quant-write-handoff` or next stage.
+   - **Revise** → return to the same subagent with specific feedback.
+   - **Escalate** → route to `quant-architect` if scope ambiguity is found.
+4. Save the outcome to `mem0`.
+
+### Anti-Patterns
+- NEVER route `coder → review → coder → review` without an explicit `quant-architect` or user decision in between.
+- NEVER spawn a subagent without a written handoff.
+- NEVER discard a subagent's findings without recording why.
+
+<!-- codebase-memory:start -->
+# Codebase Memory — Code Intelligence
+
+This project is indexed by `codebase-memory-mcp`. Use the codebase-memory tools to understand code, assess impact, and navigate safely.
+
+> If any codebase-memory tool warns the index is stale, run `codebase-memory-mcp cli index_repository '{"repo_path": "/Users/aloobhujia/flipperAgent"}'` in terminal first.
 
 ## Always Do
 
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
-- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
+- **MUST use codebase-memory before editing any existing symbol.** Before modifying a function, class, or method, query the codebase graph to understand callers, callees, and affected execution paths.
+- **MUST verify scope before committing** to confirm your changes only affect expected symbols and files.
+- **MUST warn the user** if impact analysis reveals HIGH or CRITICAL risk before proceeding with edits.
+- When exploring unfamiliar code, use `search_graph` and `trace_path` to find execution flows instead of relying solely on grep.
+- When you need full context on a specific symbol — callers, callees, which flows it participates in — use `get_code_snippet` and `trace_path`.
 
 ## When Debugging
 
-1. `gitnexus_query({query: "<error or symptom>"})` — find execution flows related to the issue
-2. `gitnexus_context({name: "<suspect function>"})` — see all callers, callees, and process participation
-3. `READ gitnexus://repo/flipperAgent/process/{processName}` — trace the full execution flow step by step
-4. For regressions: `gitnexus_detect_changes({scope: "compare", base_ref: "main"})` — see what your branch changed
+1. `search_graph` / `search_code` — find execution flows related to the issue.
+2. `trace_path` — see inbound and outbound call chains for a suspect function.
+3. `get_code_snippet` — read the source for a symbol by qualified name.
+4. For regressions: `detect_changes` — map git diff to affected symbols with risk classification.
 
 ## When Refactoring
 
-- **Renaming**: MUST use `gitnexus_rename({symbol_name: "old", new_name: "new", dry_run: true})` first. Review the preview — graph edits are safe, text_search edits need manual review. Then run with `dry_run: false`.
-- **Extracting/Splitting**: MUST run `gitnexus_context({name: "target"})` to see all incoming/outgoing refs, then `gitnexus_impact({target: "target", direction: "upstream"})` to find all external callers before moving code.
-- After any refactor: run `gitnexus_detect_changes({scope: "all"})` to verify only expected files changed.
+- **Renaming**: Use careful multi-file review and tests; codebase-memory can help locate all references via `search_graph`.
+- **Extracting/Splitting**: Use `trace_path` to see all incoming/outgoing refs, then verify all external callers before moving code.
+- After any refactor: review changed files to verify only expected symbols changed.
 
 ## Never Do
 
-- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
+- NEVER edit a function, class, or method without first understanding its callers and callees.
 - NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
-- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
+- NEVER rename symbols with naive find-and-replace — trace the call graph first.
 
 ## Tools Quick Reference
 
-| Tool | When to use | Command |
+| Tool | When to use | Example |
 |------|-------------|---------|
-| `query` | Find code by concept | `gitnexus_query({query: "auth validation"})` |
-| `context` | 360-degree view of one symbol | `gitnexus_context({name: "validateUser"})` |
-| `impact` | Blast radius before editing | `gitnexus_impact({target: "X", direction: "upstream"})` |
-| `detect_changes` | Pre-commit scope check | `gitnexus_detect_changes({scope: "staged"})` |
-| `rename` | Safe multi-file rename | `gitnexus_rename({symbol_name: "old", new_name: "new", dry_run: true})` |
-| `cypher` | Custom graph queries | `gitnexus_cypher({query: "MATCH ..."})` |
+| `index_repository` | Index or re-index the repo | `index_repository({"repo_path": "/Users/aloobhujia/flipperAgent"})` |
+| `search_graph` | Find symbols by name, label, file | `search_graph({"name_pattern": ".*Handler.*", "label": "Function"})` |
+| `search_code` | Graph-augmented grep | `search_code({"query": "auth validation"})` |
+| `trace_path` | Blast radius / call chain | `trace_path({"function_name": "X", "direction": "both"})` |
+| `get_code_snippet` | Read source for a symbol | `get_code_snippet({"qualified_name": "flipperAgent.src.libs.X"})` |
+| `get_architecture` | Codebase overview | `get_architecture({})` |
+| `detect_changes` | Pre-commit scope check | `detect_changes({})` |
+| `query_graph` | Custom Cypher-like queries | `query_graph({"query": "MATCH (f:Function) RETURN f.name LIMIT 5"})` |
 
-## Impact Risk Levels
-
-| Depth | Meaning | Action |
-|-------|---------|--------|
-| d=1 | WILL BREAK — direct callers/importers | MUST update these |
-| d=2 | LIKELY AFFECTED — indirect deps | Should test |
-| d=3 | MAY NEED TESTING — transitive | Test if critical path |
-
-## Resources
-
-| Resource | Use for |
-|----------|---------|
-| `gitnexus://repo/flipperAgent/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/flipperAgent/clusters` | All functional areas |
-| `gitnexus://repo/flipperAgent/processes` | All execution flows |
-| `gitnexus://repo/flipperAgent/process/{name}` | Step-by-step execution trace |
-
-## Self-Check Before Finishing
-
-Before completing any code modification task, verify:
-1. `gitnexus_impact` was run for all modified symbols
-2. No HIGH/CRITICAL risk warnings were ignored
-3. `gitnexus_detect_changes()` confirms changes match expected scope
-4. All d=1 (WILL BREAK) dependents were updated
-
-## Keeping the Index Fresh
-
-After committing code changes, the GitNexus index becomes stale. Re-run analyze to update it:
-
-```bash
-npx gitnexus analyze
-```
-
-If the index previously included embeddings, preserve them by adding `--embeddings`:
-
-```bash
-npx gitnexus analyze --embeddings
-```
-
-To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.embeddings` field shows the count (0 means no embeddings). **Running analyze without `--embeddings` will delete any previously generated embeddings.**
-
-> Claude Code users: A PostToolUse hook handles this automatically after `git commit` and `git merge`.
-
-## CLI
+## CLI Skill Reference
 
 | Task | Read this skill file |
 |------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
+| Understand architecture / "How does X work?" | `.agents/skills/codebase-memory/exploring/SKILL.md` |
+| Blast radius / "What breaks if I change X?" | `.agents/skills/codebase-memory/impact-analysis/SKILL.md` |
+| Trace bugs / "Why is X failing?" | `.agents/skills/codebase-memory/debugging/SKILL.md` |
+| Rename / extract / split / refactor | `.agents/skills/codebase-memory/refactoring/SKILL.md` |
+| Tools, resources, schema reference | `.agents/skills/codebase-memory/guide/SKILL.md` |
+| Index, status, clean, wiki CLI commands | `.agents/skills/codebase-memory/cli/SKILL.md` |
 
-<!-- gitnexus:end -->
+<!-- codebase-memory:end -->
+
+
+## Squad Collaboration
+
+This project uses squad for multi-agent collaboration. Run `squad help` for all commands and usage guide.
+

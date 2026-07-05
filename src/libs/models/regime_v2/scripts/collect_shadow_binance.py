@@ -29,6 +29,10 @@ from libs.models.regime_v2.evaluation.candidate_export import (
     TrendCandidateExportConfig,
     export_builtin_trend_candidates,
 )
+from libs.models.regime_v2.adapters.trendline_feature_producer import (
+    TrendlineFeatureConfig,
+    compute_trendline_context_features,
+)
 from libs.models.regime_v2.evaluation.comparison import RegimeComparisonConfig, run_regime_comparison
 from libs.models.regime_v2.scripts.compare_binance_native import _parse_millis, fetch_binance_native_ohlcv
 from libs.selection.regime_v2_shadow_report import (
@@ -36,6 +40,7 @@ from libs.selection.regime_v2_shadow_report import (
     run_regime_v2_shadow_report,
 )
 from libs.selection.selection_layer import SelectionLayer
+from libs.trendlines.boundary import TrendlineSnapshotHistory
 
 _DEFAULT_PAIRS = (
     ("BTCUSDT", "4h"),
@@ -99,6 +104,10 @@ async def _run(args: argparse.Namespace) -> dict[str, Any]:
                 warmup_bars=args.warmup_bars,
                 max_records=args.max_records_per_pair,
                 models=models,
+                include_trendline_context=bool(args.include_trendline_context),
+                trendline_min_bars=int(args.trendline_min_bars),
+                trendline_history_limit=int(args.trendline_history_limit),
+                shadow_log_path=str(log_path),
             )
         except Exception as exc:
             summary = {
@@ -135,6 +144,10 @@ async def collect_pair_shadow_logs(
     warmup_bars: int,
     max_records: int | None,
     models: tuple[str, ...],
+    include_trendline_context: bool = False,
+    trendline_min_bars: int = 80,
+    trendline_history_limit: int = 5,
+    shadow_log_path: str | None = None,
 ) -> dict[str, Any]:
     ohlcv = await fetch_binance_native_ohlcv(
         symbol=asset,
@@ -181,6 +194,16 @@ async def collect_pair_shadow_logs(
 
     candidates_by_ts = {key: frame for key, frame in candidates.groupby("timestamp")}
     layer = SelectionLayer(asset, timeframe)
+    if shadow_log_path:
+        _force_shadow_persistence(layer, shadow_log_path)
+    trendline_history = TrendlineSnapshotHistory(maxlen=max(int(trendline_history_limit) + 2, 3))
+    trendline_config = TrendlineFeatureConfig(
+        fitter="ensemble",
+        min_bars=max(int(trendline_min_bars), 2),
+        include_native_signals=True,
+        record_snapshot=True,
+        history_limit=max(int(trendline_history_limit), 1),
+    )
     attempted = 0
     selected_total = 0
     missing_candidate_bars = 0
@@ -196,12 +219,22 @@ async def collect_pair_shadow_logs(
         if candidate_rows is None or candidate_rows.empty:
             missing_candidate_bars += 1
             continue
+        trendline_features = None
+        if include_trendline_context:
+            trendline_features = compute_trendline_context_features(
+                ohlcv.iloc[: idx + 1],
+                asset=asset,
+                timeframe=timeframe,
+                config=trendline_config,
+                snapshot_history=trendline_history,
+            )
         feature_vec = _feature_vector_from_row(
             comparison.loc[timestamp],
             ohlcv.loc[timestamp],
             asset=asset,
             timeframe=timeframe,
             timestamp=timestamp,
+            trendline_features=trendline_features,
         )
         model_outputs, scoring_outputs = _outputs_from_candidates(candidate_rows)
         selected = layer.select(model_outputs, scoring_outputs, feature_vec)
@@ -220,7 +253,24 @@ async def collect_pair_shadow_logs(
         "missing_candidate_bars": int(missing_candidate_bars),
         "skipped_warmup_or_horizon": int(skipped_warmup_or_horizon),
         "models": list(models),
+        "trendline_context_enabled": bool(include_trendline_context),
+        "trendline_snapshots_recorded": int(trendline_history.count(asset, timeframe)) if include_trendline_context else 0,
     }
+
+
+def _force_shadow_persistence(layer: SelectionLayer, shadow_log_path: str) -> None:
+    overlays = layer._config.setdefault("overlays", {})
+    if not isinstance(overlays, dict):
+        overlays = {}
+        layer._config["overlays"] = overlays
+    gate = overlays.setdefault("regime_v2_trend_gate", {})
+    if not isinstance(gate, dict):
+        gate = {}
+        overlays["regime_v2_trend_gate"] = gate
+    gate["shadow_enabled"] = True
+    gate["shadow_persist_enabled"] = True
+    gate["shadow_persist_path"] = shadow_log_path
+    gate.setdefault("shadow_log_enabled", False)
 
 
 def _outputs_from_candidates(frame: pd.DataFrame) -> tuple[list[ModelOutput], list[ScoringOutput]]:
@@ -265,6 +315,7 @@ def _feature_vector_from_row(
     asset: str,
     timeframe: str,
     timestamp: Any,
+    trendline_features: dict[str, Any] | None = None,
 ) -> FeatureVector:
     evidence = {
         "trend_direction": _string_value(comparison_row.get("regime_v2_trend_direction"), "neutral"),
@@ -280,11 +331,14 @@ def _feature_vector_from_row(
         "breakout_score": _float_value(comparison_row.get("regime_v2_policy_breakout_score"), 0.0),
         "mean_reversion_score": _float_value(comparison_row.get("regime_v2_policy_mean_reversion_score"), 0.0),
     }
+    features: dict[str, Any] = {"regime_v2": {"evidence": evidence, "policy": policy}}
+    if trendline_features:
+        features["trendline"] = dict(trendline_features)
     return FeatureVector(
         asset=asset,
         timeframe=timeframe,
         timestamp=_timestamp_value(timestamp),
-        features={"regime_v2": {"evidence": evidence, "policy": policy}},
+        features=features,
         bar_data={
             "open": _float_value(ohlcv_row.get("open"), 0.0),
             "high": _float_value(ohlcv_row.get("high"), 0.0),
@@ -364,6 +418,9 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--output-json", default=None, help="Optional collection summary JSON.")
     parser.add_argument("--report-json", default=None, help="Optional Phase 5C report JSON after collection.")
     parser.add_argument("--report-md", default=None, help="Optional Phase 5C report Markdown after collection.")
+    parser.add_argument("--include-trendline-context", action="store_true", help="Attach read-only trendline_* context to shadow FeatureVectors/logs.")
+    parser.add_argument("--trendline-min-bars", type=int, default=80, help="Minimum lookback bars before trendline context becomes valid.")
+    parser.add_argument("--trendline-history-limit", type=int, default=5, help="Rolling trendline snapshot history passed to temporal context.")
     return parser.parse_args(argv)
 
 

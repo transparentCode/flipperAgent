@@ -189,6 +189,9 @@ class SelectionLayer:
             decision,
             shadow_candidate_count=len(shadow_candidates),
         )
+        trendline_context = _trendline_shadow_context(feature_vec)
+        if trendline_context:
+            payload["trendline_context"] = trendline_context
         if gate_config.get("shadow_log_enabled", False):
             logger.info(
                 f"RegimeV2 trend gate shadow for {self.asset}/{self.timeframe}: "
@@ -300,6 +303,13 @@ def _pa_asset_guardrail_config(config: dict) -> dict:
         return {}
     guardrail = overlays.get("regime_v2_pa_asset_guardrail", {})
     return guardrail if isinstance(guardrail, dict) else {}
+
+
+def _trendline_shadow_context(feature_vec: FeatureVector) -> dict:
+    trendline = feature_vec.features.get("trendline")
+    if not isinstance(trendline, dict):
+        return {}
+    return {str(key): value for key, value in trendline.items() if str(key).startswith("trendline_")}
 
 
 def _selection_shadow_payload(

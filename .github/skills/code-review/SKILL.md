@@ -4,6 +4,8 @@ description: 'Quant-aware code review workflow for implementation changes. Use w
 user-invocable: true
 ---
 
+> Canonical quant review skill: `.agents/skills/quant-review/SKILL.md`
+
 # Code Review Procedure
 
 ## When to Use
@@ -13,7 +15,7 @@ user-invocable: true
 
 ## Procedure
 1. Identify the new changes (ask the user if not specified).
-2. If the change touches existing code, use GitNexus to inspect blast radius, direct dependents, and affected execution flows before concluding the change is safe.
+2. If the change touches existing code, use codebase intelligence tools to inspect blast radius, direct dependents, and affected execution flows before concluding the change is safe.
 3. Execute automated checks in narrow or dry-run mode if available (for example `ruff check`, `pytest` for the touched slice, or other relevant validation commands).
 4. Check for the following requirements:
    - Proper typing and interface stability.

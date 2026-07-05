@@ -18,7 +18,7 @@ alerts:
     worker_count: 1
   routes:
     system_alerts:
-      enabled: true
+      enabled: false
       transport: webhook
       destination: http://localhost:8088/alerts/system
       timeout_seconds: 10
@@ -119,7 +119,7 @@ alerts:
     ingestion_runtime:
       enabled: true
       source_app: ingestion_app
-      url: http://ingestion-worker-streams:8002/health
+      url: http://worker-streams:8001/health
       timeout_seconds: 5
       healthy_statuses:
         - ok

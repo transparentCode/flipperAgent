@@ -5,6 +5,8 @@ argument-hint: 'Which handoff stage and what topic should be documented?'
 user-invocable: true
 ---
 
+> Canonical skill: `.agents/skills/quant-write-handoff/SKILL.md`
+
 # Write Quant Handoff
 
 ## When to Use
@@ -22,7 +24,7 @@ user-invocable: true
 ## Required Workflow
 1. Retrieve relevant prior context from available memory systems before drafting the handoff.
 2. Inspect the repository and gather the exact scope, touched files or modules, and any existing approved decisions.
-3. If the handoff touches existing code, use GitNexus repository context, impact analysis, execution flows, and change detection when available to capture blast radius accurately.
+3. If the handoff touches existing code, use codebase intelligence tools repository context, impact analysis, execution flows, and change detection when available to capture blast radius accurately.
 4. Select the correct stage template from `../quant-handoff/SKILL.md`:
    - architect to coder
    - coder to reviewer

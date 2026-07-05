@@ -69,6 +69,7 @@ def build_regime_v2_shadow_report(
         for record in subset_only_changed
         if str(record.get("baseline_selected_model") or "") == "PriceAction"
     ]
+    trendline_context = [record for record in filtered if _has_trendline_context(record)]
 
     summary = {
         "source_path": source_path,
@@ -101,6 +102,14 @@ def build_regime_v2_shadow_report(
         "avg_mean_reversion_score": _mean(record.get("mean_reversion_score") for record in filtered),
         "avg_confidence": _mean(record.get("confidence") for record in filtered),
         "avg_uncertainty": _mean(record.get("uncertainty") for record in filtered),
+        "trendline_context_count": len(trendline_context),
+        "trendline_context_rate": _rate(len(trendline_context), total),
+        "avg_trendline_mean_quality": _mean(record.get("trendline_mean_normalized_quality") for record in trendline_context),
+        "avg_trendline_support_quality": _mean(record.get("trendline_support_quality_score") for record in trendline_context),
+        "avg_trendline_resistance_quality": _mean(record.get("trendline_resistance_quality_score") for record in trendline_context),
+        "avg_trendline_hull_width_atr": _mean(record.get("trendline_hull_width_atr") for record in trendline_context),
+        "avg_trendline_ray_persistence_bias": _mean(record.get("trendline_ray_persistence_bias") for record in trendline_context),
+        "avg_trendline_hull_convergence_rate": _mean(record.get("trendline_hull_convergence_rate") for record in trendline_context),
     }
 
     return {
@@ -114,6 +123,12 @@ def build_regime_v2_shadow_report(
             "reason": _count_key(filtered, "reason"),
             "shadow_subset": _count_key(filtered, "shadow_subset_name"),
             "active_playbooks": _active_playbook_counts(filtered),
+            "trendline_interaction": _count_key(trendline_context, "trendline_interaction"),
+            "trendline_market_position_state": _count_key(trendline_context, "trendline_market_position_state"),
+            "trendline_structure_state": _count_key(trendline_context, "trendline_structure_state"),
+            "trendline_risk_context": _count_key(trendline_context, "trendline_risk_context"),
+            "trendline_confidence_annotation": _count_key(trendline_context, "trendline_confidence_annotation"),
+            "trendline_annotation_reason": _count_key(trendline_context, "trendline_annotation_reason"),
         },
         "changed_pick_groups": _changed_pick_groups(changed),
         "gate_active_changed_pick_groups": _changed_pick_groups(gate_active_changed),
@@ -169,6 +184,10 @@ def render_regime_v2_shadow_report_markdown(report: Mapping[str, Any]) -> str:
         f"- Avg edge delta: {summary.get('avg_edge_delta')}",
         f"- Avg confidence: {summary.get('avg_confidence')}",
         f"- Avg uncertainty: {summary.get('avg_uncertainty')}",
+        f"- Trendline context: {summary.get('trendline_context_count', 0)} ({summary.get('trendline_context_rate')})",
+        f"- Avg trendline quality: {summary.get('avg_trendline_mean_quality')}",
+        f"- Avg trendline hull width ATR: {summary.get('avg_trendline_hull_width_atr')}",
+        f"- Avg trendline persistence bias: {summary.get('avg_trendline_ray_persistence_bias')}",
         "",
         "## Active Playbooks",
         "",
@@ -176,6 +195,18 @@ def render_regime_v2_shadow_report_markdown(report: Mapping[str, Any]) -> str:
     playbooks = dict(distributions.get("active_playbooks", {}))
     if playbooks:
         for name, count in sorted(playbooks.items()):
+            lines.append(f"- {name}: {count}")
+    else:
+        lines.append("- none")
+
+    lines.extend([
+        "",
+        "## Trendline Context",
+        "",
+    ])
+    trendline_states = dict(distributions.get("trendline_market_position_state", {}))
+    if trendline_states:
+        for name, count in sorted(trendline_states.items()):
             lines.append(f"- {name}: {count}")
     else:
         lines.append("- none")
@@ -261,6 +292,13 @@ def _subset_only_removed(record: Mapping[str, Any]) -> bool:
         return False
     target_models = record.get("target_models") or []
     return str(baseline) not in {str(model) for model in target_models}
+
+
+def _has_trendline_context(record: Mapping[str, Any]) -> bool:
+    context = record.get("trendline_context")
+    if isinstance(context, dict) and context:
+        return True
+    return any(str(key).startswith("trendline_") and record.get(key) is not None for key in record.keys())
 
 
 def _mean(values: Iterable[Any]) -> float | None:

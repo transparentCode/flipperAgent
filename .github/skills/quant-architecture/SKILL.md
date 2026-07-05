@@ -4,6 +4,8 @@ description: 'Quant architecture planning workflow for research systems, data pi
 user-invocable: true
 ---
 
+> Canonical skill: `.agents/skills/quant-architect/SKILL.md`
+
 # Quant Architecture Planning
 
 ## When to Use
@@ -14,7 +16,7 @@ user-invocable: true
 
 ## Procedure
 1. Start with memory retrieval from the available MCP systems before proposing any architecture.
-2. If the plan touches existing code, read GitNexus repository context first and check whether the index is fresh enough for impact analysis.
+2. If the plan touches existing code, read codebase intelligence tools repository context first and check whether the index is fresh enough for impact analysis.
 3. Define the operating context explicitly:
    - asset universe
    - venue or market structure
@@ -29,7 +31,7 @@ user-invocable: true
    - labeling
    - backtesting and simulation
    - evaluation and reporting
-5. Use GitNexus impact analysis and process views to map blast radius and affected execution flows for the symbols, modules, and interfaces most likely to change.
+5. Use codebase intelligence tools impact analysis and process views to map blast radius and affected execution flows for the symbols, modules, and interfaces most likely to change.
 6. For each slice, compare at least two viable options and document:
    - expected benefit
    - cost or complexity
@@ -47,6 +49,6 @@ user-invocable: true
 ## Output Expectations
 - Include explicit tradeoffs, not just a preferred design.
 - Call out assumptions and unknowns separately.
-- Include GitNexus blast radius and affected execution flows when the architecture interacts with existing code.
+- Include codebase intelligence tools blast radius and affected execution flows when the architecture interacts with existing code.
 - Prefer minimal architecture that preserves research speed and future extensibility.
 - Save final decisions and open questions back to memory when the MCP systems are available.

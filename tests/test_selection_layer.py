@@ -443,6 +443,17 @@ class TestRegimeV2ShadowDecisionLog:
                 "trend_score": 0.5,
                 "confidence": 0.7,
                 "candidate_playbooks": {"Momentum": "trend"},
+                "trendline_context": {
+                    "trendline_valid": 1.0,
+                    "trendline_interaction": "NONE",
+                    "trendline_market_position_state": "inside_channel",
+                    "trendline_mean_normalized_quality": 0.72,
+                    "trendline_ray_persistence_bias": 0.25,
+                    "trendline_risk_context": "inside_channel_context",
+                    "trendline_confidence_annotation": "neutral",
+                    "trendline_annotation_reason": "price_inside_structural_channel",
+                    "trendline_no_trade_warning": 0.0,
+                },
             },
             asset="BTCUSDT",
             timeframe="1h",
@@ -462,6 +473,15 @@ class TestRegimeV2ShadowDecisionLog:
         assert record["selection_changed"] is True
         assert record["active_playbooks"] == ["trend"]
         assert record["candidate_playbooks"] == {"Momentum": "trend"}
+        assert record["trendline_valid"] == 1.0
+        assert record["trendline_interaction"] == "NONE"
+        assert record["trendline_market_position_state"] == "inside_channel"
+        assert record["trendline_mean_normalized_quality"] == 0.72
+        assert record["trendline_risk_context"] == "inside_channel_context"
+        assert record["trendline_confidence_annotation"] == "neutral"
+        assert record["trendline_annotation_reason"] == "price_inside_structural_channel"
+        assert record["trendline_no_trade_warning"] == 0.0
+        assert record["trendline_context"]["trendline_ray_persistence_bias"] == 0.25
         assert record["payload"]["shadow_subset_name"] == "validated_phase5a_subset"
 
 
@@ -586,7 +606,15 @@ class TestSelectionLayerSelect:
                 "regime_v2": {
                     "evidence": {"trend_direction": "bull", "confidence": 0.7},
                     "policy": {"allow_trend_following": True, "trend_score": 0.5},
-                }
+                },
+                "trendline": {
+                    "trendline_valid": 1.0,
+                    "trendline_interaction": "NONE",
+                    "trendline_market_position_state": "inside_channel",
+                    "trendline_risk_context": "inside_channel_context",
+                    "trendline_confidence_annotation": "neutral",
+                    "ignored_non_trendline_key": "not_copied",
+                },
             },
             bar_data={"close": 100.0},
         )
@@ -608,6 +636,11 @@ class TestSelectionLayerSelect:
         assert shadow["active_playbooks"] == ["trend"]
         assert shadow["shadow_subset_name"] == "legacy_target_models"
         assert shadow["candidate_playbooks"]["Momentum"] == "trend"
+        assert shadow["trendline_context"]["trendline_valid"] == 1.0
+        assert shadow["trendline_context"]["trendline_market_position_state"] == "inside_channel"
+        assert shadow["trendline_context"]["trendline_risk_context"] == "inside_channel_context"
+        assert shadow["trendline_context"]["trendline_confidence_annotation"] == "neutral"
+        assert "ignored_non_trendline_key" not in shadow["trendline_context"]
         assert shadow["breakout_score"] == 0.0
         assert shadow["mean_reversion_score"] == 0.0
         assert all("regime_v2_trend_gate" not in result.candidate.metadata for result in results)

@@ -171,7 +171,7 @@ class ScraperFetchService:
         finally:
             await interceptor.close()
 
-        return ScrapeResult(
+        result = ScrapeResult(
             provider=request.provider,
             dataset=request.dataset,
             intent=request.intent,
@@ -182,6 +182,8 @@ class ScraperFetchService:
             summary=self._summarize_frame(frame),
             data=self._frame_to_records(frame),
         )
+        await self._store_live_tradingview_cache(request=request, result=result)
+        return result
 
     async def _fetch_coinglass(self, request: ScrapeRequest) -> ScrapeResult:
         interceptor = CoinGlassHeatmapInterceptor(cookies_path=request.cookies_path)
@@ -212,6 +214,38 @@ class ScraperFetchService:
             },
             data=envelope,
         )
+
+    async def _store_live_tradingview_cache(
+        self,
+        *,
+        request: ScrapeRequest,
+        result: ScrapeResult,
+    ) -> None:
+        if self.redis_client is None or request.dataset != ScrapeDataset.OHLCV:
+            return
+        if not isinstance(result.data, list) or not result.data:
+            return
+
+        latest = result.data[-1]
+        cache_key = f"index:latest:{str(request.symbol or '').split(':')[-1]}"
+        await self.redis_client.hset(
+            cache_key,
+            mapping={
+                "symbol": str(request.symbol or "").split(":")[-1],
+                "timestamp": str(latest.get("timestamp", "")),
+                "open": str(latest.get("open", "")),
+                "high": str(latest.get("high", "")),
+                "low": str(latest.get("low", "")),
+                "close": str(latest.get("close", "")),
+                "volume": str(latest.get("volume", 0.0)),
+                "timeframe": str(request.timeframe or ""),
+                "fetched_at": str(result.fetched_at or time.time()),
+            },
+        )
+        ttl_seconds = int(tradingview_config.get("tradingview.staleness_ttl_seconds", 1800))
+        if ttl_seconds > 0:
+            await self.redis_client.expire(cache_key, ttl_seconds)
+        result.cache_key = cache_key
 
     @staticmethod
     def _frame_to_records(frame: pd.DataFrame) -> list[dict[str, Any]]:

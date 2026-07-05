@@ -1,22 +1,13 @@
 {
   "servers": {
-    "gitnexus": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "gitnexus", "mcp"]
+    "mem0-local": {
+      "type": "http",
+      "url": "http://localhost:8889/mcp"
     },
-    "automem": {
+    "codebase-memory": {
       "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@verygoodplugins/mcp-automem"],
-      "env": {
-        "AUTOMEM_ENDPOINT": "http://127.0.0.1:8001"
-      }
-    },
-    "memoir": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["/Users/aloobhujia/memoir-mcp/index.js"]
+      "command": "codebase-memory-mcp",
+      "args": []
     }
   }
 }

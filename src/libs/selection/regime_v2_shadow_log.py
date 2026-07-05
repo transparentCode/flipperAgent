@@ -105,8 +105,61 @@ def _shadow_decision_record(
         "aligned_target_models": list(payload.get("aligned_target_models", [])),
         "conflict_target_models": list(payload.get("conflict_target_models", [])),
         "candidate_playbooks": dict(payload.get("candidate_playbooks", {})),
+        **_trendline_record_fields(payload),
         "payload": dict(payload),
     }
+
+
+def _trendline_record_fields(payload: dict[str, Any]) -> dict[str, Any]:
+    context = payload.get("trendline_context")
+    if not isinstance(context, dict):
+        return {"trendline_context": {}}
+    keys = (
+        "trendline_valid",
+        "trendline_interaction",
+        "trendline_structure_state",
+        "trendline_market_position_state",
+        "trendline_has_closed_channel",
+        "trendline_inside_channel",
+        "trendline_above_channel",
+        "trendline_below_channel",
+        "trendline_near_support",
+        "trendline_near_resistance",
+        "trendline_mid_channel_noise",
+        "trendline_hull_width_atr",
+        "trendline_hull_position",
+        "trendline_channel_compression_score",
+        "trendline_support_quality_score",
+        "trendline_resistance_quality_score",
+        "trendline_mean_normalized_quality",
+        "trendline_history_count",
+        "trendline_interaction_transition",
+        "trendline_market_position_transition",
+        "trendline_ray_persistence_bias",
+        "trendline_hull_convergence_rate",
+        "trendline_hull_expansion_rate",
+        "trendline_risk_context",
+        "trendline_confidence_annotation",
+        "trendline_annotation_reason",
+        "trendline_no_trade_warning",
+        "trendline_mid_channel_noise_warning",
+        "trendline_low_quality_warning",
+        "trendline_reversal_context",
+        "trendline_breakout_context",
+        "trendline_breakdown_context",
+        "trendline_pressure_watch",
+        "trendline_continuation_watch",
+        "trendline_breakout_watch_high_quality",
+        "trendline_breakout_watch_positive_persistence",
+        "trendline_breakout_watch_hull_expansion",
+        "trendline_breakout_watch_clean_context",
+        "trendline_breakout_watch_confirmed_interaction",
+        "trendline_breakout_watch_strict_score",
+        "trendline_breakout_watch_strict_context",
+    )
+    out = {key: context.get(key) for key in keys if key in context}
+    out["trendline_context"] = dict(context)
+    return out
 
 
 __all__ = ["persist_regime_v2_shadow_decision"]

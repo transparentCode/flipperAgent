@@ -23,9 +23,10 @@ def _record(
     gate_reason: str = "active",
     playbooks: list[str] | None = None,
     edge_delta: float | None = 0.1,
+    trendline: bool = False,
 ) -> dict:
     active_playbooks = ["trend"] if playbooks is None else playbooks
-    return {
+    record = {
         "schema_version": 1,
         "record_type": "regime_v2_shadow_decision",
         "asset": asset,
@@ -59,6 +60,26 @@ def _record(
         "conflict_target_models": [],
         "candidate_playbooks": {"Momentum": "trend", "SqueezeBreakout": "breakout"},
     }
+    if trendline:
+        record.update(
+            {
+                "trendline_valid": 1.0,
+                "trendline_interaction": "NONE",
+                "trendline_structure_state": "closed_channel",
+                "trendline_market_position_state": "inside_channel",
+                "trendline_mean_normalized_quality": 0.72,
+                "trendline_support_quality_score": 0.8,
+                "trendline_resistance_quality_score": 0.64,
+                "trendline_hull_width_atr": 2.5,
+                "trendline_ray_persistence_bias": 0.25,
+                "trendline_hull_convergence_rate": 0.1,
+                "trendline_risk_context": "inside_channel_context",
+                "trendline_confidence_annotation": "neutral",
+                "trendline_annotation_reason": "price_inside_structural_channel",
+                "trendline_context": {"trendline_valid": 1.0, "trendline_market_position_state": "inside_channel"},
+            }
+        )
+    return record
 
 
 def test_load_shadow_decisions_counts_invalid_jsonl_rows(tmp_path):
@@ -129,6 +150,26 @@ def test_shadow_report_splits_active_changes_from_inactive_subset_rows():
     assert summary["price_action_subset_exclusion_count"] == 1
 
 
+def test_shadow_report_summarizes_trendline_context():
+    report = build_regime_v2_shadow_report([
+        _record(trendline=True),
+        _record(trendline=True, shadow="SqueezeBreakout", edge_delta=0.2),
+        _record(trendline=False, shadow="TrendFollowing", edge_delta=0.0),
+    ])
+    summary = report["summary"]
+
+    assert summary["records_after_filter"] == 3
+    assert summary["trendline_context_count"] == 2
+    assert summary["trendline_context_rate"] == 2 / 3
+    assert summary["avg_trendline_mean_quality"] == 0.72
+    assert summary["avg_trendline_hull_width_atr"] == 2.5
+    assert report["distributions"]["trendline_market_position_state"] == {"inside_channel": 2}
+    assert report["distributions"]["trendline_structure_state"] == {"closed_channel": 2}
+    assert report["distributions"]["trendline_risk_context"] == {"inside_channel_context": 2}
+    assert report["distributions"]["trendline_confidence_annotation"] == {"neutral": 2}
+    assert report["distributions"]["trendline_annotation_reason"] == {"price_inside_structural_channel": 2}
+
+
 def test_shadow_report_handles_empty_missing_log(tmp_path):
     report = run_regime_v2_shadow_report(tmp_path / "missing.jsonl")
 
@@ -145,6 +186,7 @@ def test_render_shadow_report_markdown_contains_core_sections():
 
     assert "# RegimeV2 Phase 5 Shadow Replay Report" in md
     assert "Selection changed: 1 (1.0)" in md
+    assert "## Trendline Context" in md
     assert "mean_reversion: 1" in md
     assert "| PriceAction | Momentum | 1 |" in md
 

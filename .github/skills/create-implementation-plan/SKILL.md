@@ -21,7 +21,7 @@ This skill is used to convert a request into a concrete implementation plan. Bef
 - Use explicit language and call out any unresolved unknowns separately.
 - Structure the plan so phases, tasks, and validation steps are easy to parse.
 - Keep the plan self-contained enough that a coding agent can execute it without re-deriving the architecture.
-- Use GitNexus when available to verify dependency structure, affected execution flows, and blast radius instead of inferring them from surface reading alone.
+- Use codebase intelligence tools when available to verify dependency structure, affected execution flows, and blast radius instead of inferring them from surface reading alone.
 
 ## Plan Structure Requirements
 
@@ -56,7 +56,7 @@ Plans must consist of discrete phases with executable tasks. Cross-phase depende
 
 1. Retrieve prior context from available memory systems.
 2. Inspect the repository and identify the relevant files or modules.
-3. If the request changes existing code, use GitNexus repository context, impact analysis, execution flows, and change detection to assess blast radius.
+3. If the request changes existing code, use codebase intelligence tools repository context, impact analysis, execution flows, and change detection to assess blast radius.
 4. State assumptions, unknowns, and constraints explicitly.
 5. Include architecture tradeoffs and rejected alternatives when the task affects design, data flow, or infrastructure.
 6. Produce a coding handoff section with implementation order, blast radius summary, and validation criteria.

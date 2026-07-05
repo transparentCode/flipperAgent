@@ -53,8 +53,13 @@ htmlcov/
 # Generated chart HTML files
 _charts/
 
+# Generated research scratch artifacts
+research/tmp_*
+research/tl*/
+
 # Temporary files
 *.tmp
 *.swp
 *~
 .gitnexus
+.squad/

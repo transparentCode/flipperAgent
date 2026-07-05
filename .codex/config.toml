@@ -1,0 +1,26 @@
+# Codex CLI MCP configuration
+# Mirrors the servers defined in .vscode/mcp.json
+
+[mcp_servers.mem0-local]
+url = "http://localhost:8889/mcp"
+default_tools_approval_mode = "auto"
+
+[mcp_servers.mem0-local.tools.search_memories]
+approval_mode = "approve"
+
+[mcp_servers.codebase-memory]
+command = "codebase-memory-mcp"
+args = []
+default_tools_approval_mode = "auto"
+
+[mcp_servers.codebase-memory.tools.search_code]
+approval_mode = "approve"
+
+[mcp_servers.codebase-memory.tools.get_code_snippet]
+approval_mode = "approve"
+
+[mcp_servers.codebase-memory.tools.trace_path]
+approval_mode = "approve"
+
+[mcp_servers.codebase-memory.tools.detect_changes]
+approval_mode = "approve"
