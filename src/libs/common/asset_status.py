@@ -25,6 +25,7 @@ class IngestionAssetRuntimeStatus(BaseModel):
     last_ready_at: float | None = None
     last_live_at: float | None = None
     last_disconnect_at: float | None = None
+    disconnects_in_window: int = 0
     source: str = "ingestion_app"
 
     @field_validator("symbol", mode="before")

@@ -63,9 +63,10 @@ class TelegramAlertTransport:
                 f"<b>{html.escape(incident.severity.value.upper())}</b> "
                 f"<code>{html.escape(incident.source_app.value)}</code>"
             ),
-            html.escape(incident.title),
+            f"<b>{html.escape(incident.title)}</b>",
             html.escape(incident.summary),
         ]
+        lines.extend(TelegramAlertTransport._detail_lines_html(incident))
         if incident.asset:
             lines.append(
                 f"<code>asset</code> {html.escape(incident.asset)}",
@@ -83,6 +84,7 @@ class TelegramAlertTransport:
             incident.title,
             incident.summary,
         ]
+        lines.extend(TelegramAlertTransport._detail_lines_plain_text(incident))
         if incident.asset:
             lines.append(f"asset {incident.asset}")
         if incident.timeframe:
@@ -97,3 +99,35 @@ class TelegramAlertTransport:
         if normalized in {"", "MARKDOWN", "MARKDOWNV2"}:
             return "HTML"
         return str(value or "HTML").strip() or "HTML"
+
+    @staticmethod
+    def _detail_lines_html(incident: AlertIncidentRecord) -> list[str]:
+        lines: list[str] = []
+        url = str(incident.detail.get("url", "") or "").strip()
+        if url:
+            lines.append(f"<code>probe</code> {html.escape(url)}")
+        error = str(incident.detail.get("error", "") or "").strip()
+        if error and incident.event_type.value == "system_health_breach":
+            lines.append(f"<code>cause</code> {html.escape(_humanize_error(error))}")
+        return lines
+
+    @staticmethod
+    def _detail_lines_plain_text(incident: AlertIncidentRecord) -> list[str]:
+        lines: list[str] = []
+        url = str(incident.detail.get("url", "") or "").strip()
+        if url:
+            lines.append(f"probe {url}")
+        error = str(incident.detail.get("error", "") or "").strip()
+        if error and incident.event_type.value == "system_health_breach":
+            lines.append(f"cause {_humanize_error(error)}")
+        return lines
+
+
+def _humanize_error(error: str) -> str:
+    normalized = error.strip()
+    lowered = normalized.lower()
+    if "cannot connect to host" in lowered or "connect call failed" in lowered:
+        return "connection refused"
+    if "timeout" in lowered:
+        return "request timed out"
+    return normalized

@@ -88,4 +88,65 @@ def prepare_ohlcv(df: pd.DataFrame, required_fields: tuple[str, ...]) -> pd.Data
     return out
 
 
-__all__ = ["prepare_ohlcv", "validate_ohlcv"]
+def build_row_quality_flags(
+    df: pd.DataFrame,
+    config: DataQualityConfig,
+) -> pd.DataFrame:
+    """Return point-in-time quality flags aligned to a prepared OHLCV frame.
+
+    This is intentionally separate from ``validate_ohlcv``. The latter answers
+    "is the whole input usable right now?", while this helper answers
+    "would each historical row have been usable using only data available up to
+    that row?".
+    """
+
+    if any(field not in df.columns for field in config.required_fields):
+        missing = [field for field in config.required_fields if field not in df.columns]
+        raise ValueError(f"Missing required OHLCV fields: {missing}")
+
+    if df.empty:
+        return pd.DataFrame(
+            {
+                "warmup_complete": pd.Series(dtype=bool),
+                "usable": pd.Series(dtype=bool),
+            },
+            index=df.index,
+        )
+
+    core = df.loc[:, list(config.required_fields)].copy()
+    rows_seen = pd.Series(np.arange(1, len(df) + 1), index=df.index, dtype=float)
+    warmup_complete = rows_seen >= float(config.min_bars)
+
+    missing_ratio = core.isna().mean(axis=1).expanding(min_periods=1).mean()
+
+    prices = core[["open", "high", "low", "close"]].astype(float)
+    invalid_prices_seen = (prices <= 0).any(axis=1).astype(int).cumsum() > 0
+
+    bad_ohlc = (
+        (core["high"] < core[["open", "close"]].max(axis=1))
+        | (core["low"] > core[["open", "close"]].min(axis=1))
+    )
+    bad_ohlc_seen = bad_ohlc.astype(int).cumsum() > 0
+
+    close = core["close"].astype(float)
+    lr = np.log(close / close.shift(1)).replace([np.inf, -np.inf], np.nan).fillna(0.0)
+    z = rolling_zscore(lr.abs(), min(max(config.min_bars // 4, 20), 200))
+    anomaly_rate = (z > config.extreme_return_z).astype(float).expanding(min_periods=1).mean()
+
+    usable = (
+        (missing_ratio <= float(config.max_missing_ratio))
+        & ~invalid_prices_seen
+        & ~bad_ohlc_seen
+        & (anomaly_rate <= 0.02)
+    )
+
+    return pd.DataFrame(
+        {
+            "warmup_complete": warmup_complete.astype(bool),
+            "usable": usable.astype(bool),
+        },
+        index=df.index,
+    )
+
+
+__all__ = ["build_row_quality_flags", "prepare_ohlcv", "validate_ohlcv"]

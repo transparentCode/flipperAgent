@@ -247,7 +247,9 @@ valkey:
         producer: control_plane_and_queue_jobs
         consumers:
           - operators
-          - future_alert_app
+          - alert_app
+      - name: asset:status
+        producer: coordinator_via_asset_runtime_status_store
       - name: stream:dlq:ingestion
         producer: recommended_future_failure_sink
         consumers:
@@ -262,6 +264,8 @@ valkey:
     writes:
       - name: ingestion:state:{symbol}:{timeframe}
         owner: runtime_reconciler_and_websocket_pipeline
+      - name: ingestion:runtime_status:{symbol}:{timeframe}
+        owner: coordinator_via_asset_runtime_status_store
   jobs:
     queue:
       - name: run_rest_gap_fill

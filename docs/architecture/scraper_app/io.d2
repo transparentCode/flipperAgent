@@ -1,0 +1,235 @@
+direction: right
+
+classes: {
+  component: {
+    style.fill: "#EEF7EA"
+    style.stroke: "#4E8F5A"
+  }
+
+  contract: {
+    style.fill: "#FFF2D8"
+    style.stroke: "#B8892D"
+  }
+
+  storage: {
+    style.fill: "#F4EAFE"
+    style.stroke: "#7C61A8"
+  }
+
+  consumer: {
+    style.fill: "#FCE8E8"
+    style.stroke: "#B15B5B"
+  }
+
+  rule: {
+    style.fill: "#F3FAEF"
+    style.stroke: "#679B57"
+  }
+}
+
+components: {
+  api: {
+    class: component
+    label: "FastAPI routes"
+    link: "../../../src/apps/scraper_app/api/routes.py"
+  }
+
+  fetch_service: {
+    class: component
+    label: "ScraperFetchService"
+    link: "../../../src/apps/scraper_app/service/fetch_service.py"
+  }
+
+  job_service: {
+    class: component
+    label: "ScraperJobService"
+    link: "../../../src/apps/scraper_app/service/job_service.py"
+  }
+
+  tv_worker: {
+    class: component
+    label: "TradingView worker"
+    link: "../../../src/apps/scraper_app/providers/tradingview/worker.py"
+  }
+
+  cg_worker: {
+    class: component
+    label: "CoinGlass worker"
+    link: "../../../src/apps/scraper_app/providers/coinglass/worker.py"
+  }
+
+  browser_runtime: {
+    class: component
+    label: "BrowserScraperRuntime"
+    link: "../../../src/apps/scraper_app/core/browser_runtime.py"
+  }
+}
+
+contracts: {
+  health: {
+    class: contract
+    label: "GET /health"
+  }
+
+  latest_tv_ohlcv: {
+    class: contract
+    label: "GET /latest/tradingview/ohlcv"
+  }
+
+  latest_tv_series: {
+    class: contract
+    label: "GET /latest/tradingview/series"
+  }
+
+  latest_coinglass: {
+    class: contract
+    label: "GET /latest/coinglass/heatmap"
+  }
+
+  fetch_sync: {
+    class: contract
+    label: "POST /fetch/sync"
+  }
+
+  jobs_api: {
+    class: contract
+    label: "POST /jobs\nGET /jobs/{job_id}"
+  }
+
+  index_cache: {
+    class: contract
+    label: "index:latest:{short_name}"
+    shape: stored_data
+  }
+
+  derivatives_cache: {
+    class: contract
+    label: "derivatives:latest:{asset}:{oi|funding}"
+    shape: stored_data
+  }
+
+  heatmap_cache: {
+    class: contract
+    label: "coinglass:latest:liquidation_heatmap:{exchange}:{short_name}"
+    shape: stored_data
+  }
+
+  jobs_state: {
+    class: contract
+    label: "scraper:job:{job_id}"
+    shape: stored_data
+  }
+
+  jobs_result: {
+    class: contract
+    label: "scraper:job:result:{job_id}"
+    shape: stored_data
+  }
+}
+
+storage: {
+  tv_index_ohlcv: {
+    class: storage
+    label: "tv_index_ohlcv"
+    shape: cylinder
+    link: "../../../src/apps/ingestion_app/storage/schema.sql"
+  }
+
+  open_interest: {
+    class: storage
+    label: "open_interest"
+    shape: cylinder
+    link: "../../../src/apps/ingestion_app/storage/schema.sql"
+  }
+
+  funding_rate: {
+    class: storage
+    label: "funding_rate"
+    shape: cylinder
+    link: "../../../src/apps/ingestion_app/storage/schema.sql"
+  }
+}
+
+consumers: {
+  api_app: {
+    class: consumer
+    label: "api_app bridge"
+    link: "../../../src/apps/api_app/routers/ingestion.py"
+  }
+
+  signal_app: {
+    class: consumer
+    label: "signal_app"
+    link: "../signal_app/README.md"
+  }
+
+  alert_app: {
+    class: consumer
+    label: "alert_app"
+    link: "../alert_app/README.md"
+  }
+
+  operators: {
+    class: consumer
+    label: "research / operators"
+  }
+}
+
+rules: {
+  cache_rule: {
+    class: rule
+    label: "provider caches are latest-snapshot\ncontracts, not canonical lifecycle truth"
+  }
+
+  job_rule: {
+    class: rule
+    label: "job ids are deterministic hashes;\npending jobs recover after restart"
+  }
+
+  deployment_rule: {
+    class: rule
+    label: "CoinGlass worker implemented in code\nbut not composed by default"
+  }
+}
+
+components.api -> contracts.health: "serve"
+components.api -> contracts.latest_tv_ohlcv: "serve"
+components.api -> contracts.latest_tv_series: "serve"
+components.api -> contracts.latest_coinglass: "serve"
+components.api -> contracts.fetch_sync: "serve"
+components.api -> contracts.jobs_api: "serve"
+
+contracts.fetch_sync -> components.fetch_service: "invoke"
+contracts.latest_tv_ohlcv -> components.fetch_service: "cache read"
+contracts.latest_tv_series -> components.fetch_service: "cache read"
+contracts.latest_coinglass -> components.fetch_service: "cache read"
+contracts.jobs_api -> components.job_service: "submit / query"
+components.job_service -> components.fetch_service: "run fetch"
+
+components.browser_runtime -> components.fetch_service: "live browser session"
+components.browser_runtime -> components.tv_worker: "scheduled browser session"
+components.browser_runtime -> components.cg_worker: "scheduled browser session"
+
+components.fetch_service -> contracts.index_cache: "read/write"
+components.fetch_service -> contracts.derivatives_cache: "read"
+components.fetch_service -> contracts.heatmap_cache: "read"
+components.job_service -> contracts.jobs_state: "persist"
+components.job_service -> contracts.jobs_result: "persist"
+
+components.tv_worker -> contracts.index_cache: "publish"
+components.tv_worker -> contracts.derivatives_cache: "publish"
+components.cg_worker -> contracts.heatmap_cache: "publish"
+components.tv_worker -> storage.tv_index_ohlcv: "upsert"
+components.tv_worker -> storage.open_interest: "upsert"
+components.tv_worker -> storage.funding_rate: "upsert"
+
+consumers.api_app -> contracts.fetch_sync: "bridge sync fetch"
+consumers.api_app -> contracts.jobs_api: "bridge async jobs"
+contracts.index_cache -> consumers.signal_app: "consume"
+consumers.alert_app -> contracts.health: "probe"
+components.fetch_service -> consumers.operators: "CLI/debug output"
+
+rules.cache_rule -> contracts.index_cache: "guardrail"
+rules.cache_rule -> contracts.derivatives_cache: "guardrail"
+rules.job_rule -> components.job_service: "guardrail"
+rules.deployment_rule -> components.cg_worker: "current state"

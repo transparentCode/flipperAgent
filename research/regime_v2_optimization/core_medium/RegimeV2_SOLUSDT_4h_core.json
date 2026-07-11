@@ -1,0 +1,597 @@
+{
+  "asset": "SOLUSDT",
+  "baseline_oos": {
+    "deployed": true,
+    "oos": {
+      "aggregate": {
+        "mean_downstream_lift": 0.01858255,
+        "mean_flip_rate": 0.282427,
+        "mean_policy_turnover": 0.253138,
+        "mean_support_count": 139.0,
+        "mean_support_rate": 0.579167,
+        "mean_tail_penalty": 0.06978709,
+        "min_support_count": 137,
+        "positive_window_rate": 1.0,
+        "score": 0.15553436,
+        "window_count": 2
+      },
+      "rejected": false,
+      "rejection_reasons": [],
+      "score": 0.15553436,
+      "windows": [
+        {
+          "best_metric_name": "regime_v2_trend_allowed_directional",
+          "downstream_lift": 0.01901518,
+          "end": 240,
+          "flip_rate": 0.297071,
+          "label_entropy": 0.68208,
+          "policy_turnover": 0.263598,
+          "positive_lift": true,
+          "score": 0.15012253,
+          "start": 0,
+          "support_count": 137,
+          "support_rate": 0.570833,
+          "tail_penalty": 0.07060082
+        },
+        {
+          "best_metric_name": "regime_v2_trend_allowed_directional",
+          "downstream_lift": 0.01814992,
+          "end": 267,
+          "flip_rate": 0.267782,
+          "label_entropy": 0.660706,
+          "policy_turnover": 0.242678,
+          "positive_lift": true,
+          "score": 0.16094619,
+          "start": 27,
+          "support_count": 141,
+          "support_rate": 0.5875,
+          "tail_penalty": 0.06897336
+        }
+      ]
+    },
+    "params": {
+      "breaks.breakout_window": 12,
+      "fusion.break_threshold": 0.65,
+      "fusion.mr_threshold": 0.55,
+      "fusion.shock_threshold": 0.7,
+      "fusion.trend_threshold": 0.48,
+      "policy.breakout_min_quality": 0.58,
+      "policy.high_uncertainty_no_trade": 0.82,
+      "policy.min_confidence": 0.3,
+      "policy.mr_min_score": 0.58,
+      "policy.threshold_width": 0.2,
+      "policy.trend_max_chop": 0.55,
+      "policy.trend_min_strength": 0.48,
+      "trend.direction_deadzone": 0.12,
+      "trend.fast_ema": 5,
+      "trend.slow_ema": 12
+    },
+    "rejection_reasons": [],
+    "train": {
+      "aggregate": {
+        "mean_downstream_lift": 0.00462363,
+        "mean_flip_rate": 0.288703,
+        "mean_policy_turnover": 0.264296,
+        "mean_support_count": 137.3333,
+        "mean_support_rate": 0.572222,
+        "mean_tail_penalty": 0.07793261,
+        "min_support_count": 124,
+        "positive_window_rate": 0.833333,
+        "score": 0.09200206,
+        "window_count": 6
+      },
+      "rejected": false,
+      "rejection_reasons": [],
+      "score": 0.09200206,
+      "windows": [
+        {
+          "best_metric_name": "regime_v2_scalping_score_top_abs_move",
+          "downstream_lift": 0.0012352,
+          "end": 240,
+          "flip_rate": 0.263598,
+          "label_entropy": 0.767541,
+          "policy_turnover": 0.225941,
+          "positive_lift": true,
+          "score": 0.14357755,
+          "start": 0,
+          "support_count": 124,
+          "support_rate": 0.516667,
+          "tail_penalty": 0.07116611
+        },
+        {
+          "best_metric_name": "regime_v2_scalping_score_top_abs_move",
+          "downstream_lift": -0.00845289,
+          "end": 360,
+          "flip_rate": 0.288703,
+          "label_entropy": 0.653996,
+          "policy_turnover": 0.263598,
+          "positive_lift": false,
+          "score": -0.12138865,
+          "start": 120,
+          "support_count": 138,
+          "support_rate": 0.575,
+          "tail_penalty": 0.06245101
+        },
+        {
+          "best_metric_name": "regime_v2_scalping_score_top_abs_move",
+          "downstream_lift": 0.01107236,
+          "end": 480,
+          "flip_rate": 0.292887,
+          "label_entropy": 0.63691,
+          "policy_turnover": 0.230126,
+          "positive_lift": true,
+          "score": 0.15992841,
+          "start": 240,
+          "support_count": 134,
+          "support_rate": 0.558333,
+          "tail_penalty": 0.04891618
+        },
+        {
+          "best_metric_name": "regime_v2_scalping_score_top_abs_move",
+          "downstream_lift": 0.00482989,
+          "end": 600,
+          "flip_rate": 0.292887,
+          "label_entropy": 0.672547,
+          "policy_turnover": 0.242678,
+          "positive_lift": true,
+          "score": 0.12486261,
+          "start": 360,
+          "support_count": 147,
+          "support_rate": 0.6125,
+          "tail_penalty": 0.10695862
+        },
+        {
+          "best_metric_name": "regime_v2_trend_allowed_directional",
+          "downstream_lift": 0.001116,
+          "end": 720,
+          "flip_rate": 0.292887,
+          "label_entropy": 0.669016,
+          "policy_turnover": 0.309623,
+          "positive_lift": true,
+          "score": 0.11000453,
+          "start": 480,
+          "support_count": 151,
+          "support_rate": 0.629167,
+          "tail_penalty": 0.10413545
+        },
+        {
+          "best_metric_name": "regime_v2_trend_allowed_directional",
+          "downstream_lift": 0.01794124,
+          "end": 835,
+          "flip_rate": 0.301255,
+          "label_entropy": 0.656455,
+          "policy_turnover": 0.313808,
+          "positive_lift": true,
+          "score": 0.1350279,
+          "start": 595,
+          "support_count": 130,
+          "support_rate": 0.541667,
+          "tail_penalty": 0.07396828
+        }
+      ]
+    },
+    "validate": {
+      "aggregate": {
+        "mean_downstream_lift": -0.0106872,
+        "mean_flip_rate": 0.320084,
+        "mean_policy_turnover": 0.286611,
+        "mean_support_count": 149.5,
+        "mean_support_rate": 0.622917,
+        "mean_tail_penalty": 0.03063157,
+        "min_support_count": 145,
+        "positive_window_rate": 0.0,
+        "score": -0.11619604,
+        "window_count": 2
+      },
+      "rejected": false,
+      "rejection_reasons": [],
+      "score": -0.11619604,
+      "windows": [
+        {
+          "best_metric_name": "regime_v2_scalping_score_top_abs_move",
+          "downstream_lift": -0.01099529,
+          "end": 240,
+          "flip_rate": 0.317992,
+          "label_entropy": 0.704971,
+          "policy_turnover": 0.288703,
+          "positive_lift": false,
+          "score": -0.11496715,
+          "start": 0,
+          "support_count": 154,
+          "support_rate": 0.641667,
+          "tail_penalty": 0.02943259
+        },
+        {
+          "best_metric_name": "regime_v2_scalping_score_top_abs_move",
+          "downstream_lift": -0.0103791,
+          "end": 278,
+          "flip_rate": 0.322176,
+          "label_entropy": 0.749936,
+          "policy_turnover": 0.284519,
+          "positive_lift": false,
+          "score": -0.11742494,
+          "start": 38,
+          "support_count": 145,
+          "support_rate": 0.604167,
+          "tail_penalty": 0.03183055
+        }
+      ]
+    }
+  },
+  "best_trial": {
+    "number": 9,
+    "params": {
+      "breaks.breakout_window": 24,
+      "fusion.break_threshold": 0.56,
+      "fusion.mr_threshold": 0.79,
+      "fusion.shock_threshold": 0.7,
+      "fusion.trend_threshold": 0.74,
+      "policy.breakout_min_quality": 0.55,
+      "policy.high_uncertainty_no_trade": 0.7,
+      "policy.min_confidence": 0.25,
+      "policy.mr_min_score": 0.28,
+      "policy.threshold_width": 0.13,
+      "policy.trend_max_chop": 0.5900000000000001,
+      "policy.trend_min_strength": 0.27,
+      "trend.direction_deadzone": 0.16,
+      "trend.fast_ema": 6,
+      "trend.slow_ema": 18
+    },
+    "validation": {
+      "aggregate": {
+        "mean_downstream_lift": 0.00191931,
+        "mean_flip_rate": 0.257322,
+        "mean_policy_turnover": 0.223849,
+        "mean_support_count": 171.5,
+        "mean_support_rate": 0.714584,
+        "mean_tail_penalty": 0.03181344,
+        "min_support_count": 169,
+        "positive_window_rate": 1.0,
+        "score": 0.17550745,
+        "window_count": 2
+      },
+      "rejected": false,
+      "rejection_reasons": [],
+      "score": 0.17550745,
+      "windows": [
+        {
+          "best_metric_name": "regime_v2_trend_allowed_directional",
+          "downstream_lift": 4.982e-05,
+          "end": 240,
+          "flip_rate": 0.259414,
+          "label_entropy": 0.667671,
+          "policy_turnover": 0.221757,
+          "positive_lift": true,
+          "score": 0.17509902,
+          "start": 0,
+          "support_count": 174,
+          "support_rate": 0.725,
+          "tail_penalty": 0.02993299
+        },
+        {
+          "best_metric_name": "regime_v2_trend_allowed_directional",
+          "downstream_lift": 0.00378879,
+          "end": 278,
+          "flip_rate": 0.25523,
+          "label_entropy": 0.685095,
+          "policy_turnover": 0.225941,
+          "positive_lift": true,
+          "score": 0.17591589,
+          "start": 38,
+          "support_count": 169,
+          "support_rate": 0.704167,
+          "tail_penalty": 0.03369388
+        }
+      ]
+    },
+    "value": 0.17550745
+  },
+  "completed_trials": 25,
+  "data": {
+    "end": "2026-07-06T08:00:00+00:00",
+    "rows": 1440,
+    "start": "2025-11-08T12:00:00+00:00"
+  },
+  "default_vs_tuned": {
+    "baseline_deployed": true,
+    "baseline_mean_downstream_lift": 0.01858255,
+    "baseline_oos_score": 0.15553436,
+    "baseline_positive_window_rate": 1.0,
+    "mean_downstream_lift_delta": -0.01180626,
+    "oos_score_delta": 0.0105286,
+    "positive_window_rate_delta": 0.0,
+    "tuned_deployed": true,
+    "tuned_mean_downstream_lift": 0.00677629,
+    "tuned_oos_score": 0.16606296,
+    "tuned_positive_window_rate": 1.0
+  },
+  "deploy_params": {
+    "params": {
+      "breaks.breakout_window": 24,
+      "fusion.break_threshold": 0.56,
+      "fusion.mr_threshold": 0.79,
+      "fusion.shock_threshold": 0.7,
+      "fusion.trend_threshold": 0.74,
+      "policy.breakout_min_quality": 0.55,
+      "policy.high_uncertainty_no_trade": 0.7,
+      "policy.min_confidence": 0.25,
+      "policy.mr_min_score": 0.28,
+      "policy.threshold_width": 0.13,
+      "policy.trend_max_chop": 0.5900000000000001,
+      "policy.trend_min_strength": 0.27,
+      "trend.direction_deadzone": 0.16,
+      "trend.fast_ema": 6,
+      "trend.slow_ema": 18
+    }
+  },
+  "horizon_bars": 12,
+  "load_if_exists": true,
+  "model_name": "RegimeV2",
+  "n_trials": 25,
+  "oos": {
+    "deployed": true,
+    "oos": {
+      "aggregate": {
+        "mean_downstream_lift": 0.00677629,
+        "mean_flip_rate": 0.217573,
+        "mean_policy_turnover": 0.225941,
+        "mean_support_count": 158.5,
+        "mean_support_rate": 0.660416,
+        "mean_tail_penalty": 0.07006247,
+        "min_support_count": 156,
+        "positive_window_rate": 1.0,
+        "score": 0.16606296,
+        "window_count": 2
+      },
+      "rejected": false,
+      "rejection_reasons": [],
+      "score": 0.16606296,
+      "windows": [
+        {
+          "best_metric_name": "regime_v2_trend_allowed_directional",
+          "downstream_lift": 0.00864709,
+          "end": 240,
+          "flip_rate": 0.225941,
+          "label_entropy": 0.576611,
+          "policy_turnover": 0.225941,
+          "positive_lift": true,
+          "score": 0.16519473,
+          "start": 0,
+          "support_count": 156,
+          "support_rate": 0.65,
+          "tail_penalty": 0.07115158
+        },
+        {
+          "best_metric_name": "regime_v2_trend_allowed_directional",
+          "downstream_lift": 0.0049055,
+          "end": 267,
+          "flip_rate": 0.209205,
+          "label_entropy": 0.574048,
+          "policy_turnover": 0.225941,
+          "positive_lift": true,
+          "score": 0.16693118,
+          "start": 27,
+          "support_count": 161,
+          "support_rate": 0.670833,
+          "tail_penalty": 0.06897336
+        }
+      ]
+    },
+    "params": {
+      "breaks.breakout_window": 24,
+      "fusion.break_threshold": 0.56,
+      "fusion.mr_threshold": 0.79,
+      "fusion.shock_threshold": 0.7,
+      "fusion.trend_threshold": 0.74,
+      "policy.breakout_min_quality": 0.55,
+      "policy.high_uncertainty_no_trade": 0.7,
+      "policy.min_confidence": 0.25,
+      "policy.mr_min_score": 0.28,
+      "policy.threshold_width": 0.13,
+      "policy.trend_max_chop": 0.5900000000000001,
+      "policy.trend_min_strength": 0.27,
+      "trend.direction_deadzone": 0.16,
+      "trend.fast_ema": 6,
+      "trend.slow_ema": 18
+    },
+    "rejection_reasons": [],
+    "train": {
+      "aggregate": {
+        "mean_downstream_lift": 0.00486538,
+        "mean_flip_rate": 0.235704,
+        "mean_policy_turnover": 0.251744,
+        "mean_support_count": 155.8333,
+        "mean_support_rate": 0.649305,
+        "mean_tail_penalty": 0.07759754,
+        "min_support_count": 138,
+        "positive_window_rate": 1.0,
+        "score": 0.15104235,
+        "window_count": 6
+      },
+      "rejected": false,
+      "rejection_reasons": [],
+      "score": 0.15104235,
+      "windows": [
+        {
+          "best_metric_name": "regime_v2_scalping_score_top_abs_move",
+          "downstream_lift": 0.0078045,
+          "end": 240,
+          "flip_rate": 0.213389,
+          "label_entropy": 0.772384,
+          "policy_turnover": 0.209205,
+          "positive_lift": true,
+          "score": 0.16583445,
+          "start": 0,
+          "support_count": 138,
+          "support_rate": 0.575,
+          "tail_penalty": 0.07240244
+        },
+        {
+          "best_metric_name": "regime_v2_trend_allowed_directional",
+          "downstream_lift": 0.00206294,
+          "end": 360,
+          "flip_rate": 0.267782,
+          "label_entropy": 0.682116,
+          "policy_turnover": 0.238494,
+          "positive_lift": true,
+          "score": 0.15261859,
+          "start": 120,
+          "support_count": 153,
+          "support_rate": 0.6375,
+          "tail_penalty": 0.06012824
+        },
+        {
+          "best_metric_name": "regime_v2_trend_allowed_directional",
+          "downstream_lift": 0.00623945,
+          "end": 480,
+          "flip_rate": 0.267782,
+          "label_entropy": 0.678026,
+          "policy_turnover": 0.213389,
+          "positive_lift": true,
+          "score": 0.16740041,
+          "start": 240,
+          "support_count": 153,
+          "support_rate": 0.6375,
+          "tail_penalty": 0.04895946
+        },
+        {
+          "best_metric_name": "regime_v2_trend_allowed_directional",
+          "downstream_lift": 0.00404032,
+          "end": 600,
+          "flip_rate": 0.238494,
+          "label_entropy": 0.569863,
+          "policy_turnover": 0.23431,
+          "positive_lift": true,
+          "score": 0.14035976,
+          "start": 360,
+          "support_count": 165,
+          "support_rate": 0.6875,
+          "tail_penalty": 0.10698978
+        },
+        {
+          "best_metric_name": "regime_v2_trend_allowed_directional",
+          "downstream_lift": 0.00516074,
+          "end": 720,
+          "flip_rate": 0.213389,
+          "label_entropy": 0.548275,
+          "policy_turnover": 0.284519,
+          "positive_lift": true,
+          "score": 0.13888638,
+          "start": 480,
+          "support_count": 170,
+          "support_rate": 0.708333,
+          "tail_penalty": 0.10421884
+        },
+        {
+          "best_metric_name": "regime_v2_scalping_score_top_abs_move",
+          "downstream_lift": 0.00388436,
+          "end": 835,
+          "flip_rate": 0.213389,
+          "label_entropy": 0.622142,
+          "policy_turnover": 0.330544,
+          "positive_lift": true,
+          "score": 0.1411545,
+          "start": 595,
+          "support_count": 156,
+          "support_rate": 0.65,
+          "tail_penalty": 0.0728865
+        }
+      ]
+    },
+    "validate": {
+      "aggregate": {
+        "mean_downstream_lift": 0.00191931,
+        "mean_flip_rate": 0.257322,
+        "mean_policy_turnover": 0.223849,
+        "mean_support_count": 171.5,
+        "mean_support_rate": 0.714584,
+        "mean_tail_penalty": 0.03181344,
+        "min_support_count": 169,
+        "positive_window_rate": 1.0,
+        "score": 0.17550745,
+        "window_count": 2
+      },
+      "rejected": false,
+      "rejection_reasons": [],
+      "score": 0.17550745,
+      "windows": [
+        {
+          "best_metric_name": "regime_v2_trend_allowed_directional",
+          "downstream_lift": 4.982e-05,
+          "end": 240,
+          "flip_rate": 0.259414,
+          "label_entropy": 0.667671,
+          "policy_turnover": 0.221757,
+          "positive_lift": true,
+          "score": 0.17509902,
+          "start": 0,
+          "support_count": 174,
+          "support_rate": 0.725,
+          "tail_penalty": 0.02993299
+        },
+        {
+          "best_metric_name": "regime_v2_trend_allowed_directional",
+          "downstream_lift": 0.00378879,
+          "end": 278,
+          "flip_rate": 0.25523,
+          "label_entropy": 0.685095,
+          "policy_turnover": 0.225941,
+          "positive_lift": true,
+          "score": 0.17591589,
+          "start": 38,
+          "support_count": 169,
+          "support_rate": 0.704167,
+          "tail_penalty": 0.03369388
+        }
+      ]
+    }
+  },
+  "profile": "core",
+  "rejected_trials": 4,
+  "seed": 42,
+  "split": {
+    "oos_ratio": 0.2,
+    "purge_bars": 24,
+    "train_ratio": 0.6,
+    "val_ratio": 0.2
+  },
+  "storage": "sqlite:///research/regime_v2_optimization/core_medium/studies.db",
+  "study_defaults": {
+    "direction": "maximize",
+    "n_trials": 80,
+    "profile": "core",
+    "pruner": "MedianPruner",
+    "sampler": "TPE",
+    "write_back": false
+  },
+  "study_name": "RegimeV2_SOLUSDT_4h_core",
+  "threshold_sweep": null,
+  "timeframe": "4h",
+  "validation_config": {
+    "downstream": {
+      "fee_bps": 0.0,
+      "min_count": 20,
+      "score_floor": 0.24,
+      "top_quantile": 0.9
+    },
+    "gates": {
+      "max_flip_rate": 0.35,
+      "max_policy_turnover": 0.45,
+      "min_oos_score_ratio": 0.5,
+      "min_support_count": 20,
+      "min_support_rate": 0.02
+    },
+    "min_window_bars": 120,
+    "step_bars": 120,
+    "weights": {
+      "flip_penalty": 0.2,
+      "lift": 1.0,
+      "low_support_penalty": 1.0,
+      "positive_window_rate": 0.25,
+      "support": 0.05,
+      "tail_penalty": 0.5,
+      "turnover_penalty": 0.2
+    },
+    "window_bars": 240
+  }
+}

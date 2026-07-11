@@ -117,6 +117,12 @@ contracts: {
     shape: queue
   }
 
+  asset_status_stream: {
+    class: contract
+    label: "asset:status"
+    shape: queue
+  }
+
   dlq_stream: {
     class: contract
     label: "stream:dlq:ingestion (target)"
@@ -129,9 +135,15 @@ contracts: {
     shape: queue
   }
 
-  runtime_state: {
+  runtime_coordination: {
     class: contract
-    label: "ingestion:state:{symbol}:{tf}"
+    label: "ingestion:state:{symbol}:{tf}\ninternal coordination state"
+    shape: stored_data
+  }
+
+  runtime_status: {
+    class: contract
+    label: "ingestion:runtime_status:{symbol}:{tf}\nstatus projection"
     shape: stored_data
   }
 
@@ -242,7 +254,12 @@ consumers: {
 
   operators: {
     class: consumer
-    label: "operators / future alert_app"
+    label: "operators"
+  }
+
+  alert_app: {
+    class: consumer
+    label: "alert_app"
   }
 }
 
@@ -266,13 +283,17 @@ storage.ingestion_assets -> components.reconciler: "effective state"
 contracts.control_stream -> components.reconciler: "consume"
 components.reconciler -> contracts.gap_fill_job: "enqueue"
 components.reconciler -> contracts.purge_job: "enqueue"
-components.reconciler -> contracts.runtime_state: "write lifecycle state"
+components.reconciler -> contracts.runtime_coordination: "write internal state"
+components.reconciler -> contracts.runtime_status: "write status projection"
+components.reconciler -> contracts.asset_status_stream: "append status"
 components.reconciler -> rules.recovery_policy: "must obey"
 
 components.ws -> components.validator: "candidate closed candle"
 components.validator -> storage.ohlcv: "persist canonical candle"
 components.validator -> contracts.ohlcv_stream: "publish closed candle"
-components.ws -> contracts.runtime_state: "write"
+components.ws -> contracts.runtime_coordination: "write internal state"
+components.ws -> contracts.runtime_status: "write status projection"
+components.ws -> contracts.asset_status_stream: "append status"
 components.ws -> contracts.gap_fill_job: "enqueue on recovery"
 components.validator -> rules.candle_policy: "must obey"
 components.validator -> rules.parity_policy: "must obey"
@@ -295,4 +316,6 @@ consumers.signal_app -> consumers.strategy_app: "feature outputs"
 consumers.strategy_app -> consumers.risk_app: "trade intents"
 consumers.risk_app -> consumers.execution_app: "approved orders"
 contracts.events_stream -> consumers.operators: "observe"
+contracts.events_stream -> consumers.alert_app: "consume"
+contracts.runtime_status -> consumers.alert_app: "scan"
 contracts.dlq_stream -> consumers.operators: "investigate"

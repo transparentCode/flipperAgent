@@ -1,0 +1,657 @@
+{
+  "asset": "BTCUSDT",
+  "baseline_oos": {
+    "calibration": {
+      "aggregate": {
+        "hmm_oos_filtered_support_count": 1739,
+        "hmm_oos_filtered_support_rate": 1.0,
+        "mean_brier_score": 0.27763558,
+        "mean_decision_flip_rate": 0.1569035,
+        "mean_edge_return": -0.00067397,
+        "mean_expected_calibration_error": 0.15305788,
+        "mean_positive_rate": 0.4625,
+        "mean_support_count": 240.0,
+        "mean_support_rate": 1.0,
+        "mean_threshold_churn": 0.0,
+        "positive_window_rate": 0.0,
+        "score": 0.01363144,
+        "window_count": 2
+      },
+      "rejected": true,
+      "rejection_reasons": [
+        "positive_window_rate_below_minimum",
+        "mean_edge_return_below_minimum"
+      ],
+      "score": 0.01363144,
+      "windows": [
+        {
+          "brier_score": 0.29380814,
+          "decision_flip_rate": 0.171548,
+          "end": 240,
+          "expected_calibration_error": 0.20108572,
+          "mean_edge_return": -0.00086656,
+          "positive_rate": 0.495833,
+          "score": 0.00430956,
+          "start": 0,
+          "support_count": 240,
+          "support_rate": 1.0,
+          "threshold_churn": 0.0
+        },
+        {
+          "brier_score": 0.26146302,
+          "decision_flip_rate": 0.142259,
+          "end": 357,
+          "expected_calibration_error": 0.10503004,
+          "mean_edge_return": -0.00048137,
+          "positive_rate": 0.429167,
+          "score": 0.02295332,
+          "start": 117,
+          "support_count": 240,
+          "support_rate": 1.0,
+          "threshold_churn": 0.0
+        }
+      ]
+    },
+    "deployed": false,
+    "hmm_in_sample_rows": 500,
+    "hmm_oos_filtered_rows": 8267,
+    "hmm_oos_filtered_support_rate": 0.94296795,
+    "hmm_proxy_fallback_rows": 0,
+    "hmm_state_source": "hmm_state_model",
+    "oos": {
+      "aggregate": {
+        "hmm_oos_filtered_support_count": 1305,
+        "hmm_oos_filtered_support_rate": 1.0,
+        "mean_brier_score": 0.28163266,
+        "mean_decision_flip_rate": 0.138075,
+        "mean_edge_return": -0.00082052,
+        "mean_expected_calibration_error": 0.17748599,
+        "mean_positive_rate": 0.479167,
+        "mean_support_count": 240.0,
+        "mean_support_rate": 1.0,
+        "mean_threshold_churn": 0.0,
+        "positive_window_rate": 0.0,
+        "score": 0.01419123,
+        "window_count": 2
+      },
+      "rejected": true,
+      "rejection_reasons": [
+        "positive_window_rate_below_minimum",
+        "mean_edge_return_below_minimum"
+      ],
+      "score": 0.01419123,
+      "windows": [
+        {
+          "brier_score": 0.28746472,
+          "decision_flip_rate": 0.142259,
+          "end": 240,
+          "expected_calibration_error": 0.18667872,
+          "mean_edge_return": -0.00114167,
+          "positive_rate": 0.479167,
+          "score": 0.00936269,
+          "start": 0,
+          "support_count": 240,
+          "support_rate": 1.0,
+          "threshold_churn": 0.0
+        },
+        {
+          "brier_score": 0.2758006,
+          "decision_flip_rate": 0.133891,
+          "end": 315,
+          "expected_calibration_error": 0.16829326,
+          "mean_edge_return": -0.00049937,
+          "positive_rate": 0.479167,
+          "score": 0.01901976,
+          "start": 75,
+          "support_count": 240,
+          "support_rate": 1.0,
+          "threshold_churn": 0.0
+        }
+      ]
+    },
+    "oos_rejected": true,
+    "oos_rejection_reasons": [
+      "oos:positive_window_rate_below_minimum",
+      "oos:mean_edge_return_below_minimum"
+    ],
+    "params": {
+      "changepoint_prob_threshold": 0.55,
+      "max_state_entropy": 0.8,
+      "max_transition_state_prob": 0.55,
+      "min_edge_probability": 0.35,
+      "transition_risk_threshold": 0.55,
+      "uncertainty_threshold": 0.75
+    },
+    "rejection_reasons": [
+      "validation:positive_window_rate_below_minimum",
+      "validation:mean_edge_return_below_minimum",
+      "oos:positive_window_rate_below_minimum",
+      "oos:mean_edge_return_below_minimum"
+    ],
+    "train": {
+      "aggregate": {
+        "hmm_oos_filtered_support_count": 3847,
+        "hmm_oos_filtered_support_rate": 0.88497815,
+        "mean_brier_score": 0.29864598,
+        "mean_decision_flip_rate": 0.15109256,
+        "mean_edge_return": -0.000762,
+        "mean_expected_calibration_error": 0.21391252,
+        "mean_positive_rate": 0.50138889,
+        "mean_support_count": 240.0,
+        "mean_support_rate": 1.0,
+        "mean_threshold_churn": 0.0,
+        "positive_window_rate": 0.22222222,
+        "score": 0.00461274,
+        "window_count": 9
+      },
+      "rejected": true,
+      "rejection_reasons": [
+        "positive_window_rate_below_minimum",
+        "mean_edge_return_below_minimum"
+      ],
+      "score": 0.00461274,
+      "windows": [
+        {
+          "brier_score": 0.34024929,
+          "decision_flip_rate": 0.171548,
+          "end": 240,
+          "expected_calibration_error": 0.30512909,
+          "mean_edge_return": 0.00294972,
+          "positive_rate": 0.575,
+          "score": -0.00914557,
+          "start": 0,
+          "support_count": 240,
+          "support_rate": 1.0,
+          "threshold_churn": 0.0
+        },
+        {
+          "brier_score": 0.31028769,
+          "decision_flip_rate": 0.167364,
+          "end": 360,
+          "expected_calibration_error": 0.24197767,
+          "mean_edge_return": -0.00077054,
+          "positive_rate": 0.525,
+          "score": -0.00162137,
+          "start": 120,
+          "support_count": 240,
+          "support_rate": 1.0,
+          "threshold_churn": 0.0
+        },
+        {
+          "brier_score": 0.30075856,
+          "decision_flip_rate": 0.121339,
+          "end": 480,
+          "expected_calibration_error": 0.22297861,
+          "mean_edge_return": -0.00134275,
+          "positive_rate": 0.5,
+          "score": 0.00559519,
+          "start": 240,
+          "support_count": 240,
+          "support_rate": 1.0,
+          "threshold_churn": 0.0
+        },
+        {
+          "brier_score": 0.30553341,
+          "decision_flip_rate": 0.150628,
+          "end": 600,
+          "expected_calibration_error": 0.23822822,
+          "mean_edge_return": -0.00014832,
+          "positive_rate": 0.520833,
+          "score": 0.00288353,
+          "start": 360,
+          "support_count": 240,
+          "support_rate": 1.0,
+          "threshold_churn": 0.0
+        },
+        {
+          "brier_score": 0.3109974,
+          "decision_flip_rate": 0.167364,
+          "end": 720,
+          "expected_calibration_error": 0.24717177,
+          "mean_edge_return": 0.00063638,
+          "positive_rate": 0.5375,
+          "score": 0.00162333,
+          "start": 480,
+          "support_count": 240,
+          "support_rate": 1.0,
+          "threshold_churn": 0.0
+        },
+        {
+          "brier_score": 0.28582469,
+          "decision_flip_rate": 0.142259,
+          "end": 840,
+          "expected_calibration_error": 0.18231479,
+          "mean_edge_return": -0.00290675,
+          "positive_rate": 0.479167,
+          "score": 0.0090444,
+          "start": 600,
+          "support_count": 240,
+          "support_rate": 1.0,
+          "threshold_churn": 0.0
+        },
+        {
+          "brier_score": 0.27300713,
+          "decision_flip_rate": 0.125523,
+          "end": 960,
+          "expected_calibration_error": 0.15341852,
+          "mean_edge_return": -0.0038995,
+          "positive_rate": 0.45,
+          "score": 0.01353584,
+          "start": 720,
+          "support_count": 240,
+          "support_rate": 1.0,
+          "threshold_churn": 0.0
+        },
+        {
+          "brier_score": 0.2810516,
+          "decision_flip_rate": 0.158996,
+          "end": 1080,
+          "expected_calibration_error": 0.16922164,
+          "mean_edge_return": -0.00043302,
+          "positive_rate": 0.4625,
+          "score": 0.00913022,
+          "start": 840,
+          "support_count": 240,
+          "support_rate": 1.0,
+          "threshold_churn": 0.0
+        },
+        {
+          "brier_score": 0.28010403,
+          "decision_flip_rate": 0.154812,
+          "end": 1181,
+          "expected_calibration_error": 0.16477237,
+          "mean_edge_return": -0.00094326,
+          "positive_rate": 0.4625,
+          "score": 0.0104691,
+          "start": 941,
+          "support_count": 240,
+          "support_rate": 1.0,
+          "threshold_churn": 0.0
+        }
+      ]
+    },
+    "validation": {
+      "aggregate": {
+        "hmm_oos_filtered_support_count": 1304,
+        "hmm_oos_filtered_support_rate": 1.0,
+        "mean_brier_score": 0.27882801,
+        "mean_decision_flip_rate": 0.15341733,
+        "mean_edge_return": -0.00188823,
+        "mean_expected_calibration_error": 0.15356499,
+        "mean_positive_rate": 0.472222,
+        "mean_support_count": 240.0,
+        "mean_support_rate": 1.0,
+        "mean_threshold_churn": 0.0,
+        "positive_window_rate": 0.0,
+        "score": 0.01485196,
+        "window_count": 3
+      },
+      "rejected": true,
+      "rejection_reasons": [
+        "positive_window_rate_below_minimum",
+        "mean_edge_return_below_minimum"
+      ],
+      "score": 0.01485196,
+      "windows": [
+        {
+          "brier_score": 0.28107502,
+          "decision_flip_rate": 0.158996,
+          "end": 240,
+          "expected_calibration_error": 0.16244759,
+          "mean_edge_return": -0.00132134,
+          "positive_rate": 0.483333,
+          "score": 0.01479684,
+          "start": 0,
+          "support_count": 240,
+          "support_rate": 1.0,
+          "threshold_churn": 0.0
+        },
+        {
+          "brier_score": 0.28188907,
+          "decision_flip_rate": 0.150628,
+          "end": 360,
+          "expected_calibration_error": 0.16150387,
+          "mean_edge_return": -0.00191479,
+          "positive_rate": 0.475,
+          "score": 0.01327912,
+          "start": 120,
+          "support_count": 240,
+          "support_rate": 1.0,
+          "threshold_churn": 0.0
+        },
+        {
+          "brier_score": 0.27351994,
+          "decision_flip_rate": 0.150628,
+          "end": 440,
+          "expected_calibration_error": 0.13674352,
+          "mean_edge_return": -0.00242857,
+          "positive_rate": 0.458333,
+          "score": 0.01647993,
+          "start": 200,
+          "support_count": 240,
+          "support_rate": 1.0,
+          "threshold_churn": 0.0
+        }
+      ]
+    },
+    "validation_rejected": true,
+    "validation_rejection_reasons": [
+      "validation:positive_window_rate_below_minimum",
+      "validation:mean_edge_return_below_minimum"
+    ]
+  },
+  "best_trial": {
+    "number": 23,
+    "params": {
+      "changepoint_prob_threshold": 0.42,
+      "max_state_entropy": 0.95,
+      "max_transition_state_prob": 0.74,
+      "min_edge_probability": 0.31,
+      "transition_risk_threshold": 0.32,
+      "uncertainty_threshold": 0.37
+    },
+    "validation": {
+      "aggregate": {
+        "hmm_oos_filtered_support_count": 1304,
+        "hmm_oos_filtered_support_rate": 1.0,
+        "mean_brier_score": 0.24861688,
+        "mean_decision_flip_rate": 0.11413,
+        "mean_edge_return": -0.00312027,
+        "mean_expected_calibration_error": 0.06582799,
+        "mean_positive_rate": 0.443243,
+        "mean_support_count": 185.0,
+        "mean_support_rate": 1.0,
+        "mean_threshold_churn": 0.0,
+        "positive_window_rate": 0.0,
+        "score": 0.04038947,
+        "window_count": 1
+      },
+      "rejected": true,
+      "rejection_reasons": [
+        "positive_window_rate_below_minimum",
+        "mean_edge_return_below_minimum"
+      ],
+      "score": 0.04038947,
+      "windows": [
+        {
+          "brier_score": 0.24861688,
+          "decision_flip_rate": 0.11413,
+          "end": 185,
+          "expected_calibration_error": 0.06582799,
+          "mean_edge_return": -0.00312027,
+          "positive_rate": 0.443243,
+          "score": 0.04038947,
+          "start": 0,
+          "support_count": 185,
+          "support_rate": 1.0,
+          "threshold_churn": 0.0
+        }
+      ]
+    },
+    "value": -999999.95961053
+  },
+  "completed_trials": 24,
+  "data": {
+    "end": "2025-01-01T00:00:00+00:00",
+    "rows": 8767,
+    "start": "2021-01-01T00:00:00+00:00"
+  },
+  "default_vs_tuned": {
+    "baseline_deployed": false,
+    "baseline_mean_edge_return": -0.00082052,
+    "baseline_oos_score": 0.01419123,
+    "baseline_positive_window_rate": 0.0,
+    "mean_edge_return_delta": 0.00092696,
+    "oos_score_delta": 0.02615846,
+    "positive_window_rate_delta": 1.0,
+    "tuned_deployed": false,
+    "tuned_mean_edge_return": 0.00010644,
+    "tuned_oos_score": 0.04034969,
+    "tuned_positive_window_rate": 1.0
+  },
+  "deploy_params": {
+    "params": {
+      "changepoint_prob_threshold": 0.42,
+      "max_state_entropy": 0.95,
+      "max_transition_state_prob": 0.74,
+      "min_edge_probability": 0.31,
+      "transition_risk_threshold": 0.32,
+      "uncertainty_threshold": 0.37
+    },
+    "profile": "transition"
+  },
+  "horizon": 3,
+  "load_if_exists": false,
+  "model_name": "RegimeProbV1",
+  "n_trials": 24,
+  "oos": {
+    "calibration": {
+      "aggregate": {
+        "hmm_oos_filtered_support_count": 1739,
+        "hmm_oos_filtered_support_rate": 1.0,
+        "mean_brier_score": 0.24483154,
+        "mean_decision_flip_rate": 0.118343,
+        "mean_edge_return": -0.00011857,
+        "mean_expected_calibration_error": 0.05132535,
+        "mean_positive_rate": 0.4,
+        "mean_support_count": 170.0,
+        "mean_support_rate": 1.0,
+        "mean_threshold_churn": 0.0,
+        "positive_window_rate": 0.0,
+        "score": 0.03617384,
+        "window_count": 1
+      },
+      "rejected": true,
+      "rejection_reasons": [
+        "positive_window_rate_below_minimum",
+        "mean_edge_return_below_minimum"
+      ],
+      "score": 0.03617384,
+      "windows": [
+        {
+          "brier_score": 0.24483154,
+          "decision_flip_rate": 0.118343,
+          "end": 170,
+          "expected_calibration_error": 0.05132535,
+          "mean_edge_return": -0.00011857,
+          "positive_rate": 0.4,
+          "score": 0.03617384,
+          "start": 0,
+          "support_count": 170,
+          "support_rate": 1.0,
+          "threshold_churn": 0.0
+        }
+      ]
+    },
+    "deployed": false,
+    "hmm_in_sample_rows": 500,
+    "hmm_oos_filtered_rows": 8267,
+    "hmm_oos_filtered_support_rate": 0.94296795,
+    "hmm_proxy_fallback_rows": 0,
+    "hmm_state_source": "hmm_state_model",
+    "oos": {
+      "aggregate": {
+        "hmm_oos_filtered_support_count": 1305,
+        "hmm_oos_filtered_support_rate": 1.0,
+        "mean_brier_score": 0.27500038,
+        "mean_decision_flip_rate": 0.060606,
+        "mean_edge_return": 0.00010644,
+        "mean_expected_calibration_error": 0.16117627,
+        "mean_positive_rate": 0.511278,
+        "mean_support_count": 133.0,
+        "mean_support_rate": 1.0,
+        "mean_threshold_churn": 0.0,
+        "positive_window_rate": 1.0,
+        "score": 0.04034969,
+        "window_count": 1
+      },
+      "rejected": false,
+      "rejection_reasons": [],
+      "score": 0.04034969,
+      "windows": [
+        {
+          "brier_score": 0.27500038,
+          "decision_flip_rate": 0.060606,
+          "end": 133,
+          "expected_calibration_error": 0.16117627,
+          "mean_edge_return": 0.00010644,
+          "positive_rate": 0.511278,
+          "score": 0.04034969,
+          "start": 0,
+          "support_count": 133,
+          "support_rate": 1.0,
+          "threshold_churn": 0.0
+        }
+      ]
+    },
+    "oos_gate_passed": false,
+    "oos_rejected": false,
+    "oos_rejection_reasons": [],
+    "params": {
+      "changepoint_prob_threshold": 0.42,
+      "max_state_entropy": 0.95,
+      "max_transition_state_prob": 0.74,
+      "min_edge_probability": 0.31,
+      "transition_risk_threshold": 0.32,
+      "uncertainty_threshold": 0.37
+    },
+    "promotion_rejection_reasons": [
+      "tuned:validation:positive_window_rate_below_minimum",
+      "tuned:validation:mean_edge_return_below_minimum"
+    ],
+    "rejection_reasons": [
+      "validation:positive_window_rate_below_minimum",
+      "validation:mean_edge_return_below_minimum",
+      "promotion:tuned:validation:positive_window_rate_below_minimum",
+      "promotion:tuned:validation:mean_edge_return_below_minimum"
+    ],
+    "train": {
+      "aggregate": {
+        "hmm_oos_filtered_support_count": 3847,
+        "hmm_oos_filtered_support_rate": 0.88497815,
+        "mean_brier_score": 1.0,
+        "mean_decision_flip_rate": 0.0,
+        "mean_edge_return": 0.0,
+        "mean_expected_calibration_error": 1.0,
+        "mean_positive_rate": 0.0,
+        "mean_support_count": 0.0,
+        "mean_support_rate": 0.0,
+        "mean_threshold_churn": 0.0,
+        "positive_window_rate": 0.0,
+        "score": -1000000.0,
+        "window_count": 0
+      },
+      "rejected": true,
+      "rejection_reasons": [
+        "no_valid_windows"
+      ],
+      "score": -1000000.0,
+      "windows": []
+    },
+    "validation": {
+      "aggregate": {
+        "hmm_oos_filtered_support_count": 1304,
+        "hmm_oos_filtered_support_rate": 1.0,
+        "mean_brier_score": 0.24861688,
+        "mean_decision_flip_rate": 0.11413,
+        "mean_edge_return": -0.00312027,
+        "mean_expected_calibration_error": 0.06582799,
+        "mean_positive_rate": 0.443243,
+        "mean_support_count": 185.0,
+        "mean_support_rate": 1.0,
+        "mean_threshold_churn": 0.0,
+        "positive_window_rate": 0.0,
+        "score": 0.04038947,
+        "window_count": 1
+      },
+      "rejected": true,
+      "rejection_reasons": [
+        "positive_window_rate_below_minimum",
+        "mean_edge_return_below_minimum"
+      ],
+      "score": 0.04038947,
+      "windows": [
+        {
+          "brier_score": 0.24861688,
+          "decision_flip_rate": 0.11413,
+          "end": 185,
+          "expected_calibration_error": 0.06582799,
+          "mean_edge_return": -0.00312027,
+          "positive_rate": 0.443243,
+          "score": 0.04038947,
+          "start": 0,
+          "support_count": 185,
+          "support_rate": 1.0,
+          "threshold_churn": 0.0
+        }
+      ]
+    },
+    "validation_rejected": true,
+    "validation_rejection_reasons": [
+      "validation:positive_window_rate_below_minimum",
+      "validation:mean_edge_return_below_minimum"
+    ]
+  },
+  "playbook": null,
+  "profile": "transition",
+  "promotion_gate": {
+    "metrics": {
+      "brier_score_delta": -0.00663228,
+      "expected_calibration_error_delta": -0.01630972,
+      "mean_edge_return_delta": 0.00092696,
+      "oos_score_delta": 0.02615846,
+      "positive_window_rate_delta": 1.0
+    },
+    "ready": false,
+    "rejection_reasons": [
+      "tuned:validation:positive_window_rate_below_minimum",
+      "tuned:validation:mean_edge_return_below_minimum"
+    ],
+    "requirements": {
+      "max_brier_score_delta": 0.0,
+      "max_ece_delta": 0.0,
+      "min_mean_edge_return_delta": 0.0,
+      "min_oos_score_delta": 0.0,
+      "positive_window_rate_tolerance": 0.0
+    }
+  },
+  "rejected_trials": 24,
+  "seed": 42,
+  "storage": null,
+  "study_defaults": {
+    "direction": "maximize",
+    "n_trials": 80,
+    "profile": "edge_calibration",
+    "pruner": "MedianPruner",
+    "sampler": "TPE",
+    "write_back": false
+  },
+  "study_name": "RegimeProbV1_BTCUSDT_4h_transition_multi_h3",
+  "threshold_sweep": null,
+  "timeframe": "4h",
+  "validation_config": {
+    "calibration_bins": 10,
+    "gates": {
+      "max_decision_flip_rate": 0.45,
+      "max_threshold_churn": 0.45,
+      "min_mean_edge_return": 0.0,
+      "min_oos_score_ratio": 0.5,
+      "min_positive_window_rate": 0.35,
+      "min_support_count": 20,
+      "min_support_rate": 0.02
+    },
+    "min_window_bars": 120,
+    "step_bars": 120,
+    "weights": {
+      "brier_penalty": 0.35,
+      "churn_penalty": 0.15,
+      "ece_penalty": 0.2,
+      "flip_penalty": 0.15,
+      "low_support_penalty": 1.0,
+      "mean_edge_return": 1.0,
+      "positive_window_rate": 0.25,
+      "support": 0.05
+    },
+    "window_bars": 240
+  }
+}

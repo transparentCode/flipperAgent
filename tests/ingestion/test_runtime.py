@@ -12,6 +12,7 @@ from apps.ingestion_app.runtime.reconciler import IngestionRuntimeReconciler
 from apps.ingestion_app.runtime.shared import AssetRuntimeHandle, AssetRuntimeSpec
 from apps.ingestion_app.runtime.websocket import run_websocket_pipeline
 from apps.ingestion_app.constants import EXCHANGE_BINANCE
+from libs.contracts.ingestion import IngestionEventType
 
 
 @pytest.mark.asyncio
@@ -844,6 +845,64 @@ async def test_run_websocket_pipeline_emits_retry_exhausted_event_v2():
             await run_websocket_pipeline("BTCUSDT", [], arq_pool=mock_arq_pool, coordinator=mock_coordinator)
 
     mock_event.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_run_websocket_pipeline_emits_gap_fill_enqueue_failure_event_v2():
+    mock_coordinator = MagicMock()
+    mock_coordinator.transition = AsyncMock()
+    mock_coordinator.get_disconnect_count = AsyncMock(return_value=1)
+    mock_arq_pool = AsyncMock()
+    mock_arq_pool.enqueue_job = AsyncMock(side_effect=RuntimeError("queue unavailable"))
+    mock_redis_client = AsyncMock()
+    mock_writer = MagicMock()
+    mock_writer.insert_ohlcv = AsyncMock()
+
+    async def broken_stream(_symbols_timeframes, _loop, _queue):
+        if False:
+            yield {}
+        raise RuntimeError("socket dropped")
+
+    mock_adapter = MagicMock()
+    mock_adapter.stream_multiplex_socket = broken_stream
+
+    with (
+        patch(
+            "apps.ingestion_app.runtime.websocket.create_valkey_client",
+            new=AsyncMock(return_value=mock_redis_client),
+        ),
+        patch("apps.ingestion_app.runtime.websocket.DBPoolManager") as mock_db_pool,
+        patch("apps.ingestion_app.runtime.websocket.TimescaleWriter", return_value=mock_writer),
+        patch("apps.ingestion_app.runtime.websocket.BinanceNativeAdapter", return_value=mock_adapter),
+        patch(
+            "apps.ingestion_app.runtime.websocket.publish_ingestion_runtime_event",
+            new=AsyncMock(),
+        ) as mock_event,
+        patch(
+            "apps.ingestion_app.runtime.websocket.asyncio.sleep",
+            new=AsyncMock(side_effect=asyncio.CancelledError),
+        ),
+        patch("apps.ingestion_app.runtime.websocket.config_manager") as mock_config,
+    ):
+        mock_db_pool.get_writer_pool.return_value = MagicMock()
+        mock_config.get.side_effect = lambda key, default=None: {
+            "ingestion.timeframes.base_gap_fill": "1m",
+            "ingestion.websocket.reconnect_sleep_seconds": 5,
+            "ingestion.websocket.queue_maxsize": 10,
+            "ingestion.observability.circuit_breaker_threshold": 5,
+            "ingestion.observability.circuit_breaker_sleep_seconds": 300,
+        }.get(key, default)
+
+        with pytest.raises(asyncio.CancelledError):
+            await run_websocket_pipeline("BTCUSDT", [], arq_pool=mock_arq_pool, coordinator=mock_coordinator)
+
+    assert mock_event.await_count == 1
+    _, kwargs = mock_event.await_args
+    assert kwargs["event_type"] == IngestionEventType.GAP_FILL_ENQUEUE_FAILED
+    assert kwargs["symbol"] == "BTCUSDT"
+    assert kwargs["timeframe"] == "1m"
+    assert kwargs["severity"] == "error"
+    assert kwargs["detail"]["error"] == "queue unavailable"
 
 
 @pytest.mark.asyncio

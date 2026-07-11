@@ -59,8 +59,9 @@ class AlertIncidentService:
                 updated = incident.model_copy(
                     update={
                         "state": AlertIncidentState.RESOLVED,
+                        "title": event.title,
                         "summary": event.summary,
-                        "detail": {**incident.detail, **event.detail},
+                        "detail": dict(event.detail),
                         "last_seen_at": event.emitted_at,
                         "resolved_at": event.emitted_at,
                         "updated_at": event.emitted_at,
@@ -86,7 +87,7 @@ class AlertIncidentService:
                 route_names=list(route_names or []),
                 first_seen_at=event.emitted_at,
                 last_seen_at=event.emitted_at,
-                last_notified_at=event.emitted_at,
+                last_notified_at=None,
                 updated_at=event.emitted_at,
             )
             saved = await self._persist(incident)
@@ -108,7 +109,6 @@ class AlertIncidentService:
                 "route_names": list(route_names or existing.route_names),
                 "last_seen_at": now_ts,
                 "updated_at": now_ts,
-                "last_notified_at": now_ts if should_notify else existing.last_notified_at,
                 "resolved_at": None,
             }
         )
@@ -137,6 +137,24 @@ class AlertIncidentService:
             update={
                 "state": AlertIncidentState.RESOLVED,
                 "resolved_at": ts,
+                "updated_at": ts,
+            }
+        )
+        return await self._persist(updated)
+
+    async def mark_notified(
+        self,
+        incident_id: str,
+        *,
+        notified_at: float | None = None,
+    ) -> AlertIncidentRecord | None:
+        incident = await self._find_by_incident_id(incident_id)
+        if incident is None:
+            return None
+        ts = notified_at or time()
+        updated = incident.model_copy(
+            update={
+                "last_notified_at": ts,
                 "updated_at": ts,
             }
         )

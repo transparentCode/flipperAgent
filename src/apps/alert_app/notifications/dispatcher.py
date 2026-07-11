@@ -24,11 +24,13 @@ class AlertNotificationDispatcher:
         *,
         redis_client: Any,
         repository: Any,
+        incident_service: Any | None = None,
         config_manager: Any | None = None,
         transports: dict[str, AlertTransport] | None = None,
     ) -> None:
         self.redis_client = redis_client
         self.repository = repository
+        self.incident_service = incident_service
         self.config_manager = create_alert_config_manager(config_manager)
         self.queue_maxsize = int(
             self.config_manager.get("alerts.notifications.queue_maxsize", 1000),
@@ -98,8 +100,8 @@ class AlertNotificationDispatcher:
     async def _worker_loop(self, worker_index: int) -> None:
         while True:
             incident, route_name, route_config = await self.queue.get()
+            transport_name = str(route_config.get("transport", "")).strip().lower()
             try:
-                transport_name = str(route_config.get("transport", "")).strip().lower()
                 transport = self.transports.get(transport_name)
                 if transport is None:
                     raise ValueError(f"Unknown transport: {transport_name}")
@@ -129,11 +131,26 @@ class AlertNotificationDispatcher:
                 await self._record_delivery(
                     incident,
                     route_name=route_name,
-                    transport=str(route_config.get("transport", "")),
+                    transport=transport_name,
                     destination=str(route_config.get("destination", "")),
                     status="failed",
                     error=_format_exception(exc),
                 )
+            else:
+                if self.incident_service is not None:
+                    try:
+                        await self.incident_service.mark_notified(
+                            incident.incident_id,
+                            notified_at=time(),
+                        )
+                    except Exception as mark_exc:
+                        logger.warning(
+                            "Failed to update last_notified_at for incident=%s route=%s: %s",
+                            incident.incident_id,
+                            route_name,
+                            mark_exc,
+                            exc_info=True,
+                        )
             finally:
                 self.queue.task_done()
 

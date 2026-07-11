@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from apps.alert_app.contracts import (
+    AlertEventType,
     AlertIncidentRecord,
     AlertIncidentState,
     AlertSeverity,
@@ -46,3 +47,35 @@ def test_telegram_transport_normalizes_markdown_to_html() -> None:
     assert transport._normalize_parse_mode("Markdown") == "HTML"
     assert transport._normalize_parse_mode("MarkdownV2") == "HTML"
     assert transport._normalize_parse_mode("HTML") == "HTML"
+
+
+def test_telegram_transport_formats_health_incident_readably() -> None:
+    transport = TelegramAlertTransport()
+    incident = AlertIncidentRecord(
+        incident_id="inc_health",
+        dedupe_key="dedupe_health",
+        event_type=AlertEventType.SYSTEM_HEALTH_BREACH,
+        source_app=AlertSourceApp.INGESTION,
+        source_component="health_check:ingestion_runtime",
+        severity=AlertSeverity.CRITICAL,
+        state=AlertIncidentState.OPEN,
+        title="Health probe failed for ingestion_runtime",
+        summary=(
+            "No HTTP response from http://worker-streams:8001/health. "
+            "Service may still be starting or unreachable."
+        ),
+        detail={
+            "url": "http://worker-streams:8001/health",
+            "error": "Cannot connect to host worker-streams:8001 ssl:default [Connect call failed]",
+        },
+        first_seen_at=1.0,
+        last_seen_at=1.0,
+        updated_at=1.0,
+    )
+
+    message = transport._format_message(incident, parse_mode="HTML")
+
+    assert "<b>Health probe failed for ingestion_runtime</b>" in message
+    assert "No HTTP response from http://worker-streams:8001/health." in message
+    assert "<code>probe</code> http://worker-streams:8001/health" in message
+    assert "<code>cause</code> connection refused" in message

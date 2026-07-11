@@ -1,0 +1,476 @@
+{
+  "asset": "BTCUSDT",
+  "baseline_oos": {
+    "calibration": {
+      "aggregate": {
+        "hmm_oos_filtered_support_count": 1739,
+        "hmm_oos_filtered_support_rate": 1.0,
+        "mean_brier_score": 1.0,
+        "mean_decision_flip_rate": 0.0,
+        "mean_edge_return": 0.0,
+        "mean_expected_calibration_error": 1.0,
+        "mean_positive_rate": 0.0,
+        "mean_support_count": 0.0,
+        "mean_support_rate": 0.0,
+        "mean_threshold_churn": 0.0,
+        "positive_window_rate": 0.0,
+        "score": -1000000.0,
+        "window_count": 0
+      },
+      "rejected": true,
+      "rejection_reasons": [
+        "no_valid_windows"
+      ],
+      "score": -1000000.0,
+      "windows": []
+    },
+    "deployed": false,
+    "hmm_in_sample_rows": 500,
+    "hmm_oos_filtered_rows": 8267,
+    "hmm_oos_filtered_support_rate": 0.94296795,
+    "hmm_proxy_fallback_rows": 0,
+    "hmm_state_source": "hmm_state_model",
+    "oos": {
+      "aggregate": {
+        "hmm_oos_filtered_support_count": 1305,
+        "hmm_oos_filtered_support_rate": 1.0,
+        "mean_brier_score": 1.0,
+        "mean_decision_flip_rate": 0.0,
+        "mean_edge_return": 0.0,
+        "mean_expected_calibration_error": 1.0,
+        "mean_positive_rate": 0.0,
+        "mean_support_count": 0.0,
+        "mean_support_rate": 0.0,
+        "mean_threshold_churn": 0.0,
+        "positive_window_rate": 0.0,
+        "score": -1000000.0,
+        "window_count": 0
+      },
+      "rejected": true,
+      "rejection_reasons": [
+        "no_valid_windows"
+      ],
+      "score": -1000000.0,
+      "windows": []
+    },
+    "oos_rejected": true,
+    "oos_rejection_reasons": [
+      "oos:no_valid_windows"
+    ],
+    "params": {
+      "active_probability_threshold": 0.35,
+      "beta_weight": 0.1,
+      "btc_d_conflict_weight": 0.25,
+      "changepoint_prob_threshold": 0.55,
+      "confirmation_boost": 0.15,
+      "conflict_penalty": 0.2,
+      "context_staleness_penalty": 0.25,
+      "entropy_max_penalty": 0.1,
+      "entropy_scale": 1.5,
+      "higher_tf_weight": 1.0,
+      "market_alignment_weight": 0.2,
+      "max_staleness_bars": 2,
+      "max_state_entropy": 0.8,
+      "max_transition_state_prob": 0.55,
+      "min_bin_count": 10,
+      "min_breakout_state_prob": 0.4,
+      "min_edge_probability": 0.35,
+      "min_policy_score": 0.0,
+      "min_range_state_prob": 0.45,
+      "min_trend_state_prob": 0.45,
+      "n_bins": 10,
+      "recommendation_min_probability": 0.35,
+      "require_policy_allow": true,
+      "strategy": "quantile",
+      "top_k": 2,
+      "total3_confirmation_weight": 0.25,
+      "transition_max_penalty": 0.25,
+      "transition_risk_threshold": 0.55,
+      "uncertainty_threshold": 0.75
+    },
+    "rejection_reasons": [
+      "validation:no_valid_windows",
+      "oos:no_valid_windows"
+    ],
+    "train": {
+      "aggregate": {
+        "hmm_oos_filtered_support_count": 3847,
+        "hmm_oos_filtered_support_rate": 0.88497815,
+        "mean_brier_score": 1.0,
+        "mean_decision_flip_rate": 0.0,
+        "mean_edge_return": 0.0,
+        "mean_expected_calibration_error": 1.0,
+        "mean_positive_rate": 0.0,
+        "mean_support_count": 0.0,
+        "mean_support_rate": 0.0,
+        "mean_threshold_churn": 0.0,
+        "positive_window_rate": 0.0,
+        "score": -1000000.0,
+        "window_count": 0
+      },
+      "rejected": true,
+      "rejection_reasons": [
+        "no_valid_windows"
+      ],
+      "score": -1000000.0,
+      "windows": []
+    },
+    "validation": {
+      "aggregate": {
+        "hmm_oos_filtered_support_count": 1304,
+        "hmm_oos_filtered_support_rate": 1.0,
+        "mean_brier_score": 1.0,
+        "mean_decision_flip_rate": 0.0,
+        "mean_edge_return": 0.0,
+        "mean_expected_calibration_error": 1.0,
+        "mean_positive_rate": 0.0,
+        "mean_support_count": 0.0,
+        "mean_support_rate": 0.0,
+        "mean_threshold_churn": 0.0,
+        "positive_window_rate": 0.0,
+        "score": -1000000.0,
+        "window_count": 0
+      },
+      "rejected": true,
+      "rejection_reasons": [
+        "no_valid_windows"
+      ],
+      "score": -1000000.0,
+      "windows": []
+    },
+    "validation_rejected": true,
+    "validation_rejection_reasons": [
+      "validation:no_valid_windows"
+    ]
+  },
+  "best_trial": {
+    "number": 0,
+    "params": {
+      "active_probability_threshold": 0.33,
+      "beta_weight": 0.0,
+      "btc_d_conflict_weight": 0.2,
+      "changepoint_prob_threshold": 0.46,
+      "confirmation_boost": 0.34,
+      "conflict_penalty": 0.1,
+      "context_staleness_penalty": 0.6,
+      "entropy_max_penalty": 0.05,
+      "entropy_scale": 1.25,
+      "higher_tf_weight": 1.5,
+      "market_alignment_weight": 0.6,
+      "max_staleness_bars": 5,
+      "max_state_entropy": 0.3,
+      "max_transition_state_prob": 0.59,
+      "min_bin_count": 39,
+      "min_breakout_state_prob": 0.37,
+      "min_edge_probability": 0.33,
+      "min_policy_score": 0.02,
+      "min_range_state_prob": 0.46,
+      "min_trend_state_prob": 0.52,
+      "n_bins": 10,
+      "recommendation_min_probability": 0.26,
+      "require_policy_allow": true,
+      "strategy": "quantile",
+      "top_k": 3,
+      "total3_confirmation_weight": 0.5,
+      "transition_max_penalty": 0.11,
+      "transition_risk_threshold": 0.33,
+      "uncertainty_threshold": 0.49
+    },
+    "validation": {
+      "aggregate": {
+        "hmm_oos_filtered_support_count": 1304,
+        "hmm_oos_filtered_support_rate": 1.0,
+        "mean_brier_score": 1.0,
+        "mean_decision_flip_rate": 0.0,
+        "mean_edge_return": 0.0,
+        "mean_expected_calibration_error": 1.0,
+        "mean_positive_rate": 0.0,
+        "mean_support_count": 0.0,
+        "mean_support_rate": 0.0,
+        "mean_threshold_churn": 0.0,
+        "positive_window_rate": 0.0,
+        "score": -1000000.0,
+        "window_count": 0
+      },
+      "rejected": true,
+      "rejection_reasons": [
+        "no_valid_windows"
+      ],
+      "score": -1000000.0,
+      "windows": []
+    },
+    "value": -2000000.0
+  },
+  "completed_trials": 24,
+  "data": {
+    "end": "2025-01-01T00:00:00+00:00",
+    "rows": 8767,
+    "start": "2021-01-01T00:00:00+00:00"
+  },
+  "default_vs_tuned": {
+    "baseline_deployed": false,
+    "baseline_mean_edge_return": 0.0,
+    "baseline_oos_score": -1000000.0,
+    "baseline_positive_window_rate": 0.0,
+    "mean_edge_return_delta": 0.0,
+    "oos_score_delta": 0.0,
+    "positive_window_rate_delta": 0.0,
+    "tuned_deployed": false,
+    "tuned_mean_edge_return": 0.0,
+    "tuned_oos_score": -1000000.0,
+    "tuned_positive_window_rate": 0.0
+  },
+  "deploy_params": {
+    "params": {
+      "active_probability_threshold": 0.33,
+      "beta_weight": 0.0,
+      "btc_d_conflict_weight": 0.2,
+      "changepoint_prob_threshold": 0.46,
+      "confirmation_boost": 0.34,
+      "conflict_penalty": 0.1,
+      "context_staleness_penalty": 0.6,
+      "entropy_max_penalty": 0.05,
+      "entropy_scale": 1.25,
+      "higher_tf_weight": 1.5,
+      "market_alignment_weight": 0.6,
+      "max_staleness_bars": 5,
+      "max_state_entropy": 0.3,
+      "max_transition_state_prob": 0.59,
+      "min_bin_count": 39,
+      "min_breakout_state_prob": 0.37,
+      "min_edge_probability": 0.33,
+      "min_policy_score": 0.02,
+      "min_range_state_prob": 0.46,
+      "min_trend_state_prob": 0.52,
+      "n_bins": 10,
+      "recommendation_min_probability": 0.26,
+      "require_policy_allow": true,
+      "strategy": "quantile",
+      "top_k": 3,
+      "total3_confirmation_weight": 0.5,
+      "transition_max_penalty": 0.11,
+      "transition_risk_threshold": 0.33,
+      "uncertainty_threshold": 0.49
+    },
+    "profile": "full_shadow_only"
+  },
+  "horizon": 3,
+  "load_if_exists": false,
+  "model_name": "RegimeProbV1",
+  "n_trials": 24,
+  "oos": {
+    "calibration": {
+      "aggregate": {
+        "hmm_oos_filtered_support_count": 1739,
+        "hmm_oos_filtered_support_rate": 1.0,
+        "mean_brier_score": 1.0,
+        "mean_decision_flip_rate": 0.0,
+        "mean_edge_return": 0.0,
+        "mean_expected_calibration_error": 1.0,
+        "mean_positive_rate": 0.0,
+        "mean_support_count": 0.0,
+        "mean_support_rate": 0.0,
+        "mean_threshold_churn": 0.0,
+        "positive_window_rate": 0.0,
+        "score": -1000000.0,
+        "window_count": 0
+      },
+      "rejected": true,
+      "rejection_reasons": [
+        "no_valid_windows"
+      ],
+      "score": -1000000.0,
+      "windows": []
+    },
+    "deployed": false,
+    "hmm_in_sample_rows": 500,
+    "hmm_oos_filtered_rows": 8267,
+    "hmm_oos_filtered_support_rate": 0.94296795,
+    "hmm_proxy_fallback_rows": 0,
+    "hmm_state_source": "hmm_state_model",
+    "oos": {
+      "aggregate": {
+        "hmm_oos_filtered_support_count": 1305,
+        "hmm_oos_filtered_support_rate": 1.0,
+        "mean_brier_score": 1.0,
+        "mean_decision_flip_rate": 0.0,
+        "mean_edge_return": 0.0,
+        "mean_expected_calibration_error": 1.0,
+        "mean_positive_rate": 0.0,
+        "mean_support_count": 0.0,
+        "mean_support_rate": 0.0,
+        "mean_threshold_churn": 0.0,
+        "positive_window_rate": 0.0,
+        "score": -1000000.0,
+        "window_count": 0
+      },
+      "rejected": true,
+      "rejection_reasons": [
+        "no_valid_probability_rows"
+      ],
+      "score": -1000000.0,
+      "windows": []
+    },
+    "oos_gate_passed": false,
+    "oos_rejected": true,
+    "oos_rejection_reasons": [
+      "oos:no_valid_probability_rows"
+    ],
+    "params": {
+      "active_probability_threshold": 0.33,
+      "beta_weight": 0.0,
+      "btc_d_conflict_weight": 0.2,
+      "changepoint_prob_threshold": 0.46,
+      "confirmation_boost": 0.34,
+      "conflict_penalty": 0.1,
+      "context_staleness_penalty": 0.6,
+      "entropy_max_penalty": 0.05,
+      "entropy_scale": 1.25,
+      "higher_tf_weight": 1.5,
+      "market_alignment_weight": 0.6,
+      "max_staleness_bars": 5,
+      "max_state_entropy": 0.3,
+      "max_transition_state_prob": 0.59,
+      "min_bin_count": 39,
+      "min_breakout_state_prob": 0.37,
+      "min_edge_probability": 0.33,
+      "min_policy_score": 0.02,
+      "min_range_state_prob": 0.46,
+      "min_trend_state_prob": 0.52,
+      "n_bins": 10,
+      "recommendation_min_probability": 0.26,
+      "require_policy_allow": true,
+      "strategy": "quantile",
+      "top_k": 3,
+      "total3_confirmation_weight": 0.5,
+      "transition_max_penalty": 0.11,
+      "transition_risk_threshold": 0.33,
+      "uncertainty_threshold": 0.49
+    },
+    "promotion_rejection_reasons": [
+      "tuned:validation:no_valid_windows",
+      "tuned:oos:no_valid_probability_rows",
+      "oos_score_not_above_baseline"
+    ],
+    "rejection_reasons": [
+      "validation:no_valid_windows",
+      "oos:no_valid_probability_rows",
+      "promotion:tuned:validation:no_valid_windows",
+      "promotion:tuned:oos:no_valid_probability_rows",
+      "promotion:oos_score_not_above_baseline"
+    ],
+    "train": {
+      "aggregate": {
+        "hmm_oos_filtered_support_count": 3847,
+        "hmm_oos_filtered_support_rate": 0.88497815,
+        "mean_brier_score": 1.0,
+        "mean_decision_flip_rate": 0.0,
+        "mean_edge_return": 0.0,
+        "mean_expected_calibration_error": 1.0,
+        "mean_positive_rate": 0.0,
+        "mean_support_count": 0.0,
+        "mean_support_rate": 0.0,
+        "mean_threshold_churn": 0.0,
+        "positive_window_rate": 0.0,
+        "score": -1000000.0,
+        "window_count": 0
+      },
+      "rejected": true,
+      "rejection_reasons": [
+        "no_valid_probability_rows"
+      ],
+      "score": -1000000.0,
+      "windows": []
+    },
+    "validation": {
+      "aggregate": {
+        "hmm_oos_filtered_support_count": 1304,
+        "hmm_oos_filtered_support_rate": 1.0,
+        "mean_brier_score": 1.0,
+        "mean_decision_flip_rate": 0.0,
+        "mean_edge_return": 0.0,
+        "mean_expected_calibration_error": 1.0,
+        "mean_positive_rate": 0.0,
+        "mean_support_count": 0.0,
+        "mean_support_rate": 0.0,
+        "mean_threshold_churn": 0.0,
+        "positive_window_rate": 0.0,
+        "score": -1000000.0,
+        "window_count": 0
+      },
+      "rejected": true,
+      "rejection_reasons": [
+        "no_valid_windows"
+      ],
+      "score": -1000000.0,
+      "windows": []
+    },
+    "validation_rejected": true,
+    "validation_rejection_reasons": [
+      "validation:no_valid_windows"
+    ]
+  },
+  "playbook": null,
+  "profile": "full_shadow_only",
+  "promotion_gate": {
+    "metrics": {
+      "brier_score_delta": 0.0,
+      "expected_calibration_error_delta": 0.0,
+      "mean_edge_return_delta": 0.0,
+      "oos_score_delta": 0.0,
+      "positive_window_rate_delta": 0.0
+    },
+    "ready": false,
+    "rejection_reasons": [
+      "tuned:validation:no_valid_windows",
+      "tuned:oos:no_valid_probability_rows",
+      "oos_score_not_above_baseline"
+    ],
+    "requirements": {
+      "max_brier_score_delta": 0.0,
+      "max_ece_delta": 0.0,
+      "min_mean_edge_return_delta": 0.0,
+      "min_oos_score_delta": 0.0,
+      "positive_window_rate_tolerance": 0.0
+    }
+  },
+  "rejected_trials": 24,
+  "seed": 42,
+  "storage": null,
+  "study_defaults": {
+    "direction": "maximize",
+    "n_trials": 80,
+    "profile": "edge_calibration",
+    "pruner": "MedianPruner",
+    "sampler": "TPE",
+    "write_back": false
+  },
+  "study_name": "RegimeProbV1_BTCUSDT_4h_full_shadow_only_multi_h3",
+  "threshold_sweep": null,
+  "timeframe": "4h",
+  "validation_config": {
+    "calibration_bins": 10,
+    "gates": {
+      "max_decision_flip_rate": 0.45,
+      "max_threshold_churn": 0.45,
+      "min_mean_edge_return": 0.0,
+      "min_oos_score_ratio": 0.5,
+      "min_positive_window_rate": 0.35,
+      "min_support_count": 20,
+      "min_support_rate": 0.02
+    },
+    "min_window_bars": 120,
+    "step_bars": 120,
+    "weights": {
+      "brier_penalty": 0.35,
+      "churn_penalty": 0.15,
+      "ece_penalty": 0.2,
+      "flip_penalty": 0.15,
+      "low_support_penalty": 1.0,
+      "mean_edge_return": 1.0,
+      "positive_window_rate": 0.25,
+      "support": 0.05
+    },
+    "window_bars": 240
+  }
+}

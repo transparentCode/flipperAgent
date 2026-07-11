@@ -73,8 +73,14 @@ class RegimeFeaturePipeline:
         settings = settings or SignalWorkerSettings()
         self.asset = asset.upper()
         self.timeframe = timeframe
-        self.min_bars = (
-            settings.regime_min_bars if min_bars is None else min_bars
+        base_min_bars = settings.regime_min_bars if min_bars is None else min_bars
+        self.orchestrator_min_bars = _component_min_bars(orchestrator, fallback=base_min_bars)
+        self.classifier_min_bars = _component_min_bars(classifier, fallback=base_min_bars)
+        self.regime_v2_min_bars = _component_min_bars(regime_v2, fallback=base_min_bars)
+        self.min_bars = max(
+            self.orchestrator_min_bars,
+            self.classifier_min_bars,
+            self.regime_v2_min_bars,
         )
         self.max_history = (
             settings.regime_max_history if max_history is None else max_history
@@ -151,7 +157,7 @@ class RegimeFeaturePipeline:
         return enriched
 
     def _attach_regime_snapshot(self, features: dict[str, Any]) -> None:
-        if self.orchestrator is None or len(self._price_history) < self.min_bars:
+        if self.orchestrator is None or len(self._price_history) < self.orchestrator_min_bars:
             return
 
         try:
@@ -161,7 +167,7 @@ class RegimeFeaturePipeline:
             logger.warning("Regime analysis failed for current bar", exc_info=True)
 
     async def _attach_regime_classification(self, features: dict[str, Any]) -> None:
-        if self.classifier is None or len(self._price_history) < self.min_bars:
+        if self.classifier is None or len(self._price_history) < self.classifier_min_bars:
             return
 
         bars_since_cache = len(self._price_history) - self._classification_cache_bar_count
@@ -198,7 +204,7 @@ class RegimeFeaturePipeline:
         features["regime_classification"] = last_features
 
     def _attach_regime_v2(self, features: dict[str, Any]) -> None:
-        if self.regime_v2 is None or len(self._price_history) < self.min_bars:
+        if self.regime_v2 is None or len(self._price_history) < self.regime_v2_min_bars:
             return
 
         try:
@@ -325,3 +331,19 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
         else:
             merged[key] = value
     return merged
+
+
+def _component_min_bars(component: Any | None, *, fallback: int) -> int:
+    if component is None:
+        return 0
+
+    direct = getattr(component, "min_bars", None)
+    if isinstance(direct, int | float) and direct > 0:
+        return int(direct)
+
+    meta = getattr(component, "meta", None)
+    meta_min_bars = getattr(meta, "min_history_bars", None)
+    if isinstance(meta_min_bars, int | float) and meta_min_bars > 0:
+        return int(meta_min_bars)
+
+    return max(int(fallback), 0)

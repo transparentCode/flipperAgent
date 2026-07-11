@@ -63,14 +63,14 @@ These are the foundational instructions for any AI assistant working on the `fli
 
 This project is indexed by `codebase-memory-mcp`. Use the codebase-memory tools to understand code, assess impact, and navigate safely.
 
-> If any codebase-memory tool warns the index is stale, run `codebase-memory-mcp cli index_repository '{"repo_path": "/Users/aloobhujia/flipperAgent"}'` in terminal first.
+> If any codebase-memory tool warns the index is stale, run `codebase-memory-mcp cli index_repository '{"repo_path": "/Users/aloobhujia/flipperAgent"}'` in terminal first. The indexed project name is `Users-aloobhujia-flipperAgent`.
 
 ## Always Do
 
 - **MUST use codebase-memory before editing any existing symbol.** Before modifying a function, class, or method, query the codebase graph to understand callers, callees, and affected execution paths.
 - **MUST verify scope before committing** to confirm your changes only affect expected symbols and files.
 - **MUST warn the user** if impact analysis reveals HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `search_graph` and `trace_path` to find execution flows instead of relying solely on grep.
+- When exploring unfamiliar code, use `search_graph` and `search_code` to find execution flows instead of relying solely on grep.
 - When you need full context on a specific symbol — callers, callees, which flows it participates in — use `get_code_snippet` and `trace_path`.
 
 ## When Debugging
@@ -97,13 +97,13 @@ This project is indexed by `codebase-memory-mcp`. Use the codebase-memory tools 
 | Tool | When to use | Example |
 |------|-------------|---------|
 | `index_repository` | Index or re-index the repo | `index_repository({"repo_path": "/Users/aloobhujia/flipperAgent"})` |
-| `search_graph` | Find symbols by name, label, file | `search_graph({"name_pattern": ".*Handler.*", "label": "Function"})` |
-| `search_code` | Graph-augmented grep | `search_code({"query": "auth validation"})` |
-| `trace_path` | Blast radius / call chain | `trace_path({"function_name": "X", "direction": "both"})` |
-| `get_code_snippet` | Read source for a symbol | `get_code_snippet({"qualified_name": "flipperAgent.src.libs.X"})` |
-| `get_architecture` | Codebase overview | `get_architecture({})` |
-| `detect_changes` | Pre-commit scope check | `detect_changes({})` |
-| `query_graph` | Custom Cypher-like queries | `query_graph({"query": "MATCH (f:Function) RETURN f.name LIMIT 5"})` |
+| `search_graph` | Find symbols by name, label, file | `search_graph({"project": "Users-aloobhujia-flipperAgent", "name_pattern": ".*Handler.*", "label": "Function"})` |
+| `search_code` | Graph-augmented grep | `search_code({"project": "Users-aloobhujia-flipperAgent", "query": "auth validation"})` |
+| `trace_path` | Blast radius / call chain | `trace_path({"project": "Users-aloobhujia-flipperAgent", "function_name": "X", "direction": "both"})` |
+| `get_code_snippet` | Read source for a symbol | `get_code_snippet({"project": "Users-aloobhujia-flipperAgent", "qualified_name": "flipperAgent.src.libs.X"})` |
+| `get_architecture` | Codebase overview | `get_architecture({"project": "Users-aloobhujia-flipperAgent"})` |
+| `detect_changes` | Pre-commit scope check | `detect_changes({"project": "Users-aloobhujia-flipperAgent"})` |
+| `query_graph` | Custom Cypher-like queries | `query_graph({"project": "Users-aloobhujia-flipperAgent", "query": "MATCH (f:Function) RETURN f.name LIMIT 5"})` |
 
 ## CLI Skill Reference
 

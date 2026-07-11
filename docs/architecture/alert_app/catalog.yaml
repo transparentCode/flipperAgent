@@ -68,6 +68,7 @@ internal_components:
       - Consume ingestion runtime stream
       - Discover and consume execution failure streams
       - Normalize raw source payloads into alert events
+      - Resolve policy routes for normalized events before notification dispatch
 
   - name: freshness_reconciler
     paths:
@@ -76,6 +77,7 @@ internal_components:
       - Scan ingestion/signal/strategy runtime status keys
       - Scan scraper job state keys
       - Probe configured health endpoints
+      - Respect per-check startup grace before opening new health-breach incidents
       - Emit breach and recovery events for silent-failure cases
 
   - name: incident_engine
@@ -96,7 +98,8 @@ internal_components:
       - src/apps/alert_app/notifications/transports/webhook.py
       - src/apps/alert_app/notifications/transports/telegram.py
     responsibilities:
-      - Resolve routes
+      - Apply route config to requested routes
+      - Check silences
       - Enforce burst limits
       - Retry failed sends
       - Record delivery audit rows

@@ -82,8 +82,9 @@ At a high level the app has four runtime pieces:
 - `strategy:status:{asset}:{tf}`
 - `scraper:job:{job_id}`
 - configured HTTP health surfaces such as:
-  - `ingestion-worker-streams:8002/health`
+  - `worker-streams:8001/health`
   - `scraper-service:8081/health`
+  - with per-check startup grace from `alerts.health_checks.*.startup_grace_seconds`
 
 ### Produced / Owned
 
@@ -103,6 +104,8 @@ The current implementation is backed by local and Docker validation for:
 - scraper job failure incident creation
 - route rate limiting and transport retry behavior
 - Telegram HTML-safe formatting
+- startup grace for health probes to suppress cold-start noise
+- clearer operator-facing health probe wording for Telegram/webhook payloads
 
 ## Deferred / Near-Term Follow-ups
 

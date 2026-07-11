@@ -61,7 +61,7 @@ sources: {
 
   health_checks: {
     class: source
-    label: "alerts.health_checks"
+    label: "alerts.health_checks\n(url + healthy_statuses + startup_grace_seconds)"
     shape: document
     link: "../../../configs/alerts.yaml"
   }
@@ -181,7 +181,7 @@ rules: {
 
   health_rule: {
     class: rule
-    label: "health probe status in configured\nhealthy_statuses set"
+    label: "health probe status in configured\nhealthy_statuses set + startup grace"
   }
 }
 

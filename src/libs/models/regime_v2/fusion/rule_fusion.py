@@ -36,7 +36,9 @@ def build_evidence_frame(
     out["mean_reversion_score"] = _col(features, "mean_reversion_score")
     out["range_quality"] = _col(features, "range_quality")
     raw_chop_risk = _col(features, "chop_risk")
-    trend_chop_discount = (0.50 * out["trend_strength"] * out["trend_persistence"]).clip(0.0, 0.45)
+    trend_chop_discount = (
+        config.trend_chop_discount_weight * out["trend_strength"] * out["trend_persistence"]
+    ).clip(0.0, config.trend_chop_discount_max)
     out["chop_risk"] = (raw_chop_risk * (1.0 - trend_chop_discount)).clip(0.0, 1.0)
     out["raw_chop_risk"] = raw_chop_risk
 
@@ -63,14 +65,14 @@ def build_evidence_frame(
     conflict = (
         (out["trend_strength"] * out["chop_risk"])
         + (out["breakout_quality"] * out["false_breakout_risk"])
-        + out["shock_risk"] * 0.75
-        + out["liquidity_stress"] * 0.50
+        + out["shock_risk"] * config.conflict_shock_weight
+        + out["liquidity_stress"] * config.conflict_liquidity_weight
     ).clip(0.0, 1.0)
 
-    confidence = clip01(signal_strength * (1.0 - 0.55 * conflict))
-    uncertainty = clip01(1.0 - confidence + 0.35 * conflict)
+    confidence = clip01(signal_strength * (1.0 - config.confidence_conflict_penalty * conflict))
+    uncertainty = clip01(1.0 - confidence + config.uncertainty_conflict_weight * conflict)
     if not warmup_complete:
-        confidence = confidence * 0.25
+        confidence = confidence * config.warmup_confidence_multiplier
         uncertainty = pd.Series(1.0, index=features.index)
 
     out["confidence"] = confidence.clip(lower=config.min_confidence if warmup_complete else 0.0)
@@ -118,11 +120,17 @@ def _summary_labels(out: pd.DataFrame, config: FusionConfig, *, warmup_complete:
         return labels
 
     shock = out["shock_risk"] >= config.shock_threshold
-    transition = (out["structural_break_risk"] >= config.break_threshold) & (out["breakout_quality"] >= 0.45)
-    trend = (out["trend_strength"] >= config.trend_threshold) & (out["chop_risk"] < 0.60)
-    mr_context = (out["range_quality"] >= 0.30) | (out["compression_score"] >= 0.70)
-    mr = (out["mean_reversion_score"] >= config.mr_threshold) & mr_context & (out["structural_break_risk"] < 0.60)
-    compressed = out["compression_score"] >= 0.72
+    transition = (
+        out["structural_break_risk"] >= config.break_threshold
+    ) & (out["breakout_quality"] >= config.transition_breakout_min)
+    trend = (out["trend_strength"] >= config.trend_threshold) & (out["chop_risk"] < config.trend_chop_max)
+    mr_context = (
+        out["range_quality"] >= config.mr_context_range_min
+    ) | (out["compression_score"] >= config.mr_context_compression_min)
+    mr = (
+        out["mean_reversion_score"] >= config.mr_threshold
+    ) & mr_context & (out["structural_break_risk"] < config.mr_break_risk_max)
+    compressed = out["compression_score"] >= config.compressed_label_threshold
     choppy = out["chop_risk"] >= config.chop_threshold
 
     labels[choppy] = "choppy"

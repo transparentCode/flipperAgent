@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
-    "commit": "8cb6edda8ed78e805e9a4ba45f37c1eb49462837",
-    "indexed_at": "2026-07-05T01:31:47Z",
+    "commit": "16f188aca260f055c25b1ad745a4e67f9efcf962",
+    "indexed_at": "2026-07-11T03:26:39Z",
     "project": "Users-aloobhujia-flipperAgent",
-    "nodes": 0,
-    "edges": 0,
-    "original_size": 102400,
-    "compressed_size": 1396,
+    "nodes": 39071,
+    "edges": 123830,
+    "original_size": 96534528,
+    "compressed_size": 15232301,
     "compression_level": 3
 }

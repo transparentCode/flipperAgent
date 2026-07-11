@@ -84,6 +84,8 @@ def _event(
     event_id: str = "evt_1",
     dedupe_key: str = "dedupe_1",
     recovery_key: str | None = None,
+    title: str = "Execution failed",
+    detail: dict | None = None,
     emitted_at: float = 1.0,
 ) -> NormalizedAlertEvent:
     return NormalizedAlertEvent(
@@ -94,9 +96,9 @@ def _event(
         severity=AlertSeverity.CRITICAL,
         asset="BTCUSDT",
         timeframe="1h",
-        title="Execution failed",
+        title=title,
         summary="execution failure",
-        detail={"reason": "timeout"},
+        detail=detail if detail is not None else {"reason": "timeout"},
         dedupe_key=dedupe_key,
         recovery_key=recovery_key,
         emitted_at=emitted_at,
@@ -110,6 +112,7 @@ async def test_record_event_opens_and_updates_incident() -> None:
     service = AlertIncidentService(repository, store, renotify_seconds=10)
 
     created, should_notify = await service.record_event(_event(), route_names=["system_alerts"])
+    await service.mark_notified(created.incident_id, notified_at=1.0)
     updated, should_renotify = await service.record_event(
         _event(event_id="evt_2", emitted_at=5.0),
         route_names=["system_alerts"],
@@ -117,8 +120,37 @@ async def test_record_event_opens_and_updates_incident() -> None:
 
     assert should_notify is True
     assert created.occurrence_count == 1
+    assert created.last_notified_at is None
     assert should_renotify is False
     assert updated.occurrence_count == 2
+    assert updated.last_notified_at == 1.0
+
+
+@pytest.mark.asyncio
+async def test_record_event_advances_last_notified_only_via_mark_notified() -> None:
+    repository = _FakeRepository()
+    store = AlertIncidentStore(_FakeRedis())
+    service = AlertIncidentService(repository, store, renotify_seconds=10)
+
+    created, should_notify = await service.record_event(_event(), route_names=["system_alerts"])
+    assert should_notify is True
+    assert created.last_notified_at is None
+
+    await service.mark_notified(created.incident_id, notified_at=1.0)
+
+    updated, should_renotify = await service.record_event(
+        _event(event_id="evt_2", emitted_at=5.0),
+        route_names=["system_alerts"],
+    )
+    assert should_renotify is False
+    assert updated.last_notified_at == 1.0
+
+    renotified, should_renotify = await service.record_event(
+        _event(event_id="evt_3", emitted_at=12.0),
+        route_names=["system_alerts"],
+    )
+    assert should_renotify is True
+    assert renotified.last_notified_at == 1.0
 
 
 @pytest.mark.asyncio
@@ -127,14 +159,26 @@ async def test_record_event_resolves_matching_incident() -> None:
     store = AlertIncidentStore(_FakeRedis())
     service = AlertIncidentService(repository, store, renotify_seconds=10)
 
-    created, _ = await service.record_event(_event(), route_names=["system_alerts"])
+    created, _ = await service.record_event(
+        _event(detail={"error": "timeout", "context": "old"}),
+        route_names=["system_alerts"],
+    )
     resolved, _ = await service.record_event(
-        _event(event_id="evt_3", dedupe_key="recovery_evt", recovery_key="dedupe_1", emitted_at=8.0),
+        _event(
+            event_id="evt_3",
+            dedupe_key="recovery_evt",
+            recovery_key="dedupe_1",
+            emitted_at=8.0,
+            title="Execution recovered",
+            detail={"status": "recovered"},
+        ),
         route_names=["system_alerts"],
     )
 
     assert created.incident_id == resolved.incident_id
     assert resolved.state.value == "resolved"
+    assert resolved.title == "Execution recovered"
+    assert resolved.detail == {"status": "recovered"}
 
 
 @pytest.mark.asyncio

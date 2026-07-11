@@ -42,6 +42,7 @@ class RegimeV2FeatureProducer:
             self.timeframe,
             **(params or {}),
         )
+        self.min_bars = int(self.orchestrator.config.data_quality.min_bars)
 
     def analyze(
         self,

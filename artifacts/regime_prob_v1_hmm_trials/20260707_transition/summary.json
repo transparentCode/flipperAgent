@@ -1,0 +1,90 @@
+{
+  "asset": "BTCUSDT",
+  "baseline_oos": {
+    "hmm_oos_filtered_support_count": 1305,
+    "hmm_oos_filtered_support_rate": 1.0,
+    "mean_brier_score": 0.28163266,
+    "mean_decision_flip_rate": 0.138075,
+    "mean_edge_return": -0.00082052,
+    "mean_expected_calibration_error": 0.17748599,
+    "mean_positive_rate": 0.479167,
+    "mean_support_count": 240.0,
+    "mean_support_rate": 1.0,
+    "mean_threshold_churn": 0.0,
+    "positive_window_rate": 0.0,
+    "score": 0.01419123,
+    "window_count": 2
+  },
+  "dataset": {
+    "end": "2025-01-01T00:00:00+00:00",
+    "rows": 8767,
+    "start": "2021-01-01T00:00:00+00:00"
+  },
+  "default_vs_tuned": {
+    "baseline_deployed": false,
+    "baseline_mean_edge_return": -0.00082052,
+    "baseline_oos_score": 0.01419123,
+    "baseline_positive_window_rate": 0.0,
+    "mean_edge_return_delta": 0.00092696,
+    "oos_score_delta": 0.02615846,
+    "positive_window_rate_delta": 1.0,
+    "tuned_deployed": false,
+    "tuned_mean_edge_return": 0.00010644,
+    "tuned_oos_score": 0.04034969,
+    "tuned_positive_window_rate": 1.0
+  },
+  "state_core_compare": {
+    "oos_ece": 0.0627904,
+    "oos_mean_edge_return": 0.00065491,
+    "oos_positive_window_rate": 0.66666667,
+    "oos_rejected": false,
+    "oos_score": 0.05513836,
+    "promotion_ready": false,
+    "rejection_reason_count": 6,
+    "validation_rejected": true
+  },
+  "timeframe": "4h",
+  "transition": {
+    "best_params": {
+      "changepoint_prob_threshold": 0.42,
+      "max_state_entropy": 0.95,
+      "max_transition_state_prob": 0.74,
+      "min_edge_probability": 0.31,
+      "transition_risk_threshold": 0.32,
+      "uncertainty_threshold": 0.37
+    },
+    "deployed": false,
+    "hmm_in_sample_rows": 500,
+    "hmm_oos_filtered_rows": 8267,
+    "hmm_oos_filtered_support_rate": 0.94296795,
+    "hmm_proxy_fallback_rows": 0,
+    "hmm_state_source": "hmm_state_model",
+    "oos_ece": 0.16117627,
+    "oos_mean_edge_return": 0.00010644,
+    "oos_positive_window_rate": 1.0,
+    "oos_rejected": false,
+    "oos_score": 0.04034969,
+    "promotion_ready": false,
+    "promotion_rejection_reasons": [
+      "tuned:validation:positive_window_rate_below_minimum",
+      "tuned:validation:mean_edge_return_below_minimum"
+    ],
+    "rejection_reasons": [
+      "validation:positive_window_rate_below_minimum",
+      "validation:mean_edge_return_below_minimum",
+      "promotion:tuned:validation:positive_window_rate_below_minimum",
+      "promotion:tuned:validation:mean_edge_return_below_minimum"
+    ],
+    "validation_mean_edge_return": -0.00312027,
+    "validation_positive_window_rate": 0.0,
+    "validation_rejected": true,
+    "validation_score": 0.04038947
+  },
+  "transition_vs_state_core": {
+    "oos_ece_delta": 0.09838587,
+    "oos_mean_edge_return_delta": -0.00054847,
+    "oos_positive_window_rate_delta": 0.33333333,
+    "oos_score_delta": -0.01478867,
+    "rejection_reason_count_delta": -2
+  }
+}

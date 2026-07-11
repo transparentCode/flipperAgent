@@ -21,6 +21,12 @@ class TrendConfig:
     efficiency_lookback: int = 24
     persistence_lookback: int = 12
     slope_atr_scale: float = 3.0
+    ema_score_weight: float = 0.50
+    efficiency_score_weight: float = 0.35
+    persistence_score_weight: float = 0.15
+    confidence_strength_weight: float = 0.60
+    confidence_persistence_weight: float = 0.40
+    direction_deadzone: float = 0.12
 
 
 @dataclass(frozen=True)
@@ -29,6 +35,14 @@ class VolatilityConfig:
     percentile_window: int = 500
     compression_window: int = 120
     shock_z: float = 3.0
+    realized_weight: float = 0.65
+    atr_weight: float = 0.35
+    compression_low_quantile: float = 0.10
+    compression_high_quantile: float = 0.90
+    shock_state_threshold: float = 0.80
+    expanding_percentile_threshold: float = 75.0
+    compressed_threshold: float = 0.70
+    quiet_percentile_threshold: float = 30.0
 
 
 @dataclass(frozen=True)
@@ -37,6 +51,13 @@ class MeanReversionConfig:
     band_window: int = 40
     chop_window: int = 24
     z_clip: float = 4.0
+    chop_ci_center: float = 0.45
+    chop_ci_width: float = 0.35
+    range_quality_chop_weight: float = 0.55
+    range_quality_cross_weight: float = 0.45
+    chop_risk_chop_weight: float = 0.70
+    chop_risk_abs_ret_weight: float = 0.30
+    chop_risk_abs_ret_scale: float = 3.0
 
 
 @dataclass(frozen=True)
@@ -45,6 +66,27 @@ class BreakConfig:
     breakout_window: int = 50
     shock_z: float = 3.0
     confirmation_volume_z: float = 1.0
+    breakout_magnitude_scale: float = 3.0
+    displacement_volume_base: float = 0.60
+    displacement_volume_weight: float = 0.40
+    edge_pressure_center: float = 0.55
+    edge_pressure_width: float = 0.35
+    setup_quiet_base: float = 0.60
+    setup_quiet_weight: float = 0.40
+    retest_distance_scale: float = 0.18
+    retest_boundary_buffer: float = 0.005
+    retest_quiet_base: float = 0.70
+    retest_quiet_weight: float = 0.30
+    false_breakout_displacement_weight: float = 0.50
+    false_breakout_rejection_weight: float = 0.30
+    false_breakout_low_ret_weight: float = 0.20
+    false_breakout_low_ret_z_max: float = 1.0
+    structural_break_ret_weight: float = 0.45
+    structural_break_range_weight: float = 0.35
+    structural_break_displacement_weight: float = 0.20
+    breakout_quality_setup_weight: float = 0.75
+    breakout_quality_retest_weight: float = 0.85
+    breakout_direction_min_quality: float = 0.05
 
 
 @dataclass(frozen=True)
@@ -53,6 +95,14 @@ class MarketContextConfig:
     breadth_column: str = "eng_market_cap_breadth"
     regime_state_column: str = "eng_cross_asset_regime_state"
     liquidity_columns: tuple[str, ...] = ("spread_bps", "bid_ask_imbalance", "depth_ratio")
+    breadth_tanh_scale: float = 10.0
+    alignment_weight: float = 0.65
+    breadth_weight: float = 0.35
+    spread_stress_divisor: float = 20.0
+    spread_stress_weight: float = 0.45
+    imbalance_stress_weight: float = 0.25
+    depth_stress_divisor: float = 2.0
+    depth_stress_weight: float = 0.30
 
 
 @dataclass(frozen=True)
@@ -64,21 +114,80 @@ class FusionConfig:
     chop_threshold: float = 0.65
     break_threshold: float = 0.65
     shock_threshold: float = 0.70
+    trend_chop_discount_weight: float = 0.50
+    trend_chop_discount_max: float = 0.45
+    conflict_shock_weight: float = 0.75
+    conflict_liquidity_weight: float = 0.50
+    confidence_conflict_penalty: float = 0.55
+    uncertainty_conflict_weight: float = 0.35
+    warmup_confidence_multiplier: float = 0.25
+    transition_breakout_min: float = 0.45
+    trend_chop_max: float = 0.60
+    mr_context_range_min: float = 0.30
+    mr_context_compression_min: float = 0.70
+    mr_break_risk_max: float = 0.60
+    compressed_label_threshold: float = 0.72
 
 
 @dataclass(frozen=True)
 class PolicyConfig:
     min_confidence: float = 0.30
     high_uncertainty_no_trade: float = 0.82
+    no_trade_shock_threshold: float = 0.85
+    no_trade_liquidity_threshold: float = 0.85
     trend_min_strength: float = 0.48
     trend_max_chop: float = 0.55
+    uncertainty_soft_penalty_weight: float = 0.35
+    trend_persistence_base: float = 0.70
+    trend_persistence_weight: float = 0.30
     breakout_min_quality: float = 0.58
     breakout_max_false_break: float = 0.58
+    breakout_setup_min: float = 0.58
+    breakout_setup_max_break_risk: float = 0.45
+    breakout_setup_max_shock: float = 0.55
+    displacement_breakout_max_shock: float = 0.80
+    retest_breakout_min: float = 0.35
+    retest_breakout_max_break_risk: float = 0.65
     mr_min_score: float = 0.58
     mr_max_break_risk: float = 0.55
+    mr_context_compression_weight: float = 0.75
+    mr_context_min: float = 0.45
     scalping_max_shock: float = 0.65
+    scalping_max_liquidity: float = 0.65
+    scalping_context_base: float = 0.55
+    scalping_context_weight: float = 0.45
     countertrend_min_range: float = 0.70
+    countertrend_max_trend_strength: float = 0.45
+    countertrend_max_break_risk: float = 0.45
     base_holding_period: int = 12
+    playbook_score_floor_min: float = 0.20
+    playbook_score_floor_max: float = 0.40
+    playbook_score_floor_confidence_mult: float = 0.80
+    threshold_width: float = 0.20
+    position_scale_liquidity_penalty_weight: float = 0.80
+    position_scale_risk_penalty_weight: float = 0.65
+    position_scale_break_risk_threshold: float = 0.70
+    position_scale_breakout_quality_threshold: float = 0.65
+    position_scale_break_risk_multiplier: float = 0.50
+    stop_base: float = 1.0
+    stop_shock_weight: float = 0.75
+    stop_break_weight: float = 0.35
+    stop_expanding_bonus: float = 0.25
+    stop_min: float = 0.7
+    stop_max: float = 2.5
+    target_base: float = 1.0
+    target_trend_weight: float = 0.45
+    target_breakout_weight: float = 0.35
+    target_chop_threshold: float = 0.70
+    target_chop_multiplier: float = 0.75
+    target_min: float = 0.6
+    target_max: float = 2.2
+    holding_period_trend_strength_threshold: float = 0.65
+    holding_period_trend_chop_max: float = 0.45
+    holding_period_trend_multiplier: float = 1.5
+    holding_period_mr_threshold: float = 0.65
+    holding_period_shock_threshold: float = 0.65
+    holding_period_reduction_multiplier: float = 0.6
 
 
 @dataclass(frozen=True)

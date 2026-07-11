@@ -288,6 +288,7 @@ class IngestionCoordinator:
         last_ready_raw = await self._valkey.get(self._last_ready_ts_key(symbol, tf))
         last_live_raw = await self._valkey.get(self._last_live_ts_key(symbol, tf))
         last_disconnect_raw = await self._valkey.get(self._disconnect_ts_key(symbol, tf))
+        disconnect_count_raw = await self._valkey.get(self._disconnect_count_key(symbol, tf))
         resume_backfill_required = await self.resume_backfill_required(symbol, tf)
         downstream_ready = state in (IngestionState.WARMING, IngestionState.LIVE) and not resume_backfill_required
 
@@ -303,6 +304,7 @@ class IngestionCoordinator:
             last_ready_at=(int(last_ready_raw) / 1000) if last_ready_raw else None,
             last_live_at=(int(last_live_raw) / 1000) if last_live_raw else None,
             last_disconnect_at=(int(last_disconnect_raw) / 1000) if last_disconnect_raw else None,
+            disconnects_in_window=int(disconnect_count_raw) if disconnect_count_raw else 0,
         )
         try:
             await AssetRuntimeStatusStore(

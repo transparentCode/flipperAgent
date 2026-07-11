@@ -1,0 +1,65 @@
+{
+  "completed_runs": 4,
+  "model_name": "RegimeV2",
+  "output_dir": "research/regime_v2_optimization/core_4h_confirmation100",
+  "runs": [
+    {
+      "asset": "BTCUSDT",
+      "completed_trials": 100,
+      "deployed": true,
+      "json_path": "research/regime_v2_optimization/core_4h_confirmation100/RegimeV2_BTCUSDT_4h_core.json",
+      "markdown_path": "research/regime_v2_optimization/core_4h_confirmation100/RegimeV2_BTCUSDT_4h_core.md",
+      "oos_score": 0.16012788,
+      "oos_score_delta": 0.2765977,
+      "profile": "core",
+      "rejected_trials": 2,
+      "rejection_reasons": [],
+      "study_name": "RegimeV2_BTCUSDT_4h_core",
+      "timeframe": "4h"
+    },
+    {
+      "asset": "ETHUSDT",
+      "completed_trials": 100,
+      "deployed": true,
+      "json_path": "research/regime_v2_optimization/core_4h_confirmation100/RegimeV2_ETHUSDT_4h_core.json",
+      "markdown_path": "research/regime_v2_optimization/core_4h_confirmation100/RegimeV2_ETHUSDT_4h_core.md",
+      "oos_score": 0.15364263,
+      "oos_score_delta": 0.28804235,
+      "profile": "core",
+      "rejected_trials": 4,
+      "rejection_reasons": [],
+      "study_name": "RegimeV2_ETHUSDT_4h_core",
+      "timeframe": "4h"
+    },
+    {
+      "asset": "SOLUSDT",
+      "completed_trials": 100,
+      "deployed": true,
+      "json_path": "research/regime_v2_optimization/core_4h_confirmation100/RegimeV2_SOLUSDT_4h_core.json",
+      "markdown_path": "research/regime_v2_optimization/core_4h_confirmation100/RegimeV2_SOLUSDT_4h_core.md",
+      "oos_score": 0.16232617,
+      "oos_score_delta": 0.00679181,
+      "profile": "core",
+      "rejected_trials": 5,
+      "rejection_reasons": [],
+      "study_name": "RegimeV2_SOLUSDT_4h_core",
+      "timeframe": "4h"
+    },
+    {
+      "asset": "BNBUSDT",
+      "completed_trials": 100,
+      "deployed": true,
+      "json_path": "research/regime_v2_optimization/core_4h_confirmation100/RegimeV2_BNBUSDT_4h_core.json",
+      "markdown_path": "research/regime_v2_optimization/core_4h_confirmation100/RegimeV2_BNBUSDT_4h_core.md",
+      "oos_score": 0.17269564,
+      "oos_score_delta": 0.0213225,
+      "profile": "core",
+      "rejected_trials": 2,
+      "rejection_reasons": [],
+      "study_name": "RegimeV2_BNBUSDT_4h_core",
+      "timeframe": "4h"
+    }
+  ],
+  "storage": "sqlite:///research/regime_v2_optimization/core_medium/studies.db",
+  "total_runs": 4
+}

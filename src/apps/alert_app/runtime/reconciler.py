@@ -18,6 +18,7 @@ from apps.alert_app.notifications import AlertNotificationDispatcher
 from apps.alert_app.rules import resolve_routes_for_event
 from apps.alert_app.settings import create_alert_config_manager
 from apps.scraper_app.core.models import ScrapeJobRecord, ScrapeJobStatus
+from apps.scraper_app.runtime_status import ScraperRuntimeStatus
 from libs.common.logging.logger_utils import bind_logger
 
 logger = bind_logger(__name__, system_component="ALERTING")
@@ -32,12 +33,14 @@ class AlertFreshnessReconciler:
         notification_dispatcher: AlertNotificationDispatcher | None = None,
         config_manager: Any | None = None,
         interval_seconds: float = 30.0,
+        started_at: float | None = None,
     ) -> None:
         self.redis_client = redis_client
         self.incident_service = incident_service
         self.notification_dispatcher = notification_dispatcher
         self.config_manager = create_alert_config_manager(config_manager)
         self.interval_seconds = interval_seconds
+        self.started_at = time.time() if started_at is None else float(started_at)
 
     async def run(self) -> None:
         while True:
@@ -63,21 +66,35 @@ class AlertFreshnessReconciler:
         await self._reconcile_ingestion_statuses(now_ts, ingestion_threshold)
         await self._reconcile_signal_statuses(now_ts, signal_threshold)
         await self._reconcile_strategy_statuses(now_ts, strategy_threshold)
+        await self._reconcile_scraper_runtime_statuses(now_ts)
         await self._reconcile_scraper_jobs(now_ts)
         await self._reconcile_health_checks(now_ts)
 
     async def _reconcile_ingestion_statuses(self, now_ts: float, threshold_seconds: float) -> None:
+        disconnect_breach_count = int(
+            self.config_manager.get("alerts.freshness.ingestion.disconnect_breach_count", 3),
+        )
+        disconnect_recovery_seconds = float(
+            self.config_manager.get("alerts.freshness.ingestion.disconnect_recovery_seconds", 900),
+        )
+        stale_live_threshold_seconds = float(
+            self.config_manager.get("alerts.freshness.ingestion.stale_live_threshold_seconds", 900),
+        )
         async for key, payload in self._iter_hashes("ingestion:runtime_status:*"):
             asset = _asset_from_key(key).upper().strip()
             timeframe = _timeframe_from_key(key).strip()
             runtime_state = str(payload.get("runtime_state") or "").upper().strip()
             updated_at = _coerce_float(payload.get("updated_at"))
+            last_live_at = _coerce_float(payload.get("last_live_at"))
+            last_disconnect_at = _coerce_float(payload.get("last_disconnect_at"))
+            disconnects_in_window = int(payload.get("disconnects_in_window") or 0)
             if updated_at is None or not asset or not timeframe:
                 continue
-            dedupe_key = f"ingestion_transition:{asset}:{timeframe}"
             lag_seconds = now_ts - updated_at
+            transition_dedupe_key = f"ingestion_transition:{asset}:{timeframe}"
+            transition_event: NormalizedAlertEvent | None = None
             if runtime_state in {"WARMING", "BACKFILLING"} and lag_seconds > threshold_seconds:
-                event = NormalizedAlertEvent(
+                transition_event = NormalizedAlertEvent(
                     event_id=f"ingestion_transition_timeout:{asset}:{timeframe}",
                     event_type=AlertEventType.INGESTION_RUNTIME_FAILURE,
                     source_app=AlertSourceApp.INGESTION,
@@ -96,36 +113,332 @@ class AlertFreshnessReconciler:
                         "threshold_seconds": threshold_seconds,
                         "runtime_key": key,
                     },
-                    dedupe_key=dedupe_key,
+                    dedupe_key=transition_dedupe_key,
                     emitted_at=now_ts,
                 )
             else:
-                existing = await self.incident_service.incident_for_dedupe(dedupe_key)
-                if existing is None or existing.state == AlertIncidentState.RESOLVED:
-                    continue
-                event = NormalizedAlertEvent(
-                    event_id=f"ingestion_transition_recovery:{asset}:{timeframe}",
-                    event_type=AlertEventType.RECOVERY,
+                existing = await self.incident_service.incident_for_dedupe(transition_dedupe_key)
+                if existing is not None and existing.state != AlertIncidentState.RESOLVED:
+                    transition_event = NormalizedAlertEvent(
+                        event_id=f"ingestion_transition_recovery:{asset}:{timeframe}",
+                        event_type=AlertEventType.RECOVERY,
+                        source_app=AlertSourceApp.INGESTION,
+                        source_component="ingestion_runtime",
+                        severity=AlertSeverity.INFO,
+                        asset=asset,
+                        timeframe=timeframe,
+                        title=f"Ingestion transition recovered for {asset} {timeframe}",
+                        summary=(
+                            f"Ingestion lane {asset}/{timeframe} recovered to state "
+                            f"{runtime_state or 'UNKNOWN'} with lag {int(lag_seconds)}s"
+                        ),
+                        detail={
+                            "runtime_state": runtime_state,
+                            "lag_seconds": lag_seconds,
+                            "threshold_seconds": threshold_seconds,
+                            "runtime_key": key,
+                        },
+                        dedupe_key=f"ingestion_recovery:{asset}:{timeframe}",
+                        recovery_key=transition_dedupe_key,
+                        emitted_at=now_ts,
+                    )
+            if transition_event is not None:
+                routes = resolve_routes_for_event(transition_event, config_manager=self.config_manager)
+                incident, should_notify = await self.incident_service.record_event(
+                    transition_event,
+                    route_names=routes,
+                )
+                if should_notify and self.notification_dispatcher is not None:
+                    await self.notification_dispatcher.enqueue_incident(
+                        incident,
+                        route_names=routes,
+                    )
+
+            disconnect_dedupe_key = f"ingestion_disconnects:{asset}:{timeframe}"
+            disconnect_event: NormalizedAlertEvent | None = None
+            disconnect_age_seconds = (
+                now_ts - last_disconnect_at if last_disconnect_at is not None else None
+            )
+            if (
+                disconnects_in_window >= disconnect_breach_count
+                and disconnect_age_seconds is not None
+                and disconnect_age_seconds <= disconnect_recovery_seconds
+            ):
+                disconnect_event = NormalizedAlertEvent(
+                    event_id=f"ingestion_disconnect_breach:{asset}:{timeframe}",
+                    event_type=AlertEventType.INGESTION_RUNTIME_FAILURE,
                     source_app=AlertSourceApp.INGESTION,
                     source_component="ingestion_runtime",
-                    severity=AlertSeverity.INFO,
+                    severity=AlertSeverity.WARNING,
                     asset=asset,
                     timeframe=timeframe,
-                    title=f"Ingestion transition recovered for {asset} {timeframe}",
+                    title=f"Repeated ingestion disconnects for {asset} {timeframe}",
                     summary=(
-                        f"Ingestion lane {asset}/{timeframe} recovered to state "
-                        f"{runtime_state or 'UNKNOWN'} with lag {int(lag_seconds)}s"
+                        f"Ingestion lane {asset}/{timeframe} disconnected {disconnects_in_window} times "
+                        f"within the active window; last disconnect was {int(disconnect_age_seconds)}s ago"
                     ),
                     detail={
                         "runtime_state": runtime_state,
-                        "lag_seconds": lag_seconds,
-                        "threshold_seconds": threshold_seconds,
+                        "disconnects_in_window": disconnects_in_window,
+                        "disconnect_breach_count": disconnect_breach_count,
+                        "last_disconnect_at": last_disconnect_at,
                         "runtime_key": key,
                     },
-                    dedupe_key=f"ingestion_recovery:{asset}:{timeframe}",
-                    recovery_key=dedupe_key,
+                    dedupe_key=disconnect_dedupe_key,
                     emitted_at=now_ts,
                 )
+            else:
+                existing = await self.incident_service.incident_for_dedupe(disconnect_dedupe_key)
+                if (
+                    existing is not None
+                    and existing.state != AlertIncidentState.RESOLVED
+                    and runtime_state == "LIVE"
+                    and disconnect_age_seconds is not None
+                    and disconnect_age_seconds > disconnect_recovery_seconds
+                ):
+                    disconnect_event = NormalizedAlertEvent(
+                        event_id=f"ingestion_disconnect_recovery:{asset}:{timeframe}",
+                        event_type=AlertEventType.RECOVERY,
+                        source_app=AlertSourceApp.INGESTION,
+                        source_component="ingestion_runtime",
+                        severity=AlertSeverity.INFO,
+                        asset=asset,
+                        timeframe=timeframe,
+                        title=f"Ingestion disconnects recovered for {asset} {timeframe}",
+                        summary=(
+                            f"Ingestion lane {asset}/{timeframe} has stayed connected for "
+                            f"{int(disconnect_age_seconds)}s after the last disconnect"
+                        ),
+                        detail={
+                            "disconnects_in_window": disconnects_in_window,
+                            "last_disconnect_at": last_disconnect_at,
+                            "runtime_key": key,
+                        },
+                        dedupe_key=f"ingestion_disconnect_recovery:{asset}:{timeframe}",
+                        recovery_key=disconnect_dedupe_key,
+                        emitted_at=now_ts,
+                    )
+            if disconnect_event is not None:
+                routes = resolve_routes_for_event(disconnect_event, config_manager=self.config_manager)
+                incident, should_notify = await self.incident_service.record_event(
+                    disconnect_event,
+                    route_names=routes,
+                )
+                if should_notify and self.notification_dispatcher is not None:
+                    await self.notification_dispatcher.enqueue_incident(
+                        incident,
+                        route_names=routes,
+                    )
+
+            stale_live_dedupe_key = f"ingestion_live_stale:{asset}:{timeframe}"
+            stale_live_event: NormalizedAlertEvent | None = None
+            stale_live_age_seconds = now_ts - last_live_at if last_live_at is not None else None
+            if (
+                runtime_state in {"COLD", "ERROR"}
+                and stale_live_age_seconds is not None
+                and stale_live_age_seconds > stale_live_threshold_seconds
+            ):
+                stale_live_event = NormalizedAlertEvent(
+                    event_id=f"ingestion_live_stale:{asset}:{timeframe}",
+                    event_type=AlertEventType.INGESTION_RUNTIME_FAILURE,
+                    source_app=AlertSourceApp.INGESTION,
+                    source_component="ingestion_runtime",
+                    severity=AlertSeverity.WARNING,
+                    asset=asset,
+                    timeframe=timeframe,
+                    title=f"Ingestion live lane stale for {asset} {timeframe}",
+                    summary=(
+                        f"Ingestion lane {asset}/{timeframe} is {runtime_state} and has not been LIVE for "
+                        f"{int(stale_live_age_seconds)}s (threshold={int(stale_live_threshold_seconds)}s)"
+                    ),
+                    detail={
+                        "runtime_state": runtime_state,
+                        "stale_live_age_seconds": stale_live_age_seconds,
+                        "stale_live_threshold_seconds": stale_live_threshold_seconds,
+                        "last_live_at": last_live_at,
+                        "last_disconnect_at": last_disconnect_at,
+                        "runtime_key": key,
+                    },
+                    dedupe_key=stale_live_dedupe_key,
+                    emitted_at=now_ts,
+                )
+            else:
+                existing = await self.incident_service.incident_for_dedupe(stale_live_dedupe_key)
+                if existing is not None and existing.state != AlertIncidentState.RESOLVED and runtime_state == "LIVE":
+                    stale_live_event = NormalizedAlertEvent(
+                        event_id=f"ingestion_live_stale_recovery:{asset}:{timeframe}",
+                        event_type=AlertEventType.RECOVERY,
+                        source_app=AlertSourceApp.INGESTION,
+                        source_component="ingestion_runtime",
+                        severity=AlertSeverity.INFO,
+                        asset=asset,
+                        timeframe=timeframe,
+                        title=f"Ingestion live lane recovered for {asset} {timeframe}",
+                        summary=f"Ingestion lane {asset}/{timeframe} returned to LIVE",
+                        detail={
+                            "runtime_state": runtime_state,
+                            "last_live_at": last_live_at,
+                            "runtime_key": key,
+                        },
+                        dedupe_key=f"ingestion_live_stale_recovery:{asset}:{timeframe}",
+                        recovery_key=stale_live_dedupe_key,
+                        emitted_at=now_ts,
+                    )
+            if stale_live_event is not None:
+                routes = resolve_routes_for_event(stale_live_event, config_manager=self.config_manager)
+                incident, should_notify = await self.incident_service.record_event(
+                    stale_live_event,
+                    route_names=routes,
+                )
+                if should_notify and self.notification_dispatcher is not None:
+                    await self.notification_dispatcher.enqueue_incident(
+                        incident,
+                        route_names=routes,
+                    )
+
+    async def _reconcile_scraper_runtime_statuses(self, now_ts: float) -> None:
+        running_timeout_seconds = float(
+            self.config_manager.get("alerts.freshness.scraper.worker_running_timeout_seconds", 1200),
+        )
+        success_stale_threshold_seconds = float(
+            self.config_manager.get("alerts.freshness.scraper.success_stale_threshold_seconds", 3600),
+        )
+        async for key, payload in self._iter_values("scraper:runtime_status:*"):
+            try:
+                status = ScraperRuntimeStatus.model_validate_json(payload)
+            except Exception:
+                continue
+            last_started_at = status.last_started_at
+            last_success_at = status.last_success_at
+            last_finished_at = status.last_finished_at
+            dedupe_key = f"scraper_runtime:{status.worker_name}:{status.job_name}"
+            event: NormalizedAlertEvent | None = None
+
+            if status.status == "failed":
+                event = NormalizedAlertEvent(
+                    event_id=f"scraper_runtime_failed:{status.worker_name}:{status.job_name}",
+                    event_type=AlertEventType.SCRAPER_FAILURE,
+                    source_app=AlertSourceApp.SCRAPER,
+                    source_component=f"scraper_runtime:{status.job_name}",
+                    severity=AlertSeverity.WARNING,
+                    asset=None,
+                    timeframe=None,
+                    title=f"Scraper runtime failed for {status.job_name}",
+                    summary=(
+                        f"Scraper worker {status.worker_name}/{status.job_name} reported failure: "
+                        f"{status.last_error or 'unknown error'}"
+                    ),
+                    detail={
+                        "runtime_key": key,
+                        "worker_name": status.worker_name,
+                        "provider": status.provider,
+                        "job_name": status.job_name,
+                        "status": status.status,
+                        "last_error": status.last_error,
+                        "consecutive_failures": status.consecutive_failures,
+                        "last_started_at": last_started_at,
+                        "last_finished_at": last_finished_at,
+                    },
+                    dedupe_key=dedupe_key,
+                    emitted_at=status.updated_at or now_ts,
+                )
+            elif last_started_at is not None and status.status == "running":
+                running_age_seconds = now_ts - last_started_at
+                if running_age_seconds > running_timeout_seconds:
+                    event = NormalizedAlertEvent(
+                        event_id=f"scraper_runtime_running_timeout:{status.worker_name}:{status.job_name}",
+                        event_type=AlertEventType.SCRAPER_FAILURE,
+                        source_app=AlertSourceApp.SCRAPER,
+                        source_component=f"scraper_runtime:{status.job_name}",
+                        severity=AlertSeverity.WARNING,
+                        asset=None,
+                        timeframe=None,
+                        title=f"Scraper runtime delayed for {status.job_name}",
+                        summary=(
+                            f"Scraper worker {status.worker_name}/{status.job_name} has been running for "
+                            f"{int(running_age_seconds)}s (threshold={int(running_timeout_seconds)}s)"
+                        ),
+                        detail={
+                            "runtime_key": key,
+                            "worker_name": status.worker_name,
+                            "provider": status.provider,
+                            "job_name": status.job_name,
+                            "status": status.status,
+                            "running_age_seconds": running_age_seconds,
+                            "running_timeout_seconds": running_timeout_seconds,
+                            "consecutive_failures": status.consecutive_failures,
+                        },
+                        dedupe_key=dedupe_key,
+                        emitted_at=now_ts,
+                    )
+            elif last_success_at is not None:
+                success_age_seconds = now_ts - last_success_at
+                if success_age_seconds > success_stale_threshold_seconds:
+                    event = NormalizedAlertEvent(
+                        event_id=f"scraper_runtime_stale:{status.worker_name}:{status.job_name}",
+                        event_type=AlertEventType.SCRAPER_FAILURE,
+                        source_app=AlertSourceApp.SCRAPER,
+                        source_component=f"scraper_runtime:{status.job_name}",
+                        severity=AlertSeverity.WARNING,
+                        asset=None,
+                        timeframe=None,
+                        title=f"Scraper output stale for {status.job_name}",
+                        summary=(
+                            f"Scraper worker {status.worker_name}/{status.job_name} has not reported a success for "
+                            f"{int(success_age_seconds)}s (threshold={int(success_stale_threshold_seconds)}s)"
+                        ),
+                        detail={
+                            "runtime_key": key,
+                            "worker_name": status.worker_name,
+                            "provider": status.provider,
+                            "job_name": status.job_name,
+                            "status": status.status,
+                            "success_age_seconds": success_age_seconds,
+                            "success_stale_threshold_seconds": success_stale_threshold_seconds,
+                            "last_error": status.last_error,
+                            "consecutive_failures": status.consecutive_failures,
+                        },
+                        dedupe_key=dedupe_key,
+                        emitted_at=now_ts,
+                    )
+
+            if event is None:
+                existing = await self.incident_service.incident_for_dedupe(dedupe_key)
+                if (
+                    existing is None
+                    or existing.state == AlertIncidentState.RESOLVED
+                    or last_success_at is None
+                ):
+                    continue
+                recovery_age_seconds = now_ts - last_success_at
+                if status.status == "succeeded" and recovery_age_seconds <= success_stale_threshold_seconds:
+                    event = NormalizedAlertEvent(
+                        event_id=f"scraper_runtime_recovery:{status.worker_name}:{status.job_name}",
+                        event_type=AlertEventType.RECOVERY,
+                        source_app=AlertSourceApp.SCRAPER,
+                        source_component=f"scraper_runtime:{status.job_name}",
+                        severity=AlertSeverity.INFO,
+                        asset=None,
+                        timeframe=None,
+                        title=f"Scraper runtime recovered for {status.job_name}",
+                        summary=(
+                            f"Scraper worker {status.worker_name}/{status.job_name} last succeeded "
+                            f"{int(recovery_age_seconds)}s ago"
+                        ),
+                        detail={
+                            "runtime_key": key,
+                            "worker_name": status.worker_name,
+                            "provider": status.provider,
+                            "job_name": status.job_name,
+                            "status": status.status,
+                            "last_success_at": last_success_at,
+                        },
+                        dedupe_key=f"scraper_runtime_recovery:{status.worker_name}:{status.job_name}",
+                        recovery_key=dedupe_key,
+                        emitted_at=now_ts,
+                    )
+            if event is None:
+                continue
             routes = resolve_routes_for_event(event, config_manager=self.config_manager)
             incident, should_notify = await self.incident_service.record_event(
                 event,
@@ -287,6 +600,9 @@ class AlertFreshnessReconciler:
             asset = _scraper_asset(record)
             timeframe = str(record.request.timeframe or "").strip() or None
             if record.status == ScrapeJobStatus.FAILED:
+                provider = record.request.provider.value
+                dataset = record.request.dataset.value
+                target_ref = _scraper_target_ref(record)
                 event = NormalizedAlertEvent(
                     event_id=f"scraper_failed:{record.job_id}",
                     event_type=AlertEventType.SCRAPER_FAILURE,
@@ -295,15 +611,15 @@ class AlertFreshnessReconciler:
                     severity=AlertSeverity.WARNING,
                     asset=asset,
                     timeframe=timeframe,
-                    title=f"Scraper job failed for {record.request.provider.value}",
+                    title=f"Scraper job failed for {target_ref}",
                     summary=(
-                        f"Scraper job {record.job_id} failed for "
-                        f"{record.request.provider.value}/{record.request.dataset.value}"
+                        f"Async scraper job {provider}/{dataset} for {target_ref} failed: "
+                        f"{record.error or 'unknown error'}"
                     ),
                     detail={
                         "job_id": record.job_id,
-                        "provider": record.request.provider.value,
-                        "dataset": record.request.dataset.value,
+                        "provider": provider,
+                        "dataset": dataset,
                         "intent": record.request.intent.value,
                         "priority": record.request.priority.value,
                         "updated_at": record.updated_at,
@@ -316,6 +632,9 @@ class AlertFreshnessReconciler:
                 existing = await self.incident_service.incident_for_dedupe(dedupe_key)
                 if existing is None or existing.state == AlertIncidentState.RESOLVED:
                     continue
+                provider = record.request.provider.value
+                dataset = record.request.dataset.value
+                target_ref = _scraper_target_ref(record)
                 event = NormalizedAlertEvent(
                     event_id=f"scraper_recovery:{record.job_id}",
                     event_type=AlertEventType.RECOVERY,
@@ -324,12 +643,15 @@ class AlertFreshnessReconciler:
                     severity=AlertSeverity.INFO,
                     asset=asset,
                     timeframe=timeframe,
-                    title=f"Scraper job recovered for {record.request.provider.value}",
-                    summary=f"Scraper job {record.job_id} is now {record.status.value}",
+                    title=f"Scraper job recovered for {target_ref}",
+                    summary=(
+                        f"Async scraper job {provider}/{dataset} for {target_ref} "
+                        f"is now {record.status.value}"
+                    ),
                     detail={
                         "job_id": record.job_id,
-                        "provider": record.request.provider.value,
-                        "dataset": record.request.dataset.value,
+                        "provider": provider,
+                        "dataset": dataset,
                         "status": record.status.value,
                         "updated_at": record.updated_at,
                     },
@@ -359,9 +681,19 @@ class AlertFreshnessReconciler:
             if not url:
                 continue
             dedupe_key = f"health_check:{name}"
+            existing = await self.incident_service.incident_for_dedupe(dedupe_key)
+            startup_grace_seconds = max(
+                float(raw_config.get("startup_grace_seconds", 0) or 0),
+                0.0,
+            )
+            if (
+                startup_grace_seconds > 0
+                and now_ts - self.started_at < startup_grace_seconds
+                and (existing is None or existing.state == AlertIncidentState.RESOLVED)
+            ):
+                continue
             result = await self._probe_health_check(raw_config)
             if result["healthy"]:
-                existing = await self.incident_service.incident_for_dedupe(dedupe_key)
                 if existing is None or existing.state == AlertIncidentState.RESOLVED:
                     continue
                 event = NormalizedAlertEvent(
@@ -387,6 +719,11 @@ class AlertFreshnessReconciler:
                 severity = AlertSeverity.WARNING
                 if result["http_status"] is None or result["http_status"] >= 500:
                     severity = AlertSeverity.CRITICAL
+                title, summary = _health_breach_message(
+                    name=name,
+                    url=url,
+                    result=result,
+                )
                 event = NormalizedAlertEvent(
                     event_id=f"health_breach:{name}",
                     event_type=AlertEventType.SYSTEM_HEALTH_BREACH,
@@ -395,11 +732,8 @@ class AlertFreshnessReconciler:
                     severity=severity,
                     asset=None,
                     timeframe=None,
-                    title=f"Health degraded for {name}",
-                    summary=(
-                        f"Health check {name} unhealthy: status={result['status']} "
-                        f"http_status={result['http_status']}"
-                    ),
+                    title=title,
+                    summary=summary,
                     detail={
                         "url": url,
                         "http_status": result["http_status"],
@@ -514,6 +848,30 @@ def _coerce_float(value: Any) -> float | None:
         return None
 
 
+def _health_breach_message(
+    *,
+    name: str,
+    url: str,
+    result: dict[str, Any],
+) -> tuple[str, str]:
+    status = str(result.get("status") or "").strip().lower()
+    http_status = result.get("http_status")
+    if status == "request_failed" and http_status is None:
+        return (
+            f"Health probe failed for {name}",
+            f"No HTTP response from {url}. Service may still be starting or unreachable.",
+        )
+    if http_status is None:
+        return (
+            f"Health degraded for {name}",
+            f"Health check at {url} failed before a response was returned.",
+        )
+    return (
+        f"Health degraded for {name}",
+        f"Health check at {url} returned HTTP {http_status} with status {status or 'unknown'}.",
+    )
+
+
 def _asset_from_key(key: str) -> str:
     parts = key.split(":")
     return parts[2] if len(parts) > 2 else ""
@@ -534,6 +892,18 @@ def _scraper_asset(record: ScrapeJobRecord) -> str | None:
         if normalized:
             return normalized
     return None
+
+
+def _scraper_target_ref(record: ScrapeJobRecord) -> str:
+    asset = _scraper_asset(record)
+    timeframe = str(record.request.timeframe or "").strip()
+    if asset and timeframe:
+        return f"{asset} {timeframe}"
+    if asset:
+        return asset
+    provider = str(record.request.provider.value).strip()
+    dataset = str(record.request.dataset.value).strip()
+    return f"{provider}/{dataset}"
 
 
 def _source_app_from_value(value: Any) -> AlertSourceApp:

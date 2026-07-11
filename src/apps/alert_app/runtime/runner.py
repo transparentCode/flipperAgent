@@ -40,6 +40,7 @@ class AlertRuntimeRunner:
         self.notification_dispatcher = AlertNotificationDispatcher(
             redis_client=redis_client,
             repository=self.repository,
+            incident_service=self.incident_service,
             config_manager=config_manager,
         )
         self.consumer = AlertEventConsumer(

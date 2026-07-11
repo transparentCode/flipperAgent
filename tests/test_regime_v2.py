@@ -199,6 +199,30 @@ class TestRegimeV2Orchestrator:
         assert snapshot.evidence.confidence == series_last["confidence"]
         assert snapshot.policy.max_position_scale == series_last["policy_max_position_scale"]
 
+    def test_analyze_series_marks_early_rows_as_warming_up(self):
+        orch = RegimeV2Orchestrator.create("BTCUSDT", "1h")
+        df = _make_ohlcv(130, trend=0.0015, noise=0.0001)
+
+        result = orch.analyze_series(df)
+
+        assert result.iloc[0]["summary_label"] == "warming_up"
+        assert result.iloc[0]["uncertainty"] == 1.0
+        assert result.iloc[0]["confidence"] < 0.2
+        assert result.iloc[118]["summary_label"] == "warming_up"
+        assert result.iloc[119]["summary_label"] != "warming_up"
+
+    def test_duplicate_final_timestamp_does_not_retroactively_degrade_history(self):
+        orch = RegimeV2Orchestrator.create("BTCUSDT", "1h")
+        df = _make_ohlcv(130, trend=0.0015, noise=0.0001)
+        duplicated = pd.concat([df, df.iloc[[-1]]])
+
+        result = orch.analyze_series(duplicated)
+
+        assert len(result) == len(df)
+        assert result.iloc[0]["summary_label"] == "warming_up"
+        assert "data_quality_degraded" not in set(result["summary_label"].iloc[:120])
+        assert result.iloc[-1]["summary_label"] != "data_quality_degraded"
+
     def test_short_history_returns_warming_up_snapshot(self):
         orch = RegimeV2Orchestrator.create("ETHUSDT", "1h")
         snapshot = orch.analyze(_make_ohlcv(20))
@@ -238,6 +262,23 @@ class TestRegimeV2Orchestrator:
         assert snapshot.evidence.trend_direction == "bear"
         assert snapshot.evidence.trend_strength > 0.70
         assert snapshot.policy.allow_trend_following is True
+
+    def test_direction_deadzone_override_can_suppress_trend_label(self):
+        df = _make_ohlcv(trend=0.003, noise=0.001)
+
+        baseline = RegimeV2Orchestrator.create("BTCUSDT", "1h").analyze(df)
+        overridden = RegimeV2Orchestrator.create(
+            "BTCUSDT",
+            "1h",
+            **{"trend.direction_deadzone": 0.99},
+        ).analyze(df)
+
+        assert baseline.evidence.summary_label == "bull_trend"
+        assert baseline.evidence.trend_direction == "bull"
+        assert overridden.evidence.trend_strength == pytest.approx(baseline.evidence.trend_strength)
+        assert overridden.evidence.trend_direction == "neutral"
+        assert overridden.evidence.summary_label == "neutral"
+        assert overridden.policy.allow_trend_following is False
 
     def test_range_scenario_is_not_promoted_to_trend(self):
         orch = RegimeV2Orchestrator.create("BTCUSDT", "1h")
@@ -918,3 +959,49 @@ class TestRegimeV2Policy:
         assert policy.max_position_scale == 0.0
         assert policy.no_trade_reason is not None
         assert "uncertainty_too_high" in policy.reasons
+
+    def test_policy_config_overrides_drive_risk_multipliers(self):
+        evidence = RegimeEvidence(
+            timestamp=1,
+            asset="BTCUSDT",
+            timeframe="1h",
+            trend_direction="bull",
+            trend_strength=0.8,
+            trend_persistence=0.75,
+            trend_confidence=0.8,
+            volatility_percentile=50.0,
+            volatility_state="normal",
+            compression_score=0.2,
+            shock_risk=0.1,
+            mean_reversion_score=0.2,
+            range_quality=0.3,
+            chop_risk=0.2,
+            structural_break_risk=0.2,
+            breakout_quality=0.4,
+            false_breakout_risk=0.2,
+            market_context_score=0.2,
+            breadth_confirmation=0.2,
+            liquidity_stress=0.0,
+            confidence=0.75,
+            uncertainty=0.25,
+            summary_label="bull_trend",
+        )
+
+        policy = evidence_to_policy(
+            evidence,
+            PolicyConfig(
+                stop_base=1.8,
+                stop_shock_weight=0.0,
+                stop_break_weight=0.0,
+                stop_min=0.0,
+                stop_max=3.0,
+                target_base=1.6,
+                target_trend_weight=0.0,
+                target_breakout_weight=0.0,
+                target_min=0.0,
+                target_max=3.0,
+            ),
+        )
+
+        assert policy.stop_multiplier == 1.8
+        assert policy.target_multiplier == 1.6

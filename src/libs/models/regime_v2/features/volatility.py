@@ -15,11 +15,14 @@ def compute_volatility_features(df: pd.DataFrame, config: VolatilityConfig) -> p
 
     realized = lr.rolling(config.realized_window, min_periods=2).std(ddof=0).fillna(0.0)
     atr_pct = (true_range(df) / close.replace(0.0, np.nan)).replace([np.inf, -np.inf], np.nan).fillna(0.0)
-    vol_blend = (0.65 * realized + 0.35 * atr_pct.rolling(config.realized_window, min_periods=2).mean().fillna(0.0))
+    vol_blend = (
+        config.realized_weight * realized
+        + config.atr_weight * atr_pct.rolling(config.realized_window, min_periods=2).mean().fillna(0.0)
+    )
 
     percentile = rolling_percentile(vol_blend, config.percentile_window)
-    vol_min = vol_blend.rolling(config.compression_window, min_periods=5).quantile(0.10)
-    vol_max = vol_blend.rolling(config.compression_window, min_periods=5).quantile(0.90)
+    vol_min = vol_blend.rolling(config.compression_window, min_periods=5).quantile(config.compression_low_quantile)
+    vol_max = vol_blend.rolling(config.compression_window, min_periods=5).quantile(config.compression_high_quantile)
     compression = 1.0 - ((vol_blend - vol_min) / (vol_max - vol_min).replace(0.0, np.nan))
     compression = compression.replace([np.inf, -np.inf], np.nan).fillna(0.5).clip(0.0, 1.0)
 
@@ -28,10 +31,10 @@ def compute_volatility_features(df: pd.DataFrame, config: VolatilityConfig) -> p
 
     state = np.select(
         [
-            shock_risk >= 0.80,
-            percentile >= 75.0,
-            compression >= 0.70,
-            percentile <= 30.0,
+            shock_risk >= config.shock_state_threshold,
+            percentile >= config.expanding_percentile_threshold,
+            compression >= config.compressed_threshold,
+            percentile <= config.quiet_percentile_threshold,
         ],
         ["shock", "expanding", "compressed", "quiet"],
         default="normal",

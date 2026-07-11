@@ -366,6 +366,32 @@ class TestRegimePipelineIntegration:
         assert "regime_v2" not in enriched
 
     @pytest.mark.asyncio
+    async def test_regime_v2_uses_component_specific_min_bars(self) -> None:
+        mock_regime_v2 = MagicMock()
+        mock_regime_v2.min_bars = 40
+        mock_regime_v2.analyze.return_value = {
+            "summary_label": "bull_trend",
+            "confidence": 0.72,
+            "policy": {"allow_trend_following": True},
+        }
+        regime = RegimeFeaturePipeline(
+            "BTCUSDT",
+            "4h",
+            min_bars=200,
+            orchestrator=None,
+            classifier=None,
+            regime_v2=mock_regime_v2,
+        )
+        regime.prime(_history(length=40))
+
+        enriched = await regime.enrich({"RSI": 50.0})
+
+        assert regime.min_bars == 40
+        assert regime.regime_v2_min_bars == 40
+        mock_regime_v2.analyze.assert_called_once()
+        assert enriched["regime_v2"]["summary_label"] == "bull_trend"
+
+    @pytest.mark.asyncio
     async def test_regime_v2_failure_does_not_break_feature_enrichment(self) -> None:
         mock_regime_v2 = MagicMock()
         mock_regime_v2.analyze.side_effect = RuntimeError("RegimeV2 boom")

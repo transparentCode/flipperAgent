@@ -256,6 +256,18 @@ async def run_websocket_pipeline(
                         logger.info(f"[{symbol}] Enqueued gap-fill task after WS disconnect")
                     except Exception as gap_fill_error:
                         logger.warning(f"[{symbol}] Failed to enqueue gap-fill: {gap_fill_error}")
+                        await publish_ingestion_runtime_event(
+                            redis_client,
+                            event_type=IngestionEventType.GAP_FILL_ENQUEUE_FAILED,
+                            symbol=symbol,
+                            timeframe=runtime_base_timeframe,
+                            severity="error",
+                            detail={
+                                "exchange": EXCHANGE_BINANCE,
+                                "error": str(gap_fill_error),
+                                "reconnect_sleep_seconds": reconnect_sleep_seconds,
+                            },
+                        )
 
                 sleep_seconds = reconnect_sleep_seconds
                 live_confirmed = False

@@ -19,26 +19,38 @@ def compute_market_context_features(df: pd.DataFrame, config: MarketContextConfi
     index = df.index
     alignment = _series_or_default(df, config.alignment_column, 0.0).clip(-1.0, 1.0)
     breadth_raw = _series_or_default(df, config.breadth_column, 0.0)
-    breadth_confirmation = pd.Series(np.tanh(breadth_raw.astype(float) * 10.0), index=index).clip(-1.0, 1.0)
+    breadth_confirmation = pd.Series(
+        np.tanh(breadth_raw.astype(float) * config.breadth_tanh_scale),
+        index=index,
+    ).clip(-1.0, 1.0)
 
     regime_state = _series_or_default(df, config.regime_state_column, 2.0)
     broad_selloff = (regime_state == 3).astype(float)
     risk_off = (regime_state == 0).astype(float)
     alt_season = (regime_state == 1).astype(float)
 
-    market_context_score = (0.65 * alignment + 0.35 * breadth_confirmation).clip(-1.0, 1.0)
+    market_context_score = (
+        config.alignment_weight * alignment
+        + config.breadth_weight * breadth_confirmation
+    ).clip(-1.0, 1.0)
 
     liquidity_stress = pd.Series(0.0, index=index)
     if "spread_bps" in df.columns:
         spread = pd.to_numeric(df["spread_bps"], errors="coerce").fillna(0.0)
-        liquidity_stress = liquidity_stress + (spread / 20.0).clip(0.0, 1.0) * 0.45
+        liquidity_stress = (
+            liquidity_stress
+            + (spread / config.spread_stress_divisor).clip(0.0, 1.0) * config.spread_stress_weight
+        )
     if "bid_ask_imbalance" in df.columns:
         imbalance = pd.to_numeric(df["bid_ask_imbalance"], errors="coerce").fillna(0.0).abs()
-        liquidity_stress = liquidity_stress + imbalance.clip(0.0, 1.0) * 0.25
+        liquidity_stress = liquidity_stress + imbalance.clip(0.0, 1.0) * config.imbalance_stress_weight
     if "depth_ratio" in df.columns:
         depth = pd.to_numeric(df["depth_ratio"], errors="coerce").replace([np.inf, -np.inf], np.nan).fillna(1.0)
         depth_stress = pd.Series([abs(math.log(max(float(x), 1e-6))) for x in depth], index=index)
-        liquidity_stress = liquidity_stress + (depth_stress / 2.0).clip(0.0, 1.0) * 0.30
+        liquidity_stress = (
+            liquidity_stress
+            + (depth_stress / config.depth_stress_divisor).clip(0.0, 1.0) * config.depth_stress_weight
+        )
     liquidity_stress = liquidity_stress.clip(0.0, 1.0)
 
     return pd.DataFrame(

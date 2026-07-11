@@ -105,6 +105,11 @@ valkey: {
     link: "../../../src/apps/ingestion_app/control_plane/publisher.py"
   }
 
+  asset_status_stream: {
+    label: "asset:status"
+    link: "../../../src/libs/common/asset_status.py"
+  }
+
   dlq_stream: {
     label: "stream:dlq:ingestion (target)"
   }
@@ -115,8 +120,13 @@ valkey: {
   }
 
   runtime_state: {
-    label: "ingestion:state:{symbol}:{tf}"
+    label: "ingestion:state:{symbol}:{tf}\ninternal coordination state"
     link: "../../../src/apps/ingestion_app/coordination.py"
+  }
+
+  runtime_status: {
+    label: "ingestion:runtime_status:{symbol}:{tf}\nstatus projection"
+    link: "../../../src/libs/common/asset_status.py"
   }
 
   arq_jobs: {
@@ -168,6 +178,11 @@ downstream: {
     label: "execution_app (target chain)"
     link: "../execution_app/README.md"
   }
+
+  alert_app: {
+    label: "alert_app"
+    link: "../alert_app/README.md"
+  }
 }
 
 quality: {
@@ -197,7 +212,7 @@ observability: {
   }
 
   alerts: {
-    label: "future alerting"
+    label: "alert_app / operator alerts"
   }
 }
 
@@ -248,6 +263,8 @@ timescaledb.ingestion_assets -> ingestion_app.runtime_reconciler: "effective cat
 valkey.control_stream -> ingestion_app.runtime_reconciler: "change trigger"
 ingestion_app.runtime_reconciler -> ingestion_app.websocket_pipeline: "start / stop runtimes"
 ingestion_app.runtime_reconciler -> valkey.runtime_state: "warming / live / cold state"
+ingestion_app.runtime_reconciler -> valkey.runtime_status: "publish status"
+ingestion_app.runtime_reconciler -> valkey.asset_status_stream: "append status"
 ingestion_app.runtime_reconciler -> valkey.arq_jobs: "purge / backfill jobs"
 ingestion_app.runtime_reconciler -> contracts.recovery: "enforces bootstrap/resume rules"
 
@@ -255,6 +272,8 @@ ingestion_app.websocket_pipeline -> quality.validator: "validate candle semantic
 quality.validator -> timescaledb.ohlcv: "persist canonical candle"
 quality.validator -> valkey.ohlcv_stream: "publish closed candles only"
 ingestion_app.websocket_pipeline -> valkey.runtime_state: "state / liveness"
+ingestion_app.websocket_pipeline -> valkey.runtime_status: "publish status"
+ingestion_app.websocket_pipeline -> valkey.asset_status_stream: "append status"
 quality.validator -> contracts.candle_contract: "enforces finality contract"
 quality.validator -> contracts.parity: "keeps live semantics aligned"
 
@@ -266,12 +285,14 @@ ingestion_app.queue_worker -> contracts.recovery: "repairs gaps before LIVE"
 
 ingestion_app.websocket_pipeline -> observability.metrics: "lag / latency / restart metrics"
 ingestion_app.queue_worker -> observability.logs: "job outcomes"
-valkey.events_stream -> observability.alerts: "future alerts"
+valkey.events_stream -> observability.alerts: "alerts / operator routing"
 valkey.dlq_stream -> observability.alerts: "terminal failure signal"
 
 valkey.lifecycle -> downstream.signal_app: "subscribe"
 valkey.lifecycle -> downstream.strategy_app: "subscribe"
 valkey.ohlcv_stream -> downstream.signal_app: "consume"
+valkey.events_stream -> downstream.alert_app: "consume runtime/control outcomes"
+valkey.runtime_status -> downstream.alert_app: "scan runtime status"
 downstream.signal_app -> downstream.strategy_app: "features / triggers"
 downstream.strategy_app -> downstream.risk_app: "proposed trades"
 downstream.risk_app -> downstream.execution_app: "approved orders"

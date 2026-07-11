@@ -1,0 +1,93 @@
+defaults:
+  profile: core
+  train_ratio: 0.60
+  val_ratio: 0.20
+  min_support_rate: 0.02
+  max_flip_rate: 0.35
+  max_policy_turnover: 0.45
+  min_oos_score_ratio: 0.50
+  seed: 42
+  skip_baseline: false
+  threshold_sweep: false
+
+runs:
+  - asset: ETHUSDT
+    timeframe: 30m
+    n_trials: 50
+    days: 180
+    horizon_bars: 24
+    purge_bars: 48
+    window_bars: 480
+    step_bars: 240
+    min_window_bars: 240
+    min_support_count: 20
+  - asset: ETHUSDT
+    timeframe: 1h
+    n_trials: 50
+    days: 240
+    horizon_bars: 12
+    purge_bars: 24
+    window_bars: 240
+    step_bars: 120
+    min_window_bars: 120
+    min_support_count: 20
+  - asset: ETHUSDT
+    timeframe: 4h
+    n_trials: 50
+    days: 240
+    horizon_bars: 12
+    purge_bars: 24
+    window_bars: 240
+    step_bars: 120
+    min_window_bars: 120
+    min_support_count: 20
+  - asset: ETHUSDT
+    timeframe: 1d
+    n_trials: 50
+    days: 900
+    horizon_bars: 5
+    purge_bars: 5
+    window_bars: 120
+    step_bars: 60
+    min_window_bars: 60
+    min_support_count: 10
+  - asset: SUIUSDT
+    timeframe: 30m
+    n_trials: 50
+    days: 180
+    horizon_bars: 24
+    purge_bars: 48
+    window_bars: 480
+    step_bars: 240
+    min_window_bars: 240
+    min_support_count: 20
+  - asset: SUIUSDT
+    timeframe: 1h
+    n_trials: 50
+    days: 240
+    horizon_bars: 12
+    purge_bars: 24
+    window_bars: 240
+    step_bars: 120
+    min_window_bars: 120
+    min_support_count: 20
+  - asset: SUIUSDT
+    timeframe: 4h
+    n_trials: 50
+    days: 240
+    horizon_bars: 12
+    purge_bars: 24
+    window_bars: 240
+    step_bars: 120
+    min_window_bars: 120
+    min_support_count: 20
+  - asset: SUIUSDT
+    timeframe: 1d
+    n_trials: 50
+    days: 900
+    horizon_bars: 5
+    purge_bars: 5
+    window_bars: 120
+    step_bars: 60
+    min_window_bars: 60
+    min_support_count: 10

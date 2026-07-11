@@ -829,6 +829,26 @@ class TestSelectionConfigSafety:
             assert gate["shadow_persist_enabled"] is False
             assert "PriceAction" not in gate["shadow_target_models"]
 
+    def test_phase5d_shadow_pairs_have_matching_regime_v2_feature_producers(self):
+        selection = yaml.safe_load(Path("configs/selection.yaml").read_text())["selection"]
+        models = yaml.safe_load(Path("configs/models.yaml").read_text())["feature_producers"]
+
+        for asset, asset_cfg in selection["assets"].items():
+            if asset == "default":
+                continue
+            for timeframe, tf_cfg in asset_cfg.get("timeframes", {}).items():
+                gate = tf_cfg.get("overlays", {}).get("regime_v2_trend_gate", {})
+                if not gate.get("shadow_enabled"):
+                    continue
+                producer = (
+                    models["assets"]
+                    .get(asset, {})
+                    .get("timeframes", {})
+                    .get(timeframe, {})
+                    .get("RegimeV2")
+                )
+                assert producer is not None, f"missing RegimeV2 producer config for {asset} {timeframe}"
+
 
 # ---------------------------------------------------------------------------
 # Config Fallback Chain (unit-level — mocked ConfigManager)

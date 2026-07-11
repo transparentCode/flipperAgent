@@ -121,6 +121,7 @@ alerts:
       source_app: ingestion_app
       url: http://worker-streams:8001/health
       timeout_seconds: 5
+      startup_grace_seconds: 60
       healthy_statuses:
         - ok
     scraper_service:
@@ -128,11 +129,18 @@ alerts:
       source_app: scraper_app
       url: http://scraper-service:8081/health
       timeout_seconds: 5
+      startup_grace_seconds: 60
       healthy_statuses:
         - ok
   freshness:
     ingestion:
       warming_timeout_seconds: 900
+      disconnect_breach_count: 3
+      disconnect_recovery_seconds: 900
+      stale_live_threshold_seconds: 900
+    scraper:
+      worker_running_timeout_seconds: 1200
+      success_stale_threshold_seconds: 3600
     signal:
       max_lag_seconds: 1200
     strategy:

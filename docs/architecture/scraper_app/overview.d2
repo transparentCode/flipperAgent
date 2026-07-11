@@ -1,0 +1,207 @@
+direction: right
+
+title: {
+  label: "scraper_app architecture"
+  near: top-center
+}
+
+sources: {
+  label: "External Sources"
+  style.fill: "#E8F1FF"
+
+  tradingview: {
+    label: "TradingView chart + websocket"
+    link: "../../../src/apps/scraper_app/providers/tradingview/interceptor.py"
+  }
+
+  coinglass: {
+    label: "CoinGlass heatmap pages/API"
+    link: "../../../src/apps/scraper_app/providers/coinglass/interceptor.py"
+  }
+
+  cookies: {
+    label: "provider cookies\nsecrets/*.json"
+    link: "../../../src/apps/scraper_app/core/browser_runtime.py"
+  }
+}
+
+scraper_app: {
+  label: "scraper_app"
+  style.fill: "#EEF7EA"
+  link: "./README.md"
+
+  api_process: {
+    label: "scraper_service API"
+    link: "../../../src/apps/scraper_app/api/main.py"
+  }
+
+  app_factory: {
+    label: "FastAPI app factory"
+    link: "../../../src/apps/scraper_app/api/app.py"
+  }
+
+  routes: {
+    label: "routes\n/health /latest/* /fetch/sync /jobs/*"
+    link: "../../../src/apps/scraper_app/api/routes.py"
+  }
+
+  fetch_service: {
+    label: "ScraperFetchService"
+    link: "../../../src/apps/scraper_app/service/fetch_service.py"
+  }
+
+  job_service: {
+    label: "ScraperJobService"
+    link: "../../../src/apps/scraper_app/service/job_service.py"
+  }
+
+  browser_runtime: {
+    label: "BrowserScraperRuntime"
+    link: "../../../src/apps/scraper_app/core/browser_runtime.py"
+  }
+
+  tv_worker: {
+    label: "TradingView ARQ worker"
+    link: "../../../src/apps/scraper_app/providers/tradingview/worker.py"
+  }
+
+  cg_worker: {
+    label: "CoinGlass ARQ worker"
+    link: "../../../src/apps/scraper_app/providers/coinglass/worker.py"
+  }
+
+  cli: {
+    label: "research CLI"
+    link: "../../../src/apps/scraper_app/cli.py"
+  }
+}
+
+valkey: {
+  label: "Valkey"
+  style.fill: "#FFF2D8"
+
+  index_cache: {
+    label: "index:latest:{short_name}"
+    link: "../../../src/apps/scraper_app/service/fetch_service.py"
+  }
+
+  derivatives_cache: {
+    label: "derivatives:latest:{asset}:{suffix}"
+    link: "../../../src/apps/scraper_app/providers/tradingview/worker.py"
+  }
+
+  heatmap_cache: {
+    label: "coinglass:latest:liquidation_heatmap:{exchange}:{short_name}"
+    link: "../../../src/apps/scraper_app/providers/coinglass/worker.py"
+  }
+
+  jobs: {
+    label: "scraper:job:{job_id}"
+    link: "../../../src/apps/scraper_app/service/job_service.py"
+  }
+
+  job_results: {
+    label: "scraper:job:result:{job_id}"
+    link: "../../../src/apps/scraper_app/service/job_service.py"
+  }
+}
+
+timescaledb: {
+  label: "TimescaleDB"
+  style.fill: "#F4EAFE"
+
+  tv_index_ohlcv: {
+    label: "tv_index_ohlcv"
+    link: "../../../src/apps/ingestion_app/storage/schema.sql"
+  }
+
+  open_interest: {
+    label: "open_interest"
+    link: "../../../src/apps/ingestion_app/storage/schema.sql"
+  }
+
+  funding_rate: {
+    label: "funding_rate"
+    link: "../../../src/apps/ingestion_app/storage/schema.sql"
+  }
+}
+
+downstream: {
+  label: "Internal Consumers"
+  style.fill: "#FCE8E8"
+
+  api_app: {
+    label: "api_app\n/ingestion/scraper/* bridge"
+    link: "../../../src/apps/api_app/routers/ingestion.py"
+  }
+
+  signal_app: {
+    label: "signal_app"
+    link: "../signal_app/README.md"
+  }
+
+  alert_app: {
+    label: "alert_app\nhealth probe"
+    link: "../alert_app/README.md"
+  }
+
+  operators: {
+    label: "research / operators"
+  }
+}
+
+rules: {
+  label: "Architecture Rules"
+  style.fill: "#F3FAEF"
+
+  isolation: {
+    label: "browser automation isolated\noutside ingestion runtime loop"
+  }
+
+  dedupe: {
+    label: "async jobs dedupe by deterministic\nrequest hash"
+  }
+
+  deployment: {
+    label: "default docker stack runs API +\nTradingView worker; CoinGlass worker is code-ready"
+  }
+}
+
+sources.cookies -> scraper_app.browser_runtime: "apply cookies"
+scraper_app.browser_runtime -> scraper_app.fetch_service: "provider runtime"
+scraper_app.browser_runtime -> scraper_app.tv_worker: "provider runtime"
+scraper_app.browser_runtime -> scraper_app.cg_worker: "provider runtime"
+sources.tradingview -> scraper_app.fetch_service: "live fetch"
+sources.tradingview -> scraper_app.tv_worker: "scheduled fetch"
+sources.coinglass -> scraper_app.fetch_service: "live fetch"
+sources.coinglass -> scraper_app.cg_worker: "scheduled fetch"
+
+scraper_app.api_process -> scraper_app.app_factory: "boot"
+scraper_app.app_factory -> scraper_app.routes: "serve"
+scraper_app.app_factory -> scraper_app.fetch_service: "wire"
+scraper_app.app_factory -> scraper_app.job_service: "wire + recover"
+scraper_app.routes -> scraper_app.fetch_service: "cache reads / sync fetch"
+scraper_app.routes -> scraper_app.job_service: "submit / query async jobs"
+scraper_app.job_service -> scraper_app.fetch_service: "execute deduped work"
+
+scraper_app.fetch_service -> valkey.index_cache: "read/write"
+scraper_app.fetch_service -> valkey.heatmap_cache: "read"
+scraper_app.job_service -> valkey.jobs: "persist status"
+scraper_app.job_service -> valkey.job_results: "persist result"
+scraper_app.tv_worker -> valkey.index_cache: "publish"
+scraper_app.tv_worker -> valkey.derivatives_cache: "publish"
+scraper_app.cg_worker -> valkey.heatmap_cache: "publish"
+scraper_app.tv_worker -> timescaledb.tv_index_ohlcv: "upsert"
+scraper_app.tv_worker -> timescaledb.open_interest: "upsert"
+scraper_app.tv_worker -> timescaledb.funding_rate: "upsert"
+
+downstream.api_app -> scraper_app.routes: "HTTP client"
+valkey.index_cache -> downstream.signal_app: "consume"
+downstream.alert_app -> scraper_app.routes: "GET /health"
+scraper_app.cli -> sources.tradingview: "debug fetch"
+scraper_app.cli -> sources.coinglass: "debug fetch"
+scraper_app.cli -> downstream.operators: "research output"
+
+rules.isolation -> scraper_app.fetch_service: "boundary"
+rules.dedupe -> scraper_app.job_service: "guardrail"
+rules.deployment -> scraper_app.cg_worker: "current state"

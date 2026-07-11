@@ -13,7 +13,7 @@ import pandas as pd
 
 from libs.models.regime_v2.config import RegimeV2Config, timeframe_scaled_config
 from libs.models.regime_v2.contracts import DataQualityReport, RegimeEvidence, RegimePolicy, RegimeV2Output
-from libs.models.regime_v2.data_quality import prepare_ohlcv, validate_ohlcv
+from libs.models.regime_v2.data_quality import build_row_quality_flags, prepare_ohlcv, validate_ohlcv
 from libs.models.regime_v2.features import (
     compute_break_features,
     compute_market_context_features,
@@ -60,16 +60,16 @@ class RegimeV2Orchestrator:
             return self._neutral_series(df.index if len(df) else pd.RangeIndex(1), quality)
 
         prepared = prepare_ohlcv(df, self.config.data_quality.required_fields)
+        row_quality = build_row_quality_flags(prepared, self.config.data_quality)
         feature_frame = self._compute_feature_frame(prepared)
         evidence_df = build_evidence_frame(
             feature_frame,
             asset=self.asset,
             timeframe=self.timeframe,
             config=self.config.fusion,
-            warmup_complete=quality.warmup_complete and quality.usable,
+            warmup_complete=True,
         )
-        if not quality.usable:
-            evidence_df = self._degrade_evidence(evidence_df, quality)
+        evidence_df = self._apply_row_quality(evidence_df, row_quality=row_quality)
 
         policy_df = build_policy_frame(evidence_df, self.config.policy).add_prefix("policy_")
         return evidence_df.join(policy_df)
@@ -111,6 +111,32 @@ class RegimeV2Orchestrator:
         out["summary_label"] = "data_quality_degraded"
         if not quality.warmup_complete:
             out["summary_label"] = "warming_up"
+        return out
+
+    def _apply_row_quality(self, evidence_df: pd.DataFrame, *, row_quality: pd.DataFrame) -> pd.DataFrame:
+        out = evidence_df.copy()
+        if out.empty or row_quality.empty:
+            return out
+
+        warmup_complete = row_quality["warmup_complete"].reindex(out.index).fillna(False).astype(bool)
+        usable = row_quality["usable"].reindex(out.index).fillna(False).astype(bool)
+
+        degraded = ~usable
+        if degraded.any():
+            out.loc[degraded, "confidence"] = (
+                out.loc[degraded, "confidence"].astype(float) * 0.25
+            ).clip(0.0, 1.0)
+            out.loc[degraded, "uncertainty"] = 1.0
+            out.loc[degraded, "summary_label"] = "data_quality_degraded"
+
+        warming = ~warmup_complete
+        if warming.any():
+            out.loc[warming, "confidence"] = (
+                out.loc[warming, "confidence"].astype(float) * 0.25
+            ).clip(0.0, 1.0)
+            out.loc[warming, "uncertainty"] = 1.0
+            out.loc[warming, "summary_label"] = "warming_up"
+
         return out
 
     def _neutral_series(self, index: pd.Index, quality: DataQualityReport) -> pd.DataFrame:

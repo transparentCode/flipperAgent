@@ -36,6 +36,19 @@ class _FakeRepository:
         return record
 
 
+class _FakeIncidentService:
+    def __init__(self) -> None:
+        self.notified: list[tuple[str, float]] = []
+
+    async def mark_notified(self, incident_id: str, *, notified_at: float) -> None:
+        self.notified.append((incident_id, notified_at))
+
+
+class _FailingMarkNotifiedIncidentService:
+    async def mark_notified(self, incident_id: str, *, notified_at: float) -> None:
+        raise RuntimeError("store down")
+
+
 class _FakeTransport:
     def __init__(self) -> None:
         self.calls = []
@@ -91,9 +104,11 @@ def _incident() -> AlertIncidentRecord:
 async def test_dispatcher_enqueues_and_sends() -> None:
     transport = _FakeTransport()
     repository = _FakeRepository()
+    incident_service = _FakeIncidentService()
     dispatcher = AlertNotificationDispatcher(
         redis_client=_FakeRedis(),
         repository=repository,
+        incident_service=incident_service,
         config_manager=_FakeConfig(),
         transports={"webhook": transport},
     )
@@ -106,15 +121,19 @@ async def test_dispatcher_enqueues_and_sends() -> None:
 
     assert transport.calls == [("inc_1", "system_alerts", "http://example.invalid")]
     assert repository.deliveries[0].status == "sent"
+    assert len(incident_service.notified) == 1
+    assert incident_service.notified[0][0] == "inc_1"
 
 
 @pytest.mark.asyncio
 async def test_dispatcher_rate_limits_routes() -> None:
     transport = _FakeTransport()
     repository = _FakeRepository()
+    incident_service = _FakeIncidentService()
     dispatcher = AlertNotificationDispatcher(
         redis_client=_FakeRedis(),
         repository=repository,
+        incident_service=incident_service,
         config_manager=_FakeConfig(),
         transports={"webhook": transport},
     )
@@ -136,14 +155,17 @@ async def test_dispatcher_rate_limits_routes() -> None:
     statuses = [delivery.status for delivery in repository.deliveries]
     assert statuses.count("sent") == 2
     assert "rate_limited" in statuses
+    assert len(incident_service.notified) == 2
 
 
 @pytest.mark.asyncio
 async def test_dispatcher_records_exception_type_when_message_empty() -> None:
     repository = _FakeRepository()
+    incident_service = _FakeIncidentService()
     dispatcher = AlertNotificationDispatcher(
         redis_client=_FakeRedis(),
         repository=repository,
+        incident_service=incident_service,
         config_manager=_FakeConfig(),
         transports={"webhook": _FailingTransport()},
     )
@@ -156,3 +178,29 @@ async def test_dispatcher_records_exception_type_when_message_empty() -> None:
 
     assert repository.deliveries[0].status == "failed"
     assert repository.deliveries[0].error == "TimeoutError"
+    assert len(incident_service.notified) == 0
+
+
+@pytest.mark.asyncio
+async def test_dispatcher_records_sent_not_failed_when_mark_notified_fails() -> None:
+    transport = _FakeTransport()
+    repository = _FakeRepository()
+    incident_service = _FailingMarkNotifiedIncidentService()
+    dispatcher = AlertNotificationDispatcher(
+        redis_client=_FakeRedis(),
+        repository=repository,
+        incident_service=incident_service,
+        config_manager=_FakeConfig(),
+        transports={"webhook": transport},
+    )
+    await dispatcher.start()
+    try:
+        await dispatcher.enqueue_incident(_incident(), route_names=["system_alerts"])
+        await dispatcher.queue.join()
+    finally:
+        await dispatcher.stop()
+
+    assert transport.calls == [("inc_1", "system_alerts", "http://example.invalid")]
+    assert len(repository.deliveries) == 1
+    assert repository.deliveries[0].status == "sent"
+    assert repository.deliveries[0].error is None

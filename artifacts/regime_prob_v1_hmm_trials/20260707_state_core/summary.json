@@ -1,0 +1,64 @@
+[
+  {
+    "asset": "ETHUSDT",
+    "best_params": {
+      "max_state_entropy": 0.75,
+      "max_transition_state_prob": 0.62,
+      "min_breakout_state_prob": 0.41,
+      "min_edge_probability": 0.25,
+      "min_range_state_prob": 0.41,
+      "min_trend_state_prob": 0.58
+    },
+    "deployed": false,
+    "hmm_in_sample_rows": 500,
+    "hmm_oos_filtered_rows": 8267,
+    "hmm_oos_filtered_support_rate": 0.94296795,
+    "hmm_proxy_fallback_rows": 0,
+    "mean_edge_return": -0.00232679,
+    "oos_score": 0.02821398,
+    "positive_window_rate": 0.0,
+    "promotion_ready": false,
+    "rejection_reasons": [
+      "oos:positive_window_rate_below_minimum",
+      "oos:mean_edge_return_below_minimum",
+      "promotion:tuned:oos:positive_window_rate_below_minimum",
+      "promotion:tuned:oos:mean_edge_return_below_minimum"
+    ],
+    "rows": 8767,
+    "state_source": "hmm_state_model",
+    "timeframe": "4h",
+    "validation_rejected": false
+  },
+  {
+    "asset": "BTCUSDT",
+    "best_params": {
+      "max_state_entropy": 0.75,
+      "max_transition_state_prob": 0.62,
+      "min_breakout_state_prob": 0.41,
+      "min_edge_probability": 0.25,
+      "min_range_state_prob": 0.41,
+      "min_trend_state_prob": 0.58
+    },
+    "deployed": false,
+    "hmm_in_sample_rows": 500,
+    "hmm_oos_filtered_rows": 8267,
+    "hmm_oos_filtered_support_rate": 0.94296795,
+    "hmm_proxy_fallback_rows": 0,
+    "mean_edge_return": 0.00065491,
+    "oos_score": 0.05513836,
+    "positive_window_rate": 0.66666667,
+    "promotion_ready": false,
+    "rejection_reasons": [
+      "validation:positive_window_rate_below_minimum",
+      "validation:mean_edge_return_below_minimum",
+      "promotion:tuned:validation:positive_window_rate_below_minimum",
+      "promotion:tuned:validation:mean_edge_return_below_minimum",
+      "promotion:positive_window_rate_regressed",
+      "promotion:expected_calibration_error_regressed"
+    ],
+    "rows": 8767,
+    "state_source": "hmm_state_model",
+    "timeframe": "4h",
+    "validation_rejected": true
+  }
+]

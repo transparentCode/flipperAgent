@@ -39,27 +39,41 @@ def compute_break_features(df: pd.DataFrame, config: BreakConfig) -> pd.DataFram
     breakout_magnitude = pd.concat([upside_break, downside_break], axis=1).max(axis=1)
 
     volume_confirm = clip01((vol_z / max(config.confirmation_volume_z, EPS)).clip(lower=0.0))
-    displacement_breakout_score = clip01((breakout_magnitude * 3.0).clip(0.0, 1.0) * (0.60 + 0.40 * volume_confirm))
+    displacement_breakout_score = clip01(
+        (breakout_magnitude * config.breakout_magnitude_scale).clip(0.0, 1.0)
+        * (config.displacement_volume_base + config.displacement_volume_weight * volume_confirm)
+    )
 
     channel_width_pct = (rolling_range / close.replace(0.0, np.nan)).replace([np.inf, -np.inf], np.nan).fillna(0.0)
     width_percentile = rolling_percentile(channel_width_pct, config.breakout_window * 2)
     setup_compression = (1.0 - width_percentile / 100.0).clip(0.0, 1.0)
     channel_position = ((close - prior_low) / rolling_range).replace([np.inf, -np.inf], np.nan).fillna(0.5).clip(0.0, 1.0)
     edge_pressure = pd.concat([channel_position, 1.0 - channel_position], axis=1).max(axis=1)
-    near_edge = ((edge_pressure - 0.55) / 0.35).clip(0.0, 1.0)
+    near_edge = ((edge_pressure - config.edge_pressure_center) / config.edge_pressure_width).clip(0.0, 1.0)
     quiet_enough = (1.0 - (ret_z / max(config.shock_z, EPS)).clip(0.0, 1.0)).clip(0.0, 1.0)
-    pre_breakout_setup_score = clip01(setup_compression * near_edge * (0.60 + 0.40 * quiet_enough))
+    pre_breakout_setup_score = clip01(
+        setup_compression
+        * near_edge
+        * (config.setup_quiet_base + config.setup_quiet_weight * quiet_enough)
+    )
 
     retest_lookback = max(3, min(config.range_window, config.breakout_window // 3))
     recent_up_break = upside_break.rolling(retest_lookback, min_periods=1).max().shift(1).fillna(0.0).clip(0.0, 1.0)
     recent_down_break = downside_break.rolling(retest_lookback, min_periods=1).max().shift(1).fillna(0.0).clip(0.0, 1.0)
     upper_distance = ((close - prior_high).abs() / rolling_range).replace([np.inf, -np.inf], np.nan).fillna(1.0)
     lower_distance = ((close - prior_low).abs() / rolling_range).replace([np.inf, -np.inf], np.nan).fillna(1.0)
-    near_upper_retest = (1.0 - upper_distance / 0.18).clip(0.0, 1.0)
-    near_lower_retest = (1.0 - lower_distance / 0.18).clip(0.0, 1.0)
-    retest_up = recent_up_break * near_upper_retest * (close >= prior_high * 0.995).astype(float)
-    retest_down = recent_down_break * near_lower_retest * (close <= prior_low * 1.005).astype(float)
-    post_breakout_retest_score = clip01(pd.concat([retest_up, retest_down], axis=1).max(axis=1) * (0.70 + 0.30 * quiet_enough))
+    near_upper_retest = (1.0 - upper_distance / config.retest_distance_scale).clip(0.0, 1.0)
+    near_lower_retest = (1.0 - lower_distance / config.retest_distance_scale).clip(0.0, 1.0)
+    retest_up = recent_up_break * near_upper_retest * (
+        close >= prior_high * (1.0 - config.retest_boundary_buffer)
+    ).astype(float)
+    retest_down = recent_down_break * near_lower_retest * (
+        close <= prior_low * (1.0 + config.retest_boundary_buffer)
+    ).astype(float)
+    post_breakout_retest_score = clip01(
+        pd.concat([retest_up, retest_down], axis=1).max(axis=1)
+        * (config.retest_quiet_base + config.retest_quiet_weight * quiet_enough)
+    )
 
     candle_range = (high - low).replace(0.0, np.nan)
     close_location = ((close - low) / candle_range).replace([np.inf, -np.inf], np.nan).fillna(0.5).clip(0.0, 1.0)
@@ -68,22 +82,22 @@ def compute_break_features(df: pd.DataFrame, config: BreakConfig) -> pd.DataFram
     rejection_risk = pd.concat([upper_rejection, lower_rejection], axis=1).max(axis=1)
 
     false_breakout_risk = clip01(
-        0.50 * displacement_breakout_score * (1.0 - volume_confirm)
-        + 0.30 * rejection_risk
-        + 0.20 * (ret_z < 1.0).astype(float)
+        config.false_breakout_displacement_weight * displacement_breakout_score * (1.0 - volume_confirm)
+        + config.false_breakout_rejection_weight * rejection_risk
+        + config.false_breakout_low_ret_weight * (ret_z < config.false_breakout_low_ret_z_max).astype(float)
     )
 
     structural_break_risk = clip01(
-        0.45 * (ret_z / max(config.shock_z, EPS)).clip(0.0, 1.0)
-        + 0.35 * (range_z / max(config.shock_z, EPS)).clip(0.0, 1.0)
-        + 0.20 * displacement_breakout_score
+        config.structural_break_ret_weight * (ret_z / max(config.shock_z, EPS)).clip(0.0, 1.0)
+        + config.structural_break_range_weight * (range_z / max(config.shock_z, EPS)).clip(0.0, 1.0)
+        + config.structural_break_displacement_weight * displacement_breakout_score
     )
 
     breakout_quality = pd.concat(
         [
-            0.75 * pre_breakout_setup_score,
+            config.breakout_quality_setup_weight * pre_breakout_setup_score,
             displacement_breakout_score,
-            0.85 * post_breakout_retest_score,
+            config.breakout_quality_retest_weight * post_breakout_retest_score,
         ],
         axis=1,
     ).max(axis=1).clip(0.0, 1.0)
@@ -96,7 +110,7 @@ def compute_break_features(df: pd.DataFrame, config: BreakConfig) -> pd.DataFram
         displacement_direction,
         np.where(post_breakout_retest_score > pre_breakout_setup_score, retest_direction, setup_direction),
     )
-    direction = np.where(breakout_quality > 0.05, direction, "none")
+    direction = np.where(breakout_quality > config.breakout_direction_min_quality, direction, "none")
 
     return pd.DataFrame(
         {

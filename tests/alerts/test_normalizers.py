@@ -38,14 +38,53 @@ def test_normalize_ingestion_runtime_event() -> None:
         symbol="ETHUSDT",
         timeframe="1h",
         severity="critical",
-        detail={"reason": "timeout"},
+        detail={"reason": "timeout", "disconnect_count": 5, "threshold": 5},
         emitted_at=2.0,
     )
     normalized = normalize_ingestion_runtime_event(event)
+    assert normalized is not None
     assert normalized.asset == "ETHUSDT"
     assert normalized.timeframe == "1h"
     assert normalized.severity.value == "critical"
     assert normalized.event_type.value == "ingestion_runtime_failure"
+    assert normalized.title == "Ingestion retry exhausted for ETHUSDT 1h"
+    assert normalized.summary == "Ingestion runtime retry exhausted for ETHUSDT 1h; disconnect count 5/5"
+
+
+def test_normalize_ingestion_gap_fill_enqueue_failure_event() -> None:
+    event = IngestionRuntimeEvent(
+        event_id="evt_3",
+        event_type=IngestionEventType.GAP_FILL_ENQUEUE_FAILED,
+        symbol="BTCUSDT",
+        timeframe="1m",
+        severity="error",
+        detail={"error": "redis unavailable"},
+        emitted_at=3.0,
+    )
+    normalized = normalize_ingestion_runtime_event(event)
+    assert normalized is not None
+    assert normalized.event_type.value == "ingestion_gap_fill_failure"
+    assert normalized.severity.value == "error"
+    assert normalized.title == "Ingestion gap-fill enqueue failed for BTCUSDT 1m"
+    assert normalized.summary == "Gap-fill recovery could not be queued for BTCUSDT 1m: redis unavailable"
+
+
+def test_normalize_ingestion_runtime_event_returns_none_for_success_events() -> None:
+    for event_type in (
+        IngestionEventType.COMMAND_ACCEPTED,
+        IngestionEventType.GAP_FILL_COMPLETED,
+        IngestionEventType.ASSET_PURGE_COMPLETED,
+    ):
+        event = IngestionRuntimeEvent(
+            event_id="evt_success",
+            event_type=event_type,
+            symbol="ETHUSDT",
+            timeframe="1h",
+            severity="info",
+            detail={"asset_count": 6},
+            emitted_at=2.0,
+        )
+        assert normalize_ingestion_runtime_event(event) is None
 
 
 def test_normalize_execution_failure_event() -> None:
@@ -69,4 +108,3 @@ def test_normalize_execution_failure_event() -> None:
     assert normalized.severity.value == "critical"
     assert normalized.event_type.value == "execution_failure"
     assert normalized.detail["error_type"] == "TimeoutError"
-

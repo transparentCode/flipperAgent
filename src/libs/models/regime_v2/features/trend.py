@@ -37,11 +37,26 @@ def compute_trend_features(df: pd.DataFrame, config: TrendConfig) -> pd.DataFram
     signed_persistence = sign.rolling(config.persistence_lookback, min_periods=2).mean().fillna(0.0)
     persistence = signed_persistence.abs().clip(0.0, 1.0)
 
-    direction_score = clip11(0.50 * ema_score + 0.35 * signed_efficiency + 0.15 * signed_persistence)
-    trend_strength = clip01(0.50 * ema_score.abs() + 0.35 * efficiency + 0.15 * persistence)
-    trend_confidence = clip01(0.60 * trend_strength + 0.40 * persistence)
+    direction_score = clip11(
+        config.ema_score_weight * ema_score
+        + config.efficiency_score_weight * signed_efficiency
+        + config.persistence_score_weight * signed_persistence
+    )
+    trend_strength = clip01(
+        config.ema_score_weight * ema_score.abs()
+        + config.efficiency_score_weight * efficiency
+        + config.persistence_score_weight * persistence
+    )
+    trend_confidence = clip01(
+        config.confidence_strength_weight * trend_strength
+        + config.confidence_persistence_weight * persistence
+    )
 
-    direction = np.where(direction_score > 0.12, "bull", np.where(direction_score < -0.12, "bear", "neutral"))
+    direction = np.where(
+        direction_score > config.direction_deadzone,
+        "bull",
+        np.where(direction_score < -config.direction_deadzone, "bear", "neutral"),
+    )
 
     return pd.DataFrame(
         {

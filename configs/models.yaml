@@ -460,6 +460,10 @@ feature_producers:
             params: {}
     BNBUSDT:
       timeframes:
+        1h:
+          RegimeV2:
+            enabled: false
+            params: {}
         4h:
           RegimeV2:
             enabled: false

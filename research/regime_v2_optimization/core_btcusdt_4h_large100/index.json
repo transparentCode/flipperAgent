@@ -1,0 +1,23 @@
+{
+  "completed_runs": 1,
+  "model_name": "RegimeV2",
+  "output_dir": "research/regime_v2_optimization/core_btcusdt_4h_large100",
+  "runs": [
+    {
+      "asset": "BTCUSDT",
+      "completed_trials": 100,
+      "deployed": true,
+      "json_path": "research/regime_v2_optimization/core_btcusdt_4h_large100/RegimeV2_BTCUSDT_4h_core.json",
+      "markdown_path": "research/regime_v2_optimization/core_btcusdt_4h_large100/RegimeV2_BTCUSDT_4h_core.md",
+      "oos_score": 0.1601395,
+      "oos_score_delta": 0.27661193,
+      "profile": "core",
+      "rejected_trials": 2,
+      "rejection_reasons": [],
+      "study_name": "RegimeV2_BTCUSDT_4h_core",
+      "timeframe": "4h"
+    }
+  ],
+  "storage": "sqlite:///research/regime_v2_optimization/core_medium/studies.db",
+  "total_runs": 1
+}

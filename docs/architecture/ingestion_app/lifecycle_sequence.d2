@@ -103,7 +103,7 @@ contracts: {
 
   runtime_state: {
     class: state
-    label: "ingestion:state:{symbol}:{tf}\nCOLD / WARMING / LIVE"
+    label: "ingestion:state:{symbol}:{tf}\nCOLD / BACKFILLING / WARMING / LIVE / ERROR"
     shape: stored_data
     link: "../../../src/apps/ingestion_app/coordination.py"
   }
@@ -137,10 +137,10 @@ add_resume: {
   a4: { class: state; label: "4. reconciler converges runtime set" }
   a5: { class: state; label: "5. bootstrap checks freshness / resume gap" }
   a6: { class: state; label: "6. enqueue gap-fill if stale or resuming" }
-  a7: { class: state; label: "7. move runtime to WARMING" }
+  a7: { class: state; label: "7. runtime enters BACKFILLING or WARMING" }
   a8: { class: state; label: "8. queue worker repairs history" }
   a9: { class: state; label: "9. websocket launches after warmup" }
-  a10: { class: state; label: "10. first valid live close promotes LIVE" }
+  a10: { class: state; label: "10. first valid live close promotes LIVE (or ERROR on failed warmup)" }
   a11: { class: state; label: "11. closed candles publish downstream" }
 }
 

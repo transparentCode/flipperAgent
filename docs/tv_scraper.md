@@ -1,5 +1,17 @@
 # TradingView Scraper
 
+This document is now a **provider-specific TradingView note**, not the
+app-level source of truth for the current scraper stack.
+
+For the current `scraper_app` architecture, use:
+
+- `docs/architecture/scraper_app/README.md`
+- `docs/architecture/scraper_app/overview.d2`
+- `docs/architecture/scraper_app/io.d2`
+
+That architecture bundle reflects the current internal FastAPI service,
+Valkey-backed async job layer, TradingView worker, and CoinGlass support.
+
 The TradingView Scraper is a lightweight sidecar service that periodically fetches proprietary market-cap index data (TOTAL2, TOTAL3, BTC.D) from TradingView, persists it in TimescaleDB, and publishes the latest closed bar to Valkey hashes for real-time consumption by the Signal App.
 
 ---

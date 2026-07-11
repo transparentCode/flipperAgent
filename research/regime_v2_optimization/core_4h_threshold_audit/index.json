@@ -1,0 +1,37 @@
+{
+  "completed_runs": 2,
+  "model_name": "RegimeV2",
+  "output_dir": "research/regime_v2_optimization/core_4h_threshold_audit",
+  "runs": [
+    {
+      "asset": "BTCUSDT",
+      "completed_trials": 25,
+      "deployed": true,
+      "json_path": "research/regime_v2_optimization/core_4h_threshold_audit/RegimeV2_BTCUSDT_4h_core.json",
+      "markdown_path": "research/regime_v2_optimization/core_4h_threshold_audit/RegimeV2_BTCUSDT_4h_core.md",
+      "oos_score": 0.15639395,
+      "oos_score_delta": 0.27286326,
+      "profile": "core",
+      "rejected_trials": 2,
+      "rejection_reasons": [],
+      "study_name": "RegimeV2_BTCUSDT_4h_core",
+      "timeframe": "4h"
+    },
+    {
+      "asset": "SOLUSDT",
+      "completed_trials": 25,
+      "deployed": true,
+      "json_path": "research/regime_v2_optimization/core_4h_threshold_audit/RegimeV2_SOLUSDT_4h_core.json",
+      "markdown_path": "research/regime_v2_optimization/core_4h_threshold_audit/RegimeV2_SOLUSDT_4h_core.md",
+      "oos_score": 0.16606296,
+      "oos_score_delta": 0.0105286,
+      "profile": "core",
+      "rejected_trials": 4,
+      "rejection_reasons": [],
+      "study_name": "RegimeV2_SOLUSDT_4h_core",
+      "timeframe": "4h"
+    }
+  ],
+  "storage": "sqlite:///research/regime_v2_optimization/core_medium/studies.db",
+  "total_runs": 2
+}

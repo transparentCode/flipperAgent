@@ -268,6 +268,8 @@ Operational and app-owned:
 - `stream:control:ingestion`
 - `stream:events:ingestion`
 - `ingestion:state:{symbol}:{timeframe}`
+- `ingestion:runtime_status:{symbol}:{timeframe}`
+- `asset:status`
 
 ### Durable market history
 
@@ -342,8 +344,8 @@ architecturally explicit.
 
 ### Failure sink / DLQ
 
-`stream:events:ingestion` is the operator event stream, but it should not be
-the only failure sink long term.
+`stream:events:ingestion` is the shared operator and `alert_app` event stream,
+but it should not be the only failure sink long term.
 
 Recommended additions:
 

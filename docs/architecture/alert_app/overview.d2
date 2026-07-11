@@ -35,7 +35,7 @@ sources: {
   }
 
   health_endpoints: {
-    label: "configured /health probes"
+    label: "configured /health probes\n+ startup grace"
     link: "../../../configs/alerts.yaml"
   }
 }
@@ -155,6 +155,10 @@ rules: {
   throttling: {
     label: "route burst limit + renotify\nenforced in dispatcher/incident engine"
   }
+
+  health_grace: {
+    label: "new health breaches suppressed\nduring startup_grace_seconds"
+  }
 }
 
 sources.ingestion_lifecycle -> alert_app.consumer: "stream"
@@ -188,3 +192,4 @@ alert_app.api -> postgres.silences: "query"
 rules.ownership -> alert_app.incident_engine: "policy"
 rules.recovery -> alert_app.reconciler: "guardrail"
 rules.throttling -> alert_app.dispatcher: "guardrail"
+rules.health_grace -> alert_app.reconciler: "guardrail"

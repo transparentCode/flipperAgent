@@ -1,0 +1,27 @@
+defaults:
+  profile: core
+  n_trials: 25
+  days: 240
+  horizon_bars: 12
+  train_ratio: 0.60
+  val_ratio: 0.20
+  purge_bars: 24
+  window_bars: 240
+  step_bars: 120
+  min_window_bars: 120
+  min_support_count: 20
+  min_support_rate: 0.02
+  max_flip_rate: 0.35
+  max_policy_turnover: 0.45
+  min_oos_score_ratio: 0.50
+  seed: 42
+  skip_baseline: false
+  threshold_sweep: false
+
+runs:
+  - asset: BTCUSDT
+    timeframes: [1h, 4h]
+  - asset: ETHUSDT
+    timeframes: [1h, 4h]
+  - asset: SOLUSDT
+    timeframes: [1h, 4h]

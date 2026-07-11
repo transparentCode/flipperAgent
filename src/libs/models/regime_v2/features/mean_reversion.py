@@ -28,16 +28,23 @@ def compute_mean_reversion_features(df: pd.DataFrame, config: MeanReversionConfi
     # large versus the rolling high-low span.  Log normalization preserves the
     # ordering while avoiding "everything is chop" behavior.
     chop_ci = (np.log10(path_to_range) / np.log10(max(config.chop_window, 2))).clip(0.0, 1.0)
-    chop_norm = clip01(((chop_ci - 0.45) / 0.35).clip(lower=0.0))
+    chop_norm = clip01(((chop_ci - config.chop_ci_center) / config.chop_ci_width).clip(lower=0.0))
 
     # Range quality is high when price repeatedly mean-reverts and realized path is not explosively directional.
     z_cross = (np.sign(z) != np.sign(z.shift(1))).astype(float)
     cross_rate = z_cross.rolling(config.chop_window, min_periods=3).mean().fillna(0.0)
-    range_quality = clip01(0.55 * chop_norm + 0.45 * cross_rate.clip(0.0, 1.0))
+    range_quality = clip01(
+        config.range_quality_chop_weight * chop_norm
+        + config.range_quality_cross_weight * cross_rate.clip(0.0, 1.0)
+    )
 
     # Chop risk combines path inefficiency and low directional follow-through.
     abs_ret_z = rolling_zscore(close.pct_change().abs().fillna(0.0), config.chop_window)
-    chop_risk = clip01(0.70 * chop_norm + 0.30 * (1.0 - (abs_ret_z / 3.0).clip(0.0, 1.0)))
+    chop_risk = clip01(
+        config.chop_risk_chop_weight * chop_norm
+        + config.chop_risk_abs_ret_weight
+        * (1.0 - (abs_ret_z / config.chop_risk_abs_ret_scale).clip(0.0, 1.0))
+    )
 
     return pd.DataFrame(
         {

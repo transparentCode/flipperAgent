@@ -1,0 +1,131 @@
+{
+  "completed_runs": 8,
+  "model_name": "RegimeV2",
+  "output_dir": "research/regime_v2_optimization/core_sui_eth_tf_explore",
+  "runs": [
+    {
+      "asset": "ETHUSDT",
+      "completed_trials": 50,
+      "deployed": true,
+      "json_path": "research/regime_v2_optimization/core_sui_eth_tf_explore/RegimeV2_ETHUSDT_30m_core.json",
+      "markdown_path": "research/regime_v2_optimization/core_sui_eth_tf_explore/RegimeV2_ETHUSDT_30m_core.md",
+      "oos_score": 0.12073996,
+      "oos_score_delta": 0.14917022,
+      "profile": "core",
+      "rejected_trials": 0,
+      "rejection_reasons": [],
+      "study_name": "RegimeV2_ETHUSDT_30m_core",
+      "timeframe": "30m"
+    },
+    {
+      "asset": "ETHUSDT",
+      "completed_trials": 50,
+      "deployed": false,
+      "json_path": "research/regime_v2_optimization/core_sui_eth_tf_explore/RegimeV2_ETHUSDT_1h_core.json",
+      "markdown_path": "research/regime_v2_optimization/core_sui_eth_tf_explore/RegimeV2_ETHUSDT_1h_core.md",
+      "oos_score": 0.07509146,
+      "oos_score_delta": 0.08790043,
+      "profile": "core",
+      "rejected_trials": 0,
+      "rejection_reasons": [
+        "oos_degradation"
+      ],
+      "study_name": "RegimeV2_ETHUSDT_1h_core",
+      "timeframe": "1h"
+    },
+    {
+      "asset": "ETHUSDT",
+      "completed_trials": 50,
+      "deployed": false,
+      "json_path": "research/regime_v2_optimization/core_sui_eth_tf_explore/RegimeV2_ETHUSDT_4h_core.json",
+      "markdown_path": "research/regime_v2_optimization/core_sui_eth_tf_explore/RegimeV2_ETHUSDT_4h_core.md",
+      "oos_score": -0.09658153,
+      "oos_score_delta": 0.03781403,
+      "profile": "core",
+      "rejected_trials": 3,
+      "rejection_reasons": [
+        "oos_degradation"
+      ],
+      "study_name": "RegimeV2_ETHUSDT_4h_core",
+      "timeframe": "4h"
+    },
+    {
+      "asset": "ETHUSDT",
+      "completed_trials": 50,
+      "deployed": false,
+      "json_path": "research/regime_v2_optimization/core_sui_eth_tf_explore/RegimeV2_ETHUSDT_1d_core.json",
+      "markdown_path": "research/regime_v2_optimization/core_sui_eth_tf_explore/RegimeV2_ETHUSDT_1d_core.md",
+      "oos_score": -0.10038101,
+      "oos_score_delta": 0.02612916,
+      "profile": "core",
+      "rejected_trials": 6,
+      "rejection_reasons": [
+        "oos_degradation"
+      ],
+      "study_name": "RegimeV2_ETHUSDT_1d_core",
+      "timeframe": "1d"
+    },
+    {
+      "asset": "SUIUSDT",
+      "completed_trials": 50,
+      "deployed": true,
+      "json_path": "research/regime_v2_optimization/core_sui_eth_tf_explore/RegimeV2_SUIUSDT_30m_core.json",
+      "markdown_path": "research/regime_v2_optimization/core_sui_eth_tf_explore/RegimeV2_SUIUSDT_30m_core.md",
+      "oos_score": 0.20672512,
+      "oos_score_delta": 0.16058874,
+      "profile": "core",
+      "rejected_trials": 0,
+      "rejection_reasons": [],
+      "study_name": "RegimeV2_SUIUSDT_30m_core",
+      "timeframe": "30m"
+    },
+    {
+      "asset": "SUIUSDT",
+      "completed_trials": 50,
+      "deployed": false,
+      "json_path": "research/regime_v2_optimization/core_sui_eth_tf_explore/RegimeV2_SUIUSDT_1h_core.json",
+      "markdown_path": "research/regime_v2_optimization/core_sui_eth_tf_explore/RegimeV2_SUIUSDT_1h_core.md",
+      "oos_score": 0.0192093,
+      "oos_score_delta": -0.00088584,
+      "profile": "core",
+      "rejected_trials": 0,
+      "rejection_reasons": [
+        "oos_degradation"
+      ],
+      "study_name": "RegimeV2_SUIUSDT_1h_core",
+      "timeframe": "1h"
+    },
+    {
+      "asset": "SUIUSDT",
+      "completed_trials": 50,
+      "deployed": false,
+      "json_path": "research/regime_v2_optimization/core_sui_eth_tf_explore/RegimeV2_SUIUSDT_4h_core.json",
+      "markdown_path": "research/regime_v2_optimization/core_sui_eth_tf_explore/RegimeV2_SUIUSDT_4h_core.md",
+      "oos_score": -0.12722792,
+      "oos_score_delta": 0.01143145,
+      "profile": "core",
+      "rejected_trials": 2,
+      "rejection_reasons": [
+        "oos_degradation"
+      ],
+      "study_name": "RegimeV2_SUIUSDT_4h_core",
+      "timeframe": "4h"
+    },
+    {
+      "asset": "SUIUSDT",
+      "completed_trials": 50,
+      "deployed": true,
+      "json_path": "research/regime_v2_optimization/core_sui_eth_tf_explore/RegimeV2_SUIUSDT_1d_core.json",
+      "markdown_path": "research/regime_v2_optimization/core_sui_eth_tf_explore/RegimeV2_SUIUSDT_1d_core.md",
+      "oos_score": 0.1435869,
+      "oos_score_delta": 0.29721819,
+      "profile": "core",
+      "rejected_trials": 14,
+      "rejection_reasons": [],
+      "study_name": "RegimeV2_SUIUSDT_1d_core",
+      "timeframe": "1d"
+    }
+  ],
+  "storage": "sqlite:///research/regime_v2_optimization/core_sui_eth_tf_explore/studies.db",
+  "total_runs": 8
+}
