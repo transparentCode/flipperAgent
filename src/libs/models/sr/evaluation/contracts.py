@@ -597,6 +597,7 @@ class SREvaluationTrace:
                 observation.config_hash,
                 observation.side,
                 observation.source,
+                observation.atr_at_creation,
                 observation.render_kind,
                 observation.lower_bound,
                 observation.center,
@@ -634,6 +635,11 @@ class SREvaluationTrace:
                     "terminal zone cannot become live again in a trace"
                 )
 
+        for event in self.events:
+            if event.snapshot_id not in snapshot_position:
+                raise ContractValidationError(
+                    "event references an unknown snapshot"
+                )
         event_positions = [
             snapshot_position[event.snapshot_id] for event in self.events
         ]

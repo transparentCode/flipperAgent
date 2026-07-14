@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from dataclasses import fields
+from dataclasses import fields, replace
 
 import pytest
 
@@ -256,6 +256,17 @@ def test_trace_rejects_duplicate_identity_and_orphan_event() -> None:
         price=100.0,
         bar_id="bar-1",
     )
+    with pytest.raises(ContractValidationError, match="unknown snapshot"):
+        SREvaluationTrace(
+            schema_version=SR_EVALUATION_SCHEMA_VERSION,
+            state_key=key,
+            config_hash=config.resolved_config_hash,
+            field_provenance=config.field_provenance,
+            snapshots=(reference,),
+            zone_observations=(),
+            events=(replace(event, snapshot_id="e" * 64),),
+        )
+
     with pytest.raises(ContractValidationError, match="same snapshot"):
         SREvaluationTrace(
             schema_version=SR_EVALUATION_SCHEMA_VERSION,
@@ -276,6 +287,38 @@ def test_trace_rejects_duplicate_identity_and_orphan_event() -> None:
             snapshots=(reference, reference),
             zone_observations=(),
             events=(),
+        )
+
+
+def test_trace_freezes_atr_at_creation_for_each_zone_id() -> None:
+    key = _key()
+    config = _config(key)
+    record = _record(config)
+    first_snapshot = _snapshot(config, as_of=_T0, zones=(record,))
+    second_snapshot = _snapshot(
+        config,
+        as_of=_T0 + timedelta(minutes=1),
+        zones=(record,),
+    )
+    trace = build_evaluation_trace((first_snapshot, second_snapshot), config)
+    first_observation, second_observation = trace.zone_observations
+    changed_atr = replace(
+        second_observation,
+        atr_at_creation=second_observation.atr_at_creation + 1.0,
+    )
+
+    with pytest.raises(
+        ContractValidationError,
+        match="definition fields must remain unchanged",
+    ):
+        SREvaluationTrace(
+            schema_version=trace.schema_version,
+            state_key=trace.state_key,
+            config_hash=trace.config_hash,
+            field_provenance=trace.field_provenance,
+            snapshots=trace.snapshots,
+            zone_observations=(first_observation, changed_atr),
+            events=trace.events,
         )
 
 

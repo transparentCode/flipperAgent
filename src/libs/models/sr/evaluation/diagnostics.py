@@ -225,6 +225,41 @@ class ZoneDiagnostics:
             "right_censored",
             _boolean(self.right_censored, field_name="right_censored"),
         )
+        terminal_status = self.final_status in {
+            ZoneStatus.BROKEN,
+            ZoneStatus.EXPIRED,
+        }
+        if terminal_status:
+            if self.terminal_at is None:
+                raise ContractValidationError(
+                    "terminal diagnostics must include terminal_at"
+                )
+            if self.right_censored:
+                raise ContractValidationError(
+                    "terminal diagnostics cannot be right-censored"
+                )
+        else:
+            if self.terminal_at is not None:
+                raise ContractValidationError(
+                    "live diagnostics must not include terminal_at"
+                )
+            if not self.right_censored:
+                raise ContractValidationError(
+                    "live diagnostics must be right-censored"
+                )
+        if self.left_censored and (
+            self.first_touch_at is not None
+            or self.time_to_first_touch_bars is not None
+        ):
+            raise ContractValidationError(
+                "left-censored diagnostics cannot include first-touch data"
+            )
+        if (self.first_touch_at is None) != (
+            self.time_to_first_touch_bars is None
+        ):
+            raise ContractValidationError(
+                "first-touch timestamp and bar count must be provided together"
+            )
         object.__setattr__(
             self,
             "diagnostic_id",
@@ -270,6 +305,10 @@ class SnapshotDiagnostics:
         ):
             raise ContractValidationError(
                 "live_zone_count must equal active_zone_count + pending_zone_count"
+            )
+        if self.new_terminal_zone_count > self.event_count:
+            raise ContractValidationError(
+                "new_terminal_zone_count must be <= event_count"
             )
 
 
@@ -363,6 +402,12 @@ class SRDiagnostics:
             raise ContractValidationError(
                 "zones must contain exactly ZoneDiagnostics values"
             )
+        snapshot_ids = [snapshot.snapshot_id for snapshot in self.snapshots]
+        if len(set(snapshot_ids)) != len(snapshot_ids):
+            raise ContractValidationError("snapshot IDs must be unique")
+        zone_ids = [zone.zone_id for zone in self.zones]
+        if len(set(zone_ids)) != len(zone_ids):
+            raise ContractValidationError("zone IDs must be unique")
         if self.snapshot_count != len(self.snapshots):
             raise ContractValidationError("snapshot_count does not reconcile")
         if self.zone_count != len(self.zones):
@@ -389,6 +434,16 @@ class SRDiagnostics:
             snapshot.event_count for snapshot in self.snapshots
         ):
             raise ContractValidationError("event counts do not reconcile")
+        nested_terminal_count = sum(
+            snapshot.new_terminal_zone_count for snapshot in self.snapshots
+        )
+        aggregate_terminal_count = (
+            self.break_confirmed_event_count + self.expired_event_count
+        )
+        if nested_terminal_count != aggregate_terminal_count:
+            raise ContractValidationError(
+                "terminal counts do not reconcile"
+            )
         if self.snapshots:
             max_live = max(snapshot.live_zone_count for snapshot in self.snapshots)
             final_live = self.snapshots[-1].live_zone_count

@@ -2,10 +2,197 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from libs.models.sr import SREventType, ZoneStatus
-from libs.models.sr.evaluation import build_evaluation_trace, compute_diagnostics
+import pytest
 
+from libs.models.sr import ContractValidationError, SREventType, ZoneSide, ZoneStatus
+from libs.models.sr.evaluation import (
+    SRDiagnostics,
+    SnapshotDiagnostics,
+    ZoneDiagnostics,
+    ZoneRenderKind,
+    build_evaluation_trace,
+    compute_diagnostics,
+)
+
+from .test_contracts import _T0
 from .test_trace_builder import _replayed
+
+
+def _zone_diagnostic(
+    *,
+    zone_id: str = "a" * 64,
+    final_status: ZoneStatus = ZoneStatus.ACTIVE,
+    terminal_at=None,
+    first_touch_at=None,
+    time_to_first_touch_bars=None,
+    left_censored: bool = False,
+    right_censored: bool = True,
+) -> ZoneDiagnostics:
+    if final_status is ZoneStatus.BROKEN:
+        status_bar_counts = (
+            (ZoneStatus.ACTIVE, 0),
+            (ZoneStatus.BREACH_PENDING, 0),
+            (ZoneStatus.BROKEN, 1),
+            (ZoneStatus.EXPIRED, 0),
+        )
+    elif final_status is ZoneStatus.EXPIRED:
+        status_bar_counts = (
+            (ZoneStatus.ACTIVE, 0),
+            (ZoneStatus.BREACH_PENDING, 0),
+            (ZoneStatus.BROKEN, 0),
+            (ZoneStatus.EXPIRED, 1),
+        )
+    else:
+        status_bar_counts = (
+            (ZoneStatus.ACTIVE, 1),
+            (ZoneStatus.BREACH_PENDING, 0),
+            (ZoneStatus.BROKEN, 0),
+            (ZoneStatus.EXPIRED, 0),
+        )
+    return ZoneDiagnostics(
+        zone_id=zone_id,
+        side=ZoneSide.SUPPORT,
+        render_kind=ZoneRenderKind.LINE,
+        available_at=_T0,
+        terminal_at=terminal_at,
+        final_status=final_status,
+        lifetime_bars=1,
+        touch_count=0,
+        fakeout_count=0,
+        first_touch_at=first_touch_at,
+        time_to_first_touch_bars=time_to_first_touch_bars,
+        status_bar_counts=status_bar_counts,
+        left_censored=left_censored,
+        right_censored=right_censored,
+    )
+
+
+def _snapshot_diagnostic(
+    *,
+    snapshot_id: str = "b" * 64,
+    new_terminal_zone_count: int = 0,
+    event_count: int = 0,
+) -> SnapshotDiagnostics:
+    return SnapshotDiagnostics(
+        snapshot_id=snapshot_id,
+        as_of=_T0,
+        active_zone_count=0,
+        pending_zone_count=0,
+        live_zone_count=0,
+        new_terminal_zone_count=new_terminal_zone_count,
+        event_count=event_count,
+    )
+
+
+def _sr_diagnostics(
+    *,
+    snapshots: tuple[SnapshotDiagnostics, ...] = (),
+    zones: tuple[ZoneDiagnostics, ...] = (),
+    created_event_count: int = 0,
+    break_confirmed_event_count: int = 0,
+    expired_event_count: int = 0,
+) -> SRDiagnostics:
+    return SRDiagnostics(
+        trace_id="c" * 64,
+        snapshot_count=len(snapshots),
+        zone_count=len(zones),
+        support_zone_count=sum(zone.side is ZoneSide.SUPPORT for zone in zones),
+        resistance_zone_count=sum(
+            zone.side is ZoneSide.RESISTANCE for zone in zones
+        ),
+        created_event_count=created_event_count,
+        touched_event_count=0,
+        breach_started_event_count=0,
+        false_breakout_event_count=0,
+        break_confirmed_event_count=break_confirmed_event_count,
+        expired_event_count=expired_event_count,
+        max_live_zone_count=max(
+            (snapshot.live_zone_count for snapshot in snapshots),
+            default=0,
+        ),
+        final_live_zone_count=snapshots[-1].live_zone_count if snapshots else 0,
+        left_censored_zone_count=sum(zone.left_censored for zone in zones),
+        right_censored_zone_count=sum(zone.right_censored for zone in zones),
+        snapshots=snapshots,
+        zones=zones,
+    )
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    (
+        (
+            {
+                "final_status": ZoneStatus.BROKEN,
+                "terminal_at": _T0,
+                "right_censored": True,
+            },
+            "right-censored",
+        ),
+        (
+            {
+                "final_status": ZoneStatus.BROKEN,
+                "right_censored": False,
+            },
+            "terminal_at",
+        ),
+        (
+            {
+                "left_censored": True,
+                "first_touch_at": _T0,
+                "time_to_first_touch_bars": 0,
+            },
+            "first-touch",
+        ),
+    ),
+)
+def test_zone_diagnostics_reject_contradictory_censoring(
+    kwargs: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(ContractValidationError, match=message):
+        _zone_diagnostic(**kwargs)
+
+
+def test_snapshot_diagnostics_reject_terminal_count_above_event_count() -> None:
+    with pytest.raises(ContractValidationError, match="new_terminal_zone_count"):
+        _snapshot_diagnostic(new_terminal_zone_count=2, event_count=1)
+
+
+def test_sr_diagnostics_reject_duplicate_snapshot_ids() -> None:
+    snapshot = _snapshot_diagnostic()
+
+    with pytest.raises(ContractValidationError, match="snapshot IDs"):
+        _sr_diagnostics(snapshots=(snapshot, snapshot))
+
+
+def test_sr_diagnostics_reject_duplicate_zone_ids() -> None:
+    snapshot = _snapshot_diagnostic()
+    zone = _zone_diagnostic()
+
+    with pytest.raises(ContractValidationError, match="zone IDs"):
+        _sr_diagnostics(snapshots=(snapshot,), zones=(zone, zone))
+
+
+@pytest.mark.parametrize(
+    ("new_terminal_zone_count", "break_confirmed_event_count"),
+    ((1, 0), (0, 1)),
+)
+def test_sr_diagnostics_reconcile_nested_terminal_counts(
+    new_terminal_zone_count: int,
+    break_confirmed_event_count: int,
+) -> None:
+    snapshot = _snapshot_diagnostic(
+        new_terminal_zone_count=new_terminal_zone_count,
+        event_count=1,
+    )
+
+    with pytest.raises(ContractValidationError, match="terminal counts"):
+        _sr_diagnostics(
+            snapshots=(snapshot,),
+            created_event_count=1 - break_confirmed_event_count,
+            break_confirmed_event_count=break_confirmed_event_count,
+        )
 
 
 def test_diagnostics_reconcile_trace_events_and_zone_sides() -> None:
