@@ -2,7 +2,7 @@
 goal: Deliver SR-V1.2 causal detection and deterministic association for review
 stage: coder-to-review
 date_created: 2026-07-14
-last_updated: 2026-07-14
+last_updated: 2026-07-15
 owner: Coder Agent
 status: Ready
 tags: [handoff, quant, sr, detection, association, pivots, causality]
@@ -26,6 +26,12 @@ Implementation commit:
 
 ```text
 4b6b77edc471328be45b7bce780f7cfefb749659
+```
+
+Follow-up hardening commit:
+
+```text
+bb4444b1c7c985173783f2f993dd149f5a959bba
 ```
 
 Approved V1.1 base commit:
@@ -105,7 +111,15 @@ undergo lifecycle processing on their availability bar.
 Added detector, association, integrated-engine, contract, and SR import-boundary
 regressions, including causal warmup, strict ties, confirmation ATR ownership,
 same-bar terminal precedence, later terminal reuse, deterministic capacity,
-overflow, duplicate/equal-time bars, and bounded-buffer failures.
+same-batch created-zone suppression, overflow, duplicate/equal-time bars, and
+bounded-buffer failures.
+
+Completed review follow-ups:
+
+- Controlled engine test forces two same-side candidates through one batch and
+  verifies first-created-zone association suppresses second candidate.
+- SR boundary test now allows only Python standard library, SR-internal
+  imports, and YAML imports inside `adapters/yaml_config.py`.
 
 Exact changed implementation/test files in commit `4b6b77e`:
 
@@ -145,7 +159,7 @@ and unrelated plan drafts remain unstaged.
 All commands were run with the repository `.venv` where applicable:
 
 ```text
-tests/models/sr -q                                      203 passed
+tests/models/sr -q                                      204 passed
 tests/models/sr/domain tests/models/sr/detection
 tests/models/sr/association tests/models/sr/lifecycle -q 144 passed
 tests/models/sr/config tests/models/sr/adapters -q       55 passed
@@ -160,7 +174,8 @@ Independent probe passed for earliest causal confirmation, confirmation-bar
 ATR ownership, two-sided creation, and the bounded rolling buffer. Focused
 regressions also pass for tied extrema, width/merge/final-bound overflow,
 same-bar terminal suppression, later-bar terminal reuse, deterministic
-one-slot capacity, duplicate/equal timestamps, and over-capacity preflight.
+one-slot capacity, same-batch association suppression, duplicate/equal
+timestamps, over-capacity preflight, and approved-import enforcement.
 
 # Not Changed
 
@@ -182,9 +197,9 @@ one-slot capacity, duplicate/equal timestamps, and over-capacity preflight.
   integration work.
 - General restart/replay/gap policy and bar-ID ordering for different bars
   sharing a timestamp remain explicitly deferred to SR-V1.3.
-- Quant Review should independently verify the causal event interval,
-  start-of-step association pool, capacity semantics, and overflow probes
-  before promotion.
+- Quant Review should retain existing independent verification of causal event
+  interval, start-of-step association pool, capacity semantics, and overflow
+  probes before promotion.
 
 This handoff is complete enough for Quant Review to act without additional
 implementation assumptions. V1.2 work stops here pending review approval.
