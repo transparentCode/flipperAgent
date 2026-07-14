@@ -177,6 +177,15 @@ def test_payload_hash_mismatch_rejected() -> None:
         decode_state(_dump(data))
 
 
+def test_oversized_integer_rejected_with_recomputed_payload_hash() -> None:
+    data = _object(encode_state(_state()))
+    data["state"]["recent_bars"][0]["open"] = 10**400
+    data["payload_hash"] = deterministic_hash(data["state"])
+
+    with pytest.raises(ContractValidationError, match="finite"):
+        decode_state(_dump(data))
+
+
 @pytest.mark.parametrize(
     "mutate",
     [

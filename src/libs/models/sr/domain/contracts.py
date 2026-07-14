@@ -81,7 +81,10 @@ def _number(
 ) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ContractValidationError(f"{field_name} must be numeric")
-    result = float(value)
+    try:
+        result = float(value)
+    except OverflowError as exc:
+        raise ContractValidationError(f"{field_name} must be finite") from exc
     if not math.isfinite(result):
         raise ContractValidationError(f"{field_name} must be finite")
     if result == 0.0:
