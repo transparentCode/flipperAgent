@@ -161,7 +161,7 @@ All commands were run with the repository `.venv` where applicable:
 ```text
 tests/models/sr -q                                      204 passed
 tests/models/sr/domain tests/models/sr/detection
-tests/models/sr/association tests/models/sr/lifecycle -q 144 passed
+tests/models/sr/association tests/models/sr/lifecycle -q 145 passed
 tests/models/sr/config tests/models/sr/adapters -q       55 passed
 tests/models/trendline_family/test_import_boundaries.py  2 passed
 ruff check src/libs/models/sr tests/models/sr             passed
