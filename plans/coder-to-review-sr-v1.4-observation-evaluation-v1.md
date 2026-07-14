@@ -12,6 +12,7 @@ base_commit: d85a02ea5fa2aa5debba64234efc607220ccabba
 source_branch: feature/sr-v1.3-checkpoint-replay
 target_branch: feature/sr-v1.4-observation-evaluation
 implementation_commit: 34f73d5
+implementation_followup_commit: dfc1743
 handoff_commit: b33d3d9
 ---
 
@@ -22,6 +23,9 @@ handoff_commit: b33d3d9
 Implemented approved SR-V1.4 from exact base commit `d85a02e` on
 `feature/sr-v1.4-observation-evaluation`. Implementation commit:
 `34f73d5 feat(sr): add observation evaluation`.
+
+Focused identity-contract hardening commit:
+`dfc1743 fix(sr): harden evaluation identity contracts`.
 
 Coder handoff file introduced in commit `b33d3d9 docs(sr): add V1.4 review
 handoff`.
@@ -79,6 +83,8 @@ non-finite numbers, and inconsistent nested records.
 - `BAND` is derived only from positive half-width geometry.
 - Bounds are copied from immutable `ZoneGeometry` and remain positive, finite,
   and ordered.
+- `atr_at_creation` is copied and validated as part of the self-contained zone
+  observation and its identity payload.
 - `visible_from` is exactly `definition.available_at`, never `created_at`.
 - Live zones have `visible_until=None`.
 - `BROKEN` and `EXPIRED` zones have `visible_until=runtime.updated_at`.
@@ -102,7 +108,8 @@ diagnostic content required by the contracts.
 
 `build_evaluation_trace` validates the complete exact snapshot tuple before
 constructing output. It copies event identity and fields from authoritative
-`SREvent` values, copies all zone definition/runtime values, and copies
+`SREvent` values, validates the existing domain `event_id`, copies all zone
+definition/runtime values, and copies
 `ResolvedSRConfig.field_provenance` and `resolved_config_hash` without creating
 a second parameter registry or configuration model. It performs no replay,
 engine call, I/O, clock access, sorting, repair, or mutation.
