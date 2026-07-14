@@ -7,6 +7,7 @@ import pytest
 
 from libs.models.sr import (
     CandidateLevel,
+    ClosedBar,
     ContractValidationError,
     SREvent,
     SREventType,
@@ -68,6 +69,7 @@ def _runtime(definition: ZoneDefinition) -> ZoneRuntimeState:
         touch_count=0,
         fakeout_count=0,
         pending_breach_count=0,
+        age_bars=0,
         last_interaction_at=None,
         updated_at=datetime(2026, 7, 14, 12, 0, tzinfo=timezone.utc),
     )
@@ -98,6 +100,84 @@ def test_line_geometry_uses_zero_half_width() -> None:
     assert line.upper_bound == 100.0
     with pytest.raises(ContractValidationError):
         ZoneGeometry(center=100.0, half_width=-1.0)
+
+
+def test_closed_bar_validates_ohlc_and_normalizes_time() -> None:
+    local_time = datetime(
+        2026, 7, 14, 14, 0, tzinfo=timezone(timedelta(hours=2))
+    )
+    bar = ClosedBar(
+        state_key=_key(),
+        bar_id="bar-1",
+        closed_at=local_time,
+        open=100.0,
+        high=105.0,
+        low=95.0,
+        close=102.0,
+    )
+    assert bar.closed_at == datetime(2026, 7, 14, 12, 0, tzinfo=timezone.utc)
+
+
+@pytest.mark.parametrize(
+    "field, value",
+    [
+        ("open", 0.0),
+        ("high", float("inf")),
+        ("low", float("nan")),
+        ("close", -1.0),
+    ],
+)
+def test_closed_bar_ohlc_must_be_positive_finite(field: str, value: float) -> None:
+    values = {
+        "open": 100.0,
+        "high": 105.0,
+        "low": 95.0,
+        "close": 102.0,
+    }
+    values[field] = value
+    with pytest.raises(ContractValidationError):
+        ClosedBar(
+            state_key=_key(),
+            bar_id="bar-invalid",
+            closed_at=datetime(2026, 7, 14, 12, 0, tzinfo=timezone.utc),
+            **values,
+        )
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"open": 106.0, "high": 105.0, "low": 95.0, "close": 100.0},
+        {"open": 100.0, "high": 105.0, "low": 95.0, "close": 106.0},
+        {"open": 100.0, "high": 105.0, "low": 101.0, "close": 100.0},
+    ],
+)
+def test_closed_bar_ohlc_relationships_are_strict(values: dict[str, float]) -> None:
+    with pytest.raises(ContractValidationError):
+        ClosedBar(
+            state_key=_key(),
+            bar_id="bar-invalid",
+            closed_at=datetime(2026, 7, 14, 12, 0, tzinfo=timezone.utc),
+            **values,
+        )
+
+
+def test_closed_bar_rejects_naive_time_and_invalid_identity() -> None:
+    base = {
+        "state_key": _key(),
+        "bar_id": "bar-1",
+        "closed_at": datetime(2026, 7, 14, 12, 0),
+        "open": 100.0,
+        "high": 105.0,
+        "low": 95.0,
+        "close": 102.0,
+    }
+    with pytest.raises(ContractValidationError):
+        ClosedBar(**base)
+    with pytest.raises(ContractValidationError):
+        ClosedBar(**{**base, "closed_at": base["closed_at"].replace(tzinfo=timezone.utc), "bar_id": "   "})
+    with pytest.raises(ContractValidationError):
+        ClosedBar(**{**base, "closed_at": base["closed_at"].replace(tzinfo=timezone.utc), "state_key": object()})
 
 
 def test_geometry_lower_bound_must_be_positive() -> None:
@@ -204,6 +284,46 @@ def test_counters_must_be_non_negative() -> None:
             touch_count=-1,
             fakeout_count=0,
             pending_breach_count=0,
+            age_bars=0,
+            last_interaction_at=None,
+            updated_at=datetime(2026, 7, 14, 12, 0, tzinfo=timezone.utc),
+        )
+
+
+def test_age_bars_must_be_non_negative() -> None:
+    with pytest.raises(ContractValidationError):
+        ZoneRuntimeState(
+            zone_id="a" * 64,
+            status=ZoneStatus.ACTIVE,
+            touch_count=0,
+            fakeout_count=0,
+            pending_breach_count=0,
+            age_bars=-1,
+            last_interaction_at=None,
+            updated_at=datetime(2026, 7, 14, 12, 0, tzinfo=timezone.utc),
+        )
+
+
+@pytest.mark.parametrize(
+    "status, pending",
+    [
+        (ZoneStatus.ACTIVE, 1),
+        (ZoneStatus.BROKEN, 1),
+        (ZoneStatus.EXPIRED, 1),
+        (ZoneStatus.BREACH_PENDING, 0),
+    ],
+)
+def test_pending_breach_count_matches_status(
+    status: ZoneStatus, pending: int
+) -> None:
+    with pytest.raises(ContractValidationError):
+        ZoneRuntimeState(
+            zone_id="a" * 64,
+            status=status,
+            touch_count=0,
+            fakeout_count=0,
+            pending_breach_count=pending,
+            age_bars=0,
             last_interaction_at=None,
             updated_at=datetime(2026, 7, 14, 12, 0, tzinfo=timezone.utc),
         )
@@ -230,6 +350,7 @@ def test_zone_record_requires_matching_zone_id() -> None:
         touch_count=0,
         fakeout_count=0,
         pending_breach_count=0,
+        age_bars=0,
         last_interaction_at=None,
         updated_at=datetime(2026, 7, 14, 12, 0, tzinfo=timezone.utc),
     )
@@ -245,6 +366,7 @@ def test_runtime_rejects_last_interaction_after_updated_at() -> None:
             touch_count=0,
             fakeout_count=0,
             pending_breach_count=0,
+            age_bars=0,
             last_interaction_at=datetime(2026, 7, 14, 12, 1, tzinfo=timezone.utc),
             updated_at=datetime(2026, 7, 14, 12, 0, tzinfo=timezone.utc),
         )
@@ -258,6 +380,7 @@ def test_zone_record_rejects_runtime_before_definition_available() -> None:
         touch_count=0,
         fakeout_count=0,
         pending_breach_count=0,
+        age_bars=0,
         last_interaction_at=None,
         updated_at=datetime(2026, 7, 14, 11, 59, tzinfo=timezone.utc),
     )
@@ -273,6 +396,7 @@ def test_zone_record_rejects_interaction_before_definition_available() -> None:
         touch_count=0,
         fakeout_count=0,
         pending_breach_count=0,
+        age_bars=0,
         last_interaction_at=datetime(2026, 7, 14, 11, 59, tzinfo=timezone.utc),
         updated_at=datetime(2026, 7, 14, 12, 0, tzinfo=timezone.utc),
     )
@@ -465,6 +589,7 @@ def test_snapshot_rejects_future_runtime_update() -> None:
         touch_count=0,
         fakeout_count=0,
         pending_breach_count=0,
+        age_bars=0,
         last_interaction_at=None,
         updated_at=datetime(2026, 7, 14, 12, 1, tzinfo=timezone.utc),
     )

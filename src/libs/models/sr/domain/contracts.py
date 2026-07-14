@@ -172,6 +172,41 @@ class SRStateKey:
 
 
 @dataclass(frozen=True)
+class ClosedBar:
+    state_key: SRStateKey
+    bar_id: str
+    closed_at: datetime
+    open: float
+    high: float
+    low: float
+    close: float
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "state_key", _state_key(self.state_key))
+        object.__setattr__(self, "bar_id", _string(self.bar_id, field_name="bar_id"))
+        object.__setattr__(
+            self,
+            "closed_at",
+            require_utc(self.closed_at, field_name="closed_at"),
+        )
+        for field_name in ("open", "high", "low", "close"):
+            value = _number(
+                getattr(self, field_name),
+                field_name=field_name,
+                minimum=0.0,
+            )
+            if value <= 0:
+                raise ContractValidationError(f"{field_name} must be positive")
+            object.__setattr__(self, field_name, value)
+        if self.low > self.high:
+            raise ContractValidationError("low must be <= high")
+        if not self.low <= self.open <= self.high:
+            raise ContractValidationError("open must be between low and high")
+        if not self.low <= self.close <= self.high:
+            raise ContractValidationError("close must be between low and high")
+
+
+@dataclass(frozen=True)
 class ZoneGeometry:
     center: float
     half_width: float
@@ -294,6 +329,7 @@ class ZoneRuntimeState:
     touch_count: int
     fakeout_count: int
     pending_breach_count: int
+    age_bars: int
     last_interaction_at: datetime | None
     updated_at: datetime
 
@@ -318,6 +354,26 @@ class ZoneRuntimeState:
                 field_name="pending_breach_count",
             ),
         )
+        object.__setattr__(
+            self,
+            "age_bars",
+            _integer(self.age_bars, field_name="age_bars", minimum=0),
+        )
+        if self.status in {
+            ZoneStatus.ACTIVE,
+            ZoneStatus.BROKEN,
+            ZoneStatus.EXPIRED,
+        } and self.pending_breach_count != 0:
+            raise ContractValidationError(
+                "pending_breach_count must be 0 for non-pending statuses"
+            )
+        if (
+            self.status is ZoneStatus.BREACH_PENDING
+            and self.pending_breach_count < 1
+        ):
+            raise ContractValidationError(
+                "pending_breach_count must be >= 1 for BREACH_PENDING"
+            )
         object.__setattr__(
             self, "updated_at", require_utc(self.updated_at, field_name="updated_at")
         )
@@ -545,6 +601,7 @@ __all__ = [
     "ZoneStatus",
     "SREventType",
     "SRStateKey",
+    "ClosedBar",
     "ZoneGeometry",
     "CandidateLevel",
     "ZoneDefinition",

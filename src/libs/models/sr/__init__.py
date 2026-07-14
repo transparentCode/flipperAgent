@@ -17,6 +17,7 @@ from .config import (
 )
 from .domain import (
     CandidateLevel,
+    ClosedBar,
     ContractValidationError,
     SREvent,
     SREventType,
@@ -37,15 +38,18 @@ from .domain import (
     hash_zone_definition,
     require_utc,
 )
+from .lifecycle import SREngine
 
 __all__ = [
     "AssociationConfig",
     "CandidateLevel",
+    "ClosedBar",
     "ContractValidationError",
     "DetectionConfig",
     "LifecycleConfig",
     "ResolvedSRConfig",
     "RuntimeConfig",
+    "SREngine",
     "SRConfig",
     "SRConfigResolver",
     "SREvent",

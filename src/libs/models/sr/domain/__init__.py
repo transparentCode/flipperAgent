@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .contracts import (
     CandidateLevel,
+    ClosedBar,
     SREvent,
     SREventType,
     SRState,
@@ -29,6 +30,7 @@ from .identity import (
 
 __all__ = [
     "CandidateLevel",
+    "ClosedBar",
     "ContractValidationError",
     "SREvent",
     "SREventType",

@@ -156,6 +156,7 @@ def test_snapshot_identity_excludes_snapshot_id() -> None:
         touch_count=0,
         fakeout_count=0,
         pending_breach_count=0,
+        age_bars=0,
         last_interaction_at=None,
         updated_at=datetime(2026, 7, 14, 12, 0, tzinfo=timezone.utc),
     )
@@ -189,6 +190,7 @@ def test_snapshot_hash_changes_with_zones() -> None:
         touch_count=0,
         fakeout_count=0,
         pending_breach_count=0,
+        age_bars=0,
         last_interaction_at=None,
         updated_at=datetime(2026, 7, 14, 12, 0, tzinfo=timezone.utc),
     )
