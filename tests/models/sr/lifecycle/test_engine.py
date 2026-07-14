@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 import pytest
 
 from libs.models.sr import (
     AssociationConfig,
+    CandidateLevel,
     ClosedBar,
     ContractValidationError,
     DetectionConfig,
@@ -822,6 +824,50 @@ def test_matched_candidate_is_suppressed_without_mutating_existing_zone() -> Non
     assert next_state.zones[0] is record
     assert snapshot.zones == (record,)
     assert events == snapshot.events == ()
+
+
+def test_created_batch_zone_suppresses_later_same_side_candidate() -> None:
+    key = _key()
+    config = _config(
+        key,
+        pivot_span_bars=1,
+        zone_half_width_atr=0.0,
+        merge_distance_atr=0.5,
+    )
+    when = _T0 + timedelta(minutes=1)
+    first_candidate = CandidateLevel(
+        state_key=key,
+        side=ZoneSide.SUPPORT,
+        geometry=ZoneGeometry(center=100.0, half_width=0.0),
+        source="controlled_batch",
+        formed_at=when,
+        available_at=when,
+        atr_at_creation=1.0,
+    )
+    later_candidate = CandidateLevel(
+        state_key=key,
+        side=ZoneSide.SUPPORT,
+        geometry=ZoneGeometry(center=100.5, half_width=0.0),
+        source="controlled_batch",
+        formed_at=when,
+        available_at=when,
+        atr_at_creation=1.0,
+    )
+    state = _state(config)
+    bar = _bar(key, bar_id="controlled-batch", when=when)
+
+    with patch(
+        "libs.models.sr.lifecycle.engine.detect_confirmed_pivots",
+        return_value=(first_candidate, later_candidate),
+    ) as detector:
+        next_state, snapshot, events = SREngine().step(state, bar, config)
+
+    detector.assert_called_once()
+    assert len(next_state.zones) == 1
+    assert next_state.zones[0].definition.side is ZoneSide.SUPPORT
+    assert next_state.zones[0].definition.geometry.center in {100.0, 100.5}
+    assert _event_types(events) == (SREventType.CREATED,)
+    assert events == snapshot.events
 
 
 def test_current_bar_terminal_zone_suppresses_same_bar_recreation() -> None:
