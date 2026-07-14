@@ -14,6 +14,7 @@ target_branch: feature/sr-v1.4-observation-evaluation
 implementation_commit: 34f73d5
 implementation_followup_commit: dfc1743
 handoff_commit: b33d3d9
+remediation_commit: 0bee141
 ---
 
 # Coder To Review: SR-V1.4 Observation And Evaluation v1
@@ -30,9 +31,12 @@ Focused identity-contract hardening commit:
 Coder handoff file introduced in commit `b33d3d9 docs(sr): add V1.4 review
 handoff`.
 
-Scope is limited to new immutable observation contracts, pure trace building,
-descriptive diagnostics, causal/parity tests, and no existing-model changes.
-No merge performed.
+Focused contract-remediation commit:
+`0bee141 fix(sr): harden evaluation reconciliation`.
+
+Scope is limited to immutable observation/evaluation contracts, pure trace
+building, descriptive diagnostics, direct-constructor regression tests, and no
+SR model or configuration behavior changes. No merge performed.
 
 ## Changes Made
 
@@ -53,7 +57,14 @@ Added exactly these test files:
 - `tests/models/sr/evaluation/test_causality.py`
 - `tests/models/sr/evaluation/test_checkpoint_parity.py`
 
-No existing production or test file was modified.
+The remediation commit modifies exactly these existing evaluation files:
+
+- `src/libs/models/sr/evaluation/contracts.py`
+- `src/libs/models/sr/evaluation/diagnostics.py`
+- `tests/models/sr/evaluation/test_contracts.py`
+- `tests/models/sr/evaluation/test_diagnostics.py`
+
+No production or test file outside the listed evaluation scope was modified.
 
 ### Public evaluation contracts and APIs
 
@@ -126,6 +137,17 @@ engine call, I/O, clock access, sorting, repair, or mutation.
 - explicit left/right censoring;
 - no scores, ratios, thresholds, rankings, averages, or future-bar labels.
 
+The remediation closes the reviewed contract gaps:
+
+- Unknown event snapshot IDs are rejected with `ContractValidationError`
+  before snapshot-position lookup.
+- `atr_at_creation` is included in the frozen per-zone definition invariant.
+- Terminal/live censoring and left-censored first-touch combinations are
+  rejected when contradictory.
+- Snapshot and zone diagnostic IDs are unique; per-snapshot terminal counts
+  cannot exceed event counts; nested terminal totals reconcile with aggregate
+  break/expiry counts.
+
 ## Dependency And Call Graph
 
 ```text
@@ -177,11 +199,11 @@ Baseline before implementation:
 Final:
 
 - `.venv/bin/python -m pytest tests/models/sr/evaluation -q`
-  - `22 passed`
+  - `31 passed`
 - `.venv/bin/python -m pytest tests/models/sr/domain tests/models/sr/replay tests/models/sr/evaluation -q`
-  - `112 passed`
+  - `121 passed`
 - `.venv/bin/python -m pytest tests/models/sr -q`
-  - `285 passed`
+  - `294 passed`
 - `.venv/bin/python -m pytest tests/models/sr/lifecycle -q`
   - `55 passed`
 - SR import boundaries plus YAML adapter boundary: `3 passed`.
@@ -208,11 +230,14 @@ Independent probes passed:
 9. Left/right censoring is explicit; left-censored first-touch history is not
    fabricated.
 10. Input tuple remains unchanged and invalid list input fails closed.
+11. Direct constructors reject unknown event snapshots, ATR drift, diagnostic
+    censoring contradictions, duplicate nested IDs, per-snapshot terminal
+    overflow, and nested/aggregate terminal-count mismatches.
 
 ## Not Changed
 
 - No SRState, SRSnapshot, SREvent, ZoneRecord, lifecycle, detection, association,
-  replay, serialization, configuration, or YAML behavior.
+  replay, serialization, configuration, or YAML behavior was changed.
 - No new YAML key, default, override, runtime layer, evaluation threshold, or
   parameter registry.
 - No market data fetching, raw-data adapter, future-horizon label, return,
@@ -228,7 +253,7 @@ Independent probes passed:
 - Factory runtime annotation introspection follow-up remains deliberately
   deferred per the orchestrator non-goal.
 - Pre-existing `.codebase-memory` artifacts and unrelated untracked plan drafts
-  were not staged or committed.
+  remain unstaged and uncommitted.
 
 ## Risks Or Follow-Up Items
 
@@ -240,5 +265,6 @@ Independent probes passed:
 - Future phases may add artifact/report writers or plotting, but they must remain
   outside this standard-library-only evaluation surface and require a new
   approved handoff.
-- Do not begin V1.5 market trials, data acquisition, plotting, features, tuning,
-  storage, or strategy integration before Quant Review approval.
+- V1.5 remains blocked pending rereview of this remediation. Do not begin
+  market trials, data acquisition, plotting, features, tuning, storage, or
+  strategy integration before Quant Review approval.
