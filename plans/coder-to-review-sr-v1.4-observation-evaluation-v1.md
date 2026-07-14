@@ -12,6 +12,7 @@ base_commit: d85a02ea5fa2aa5debba64234efc607220ccabba
 source_branch: feature/sr-v1.3-checkpoint-replay
 target_branch: feature/sr-v1.4-observation-evaluation
 implementation_commit: 34f73d5
+handoff_commit: b33d3d9
 ---
 
 # Coder To Review: SR-V1.4 Observation And Evaluation v1
@@ -21,6 +22,9 @@ implementation_commit: 34f73d5
 Implemented approved SR-V1.4 from exact base commit `d85a02e` on
 `feature/sr-v1.4-observation-evaluation`. Implementation commit:
 `34f73d5 feat(sr): add observation evaluation`.
+
+Coder handoff file introduced in commit `b33d3d9 docs(sr): add V1.4 review
+handoff`.
 
 Scope is limited to new immutable observation contracts, pure trace building,
 descriptive diagnostics, causal/parity tests, and no existing-model changes.
