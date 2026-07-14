@@ -6,6 +6,7 @@ import pytest
 
 from libs.models.sr import (
     ClosedBar,
+    ContractValidationError,
     LifecycleConfig,
     SRStateKey,
     ZoneDefinition,
@@ -34,16 +35,20 @@ def _config(
 
 
 def _definition(
-    *, side: ZoneSide = ZoneSide.SUPPORT, half_width: float = 5.0
+    *,
+    side: ZoneSide = ZoneSide.SUPPORT,
+    center: float = 100.0,
+    half_width: float = 5.0,
+    atr_at_creation: float = 2.0,
 ) -> ZoneDefinition:
     return ZoneDefinition(
         state_key=_key(),
         side=side,
-        geometry=ZoneGeometry(center=100.0, half_width=half_width),
+        geometry=ZoneGeometry(center=center, half_width=half_width),
         source="test",
         created_at=datetime(2026, 7, 14, 12, 0, tzinfo=timezone.utc),
         available_at=datetime(2026, 7, 14, 12, 0, tzinfo=timezone.utc),
-        atr_at_creation=2.0,
+        atr_at_creation=atr_at_creation,
         config_hash="a" * 64,
     )
 
@@ -75,6 +80,63 @@ def test_support_and_resistance_breach_directions_are_symmetric() -> None:
     assert breaches_zone(
         resistance, _bar(close=107.0, high=107.0, low=99.0), config
     )
+
+
+def test_touch_rejects_overflowed_atr_distance() -> None:
+    definition = _definition()
+    config = _config(touch_tolerance_atr=1e308)
+
+    with pytest.raises(ContractValidationError, match="touch_distance"):
+        touches_zone(
+            definition,
+            _bar(close=100.0, high=101.0, low=99.0),
+            config,
+        )
+
+
+def test_touch_rejects_overflowed_expanded_bound() -> None:
+    definition = _definition(center=1e308, half_width=0.0, atr_at_creation=1.0)
+    config = _config(touch_tolerance_atr=1e308)
+
+    with pytest.raises(ContractValidationError, match="expanded upper_bound"):
+        touches_zone(
+            definition,
+            _bar(close=100.0, high=101.0, low=99.0),
+            config,
+        )
+
+
+@pytest.mark.parametrize("side", [ZoneSide.SUPPORT, ZoneSide.RESISTANCE])
+def test_breach_rejects_overflowed_atr_distance(side: ZoneSide) -> None:
+    definition = _definition(side=side)
+    config = _config(break_buffer_atr=1e308)
+
+    with pytest.raises(ContractValidationError, match="break_distance"):
+        breaches_zone(
+            definition,
+            _bar(close=100.0, high=101.0, low=99.0),
+            config,
+        )
+
+
+def test_breach_rejects_overflowed_resistance_threshold() -> None:
+    definition = _definition(
+        side=ZoneSide.RESISTANCE,
+        center=1e308,
+        half_width=0.0,
+        atr_at_creation=1.0,
+    )
+    config = _config(break_buffer_atr=1e308)
+
+    with pytest.raises(
+        ContractValidationError,
+        match="resistance breach threshold",
+    ):
+        breaches_zone(
+            definition,
+            _bar(close=100.0, high=101.0, low=99.0),
+            config,
+        )
 
 
 @pytest.mark.parametrize("side", [ZoneSide.SUPPORT, ZoneSide.RESISTANCE])

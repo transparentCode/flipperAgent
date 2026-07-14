@@ -147,6 +147,23 @@ class SREngine:
                 raise ContractValidationError(
                     "closed_bar.closed_at must not precede zone runtime.updated_at"
                 )
+            if record.runtime.status in _TERMINAL_STATUSES:
+                continue
+            if (
+                record.runtime.age_bars
+                >= resolved_config.lifecycle.max_age_bars
+            ):
+                raise ContractValidationError(
+                    "non-terminal zone age_bars must be below max_age_bars"
+                )
+            if (
+                record.runtime.status is ZoneStatus.BREACH_PENDING
+                and record.runtime.pending_breach_count
+                >= resolved_config.lifecycle.break_confirm_closes
+            ):
+                raise ContractValidationError(
+                    "pending_breach_count must be below break_confirm_closes"
+                )
 
         next_zones: list[ZoneRecord] = []
         raw_events: list[SREvent] = []

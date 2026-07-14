@@ -627,3 +627,63 @@ def test_step_rejects_bar_older_than_runtime_update() -> None:
 
     with pytest.raises(ContractValidationError, match="runtime.updated_at"):
         SREngine().step(state, bar, config)
+
+
+@pytest.mark.parametrize(
+    "status, age_bars, pending_breach_count, close, expected_message",
+    [
+        (
+            ZoneStatus.ACTIVE,
+            50,
+            0,
+            93.0,
+            "age_bars",
+        ),
+        (
+            ZoneStatus.ACTIVE,
+            50,
+            0,
+            100.0,
+            "age_bars",
+        ),
+        (
+            ZoneStatus.BREACH_PENDING,
+            0,
+            2,
+            93.0,
+            "pending_breach_count",
+        ),
+        (
+            ZoneStatus.BREACH_PENDING,
+            0,
+            2,
+            100.0,
+            "pending_breach_count",
+        ),
+    ],
+)
+def test_step_rejects_config_inconsistent_non_terminal_state(
+    status: ZoneStatus,
+    age_bars: int,
+    pending_breach_count: int,
+    close: float,
+    expected_message: str,
+) -> None:
+    key = _key()
+    config = _config(key, break_confirm_closes=2, max_age_bars=50)
+    record = _record(
+        config,
+        status=status,
+        age_bars=age_bars,
+        pending_breach_count=pending_breach_count,
+    )
+    state = _state(config, zones=(record,))
+    bar = _bar(
+        key,
+        bar_id=f"invalid-{status.value}-{close}",
+        when=_T0 + timedelta(minutes=1),
+        close=close,
+    )
+
+    with pytest.raises(ContractValidationError, match=expected_message):
+        SREngine().step(state, bar, config)
