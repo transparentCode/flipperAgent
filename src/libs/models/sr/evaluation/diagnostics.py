@@ -7,18 +7,15 @@ from datetime import datetime
 import re
 from typing import Any
 
-from libs.models.sr.domain.contracts import (
-    SREventType,
-    ZoneSide,
-    ZoneStatus,
-)
-from libs.models.sr.domain.identity import ContractValidationError
-
 from .contracts import (
+    ContractValidationError,
     ObservedEvent,
     SREvaluationTrace,
+    SREventType,
+    ZoneSide,
     ZoneObservation,
     ZoneRenderKind,
+    ZoneStatus,
 )
 from .identity import canonical_timestamp, evaluation_hash, normalize_utc
 

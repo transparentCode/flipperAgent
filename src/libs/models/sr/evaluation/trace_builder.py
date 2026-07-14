@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from libs.models.sr.config.models import ResolvedSRConfig
 from libs.models.sr.domain.contracts import (
+    ContractValidationError,
     SREvent,
     SRSnapshot,
     ZoneRecord,
     ZoneStatus,
 )
-from libs.models.sr.domain.identity import ContractValidationError
 
 from .contracts import (
     ObservedEvent,
@@ -103,6 +103,7 @@ def _observation_for_zone(
         zone_id=definition.zone_id,
         side=definition.side,
         source=definition.source,
+        atr_at_creation=definition.atr_at_creation,
         render_kind=render_kind,
         lower_bound=definition.geometry.lower_bound,
         center=definition.geometry.center,

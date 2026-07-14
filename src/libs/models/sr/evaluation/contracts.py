@@ -10,12 +10,13 @@ import re
 from typing import Any
 
 from libs.models.sr.domain.contracts import (
+    ContractValidationError,
+    SREvent,
     SREventType,
     SRStateKey,
     ZoneSide,
     ZoneStatus,
 )
-from libs.models.sr.domain.identity import ContractValidationError
 
 from .identity import canonical_timestamp, evaluation_hash, normalize_utc
 
@@ -117,6 +118,7 @@ def _observation_identity_payload(observation: ZoneObservation) -> dict[str, Any
         "zone_id": observation.zone_id,
         "side": observation.side.value,
         "source": observation.source,
+        "atr_at_creation": observation.atr_at_creation,
         "render_kind": observation.render_kind.value,
         "lower_bound": observation.lower_bound,
         "center": observation.center,
@@ -230,6 +232,17 @@ class ObservedEvent:
         if self.price <= 0:
             raise ContractValidationError("price must be positive")
         object.__setattr__(self, "bar_id", _string(self.bar_id, field_name="bar_id"))
+        expected_event_id = SREvent(
+            zone_id=self.zone_id,
+            event_type=self.event_type,
+            timestamp=self.timestamp,
+            price=self.price,
+            bar_id=self.bar_id,
+        ).event_id
+        if self.event_id != expected_event_id:
+            raise ContractValidationError(
+                "event_id must match the authoritative domain event identity"
+            )
 
 
 @dataclass(frozen=True)
@@ -242,6 +255,7 @@ class ZoneObservation:
     zone_id: str
     side: ZoneSide
     source: str
+    atr_at_creation: float
     render_kind: ZoneRenderKind
     lower_bound: float
     center: float
@@ -331,6 +345,14 @@ class ZoneObservation:
             _enum(self.side, ZoneSide, field_name="side"),
         )
         object.__setattr__(self, "source", _string(self.source, field_name="source"))
+        atr_at_creation = _finite_number(
+            self.atr_at_creation,
+            field_name="atr_at_creation",
+            minimum=0.0,
+        )
+        if atr_at_creation <= 0:
+            raise ContractValidationError("atr_at_creation must be positive")
+        object.__setattr__(self, "atr_at_creation", atr_at_creation)
         object.__setattr__(
             self,
             "render_kind",

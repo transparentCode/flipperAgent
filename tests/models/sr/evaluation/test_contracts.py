@@ -213,11 +213,18 @@ def test_snapshot_reference_and_observed_event_validate_causality() -> None:
 
     snapshot_id = "a" * 64
     zone_id = "b" * 64
+    future_event = SREvent(
+        zone_id=zone_id,
+        event_type=SREventType.TOUCHED,
+        timestamp=_T0 + timedelta(seconds=1),
+        price=100.0,
+        bar_id="bar-1",
+    )
     with pytest.raises(ContractValidationError, match="snapshot_as_of"):
         ObservedEvent(
             snapshot_id=snapshot_id,
             snapshot_as_of=_T0,
-            event_id="c" * 64,
+            event_id=future_event.event_id,
             zone_id=zone_id,
             event_type=SREventType.TOUCHED,
             timestamp=_T0 + timedelta(seconds=1),
@@ -232,10 +239,17 @@ def test_trace_rejects_duplicate_identity_and_orphan_event() -> None:
     record = _record(config)
     snapshot = _snapshot(config, zones=(record,))
     reference = SnapshotReference(snapshot.snapshot_id, snapshot.as_of)
+    orphan_event = SREvent(
+        zone_id="d" * 64,
+        event_type=SREventType.CREATED,
+        timestamp=_T0,
+        price=100.0,
+        bar_id="bar-1",
+    )
     event = ObservedEvent(
         snapshot_id=snapshot.snapshot_id,
         snapshot_as_of=snapshot.as_of,
-        event_id="c" * 64,
+        event_id=orphan_event.event_id,
         zone_id="d" * 64,
         event_type=SREventType.CREATED,
         timestamp=_T0,
