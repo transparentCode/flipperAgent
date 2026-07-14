@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from libs.models.sr.association import match_candidate
 from libs.models.sr.config.models import LifecycleConfig, ResolvedSRConfig
+from libs.models.sr.detection import detect_confirmed_pivots
 from libs.models.sr.domain.contracts import (
     ClosedBar,
     ContractValidationError,
@@ -11,6 +13,7 @@ from libs.models.sr.domain.contracts import (
     SRState,
     SRSnapshot,
     ZoneRecord,
+    ZoneDefinition,
     ZoneRuntimeState,
     ZoneStatus,
 )
@@ -138,6 +141,48 @@ class SREngine:
             raise ContractValidationError(
                 "state.config_hash must match resolved configuration hash"
             )
+
+        max_recent_bars = 2 * resolved_config.detection.pivot_span_bars
+        if len(previous_state.recent_bars) > max_recent_bars:
+            raise ContractValidationError(
+                "previous_state.recent_bars exceeds the configured detection buffer"
+            )
+        if previous_state.recent_bars:
+            if (
+                previous_state.recent_bars[-1].bar_id
+                != previous_state.last_processed_bar
+            ):
+                raise ContractValidationError(
+                    "recent_bars final bar_id must match last_processed_bar"
+                )
+            if closed_bar.bar_id in {
+                bar.bar_id for bar in previous_state.recent_bars
+            }:
+                raise ContractValidationError(
+                    "closed_bar.bar_id duplicates a recent bar"
+                )
+            if (
+                closed_bar.closed_at
+                <= previous_state.recent_bars[-1].closed_at
+            ):
+                raise ContractValidationError(
+                    "closed_bar.closed_at must be later than recent bars"
+                )
+
+        non_terminal_count = sum(
+            record.runtime.status not in _TERMINAL_STATUSES
+            for record in previous_state.zones
+        )
+        if non_terminal_count > resolved_config.runtime.max_active_zones:
+            raise ContractValidationError(
+                "previous state exceeds max_active_zones"
+            )
+
+        start_association_ids = {
+            record.definition.zone_id
+            for record in previous_state.zones
+            if record.runtime.status not in _TERMINAL_STATUSES
+        }
         if closed_bar.bar_id == previous_state.last_processed_bar:
             raise ContractValidationError(
                 "closed_bar.bar_id duplicates previous_state.last_processed_bar"
@@ -183,12 +228,90 @@ class SREngine:
             next_zones.append(next_record)
             raw_events.extend(events)
 
+        association_pool = tuple(
+            record
+            for record in next_zones
+            if record.definition.zone_id in start_association_ids
+        )
+        detection_bars = previous_state.recent_bars + (closed_bar,)
+        candidates = tuple(
+            sorted(
+                detect_confirmed_pivots(
+                    detection_bars,
+                    resolved_config.detection,
+                ),
+                key=lambda candidate: (
+                    candidate.formed_at,
+                    candidate.available_at,
+                    candidate.candidate_id,
+                ),
+            )
+        )
+        created_zones: list[ZoneRecord] = []
+        created_events: list[SREvent] = []
+        for candidate in candidates:
+            match_pool = association_pool + tuple(created_zones)
+            if (
+                match_candidate(
+                    candidate,
+                    match_pool,
+                    resolved_config.association,
+                )
+                is not None
+            ):
+                continue
+
+            active_count = sum(
+                record.runtime.status not in _TERMINAL_STATUSES
+                for record in next_zones
+            ) + len(created_zones)
+            if active_count >= resolved_config.runtime.max_active_zones:
+                continue
+
+            definition = ZoneDefinition(
+                state_key=candidate.state_key,
+                side=candidate.side,
+                geometry=candidate.geometry,
+                source=candidate.source,
+                created_at=candidate.formed_at,
+                available_at=candidate.available_at,
+                atr_at_creation=candidate.atr_at_creation,
+                config_hash=resolved_config.resolved_config_hash,
+            )
+            runtime = ZoneRuntimeState(
+                zone_id=definition.zone_id,
+                status=ZoneStatus.ACTIVE,
+                touch_count=0,
+                fakeout_count=0,
+                pending_breach_count=0,
+                age_bars=0,
+                last_interaction_at=None,
+                updated_at=definition.available_at,
+            )
+            record = ZoneRecord(definition=definition, runtime=runtime)
+            created_zones.append(record)
+            created_events.append(
+                SREvent(
+                    zone_id=definition.zone_id,
+                    event_type=SREventType.CREATED,
+                    timestamp=definition.available_at,
+                    price=definition.geometry.center,
+                    bar_id=closed_bar.bar_id,
+                )
+            )
+
+        next_zones.extend(created_zones)
+        recent_bars = (previous_state.recent_bars + (closed_bar,))[
+            -max_recent_bars:
+        ]
+
         next_state = SRState(
             schema_version=previous_state.schema_version,
             state_key=previous_state.state_key,
             config_hash=previous_state.config_hash,
             last_processed_bar=closed_bar.bar_id,
             zones=tuple(next_zones),
+            recent_bars=recent_bars,
         )
         snapshot = SRSnapshot(
             schema_version=next_state.schema_version,
@@ -196,7 +319,7 @@ class SREngine:
             config_hash=next_state.config_hash,
             as_of=closed_bar.closed_at,
             zones=next_state.zones,
-            events=tuple(raw_events),
+            events=tuple(raw_events + created_events),
         )
         return next_state, snapshot, snapshot.events
 

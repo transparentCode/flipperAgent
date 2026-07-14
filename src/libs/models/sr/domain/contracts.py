@@ -180,6 +180,7 @@ class ClosedBar:
     high: float
     low: float
     close: float
+    atr_at_close: float
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "state_key", _state_key(self.state_key))
@@ -204,6 +205,14 @@ class ClosedBar:
             raise ContractValidationError("open must be between low and high")
         if not self.low <= self.close <= self.high:
             raise ContractValidationError("close must be between low and high")
+        atr_at_close = _number(
+            self.atr_at_close,
+            field_name="atr_at_close",
+            minimum=0.0,
+        )
+        if atr_at_close <= 0:
+            raise ContractValidationError("atr_at_close must be positive")
+        object.__setattr__(self, "atr_at_close", atr_at_close)
 
 
 @dataclass(frozen=True)
@@ -450,6 +459,7 @@ class SRState:
     config_hash: str
     last_processed_bar: str
     zones: tuple[ZoneRecord, ...]
+    recent_bars: tuple[ClosedBar, ...]
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -466,6 +476,15 @@ class SRState:
         )
         object.__setattr__(
             self, "zones", _tuple_of(self.zones, ZoneRecord, field_name="zones")
+        )
+        object.__setattr__(
+            self,
+            "recent_bars",
+            _validate_recent_bars(
+                self.recent_bars,
+                state_key=self.state_key,
+                last_processed_bar=self.last_processed_bar,
+            ),
         )
         _validate_zone_ownership(self.state_key, self.config_hash, self.zones)
         object.__setattr__(self, "zones", tuple(sorted(self.zones, key=_zone_sort_key)))
@@ -550,6 +569,48 @@ def _geometry(value: Any) -> ZoneGeometry:
     if isinstance(value, ZoneGeometry):
         return value
     raise ContractValidationError("value must be ZoneGeometry")
+
+
+def _validate_recent_bars(
+    value: Any,
+    *,
+    state_key: SRStateKey,
+    last_processed_bar: str,
+) -> tuple[ClosedBar, ...]:
+    if not isinstance(value, (list, tuple)):
+        raise ContractValidationError(
+            "recent_bars must be a list or tuple of ClosedBar"
+        )
+    bars = tuple(value)
+    seen_bar_ids: set[str] = set()
+    previous_timestamp: datetime | None = None
+    for idx, bar in enumerate(bars):
+        if type(bar) is not ClosedBar:
+            raise ContractValidationError(
+                f"recent_bars[{idx}] must be exactly ClosedBar"
+            )
+        if bar.state_key != state_key:
+            raise ContractValidationError(
+                f"recent_bars[{idx}].state_key must match aggregate state_key"
+            )
+        if bar.bar_id in seen_bar_ids:
+            raise ContractValidationError(
+                f"duplicate bar_id in recent_bars: {bar.bar_id}"
+            )
+        seen_bar_ids.add(bar.bar_id)
+        if (
+            previous_timestamp is not None
+            and bar.closed_at <= previous_timestamp
+        ):
+            raise ContractValidationError(
+                "recent_bars.closed_at values must be strictly increasing"
+            )
+        previous_timestamp = bar.closed_at
+    if bars and bars[-1].bar_id != last_processed_bar:
+        raise ContractValidationError(
+            "recent_bars final bar_id must match last_processed_bar"
+        )
+    return bars
 
 
 def _validate_zone_ownership(

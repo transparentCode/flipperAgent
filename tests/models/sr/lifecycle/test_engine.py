@@ -23,6 +23,7 @@ from libs.models.sr import (
     ZoneSide,
     ZoneStatus,
 )
+from libs.models.sr.detection import detect_confirmed_pivots
 
 
 _T0 = datetime(2026, 7, 14, 12, 0, tzinfo=timezone.utc)
@@ -35,27 +36,31 @@ def _key(*, symbol: str = "BTCUSDT", timeframe: str = "1h") -> SRStateKey:
 def _config(
     key: SRStateKey,
     *,
+    pivot_span_bars: int = 5,
+    zone_half_width_atr: float = 0.25,
+    merge_distance_atr: float = 0.5,
     break_confirm_closes: int = 2,
     max_age_bars: int = 50,
     touch_tolerance_atr: float = 0.25,
     break_buffer_atr: float = 0.5,
+    max_active_zones: int = 8,
 ) -> ResolvedSRConfig:
     return ResolvedSRConfig.create(
         version="1",
         asset=key.symbol,
         timeframe=key.timeframe,
         detection=DetectionConfig(
-            pivot_span_bars=5,
-            zone_half_width_atr=0.25,
+            pivot_span_bars=pivot_span_bars,
+            zone_half_width_atr=zone_half_width_atr,
         ),
-        association=AssociationConfig(merge_distance_atr=0.5),
+        association=AssociationConfig(merge_distance_atr=merge_distance_atr),
         lifecycle=LifecycleConfig(
             touch_tolerance_atr=touch_tolerance_atr,
             break_buffer_atr=break_buffer_atr,
             break_confirm_closes=break_confirm_closes,
             max_age_bars=max_age_bars,
         ),
-        runtime=RuntimeConfig(max_active_zones=8),
+        runtime=RuntimeConfig(max_active_zones=max_active_zones),
         field_provenance={
             "detection.pivot_span_bars": "defaults",
             "detection.zone_half_width_atr": "defaults",
@@ -125,11 +130,13 @@ def _record(
     last_interaction_at: datetime | None = None,
     updated_at: datetime | None = None,
     available_at: datetime = _T0,
+    half_width: float = 5.0,
 ) -> ZoneRecord:
     definition = _definition(
         config,
         side=side,
         center=center,
+        half_width=half_width,
         available_at=available_at,
     )
     return ZoneRecord(
@@ -154,6 +161,7 @@ def _state(
     state_key: SRStateKey | None = None,
     config_hash: str | None = None,
     last_processed_bar: str = "seed",
+    recent_bars: tuple[ClosedBar, ...] = (),
 ) -> SRState:
     return SRState(
         schema_version="1.0",
@@ -162,6 +170,7 @@ def _state(
         config_hash=config_hash or config.resolved_config_hash,
         last_processed_bar=last_processed_bar,
         zones=zones,
+        recent_bars=recent_bars,
     )
 
 
@@ -174,6 +183,7 @@ def _bar(
     open: float = 100.0,
     high: float | None = None,
     low: float | None = None,
+    atr_at_close: float = 1.0,
 ) -> ClosedBar:
     high = high if high is not None else max(open, close, 101.0)
     low = low if low is not None else min(open, close, 99.0)
@@ -185,11 +195,51 @@ def _bar(
         high=high,
         low=low,
         close=close,
+        atr_at_close=atr_at_close,
     )
 
 
 def _event_types(events: tuple) -> tuple[SREventType, ...]:
     return tuple(event.event_type for event in events)
+
+
+def _pivot_bar(
+    key: SRStateKey,
+    index: int,
+    *,
+    high: float,
+    low: float,
+    atr_at_close: float = 1.0,
+) -> ClosedBar:
+    price = (high + low) / 2
+    return _bar(
+        key,
+        bar_id=f"pivot-{index}",
+        when=_T0 + timedelta(minutes=index),
+        open=price,
+        high=high,
+        low=low,
+        close=price,
+        atr_at_close=atr_at_close,
+    )
+
+
+def _both_side_pivot_bars(
+    key: SRStateKey,
+    *,
+    confirmation_atr: float = 2.0,
+) -> tuple[ClosedBar, ...]:
+    return (
+        _pivot_bar(key, 0, high=100.0, low=95.0),
+        _pivot_bar(key, 1, high=110.0, low=90.0),
+        _pivot_bar(
+            key,
+            2,
+            high=101.0,
+            low=94.0,
+            atr_at_close=confirmation_atr,
+        ),
+    )
 
 
 def test_availability_bar_is_not_eligible() -> None:
@@ -687,3 +737,373 @@ def test_step_rejects_config_inconsistent_non_terminal_state(
 
     with pytest.raises(ContractValidationError, match=expected_message):
         SREngine().step(state, bar, config)
+
+
+def test_engine_warmup_then_creates_confirmed_pivots() -> None:
+    key = _key()
+    config = _config(
+        key,
+        pivot_span_bars=1,
+        zone_half_width_atr=0.25,
+    )
+    state = _state(config)
+    engine = SREngine()
+    bars = _both_side_pivot_bars(key, confirmation_atr=2.0)
+
+    for bar in bars[:2]:
+        state, snapshot, events = engine.step(state, bar, config)
+        assert events == snapshot.events == ()
+        assert state.zones == ()
+
+    state, snapshot, events = engine.step(state, bars[2], config)
+
+    assert len(state.zones) == 2
+    assert len(state.recent_bars) == 2
+    assert state.recent_bars == bars[1:]
+    assert len(events) == 2
+    assert all(event.event_type is SREventType.CREATED for event in events)
+    assert all(event.bar_id == bars[2].bar_id for event in events)
+    assert snapshot.zones == state.zones
+    assert not hasattr(snapshot, "recent_bars")
+    for record in state.zones:
+        assert record.runtime.status is ZoneStatus.ACTIVE
+        assert record.runtime.age_bars == 0
+        assert record.runtime.touch_count == 0
+        assert record.runtime.fakeout_count == 0
+        assert record.runtime.pending_breach_count == 0
+        assert record.runtime.last_interaction_at is None
+        assert record.runtime.updated_at == bars[2].closed_at
+        assert record.definition.source == "pivot_v1"
+        assert record.definition.created_at == bars[1].closed_at
+        assert record.definition.available_at == bars[2].closed_at
+        assert record.definition.atr_at_creation == 2.0
+        assert record.definition.geometry.half_width == 0.5
+        assert record.definition.config_hash == config.resolved_config_hash
+        created = next(
+            event
+            for event in events
+            if event.zone_id == record.definition.zone_id
+        )
+        assert created.timestamp == bars[2].closed_at
+        assert created.price == record.definition.geometry.center
+
+
+def test_matched_candidate_is_suppressed_without_mutating_existing_zone() -> None:
+    key = _key()
+    config = _config(key, pivot_span_bars=1, zone_half_width_atr=0.25)
+    bars = (
+        _pivot_bar(key, 0, high=100.0, low=90.0),
+        _pivot_bar(key, 1, high=110.0, low=95.0),
+        _pivot_bar(
+            key,
+            2,
+            high=101.0,
+            low=94.0,
+            atr_at_close=2.0,
+        ),
+    )
+    record = _record(
+        config,
+        side=ZoneSide.RESISTANCE,
+        center=110.0,
+        half_width=0.0,
+        available_at=bars[2].closed_at,
+    )
+    state = _state(
+        config,
+        zones=(record,),
+        last_processed_bar=bars[1].bar_id,
+        recent_bars=bars[:2],
+    )
+
+    next_state, snapshot, events = SREngine().step(state, bars[2], config)
+
+    assert next_state.zones == (record,)
+    assert next_state.zones[0] is record
+    assert snapshot.zones == (record,)
+    assert events == snapshot.events == ()
+
+
+def test_current_bar_terminal_zone_suppresses_same_bar_recreation() -> None:
+    key = _key()
+    config = _config(
+        key,
+        pivot_span_bars=1,
+        zone_half_width_atr=0.0,
+        merge_distance_atr=0.5,
+        break_confirm_closes=1,
+    )
+    first = _pivot_bar(key, 0, high=100.0, low=95.0)
+    center = _pivot_bar(key, 1, high=100.0, low=90.0)
+    confirmation = _bar(
+        key,
+        bar_id="pivot-2",
+        when=_T0 + timedelta(minutes=2),
+        open=91.0,
+        high=95.0,
+        low=90.5,
+        close=91.0,
+        atr_at_close=10.0,
+    )
+    record = _record(
+        config,
+        side=ZoneSide.SUPPORT,
+        center=93.0,
+        half_width=0.0,
+        available_at=_T0,
+    )
+    state = _state(
+        config,
+        zones=(record,),
+        last_processed_bar=center.bar_id,
+        recent_bars=(first, center),
+    )
+
+    next_state, _, events = SREngine().step(state, confirmation, config)
+
+    assert next_state.zones[0].runtime.status is ZoneStatus.BROKEN
+    assert _event_types(events) == (
+        SREventType.BREACH_STARTED,
+        SREventType.BREAK_CONFIRMED,
+    )
+    assert all(event.event_type is not SREventType.CREATED for event in events)
+
+
+def test_later_bar_can_create_after_retained_terminal_zone() -> None:
+    key = _key()
+    config = _config(
+        key,
+        pivot_span_bars=1,
+        zone_half_width_atr=0.0,
+        merge_distance_atr=0.5,
+        break_confirm_closes=1,
+    )
+    first = _pivot_bar(key, 0, high=100.0, low=95.0)
+    center = _pivot_bar(key, 1, high=100.0, low=90.0)
+    confirmation = _bar(
+        key,
+        bar_id="pivot-2",
+        when=_T0 + timedelta(minutes=2),
+        open=91.0,
+        high=95.0,
+        low=90.5,
+        close=91.0,
+        atr_at_close=10.0,
+    )
+    record = _record(
+        config,
+        side=ZoneSide.SUPPORT,
+        center=93.0,
+        half_width=0.0,
+        available_at=_T0,
+    )
+    state = _state(
+        config,
+        zones=(record,),
+        last_processed_bar=center.bar_id,
+        recent_bars=(first, center),
+    )
+    terminal, _, _ = SREngine().step(state, confirmation, config)
+
+    next_bar = _bar(
+        key,
+        bar_id="pivot-3",
+        when=_T0 + timedelta(minutes=3),
+        open=92.5,
+        high=100.0,
+        low=85.0,
+        close=92.5,
+        atr_at_close=1.0,
+    )
+    final_bar = _bar(
+        key,
+        bar_id="pivot-4",
+        when=_T0 + timedelta(minutes=4),
+        open=86.0,
+        high=101.0,
+        low=85.5,
+        close=86.0,
+        atr_at_close=1.0,
+    )
+    after_warmup, _, warmup_events = SREngine().step(
+        terminal,
+        next_bar,
+        config,
+    )
+    next_state, _, events = SREngine().step(
+        after_warmup,
+        final_bar,
+        config,
+    )
+
+    assert warmup_events == ()
+    assert next_state.zones[0].runtime.status is ZoneStatus.BROKEN
+    assert len(next_state.zones) == 2
+    assert _event_types(events) == (SREventType.CREATED,)
+    created = next(
+        zone
+        for zone in next_state.zones
+        if zone.definition.zone_id != record.definition.zone_id
+    )
+    assert created.definition.geometry.center == 85.0
+
+
+def test_capacity_uses_candidate_identity_order_without_eviction() -> None:
+    key = _key()
+    config = _config(
+        key,
+        pivot_span_bars=1,
+        zone_half_width_atr=0.0,
+        max_active_zones=1,
+    )
+    bars = _both_side_pivot_bars(key)
+    state = _state(config)
+    engine = SREngine()
+    for bar in bars:
+        state, _, events = engine.step(state, bar, config)
+
+    candidates = detect_confirmed_pivots(bars, config.detection)
+    assert len(state.zones) == 1
+    assert state.zones[0].definition.side is candidates[0].side
+    assert _event_types(events) == (SREventType.CREATED,)
+
+
+def test_terminal_zones_do_not_consume_capacity() -> None:
+    key = _key()
+    config = _config(
+        key,
+        pivot_span_bars=1,
+        zone_half_width_atr=0.0,
+        max_active_zones=1,
+    )
+    bars = _both_side_pivot_bars(key)
+    terminal = _record(config, status=ZoneStatus.BROKEN, center=130.0)
+    state = _state(config, zones=(terminal,))
+    engine = SREngine()
+    for bar in bars:
+        state, _, events = engine.step(state, bar, config)
+
+    assert len(state.zones) == 2
+    assert terminal in state.zones
+    assert any(
+        record.runtime.status is ZoneStatus.ACTIVE
+        for record in state.zones
+        if record is not terminal
+    )
+    assert _event_types(events) == (SREventType.CREATED,)
+
+
+def test_capacity_does_not_evict_existing_active_zone() -> None:
+    key = _key()
+    config = _config(
+        key,
+        pivot_span_bars=1,
+        zone_half_width_atr=0.0,
+        max_active_zones=1,
+    )
+    bars = _both_side_pivot_bars(key)
+    existing = _record(
+        config,
+        side=ZoneSide.SUPPORT,
+        center=100.0,
+        half_width=0.0,
+        available_at=bars[0].closed_at,
+    )
+    state = _state(
+        config,
+        zones=(existing,),
+        last_processed_bar=bars[1].bar_id,
+        recent_bars=bars[:2],
+    )
+
+    next_state, _, events = SREngine().step(state, bars[2], config)
+
+    assert next_state.zones[0].definition.zone_id == existing.definition.zone_id
+    assert len(next_state.zones) == 1
+    assert SREventType.CREATED not in _event_types(events)
+
+
+def test_over_capacity_previous_state_fails_before_processing_events() -> None:
+    key = _key()
+    config = _config(key, max_active_zones=1)
+    first = _record(config, center=100.0)
+    second = _record(config, center=120.0)
+    state = _state(config, zones=(first, second))
+    bar = _bar(
+        key,
+        bar_id="over-capacity",
+        when=_T0 + timedelta(minutes=1),
+        close=80.0,
+        open=80.0,
+        high=81.0,
+        low=79.0,
+    )
+
+    with pytest.raises(ContractValidationError, match="exceeds max_active_zones"):
+        SREngine().step(state, bar, config)
+
+
+@pytest.mark.parametrize("mode", ["duplicate", "equal_timestamp"])
+def test_step_rejects_duplicate_or_non_increasing_buffer_bar(mode: str) -> None:
+    key = _key()
+    config = _config(key, pivot_span_bars=1)
+    bars = _both_side_pivot_bars(key)
+    state = _state(
+        config,
+        last_processed_bar=bars[1].bar_id,
+        recent_bars=bars[:2],
+    )
+    if mode == "duplicate":
+        bar = _bar(
+            key,
+            bar_id=bars[0].bar_id,
+            when=bars[2].closed_at,
+        )
+        expected = "duplicates a recent bar"
+    else:
+        bar = _bar(
+            key,
+            bar_id="same-time",
+            when=bars[1].closed_at,
+        )
+        expected = "later than recent bars"
+
+    with pytest.raises(ContractValidationError, match=expected):
+        SREngine().step(state, bar, config)
+
+
+def test_step_rejects_buffer_longer_than_configured_window() -> None:
+    key = _key()
+    config = _config(key, pivot_span_bars=1)
+    bars = (
+        _pivot_bar(key, 0, high=100.0, low=95.0),
+        _pivot_bar(key, 1, high=101.0, low=94.0),
+        _pivot_bar(key, 2, high=102.0, low=93.0),
+    )
+    state = _state(
+        config,
+        last_processed_bar=bars[-1].bar_id,
+        recent_bars=bars,
+    )
+
+    with pytest.raises(ContractValidationError, match="detection buffer"):
+        SREngine().step(
+            state,
+            _pivot_bar(key, 3, high=103.0, low=92.0),
+            config,
+        )
+
+
+def test_step_rejects_buffer_not_ending_at_last_processed_bar() -> None:
+    key = _key()
+    config = _config(key, pivot_span_bars=1)
+    bars = _both_side_pivot_bars(key)
+    state = _state(
+        config,
+        last_processed_bar=bars[1].bar_id,
+        recent_bars=bars[:2],
+    )
+    object.__setattr__(state, "last_processed_bar", "not-the-final-buffer-bar")
+
+    with pytest.raises(ContractValidationError, match="final bar_id"):
+        SREngine().step(state, bars[2], config)

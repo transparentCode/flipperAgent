@@ -64,6 +64,7 @@ def _bar(
         high=high,
         low=low,
         close=close,
+        atr_at_close=1.0,
     )
 
 

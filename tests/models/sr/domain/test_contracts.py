@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import FrozenInstanceError
+from dataclasses import MISSING, FrozenInstanceError, fields
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -62,6 +62,25 @@ def _definition(
     )
 
 
+def _closed_bar(
+    *,
+    bar_id: str = "bar-1",
+    closed_at: datetime = datetime(2026, 7, 14, 12, 0, tzinfo=timezone.utc),
+    state_key: SRStateKey | None = None,
+    atr_at_close: float = 1.0,
+) -> ClosedBar:
+    return ClosedBar(
+        state_key=state_key or _key(),
+        bar_id=bar_id,
+        closed_at=closed_at,
+        open=100.0,
+        high=105.0,
+        low=95.0,
+        close=102.0,
+        atr_at_close=atr_at_close,
+    )
+
+
 def _runtime(definition: ZoneDefinition) -> ZoneRuntimeState:
     return ZoneRuntimeState(
         zone_id=definition.zone_id,
@@ -114,6 +133,7 @@ def test_closed_bar_validates_ohlc_and_normalizes_time() -> None:
         high=105.0,
         low=95.0,
         close=102.0,
+        atr_at_close=1.0,
     )
     assert bar.closed_at == datetime(2026, 7, 14, 12, 0, tzinfo=timezone.utc)
 
@@ -133,6 +153,7 @@ def test_closed_bar_ohlc_must_be_positive_finite(field: str, value: float) -> No
         "high": 105.0,
         "low": 95.0,
         "close": 102.0,
+        "atr_at_close": 1.0,
     }
     values[field] = value
     with pytest.raises(ContractValidationError):
@@ -144,12 +165,38 @@ def test_closed_bar_ohlc_must_be_positive_finite(field: str, value: float) -> No
         )
 
 
+def test_closed_bar_atr_must_be_positive_finite_and_mandatory() -> None:
+    assert fields(ClosedBar)[-1].name == "atr_at_close"
+    assert fields(ClosedBar)[-1].default is MISSING
+    for value in (0.0, -1.0, float("nan"), float("inf")):
+        with pytest.raises(ContractValidationError):
+            _closed_bar(atr_at_close=value)
+
+
 @pytest.mark.parametrize(
     "values",
     [
-        {"open": 106.0, "high": 105.0, "low": 95.0, "close": 100.0},
-        {"open": 100.0, "high": 105.0, "low": 95.0, "close": 106.0},
-        {"open": 100.0, "high": 105.0, "low": 101.0, "close": 100.0},
+        {
+            "open": 106.0,
+            "high": 105.0,
+            "low": 95.0,
+            "close": 100.0,
+            "atr_at_close": 1.0,
+        },
+        {
+            "open": 100.0,
+            "high": 105.0,
+            "low": 95.0,
+            "close": 106.0,
+            "atr_at_close": 1.0,
+        },
+        {
+            "open": 100.0,
+            "high": 105.0,
+            "low": 101.0,
+            "close": 100.0,
+            "atr_at_close": 1.0,
+        },
     ],
 )
 def test_closed_bar_ohlc_relationships_are_strict(values: dict[str, float]) -> None:
@@ -171,6 +218,7 @@ def test_closed_bar_rejects_naive_time_and_invalid_identity() -> None:
         "high": 105.0,
         "low": 95.0,
         "close": 102.0,
+        "atr_at_close": 1.0,
     }
     with pytest.raises(ContractValidationError):
         ClosedBar(**base)
@@ -434,8 +482,10 @@ def test_collections_are_stored_as_tuples() -> None:
         config_hash=_config_hash(),
         last_processed_bar="bar-1",
         zones=[record],
+        recent_bars=(),
     )
     assert isinstance(state.zones, tuple)
+    assert state.recent_bars == ()
 
     snapshot = SRSnapshot(
         schema_version="1.0",
@@ -465,6 +515,7 @@ def test_state_rejects_mismatched_zone_state_key() -> None:
             config_hash=_config_hash(),
             last_processed_bar="bar-1",
             zones=[record],
+            recent_bars=(),
         )
 
 
@@ -478,6 +529,7 @@ def test_state_rejects_mismatched_zone_config_hash() -> None:
             config_hash=_config_hash(),
             last_processed_bar="bar-1",
             zones=[record],
+            recent_bars=(),
         )
 
 
@@ -491,6 +543,83 @@ def test_state_rejects_duplicate_zone_id() -> None:
             config_hash=_config_hash(),
             last_processed_bar="bar-1",
             zones=[record, record],
+            recent_bars=(),
+        )
+
+
+def test_recent_bars_are_immutable_and_canonical() -> None:
+    first = _closed_bar()
+    second = _closed_bar(
+        bar_id="bar-2",
+        closed_at=datetime(2026, 7, 14, 12, 1, tzinfo=timezone.utc),
+    )
+    definition = _definition()
+    record = ZoneRecord(definition=definition, runtime=_runtime(definition))
+    state = SRState(
+        schema_version="1.0",
+        state_key=_key(),
+        config_hash=_config_hash(),
+        last_processed_bar="bar-2",
+        zones=[record],
+        recent_bars=[first, second],
+    )
+
+    assert isinstance(state.recent_bars, tuple)
+    assert state.recent_bars == (first, second)
+
+
+@pytest.mark.parametrize(
+    "recent_bars, last_processed_bar, expected",
+    [
+        (
+            (
+                _closed_bar(),
+                _closed_bar(
+                    bar_id="bar-2",
+                    closed_at=datetime(
+                        2026, 7, 14, 12, 1, tzinfo=timezone.utc
+                    ),
+                    state_key=_other_key(),
+                ),
+            ),
+            "bar-2",
+            "state_key",
+        ),
+        (
+            (_closed_bar(), _closed_bar()),
+            "bar-1",
+            "duplicate bar_id",
+        ),
+        (
+            (
+                _closed_bar(),
+                _closed_bar(
+                    bar_id="bar-2",
+                    closed_at=datetime(
+                        2026, 7, 14, 12, 0, tzinfo=timezone.utc
+                    ),
+                ),
+            ),
+            "bar-2",
+            "strictly increasing",
+        ),
+        ((_closed_bar(),), "different", "final bar_id"),
+        ((object(),), "object", "exactly ClosedBar"),
+    ],
+)
+def test_recent_bars_validation(
+    recent_bars: tuple[object, ...],
+    last_processed_bar: str,
+    expected: str,
+) -> None:
+    with pytest.raises(ContractValidationError, match=expected):
+        SRState(
+            schema_version="1.0",
+            state_key=_key(),
+            config_hash=_config_hash(),
+            last_processed_bar=last_processed_bar,
+            zones=(),
+            recent_bars=recent_bars,
         )
 
 
@@ -505,6 +634,7 @@ def test_state_orders_zones_canonically() -> None:
         config_hash=_config_hash(),
         last_processed_bar="bar-1",
         zones=[record_high, record_low],
+        recent_bars=(),
     )
     assert state.zones[0] == record_high
     assert state.zones[1] == record_low
