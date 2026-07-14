@@ -19,6 +19,8 @@ Implemented only SR-V1.3 from approved V1.2 commit `1e5e068` on
 
 Implementation commit: `a8a3606 feat(sr): add checkpoint replay`
 
+Hardening commit: `f1ae181 fix(sr): reject oversized checkpoint integers`
+
 Scope is complete enough for review without guessing. No merge performed.
 
 ## Changes Made
@@ -77,6 +79,8 @@ Canonical rules:
   and config hashes.
 - Definition and runtime stored zone IDs are checked against reconstructed
   content/ownership; state payload hash is recomputed.
+- Numeric conversion catches oversized integers at the domain boundary and
+  translates them to `ContractValidationError`.
 - No pickle, generic object reconstruction, migration, or recovery path.
 
 ### Pure replay
@@ -116,12 +120,15 @@ history was added.
 ## Validation Performed
 
 - `.venv/bin/python -m pytest tests/models/sr/domain tests/models/sr/serialization tests/models/sr/replay -q`
-  - `122 passed`
+  - `123 passed`
 - `.venv/bin/python -m pytest tests/models/sr -q`
-  - `262 passed`
+  - `263 passed`
+- `.venv/bin/python -m pytest tests/models/sr/lifecycle -q`
+  - `55 passed`
 - `.venv/bin/python -m pytest tests/models/trendline_family/test_import_boundaries.py -q`
   - `2 passed`
-- SR import boundaries: passed as part of full SR suite.
+- SR import boundaries: `2 passed`.
+- SR YAML adapter boundary: `1 passed`.
 - `ruff check src/libs/models/sr tests/models/sr`: passed.
 - `.venv/bin/python -m compileall -q src/libs/models/sr`: passed.
 - Package import of factory, codec, and replay APIs: `ok`.
@@ -129,20 +136,21 @@ history was added.
 - Prohibited-import scan: no production matches for pickle, legacy SR,
   pandas/numpy/polars/scipy/sklearn/ML, storage, cache, or network modules;
   pandas mentions remain only in existing boundary-test denylist logic.
-- Codebase-memory index refreshed after changes: `51,995 nodes`, `169,992 edges`.
+- Codebase-memory index refreshed after changes: `52,008 nodes`, `169,695 edges`.
 
 Independent probes passed:
 
 1. First engine step from true nullable-cursor factory state.
 2. Canonical encode/decode/re-encode byte identity.
 3. Nested duplicate/unknown-key and NaN/Infinity rejection.
-4. Corrupted payload and forged stored definition/runtime zone-ID rejection.
-5. One-bar replay/direct-step equality.
-6. Uninterrupted versus checkpoint-resume suffix parity.
-7. Duplicate/equal/decreasing/out-of-order batch rejection.
-8. Positive timestamp gap accepted without fill.
-9. Config/state ownership mismatch rejection.
-10. Input immutability and preflight failure before engine processing.
+4. Oversized integer rejection with a recomputed payload hash.
+5. Corrupted payload and forged stored definition/runtime zone-ID rejection.
+6. One-bar replay/direct-step equality.
+7. Uninterrupted versus checkpoint-resume suffix parity.
+8. Duplicate/equal/decreasing/out-of-order batch rejection.
+9. Positive timestamp gap accepted without fill.
+10. Config/state ownership mismatch rejection.
+11. Input immutability and preflight failure before engine processing.
 
 Parity sequence uses pivot warmup, support/resistance creation, touch,
 breach-pending, fakeout, confirmed break, expiry, and two-bar buffer rollover.
@@ -172,6 +180,8 @@ and event IDs.
   ingestion responsibility.
 - `payload_hash` detects accidental corruption; it is not authentication or
   tamper-proof security.
+- Runtime `typing.get_type_hints(create_initial_state)` remains a non-blocking
+  follow-up; normal imports and factory calls are unaffected.
 - Review should independently inspect canonical text strictness and forged-ID
   rejection across nested payload levels.
 - Do not begin storage, features, tuning, evaluation, or later SR phases until
