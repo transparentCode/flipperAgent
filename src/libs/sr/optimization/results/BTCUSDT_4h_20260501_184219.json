@@ -1,0 +1,86 @@
+{
+  "global_params": {
+    "ensemble.structural_vs_micro_ratio": 0.5285557307932972,
+    "lifecycle.age_lambda": 0.002690016430102716,
+    "cross_asset.sector_cluster_eps_atr": 0.8996812193207756,
+    "kernels.volume_poc.hvn_prominence": 0.10060737111640544,
+    "kernels.fair_value_gap.gap_min_atr": 0.36100416741490093,
+    "kernels.fair_value_gap.fill_threshold": 0.36075474319710044,
+    "kernels.fair_value_gap.filled_penalty_multiplier": 0.40687426009438893,
+    "kernels.order_block.displacement_atr": 1.3751097997316235,
+    "kernels.order_block.imbalance_ratio": 0.5518764370845031,
+    "kernels.regression_band.band_width_sigma": 2.7192027676392736,
+    "kernels.liquidity_sweep.sweep_lookback": 31,
+    "kernels.liquidity_sweep.max_pierce_atr": 0.5606872940107875,
+    "pipeline.min_emit_strength": 0.399866935794464,
+    "pipeline.max_new_zones_per_bar": 2
+  },
+  "global_score": 0.6840109553050834,
+  "per_asset_params": {
+    "BTCUSDT": {
+      "4h": {
+        "kernels.volume_poc.hvn_prominence": 0.10060737111640544,
+        "kernels.fair_value_gap.gap_min_atr": 0.36100416741490093,
+        "kernels.fair_value_gap.fill_threshold": 0.36075474319710044,
+        "kernels.fair_value_gap.filled_penalty_multiplier": 0.40687426009438893,
+        "kernels.order_block.displacement_atr": 1.3751097997316235,
+        "kernels.order_block.imbalance_ratio": 0.5518764370845031,
+        "kernels.regression_band.band_width_sigma": 2.7192027676392736,
+        "kernels.liquidity_sweep.sweep_lookback": 31,
+        "kernels.liquidity_sweep.max_pierce_atr": 0.5606872940107875,
+        "pipeline.min_emit_strength": 0.399866935794464,
+        "pipeline.max_new_zones_per_bar": 2
+      }
+    }
+  },
+  "per_asset_results": [
+    {
+      "asset": "BTCUSDT",
+      "timeframe": "4h",
+      "best_params": {
+        "kernels.volume_poc.hvn_prominence": 0.10060737111640544,
+        "kernels.fair_value_gap.gap_min_atr": 0.36100416741490093,
+        "kernels.fair_value_gap.fill_threshold": 0.36075474319710044,
+        "kernels.fair_value_gap.filled_penalty_multiplier": 0.40687426009438893,
+        "kernels.order_block.displacement_atr": 1.3751097997316235,
+        "kernels.order_block.imbalance_ratio": 0.5518764370845031,
+        "kernels.regression_band.band_width_sigma": 2.7192027676392736,
+        "kernels.liquidity_sweep.sweep_lookback": 31,
+        "kernels.liquidity_sweep.max_pierce_atr": 0.5606872940107875,
+        "pipeline.min_emit_strength": 0.399866935794464,
+        "pipeline.max_new_zones_per_bar": 2
+      },
+      "train_score": 0.594295644631564,
+      "val_score": 0.6225111666146179,
+      "accepted": true,
+      "fallback_to_global": false,
+      "n_folds": 13,
+      "fold_scores": [
+        0.5113515101116537,
+        0.43547005747236633,
+        0.5483111103402324,
+        0.46887868489267537,
+        0.3188066528078456,
+        0.47562565014337876,
+        0.5483995244787396,
+        0.5625918371124387,
+        0.4425960210271235,
+        0.5187391222380022,
+        0.48355446105417443,
+        0.4443711141255279,
+        0.5624826641284048
+      ],
+      "gate_failures": 0,
+      "constraint_failures": 18
+    }
+  ],
+  "metadata": {
+    "total_time_seconds": 2435.674206018448,
+    "stage1_n_trials": 30,
+    "stage2_assets_optimized": 1,
+    "stage2_assets_accepted": 1,
+    "stage2_assets_skipped": [],
+    "stage2_assets_total": 1
+  },
+  "timestamp": "2026-05-01T18:42:19.995307"
+}

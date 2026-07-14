@@ -63,3 +63,6 @@ research/tl*/
 *~
 .gitnexus
 .squad/
+
+# Conductor runtime state
+.conductor/

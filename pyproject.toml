@@ -54,6 +54,7 @@ flipper-scraper-api = "apps.scraper_app.api.main:main"
 flipper-portfolio-api = "apps.portfolio_app.api.main:main"
 flipper-alert-api = "apps.alert_app.api.main:main"
 flipper-alert-runner = "apps.alert_app.main:main"
+flipper-conductor = "conductor.main:main"
 
 
 [build-system]
@@ -64,6 +65,7 @@ build-backend = "poetry.core.masonry.api"
 packages = [
     { include = "apps", from = "src" },
     { include = "libs", from = "src" },
+    { include = "conductor" },
 ]
 
 [tool.pyright]
@@ -73,7 +75,7 @@ pythonVersion = "3.13"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 markers = [
     "slow: marks tests that require live data and take >1min",
 ]

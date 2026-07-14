@@ -1,0 +1,43 @@
+{
+  "fixture_version": 2,
+  "name": "causal_fractal_pathfinding_reference_v1",
+  "reference_algorithm": "offline legacy-pathfinding benchmark; self-owned timestamp-space Phase-B implementation",
+  "asset": "BTCUSDT",
+  "timeframe": "1h",
+  "input_fixture": {
+    "name": "candidate_ohlcv_v1",
+    "sha256": "dae0ff0b0cee9df396a387f346eab4e4480d0a883f6b083b704fa736830c0d80"
+  },
+  "resolved_candidate_config": {
+    "pivot_provider": "fractal",
+    "fitter": "pathfinding",
+    "lookback_bars": 24,
+    "min_bars": 8,
+    "fractal_left_bars": 1,
+    "fractal_right_bars": 1,
+    "min_pivots_per_side": 2,
+    "min_candidate_quality": 0.0,
+    "birth_quality_threshold": 0.45
+  },
+  "expected": {
+    "roles": ["RESISTANCE", "SUPPORT"],
+    "RESISTANCE": {
+      "anchor_timestamps": ["2024-01-01T12:00:00+00:00", "2024-01-01T21:00:00+00:00"],
+      "anchor_prices": [15.0, 16.0],
+      "geometry": {
+        "reference_time": "2024-01-01T12:00:00+00:00",
+        "reference_price": 15.0,
+        "slope_per_second": 3.08641975308642e-05
+      }
+    },
+    "SUPPORT": {
+      "anchor_timestamps": ["2024-01-01T08:00:00+00:00", "2024-01-01T15:00:00+00:00"],
+      "anchor_prices": [7.0, 6.0],
+      "geometry": {
+        "reference_time": "2024-01-01T08:00:00+00:00",
+        "reference_price": 7.0,
+        "slope_per_second": -3.968253968253968e-05
+      }
+    }
+  }
+}

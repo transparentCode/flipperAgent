@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+import math
 from typing import Any
 
 import pandas as pd
@@ -23,6 +24,24 @@ REGIME_REEVAL_INTERVAL = 10
 
 PriceBar = dict[str, float]
 L2FeatureReader = Callable[[str], Awaitable[dict[str, Any] | None]]
+
+
+class _UnavailableTrendlineFamilyShadowProducer:
+    """Preserve enabled-shadow diagnostics when its optional module is unavailable."""
+
+    min_bars = 0
+
+    def __init__(self, *, error_type: str, error_reason: str) -> None:
+        self.error_type = error_type
+        self.error_reason = error_reason
+
+    def analyze(self, ohlcv: pd.DataFrame, **_: Any) -> dict[str, Any]:
+        del ohlcv
+        return _minimal_shadow_failure_payload(
+            error_type=self.error_type,
+            error_reason=self.error_reason,
+            state_advanced=False,
+        )
 
 
 class FeatureProducerConfigResolver:
@@ -68,6 +87,7 @@ class RegimeFeaturePipeline:
         orchestrator: Any | None = None,
         classifier: Any | None = None,
         regime_v2: Any | None = None,
+        trendline_family_shadow: Any | None = None,
         l2_reader: L2FeatureReader | None = None,
     ) -> None:
         settings = settings or SignalWorkerSettings()
@@ -91,8 +111,14 @@ class RegimeFeaturePipeline:
         self.orchestrator = orchestrator
         self.classifier = classifier
         self.regime_v2 = regime_v2
+        self.trendline_family_shadow = trendline_family_shadow
         self.l2_reader = l2_reader or _load_latest_l2_features
         self._price_history: list[PriceBar] = []
+        self._trendline_family_history: list[dict[str, float]] = []
+        self._trendline_family_history_error: str | None = None
+        self._trendline_family_history_revision = 0
+        self._trendline_family_processed_revision = -1
+        self._trendline_family_last_payload: dict[str, Any] | None = None
         self._classification_cache: dict[str, Any] | None = None
         self._classification_cache_bar_count = 0
 
@@ -118,6 +144,11 @@ class RegimeFeaturePipeline:
             timeframe,
             config_resolver=resolver,
         )
+        trendline_family_shadow = _create_trendline_family_shadow(
+            asset,
+            timeframe,
+            config_resolver=resolver,
+        )
         return cls(
             asset,
             timeframe,
@@ -125,6 +156,7 @@ class RegimeFeaturePipeline:
             orchestrator=orchestrator,
             classifier=classifier,
             regime_v2=regime_v2,
+            trendline_family_shadow=trendline_family_shadow,
         )
 
     @property
@@ -132,29 +164,69 @@ class RegimeFeaturePipeline:
         return list(self._price_history)
 
     def prime(self, history: Sequence[BarTuple]) -> None:
-        self._price_history = [_bar_tuple_to_price_bar(bar) for bar in history]
+        price_history = [_bar_tuple_to_price_bar(bar) for bar in history]
+        trendline_family_history: list[dict[str, float]] = []
+        trendline_family_history_error: str | None = None
+        if self.trendline_family_shadow is not None:
+            for bar in history:
+                try:
+                    family_bar = _bar_tuple_to_trendline_family_bar(bar)
+                except ValueError:
+                    trendline_family_history_error = "invalid_shadow_timestamp"
+                    break
+                if (
+                    trendline_family_history
+                    and family_bar["timestamp"] <= trendline_family_history[-1]["timestamp"]
+                ):
+                    trendline_family_history_error = "non_monotonic_shadow_timestamp"
+                trendline_family_history.append(family_bar)
+        self._price_history = price_history
+        self._trendline_family_history = trendline_family_history
+        self._trendline_family_history_error = trendline_family_history_error
+        if self.trendline_family_shadow is not None:
+            self._trendline_family_history_revision += 1
+            self._trendline_family_processed_revision = -1
+            self._trendline_family_last_payload = None
         self._trim_history()
         self._classification_cache = None
         self._classification_cache_bar_count = 0
 
-    def append_bar(self, bar_data: dict[str, float]) -> None:
-        self._price_history.append(
-            {
-                "open": float(bar_data["open"]),
-                "high": float(bar_data["high"]),
-                "low": float(bar_data["low"]),
-                "close": float(bar_data["close"]),
-                "volume": float(bar_data["volume"]),
-            }
-        )
+    def append_bar(self, bar_data: dict[str, float], *, timestamp: float | None = None) -> None:
+        shadow_timestamp = None
+        if self.trendline_family_shadow is not None:
+            shadow_timestamp = _normalize_shadow_timestamp(timestamp)
+        price_bar = _normalize_price_bar(bar_data)
+        family_bar = None
+        if shadow_timestamp is not None:
+            family_bar = {**price_bar, "timestamp": shadow_timestamp}
+
+        # Validate all inputs before either history advances.
+        self._price_history.append(price_bar)
+        if family_bar is not None:
+            if (
+                self._trendline_family_history
+                and family_bar["timestamp"] <= self._trendline_family_history[-1]["timestamp"]
+            ):
+                self._trendline_family_history_error = "non_monotonic_shadow_timestamp"
+            self._trendline_family_history.append(family_bar)
+            self._trendline_family_history_revision += 1
         self._trim_history()
 
     async def enrich(self, features: dict[str, Any]) -> dict[str, Any]:
         enriched = dict(features)
+        # This namespace is producer-owned output and must never become RegimeV2 input.
+        enriched.pop("trendline_family_shadow", None)
         self._attach_regime_snapshot(enriched)
         await self._attach_regime_classification(enriched)
         self._attach_regime_v2(enriched)
+        self._attach_trendline_family_shadow(enriched)
         return enriched
+
+    def refresh_trendline_family_shadow(self, features: dict[str, Any]) -> dict[str, Any]:
+        """Attach one newly appended confirmed shadow bar after active evaluation."""
+
+        self._attach_trendline_family_shadow(features)
+        return features
 
     def _attach_regime_snapshot(self, features: dict[str, Any]) -> None:
         if self.orchestrator is None or len(self._price_history) < self.orchestrator_min_bars:
@@ -215,9 +287,61 @@ class RegimeFeaturePipeline:
         except Exception:
             logger.warning("RegimeV2 analysis failed for current bar", exc_info=True)
 
+    def _attach_trendline_family_shadow(self, features: dict[str, Any]) -> None:
+        """Append shadow evidence after active RegimeV2 output is already fixed."""
+
+        if self.trendline_family_shadow is None:
+            return
+        if self._trendline_family_history_error is not None:
+            payload = _shadow_failure_payload(
+                error_type="family_contract_error",
+                error_reason=self._trendline_family_history_error,
+                state_advanced=False,
+            )
+            self._cache_trendline_family_payload(payload)
+            features["trendline_family_shadow"] = payload
+            return
+        if (
+            self._trendline_family_processed_revision == self._trendline_family_history_revision
+            and self._trendline_family_last_payload is not None
+        ):
+            features["trendline_family_shadow"] = _cached_shadow_payload(
+                self._trendline_family_last_payload
+            )
+            return
+        try:
+            frame = _trendline_family_frame(self._trendline_family_history)
+            observed_at = None if frame.empty else frame.index[-1].to_pydatetime()
+            payload = self.trendline_family_shadow.analyze(
+                frame,
+                observed_at=observed_at,
+            )
+            self._cache_trendline_family_payload(payload)
+            features["trendline_family_shadow"] = payload
+        except Exception as exc:
+            logger.warning(
+                "Trendline-family shadow attachment failed for %s:%s",
+                self.asset,
+                self.timeframe,
+                exc_info=True,
+            )
+            payload = _shadow_failure_payload(
+                error_type="unexpected_error",
+                error_reason=exc.__class__.__name__,
+                state_advanced=False,
+            )
+            self._cache_trendline_family_payload(payload)
+            features["trendline_family_shadow"] = payload
+
+    def _cache_trendline_family_payload(self, payload: Mapping[str, Any]) -> None:
+        self._trendline_family_last_payload = dict(payload)
+        self._trendline_family_processed_revision = self._trendline_family_history_revision
+
     def _trim_history(self) -> None:
         if len(self._price_history) > self.max_history:
             self._price_history = self._price_history[-self.max_history :]
+        if len(self._trendline_family_history) > self.max_history:
+            self._trendline_family_history = self._trendline_family_history[-self.max_history :]
 
 
 def regime_features_to_dict(regime_features: Any) -> dict[str, Any]:
@@ -289,9 +413,8 @@ def _create_regime_v2(
     regime_config = resolver.resolve(asset, timeframe, "RegimeV2")
     if not regime_config or not regime_config.get("enabled", False):
         return None
-
     try:
-        from libs.models.regime_v2.adapters import RegimeV2FeatureProducer
+        from libs.models.regime_v2.adapters.feature_producer import RegimeV2FeatureProducer
 
         return RegimeV2FeatureProducer(
             asset,
@@ -308,19 +431,235 @@ def _create_regime_v2(
         return None
 
 
+def _create_trendline_family_shadow(
+    asset: str,
+    timeframe: str,
+    *,
+    config_resolver: FeatureProducerConfigResolver | None = None,
+) -> Any | None:
+    resolver = config_resolver or FeatureProducerConfigResolver()
+    try:
+        shadow_config = resolver.resolve(asset, timeframe, "TrendlineFamilyShadow")
+    except Exception:
+        logger.warning(
+            "Trendline-family shadow config resolution failed for %s:%s",
+            asset,
+            timeframe,
+            exc_info=True,
+        )
+        return _UnavailableTrendlineFamilyShadowProducer(
+            error_type="config_resolution_error",
+            error_reason="config_resolution_failure",
+        )
+    if _shadow_config_is_disabled(shadow_config):
+        return None
+    try:
+        (
+            FailedTrendlineFamilyShadowProducer,
+            TrendlineFamilyFeatureProducer,
+            TrendlineFamilyShadowConfig,
+        ) = _load_trendline_family_shadow_adapter()
+    except Exception:
+        logger.warning(
+            "Trendline-family shadow adapter import failed for %s:%s",
+            asset,
+            timeframe,
+            exc_info=True,
+        )
+        return _UnavailableTrendlineFamilyShadowProducer(
+            error_type="config_resolution_error",
+            error_reason="shadow_adapter_import_failure",
+        )
+    try:
+        typed_config = TrendlineFamilyShadowConfig.from_mapping(shadow_config)
+    except ValueError:
+        logger.warning(
+            "Trendline-family shadow config is invalid for %s:%s",
+            asset,
+            timeframe,
+            exc_info=True,
+        )
+        return FailedTrendlineFamilyShadowProducer(
+            error_type="config_resolution_error",
+            error_reason="invalid_shadow_config",
+        )
+
+    try:
+        return TrendlineFamilyFeatureProducer(
+            asset,
+            timeframe,
+            shadow_config=typed_config,
+        )
+    except Exception:
+        logger.warning(
+            "TrendlineFamilyFeatureProducer construction failed for %s:%s",
+            asset,
+            timeframe,
+            exc_info=True,
+        )
+        return FailedTrendlineFamilyShadowProducer(
+            error_type="config_resolution_error",
+            error_reason="shadow_adapter_construction_failure",
+        )
+
+
+def _load_trendline_family_shadow_adapter() -> tuple[Any, Any, Any]:
+    """Import the optional family adapter only after explicit enablement."""
+
+    from libs.models.regime_v2.adapters.trendline_family_feature_producer import (
+        FailedTrendlineFamilyShadowProducer,
+        TrendlineFamilyFeatureProducer,
+        TrendlineFamilyShadowConfig,
+    )
+
+    return (
+        FailedTrendlineFamilyShadowProducer,
+        TrendlineFamilyFeatureProducer,
+        TrendlineFamilyShadowConfig,
+    )
+
+
+def _shadow_config_is_disabled(shadow_config: Any) -> bool:
+    if shadow_config is None:
+        return True
+    if not isinstance(shadow_config, Mapping):
+        return False
+    if "enabled" not in shadow_config:
+        return True
+    return shadow_config["enabled"] is False
+
 async def _load_latest_l2_features(asset: str) -> dict[str, Any] | None:
     reader = TimescaleReader(DBPoolManager.get_reader_pool())
     return await reader.get_latest_l2_features(asset)
 
 
 def _bar_tuple_to_price_bar(bar: BarTuple) -> PriceBar:
+    return _normalize_price_bar(
+        {
+            "open": bar[0],
+            "high": bar[1],
+            "low": bar[2],
+            "close": bar[3],
+            "volume": bar[4],
+        }
+    )
+
+
+def _bar_tuple_to_trendline_family_bar(bar: BarTuple) -> dict[str, float]:
     return {
-        "open": float(bar[0]),
-        "high": float(bar[1]),
-        "low": float(bar[2]),
-        "close": float(bar[3]),
-        "volume": float(bar[4]),
+        **_bar_tuple_to_price_bar(bar),
+        "timestamp": _normalize_shadow_timestamp(bar[5]),
     }
+
+
+def _trendline_family_frame(history: Sequence[Mapping[str, float]]) -> pd.DataFrame:
+    """Build a UTC confirmed-bar frame only for the independent shadow model."""
+
+    frame = pd.DataFrame(list(history))
+    if frame.empty or "timestamp" not in frame.columns:
+        return frame
+    timestamps = pd.to_numeric(frame.pop("timestamp"), errors="coerce")
+    if timestamps.isna().any() or not timestamps.map(math.isfinite).all():
+        return pd.DataFrame()
+    seconds = timestamps.where(timestamps.abs() < 1e12, timestamps / 1000.0)
+    frame.index = pd.to_datetime(seconds, unit="s", utc=True)
+    if frame.index.has_duplicates or not frame.index.is_monotonic_increasing:
+        return pd.DataFrame()
+    return frame
+
+
+def _normalize_price_bar(bar_data: Mapping[str, Any]) -> PriceBar:
+    """Validate all numeric OHLCV fields before mutating pipeline histories."""
+
+    try:
+        values = {
+            field: float(bar_data[field])
+            for field in ("open", "high", "low", "close", "volume")
+        }
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("bar_data must contain numeric OHLCV values") from exc
+    if not all(math.isfinite(value) for value in values.values()):
+        raise ValueError("bar_data OHLCV values must be finite")
+    return values
+
+
+def _normalize_shadow_timestamp(timestamp: Any) -> float:
+    if timestamp is None:
+        raise ValueError("timestamp is required while trendline-family shadow is enabled")
+    if isinstance(timestamp, bool):
+        raise ValueError("trendline-family shadow timestamp must be numeric")
+    try:
+        value = float(timestamp)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("trendline-family shadow timestamp must be numeric") from exc
+    if not math.isfinite(value):
+        raise ValueError("trendline-family shadow timestamp must be finite")
+    return value
+
+
+def _shadow_failure_payload(
+    *,
+    error_type: str,
+    error_reason: str,
+    state_advanced: bool | None,
+) -> dict[str, Any]:
+    """Use the optional adapter's canonical failure schema when it is available."""
+
+    try:
+        from libs.models.regime_v2.adapters.trendline_family_feature_producer import (
+            build_trendline_family_shadow_failure_payload,
+        )
+    except Exception:
+        return _minimal_shadow_failure_payload(
+            error_type=error_type,
+            error_reason=error_reason,
+            state_advanced=state_advanced,
+        )
+    return build_trendline_family_shadow_failure_payload(
+        error_type=error_type,
+        error_reason=error_reason,
+        state_advanced=state_advanced,
+    )
+
+
+def _minimal_shadow_failure_payload(
+    *,
+    error_type: str,
+    error_reason: str,
+    state_advanced: bool | None,
+) -> dict[str, Any]:
+    """Last-resort payload for an unavailable optional module; no family work occurs."""
+
+    return {
+        "trendline_family_shadow_enabled": True,
+        "trendline_family_valid": False,
+        "trendline_family_error": error_reason,
+        "trendline_family_error_type": error_type,
+        "trendline_family_error_reason": error_reason,
+        "trendline_family_latency_ms": 0.0,
+        "trendline_family_failure_count": 1,
+        "trendline_family_success_count": 0,
+        "trendline_family_coverage": 0.0,
+        "trendline_family_state_advanced": state_advanced,
+        "trendline_family_repository_head_before": None,
+        "trendline_family_repository_head_after": None,
+    }
+
+
+def _cached_shadow_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Expose the latest confirmed snapshot without claiming a second update."""
+
+    cached = dict(payload)
+    if cached.get("trendline_family_valid") is True:
+        cached.update(
+            {
+                "trendline_family_latency_ms": 0.0,
+                "trendline_family_success_count": 0,
+                "trendline_family_failure_count": 0,
+                "trendline_family_state_advanced": False,
+            }
+        )
+    return cached
 
 
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:

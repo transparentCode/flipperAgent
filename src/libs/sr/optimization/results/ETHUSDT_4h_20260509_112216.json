@@ -1,0 +1,192 @@
+{
+  "global_params": {
+    "ensemble.structural_vs_micro_ratio": 0.4806012959216669,
+    "lifecycle.age_lambda": 0.00275511672409856,
+    "lifecycle.min_strength": 0.3403837622530643,
+    "lifecycle.auto_promote_kernel_agreement": 1,
+    "lifecycle.dedup_proximity_atr": 1.3867150833534838,
+    "pipeline.merge_threshold_pct_atr": 0.3709957493615455,
+    "cross_asset.sector_cluster_eps_atr": 0.6245786013315768,
+    "kernels.anchored_vwap.volume_spike_multiplier": 2.3432522001193514,
+    "kernels.volume_poc.hvn_prominence": 0.28677035430730663,
+    "kernels.fair_value_gap.gap_min_atr": 0.39093832366914166,
+    "kernels.fair_value_gap.fill_threshold": 0.593818211771419,
+    "kernels.fair_value_gap.filled_penalty_multiplier": 0.6899915825498883,
+    "kernels.order_block.displacement_atr": 1.0384223399399863,
+    "kernels.order_block.imbalance_ratio": 0.6602008273844575,
+    "kernels.regression_band.band_width_sigma": 2.238889702928821,
+    "kernels.liquidity_sweep.sweep_lookback": 35,
+    "kernels.liquidity_sweep.max_pierce_atr": 0.6408430443392135,
+    "kernels.tpo_value_area.tpo_value_area_pct": 0.7106289368121658
+  },
+  "global_score": 0.6181997653092015,
+  "per_asset_params": {
+    "ETHUSDT": {
+      "4h": {
+        "lifecycle.min_strength": 0.3403837622530643,
+        "lifecycle.auto_promote_kernel_agreement": 1,
+        "lifecycle.dedup_proximity_atr": 1.3867150833534838,
+        "pipeline.merge_threshold_pct_atr": 0.3709957493615455,
+        "kernels.anchored_vwap.volume_spike_multiplier": 2.3432522001193514,
+        "kernels.volume_poc.hvn_prominence": 0.28677035430730663,
+        "kernels.fair_value_gap.gap_min_atr": 0.39093832366914166,
+        "kernels.fair_value_gap.fill_threshold": 0.593818211771419,
+        "kernels.fair_value_gap.filled_penalty_multiplier": 0.6899915825498883,
+        "kernels.order_block.displacement_atr": 1.0384223399399863,
+        "kernels.order_block.imbalance_ratio": 0.6602008273844575,
+        "kernels.regression_band.band_width_sigma": 2.238889702928821,
+        "kernels.liquidity_sweep.sweep_lookback": 35,
+        "kernels.liquidity_sweep.max_pierce_atr": 0.6408430443392135,
+        "kernels.tpo_value_area.tpo_value_area_pct": 0.7106289368121658,
+        "pipeline.min_emit_strength": 0.25,
+        "pipeline.max_new_zones_per_bar": 3
+      }
+    }
+  },
+  "per_asset_results": [
+    {
+      "asset": "ETHUSDT",
+      "timeframe": "4h",
+      "best_params": {
+        "lifecycle.min_strength": 0.3403837622530643,
+        "lifecycle.auto_promote_kernel_agreement": 1,
+        "lifecycle.dedup_proximity_atr": 1.3867150833534838,
+        "pipeline.merge_threshold_pct_atr": 0.3709957493615455,
+        "kernels.anchored_vwap.volume_spike_multiplier": 2.3432522001193514,
+        "kernels.volume_poc.hvn_prominence": 0.28677035430730663,
+        "kernels.fair_value_gap.gap_min_atr": 0.39093832366914166,
+        "kernels.fair_value_gap.fill_threshold": 0.593818211771419,
+        "kernels.fair_value_gap.filled_penalty_multiplier": 0.6899915825498883,
+        "kernels.order_block.displacement_atr": 1.0384223399399863,
+        "kernels.order_block.imbalance_ratio": 0.6602008273844575,
+        "kernels.regression_band.band_width_sigma": 2.238889702928821,
+        "kernels.liquidity_sweep.sweep_lookback": 35,
+        "kernels.liquidity_sweep.max_pierce_atr": 0.6408430443392135,
+        "kernels.tpo_value_area.tpo_value_area_pct": 0.7106289368121658,
+        "pipeline.min_emit_strength": 0.25,
+        "pipeline.max_new_zones_per_bar": 3
+      },
+      "train_score": 0.5652262748311637,
+      "val_score": 0.5596222096756884,
+      "accepted": true,
+      "fallback_to_global": false,
+      "n_folds": 17,
+      "fold_scores": [
+        0.46164417606747254,
+        0.5028460060072908,
+        0.5912713200421538,
+        0.5309389510982411,
+        0.5297395166617823,
+        0.5264734161681636,
+        0.5833000639221709,
+        0.5453694893411893,
+        0.5618123692656027
+      ],
+      "gate_failures": 0,
+      "constraint_failures": 3,
+      "selected_kernels": [
+        "volume_poc",
+        "pivot_hl"
+      ],
+      "kernel_scores": [
+        {
+          "kernel": "anchored_vwap",
+          "composite": 0.7405598090442392,
+          "survival_rate": 0.3431192660550459,
+          "touch_accuracy": 1.0,
+          "zones_created": 545,
+          "passed": true
+        },
+        {
+          "kernel": "fractal_channel",
+          "composite": 0.6656861540114095,
+          "survival_rate": 0.3765112262521589,
+          "touch_accuracy": 0.8913934426229508,
+          "zones_created": 579,
+          "passed": true
+        },
+        {
+          "kernel": "volume_poc",
+          "composite": 0.6340969513019519,
+          "survival_rate": 0.17092866756393002,
+          "touch_accuracy": 0.8590504451038575,
+          "zones_created": 1486,
+          "passed": true
+        },
+        {
+          "kernel": "pivot_hl",
+          "composite": 0.5983955311424083,
+          "survival_rate": 0.007921187512480863,
+          "touch_accuracy": 0.9342560553633218,
+          "zones_created": 15023,
+          "passed": true
+        },
+        {
+          "kernel": "order_block",
+          "composite": 0.5840753549423902,
+          "survival_rate": 0.392,
+          "touch_accuracy": 0.863013698630137,
+          "zones_created": 125,
+          "passed": true
+        },
+        {
+          "kernel": "liquidity_sweep",
+          "composite": 0.5450272040781143,
+          "survival_rate": 0.09863945578231292,
+          "touch_accuracy": 0.8243727598566308,
+          "zones_created": 1176,
+          "passed": true
+        },
+        {
+          "kernel": "round_number",
+          "composite": 0.5411286255830037,
+          "survival_rate": 0.014584654407102092,
+          "touch_accuracy": 0.8390313390313391,
+          "zones_created": 11039,
+          "passed": true
+        },
+        {
+          "kernel": "fair_value_gap",
+          "composite": 0.517838090991633,
+          "survival_rate": 0.036686390532544376,
+          "touch_accuracy": 0.8491048593350383,
+          "zones_created": 2535,
+          "passed": true
+        },
+        {
+          "kernel": "tpo_value_area",
+          "composite": 0.49804324131663363,
+          "survival_rate": 0.03709729905629678,
+          "touch_accuracy": 0.8990536277602523,
+          "zones_created": 3073,
+          "passed": true
+        },
+        {
+          "kernel": "regression_band",
+          "composite": 0.4953780855625157,
+          "survival_rate": 0.01161262050832603,
+          "touch_accuracy": 0.84375,
+          "zones_created": 4564,
+          "passed": true
+        },
+        {
+          "kernel": "session_gap",
+          "composite": 0.2,
+          "survival_rate": 0.0,
+          "touch_accuracy": 0.0,
+          "zones_created": 0,
+          "passed": false
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "total_time_seconds": 6680.375597000122,
+    "stage1_n_trials": 30,
+    "stage2_assets_optimized": 1,
+    "stage2_assets_accepted": 1,
+    "stage2_assets_skipped": [],
+    "stage2_assets_total": 1
+  },
+  "timestamp": "2026-05-09T11:22:16.803539"
+}

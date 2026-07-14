@@ -1,0 +1,831 @@
+# S/R Pipeline — Reference Configuration
+# Full extraction of every configurable value across the SR module.
+# The 4-tier cascade resolves: asset_metadata → sr.* → per_tf.{tf} → assets.{symbol}
+# Rule-derived params are computed from formula coefficients below;
+# explicit values in lifecycle/enhancement override rule-derived.
+
+# ── Asset Metadata Profiles ──
+asset_metadata:
+  profiles:
+    crypto:
+      trading_hours_per_day: 24.0
+      trading_days_per_week: 7
+      has_session_gaps: false
+      gap_breakout_policy: gap_ignored
+      gap_escalation_atr: 999.0
+      session_lookback_hours: [24, 168, 720]
+      round_number_mode: decimal
+      ex_dividend_filter: false
+      continuous_market: true
+
+    equity:
+      trading_hours_per_day: 6.5
+      trading_days_per_week: 5
+      has_session_gaps: true
+      gap_breakout_policy: gap_suspends_countdown
+      gap_escalation_atr: 3.0
+      session_lookback_hours: [7, 33, 137]
+      round_number_mode: decimal
+      ex_dividend_filter: true
+      continuous_market: false
+
+    fx:
+      trading_hours_per_day: 24.0
+      trading_days_per_week: 5
+      has_session_gaps: false
+      gap_breakout_policy: gap_ignored
+      gap_escalation_atr: 999.0
+      session_lookback_hours: [24, 120, 504]
+      round_number_mode: pip
+      ex_dividend_filter: false
+      continuous_market: true
+
+    commodity:
+      trading_hours_per_day: 8.0
+      trading_days_per_week: 5
+      has_session_gaps: true
+      gap_breakout_policy: gap_suspends_countdown
+      gap_escalation_atr: 3.0
+      session_lookback_hours: [8, 40, 168]
+      round_number_mode: decimal
+      ex_dividend_filter: false
+      continuous_market: false
+
+    futures:
+      trading_hours_per_day: 23.0
+      trading_days_per_week: 5
+      has_session_gaps: true
+      gap_breakout_policy: gap_suspends_countdown
+      gap_escalation_atr: 3.0
+      session_lookback_hours: [23, 115, 483]
+      round_number_mode: decimal
+      ex_dividend_filter: false
+      continuous_market: false
+
+  # Per-asset metadata overrides (profile + field overrides)
+  # assets:
+  #   GENERIC_ASSET:
+  #     profile: crypto
+  #     # Optional metadata overrides:
+  #     # has_session_gaps: false
+  #   BTCUSDT:
+  #     profile: crypto
+  #   AAPL:
+  #     profile: equity
+  #   EURUSD:
+  #     profile: fx
+
+# ── Tier 1: Global Defaults (sr.*) ──
+sr:
+  pipeline:
+    enabled_kernels: [pivot_hl, volume_poc]
+    atr_period: 14                       # BaseSRKernel.calculate_atr() period
+    avg_volume_window: 20                # pipeline.py: df["volume"].tail(N).mean()
+    merge_threshold_pct_atr: 0.25        # spatial dedup threshold (overridable per asset/tf)
+    candidate_dedup_staleness_bars: 5    # cross-bar dedup: suppress re-detections within N bars (overridable per asset/tf)
+    candidate_dedup_quantize_atr: 0.25   # cross-bar dedup: fingerprint bucket width in ATR (overridable per asset/tf)
+
+  # ── Kernel-Specific Params ──
+  kernels:
+    pivot_hl:
+      min_bars: 14                       # minimum data bars before pivot detection; structural n1/n2 requirements still apply
+      historical_depth: 500
+      smoothing_period: 3
+      zone_half_width_atr: 0.1           # point → zone default width
+      vol_factor_weight: 0.5             # weight of volume factor in pivot score
+      dominance_weight: 0.5              # weight of dominance factor in pivot score
+
+    volume_poc:
+      num_bins: 50
+      value_area_pct: 0.70
+      poc_strength: 0.9
+      vah_val_strength: 0.7
+      hvn_strength: 0.6
+      max_hvn_count: 3
+      hvn_prominence: 0.2
+      zone_half_width_atr: 0.15          # VP zones use a wider default than other kernels because
+                                         # volume profile zones represent price areas (not point levels),
+                                         # so a 50% wider zone better captures the value area edge.
+      hvn_min_distance_atr: 0.3          # skip HVNs closer than this to POC/VAH/VAL
+      hvn_peak_distance_bins: 3          # min bin distance between HVN peaks in scipy.signal.find_peaks
+      min_bars: 10                       # per-lookback minimum
+
+    anchored_vwap:
+      anchor_type: hybrid                # pivot | volume_spike | hybrid
+      volume_spike_multiplier: 2.0       # rolling-median volume multiplier for spike anchors
+      min_bars: 20
+
+    tpo_value_area:
+      tpo_window_bars: 120               # 5-day rolling window on 1h crypto bars
+      tpo_value_area_pct: 0.68
+      min_bars: 20
+
+    round_number:
+      atr_snap_factor: 0.5
+      max_levels: 20
+      strength_decay: 0.05
+      base_confidence: 0.5
+      score_skip_threshold: 0.05         # skip levels scoring below this
+      pip_intervals:                     # FX pip-mode spacing per tier
+        micro: 0.01                      # price < micro_max threshold
+        minor: 1.0                       # price < minor_max threshold
+        major: 10.0                      # price >= minor_max threshold
+      pip_thresholds:                    # FX pip-mode price tier boundaries
+        micro_max: 2.0
+        minor_max: 200.0
+      min_bars: 14
+
+    order_block:
+      displacement_atr: 1.5
+      imbalance_ratio: 0.7
+      max_age_bars: 200
+      validity_lookback_bars: 5
+      ob_strength: 0.8
+      min_bars: 20
+
+    fair_value_gap:
+      gap_min_atr: 0.5
+      fill_threshold: 0.5
+      max_age_bars: 200
+      fvg_strength: 0.75
+      max_gap_atr_cap: 2.0               # cap on gap_size/atr multiplier
+      filled_penalty_multiplier: 0.5     # filled FVGs multiplied by this
+      min_bars: 20
+
+    session_gap:
+      gap_min_atr: 0.5
+      fill_level_fractions: [0.5]
+      max_age_bars: 500
+      gap_origin_strength: 0.7
+      gap_dest_strength: 0.7
+      fill_level_strength: 0.6
+      max_gap_atr_cap: 2.0               # cap on gap_atr in score formula
+      session_boundary_multiplier: 1.5   # inter-bar delta must exceed median × this to be a session boundary
+      session_boundary_baseline_bars: 20 # trailing bar window for computing median inter-bar delta
+      min_bars: 20
+
+    fractal_channel:
+      channel_lookback: 32              # bars passed to the wrapped indicator lookback
+      boundary_buffer_atr: 0.1           # buffer multiplied by ATR
+      use_rule_derived_buffer: false     # when true, use rule_derived.fractal_buffer automatically
+      pivot_method: fractal
+      mode: geometric
+      emit_midline: false
+      channel_strength: 0.85
+      midline_strength_factor: 0.6       # midline score = strength × this
+      min_bars: 30
+
+    regression_band:
+      band_strength: 0.8
+      center_strength: 0.6
+      emit_center: false
+      band_width_sigma: 2.0
+      zone_half_width_atr: 0.1
+      min_bars: 30
+
+    liquidity_sweep:
+      sweep_lookback: 50
+      max_pierce_atr: 1.0
+      max_age_bars: 200
+      sweep_strength: 0.8
+      zone_half_width_atr: 0.1
+      min_bars: 20
+
+  # ── Ensemble ──
+  ensemble:
+    method: weighted_average             # canonical selector; legacy sr.pipeline.ensemble_method is deprecated
+    structural_vs_micro_ratio: 0.5       # legacy fallback; ignored when kernel_weights is non-empty
+
+    # Explicit per-kernel weight multipliers (absolute, not budget-split).
+    # strength = raw_score × weight.  Default 1.0 = no attenuation.
+    kernel_weights:
+      pivot_hl: 1.0
+      volume_poc: 1.0
+      anchored_vwap: 1.0
+      tpo_value_area: 1.0
+      round_number: 1.0
+      order_block: 1.0
+      fair_value_gap: 1.0
+      session_gap: 1.0
+      fractal_channel: 1.0
+      regression_band: 1.0
+      liquidity_sweep: 1.0
+
+    # Kernel group classification (consumed by weighted_average ensemble)
+    structural_kernels: [pivot_hl, fractal_channel, regression_band, 
+        anchored_vwap]
+    micro_kernels: [volume_poc, tpo_value_area, order_block, fair_value_gap, 
+        round_number, session_gap, liquidity_sweep]
+
+    # Confidence scoring (weighted_average + meta_learned)
+    confidence:
+      touch_divisor: 5.0                 # touch_score = min(touch_count / N, 1)
+      agreement_divisor: 3.0             # agreement_score = min(kernel_agreement / N, 1)
+      volume_divisor: 2.0                # volume_score = min(vol_at_touches / N, 1)
+      touch_weight: 0.35                 # blend weight for touch_score
+      agreement_weight: 0.30             # blend weight for agreement_score
+      rejection_weight: 0.20             # blend weight for rejection_score
+      volume_weight: 0.15                # blend weight for volume_score
+
+    # Contributing kernel proximity
+    contributing_proximity_atr: 0.5      # ATR fraction for kernel clustering
+
+    # confidence_weighted specific
+    confidence_weighted:
+      weight_cap: 2.0                    # max per-kernel calibration weight
+      # Optional per-kernel historical raw-score baselines for live or singleton batches.
+      # kernel_avg_baselines:
+      #   volume_poc: 0.20
+      #   order_block: 0.75
+
+    # regime_conditional specific
+    regime_conditional:
+      confidence_adj_factor: 0.1         # regime_alignment × this → confidence adjust
+
+    # meta_learned specific
+    meta_learned:
+      confidence_strength_coeff: 0.3     # blending: strength weight
+      confidence_touch_coeff: 0.4        # blending: touch factor weight
+      confidence_agreement_coeff: 0.3    # blending: agreement factor weight
+
+  # ── Lifecycle ──
+  lifecycle:
+    age_lambda: 0.002
+    inactivity_decay: 0.8
+    min_strength: 0.3
+    dedup_proximity_atr: 0.5             # _is_duplicate: skip if within this ATR fraction
+    auto_promote_kernel_agreement: 2     # promote FORMING→ACTIVE when agreement ≥ N (capped at enabled kernel count)
+    min_touches_to_confirm: 1            # touches needed to confirm zone
+    flip_require_retest: true            # polarity flip requires retest
+    false_breakout_strength_boost: 1.15  # strength multiplier on false-breakout recovery
+    test_held_strength_boost: 1.1        # strength multiplier when zone survives a test
+    merge_strength_mode: max             # how to combine strengths on merge: "max" or "probabilistic_or"
+    min_zones_per_kernel: 1              # per-kernel floor before global pruning kicks in
+    # Fields below are rule-derived from wick_adaptation by default.
+    # They auto-adapt to each asset's wick_body_ratio.
+    # Uncomment to override the formula output:
+    # breakout_atr_threshold: 0.3
+    # touch_proximity_atr: 0.1
+    # false_breakout_recovery_bars: 6
+    stale_distance_atr: 3.0
+    max_age_bars: 200                    # max age bars for stale gc
+    # Fields below are rule-derived by default.
+    # Uncomment to override the formula output:
+    # breakout_confirm_bars: 3
+    # false_breakout_window: 6
+    # inactivity_threshold: 80
+    # max_active_zones: 10              # uncomment to cap; see per-asset overrides
+  # ── Enhancement ──
+  enhancement:
+    stop_hunt_pierce_atr: 0.2
+    # volume_spike_threshold: 1.5        # rule-derived
+
+  # ── Features ──
+  features:
+    # Proximity thresholds (ATR fractions) for feature computation
+    touch_proximity_atr: 0.5
+    cluster_density_proximity_atr: 1.0
+    kernel_agreement_proximity_atr: 0.5
+    breakout_proximity_atr: 0.3
+    volume_trend_proximity_atr: 0.5
+    false_breakout_threshold_atr: 0.3
+    false_breakout_window_bars: 5
+
+    # Optional explicit hour overrides for historical feature scans.
+    # When left null, runtime derives these from asset_metadata.session_lookback_hours:
+    #   volume_trend_lookback_hours -> slot [1] (weekly horizon)
+    #   false_breakout_lookback_hours -> slot [2] (monthly horizon)
+    # Legacy fallback when metadata/timeframe is unavailable remains 200/500 bars.
+    volume_trend_lookback_hours:
+    false_breakout_lookback_hours:
+
+    # Regime alignment scores by regime/level_type
+    regime_alignment:
+      trending_resistance: -0.5
+      trending_support: 0.5
+      ranging: 0.7
+      volatile: 0.0
+
+    # FeatureContext computation
+    volume_mean_window: 20
+    volume_kurtosis_window: 200
+
+  # ── Regime Gate ──
+  regime:
+    enabled: false
+    min_confidence: 0.5
+    max_entropy: 1.2
+    stability_window_bars: 50
+    confidence_ema_alpha: 0.2
+    fallback_state:
+    fallback_weights:
+      trending: 1.0
+      ranging: 1.0
+      volatile: 1.0
+    weights:
+      trending: 1.0
+      ranging: 1.0
+      volatile: 1.0
+
+  # ── Cross-Asset ──
+  cross_asset:
+    correlation_threshold: 0.6
+    min_universe_agreement: 2
+    sector_cluster_eps_atr: 0.5
+    agreement_strength_bonus: 0.1
+    max_comparison_assets: 20
+    agreement_strength_cap: 5            # cap on agreement_count in strength bonus
+
+  # ── Universe Router ──
+  universe:
+    max_workers: 4
+    timeout_per_asset_s: 30.0
+    cross_asset_enabled: false
+    # These remain execution-layer router fields.
+    # Optimization ownership for the matching analytical thresholds lives under sr.cross_asset.*.
+    correlation_threshold: 0.6
+    min_universe_agreement: 2
+
+  # ── Universe Optimizer ──
+  # Canonical search-space defaults for app.sr.optimization.UniverseSROptimizer.
+  # Parameter keys use the same dotted identities emitted by the live optimizer.
+  # These defaults are intentionally narrower than the full approved matrix for first real-universe runs.
+  optimization:
+    n_trials: 50
+    timeout_s: 3600.0
+    tier6_weight: 0.10
+    # Caps Stage 1 trial wall-clock by scoring only the trailing bars per asset.
+    # Raise cautiously: larger values improve regime coverage but increase runtime sharply.
+    stage1_eval_bars: 300
+    parameters:
+      "ensemble.structural_vs_micro_ratio":
+        enabled: true
+        low: 0.4
+        high: 0.65
+      "lifecycle.age_lambda":
+        enabled: true
+        low: 0.0015
+        high: 0.0035
+      "lifecycle.min_strength":
+        enabled: true
+        low: 0.2
+        high: 0.6
+      "lifecycle.auto_promote_kernel_agreement":
+        enabled: true
+        kind: int
+        low: 1
+        high: 4
+      "lifecycle.dedup_proximity_atr":
+        enabled: true
+        low: 0.3
+        high: 1.5
+      "pipeline.merge_threshold_pct_atr":
+        enabled: true
+        low: 0.15
+        high: 0.6
+      "cross_asset.sector_cluster_eps_atr":
+        enabled: true
+        low: 0.4
+        high: 0.9
+      "kernels.anchored_vwap.volume_spike_multiplier":
+        enabled: true
+        low: 1.5
+        high: 3.5
+      "kernels.volume_poc.hvn_prominence":
+        enabled: true
+        low: 0.1
+        high: 0.35
+      "kernels.fair_value_gap.gap_min_atr":
+        enabled: true
+        low: 0.35
+        high: 0.9
+      "kernels.fair_value_gap.fill_threshold":
+        enabled: true
+        low: 0.35
+        high: 0.65
+      "kernels.fair_value_gap.filled_penalty_multiplier":
+        enabled: true
+        low: 0.25
+        high: 0.75
+      "kernels.order_block.displacement_atr":
+        enabled: true
+        low: 1.0
+        high: 2.2
+      "kernels.order_block.imbalance_ratio":
+        enabled: true
+        low: 0.55
+        high: 0.85
+      "kernels.regression_band.band_width_sigma":
+        enabled: true
+        low: 1.5
+        high: 2.75
+      "kernels.liquidity_sweep.sweep_lookback":
+        enabled: true
+        kind: int
+        low: 30
+        high: 80
+      "kernels.liquidity_sweep.max_pierce_atr":
+        enabled: true
+        low: 0.5
+        high: 1.4
+      "kernels.tpo_value_area.tpo_value_area_pct":
+        enabled: true
+        low: 0.60
+        high: 0.85
+      "kernels.session_gap.gap_min_atr":
+        enabled: false                # opt-in only for gappy universes after review
+        low: 0.35
+        high: 0.9
+        metadata_gate: has_session_gaps
+      # Stage 2 gate params: retained in the shared optimizer config surface
+      # so per-asset bounds resolve from YAML without widening Stage 1.
+      "pipeline.min_emit_strength":
+        enabled: true
+        low: 0.15
+        high: 0.40
+      "pipeline.max_new_zones_per_bar":
+        enabled: true
+        kind: int
+        low: 2
+        high: 5
+
+    # ── Per-Asset Optimizer (Stage 2) ──
+    # Controls AssetSROptimizer behavior per (asset, timeframe).
+  # Stage 2 refines per-asset kernel and gate params within ±bound_fraction of Stage 1 global.
+    per_asset_n_trials: 30
+    per_asset_timeout_s: 600.0
+    per_asset_bound_fraction: 0.6
+    per_asset_regularization_weight: 0.05
+    per_asset_min_bars: 500
+    per_asset_train_bars: 2000
+    per_asset_test_bars: 500
+    per_asset_step_bars: 500
+    per_asset_purge_bars: 10
+    per_asset_validation_drop_threshold: 0.15
+    per_asset_min_zone_count_gate: 3
+    per_asset_min_survival_rate_constraint: 0.20
+    per_asset_gate_penalty: 0.5
+    per_asset_constraint_penalty_floor: 0.5
+    per_asset_sampler: tpe
+    per_asset_fold_stride: 3
+    per_asset_max_lookback: 2000
+    seed: 42
+
+    # Quality evaluator settings for zone scoring
+    quality_reversal_threshold_pct: 0.015
+    quality_coverage_proximity_atr: 0.3
+    quality_weights:
+      survival_rate: 0.25
+      touch_accuracy: 0.30
+      false_breakout_rate: 0.20
+      strength_stability: 0.10
+      coverage: 0.15
+
+    # ── Kernel Selection (Per-Asset) ──
+    # Pre-screens each kernel individually on the asset, then builds
+    # candidate subsets for the optimizer to choose from.
+    kernel_selection:
+      # Minimum composite score for a kernel to be considered
+      min_kernel_composite: 0.45
+      # Minimum zones a kernel must create to be considered
+      min_kernel_zones: 5
+      # Kernel count bounds in selected subsets
+      min_kernels: 2
+      max_kernels: 6
+      # How many candidate subsets to offer Optuna
+      max_candidate_subsets: 5
+      # Max bars to use for screening (tail slice, 0 = all data)
+      screening_bars: 5000
+      # Kernels always included (if they pass quality floor)
+      anchor_kernels: [pivot_hl, volume_poc]
+
+    # ── Staleness Detection ──
+    # Determines when optimization results are too old or drifted to trust.
+    # The router/scheduler queries this to decide when to re-optimize.
+    # These are GLOBAL DEFAULTS — override per-asset/per-tf via the cascade:
+    #   assets.{symbol}.{tf}.optimization.staleness.max_age_days: 3
+    staleness:
+      max_age_days: 7
+      wick_drift_threshold: 0.3
+      atr_drift_threshold: 0.5
+      hurst_drift_threshold: 0.15
+
+  # ── Structural Qualification ──
+  # Cross-sectional asset screening before optimization.
+  # All ranking is relative (quartile-based) — no absolute thresholds.
+  # Downstream consumers use confidence_weight to decide how much to trust SR zones.
+  qualification:
+    # Lookback for structural metric computation (bars)
+    screening_lookback_bars: 2000
+
+    # Structural metrics to compute and rank on
+    metrics:
+      poc_stability:
+        enabled: true
+        # Rolling window for POC coefficient of variation
+        rolling_window: 100
+        # Rank direction: "asc" = lower values are better (more stable)
+        rank_direction: asc
+        # Weight in composite rank (relative, auto-normalized)
+        weight: 1.0
+      wick_body_ratio:
+        enabled: true
+        # Number of recent bars to compute median wick/body ratio
+        lookback_bars: 1000
+        rank_direction: asc
+        weight: 1.0
+      quick_survival:
+        enabled: false               # disabled: uses default params, biased toward BTC-like assets
+        # Re-enable AFTER per-asset optimization exists and audit uses optimized params.
+        audit_bars: 500
+        rank_direction: desc
+        weight: 1.0
+
+    # Tiering: quartile boundaries (fractions of universe size)
+    # Q1 = top tier (best structural quality), Q4 = bottom
+    tiers:
+      boundaries: [0.25, 0.50, 0.75]
+      confidence_weights: [1.0, 0.7, 0.4, 0.15]
+      optimization_trials: [150, 100, 50, 0]
+
+    # OOS validation (overfit detection, NOT asset filtering)
+    validation:
+      # Train-vs-val score retention ratio
+      min_retention_ratio: 0.85
+
+  # ── Rule-Derived Formula Coefficients ──
+  # These control how rule-derived params are computed from AssetCharacteristics.
+  # The formulas live in RuleDerivedParamsCalculator; these are the knobs.
+  rule_derived:
+    pivot:
+      base_multiplier: 8
+      n1_min: 5
+      n1_max: 20
+      n2_ratio: 0.7
+      n2_min: 4
+      n2_max: 15
+
+    fractal:
+      period_multiplier: 2
+      buffer_atr_fraction: 0.1
+
+    breakout:
+      base_multiplier: 3
+      confirm_min: 2
+      confirm_max: 8
+      false_breakout_multiplier: 2
+
+    zone_width:
+      base_atr: 1.5
+      hurst_sensitivity: 0.5
+      atr_min: 1.0
+      atr_max: 4.0
+      pct_multiplier: 2.0
+      pct_min: 1.0
+      pct_max: 5.0
+
+    # ── Temporal Adaptation (Inactivity) ──
+    # Timeframe-normalized inactivity decay.  All base values are per-hour,
+    # then scaled to per-bar via tf_minutes so the calendar-time decay curve
+    # is identical across timeframes.
+    # Formulas:
+    #   inactivity_threshold = base_inactivity_hours × (60 / tf_minutes)
+    #   inactivity_decay     = 1 - (1 - base_decay_per_hour) ^ (tf_minutes / 60)
+    # Example outputs (with default coefficients):
+    #   15m → threshold=672 bars (168h), decay=0.002/bar
+    #    1h → threshold=168 bars (168h), decay=0.008/bar
+    #    4h → threshold=42 bars  (168h), decay=0.032/bar
+    #    1d → threshold=7 bars   (168h), decay=0.179/bar
+    inactivity:
+      base_inactivity_hours: 168.0       # hours before inactivity decay activates (7 days)
+      base_decay_per_hour: 0.008         # hourly decay rate → compounded per bar
+      min_inactivity_bars: 10            # floor for very high timeframes
+      max_inactivity_bars: 1000          # ceiling for very low timeframes
+
+    max_zones:
+      base_multiplier: 10
+      min: 5
+      max: 30
+
+    volume_spike:
+      kurtosis_divisor: 10
+      floor: 1.3
+      ceiling: 2.5
+
+    hurst_fallback:
+      fallback_value: 0.5
+      min_confidence: 0.6
+
+    # ── Wick Adaptation ──
+    # Adapts lifecycle thresholds to asset wick noise.
+    # Higher wick_body_ratio → wider breakout/touch thresholds → zones tolerate wicks.
+    # Formulas:
+    #   breakout_atr = base_breakout + breakout_scaling × max(0, wick_ratio - neutral_wick)
+    #   touch_prox   = base_touch   + touch_scaling   × max(0, wick_ratio - neutral_wick)
+    #   recovery     = base_recovery + round(recovery_scaling × max(0, wick_ratio - neutral_wick))
+    wick_adaptation:
+      neutral_wick: 1.0               # wick ratio at which no adaptation occurs
+      base_breakout_atr: 0.3          # breakout_atr_threshold for neutral wick
+      breakout_scaling: 0.3           # increase per unit wick excess
+      base_touch_proximity_atr: 0.1   # touch_proximity_atr for neutral wick
+      touch_scaling: 0.15             # increase per unit wick excess
+      base_recovery_bars: 6           # false_breakout_recovery_bars for neutral wick
+      recovery_scaling: 4.0           # additional bars per unit wick excess
+
+# ── Tier 2: Per-Timeframe Overrides ──
+# Overlay onto sr.* for a specific timeframe.
+# per_tf:
+#   1h:
+#     lifecycle:
+#       age_lambda: 0.003
+#     kernels:
+#       pivot_hl:
+#         historical_depth: 300
+#   4h:
+#     aggregation:
+#       confluence_bonus_per_tf: 0.20
+
+# ── Tier 2: Global Per-Timeframe Overrides ──
+per_tf:
+  30m:
+    kernels:
+      tpo_value_area:
+        tpo_window_bars: 240            # maintain a 5-day rolling horizon on 30m bars
+  1h:
+    kernels:
+      tpo_value_area:
+        tpo_window_bars: 120
+
+# ── Tier 3+4: Per-Asset Overrides ──
+# assets.{symbol}.defaults.* overlays sr.* for all TFs of that asset.
+# assets.{symbol}.{tf}.* overlays further for a specific TF.
+# Use only placement-approved per-asset and asset+TF overrides here.
+assets:
+#   GENERIC_ASSET:
+#     defaults:
+#       pipeline:
+#         enabled_kernels: [pivot_hl, volume_poc, fair_value_gap]
+#     1h:
+#       kernels:
+#         fair_value_gap:
+#           gap_min_atr: 0.6T
+  BTCUSDT:
+    1h:
+      pipeline:
+        enabled_kernels: [pivot_hl, volume_poc, fair_value_gap, order_block, 
+            regression_band, liquidity_sweep]
+        merge_threshold_pct_atr: 0.4       # tuned: was 0.25 (6 kernels need wider merge)
+        min_emit_strength: 0.174237946530771
+        max_new_zones_per_bar: 3
+      lifecycle:
+        min_strength: 0.5                  # tuned: was 0.3
+        dedup_proximity_atr: 1.0           # tuned: plateau 1.0-1.2
+        auto_promote_kernel_agreement: 3   # tuned: majority vote with 6 kernels
+        max_active_zones: 10               # tuned: cap active zone count
+        age_lambda: 0.0027200012117510036
+
+      kernels:
+        volume_poc:
+          hvn_prominence: 0.20875123318354388
+        fair_value_gap:
+          gap_min_atr: 0.4784550803569849
+          fill_threshold: 0.6003188195997762
+          filled_penalty_multiplier: 0.38138448672123615
+        order_block:
+          displacement_atr: 1.2720038411689623
+          imbalance_ratio: 0.6949064911636033
+        regression_band:
+          band_width_sigma: 2.547780322675032
+        liquidity_sweep:
+          sweep_lookback: 54
+          max_pierce_atr: 0.5103076982876876
+      ensemble:
+        structural_vs_micro_ratio: 0.49113192295579716
+      cross_asset:
+        sector_cluster_eps_atr: 0.6602076404294848
+    4h:
+      pipeline:
+        min_emit_strength: 0.399866935794464
+        max_new_zones_per_bar: 2
+      kernels:
+        volume_poc:
+          hvn_prominence: 0.10060737111640544
+        fair_value_gap:
+          gap_min_atr: 0.36100416741490093
+          fill_threshold: 0.36075474319710044
+          filled_penalty_multiplier: 0.40687426009438893
+        order_block:
+          displacement_atr: 1.3751097997316235
+          imbalance_ratio: 0.5518764370845031
+        regression_band:
+          band_width_sigma: 2.7192027676392736
+        liquidity_sweep:
+          sweep_lookback: 31
+          max_pierce_atr: 0.5606872940107875
+      ensemble:
+        structural_vs_micro_ratio: 0.5285557307932972
+      lifecycle:
+        age_lambda: 0.002690016430102716
+      cross_asset:
+        sector_cluster_eps_atr: 0.8996812193207756
+    1d:
+      ensemble:
+        structural_vs_micro_ratio: 0.4627073485641198
+      lifecycle:
+        age_lambda: 0.002613493586661027
+      cross_asset:
+        sector_cluster_eps_atr: 0.7281439133121241
+      kernels:
+        volume_poc:
+          hvn_prominence: 0.12175332087537886
+        fair_value_gap:
+          gap_min_atr: 0.7496561012102263
+          fill_threshold: 0.3736834337371269
+          filled_penalty_multiplier: 0.33202190791867714
+        order_block:
+          displacement_atr: 1.2843666258786137
+          imbalance_ratio: 0.6788568290412396
+        regression_band:
+          band_width_sigma: 2.4862414644307647
+        liquidity_sweep:
+          sweep_lookback: 47
+          max_pierce_atr: 0.5738685723793336
+      pipeline:
+        min_emit_strength: 0.3835435567957089
+        max_new_zones_per_bar: 3
+  ETHUSDT:
+    1h:
+      pipeline:
+        enabled_kernels:
+        - anchored_vwap
+        - tpo_value_area
+        - pivot_hl
+        - volume_poc
+        min_emit_strength: 0.25
+        max_new_zones_per_bar: 3
+        merge_threshold_pct_atr: 0.357271517635868
+      ensemble:
+        structural_vs_micro_ratio: 0.6081106602001054
+      lifecycle:
+        max_active_zones: 10
+        age_lambda: 0.0018119890406724053
+        min_strength: 0.26240745617697464
+        auto_promote_kernel_agreement: 1
+        dedup_proximity_atr: 0.749448142616835
+      cross_asset:
+        sector_cluster_eps_atr: 0.5061695553391381
+      kernels:
+        volume_poc:
+          hvn_prominence: 0.14545624180177516
+        fair_value_gap:
+          gap_min_atr: 0.49907652291231575
+          fill_threshold: 0.6098528437324806
+          filled_penalty_multiplier: 0.7349549260809971
+        order_block:
+          displacement_atr: 1.1997472741962645
+          imbalance_ratio: 0.5594560120609829
+        regression_band:
+          band_width_sigma: 2.2363746157149915
+        liquidity_sweep:
+          sweep_lookback: 45
+          max_pierce_atr: 0.6075750684846087
+        anchored_vwap:
+          volume_spike_multiplier: 2.96398788362281
+        tpo_value_area:
+          tpo_value_area_pct: 0.7496646210492591
+    4h:
+      ensemble:
+        structural_vs_micro_ratio: 0.4806012959216669
+      lifecycle:
+        age_lambda: 0.00275511672409856
+        min_strength: 0.3403837622530643
+        auto_promote_kernel_agreement: 1
+        dedup_proximity_atr: 1.3867150833534838
+      pipeline:
+        merge_threshold_pct_atr: 0.3709957493615455
+        min_emit_strength: 0.25
+        max_new_zones_per_bar: 3
+        enabled_kernels:
+        - volume_poc
+        - pivot_hl
+      cross_asset:
+        sector_cluster_eps_atr: 0.6245786013315768
+      kernels:
+        anchored_vwap:
+          volume_spike_multiplier: 2.3432522001193514
+        volume_poc:
+          hvn_prominence: 0.28677035430730663
+        fair_value_gap:
+          gap_min_atr: 0.39093832366914166
+          fill_threshold: 0.593818211771419
+          filled_penalty_multiplier: 0.6899915825498883
+        order_block:
+          displacement_atr: 1.0384223399399863
+          imbalance_ratio: 0.6602008273844575
+        regression_band:
+          band_width_sigma: 2.238889702928821
+        liquidity_sweep:
+          sweep_lookback: 35
+          max_pierce_atr: 0.6408430443392135
+        tpo_value_area:
+          tpo_value_area_pct: 0.7106289368121658

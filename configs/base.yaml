@@ -2,6 +2,123 @@ logging:
   level: INFO
   console_format: json
 
+conductor:
+  runtime:
+    plans_dir: plans
+    conductor_dir: .conductor
+    squad_db: .squad/messages.db
+    squad_binary: squad
+    log_level: INFO
+    default_local_roles:
+      - orchestrator
+      - researcher
+      - architect
+      - coder
+      - reviewer
+    default_remote_roles:
+      - remote_planner
+      - remote_reviewer
+      - remote_approval
+    agent_commands:
+      orchestrator: [.venv/bin/python, conductor/scripts/opencode_wrapper.py]
+      researcher: [.venv/bin/python, conductor/scripts/opencode_wrapper.py]
+      architect: [.venv/bin/python, conductor/scripts/opencode_wrapper.py]
+      coder: [.venv/bin/python, conductor/scripts/codex_wrapper.py]
+      reviewer: [.venv/bin/python, conductor/scripts/opencode_wrapper.py]
+      approval: [stub]
+  workflow:
+    role_for_stage:
+      intake: orchestrator
+      research: researcher
+      architect: architect
+      code: coder
+      review: reviewer
+      approval: approval
+    transitions:
+      next_stage:
+        intake: research
+        research: architect
+        architect: code
+        code: review
+        review: approval
+        approval: done
+        done: done
+      gate_stage_for:
+        architect: human_ready
+        review: human_review
+      gate_target:
+        human_ready: code
+        human_review: approval
+      retry_stage:
+        review: code
+        approval: architect
+        code: architect
+      retry_stage_for_gate:
+        human_ready: architect
+        human_review: code
+    stub_stage_transitions:
+      architect: code
+      coder: review
+      reviewer: approval
+      approval: done
+  remote:
+    poll_seconds: 30
+    timeout_seconds: 86400
+    roles:
+      - remote_planner
+      - remote_reviewer
+      - remote_approval
+  human_gates:
+    before_code: true
+    before_approval: true
+    auto_advance_low_risk_architect_pass: false
+    auto_advance_low_risk_review_pass: false
+    force_human_if_changed_paths:
+      - src/libs/execution
+      - src/libs/risk
+      - src/libs/order
+      - src/libs/models/regime
+      - src/libs/models/regime_v2
+      - src/libs/models/regime_prob
+      - src/libs/optimizer
+    force_human_if_keywords:
+      - live
+      - order
+      - position_size
+      - leverage
+      - risk
+      - promotion
+      - optimizer
+      - walk_forward
+      - oos
+      - lookahead
+      - leakage
+  timeouts:
+    queued_timeout_seconds: 300
+    ack_timeout_seconds: 600
+    soft_timeout_seconds: 1800
+    hard_timeout_seconds: 3600
+    remote_timeout_seconds: 86400
+    checkpoint_grace_seconds: 300
+    max_stall_count: 2
+    max_retry_count: 2
+    stage_timeouts:
+      INTAKE:
+        soft_timeout_seconds: 900
+        hard_timeout_seconds: 1800
+      ARCHITECT:
+        soft_timeout_seconds: 1800
+        hard_timeout_seconds: 3600
+      CODE:
+        soft_timeout_seconds: 3600
+        hard_timeout_seconds: 7200
+      REVIEW:
+        soft_timeout_seconds: 1800
+        hard_timeout_seconds: 3600
+      APPROVAL:
+        soft_timeout_seconds: 86400
+        hard_timeout_seconds: null
+
 ingestion:
   credentials:
     api_key: ""

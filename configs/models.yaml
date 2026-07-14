@@ -430,6 +430,8 @@ feature_producers:
           RegimeV2:
             enabled: false
             params: {}
+          TrendlineFamilyShadow:
+            enabled: false
     BTCUSDT:
       timeframes:
         4h:

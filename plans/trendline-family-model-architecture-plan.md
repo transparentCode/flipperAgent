@@ -324,10 +324,12 @@ src/libs/models/trendline_family/
 Tests:
 
 ```text
-src/libs/models/trendline_family/tests/
+tests/models/trendline_family/
     test_contracts.py
     test_config_loader.py
     test_config_resolver.py
+    test_repository.py
+    test_import_boundaries.py
     test_pivots.py
     test_fitting.py
     test_provider.py
@@ -338,6 +340,8 @@ src/libs/models/trendline_family/tests/
     test_features.py
     test_api.py
 ```
+
+Keep model tests under the repository's top-level `tests/` tree so normal root `pytest` collection and CI include every phase automatically.
 
 External configuration:
 
@@ -1974,10 +1978,11 @@ configs/trendline_family.yaml
 Tests:
 
 ```text
-src/libs/models/trendline_family/tests/test_contracts.py
-src/libs/models/trendline_family/tests/test_config_loader.py
-src/libs/models/trendline_family/tests/test_config_resolver.py
-src/libs/models/trendline_family/tests/test_repository.py
+tests/models/trendline_family/test_contracts.py
+tests/models/trendline_family/test_config_loader.py
+tests/models/trendline_family/test_config_resolver.py
+tests/models/trendline_family/test_repository.py
+tests/models/trendline_family/test_import_boundaries.py
 ```
 
 Do not copy candidate-generation code or implement tracking in the same initial change.

@@ -1,0 +1,44 @@
+{
+  "pid": 34248,
+  "assets": [
+    "ETHUSDT"
+  ],
+  "timeframes": [
+    "1h"
+  ],
+  "start_time": "2026-05-21T22:57:57.189186+00:00",
+  "last_update": "2026-05-22T01:56:38.547266+00:00",
+  "status": "completed",
+  "stage": "done",
+  "stage1_trial_current": 30,
+  "stage1_n_trials_target": 30,
+  "stage1_best_score": 0.4978313626758204,
+  "stage1_best_params": {
+    "lifecycle.dedup_proximity_atr": 0.749448142616835,
+    "pipeline.merge_threshold_pct_atr": 0.357271517635868,
+    "kernels.anchored_vwap.volume_spike_multiplier": 2.96398788362281,
+    "kernels.tpo_value_area.tpo_value_area_pct": 0.7496646210492591,
+    "lifecycle.min_strength": 0.26240745617697464,
+    "lifecycle.age_lambda": 0.0018119890406724053,
+    "kernels.order_block.imbalance_ratio": 0.5594560120609829,
+    "kernels.fair_value_gap.fill_threshold": 0.6098528437324806,
+    "kernels.fair_value_gap.gap_min_atr": 0.49907652291231575,
+    "kernels.order_block.displacement_atr": 1.1997472741962645,
+    "lifecycle.auto_promote_kernel_agreement": 1,
+    "kernels.fair_value_gap.filled_penalty_multiplier": 0.7349549260809971,
+    "ensemble.structural_vs_micro_ratio": 0.6081106602001054,
+    "cross_asset.sector_cluster_eps_atr": 0.5061695553391381,
+    "kernels.volume_poc.hvn_prominence": 0.14545624180177516,
+    "kernels.regression_band.band_width_sigma": 2.2363746157149915,
+    "kernels.liquidity_sweep.sweep_lookback": 45,
+    "kernels.liquidity_sweep.max_pierce_atr": 0.6075750684846087
+  },
+  "stage2_asset_current": null,
+  "stage2_tf_current": null,
+  "stage2_assets_completed": 1,
+  "stage2_assets_total": 1,
+  "stage2_n_trials_target": 40,
+  "stage2_trial_current": 40,
+  "stage2_start_time": "2026-05-21T22:58:33.204515+00:00",
+  "stage2_best_score": 0.6039667362107685
+}

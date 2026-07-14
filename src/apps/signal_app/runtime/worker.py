@@ -493,6 +493,21 @@ class SignalRuntimeWorker(BaseStreamConsumer):
         )
         if self.pipeline.regime_features is not None:
             features = await self.pipeline.regime_features.enrich(features)
+            if projected.closed:
+                # Active RegimeV2 is already evaluated for this vector. Advance the
+                # confirmed family history now so its snapshot belongs to this close.
+                self.pipeline.regime_features.append_bar(
+                    {
+                        "open": projected_candle.open,
+                        "high": projected_candle.high,
+                        "low": projected_candle.low,
+                        "close": projected_candle.close,
+                        "volume": projected_candle.volume,
+                        "taker_buy_base": projected_candle.taker_buy_base,
+                    },
+                    timestamp=projected_candle.timestamp,
+                )
+                features = self.pipeline.regime_features.refresh_trendline_family_shadow(features)
         feature_vector, price_update = self.pipeline.build_payloads(
             asset=self.asset,
             timeframe=self.timeframe,
@@ -642,18 +657,6 @@ class SignalRuntimeWorker(BaseStreamConsumer):
             self._projection_history[-1] = projected.bar
         else:
             self._projection_history.append(projected.bar)
-        if self.pipeline.regime_features is not None:
-            projected_candle = self._projected_candle_from_projection(projected)
-            self.pipeline.regime_features.append_bar(
-                {
-                    "open": projected_candle.open,
-                    "high": projected_candle.high,
-                    "low": projected_candle.low,
-                    "close": projected_candle.close,
-                    "volume": projected_candle.volume,
-                    "taker_buy_base": projected_candle.taker_buy_base,
-                }
-            )
         self.raw_indicators.prime(list(self._projection_history))
 
     def _bootstrap_last_processed_ts(self, candle: StreamOHLCVPayload, feature_vector: Any) -> int:

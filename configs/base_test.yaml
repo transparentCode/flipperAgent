@@ -1,0 +1,58 @@
+conductor:
+  runtime:
+    mode: local-only          # no remote devspace agent
+    default_local_roles: [architect, coder, reviewer, approval]
+    agent_commands:
+      orchestrator: [stub]
+      researcher: [stub]
+      architect: [stub]
+      coder: [stub]
+      reviewer: [stub]
+      approval: [stub]
+  workflow:
+    role_for_stage:
+      intake: orchestrator
+      research: researcher
+      architect: architect
+      code: coder
+      review: reviewer
+      approval: approval
+    transitions:
+      next_stage:
+        intake: research
+        research: architect
+        architect: code
+        code: review
+        review: approval
+        approval: done
+        done: done
+      gate_stage_for:
+        architect: human_ready
+        review: human_review
+      gate_target:
+        human_ready: code
+        human_review: approval
+      retry_stage:
+        review: code
+        approval: architect
+        code: architect
+      retry_stage_for_gate:
+        human_ready: architect
+        human_review: code
+    stub_stage_transitions:
+      architect: code
+      coder: review
+      reviewer: approval
+      approval: done
+  remote:
+    enabled: false
+  human_gates:
+    before_code: true
+    before_approval: true
+    auto_advance_low_risk_architect_pass: false
+    auto_advance_low_risk_review_pass: false
+  timeouts:
+    soft_timeout_seconds: 10
+    hard_timeout_seconds: 20
+    max_retry_count: 1
+    max_stall_count: 1
