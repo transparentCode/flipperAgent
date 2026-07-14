@@ -482,10 +482,10 @@ def test_collections_are_stored_as_tuples() -> None:
         config_hash=_config_hash(),
         last_processed_bar="bar-1",
         zones=[record],
-        recent_bars=(),
+        recent_bars=(_closed_bar(bar_id="bar-1"),),
     )
     assert isinstance(state.zones, tuple)
-    assert state.recent_bars == ()
+    assert isinstance(state.recent_bars, tuple)
 
     snapshot = SRSnapshot(
         schema_version="1.0",
@@ -634,7 +634,7 @@ def test_state_orders_zones_canonically() -> None:
         config_hash=_config_hash(),
         last_processed_bar="bar-1",
         zones=[record_high, record_low],
-        recent_bars=(),
+        recent_bars=(_closed_bar(bar_id="bar-1"),),
     )
     assert state.zones[0] == record_high
     assert state.zones[1] == record_low

@@ -162,13 +162,25 @@ def _state(
     zones: tuple[ZoneRecord, ...] = (),
     state_key: SRStateKey | None = None,
     config_hash: str | None = None,
-    last_processed_bar: str = "seed",
+    last_processed_bar: str | None = None,
     recent_bars: tuple[ClosedBar, ...] = (),
 ) -> SRState:
+    state_key = state_key or _key(
+        symbol=config.asset,
+        timeframe=config.timeframe,
+    )
+    if not recent_bars and (zones or last_processed_bar is not None):
+        last_processed_bar = last_processed_bar or "preexisting-bar"
+        recent_bars = (
+            _bar(
+                state_key,
+                bar_id=last_processed_bar,
+                when=_T0 - timedelta(minutes=1),
+            ),
+        )
     return SRState(
         schema_version="1.0",
-        state_key=state_key
-        or _key(symbol=config.asset, timeframe=config.timeframe),
+        state_key=state_key,
         config_hash=config_hash or config.resolved_config_hash,
         last_processed_bar=last_processed_bar,
         zones=zones,

@@ -7,6 +7,7 @@ from .contracts import (
     ClosedBar,
     SREvent,
     SREventType,
+    SR_SCHEMA_VERSION,
     SRState,
     SRStateKey,
     SRSnapshot,
@@ -27,13 +28,16 @@ from .identity import (
     hash_zone_definition,
     require_utc,
 )
+from .factory import create_initial_state
 
 __all__ = [
     "CandidateLevel",
     "ClosedBar",
     "ContractValidationError",
+    "create_initial_state",
     "SREvent",
     "SREventType",
+    "SR_SCHEMA_VERSION",
     "SRState",
     "SRStateKey",
     "SRSnapshot",

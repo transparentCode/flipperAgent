@@ -183,7 +183,10 @@ class SREngine:
             for record in previous_state.zones
             if record.runtime.status not in _TERMINAL_STATUSES
         }
-        if closed_bar.bar_id == previous_state.last_processed_bar:
+        if (
+            previous_state.last_processed_bar is not None
+            and closed_bar.bar_id == previous_state.last_processed_bar
+        ):
             raise ContractValidationError(
                 "closed_bar.bar_id duplicates previous_state.last_processed_bar"
             )
