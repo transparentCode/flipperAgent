@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { ZoneRenderer, zoneDetail, zoneVisibleAt } from '../src/zone_primitive.js';
+import {
+  ZonePrimitive,
+  ZoneRenderer,
+  zoneDetail,
+  zoneVisibleAt,
+} from '../src/zone_primitive.js';
 
 const zone = {
   zone_id: 'zone-1',
@@ -46,6 +51,38 @@ test('hover detail contains only payload fields', () => {
     touch_count: 2,
     fakeout_count: 1,
     pending_count: 0,
+  });
+});
+
+test('hitTest returns the Lightweight Charts primitive API shape', () => {
+  const primitive = new ZonePrimitive({
+    zones: [{ ...zone, render_kind: 'LINE' }],
+    viewer: { show_terminal_by_default: false },
+  });
+  primitive.attached({
+    chart: {
+      timeScale() {
+        return {
+          timeToCoordinate(value) {
+            return value === seconds(zone.visible_from) ? 10 : 200;
+          },
+          width() { return 640; },
+        };
+      },
+    },
+    series: {
+      priceToCoordinate(value) {
+        return value === zone.center ? 150 : null;
+      },
+    },
+    requestUpdate() {},
+  });
+
+  assert.deepEqual(primitive.hitTest(20, 150), {
+    externalId: 'zone-1',
+    zOrder: 'bottom',
+    itemType: 'primitive',
+    detail: zoneDetail(zone),
   });
 });
 

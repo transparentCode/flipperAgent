@@ -155,7 +155,14 @@ export class ZonePrimitive {
           const upper = this.series.priceToCoordinate(zone.upper_bound);
           return lower !== null && upper !== null && y >= Math.min(lower, upper) && y <= Math.max(lower, upper);
         })();
-      if (inX && inY) return { externalId: zone.zone_id, zOrder: 0, detail: zoneDetail(zone) };
+      if (inX && inY) {
+        return {
+          externalId: zone.zone_id,
+          zOrder: 'bottom',
+          itemType: 'primitive',
+          detail: zoneDetail(zone),
+        };
+      }
     }
     return null;
   }
