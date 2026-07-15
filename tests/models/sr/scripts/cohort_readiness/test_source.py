@@ -44,6 +44,14 @@ def test_three_provider_calls_are_bounded_and_canonical(cohort_config, tao_sourc
     assert [source.provider_calls for source in sources] == [1, 1, 1]
 
 
+def test_documented_binance_taker_column_is_ignored_after_required_fields_validate(cohort_config, tao_source, resolved_configs):
+    _, _, hashes = resolved_configs
+    frame = frame_for_asset(tao_source, "BTCUSDT")
+    frame["taker_buy_base_asset_volume"] = frame["volume"]
+    source = validate_provider_frame(frame, config=cohort_config, asset="BTCUSDT", expected_grid=tuple(bar.open_time for bar in tao_source.bars), resolved_sr_config_hash=hashes["BTCUSDT"][0], resolved_input_hash=hashes["BTCUSDT"][1])
+    assert source.row_count == 629
+
+
 @pytest.mark.parametrize(
     "change",
     [

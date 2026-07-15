@@ -104,8 +104,8 @@ def validate_provider_frame(
         raise ContractValidationError("provider result must be exactly pandas.DataFrame")
     if frame.empty or len(frame) != APPROVED_SOURCE_ROWS:
         raise ContractValidationError("provider result must contain exactly 629 rows")
-    if len(set(frame.columns)) != len(frame.columns) or tuple(frame.columns) != _REQUIRED_COLUMNS:
-        raise ContractValidationError("provider result columns must be exactly timestamp/open/high/low/close/volume")
+    if len(set(frame.columns)) != len(frame.columns) or not set(_REQUIRED_COLUMNS).issubset(set(frame.columns)):
+        raise ContractValidationError("provider result must contain unique timestamp/open/high/low/close/volume columns")
     if len(expected_grid) != APPROVED_SOURCE_ROWS:
         raise ContractValidationError("expected source grid must contain 629 timestamps")
     requested_since_ms, requested_until_ms = effective_provider_request_bounds(config)
