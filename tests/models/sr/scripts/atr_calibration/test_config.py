@@ -26,6 +26,10 @@ def test_real_calibration_yaml_is_exact_and_hashable(calibration_config):
         lambda value: value["atr"].__setitem__("candidate_periods", [7, 14, 10, 20, 28]),
         lambda value: value["atr"].__setitem__("candidate_periods", [7, 10, 14, 20, 20]),
         lambda value: value["atr"].__setitem__("baseline_period", True),
+        lambda value: value["outcome"].__setitem__("start_offset_bars", 2),
+        lambda value: value["outcome"].__setitem__("horizon_bars", 11),
+        lambda value: value["development"]["folds"][0].__setitem__("end", "2024-11-01T00:00:00.000Z"),
+        lambda value: value["selection_gates"].__setitem__("minimum_holdout_delta_reference_atr", 0.06),
         lambda value: value["holdout"].__setitem__("start", "2026-01-01T00:00:00+00:00"),
     ],
 )

@@ -14,14 +14,121 @@ from libs.models.sr.domain.contracts import ContractValidationError, ZoneSide
 from libs.models.sr.domain.identity import canonical_json, deterministic_hash
 
 from .config import CalibrationConfig
-from .metrics import CandidateMetrics, FirstTouchOutcome, WindowMetrics
+from .contracts import ATR_IMPLEMENTATION, ATR_IMPLEMENTATION_CONTRACT, CapsuleStage, SourceCapsule
+from .metrics import CandidateMetrics, FirstTouchOutcome, WINDOW_POLICY, WindowMetrics
 from .selection import (
     CandidateDecision,
     DevelopmentDisposition,
     GateResult,
     HoldoutEvaluation,
+    Recommendation,
     SelectionArtifact,
+    evaluate_holdout_metrics,
 )
+
+
+_SCHEMA_VERSION = "1.0"
+_WINDOW_POLICY = WINDOW_POLICY
+
+
+def _protocol_identity(
+    config: CalibrationConfig,
+    *,
+    resolved_sr_config_hash: str,
+    resolved_input_hash: str,
+) -> dict[str, Any]:
+    if resolved_sr_config_hash != config.expected_sr_config_hash:
+        raise ContractValidationError("resolved SR config hash is not bound to calibration config")
+    if resolved_input_hash != config.expected_input_hash:
+        raise ContractValidationError("resolved input hash is not bound to calibration config")
+    return {
+        "protocol_version": _SCHEMA_VERSION,
+        "window_policy": _WINDOW_POLICY,
+        "atr_contract": {
+            "method": config.atr_method,
+            "seed": config.atr_seed,
+            "implementation": ATR_IMPLEMENTATION,
+            "implementation_contract": ATR_IMPLEMENTATION_CONTRACT,
+        },
+        "candidate_periods": list(config.candidate_periods),
+        "baseline_period": config.baseline_period,
+        "common_start_period": config.common_start_period,
+        "evaluation_reference_period": config.evaluation_reference_period,
+        "outcome": {
+            "start_offset_bars": config.outcome_start_offset_bars,
+            "horizon_bars": config.outcome_horizon_bars,
+            "primary_metric": config.primary_metric,
+            "primary_location": config.primary_location,
+        },
+        "development_folds": [fold.to_payload() for fold in config.development_folds],
+        "holdout": {
+            "start": config.to_payload()["holdout"]["start"],
+            "end": config.to_payload()["holdout"]["end"],
+        },
+        "selection_gates": config.selection_gates.to_payload(),
+        "resolved_sr_config_hash": resolved_sr_config_hash,
+        "resolved_input_hash": resolved_input_hash,
+    }
+
+
+def _manifest_context(
+    config: CalibrationConfig,
+    *,
+    implementation_commit: str,
+    protocol: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "schema_version": _SCHEMA_VERSION,
+        "implementation_commit": implementation_commit,
+        "config_hash": config.config_hash,
+        "source_bundle_id": config.source_bundle_id,
+        "source_bars_sha256": config.source_bars_sha256,
+        "source_row_count": config.source_row_count,
+        "source_implementation_commit": config.source_implementation_commit,
+        **protocol,
+    }
+
+
+def _development_semantic(
+    config: CalibrationConfig,
+    *,
+    implementation_commit: str,
+    development_source_id: str,
+    selection_id: str,
+    protocol: dict[str, Any],
+    members: tuple[dict[str, Any], ...],
+) -> dict[str, Any]:
+    return {
+        **_manifest_context(config, implementation_commit=implementation_commit, protocol=protocol),
+        "stage": "development",
+        "development_source_id": development_source_id,
+        "selection_id": selection_id,
+        "members": list(members),
+    }
+
+
+def _holdout_semantic(
+    config: CalibrationConfig,
+    *,
+    implementation_commit: str,
+    selection_id: str,
+    development_bundle_id: str,
+    sealed_source_id: str,
+    recommendation: Recommendation,
+    holdout_id: str,
+    protocol: dict[str, Any],
+    members: tuple[dict[str, Any], ...],
+) -> dict[str, Any]:
+    return {
+        **_manifest_context(config, implementation_commit=implementation_commit, protocol=protocol),
+        "stage": "holdout",
+        "selection_id": selection_id,
+        "development_bundle_id": development_bundle_id,
+        "sealed_source_id": sealed_source_id,
+        "recommendation": recommendation.value,
+        "holdout_id": holdout_id,
+        "members": list(members),
+    }
 
 
 def _bytes(payload: Any) -> bytes:
@@ -117,11 +224,27 @@ def _validate_bundle(path: Path, *, expected_stage: str, expected_context: dict[
         raise ContractValidationError("artifact bundle identity mismatch")
     if manifest.get("stage") != expected_stage:
         raise ContractValidationError("artifact stage mismatch")
-    expected_semantic_keys = (
-        {"schema_version", "stage", "implementation_commit", "config_hash", "development_source_id", "selection_id", "members"}
-        if expected_stage == "development"
-        else {"schema_version", "stage", "implementation_commit", "config_hash", "selection_id", "development_bundle_id", "sealed_source_id", "recommendation", "members"}
-    )
+    if expected_stage == "development":
+        expected_semantic_keys = {
+            "schema_version", "stage", "implementation_commit", "config_hash",
+            "source_bundle_id", "source_bars_sha256", "source_row_count",
+            "source_implementation_commit", "development_source_id", "selection_id",
+            "protocol_version", "window_policy", "atr_contract", "candidate_periods",
+            "baseline_period", "common_start_period", "evaluation_reference_period",
+            "outcome", "development_folds", "holdout", "selection_gates",
+            "resolved_sr_config_hash", "resolved_input_hash", "members",
+        }
+    else:
+        expected_semantic_keys = {
+            "schema_version", "stage", "implementation_commit", "config_hash",
+            "source_bundle_id", "source_bars_sha256", "source_row_count",
+            "source_implementation_commit", "selection_id", "development_bundle_id",
+            "sealed_source_id", "recommendation", "holdout_id", "protocol_version",
+            "window_policy", "atr_contract", "candidate_periods", "baseline_period",
+            "common_start_period", "evaluation_reference_period", "outcome",
+            "development_folds", "holdout", "selection_gates",
+            "resolved_sr_config_hash", "resolved_input_hash", "members",
+        }
     expected_manifest_keys = expected_semantic_keys | {"bundle_id", "bundle_id_semantic_payload"}
     if set(semantic) != expected_semantic_keys or set(manifest) != expected_manifest_keys:
         raise ContractValidationError("artifact manifest schema mismatch")
@@ -137,7 +260,10 @@ def _validate_bundle(path: Path, *, expected_stage: str, expected_context: dict[
         name = member["name"]
         if name == "manifest.json" or type(name) is not str or "/" in name or "\\" in name or ".." in Path(name).parts:
             raise ContractValidationError("unsafe artifact member name")
-        data = (path / name).read_bytes()
+        member_path = path / name
+        if member_path.is_symlink():
+            raise ContractValidationError(f"artifact member must not be a symlink: {name}")
+        data = member_path.read_bytes()
         if _sha(data) != member["sha256"] or len(data) != member["byte_length"]:
             raise ContractValidationError(f"artifact member hash mismatch: {name}")
     return manifest
@@ -265,15 +391,48 @@ def selection_from_payload(payload: Any) -> SelectionArtifact:
     return selection
 
 
-def publish_development(selection: SelectionArtifact, config: CalibrationConfig, *, implementation_commit: str, development_source_id: str, output_root: Path) -> tuple[str, Path]:
+def publish_development(
+    selection: SelectionArtifact,
+    config: CalibrationConfig,
+    *,
+    implementation_commit: str,
+    development_source_id: str,
+    output_root: Path,
+    resolved_sr_config_hash: str | None = None,
+    resolved_input_hash: str | None = None,
+) -> tuple[str, Path]:
     if selection.implementation_commit != implementation_commit or selection.config_hash != config.config_hash or selection.development_source_id != development_source_id:
         raise ContractValidationError("selection identity does not match development publication")
-    protocol = {"schema_version": "1.0", "stage": "development", "config": config.to_payload(), "config_hash": config.config_hash, "implementation_commit": implementation_commit, "development_source_id": development_source_id}
-    metrics = {"schema_version": "1.0", "stage": "development", "candidate_metrics": [metric.to_payload() for metric in selection.candidate_metrics]}
+    protocol_identity = _protocol_identity(
+        config,
+        resolved_sr_config_hash=resolved_sr_config_hash or config.expected_sr_config_hash,
+        resolved_input_hash=resolved_input_hash or config.expected_input_hash,
+    )
+    protocol = {
+        "schema_version": _SCHEMA_VERSION,
+        "stage": "development",
+        "config": config.to_payload(),
+        "config_hash": config.config_hash,
+        "implementation_commit": implementation_commit,
+        "development_source_id": development_source_id,
+        "protocol": protocol_identity,
+    }
+    metrics = {
+        "schema_version": _SCHEMA_VERSION,
+        "stage": "development",
+        "candidate_metrics": [metric.to_payload() for metric in selection.candidate_metrics],
+    }
     selection_payload = selection.to_payload()
     raw_files = {"protocol.json": _bytes(protocol), "development_metrics.json": _bytes(metrics), "selection.json": _bytes(selection_payload)}
     members = tuple(_member_payload(name, raw_files[name]) for name in sorted(raw_files))
-    semantic = {"schema_version": "1.0", "stage": "development", "implementation_commit": implementation_commit, "config_hash": config.config_hash, "development_source_id": development_source_id, "selection_id": selection.selection_id}
+    semantic = _development_semantic(
+        config,
+        implementation_commit=implementation_commit,
+        development_source_id=development_source_id,
+        selection_id=selection.selection_id,
+        protocol=protocol_identity,
+        members=members,
+    )
     manifest = _manifest(semantic, members)
     manifest_bytes = _bytes(manifest)
     bundle_id = manifest["bundle_id"]
@@ -282,10 +441,86 @@ def publish_development(selection: SelectionArtifact, config: CalibrationConfig,
     return bundle_id, path
 
 
-def find_development_bundle(config: CalibrationConfig, *, output_root: Path, development_source_id: str, implementation_commit: str) -> tuple[SelectionArtifact, str, Path]:
+def _infer_repository_root(output_root: Path, config: CalibrationConfig) -> Path | None:
+    for candidate in (output_root.resolve(), *output_root.resolve().parents):
+        if (candidate / config.sr_config_path).is_file():
+            return candidate
+    return None
+
+
+def _resolve_validation_inputs(
+    config: CalibrationConfig,
+    *,
+    output_root: Path,
+    implementation_commit: str,
+    development: SourceCapsule | None,
+    resolved_config: Any | None,
+) -> tuple[SourceCapsule, Any]:
+    """Fill legacy validator call inputs without ever loading sealed data."""
+    root = _infer_repository_root(output_root, config)
+    if development is None:
+        if root is None:
+            raise ContractValidationError("development capsule is required for semantic validation")
+        from .source import load_published_development_capsule
+
+        development = load_published_development_capsule(
+            config,
+            output_root=output_root,
+            implementation_commit=implementation_commit,
+        )
+    if resolved_config is None:
+        if root is None:
+            raise ContractValidationError("resolved SR config is required for semantic validation")
+        from libs.models.sr.scripts.baseline_trial.config import load_resolved_sr_config
+
+        resolved_config = load_resolved_sr_config(
+            root / config.sr_config_path,
+            asset=config.symbol,
+            timeframe=config.timeframe,
+        )
+    if getattr(resolved_config, "resolved_config_hash", None) != config.expected_sr_config_hash:
+        raise ContractValidationError("resolved SR config is not the approved configuration")
+    if (
+        type(development) is not SourceCapsule
+        or development.stage is not CapsuleStage.DEVELOPMENT
+        or development.source_bundle_id != config.source_bundle_id
+        or development.source_bars_sha256 != config.source_bars_sha256
+        or development.implementation_commit != implementation_commit
+    ):
+        raise ContractValidationError("development capsule is not bound to the approved source")
+    return development, resolved_config
+
+
+def find_development_bundle(
+    config: CalibrationConfig,
+    *,
+    output_root: Path,
+    development_source_id: str,
+    implementation_commit: str,
+    development: SourceCapsule | None = None,
+    resolved_config: Any | None = None,
+) -> tuple[SelectionArtifact, str, Path]:
     root = output_root / "development"
     if not root.is_dir():
         raise ContractValidationError("development selection artifact is missing")
+    development, resolved_config = _resolve_validation_inputs(
+        config,
+        output_root=output_root,
+        implementation_commit=implementation_commit,
+        development=development,
+        resolved_config=resolved_config,
+    )
+    if development.capsule_id != development_source_id:
+        raise ContractValidationError("development source does not match the selection context")
+    protocol_identity = _protocol_identity(
+        config,
+        resolved_sr_config_hash=config.expected_sr_config_hash,
+        resolved_input_hash=config.expected_input_hash,
+    )
+    expected_context = {
+        **_manifest_context(config, implementation_commit=implementation_commit, protocol=protocol_identity),
+        "development_source_id": development_source_id,
+    }
     matches: list[tuple[SelectionArtifact, str, Path]] = []
     for path in sorted(root.iterdir(), key=lambda item: item.name):
         if not path.is_dir() or path.is_symlink():
@@ -302,32 +537,116 @@ def find_development_bundle(config: CalibrationConfig, *, output_root: Path, dev
             "development_source_id": development_source_id,
         }.items()):
             continue
-        manifest = _validate_bundle(path, expected_stage="development", expected_context={"implementation_commit": implementation_commit, "config_hash": config.config_hash, "development_source_id": development_source_id}, expected_members={"manifest.json", "protocol.json", "development_metrics.json", "selection.json"})
+        manifest = _validate_bundle(
+            path,
+            expected_stage="development",
+            expected_context=expected_context,
+            expected_members={"manifest.json", "protocol.json", "development_metrics.json", "selection.json"},
+        )
         selection = selection_from_payload(load_json(path / "selection.json"))
         if selection.selection_id != manifest.get("selection_id") or selection.implementation_commit != implementation_commit:
             raise ContractValidationError("development selection reference mismatch")
         protocol = load_json(path / "protocol.json")
-        if type(protocol) is not dict or set(protocol) != {"schema_version", "stage", "config", "config_hash", "implementation_commit", "development_source_id"} or protocol["stage"] != "development" or protocol["config"] != config.to_payload() or protocol["config_hash"] != config.config_hash or protocol["implementation_commit"] != implementation_commit or protocol["development_source_id"] != development_source_id:
+        expected_protocol = {
+            "schema_version": _SCHEMA_VERSION,
+            "stage": "development",
+            "config": config.to_payload(),
+            "config_hash": config.config_hash,
+            "implementation_commit": implementation_commit,
+            "development_source_id": development_source_id,
+            "protocol": protocol_identity,
+        }
+        if protocol != expected_protocol:
             raise ContractValidationError("development protocol member mismatch")
         metrics_payload = load_json(path / "development_metrics.json")
         expected_metrics = {"schema_version": "1.0", "stage": "development", "candidate_metrics": [metric.to_payload() for metric in selection.candidate_metrics]}
         if metrics_payload != expected_metrics:
             raise ContractValidationError("development metrics member mismatch")
+        from .candidates import replay_candidates
+        from .metrics import compute_candidate_metrics
+        from .selection import select_development
+
+        replays = replay_candidates(
+            development,
+            config.candidate_periods,
+            config=config,
+            resolved_config=resolved_config,
+        )
+        recomputed_metrics = tuple(
+            compute_candidate_metrics(replay, development, config=config)
+            for replay in replays
+        )
+        recomputed_selection = select_development(
+            recomputed_metrics,
+            config=config,
+            development_source_id=development_source_id,
+            implementation_commit=implementation_commit,
+        )
+        if selection.to_payload() != recomputed_selection.to_payload():
+            raise ContractValidationError("development selection semantics do not match the validated capsule")
         matches.append((selection, manifest["bundle_id"], path))
     if len(matches) != 1:
         raise ContractValidationError("expected exactly one matching development selection artifact")
     return matches[0]
 
 
-def publish_holdout(selection: SelectionArtifact, evaluation: HoldoutEvaluation, config: CalibrationConfig, *, implementation_commit: str, sealed_source_id: str, development_bundle_id: str, output_root: Path) -> tuple[str, Path]:
+def publish_holdout(
+    selection: SelectionArtifact,
+    evaluation: HoldoutEvaluation,
+    config: CalibrationConfig,
+    *,
+    implementation_commit: str,
+    sealed_source_id: str,
+    development_bundle_id: str,
+    output_root: Path,
+    resolved_sr_config_hash: str | None = None,
+    resolved_input_hash: str | None = None,
+) -> tuple[str, Path]:
     if selection.implementation_commit != implementation_commit or selection.config_hash != config.config_hash:
         raise ContractValidationError("holdout selection identity mismatch")
-    reference = {"schema_version": "1.0", "stage": "holdout", "selection_id": selection.selection_id, "development_bundle_id": development_bundle_id, "sealed_source_id": sealed_source_id, "implementation_commit": implementation_commit, "config_hash": config.config_hash}
-    metrics = {"schema_version": "1.0", "stage": "holdout", "selected_period": evaluation.selected_period, "baseline": None if evaluation.baseline_metrics is None else evaluation.baseline_metrics.to_payload(), "challenger": None if evaluation.challenger_metrics is None else evaluation.challenger_metrics.to_payload()}
-    recommendation = {"schema_version": "1.0", "stage": "holdout", "selected_period": evaluation.selected_period, "recommendation": evaluation.recommendation.value, "gates": [gate.to_payload() for gate in evaluation.gates], "holdout_id": evaluation.holdout_id}
+    protocol_identity = _protocol_identity(
+        config,
+        resolved_sr_config_hash=resolved_sr_config_hash or config.expected_sr_config_hash,
+        resolved_input_hash=resolved_input_hash or config.expected_input_hash,
+    )
+    reference = {
+        "schema_version": _SCHEMA_VERSION,
+        "stage": "holdout",
+        "selection_id": selection.selection_id,
+        "development_bundle_id": development_bundle_id,
+        "sealed_source_id": sealed_source_id,
+        "implementation_commit": implementation_commit,
+        "config_hash": config.config_hash,
+        "protocol": protocol_identity,
+    }
+    metrics = {
+        "schema_version": _SCHEMA_VERSION,
+        "stage": "holdout",
+        "selected_period": evaluation.selected_period,
+        "baseline": None if evaluation.baseline_metrics is None else evaluation.baseline_metrics.to_payload(),
+        "challenger": None if evaluation.challenger_metrics is None else evaluation.challenger_metrics.to_payload(),
+    }
+    recommendation = {
+        "schema_version": _SCHEMA_VERSION,
+        "stage": "holdout",
+        "selected_period": evaluation.selected_period,
+        "recommendation": evaluation.recommendation.value,
+        "gates": [gate.to_payload() for gate in evaluation.gates],
+        "holdout_id": evaluation.holdout_id,
+    }
     raw_files = {"selection_reference.json": _bytes(reference), "holdout_metrics.json": _bytes(metrics), "recommendation.json": _bytes(recommendation)}
     members = tuple(_member_payload(name, raw_files[name]) for name in sorted(raw_files))
-    semantic = {"schema_version": "1.0", "stage": "holdout", "implementation_commit": implementation_commit, "config_hash": config.config_hash, "selection_id": selection.selection_id, "development_bundle_id": development_bundle_id, "sealed_source_id": sealed_source_id, "recommendation": evaluation.recommendation.value}
+    semantic = _holdout_semantic(
+        config,
+        implementation_commit=implementation_commit,
+        selection_id=selection.selection_id,
+        development_bundle_id=development_bundle_id,
+        sealed_source_id=sealed_source_id,
+        recommendation=evaluation.recommendation,
+        holdout_id=evaluation.holdout_id,
+        protocol=protocol_identity,
+        members=members,
+    )
     manifest = _manifest(semantic, members)
     manifest_bytes = _bytes(manifest)
     bundle_id = manifest["bundle_id"]
@@ -336,10 +655,142 @@ def publish_holdout(selection: SelectionArtifact, evaluation: HoldoutEvaluation,
     return bundle_id, path
 
 
+def validate_holdout_bundle(
+    path: str | Path,
+    *,
+    config: CalibrationConfig,
+    selection: SelectionArtifact,
+    implementation_commit: str,
+    sealed_source_id: str,
+    development_bundle_id: str,
+    sealed: SourceCapsule | None = None,
+    resolved_config: Any | None = None,
+) -> HoldoutEvaluation:
+    """Validate holdout identity and recompute its semantics before use.
+
+    A rehashed metrics or recommendation member is not evidence: when a
+    challenger exists, the metrics are recomputed from the validated sealed
+    capsule.  The no-selection branch is validated without a sealed source.
+    """
+    if type(selection) is not SelectionArtifact:
+        raise ContractValidationError("holdout selection must be exactly SelectionArtifact")
+    if selection.implementation_commit != implementation_commit or selection.config_hash != config.config_hash:
+        raise ContractValidationError("holdout selection context mismatch")
+    if selection.selected_period is None and sealed_source_id != "not_opened":
+        raise ContractValidationError("no-selection holdout must not bind a sealed source")
+    if selection.selected_period is not None and sealed_source_id == "not_opened":
+        raise ContractValidationError("selected holdout must bind a sealed source")
+    protocol_identity = _protocol_identity(
+        config,
+        resolved_sr_config_hash=config.expected_sr_config_hash,
+        resolved_input_hash=config.expected_input_hash,
+    )
+    expected_context = {
+        **_manifest_context(config, implementation_commit=implementation_commit, protocol=protocol_identity),
+        "selection_id": selection.selection_id,
+        "development_bundle_id": development_bundle_id,
+        "sealed_source_id": sealed_source_id,
+    }
+    manifest = _validate_bundle(
+        Path(path),
+        expected_stage="holdout",
+        expected_context=expected_context,
+        expected_members={"manifest.json", "selection_reference.json", "holdout_metrics.json", "recommendation.json"},
+    )
+    if manifest.get("recommendation") not in {item.value for item in Recommendation}:
+        raise ContractValidationError("holdout manifest recommendation is invalid")
+    if type(manifest.get("holdout_id")) is not str:
+        raise ContractValidationError("holdout manifest must bind holdout_id")
+
+    reference = load_json(Path(path) / "selection_reference.json")
+    expected_reference = {
+        "schema_version": _SCHEMA_VERSION,
+        "stage": "holdout",
+        "selection_id": selection.selection_id,
+        "development_bundle_id": development_bundle_id,
+        "sealed_source_id": sealed_source_id,
+        "implementation_commit": implementation_commit,
+        "config_hash": config.config_hash,
+        "protocol": protocol_identity,
+    }
+    if reference != expected_reference:
+        raise ContractValidationError("holdout selection reference mismatch")
+
+    metrics_payload = load_json(Path(path) / "holdout_metrics.json")
+    expected_metric_keys = {"schema_version", "stage", "selected_period", "baseline", "challenger"}
+    if type(metrics_payload) is not dict or set(metrics_payload) != expected_metric_keys or metrics_payload["schema_version"] != _SCHEMA_VERSION or metrics_payload["stage"] != "holdout":
+        raise ContractValidationError("holdout metrics member schema mismatch")
+    baseline = None if metrics_payload["baseline"] is None else _parse_window(metrics_payload["baseline"])
+    challenger = None if metrics_payload["challenger"] is None else _parse_window(metrics_payload["challenger"])
+    if metrics_payload["selected_period"] != selection.selected_period:
+        raise ContractValidationError("holdout metric selected period mismatch")
+    if selection.selected_period is None and (baseline is not None or challenger is not None):
+        raise ContractValidationError("no-selection holdout cannot contain metrics")
+    if selection.selected_period is not None and (baseline is None or challenger is None):
+        raise ContractValidationError("selected holdout must contain baseline and challenger metrics")
+    if baseline is not None and baseline.name != "holdout":
+        raise ContractValidationError("holdout baseline metric name mismatch")
+    if challenger is not None and challenger.name != "holdout":
+        raise ContractValidationError("holdout challenger metric name mismatch")
+
+    recommendation_payload = load_json(Path(path) / "recommendation.json")
+    expected_recommendation_keys = {"schema_version", "stage", "selected_period", "recommendation", "gates", "holdout_id"}
+    if type(recommendation_payload) is not dict or set(recommendation_payload) != expected_recommendation_keys or recommendation_payload["schema_version"] != _SCHEMA_VERSION or recommendation_payload["stage"] != "holdout":
+        raise ContractValidationError("holdout recommendation member schema mismatch")
+    try:
+        recommendation = Recommendation(recommendation_payload["recommendation"])
+    except (TypeError, ValueError) as exc:
+        raise ContractValidationError("invalid holdout recommendation") from exc
+    gates_raw = recommendation_payload["gates"]
+    if type(gates_raw) is not list:
+        raise ContractValidationError("holdout gates must be a list")
+    gates = tuple(_parse_gate(item) for item in gates_raw)
+    loaded_evaluation = HoldoutEvaluation(
+        selected_period=recommendation_payload["selected_period"],
+        recommendation=recommendation,
+        baseline_metrics=baseline,
+        challenger_metrics=challenger,
+        gates=gates,
+    )
+    if recommendation_payload["holdout_id"] != loaded_evaluation.holdout_id or manifest["holdout_id"] != loaded_evaluation.holdout_id:
+        raise ContractValidationError("holdout evaluation content ID mismatch")
+
+    if selection.selected_period is None:
+        expected_evaluation = evaluate_holdout_metrics(selection, {}, config=config)
+    else:
+        if type(sealed) is not SourceCapsule or sealed.stage is not CapsuleStage.SEALED_HOLDOUT:
+            raise ContractValidationError("selected holdout validation requires the sealed source capsule")
+        if sealed.capsule_id != sealed_source_id:
+            raise ContractValidationError("sealed source identity does not match holdout reference")
+        if resolved_config is None or getattr(resolved_config, "resolved_config_hash", None) != config.expected_sr_config_hash:
+            raise ContractValidationError("selected holdout validation requires resolved SR config")
+        from .candidates import replay_candidates
+        from .metrics import compute_window_metrics
+
+        periods = (config.baseline_period, selection.selected_period)
+        replays = replay_candidates(sealed, periods, config=config, resolved_config=resolved_config)
+        holdout_metrics = {
+            replay.period: compute_window_metrics(
+                replay,
+                sealed,
+                config=config,
+                name="holdout",
+                start=config.holdout_start,
+                end=config.holdout_end,
+            )
+            for replay in replays
+        }
+        expected_evaluation = evaluate_holdout_metrics(selection, holdout_metrics, config=config)
+    if loaded_evaluation.to_payload() != expected_evaluation.to_payload():
+        raise ContractValidationError("holdout semantics do not match the validated inputs")
+    return loaded_evaluation
+
+
 __all__ = [
     "find_development_bundle",
     "load_json",
     "publish_development",
     "publish_holdout",
     "selection_from_payload",
+    "validate_holdout_bundle",
 ]

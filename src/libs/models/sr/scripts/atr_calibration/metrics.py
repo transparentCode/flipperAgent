@@ -14,6 +14,9 @@ from .config import CalibrationConfig
 from .contracts import CandidateReplay, SourceCapsule
 
 
+WINDOW_POLICY = "half_open_utc_daily"
+
+
 def _finite(value: float, *, field_name: str) -> float:
     try:
         result = float(value)
@@ -271,7 +274,9 @@ def compute_window_metrics(
         created = next((event for event in zone_events if event.event_type is SREventType.CREATED), None)
         if created is not None and start <= created.timestamp < end:
             created_in_window.add(zone_id)
-        if any(event.event_type in {SREventType.BREAK_CONFIRMED, SREventType.EXPIRED} and event.timestamp <= end for event in zone_events):
+        # Scoring windows are half-open: an event at ``end`` belongs to the
+        # following window and cannot terminate this window's cohort.
+        if any(event.event_type in {SREventType.BREAK_CONFIRMED, SREventType.EXPIRED} and event.timestamp < end for event in zone_events):
             terminal_by_end.add(zone_id)
         observations = observations_by_zone.get(zone_id, [])
         if not observations:
@@ -387,6 +392,7 @@ __all__ = [
     "CandidateMetrics",
     "FirstTouchOutcome",
     "WindowMetrics",
+    "WINDOW_POLICY",
     "compute_candidate_metrics",
     "compute_window_metrics",
     "median_absolute_deviation",

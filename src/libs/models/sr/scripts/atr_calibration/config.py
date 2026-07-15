@@ -9,6 +9,7 @@ import math
 import re
 from pathlib import Path, PurePath
 from typing import Any
+from types import MappingProxyType
 
 from libs.models.sr.adapters.yaml_config import load_sr_config
 from libs.models.sr.domain.contracts import ContractValidationError
@@ -26,6 +27,30 @@ EXPECTED_SR_CONFIG_HASH = "cb9b4143921de95c5423899a5655fef0b186cf1f8e9a84c69427b
 EXPECTED_INPUT_HASH = "5ece92803341696df06efa0dba5d7a44ee0f5451aa3ce6555d3a4ef6c59fab6d"
 EXPECTED_SOURCE_ROWS = 811
 FOLD_NAMES = ("2024_q3", "2024_q4", "2025_q1", "2025_q2", "2025_q3", "2025_q4")
+APPROVED_FOLD_BOUNDARIES = (
+    ("2024_q3", datetime(2024, 7, 1, tzinfo=timezone.utc), datetime(2024, 10, 1, tzinfo=timezone.utc)),
+    ("2024_q4", datetime(2024, 10, 1, tzinfo=timezone.utc), datetime(2025, 1, 1, tzinfo=timezone.utc)),
+    ("2025_q1", datetime(2025, 1, 1, tzinfo=timezone.utc), datetime(2025, 4, 1, tzinfo=timezone.utc)),
+    ("2025_q2", datetime(2025, 4, 1, tzinfo=timezone.utc), datetime(2025, 7, 1, tzinfo=timezone.utc)),
+    ("2025_q3", datetime(2025, 7, 1, tzinfo=timezone.utc), datetime(2025, 10, 1, tzinfo=timezone.utc)),
+    ("2025_q4", datetime(2025, 10, 1, tzinfo=timezone.utc), datetime(2026, 1, 1, tzinfo=timezone.utc)),
+)
+APPROVED_SELECTION_GATES = MappingProxyType(
+    {
+        "minimum_completed_first_touches_per_fold": 4,
+        "minimum_eligible_development_folds": 4,
+        "minimum_development_completed_first_touches": 24,
+        "minimum_holdout_completed_first_touches": 8,
+        "minimum_development_fold_win_fraction": 0.75,
+        "minimum_development_pooled_delta_reference_atr": 0.10,
+        "minimum_holdout_delta_reference_atr": 0.05,
+        "maximum_invalidation_rate_delta": 0.05,
+        "minimum_zone_creation_density_ratio": 0.50,
+        "maximum_zone_creation_density_ratio": 2.00,
+        "maximum_churn_rate_delta": 0.10,
+        "maximum_right_censoring_rate_delta": 0.10,
+    }
+)
 _HASH_RE = re.compile(r"[0-9a-f]{64}")
 _COMMIT_RE = re.compile(r"[0-9a-f]{40,64}")
 
@@ -245,12 +270,16 @@ class CalibrationConfig:
             raise ContractValidationError("baseline/reference/common ATR periods are inconsistent")
         object.__setattr__(self, "outcome_start_offset_bars", _integer(self.outcome_start_offset_bars, path="outcome.start_offset_bars", minimum=1))
         object.__setattr__(self, "outcome_horizon_bars", _integer(self.outcome_horizon_bars, path="outcome.horizon_bars", minimum=1))
+        if self.outcome_start_offset_bars != 1 or self.outcome_horizon_bars != 10:
+            raise ContractValidationError("outcome offset/horizon do not match the approved protocol")
         if _string(self.primary_metric, path="outcome.primary_metric") != "median_first_touch_quality_reference_atr" or _string(self.primary_location, path="outcome.primary_location") != "median":
             raise ContractValidationError("outcome metric/location do not match the approved protocol")
         if type(self.development_folds) is not tuple or len(self.development_folds) != len(FOLD_NAMES):
             raise ContractValidationError("exactly six development folds are required")
         if tuple(fold.name for fold in self.development_folds) != FOLD_NAMES:
             raise ContractValidationError("development fold names/order do not match protocol")
+        if tuple((fold.name, fold.start, fold.end) for fold in self.development_folds) != APPROVED_FOLD_BOUNDARIES:
+            raise ContractValidationError("development fold boundaries do not match the approved protocol")
         previous = None
         for fold in self.development_folds:
             if fold.start < SOURCE_WINDOW_START or fold.end > HOLDOUT_START:
@@ -266,6 +295,8 @@ class CalibrationConfig:
         object.__setattr__(self, "holdout_end", holdout_end)
         if type(self.selection_gates) is not SelectionGates:
             raise ContractValidationError("selection_gates must be exactly SelectionGates")
+        if self.selection_gates.to_payload() != dict(APPROVED_SELECTION_GATES):
+            raise ContractValidationError("selection gates do not match the approved protocol")
         object.__setattr__(self, "config_hash", deterministic_hash(self.to_payload()))
 
     def to_payload(self) -> dict[str, Any]:
@@ -377,6 +408,8 @@ def parse_calibration_config(raw: Mapping[str, Any]) -> CalibrationConfig:
 
 
 __all__ = [
+    "APPROVED_FOLD_BOUNDARIES",
+    "APPROVED_SELECTION_GATES",
     "CalibrationConfig",
     "EXPECTED_INPUT_HASH",
     "EXPECTED_SOURCE_BARS_SHA256",

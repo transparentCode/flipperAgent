@@ -284,8 +284,13 @@ class HoldoutEvaluation:
             raise ContractValidationError("invalid holdout recommendation")
         if type(self.gates) is not tuple or any(type(gate) is not GateResult for gate in self.gates):
             raise ContractValidationError("holdout gates must contain GateResult values")
-        if self.selected_period is None and self.challenger_metrics is not None:
-            raise ContractValidationError("no-selection holdout cannot contain challenger metrics")
+        if self.selected_period is not None:
+            if isinstance(self.selected_period, bool) or type(self.selected_period) is not int or self.selected_period <= 0 or self.selected_period == 14:
+                raise ContractValidationError("selected holdout period must be a non-baseline positive integer")
+            if self.baseline_metrics is None or self.challenger_metrics is None:
+                raise ContractValidationError("selected holdout requires baseline and challenger metrics")
+        elif self.baseline_metrics is not None or self.challenger_metrics is not None:
+            raise ContractValidationError("no-selection holdout cannot contain metrics")
         object.__setattr__(self, "holdout_id", deterministic_hash(self.to_payload()))
 
     def to_payload(self) -> dict[str, Any]:

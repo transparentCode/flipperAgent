@@ -292,12 +292,90 @@ def build_source_capsules(config: CalibrationConfig, *, repo_root: str | Path, i
     return development, sealed
 
 
+def build_development_capsule(
+    config: CalibrationConfig,
+    *,
+    repo_root: str | Path,
+    implementation_commit: str,
+) -> SourceCapsule:
+    """Build only the development prefix for a new implementation commit.
+
+    This preparation helper validates the approved parent source, but it does
+    not construct or publish a sealed holdout capsule.  Selection and the
+    no-challenger path use :func:`load_published_development_capsule` instead.
+    """
+    bars = load_frozen_source(config, repo_root=repo_root)
+    development_bars = tuple(bar for bar in bars if bar.closed_at < HOLDOUT_START)
+    if not development_bars or len(development_bars) >= len(bars):
+        raise ContractValidationError("source does not contain a strict development/holdout split")
+    return SourceCapsule(
+        stage=CapsuleStage.DEVELOPMENT,
+        source_bundle_id=config.source_bundle_id,
+        source_bars_sha256=config.source_bars_sha256,
+        source_row_count=config.source_row_count,
+        split_boundary=HOLDOUT_START,
+        implementation_commit=implementation_commit,
+        bars=development_bars,
+    )
+
+
+def load_published_development_capsule(
+    config: CalibrationConfig,
+    *,
+    output_root: str | Path,
+    implementation_commit: str,
+) -> SourceCapsule:
+    """Load exactly one published development capsule for this run.
+
+    Discovery is deliberately manifest-first and never derives a capsule by
+    loading the parent source.  This is the boundary that keeps development
+    selection and the no-challenger holdout path independent of sealed data.
+    """
+    from .artifacts import load_json
+
+    root = Path(output_root).resolve() / "source" / CapsuleStage.DEVELOPMENT.value
+    if not root.is_dir() or root.is_symlink():
+        raise ContractValidationError("published development source capsule is missing")
+    matches: list[SourceCapsule] = []
+    expected_context = {
+        "schema_version": SCHEMA_VERSION,
+        "stage": CapsuleStage.DEVELOPMENT.value,
+        "source_bundle_id": config.source_bundle_id,
+        "source_bars_sha256": config.source_bars_sha256,
+        "source_row_count": config.source_row_count,
+        "split_boundary": utc_isoformat(HOLDOUT_START),
+        "implementation_commit": implementation_commit,
+    }
+    for path in sorted(root.iterdir(), key=lambda item: item.name):
+        if not path.is_dir() or path.is_symlink():
+            continue
+        try:
+            manifest = load_json(path / "manifest.json")
+        except ContractValidationError:
+            continue
+        if type(manifest) is not dict or any(manifest.get(key) != value for key, value in expected_context.items()):
+            continue
+        matches.append(
+            load_capsule(
+                path,
+                expected_stage=CapsuleStage.DEVELOPMENT,
+                expected_source=config,
+                expected_implementation_commit=implementation_commit,
+            )
+        )
+    if len(matches) != 1:
+        raise ContractValidationError("expected exactly one matching published development source capsule")
+    return matches[0]
+
+
 def load_capsule(path: str | Path, *, expected_stage: CapsuleStage, expected_source: CalibrationConfig, expected_implementation_commit: str | None = None) -> SourceCapsule:
     capsule_path = Path(path)
     if not capsule_path.is_dir() or capsule_path.is_symlink():
         raise ContractValidationError("source capsule path is missing or is a symlink")
     if {item.name for item in capsule_path.iterdir()} != set(_CAPSULE_MEMBER_NAMES):
         raise ContractValidationError("source capsule member set mismatch")
+    if any((capsule_path / name).is_symlink() for name in _CAPSULE_MEMBER_NAMES):
+        raise ContractValidationError("source capsule members must not be symlinks")
     manifest = _json_load(capsule_path / "manifest.json")
     source_payload = _json_load(capsule_path / "source_bars.json")
     if type(manifest) is not dict or type(source_payload) is not dict:
@@ -314,6 +392,8 @@ def load_capsule(path: str | Path, *, expected_stage: CapsuleStage, expected_sou
     }
     if set(source_payload) != expected_source_keys:
         raise ContractValidationError("source capsule source member schema mismatch")
+    if source_payload.get("schema_version") != SCHEMA_VERSION:
+        raise ContractValidationError("source capsule schema version mismatch")
     expected_manifest_keys = {
         "schema_version",
         "stage",
@@ -332,6 +412,8 @@ def load_capsule(path: str | Path, *, expected_stage: CapsuleStage, expected_sou
     }
     if set(manifest) != expected_manifest_keys:
         raise ContractValidationError("source capsule manifest schema mismatch")
+    if manifest.get("schema_version") != SCHEMA_VERSION:
+        raise ContractValidationError("source capsule manifest schema version mismatch")
     source_bytes = (capsule_path / "source_bars.json").read_bytes()
     if type(manifest.get("member")) is not dict or manifest["member"].get("sha256") != _sha(source_bytes) or manifest["member"].get("byte_length") != len(source_bytes):
         raise ContractValidationError("source capsule member hash/length mismatch")
@@ -339,6 +421,8 @@ def load_capsule(path: str | Path, *, expected_stage: CapsuleStage, expected_sou
         raise ContractValidationError("source capsule stage mismatch")
     if source_payload.get("source_bundle_id") != expected_source.source_bundle_id or source_payload.get("source_bars_sha256") != expected_source.source_bars_sha256:
         raise ContractValidationError("source capsule parent mismatch")
+    if source_payload.get("source_row_count") != expected_source.source_row_count:
+        raise ContractValidationError("source capsule source row count mismatch")
     bars_raw = source_payload.get("bars")
     if type(bars_raw) is not list:
         raise ContractValidationError("source capsule bars must be a list")
@@ -389,8 +473,10 @@ def load_capsule(path: str | Path, *, expected_stage: CapsuleStage, expected_sou
 
 
 __all__ = [
+    "build_development_capsule",
     "build_source_capsules",
     "load_capsule",
     "load_frozen_source",
+    "load_published_development_capsule",
     "publish_source_capsule",
 ]
