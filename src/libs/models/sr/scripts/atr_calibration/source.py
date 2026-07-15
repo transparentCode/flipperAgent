@@ -373,12 +373,18 @@ def load_capsule(path: str | Path, *, expected_stage: CapsuleStage, expected_sou
         implementation_commit=commit,
         bars=tuple(bars),
     )
+    if expected_stage is CapsuleStage.SEALED_HOLDOUT:
+        if len(capsule.bars) != expected_source.source_row_count:
+            raise ContractValidationError("sealed source capsule is incomplete")
+        if capsule.bars[-1].closed_at != SOURCE_WINDOW_END:
+            raise ContractValidationError("sealed source capsule does not reach the requested end")
+    elif len(capsule.bars) >= expected_source.source_row_count:
+        raise ContractValidationError("development source capsule contains the full sealed source")
     if capsule.capsule_id != capsule_path.name or manifest.get("capsule_id") != capsule.capsule_id:
         raise ContractValidationError("source capsule identity mismatch")
-    if manifest.get("capsule_id_recomputed_from") != capsule.identity_payload():
-        raise ContractValidationError("source capsule semantic identity mismatch")
-    if manifest.get("capsule_id_semantic_payload", {}).get("capsule_id") != capsule.capsule_id:
-        raise ContractValidationError("source capsule manifest semantic payload mismatch")
+    expected_manifest = _manifest_payload(capsule, _sha(source_bytes), len(source_bytes))
+    if manifest != expected_manifest:
+        raise ContractValidationError("source capsule manifest semantic mismatch")
     return capsule
 
 

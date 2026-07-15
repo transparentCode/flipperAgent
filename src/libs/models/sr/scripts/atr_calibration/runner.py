@@ -22,6 +22,7 @@ from .selection import evaluate_holdout_metrics, select_development
 from .source import (
     build_source_capsules,
     load_capsule,
+    load_frozen_source,
     publish_source_capsule,
 )
 
@@ -105,13 +106,21 @@ def _find_sealed_capsule(config: CalibrationConfig, *, repo_root: str | Path, im
     for path in sorted(root.iterdir(), key=lambda item: item.name):
         if path.is_dir() and not path.is_symlink():
             try:
-                capsule = load_capsule(path, expected_stage=CapsuleStage.SEALED_HOLDOUT, expected_source=config, expected_implementation_commit=implementation_commit)
+                from .artifacts import load_json
+
+                manifest = load_json(path / "manifest.json")
             except ContractValidationError:
                 continue
+            if type(manifest) is not dict or manifest.get("stage") != CapsuleStage.SEALED_HOLDOUT.value or manifest.get("implementation_commit") != implementation_commit or manifest.get("source_bundle_id") != config.source_bundle_id:
+                continue
+            capsule = load_capsule(path, expected_stage=CapsuleStage.SEALED_HOLDOUT, expected_source=config, expected_implementation_commit=implementation_commit)
             matches.append(capsule)
     if len(matches) != 1:
         raise ContractValidationError("expected exactly one matching sealed holdout capsule")
-    return matches[0]
+    sealed = matches[0]
+    if sealed.bars != load_frozen_source(config, repo_root=repo_root):
+        raise ContractValidationError("sealed source capsule does not match the frozen V1.5 source")
+    return sealed
 
 
 def select_development_stage(config_path: str | Path, *, repo_root: str | Path, implementation_commit: str | None = None) -> dict[str, object]:
