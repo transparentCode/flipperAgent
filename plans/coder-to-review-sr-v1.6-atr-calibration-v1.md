@@ -18,28 +18,35 @@ Applied the issued V1.6 remediation on branch
 `feature/sr-v1.6-atr-calibration`, based on the approved V1.5 lineage. The
 implementation/test commit is:
 
-`8109b6c400639be2f1b2057cc37117b3fab08020`
+`928583c7677255ed5ac8c16e5d04fdfa8927bbd6`
 
 The handoff is a separate documentation-only commit immediately following
 that implementation commit. No merge was performed.
 
-This correction intentionally regenerates development evidence only. It does
-not open or score a holdout.
+This remediation intentionally regenerates development evidence only. It does
+not create, open, or score a holdout.
 
 ## Changes Made
 
-- Development selection now discovers exactly one published development
-  capsule for the current implementation context. It no longer calls
-  `build_source_capsules()` or `load_frozen_source()`.
-- The no-challenger holdout path uses the same published-development loader
-  and does not open sealed bars.
+- `prepare-source` now builds and publishes only the development capsule via
+  `build_development_capsule()`. The retired `build_source_capsules()` helper,
+  sealed capsule publication/loading, and the current holdout runner all fail
+  closed. The CLI exposes only `prepare-source` and `select-development`;
+  future challengers require a fresh forward-holdout protocol.
+- Development selection discovers exactly one published development capsule
+  for the current implementation context and cannot call
+  `load_frozen_source()` or construct sealed data. The retired no-challenger
+  holdout path also fails before any source access.
+- The approved development prefix is frozen by a 629-row count, first open,
+  last causal close, and bars SHA-256. These checks run for published source
+  capsules and for direct capsules supplied to `find_development_bundle()`.
 - Development artifact validation recomputes all candidate replays, metrics,
   and `select_development()` from the validated development capsule and
   requires exact selection payload equality.
-- Added a complete holdout bundle validator. Selected-challenger holdout
-  metrics are recomputed from the validated sealed capsule before acceptance;
-  no-selection bundles are checked against the immutable disposition without
-  sealed input.
+- Holdout validation retains recomputation for contract regression coverage
+  and now compares the manifest recommendation and holdout ID to the
+  recomputed evaluation. The supported V1.6 runner cannot publish or consume
+  the contaminated sealed window.
 - Manifests and protocol members bind the ATR implementation contract, exact
   candidate set, baseline/reference/common periods, six folds, half-open
   window policy, outcome protocol, gates, source identity, resolved SR/input
@@ -48,20 +55,21 @@ not open or score a holdout.
   boundaries, and all approved gate values.
 - Terminal/cohort accounting now uses the explicit half-open rule: events at a
   window end belong to the following window.
-- Added adversarial coverage for sealed-source denial, rehashed selection and
-  protocol tampering, selected-challenger holdout validation, rehashed
+- Added adversarial coverage for sealed-source denial, retired CLI/runner
+  paths, fully rehashed development-prefix tampering, direct prefix-object
+  tampering, rehashed selection and protocol tampering, selected-challenger
+  holdout validation, manifest recommendation/holdout-ID tampering, rehashed
   holdout metric tampering, exact protocol mutations, and the half-open end
   boundary.
 
 ## Blast Radius Considered
 
-Changed only these V1.6 calibration modules:
+The remediation commit changed only these V1.6 calibration modules:
 
 - `src/libs/models/sr/scripts/atr_calibration/artifacts.py`
+- `src/libs/models/sr/scripts/atr_calibration/cli.py`
 - `src/libs/models/sr/scripts/atr_calibration/config.py`
-- `src/libs/models/sr/scripts/atr_calibration/metrics.py`
 - `src/libs/models/sr/scripts/atr_calibration/runner.py`
-- `src/libs/models/sr/scripts/atr_calibration/selection.py`
 - `src/libs/models/sr/scripts/atr_calibration/source.py`
 
 And the matching calibration tests in
@@ -90,13 +98,13 @@ The parent bundle was validated before preparing the new development capsule;
 no Binance, network client, or provider call occurred.
 
 Current development-only evidence, bound to implementation commit
-`8109b6c400639be2f1b2057cc37117b3fab08020`:
+`928583c7677255ed5ac8c16e5d04fdfa8927bbd6`:
 
 | Stage | ID | Path | Result |
 |---|---|---|---|
-| development source | `7329c32250dd3af8b0e27091ab2306fce6aae7ce79c4e92ef8c9b585e3397642` | `research/tmp_sr_v1_6/source/development/7329c32250dd3af8b0e27091ab2306fce6aae7ce79c4e92ef8c9b585e3397642/` | 629 prefix rows |
-| development selection bundle | `053ddeb3ebd9fc763d71e14b963315c4bf1a8c70365718dbd833ab099260a5f8` | `research/tmp_sr_v1_6/development/053ddeb3ebd9fc763d71e14b963315c4bf1a8c70365718dbd833ab099260a5f8/` | `RETAIN_GLOBAL_14` |
-| selection | `9ad1ac408d109e83138dead259771225d402a1cecbff2567256e966a6cef58dd` | inside the development bundle | no challenger |
+| development source | `fc1ba274454f277a40f005f542fdfd4e6e752e5afa2e1050f3582b21fd8b1120` | `research/tmp_sr_v1_6/source/development/fc1ba274454f277a40f005f542fdfd4e6e752e5afa2e1050f3582b21fd8b1120/` | 629 prefix rows |
+| development selection bundle | `27342fd5db17e48975648fd7432c2be73f14bac2c676f3b5e5b561dc742d91bb` | `research/tmp_sr_v1_6/development/27342fd5db17e48975648fd7432c2be73f14bac2c676f3b5e5b561dc742d91bb/` | `RETAIN_GLOBAL_14` |
+| selection | `f07b82eb871c4b8566841f080ea2e5e9bf71306918402fe6b50986a54dfeb42b` | inside the development bundle | no challenger |
 
 Two development-capsule publications produced the same source ID and bytes.
 Two `select-development` runs produced identical selection and bundle IDs and
@@ -108,6 +116,15 @@ accessed programmatically by the rejected implementation. Therefore the prior
 development source `9892862e…`, sealed source `d484c2f…`, development bundle
 `d797af79…`, selection `483fcbb4…`, and holdout bundle `5b1b5b32…` are recorded
 as contaminated/unusable and are not described as unopened evidence.
+
+The frozen development-prefix identity is:
+
+| Identity | Value |
+|---|---|
+| bars SHA-256 | `703367048f4ed7dc432ca9dfe0ad4afdc5a56eb2a508597ef00bdc3de8b81163` |
+| rows | `629` |
+| first open | `2024-04-11T00:00:00Z` |
+| last causal close | `2025-12-31T00:00:00Z` |
 
 ## Development Results
 
@@ -142,20 +159,27 @@ No asset/timeframe override was written.
 
 ## Validation Performed
 
-- Full SR suite: **387 passed**.
-- V1.6 targeted suite: **33 passed**.
+- Full SR suite: **393 passed**.
+- V1.6 targeted suite: **39 passed**.
 - Import boundaries: **2 passed**.
-- Ruff: passed with `ruff check src/libs/models/sr tests/models/sr`.
+- Ruff: passed with `ruff check src/libs/models/sr tests/models/sr` (system Ruff;
+  the project virtualenv does not contain the Ruff module).
 - Compilation: passed for `src/libs/models/sr` and `tests/models/sr`.
 - `git diff --check`: passed.
 - Rehashed development selection tampering: rejected after semantic
   recomputation.
+- Fully rehashed development-prefix OHLC tampering: rejected against the
+  frozen 629-row bars identity, including direct-object validation.
 - Rehashed protocol mutation: rejected against the locked protocol.
+- Fully rehashed manifest recommendation and holdout-ID tampering: rejected
+  against the recomputed evaluation.
 - Rehashed selected-holdout metrics: rejected after sealed-input
   recomputation.
 - Sealed-source spies: `load_frozen_source()` and `build_source_capsules()`
-  were denied successfully during development selection and the no-challenger
-  path.
+  were denied successfully during development selection; the retired
+  no-challenger/holdout runner fails before any source access.
+- Retired sealed capsule builder, publisher, loader, and holdout CLI path:
+  fail closed.
 - Current development source and selection reruns: identical IDs and
   byte-identical members.
 
