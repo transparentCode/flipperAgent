@@ -13,7 +13,13 @@ from typing import Any
 from libs.models.sr.domain.contracts import ContractValidationError, ZoneSide
 from libs.models.sr.domain.identity import canonical_json, deterministic_hash
 
-from .config import CalibrationConfig
+from .config import (
+    CalibrationConfig,
+    EXPECTED_DEVELOPMENT_BARS_SHA256,
+    EXPECTED_DEVELOPMENT_FIRST_OPEN,
+    EXPECTED_DEVELOPMENT_LAST_CLOSED,
+    EXPECTED_DEVELOPMENT_ROWS,
+)
 from .contracts import ATR_IMPLEMENTATION, ATR_IMPLEMENTATION_CONTRACT, CapsuleStage, SourceCapsule
 from .metrics import CandidateMetrics, FirstTouchOutcome, WINDOW_POLICY, WindowMetrics
 from .selection import (
@@ -66,6 +72,12 @@ def _protocol_identity(
             "end": config.to_payload()["holdout"]["end"],
         },
         "selection_gates": config.selection_gates.to_payload(),
+        "development_prefix": {
+            "bars_sha256": EXPECTED_DEVELOPMENT_BARS_SHA256,
+            "row_count": EXPECTED_DEVELOPMENT_ROWS,
+            "first_open_time": EXPECTED_DEVELOPMENT_FIRST_OPEN.isoformat().replace("+00:00", "Z"),
+            "last_closed_at": EXPECTED_DEVELOPMENT_LAST_CLOSED.isoformat().replace("+00:00", "Z"),
+        },
         "resolved_sr_config_hash": resolved_sr_config_hash,
         "resolved_input_hash": resolved_input_hash,
     }
@@ -232,6 +244,7 @@ def _validate_bundle(path: Path, *, expected_stage: str, expected_context: dict[
             "protocol_version", "window_policy", "atr_contract", "candidate_periods",
             "baseline_period", "common_start_period", "evaluation_reference_period",
             "outcome", "development_folds", "holdout", "selection_gates",
+            "development_prefix",
             "resolved_sr_config_hash", "resolved_input_hash", "members",
         }
     else:
@@ -242,7 +255,7 @@ def _validate_bundle(path: Path, *, expected_stage: str, expected_context: dict[
             "sealed_source_id", "recommendation", "holdout_id", "protocol_version",
             "window_policy", "atr_contract", "candidate_periods", "baseline_period",
             "common_start_period", "evaluation_reference_period", "outcome",
-            "development_folds", "holdout", "selection_gates",
+            "development_folds", "holdout", "selection_gates", "development_prefix",
             "resolved_sr_config_hash", "resolved_input_hash", "members",
         }
     expected_manifest_keys = expected_semantic_keys | {"bundle_id", "bundle_id_semantic_payload"}
@@ -458,6 +471,8 @@ def _resolve_validation_inputs(
 ) -> tuple[SourceCapsule, Any]:
     """Fill legacy validator call inputs without ever loading sealed data."""
     root = _infer_repository_root(output_root, config)
+    from .source import validate_development_prefix
+
     if development is None:
         if root is None:
             raise ContractValidationError("development capsule is required for semantic validation")
@@ -488,6 +503,7 @@ def _resolve_validation_inputs(
         or development.implementation_commit != implementation_commit
     ):
         raise ContractValidationError("development capsule is not bound to the approved source")
+    validate_development_prefix(development)
     return development, resolved_config
 
 
@@ -783,6 +799,10 @@ def validate_holdout_bundle(
         expected_evaluation = evaluate_holdout_metrics(selection, holdout_metrics, config=config)
     if loaded_evaluation.to_payload() != expected_evaluation.to_payload():
         raise ContractValidationError("holdout semantics do not match the validated inputs")
+    if manifest["recommendation"] != expected_evaluation.recommendation.value:
+        raise ContractValidationError("holdout manifest recommendation does not match recomputed evaluation")
+    if manifest["holdout_id"] != expected_evaluation.holdout_id:
+        raise ContractValidationError("holdout manifest holdout_id does not match recomputed evaluation")
     return loaded_evaluation
 
 

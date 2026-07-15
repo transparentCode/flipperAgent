@@ -8,7 +8,8 @@ from libs.models.sr.scripts.atr_calibration.candidates import replay_candidates
 from libs.models.sr.scripts.atr_calibration.config import load_calibration_config
 from libs.models.sr.scripts.atr_calibration.metrics import compute_candidate_metrics
 from libs.models.sr.scripts.atr_calibration.runner import resolve_frozen_sr_config
-from libs.models.sr.scripts.atr_calibration.source import build_source_capsules
+from libs.models.sr.scripts.atr_calibration.contracts import CapsuleStage, SourceCapsule
+from libs.models.sr.scripts.atr_calibration.source import build_development_capsule, load_frozen_source
 
 
 ROOT = Path(__file__).resolve().parents[5]
@@ -27,10 +28,25 @@ def resolved_sr_config(calibration_config):
 
 @pytest.fixture(scope="session")
 def source_capsules(calibration_config):
-    return build_source_capsules(
+    development = build_development_capsule(
         calibration_config,
         repo_root=ROOT,
         implementation_commit=calibration_config.source_implementation_commit,
+    )
+    return development, None
+
+
+@pytest.fixture(scope="session")
+def sealed_test_capsule(calibration_config):
+    """In-memory full-source fixture for holdout-validator contract tests only."""
+    return SourceCapsule(
+        stage=CapsuleStage.SEALED_HOLDOUT,
+        source_bundle_id=calibration_config.source_bundle_id,
+        source_bars_sha256=calibration_config.source_bars_sha256,
+        source_row_count=calibration_config.source_row_count,
+        split_boundary=calibration_config.holdout_start,
+        implementation_commit=calibration_config.source_implementation_commit,
+        bars=load_frozen_source(calibration_config, repo_root=ROOT),
     )
 
 

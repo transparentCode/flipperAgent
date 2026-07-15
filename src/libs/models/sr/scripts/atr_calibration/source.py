@@ -1,4 +1,4 @@
-"""Frozen V1.5 source validation and sealed capsule publication."""
+"""Frozen V1.5 source validation and development-prefix publication."""
 
 from __future__ import annotations
 
@@ -16,6 +16,10 @@ from libs.models.sr.scripts.baseline_trial.contracts import SourceBar
 
 from .config import (
     CalibrationConfig,
+    EXPECTED_DEVELOPMENT_BARS_SHA256,
+    EXPECTED_DEVELOPMENT_FIRST_OPEN,
+    EXPECTED_DEVELOPMENT_LAST_CLOSED,
+    EXPECTED_DEVELOPMENT_ROWS,
     HOLDOUT_START,
     SOURCE_WINDOW_END,
     SOURCE_WINDOW_START,
@@ -184,6 +188,36 @@ def load_frozen_source(config: CalibrationConfig, *, repo_root: str | Path) -> t
     return _parse_source_bars(_json_load(source_path), config=config)
 
 
+def _bar_payload(bar: SourceBar) -> dict[str, Any]:
+    return {
+        "open_time": utc_isoformat(bar.open_time),
+        "closed_at": utc_isoformat(bar.closed_at),
+        "open": bar.open,
+        "high": bar.high,
+        "low": bar.low,
+        "close": bar.close,
+        "volume": bar.volume,
+        "bar_id": bar.bar_id,
+    }
+
+
+def _bars_sha256(bars: tuple[SourceBar, ...]) -> str:
+    return _sha(canonical_json([_bar_payload(bar) for bar in bars]).encode("utf-8"))
+
+
+def validate_development_prefix(capsule: SourceCapsule) -> None:
+    if capsule.stage is not CapsuleStage.DEVELOPMENT:
+        raise ContractValidationError("development prefix validation requires a development capsule")
+    if len(capsule.bars) != EXPECTED_DEVELOPMENT_ROWS:
+        raise ContractValidationError("development source row count is not the approved 629-row prefix")
+    if capsule.bars[0].open_time != EXPECTED_DEVELOPMENT_FIRST_OPEN:
+        raise ContractValidationError("development source first open time is not frozen")
+    if capsule.bars[-1].closed_at != EXPECTED_DEVELOPMENT_LAST_CLOSED:
+        raise ContractValidationError("development source last closed time is not frozen")
+    if _bars_sha256(capsule.bars) != EXPECTED_DEVELOPMENT_BARS_SHA256:
+        raise ContractValidationError("development source bars do not match the approved frozen prefix")
+
+
 def _source_payload(capsule: SourceCapsule) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
@@ -195,14 +229,7 @@ def _source_payload(capsule: SourceCapsule) -> dict[str, Any]:
         "implementation_commit": capsule.implementation_commit,
         "bars": [
             {
-                "open_time": utc_isoformat(bar.open_time),
-                "closed_at": utc_isoformat(bar.closed_at),
-                "open": bar.open,
-                "high": bar.high,
-                "low": bar.low,
-                "close": bar.close,
-                "volume": bar.volume,
-                "bar_id": bar.bar_id,
+                **_bar_payload(bar),
             }
             for bar in capsule.bars
         ],
@@ -218,6 +245,7 @@ def _manifest_payload(capsule: SourceCapsule, source_sha256: str, source_length:
         "source_bars_sha256": capsule.source_bars_sha256,
         "source_row_count": capsule.source_row_count,
         "row_count": len(capsule.bars),
+        "bars_sha256": _bars_sha256(capsule.bars),
         "first_open_time": utc_isoformat(capsule.bars[0].open_time),
         "last_closed_at": utc_isoformat(capsule.bars[-1].closed_at),
         "split_boundary": utc_isoformat(capsule.split_boundary),
@@ -258,6 +286,9 @@ def _atomic_publish(path: Path, files: dict[str, bytes]) -> None:
 
 
 def publish_source_capsule(capsule: SourceCapsule, *, output_root: Path) -> Path:
+    if capsule.stage is not CapsuleStage.DEVELOPMENT:
+        raise ContractValidationError("sealed source capsule publication is retired; use a fresh forward-holdout protocol")
+    validate_development_prefix(capsule)
     source_bytes = _bytes(_source_payload(capsule))
     manifest = _manifest_payload(capsule, _sha(source_bytes), len(source_bytes))
     manifest_bytes = _bytes(manifest)
@@ -267,29 +298,7 @@ def publish_source_capsule(capsule: SourceCapsule, *, output_root: Path) -> Path
 
 
 def build_source_capsules(config: CalibrationConfig, *, repo_root: str | Path, implementation_commit: str) -> tuple[SourceCapsule, SourceCapsule]:
-    bars = load_frozen_source(config, repo_root=repo_root)
-    development_bars = tuple(bar for bar in bars if bar.closed_at < HOLDOUT_START)
-    if not development_bars or len(development_bars) >= len(bars):
-        raise ContractValidationError("source does not contain a strict development/holdout split")
-    development = SourceCapsule(
-        stage=CapsuleStage.DEVELOPMENT,
-        source_bundle_id=config.source_bundle_id,
-        source_bars_sha256=config.source_bars_sha256,
-        source_row_count=config.source_row_count,
-        split_boundary=HOLDOUT_START,
-        implementation_commit=implementation_commit,
-        bars=development_bars,
-    )
-    sealed = SourceCapsule(
-        stage=CapsuleStage.SEALED_HOLDOUT,
-        source_bundle_id=config.source_bundle_id,
-        source_bars_sha256=config.source_bars_sha256,
-        source_row_count=config.source_row_count,
-        split_boundary=HOLDOUT_START,
-        implementation_commit=implementation_commit,
-        bars=bars,
-    )
-    return development, sealed
+    raise ContractValidationError("sealed source preparation is retired; use a fresh forward-holdout protocol")
 
 
 def build_development_capsule(
@@ -308,7 +317,7 @@ def build_development_capsule(
     development_bars = tuple(bar for bar in bars if bar.closed_at < HOLDOUT_START)
     if not development_bars or len(development_bars) >= len(bars):
         raise ContractValidationError("source does not contain a strict development/holdout split")
-    return SourceCapsule(
+    capsule = SourceCapsule(
         stage=CapsuleStage.DEVELOPMENT,
         source_bundle_id=config.source_bundle_id,
         source_bars_sha256=config.source_bars_sha256,
@@ -317,6 +326,8 @@ def build_development_capsule(
         implementation_commit=implementation_commit,
         bars=development_bars,
     )
+    validate_development_prefix(capsule)
+    return capsule
 
 
 def load_published_development_capsule(
@@ -343,6 +354,10 @@ def load_published_development_capsule(
         "source_bundle_id": config.source_bundle_id,
         "source_bars_sha256": config.source_bars_sha256,
         "source_row_count": config.source_row_count,
+        "row_count": EXPECTED_DEVELOPMENT_ROWS,
+        "bars_sha256": EXPECTED_DEVELOPMENT_BARS_SHA256,
+        "first_open_time": utc_isoformat(EXPECTED_DEVELOPMENT_FIRST_OPEN),
+        "last_closed_at": utc_isoformat(EXPECTED_DEVELOPMENT_LAST_CLOSED),
         "split_boundary": utc_isoformat(HOLDOUT_START),
         "implementation_commit": implementation_commit,
     }
@@ -369,6 +384,8 @@ def load_published_development_capsule(
 
 
 def load_capsule(path: str | Path, *, expected_stage: CapsuleStage, expected_source: CalibrationConfig, expected_implementation_commit: str | None = None) -> SourceCapsule:
+    if expected_stage is CapsuleStage.SEALED_HOLDOUT:
+        raise ContractValidationError("sealed source capsule loading is retired; use a fresh forward-holdout protocol")
     capsule_path = Path(path)
     if not capsule_path.is_dir() or capsule_path.is_symlink():
         raise ContractValidationError("source capsule path is missing or is a symlink")
@@ -402,6 +419,7 @@ def load_capsule(path: str | Path, *, expected_stage: CapsuleStage, expected_sou
         "source_bars_sha256",
         "source_row_count",
         "row_count",
+        "bars_sha256",
         "first_open_time",
         "last_closed_at",
         "split_boundary",
@@ -457,13 +475,9 @@ def load_capsule(path: str | Path, *, expected_stage: CapsuleStage, expected_sou
         implementation_commit=commit,
         bars=tuple(bars),
     )
-    if expected_stage is CapsuleStage.SEALED_HOLDOUT:
-        if len(capsule.bars) != expected_source.source_row_count:
-            raise ContractValidationError("sealed source capsule is incomplete")
-        if capsule.bars[-1].closed_at != SOURCE_WINDOW_END:
-            raise ContractValidationError("sealed source capsule does not reach the requested end")
-    elif len(capsule.bars) >= expected_source.source_row_count:
+    if len(capsule.bars) >= expected_source.source_row_count:
         raise ContractValidationError("development source capsule contains the full sealed source")
+    validate_development_prefix(capsule)
     if capsule.capsule_id != capsule_path.name or manifest.get("capsule_id") != capsule.capsule_id:
         raise ContractValidationError("source capsule identity mismatch")
     expected_manifest = _manifest_payload(capsule, _sha(source_bytes), len(source_bytes))
@@ -479,4 +493,5 @@ __all__ = [
     "load_frozen_source",
     "load_published_development_capsule",
     "publish_source_capsule",
+    "validate_development_prefix",
 ]

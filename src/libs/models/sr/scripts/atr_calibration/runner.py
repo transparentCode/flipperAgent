@@ -1,4 +1,4 @@
-"""Ordered V1.6 stage orchestration with explicit holdout sealing."""
+"""Ordered V1.6 development-only stage orchestration."""
 
 from __future__ import annotations
 
@@ -13,17 +13,11 @@ from libs.models.sr.scripts.baseline_trial.config import (
     load_resolved_sr_config,
 )
 
-from .artifacts import (
-    find_development_bundle,
-    publish_development,
-    publish_holdout,
-    validate_holdout_bundle,
-)
+from .artifacts import publish_development
 from .candidates import replay_candidates
 from .config import CalibrationConfig, load_calibration_config
-from .contracts import CapsuleStage
-from .metrics import compute_candidate_metrics, compute_window_metrics
-from .selection import evaluate_holdout_metrics, select_development
+from .metrics import compute_candidate_metrics
+from .selection import select_development
 from . import source as source_module
 
 
@@ -78,17 +72,13 @@ def resolve_frozen_sr_config(config: CalibrationConfig, *, repo_root: str | Path
 def prepare_source_stage(config_path: str | Path, *, repo_root: str | Path, implementation_commit: str | None = None) -> dict[str, object]:
     config = _load_config(config_path, repo_root)
     commit = implementation_commit or repository_commit(repo_root)
-    development, sealed = source_module.build_source_capsules(config, repo_root=repo_root, implementation_commit=commit)
+    development = source_module.build_development_capsule(config, repo_root=repo_root, implementation_commit=commit)
     output_root = _root_path(repo_root, config.output_root, field_name="output_root")
     development_path = source_module.publish_source_capsule(development, output_root=output_root)
-    sealed_path = source_module.publish_source_capsule(sealed, output_root=output_root)
     return {
         "development_source_id": development.capsule_id,
         "development_path": str(development_path),
         "development_row_count": len(development.bars),
-        "sealed_source_id": sealed.capsule_id,
-        "sealed_path": str(sealed_path),
-        "sealed_row_count": len(sealed.bars),
     }
 
 
@@ -102,28 +92,7 @@ def _load_development_capsule(config: CalibrationConfig, *, repo_root: str | Pat
 
 
 def _find_sealed_capsule(config: CalibrationConfig, *, repo_root: str | Path, implementation_commit: str):
-    root = _root_path(repo_root, config.output_root, field_name="output_root") / "source" / CapsuleStage.SEALED_HOLDOUT.value
-    if not root.is_dir():
-        raise ContractValidationError("sealed holdout source capsule is missing")
-    matches = []
-    for path in sorted(root.iterdir(), key=lambda item: item.name):
-        if path.is_dir() and not path.is_symlink():
-            try:
-                from .artifacts import load_json
-
-                manifest = load_json(path / "manifest.json")
-            except ContractValidationError:
-                continue
-            if type(manifest) is not dict or manifest.get("stage") != CapsuleStage.SEALED_HOLDOUT.value or manifest.get("implementation_commit") != implementation_commit or manifest.get("source_bundle_id") != config.source_bundle_id:
-                continue
-            capsule = source_module.load_capsule(path, expected_stage=CapsuleStage.SEALED_HOLDOUT, expected_source=config, expected_implementation_commit=implementation_commit)
-            matches.append(capsule)
-    if len(matches) != 1:
-        raise ContractValidationError("expected exactly one matching sealed holdout capsule")
-    sealed = matches[0]
-    if sealed.bars != source_module.load_frozen_source(config, repo_root=repo_root):
-        raise ContractValidationError("sealed source capsule does not match the frozen V1.5 source")
-    return sealed
+    raise ContractValidationError("V1.6 sealed holdout consumption is retired; use a fresh forward-holdout protocol")
 
 
 def select_development_stage(config_path: str | Path, *, repo_root: str | Path, implementation_commit: str | None = None) -> dict[str, object]:
@@ -154,59 +123,7 @@ def select_development_stage(config_path: str | Path, *, repo_root: str | Path, 
 
 
 def evaluate_holdout_stage(config_path: str | Path, *, repo_root: str | Path, implementation_commit: str | None = None) -> dict[str, object]:
-    config = _load_config(config_path, repo_root)
-    commit = implementation_commit or repository_commit(repo_root)
-    sr_config = resolve_frozen_sr_config(config, repo_root=repo_root)
-    output_root = _root_path(repo_root, config.output_root, field_name="output_root")
-    development = _load_development_capsule(config, repo_root=repo_root, implementation_commit=commit)
-    selection, development_bundle_id, _ = find_development_bundle(
-        config,
-        output_root=output_root,
-        development_source_id=development.capsule_id,
-        implementation_commit=commit,
-        development=development,
-        resolved_config=sr_config,
-    )
-    if selection.selected_period is None:
-        evaluation = evaluate_holdout_metrics(selection, {}, config=config)
-        sealed_source_id = "not_opened"
-    else:
-        sealed = _find_sealed_capsule(config, repo_root=repo_root, implementation_commit=commit)
-        periods = (config.baseline_period, selection.selected_period)
-        replays = replay_candidates(sealed, periods, config=config, resolved_config=sr_config)
-        holdout_metrics = {}
-        for replay in replays:
-            holdout_metrics[replay.period] = compute_window_metrics(replay, sealed, config=config, name="holdout", start=config.holdout_start, end=config.holdout_end)
-        evaluation = evaluate_holdout_metrics(selection, holdout_metrics, config=config)
-        sealed_source_id = sealed.capsule_id
-    bundle_id, path = publish_holdout(
-        selection,
-        evaluation,
-        config,
-        implementation_commit=commit,
-        sealed_source_id=sealed_source_id,
-        development_bundle_id=development_bundle_id,
-        output_root=output_root,
-        resolved_sr_config_hash=sr_config.resolved_config_hash,
-        resolved_input_hash=config.expected_input_hash,
-    )
-    validate_holdout_bundle(
-        path,
-        config=config,
-        selection=selection,
-        implementation_commit=commit,
-        sealed_source_id=sealed_source_id,
-        development_bundle_id=development_bundle_id,
-        sealed=None if selection.selected_period is None else sealed,
-        resolved_config=sr_config,
-    )
-    return {
-        "holdout_id": evaluation.holdout_id,
-        "path": str(path),
-        "selected_period": evaluation.selected_period,
-        "recommendation": evaluation.recommendation.value,
-        "bundle_id": bundle_id,
-    }
+    raise ContractValidationError("V1.6 holdout evaluation is retired; use a fresh forward-holdout protocol")
 
 
 __all__ = [

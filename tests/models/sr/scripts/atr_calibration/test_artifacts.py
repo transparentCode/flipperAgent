@@ -20,6 +20,7 @@ from libs.models.sr.scripts.atr_calibration.metrics import compute_window_metric
 from libs.models.sr.scripts.atr_calibration.selection import (
     DevelopmentDisposition,
     evaluate_holdout_metrics,
+    Recommendation,
     select_development,
 )
 
@@ -52,6 +53,28 @@ def test_development_artifact_round_trip_and_content_identity(tmp_path, calibrat
     assert loaded.selection_id == selection.selection_id
     assert (bundle_id, path) == (loaded_bundle_id, loaded_path)
     assert selection_from_payload(json.loads((path / "selection.json").read_text())).selection_id == selection.selection_id
+
+
+def test_find_development_bundle_rejects_rehashed_prefix_object_tamper(
+    tmp_path,
+    calibration_config,
+    source_capsules,
+    resolved_sr_config,
+):
+    development, _ = source_capsules
+    first_bar = development.bars[0]
+    tampered_bar = replace(first_bar, open=(first_bar.low + first_bar.high) / 2.0)
+    tampered = replace(development, bars=(tampered_bar, *development.bars[1:]))
+
+    with pytest.raises(ContractValidationError):
+        find_development_bundle(
+            calibration_config,
+            output_root=tmp_path,
+            development_source_id=tampered.capsule_id,
+            implementation_commit=development.implementation_commit,
+            development=tampered,
+            resolved_config=resolved_sr_config,
+        )
 
 
 def test_duplicate_json_key_rejected_in_selection(tmp_path, calibration_config, source_capsules, development_metrics, resolved_sr_config):
@@ -177,8 +200,9 @@ def test_rehashed_protocol_mutation_is_rejected(tmp_path, calibration_config, so
         )
 
 
-def test_selected_holdout_bundle_is_recomputed_from_sealed_capsule(tmp_path, calibration_config, source_capsules, development_metrics, resolved_sr_config):
-    development, sealed = source_capsules
+def test_selected_holdout_bundle_is_recomputed_from_sealed_capsule(tmp_path, calibration_config, source_capsules, sealed_test_capsule, development_metrics, resolved_sr_config):
+    development, _ = source_capsules
+    sealed = sealed_test_capsule
     base_selection = select_development(
         development_metrics,
         config=calibration_config,
@@ -262,6 +286,89 @@ def test_selected_holdout_bundle_is_recomputed_from_sealed_capsule(tmp_path, cal
     (path / "manifest.json").write_text(canonical_json(manifest) + "\n", encoding="utf-8")
     tampered_path = path.parent / manifest["bundle_id"]
     path.rename(tampered_path)
+    with pytest.raises(ContractValidationError):
+        validate_holdout_bundle(
+            tampered_path,
+            config=calibration_config,
+            selection=selection,
+            implementation_commit=calibration_config.source_implementation_commit,
+            sealed_source_id=sealed.capsule_id,
+            development_bundle_id=development_bundle_id,
+            sealed=sealed,
+            resolved_config=resolved_sr_config,
+        )
+
+
+@pytest.mark.parametrize("field", ["recommendation", "holdout_id"])
+def test_rehashed_manifest_evaluation_binding_is_rejected(
+    tmp_path,
+    calibration_config,
+    source_capsules,
+    sealed_test_capsule,
+    development_metrics,
+    resolved_sr_config,
+    field,
+):
+    development, _ = source_capsules
+    sealed = sealed_test_capsule
+    base_selection = select_development(
+        development_metrics,
+        config=calibration_config,
+        development_source_id=development.capsule_id,
+        implementation_commit=calibration_config.source_implementation_commit,
+    )
+    selection = replace(
+        base_selection,
+        selected_period=7,
+        disposition=DevelopmentDisposition.SELECTED_CHALLENGER,
+    )
+    replays = replay_candidates(
+        sealed,
+        (calibration_config.baseline_period, selection.selected_period),
+        config=calibration_config,
+        resolved_config=resolved_sr_config,
+    )
+    metrics = {
+        replay.period: compute_window_metrics(
+            replay,
+            sealed,
+            config=calibration_config,
+            name="holdout",
+            start=calibration_config.holdout_start,
+            end=calibration_config.holdout_end,
+        )
+        for replay in replays
+    }
+    evaluation = evaluate_holdout_metrics(selection, metrics, config=calibration_config)
+    development_bundle_id = "a" * 64
+    _, path = publish_holdout(
+        selection,
+        evaluation,
+        calibration_config,
+        implementation_commit=calibration_config.source_implementation_commit,
+        sealed_source_id=sealed.capsule_id,
+        development_bundle_id=development_bundle_id,
+        output_root=tmp_path,
+        resolved_sr_config_hash=resolved_sr_config.resolved_config_hash,
+        resolved_input_hash=calibration_config.expected_input_hash,
+    )
+
+    manifest = json.loads((path / "manifest.json").read_text(encoding="utf-8"))
+    semantic = manifest["bundle_id_semantic_payload"]
+    if field == "recommendation":
+        replacement = next(
+            item.value for item in Recommendation if item.value != evaluation.recommendation.value
+        )
+    else:
+        replacement = "0" * 64
+    manifest[field] = replacement
+    semantic[field] = replacement
+    manifest["bundle_id"] = deterministic_hash(semantic)
+    manifest["bundle_id_semantic_payload"] = semantic
+    (path / "manifest.json").write_text(canonical_json(manifest) + "\n", encoding="utf-8")
+    tampered_path = path.parent / manifest["bundle_id"]
+    path.rename(tampered_path)
+
     with pytest.raises(ContractValidationError):
         validate_holdout_bundle(
             tampered_path,
