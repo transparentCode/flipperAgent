@@ -159,13 +159,22 @@ function assertFiniteGeometry(calls) {
   }
 }
 
-test('browser entry resolves package-local Lightweight Charts module', async () => {
+test('browser entry resolves standalone Lightweight Charts without bare fancy-canvas', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const standalone = await readFile(
+    new URL(
+      '../node_modules/lightweight-charts/dist/lightweight-charts.standalone.production.mjs',
+      import.meta.url,
+    ),
+    'utf8',
+  );
   assert.match(
     main,
-    /from ['"]\.\.\/node_modules\/lightweight-charts\/dist\/lightweight-charts\.production\.mjs['"]/
+    /from ['"]\.\.\/node_modules\/lightweight-charts\/dist\/lightweight-charts\.standalone\.production\.mjs['"]/
   );
-  assert.doesNotMatch(main, /from ['"]lightweight-charts['"]/);
+  assert.doesNotMatch(main, /lightweight-charts\.production\.mjs/);
+  assert.doesNotMatch(main, /(?:from|import)\s*['"]fancy-canvas['"]/);
+  assert.doesNotMatch(standalone, /(?:from|import)\s*['"]fancy-canvas['"]/);
 });
 
 test('BAND renderer uses direct media coordinates for live zones', () => {

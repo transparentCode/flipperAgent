@@ -31,6 +31,15 @@ def _hash(payload: dict) -> str:
 def _bundle(tmp_path: Path) -> tuple[Path, Path]:
     viewer = tmp_path / "viewer"
     (viewer / "src").mkdir(parents=True)
+    standalone_module = (
+        viewer
+        / "node_modules"
+        / "lightweight-charts"
+        / "dist"
+        / "lightweight-charts.standalone.production.mjs"
+    )
+    standalone_module.parent.mkdir(parents=True)
+    standalone_module.write_text("export const standalone = true;\n", encoding="utf-8")
     (viewer / "index.html").write_text("<!doctype html>", encoding="utf-8")
     (viewer / "src" / "main.js").write_text("export {};", encoding="utf-8")
     unbound_chart = _json_bytes({"bundle_id": None, "value": 1})
@@ -102,6 +111,16 @@ def test_server_validates_bundle_and_serves_viewer_and_bundle(tmp_path: Path) ->
         assert response.status == 200
         assert response.getheader("Content-Type").startswith("application/json")
         assert json.loads(response.read())["bundle_id"] == bundle.name
+
+        connection.request(
+            "GET",
+            "/node_modules/lightweight-charts/dist/"
+            "lightweight-charts.standalone.production.mjs",
+        )
+        response = connection.getresponse()
+        assert response.status == 200
+        assert response.getheader("Content-Type").startswith("text/javascript")
+        assert response.read() == b"export const standalone = true;\n"
 
         connection.request("GET", "/bundle/%2e%2e/manifest.json")
         response = connection.getresponse()
