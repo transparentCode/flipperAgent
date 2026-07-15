@@ -23,8 +23,10 @@ implementation/test commit is:
 The handoff is a separate documentation-only commit immediately following
 that implementation commit. No merge was performed.
 
-This remediation intentionally regenerates development evidence only. It does
-not create, open, or score a holdout.
+This remediation regenerates development evidence only. No current-commit
+sealed capsule or holdout evaluation was created or scored; preparation
+revalidated the already-contaminated 811-row parent before extracting the
+immutable 629-row development prefix.
 
 ## Changes Made
 
@@ -148,11 +150,11 @@ was eligible for holdout scoring.
 ## Holdout Status
 
 The prior sealed window is contaminated and unusable because it was accessed
-programmatically during the earlier development-selection path. No current
-implementation holdout was opened or scored. Since development selected no
-challenger, no holdout score is needed for this disposition. A fresh forward
-holdout remains reserved for any future protocol that produces a selected
-challenger; it must not reuse the contaminated window.
+programmatically during the earlier development-selection path. No current-
+commit sealed capsule or holdout evaluation was created or scored. Since
+development selected no challenger, no holdout score is needed for this
+disposition. A fresh forward holdout remains reserved for any future protocol
+that produces a selected challenger; it must not reuse the contaminated window.
 
 `configs/sr_inputs.yaml` remains unchanged and retains global Wilder ATR(14).
 No asset/timeframe override was written.
