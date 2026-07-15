@@ -4,7 +4,7 @@ stage: coder-to-review
 date_created: 2026-07-15
 last_updated: 2026-07-15
 owner: Codex Coder
-status: Needs Revision
+status: Review Ready
 tags: [handoff, quant, sr, baseline-trial, evidence, viewer]
 source_agent: Codex Coder
 target_agent: Quant Review
@@ -120,10 +120,22 @@ JavaScript/static serving:
 - Corrected local server routes: index 200, main.js 200, standalone package
   module 200 with JavaScript MIME, chart payload 200, traversal 404.
 
-Mandatory Mac browser smoke status: **not completed; environment-blocked**.
-Browser runtime again reported `No browser is available`; browser list
-returned no instances.
-Static route and Node checks pass, but no real-browser claim is made.
+Mac browser smoke status: **passed** from supplied screenshot/manual report.
+Browser: Google Chrome on macOS; exact version not captured in screenshot or
+available from local runtime. Hard refresh completed against bundle
+`d210494937ebcd4347e026b8ac02bff3105065e5455752b8690d449def357925`.
+
+Smoke checklist:
+
+- 811 source bars and target bundle ID visible.
+- Candlesticks, support/resistance bands, terminal zones, and right-edge live
+  extension rendered.
+- Terminal-zone and event-marker toggles confirmed.
+- Zone hover details confirmed.
+- TradingView attribution visible.
+- DevTools Console showed no visible issues.
+- Dense event labels overlap during high-event periods; viewer-polish follow-up,
+  not V1.5 blocker.
 
 Live trial reran twice from standalone-fix commit `2b8306b`; both runs returned the
 same bundle ID, trace ID, diagnostics ID, and row counts. A fresh pair was
@@ -190,9 +202,9 @@ All-six-file deterministic digest, including manifest:
 
 ## Risks or Follow-up Items
 
-- Real Mac browser smoke is mandatory and remains environment-blocked. No code
-  changes or new live trial are required after smoke passes.
+- Dense event-label overlap remains deferred to later viewer polish.
 - This baseline remains observation/engineering evidence, not predictive,
   profitability, or trading-readiness evidence.
 
-Package is ready for rereview after browser smoke. No merge requested.
+Package is review-ready. No code changes or live rerun performed for closeout.
+No merge requested.
