@@ -290,6 +290,18 @@ def find_development_bundle(config: CalibrationConfig, *, output_root: Path, dev
     for path in sorted(root.iterdir(), key=lambda item: item.name):
         if not path.is_dir() or path.is_symlink():
             continue
+        try:
+            candidate_manifest = load_json(path / "manifest.json")
+        except ContractValidationError:
+            continue
+        if type(candidate_manifest) is not dict or candidate_manifest.get("stage") != "development":
+            continue
+        if any(candidate_manifest.get(key) != value for key, value in {
+            "implementation_commit": implementation_commit,
+            "config_hash": config.config_hash,
+            "development_source_id": development_source_id,
+        }.items()):
+            continue
         manifest = _validate_bundle(path, expected_stage="development", expected_context={"implementation_commit": implementation_commit, "config_hash": config.config_hash, "development_source_id": development_source_id}, expected_members={"manifest.json", "protocol.json", "development_metrics.json", "selection.json"})
         selection = selection_from_payload(load_json(path / "selection.json"))
         if selection.selection_id != manifest.get("selection_id") or selection.implementation_commit != implementation_commit:
