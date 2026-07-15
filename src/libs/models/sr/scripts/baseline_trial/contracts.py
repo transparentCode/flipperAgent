@@ -7,7 +7,7 @@ access, and artifact publication live in separate leaf modules.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import math
 from pathlib import Path, PurePath
 import re
@@ -33,6 +33,7 @@ BASELINE_SYMBOL = "TAOUSDT"
 BASELINE_TIMEFRAME = "1d"
 BASELINE_VENUE = "binance_usdm"
 BASELINE_TRIAL_NAME = "sr-v1.5-taousdt-1d-baseline"
+BASELINE_WINDOW_POLICY = "half_open_utc_daily"
 VIEWER_LIBRARY = "lightweight-charts"
 VIEWER_LIBRARY_VERSION = "5.2.0"
 _HASH_RE = re.compile(r"[0-9a-f]{64}")
@@ -57,6 +58,26 @@ def _hash(value: Any, *, field_name: str) -> str:
 
 def _timestamp(value: Any, *, field_name: str) -> datetime:
     return require_utc(value, field_name=field_name)
+
+
+def epoch_milliseconds(timestamp: datetime) -> int:
+    """Return canonical UTC epoch milliseconds for a validated timestamp."""
+    normalized = _timestamp(timestamp, field_name="timestamp")
+    epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    delta = normalized - epoch
+    return delta.days * 86_400_000 + delta.seconds * 1000 + delta.microseconds // 1000
+
+
+def effective_provider_request_bounds(
+    requested_since: datetime,
+    requested_until: datetime,
+) -> tuple[int, int]:
+    """Return Binance bounds for the half-open model window."""
+    since = _timestamp(requested_since, field_name="requested_since")
+    until = _timestamp(requested_until, field_name="requested_until")
+    if since >= until:
+        raise ContractValidationError("requested_since must be < requested_until")
+    return epoch_milliseconds(since), epoch_milliseconds(until) - 1
 
 
 def _number(
@@ -339,6 +360,16 @@ class TrialSpec:
         until = _timestamp(self.requested_until, field_name="requested_until")
         if since >= until:
             raise ContractValidationError("requested_since must be < requested_until")
+        if any(
+            value.hour != 0
+            or value.minute != 0
+            or value.second != 0
+            or value.microsecond != 0
+            for value in (since, until)
+        ):
+            raise ContractValidationError(
+                "requested timestamps must align to UTC daily boundaries"
+            )
         object.__setattr__(self, "requested_since", since)
         object.__setattr__(self, "requested_until", until)
         object.__setattr__(
@@ -633,6 +664,7 @@ __all__ = [
     "BASELINE_TRIAL_NAME",
     "BASELINE_TIMEFRAME",
     "BASELINE_VENUE",
+    "BASELINE_WINDOW_POLICY",
     "BINANCE_ADAPTER_MAX_LIMIT",
     "BundleMember",
     "BundlePublication",
@@ -646,4 +678,6 @@ __all__ = [
     "VIEWER_LIBRARY",
     "VIEWER_LIBRARY_VERSION",
     "ViewerConfig",
+    "effective_provider_request_bounds",
+    "epoch_milliseconds",
 ]

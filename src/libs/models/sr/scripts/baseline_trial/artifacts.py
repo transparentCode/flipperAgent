@@ -16,8 +16,10 @@ from libs.models.sr.scripts.baseline_trial.contracts import (
     BundleMember,
     BundlePublication,
     EvidenceManifest,
+    BASELINE_WINDOW_POLICY,
     SR_BASELINE_TRIAL_SCHEMA_VERSION,
     TrialResult,
+    effective_provider_request_bounds,
 )
 from libs.models.sr.tools.zone_viewer.payload import (
     build_chart_payload,
@@ -265,6 +267,10 @@ def _manifest_semantic_payload(
     chart_identity_hash: str,
 ) -> dict[str, Any]:
     dataset = result.dataset
+    provider_since_ms, provider_until_ms = effective_provider_request_bounds(
+        dataset.requested_since,
+        dataset.requested_until,
+    )
     member_payload = [
         {"name": member.name, "sha256": member.sha256, "byte_length": member.byte_length}
         for member in members
@@ -283,6 +289,11 @@ def _manifest_semantic_payload(
         "model_row_count": result.atr.model_bar_count,
         "gap_policy": dataset.gap_policy,
         "closed_bar_policy": "closed_at=open_time+1d",
+        "window_policy": BASELINE_WINDOW_POLICY,
+        "provider_request": {
+            "startTime": provider_since_ms,
+            "endTime": provider_until_ms,
+        },
         "source_bars_sha256": next(member.sha256 for member in members if member.name == "source_bars.json"),
         "resolved_sr_config": _resolved_sr_payload(result),
         "resolved_input_hash": result.resolved_input.resolved_input_hash,

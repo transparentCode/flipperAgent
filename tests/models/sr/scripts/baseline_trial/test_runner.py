@@ -84,5 +84,5 @@ def test_runner_passes_frozen_epoch_milliseconds_to_provider() -> None:
     args, kwargs = adapter.calls[0]
     assert args == ("TAOUSDT", "1d")
     assert kwargs["since"] == _timestamp_to_ms(trial.requested_since)
-    assert kwargs["until"] == _timestamp_to_ms(trial.requested_until)
+    assert kwargs["until"] == _timestamp_to_ms(trial.requested_until) - 1
     assert kwargs["limit"] == 1500

@@ -9,6 +9,7 @@ import pytest
 from libs.models.sr.domain.identity import deterministic_hash
 from libs.models.sr.scripts.baseline_trial.artifacts import publish_bundle, validate_bundle
 from libs.models.sr.scripts.baseline_trial.runner import run_trial
+from libs.models.sr.scripts.baseline_trial.dataset import _timestamp_to_ms
 
 from .test_runner import _FakeAdapter, _trial
 from .test_dataset import _frame
@@ -43,6 +44,11 @@ def test_bundle_has_exact_members_and_rehashes_cleanly() -> None:
         }
         assert payload["bundle_id"] == publication.bundle_id
         assert deterministic_hash(payload["bundle_id_semantic_payload"]) == publication.bundle_id
+        assert payload["window_policy"] == "half_open_utc_daily"
+        assert payload["provider_request"] == {
+            "startTime": _timestamp_to_ms(result.trial.requested_since),
+            "endTime": _timestamp_to_ms(result.trial.requested_until) - 1,
+        }
         assert all(
             path.read_bytes().endswith(b"\n")
             for path in publication.output_path.iterdir()

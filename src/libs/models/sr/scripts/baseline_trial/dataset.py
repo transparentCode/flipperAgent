@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from numbers import Integral, Real
 from typing import Any, Protocol
 
@@ -19,6 +19,8 @@ from .contracts import (
     SourceBar,
     TrialSpec,
     ValidatedDataset,
+    effective_provider_request_bounds,
+    epoch_milliseconds,
 )
 
 
@@ -63,10 +65,7 @@ def _timestamp_ms(value: Any, *, row_number: int) -> int:
 
 
 def _timestamp_to_ms(timestamp: datetime) -> int:
-    normalized = timestamp.astimezone(timezone.utc)
-    epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
-    delta = normalized - epoch
-    return delta.days * DAY_MS + delta.seconds * 1000 + delta.microseconds // 1000
+    return epoch_milliseconds(timestamp)
 
 
 def validate_raw_dataset(frame: Any, trial: TrialSpec) -> ValidatedDataset:
@@ -99,6 +98,10 @@ def validate_raw_dataset(frame: Any, trial: TrialSpec) -> ValidatedDataset:
         if timestamp_ms < requested_since_ms:
             raise ContractValidationError(
                 f"row {row_number} timestamp precedes requested_since"
+            )
+        if timestamp_ms >= requested_until_ms:
+            raise ContractValidationError(
+                f"row {row_number} open_time must be strictly before requested_until"
             )
         closed_at_ms = timestamp_ms + DAY_MS
         if closed_at_ms > requested_until_ms:
@@ -159,11 +162,15 @@ async def fetch_validated_dataset(
     """Call provider exactly once, then validate response in caller order."""
     if type(trial) is not TrialSpec:
         raise ContractValidationError("trial must be exactly TrialSpec")
+    provider_since_ms, provider_until_ms = effective_provider_request_bounds(
+        trial.requested_since,
+        trial.requested_until,
+    )
     frame = await adapter.get_historical_ohlcv(
         trial.symbol,
         trial.timeframe,
-        since=_timestamp_to_ms(trial.requested_since),
-        until=_timestamp_to_ms(trial.requested_until),
+        since=provider_since_ms,
+        until=provider_until_ms,
         limit=trial.adapter_limit,
     )
     return validate_raw_dataset(frame, trial)

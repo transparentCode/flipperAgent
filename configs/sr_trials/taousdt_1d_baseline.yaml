@@ -5,8 +5,8 @@ trial:
   venue: binance_usdm
   symbol: TAOUSDT
   timeframe: 1d
-  requested_since: "2024-01-01T00:00:00Z"
-  requested_until: "2026-06-30T23:59:59.999Z"
+  requested_since: "2024-01-01T00:00:00.000Z"
+  requested_until: "2026-07-01T00:00:00.000Z"
   adapter_limit: 1500
   gap_policy: reject
   sr_config_path: configs/sr.yaml

@@ -160,6 +160,15 @@ def test_trial_yaml_rejects_unknown_and_non_utc_values() -> None:
         parse_trial_config(raw)
 
 
+def test_trial_yaml_requires_utc_daily_boundaries() -> None:
+    raw = load_sr_config(_TRIAL_PATH)
+    raw = dict(raw)
+    raw["trial"] = dict(raw["trial"])
+    raw["trial"]["requested_until"] = "2026-07-01T00:00:00.001Z"
+    with pytest.raises(ContractValidationError, match="daily boundaries"):
+        parse_trial_config(raw)
+
+
 def test_existing_sr_config_still_exposes_exact_eight_paths() -> None:
     resolved = load_resolved_sr_config(
         _ROOT / "configs" / "sr.yaml",

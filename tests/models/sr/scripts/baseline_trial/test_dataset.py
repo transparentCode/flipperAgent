@@ -94,9 +94,19 @@ def test_later_listing_start_is_recorded_without_backfilling() -> None:
 
 
 def test_cutoff_and_adapter_limit_reject_open_or_truncated_data() -> None:
-    open_bar = _frame(1, start_ms=int(_TRIAL.requested_until.timestamp() * 1000) - 1)
-    with pytest.raises(ContractValidationError, match="closed_at"):
-        validate_raw_dataset(open_bar, _TRIAL)
+    june_30 = _frame(
+        1,
+        start_ms=int(_TRIAL.requested_until.timestamp() * 1000) - DAY_MS,
+    )
+    dataset = validate_raw_dataset(june_30, _TRIAL)
+    assert dataset.bars[0].closed_at == _TRIAL.requested_until
+
+    july_1 = _frame(
+        1,
+        start_ms=int(_TRIAL.requested_until.timestamp() * 1000),
+    )
+    with pytest.raises(ContractValidationError, match="open_time"):
+        validate_raw_dataset(july_1, _TRIAL)
 
     truncated = _frame(1500)
     with pytest.raises(ContractValidationError, match="adapter_limit"):
@@ -121,7 +131,7 @@ def test_adapter_is_called_once_with_frozen_request() -> None:
     assert args == ("TAOUSDT", "1d")
     assert kwargs == {
         "since": int(_TRIAL.requested_since.timestamp() * 1000),
-        "until": int(_TRIAL.requested_until.timestamp() * 1000),
+        "until": int(_TRIAL.requested_until.timestamp() * 1000) - 1,
         "limit": 1500,
     }
 
