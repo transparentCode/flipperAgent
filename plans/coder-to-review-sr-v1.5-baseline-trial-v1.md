@@ -4,7 +4,7 @@ stage: coder-to-review
 date_created: 2026-07-15
 last_updated: 2026-07-15
 owner: Codex Coder
-status: Needs Revision
+status: Blocked
 tags: [handoff, quant, sr, baseline-trial, evidence, viewer]
 source_agent: Codex Coder
 target_agent: Quant Review
@@ -114,8 +114,9 @@ JavaScript/static serving:
 - Corrected local server routes: index 200, main.js 200, package module 200,
   chart payload 200, traversal 404.
 
-Mandatory browser smoke status: **not completed**. Browser runtime reported
-`No browser is available`; `agent.browsers.list()` returned no instances.
+Mandatory browser smoke status: **BLOCKED on environment**. Browser runtime
+reported `No browser is available`; `agent.browsers.list()` returned no
+instances.
 Static route and Node checks pass, but no real-browser claim is made.
 
 Live trial reran twice from viewer-fix commit `4a87993`; both runs returned the
@@ -183,9 +184,10 @@ All-six-file deterministic digest, including manifest:
 
 ## Risks or Follow-up Items
 
-- Real browser smoke is mandatory and remains environment-blocked. Reviewer
-  must run browser smoke or provide browser backend before approval.
+- Real browser smoke is mandatory and remains environment-blocked. No code
+  changes or new live trial are required after smoke passes.
 - This baseline remains observation/engineering evidence, not predictive,
   profitability, or trading-readiness evidence.
 
-Package is ready for rereview after browser smoke. No merge requested.
+Package is technically approved and blocked only on mandatory browser smoke.
+No merge requested.
