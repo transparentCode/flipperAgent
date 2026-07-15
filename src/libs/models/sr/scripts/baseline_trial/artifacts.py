@@ -34,6 +34,7 @@ _MEMBER_NAMES = (
     "diagnostics.json",
     "chart_payload.json",
 )
+_MISSING = object()
 
 
 def _bytes(payload: dict[str, Any]) -> bytes:
@@ -323,14 +324,82 @@ def _manifest_payload(
     }
 
 
+def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
 def _json_load(path: Path) -> Any:
     def reject_constant(value: str) -> Any:
         raise ValueError(f"non-finite JSON constant: {value}")
 
     try:
-        return json.loads(path.read_text(encoding="utf-8"), parse_constant=reject_constant)
+        return json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=_reject_duplicate_keys,
+            parse_constant=reject_constant,
+        )
     except (OSError, UnicodeError, ValueError) as exc:
-        raise ValueError(f"invalid JSON evidence member: {path}") from exc
+        raise ValueError(f"invalid JSON evidence member: {path}: {exc}") from exc
+
+
+def _validate_manifest_identity(
+    payload: dict[str, Any],
+    chart_payload: dict[str, Any],
+    model_payload: dict[str, Any],
+) -> None:
+    identity = payload.get("bundle_id_semantic_payload")
+    bundle_id = payload.get("bundle_id")
+    if type(identity) is not dict or type(bundle_id) is not str:
+        raise ValueError("bundle identity payload is missing")
+    if deterministic_hash(identity) != bundle_id:
+        raise ValueError("bundle_id does not match bundle_id_semantic_payload")
+    expected_keys = set(identity) | {"bundle_id", "bundle_id_semantic_payload"}
+    if set(payload) != expected_keys:
+        raise ValueError("manifest semantic fields do not match bundle identity")
+    for key, expected in identity.items():
+        if key == "members":
+            continue
+        if payload.get(key, _MISSING) != expected:
+            raise ValueError(f"manifest semantic field mismatch: {key}")
+
+    actual_members = payload.get("members")
+    identity_members = identity.get("members")
+    if type(actual_members) is not list or type(identity_members) is not list:
+        raise ValueError("bundle identity members are malformed")
+    if identity.get("bundle_id_basis_members") != identity_members:
+        raise ValueError("bundle identity basis members do not match members")
+    actual_by_name = {member["name"]: member for member in actual_members}
+    identity_by_name = {
+        member.get("name"): member
+        for member in identity_members
+        if type(member) is dict
+    }
+    if set(actual_by_name) != set(identity_by_name):
+        raise ValueError("bundle identity member names do not match")
+    for name in actual_by_name:
+        if name != "chart_payload.json" and actual_by_name[name] != identity_by_name[name]:
+            raise ValueError(f"bundle identity member mismatch: {name}")
+    if payload.get("source_bars_sha256") != actual_by_name["source_bars.json"]["sha256"]:
+        raise ValueError("source_bars_sha256 does not match member metadata")
+    if chart_payload.get("bundle_id") != bundle_id:
+        raise ValueError("chart payload bundle_id does not match manifest")
+    if chart_payload_identity(chart_payload) != payload.get("chart_payload_identity_hash"):
+        raise ValueError("chart payload identity does not match manifest")
+    model_bars = model_payload.get("bars")
+    if type(model_bars) is not list or not model_bars or type(model_bars[0]) is not dict:
+        raise ValueError("model bars are malformed")
+    atr = payload.get("atr")
+    if type(atr) is not dict:
+        raise ValueError("manifest ATR provenance is malformed")
+    if model_payload.get("atr") != atr:
+        raise ValueError("model ATR provenance does not match manifest")
+    if atr.get("first_valid_at") != model_bars[0].get("closed_at"):
+        raise ValueError("ATR first_valid_at does not match first model bar closed_at")
 
 
 def validate_bundle(bundle_path: str | Path) -> dict[str, Any]:
@@ -372,6 +441,13 @@ def validate_bundle(bundle_path: str | Path) -> dict[str, Any]:
         data = path.read_bytes()
         if _file_hash(data) != member["sha256"] or len(data) != member["byte_length"]:
             raise ValueError(f"bundle member hash mismatch: {member['name']}")
+    chart_payload = _json_load(bundle / "chart_payload.json")
+    if type(chart_payload) is not dict:
+        raise ValueError("chart payload must be a mapping")
+    model_payload = _json_load(bundle / "model_bars.json")
+    if type(model_payload) is not dict:
+        raise ValueError("model payload must be a mapping")
+    _validate_manifest_identity(payload, chart_payload, model_payload)
     return payload
 
 

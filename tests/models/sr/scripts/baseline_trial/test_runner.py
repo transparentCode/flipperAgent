@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import replace
+from datetime import timedelta
 from pathlib import Path
 import shutil
 
+import pytest
+
+from libs.models.sr import ContractValidationError
 from libs.models.sr.scripts.baseline_trial.config import load_trial_config
 from libs.models.sr.scripts.baseline_trial.dataset import _timestamp_to_ms
 from libs.models.sr.scripts.baseline_trial.runner import run_trial
@@ -86,3 +90,25 @@ def test_runner_passes_frozen_epoch_milliseconds_to_provider() -> None:
     assert kwargs["since"] == _timestamp_to_ms(trial.requested_since)
     assert kwargs["until"] == _timestamp_to_ms(trial.requested_until) - 1
     assert kwargs["limit"] == 1500
+
+
+def test_trial_result_rejects_atr_timestamp_before_model_bar_close() -> None:
+    trial = _trial("research/tmp_sr_v1_5_atr_timestamp_test")
+    adapter = _FakeAdapter(_frame())
+    try:
+        result, _ = asyncio.run(
+            run_trial(
+                trial,
+                repo_root=_ROOT,
+                adapter=adapter,
+                implementation_commit="e" * 40,
+            )
+        )
+        invalid_atr = replace(
+            result.atr,
+            first_valid_at=result.model_bars[0].closed_at - timedelta(days=1),
+        )
+        with pytest.raises(ContractValidationError, match="first_valid_at"):
+            replace(result, atr=invalid_atr)
+    finally:
+        shutil.rmtree(_ROOT / trial.output_root, ignore_errors=True)

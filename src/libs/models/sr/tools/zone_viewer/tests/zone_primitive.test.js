@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { zoneDetail, zoneVisibleAt } from '../src/zone_primitive.js';
+import { readFile } from 'node:fs/promises';
+import { ZoneRenderer, zoneDetail, zoneVisibleAt } from '../src/zone_primitive.js';
 
 const zone = {
   zone_id: 'zone-1',
@@ -46,4 +47,120 @@ test('hover detail contains only payload fields', () => {
     fakeout_count: 1,
     pending_count: 0,
   });
+});
+
+function seconds(value) {
+  return Math.floor(new Date(value).getTime() / 1000);
+}
+
+function rendererFixture(zone) {
+  const calls = [];
+  const context = {
+    globalAlpha: 1,
+    lineWidth: 0,
+    save() {},
+    restore() {},
+    beginPath() {},
+    moveTo(...args) { calls.push({ name: 'moveTo', args }); },
+    lineTo(...args) { calls.push({ name: 'lineTo', args }); },
+    fillRect(...args) {
+      calls.push({ name: 'fillRect', args, alpha: this.globalAlpha, lineWidth: this.lineWidth });
+    },
+    strokeRect(...args) {
+      calls.push({ name: 'strokeRect', args, alpha: this.globalAlpha, lineWidth: this.lineWidth });
+    },
+    stroke() {
+      calls.push({ name: 'stroke', args: [], alpha: this.globalAlpha, lineWidth: this.lineWidth });
+    },
+  };
+  const source = {
+    payload: {
+      zones: [zone],
+      viewer: {
+        support_border_color: '#26a69a',
+        support_fill_color: 'rgba(38, 166, 154, 0.18)',
+        resistance_border_color: '#ef5350',
+        resistance_fill_color: 'rgba(239, 83, 80, 0.18)',
+        pending_border_color: '#f2c94c',
+        terminal_opacity: 0.35,
+        zone_line_width: 2,
+      },
+    },
+    visibleZones() { return this.payload.zones; },
+    chart: {
+      timeScale() {
+        return {
+          timeToCoordinate(value) {
+            return value === seconds(zone.visible_from) ? 10 : 200;
+          },
+        };
+      },
+    },
+    series: {
+      priceToCoordinate(value) {
+        return { 99: 200, 100: 150, 101: 100 }[value] ?? null;
+      },
+    },
+  };
+  return {
+    calls,
+    context,
+    target: {
+      useMediaCoordinateSpace(callback) {
+        callback({ context, mediaSize: { width: 640, height: 300 } });
+      },
+    },
+    renderer: new ZoneRenderer(source),
+  };
+}
+
+function assertFiniteGeometry(calls) {
+  for (const call of calls.filter(({ name }) => (
+    ['fillRect', 'strokeRect', 'moveTo', 'lineTo'].includes(name)
+  ))) {
+    assert.ok(call.args.every(Number.isFinite), `${call.name} has non-finite coordinates`);
+  }
+}
+
+test('browser entry resolves package-local Lightweight Charts module', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.match(
+    main,
+    /from ['"]\.\.\/node_modules\/lightweight-charts\/dist\/lightweight-charts\.production\.mjs['"]/
+  );
+  assert.doesNotMatch(main, /from ['"]lightweight-charts['"]/);
+});
+
+test('BAND renderer uses direct media coordinates for live zones', () => {
+  const fixture = rendererFixture({
+    ...zone,
+    render_kind: 'BAND',
+  });
+  fixture.renderer.draw(fixture.target);
+
+  const fill = fixture.calls.find(({ name }) => name === 'fillRect');
+  const stroke = fixture.calls.find(({ name }) => name === 'strokeRect');
+  assert.deepEqual(fill.args, [10, 100, 630, 100]);
+  assert.deepEqual(stroke.args, [10, 100, 630, 100]);
+  assert.equal(fill.lineWidth, 2);
+  assertFiniteGeometry(fixture.calls);
+});
+
+test('LINE renderer uses direct media coordinates and terminal opacity', () => {
+  const fixture = rendererFixture({
+    ...zone,
+    render_kind: 'LINE',
+    final_status: 'BROKEN',
+    visible_until: '2024-01-04T00:00:00Z',
+  });
+  fixture.renderer.draw(fixture.target);
+
+  const move = fixture.calls.find(({ name }) => name === 'moveTo');
+  const line = fixture.calls.find(({ name }) => name === 'lineTo');
+  const stroke = fixture.calls.find(({ name }) => name === 'stroke');
+  assert.deepEqual(move.args, [10, 150]);
+  assert.deepEqual(line.args, [200, 150]);
+  assert.equal(stroke.alpha, 0.35);
+  assert.equal(stroke.lineWidth, 2);
+  assertFiniteGeometry(fixture.calls);
 });

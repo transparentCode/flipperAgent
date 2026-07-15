@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+from hashlib import sha256
+import json
 from pathlib import Path
 import shutil
 
@@ -10,6 +12,7 @@ from libs.models.sr.domain.identity import deterministic_hash
 from libs.models.sr.scripts.baseline_trial.artifacts import publish_bundle, validate_bundle
 from libs.models.sr.scripts.baseline_trial.runner import run_trial
 from libs.models.sr.scripts.baseline_trial.dataset import _timestamp_to_ms
+from libs.models.sr.tools.zone_viewer.server import validate_bundle as validate_viewer_bundle
 
 from .test_runner import _FakeAdapter, _trial
 from .test_dataset import _frame
@@ -26,6 +29,24 @@ def _run_result(output_root: str):
         )
     )
     return result, publication
+
+
+def _copy_bundle(publication, root: Path, name: str) -> Path:
+    target_root = root / name
+    target_root.mkdir()
+    target = target_root / publication.bundle_id
+    shutil.copytree(publication.output_path, target)
+    return target
+
+
+def _update_chart_member(manifest: dict, bundle: Path) -> None:
+    data = (bundle / "chart_payload.json").read_bytes()
+    for member in manifest["members"]:
+        if member["name"] == "chart_payload.json":
+            member["sha256"] = sha256(data).hexdigest()
+            member["byte_length"] = len(data)
+            return
+    raise AssertionError("chart member missing")
 
 
 def test_bundle_has_exact_members_and_rehashes_cleanly() -> None:
@@ -84,6 +105,65 @@ def test_identical_publish_is_byte_identical_and_mismatch_fails_closed() -> None
             )
     finally:
         shutil.rmtree(root / output_root, ignore_errors=True)
+
+
+@pytest.mark.parametrize("tamper", ("nested_identity", "top_level", "chart_binding", "chart_identity"))
+def test_both_bundle_validators_reject_identity_tampering(tmp_path: Path, tamper: str) -> None:
+    root = Path(__file__).parents[5]
+    _result, publication = _run_result("research/tmp_sr_v1_5_artifact_identity_validation")
+    try:
+        for validator_name, validator in (
+            ("artifacts", validate_bundle),
+            ("viewer", validate_viewer_bundle),
+        ):
+            bundle = _copy_bundle(publication, tmp_path, f"{validator_name}-{tamper}")
+            manifest_path = bundle / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if tamper == "nested_identity":
+                manifest["bundle_id_semantic_payload"]["window_policy"] = "tampered"
+            elif tamper == "top_level":
+                manifest["window_policy"] = "tampered"
+            else:
+                chart_path = bundle / "chart_payload.json"
+                chart = json.loads(chart_path.read_text(encoding="utf-8"))
+                if tamper == "chart_binding":
+                    chart["bundle_id"] = "0" * 64
+                else:
+                    chart["trial_name"] = "tampered"
+                chart_path.write_text(
+                    json.dumps(chart, sort_keys=True, separators=(",", ":")) + "\n",
+                    encoding="utf-8",
+                )
+                _update_chart_member(manifest, bundle)
+            manifest_path.write_text(
+                json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n",
+                encoding="utf-8",
+            )
+            with pytest.raises(ValueError, match="identity|semantic|chart|bundle_id"):
+                validator(bundle)
+    finally:
+        shutil.rmtree(root / "research/tmp_sr_v1_5_artifact_identity_validation", ignore_errors=True)
+
+
+def test_both_bundle_validators_reject_duplicate_manifest_keys(tmp_path: Path) -> None:
+    root = Path(__file__).parents[5]
+    _result, publication = _run_result("research/tmp_sr_v1_5_artifact_duplicate_keys")
+    try:
+        for validator_name, validator in (
+            ("artifacts", validate_bundle),
+            ("viewer", validate_viewer_bundle),
+        ):
+            bundle = _copy_bundle(publication, tmp_path, validator_name)
+            manifest_path = bundle / "manifest.json"
+            raw = manifest_path.read_text(encoding="utf-8").rstrip()
+            manifest_path.write_text(
+                raw[:-1] + ',"duplicate_probe":1,"duplicate_probe":2}\n',
+                encoding="utf-8",
+            )
+            with pytest.raises(ValueError, match="duplicate JSON key"):
+                validator(bundle)
+    finally:
+        shutil.rmtree(root / "research/tmp_sr_v1_5_artifact_duplicate_keys", ignore_errors=True)
 
 
 def test_bundle_identity_includes_implementation_commit() -> None:

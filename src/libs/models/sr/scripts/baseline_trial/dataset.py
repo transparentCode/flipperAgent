@@ -232,7 +232,7 @@ def build_model_bars(
         implementation=ATR_IMPLEMENTATION,
         implementation_contract=ATR_IMPLEMENTATION_CONTRACT,
         warmup_count=first_valid_index,
-        first_valid_at=dataset.bars[first_valid_index].open_time,
+        first_valid_at=dataset.bars[first_valid_index].closed_at,
         raw_bar_count=len(dataset.bars),
         model_bar_count=len(model_bars),
     )

@@ -46,20 +46,27 @@ class ZoneRenderer {
     const source = this.source;
     target.useMediaCoordinateSpace((scope) => {
       const context = scope.context;
-      const { horizontalPixelRatio, verticalPixelRatio, mediaSize } = scope;
+      const { mediaSize } = scope;
       context.save();
       for (const zone of source.visibleZones()) {
         const timeScale = source.chart.timeScale();
         const xStartCoordinate = timeScale.timeToCoordinate(seconds(zone.visible_from));
         const xEndCoordinate = zone.visible_until === null
-          ? mediaSize.width / horizontalPixelRatio
+          ? mediaSize.width
           : timeScale.timeToCoordinate(seconds(zone.visible_until));
         const yLower = source.series.priceToCoordinate(zone.lower_bound);
         const yUpper = source.series.priceToCoordinate(zone.upper_bound);
         const yCenter = source.series.priceToCoordinate(zone.center);
-        if (xStartCoordinate === null || xEndCoordinate === null || yCenter === null) continue;
-        const xStart = xStartCoordinate * horizontalPixelRatio;
-        const xEnd = xEndCoordinate * horizontalPixelRatio;
+        if (
+          xStartCoordinate === null
+          || xEndCoordinate === null
+          || yCenter === null
+          || !Number.isFinite(xStartCoordinate)
+          || !Number.isFinite(xEndCoordinate)
+          || !Number.isFinite(yCenter)
+        ) continue;
+        const xStart = xStartCoordinate;
+        const xEnd = xEndCoordinate;
         const color = colorFor(zone, source.payload.viewer);
         context.globalAlpha = TERMINAL_STATUSES.has(zone.final_status)
           ? source.payload.viewer.terminal_opacity
@@ -68,14 +75,20 @@ class ZoneRenderer {
         context.fillStyle = zone.side === 'SUPPORT'
           ? source.payload.viewer.support_fill_color
           : source.payload.viewer.resistance_fill_color;
-        context.lineWidth = source.payload.viewer.zone_line_width * horizontalPixelRatio;
-        if (zone.render_kind === 'BAND' && yLower !== null && yUpper !== null) {
-          const top = Math.min(yLower, yUpper) * verticalPixelRatio;
-          const height = Math.abs(yUpper - yLower) * verticalPixelRatio;
+        context.lineWidth = source.payload.viewer.zone_line_width;
+        if (
+          zone.render_kind === 'BAND'
+          && yLower !== null
+          && yUpper !== null
+          && Number.isFinite(yLower)
+          && Number.isFinite(yUpper)
+        ) {
+          const top = Math.min(yLower, yUpper);
+          const height = Math.abs(yUpper - yLower);
           context.fillRect(xStart, top, Math.max(0, xEnd - xStart), height);
           context.strokeRect(xStart, top, Math.max(0, xEnd - xStart), height);
         } else {
-          const y = yCenter * verticalPixelRatio;
+          const y = yCenter;
           context.beginPath();
           context.moveTo(xStart, y);
           context.lineTo(Math.max(xStart, xEnd), y);
@@ -92,6 +105,8 @@ class ZonePaneView {
   renderer() { return new ZoneRenderer(this.source); }
   zOrder() { return 'bottom'; }
 }
+
+export { ZoneRenderer };
 
 export class ZonePrimitive {
   constructor(payload) {

@@ -2,7 +2,7 @@ import {
   CandlestickSeries,
   createChart,
   createSeriesMarkers,
-} from 'lightweight-charts';
+} from '../node_modules/lightweight-charts/dist/lightweight-charts.production.mjs';
 import { ZonePrimitive, zoneDetail } from './zone_primitive.js';
 
 const payload = await fetch('/bundle/chart_payload.json').then((response) => {

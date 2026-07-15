@@ -584,6 +584,10 @@ class EvidenceManifest:
             raise ContractValidationError("manifest input identity does not match trial")
         if self.dataset.requested_since != self.trial.requested_since or self.dataset.requested_until != self.trial.requested_until:
             raise ContractValidationError("manifest dataset bounds do not match trial")
+        if self.atr.first_valid_at != self.dataset.bars[self.atr.warmup_count].closed_at:
+            raise ContractValidationError(
+                "manifest ATR first_valid_at must equal first model bar closed_at"
+            )
         if (
             self.atr.method != self.resolved_input.atr_method
             or self.atr.period != self.resolved_input.atr_period
@@ -636,6 +640,10 @@ class TrialResult:
             raise ContractValidationError("trial SR identity does not reconcile")
         if self.final_state.state_key != self.model_bars[0].state_key:
             raise ContractValidationError("trial state key does not reconcile")
+        if self.atr.first_valid_at != self.model_bars[0].closed_at:
+            raise ContractValidationError(
+                "ATR first_valid_at must equal first model bar closed_at"
+            )
         if len(self.snapshots) != len(self.model_bars):
             raise ContractValidationError("snapshot and model-bar counts do not reconcile")
         if self.atr.model_bar_count != len(self.model_bars) or self.dataset.raw_row_count != self.atr.raw_bar_count:

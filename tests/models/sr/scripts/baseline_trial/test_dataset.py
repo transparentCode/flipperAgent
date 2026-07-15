@@ -145,3 +145,5 @@ def test_closed_bar_mapping_uses_exact_state_key_and_atr_warmup() -> None:
     assert model_bars[0].bar_id == dataset.bars[14].bar_id
     assert provenance.warmup_count == 14
     assert provenance.model_bar_count == 6
+    assert provenance.first_valid_at == model_bars[0].closed_at
+    assert provenance.first_valid_at == dataset.bars[14].closed_at

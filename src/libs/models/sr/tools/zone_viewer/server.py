@@ -5,6 +5,7 @@ from __future__ import annotations
 from hashlib import sha256
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import math
 from pathlib import Path
 import posixpath
 from urllib.parse import unquote, urlsplit
@@ -27,17 +28,117 @@ _CONTENT_TYPES = {
     ".json": "application/json; charset=utf-8",
     ".mjs": "text/javascript; charset=utf-8",
 }
+_MISSING = object()
+
+
+def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
 
 
 def _load_json(path: Path) -> object:
     try:
-        return json.loads(path.read_text(encoding="utf-8"), parse_constant=_reject_constant)
+        return json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=_reject_duplicate_keys,
+            parse_constant=_reject_constant,
+        )
     except (OSError, UnicodeError, ValueError) as exc:
-        raise ValueError(f"invalid JSON file: {path}") from exc
+        raise ValueError(f"invalid JSON file: {path}: {exc}") from exc
 
 
 def _reject_constant(value: str) -> object:
     raise ValueError(f"non-finite JSON constant: {value}")
+
+
+def _canonical_value(value: object) -> object:
+    if value is None or type(value) is bool or type(value) is int or type(value) is str:
+        return value
+    if type(value) is float:
+        if not math.isfinite(value):
+            raise ValueError("non-finite JSON number")
+        return 0.0 if value == 0.0 else value
+    if type(value) is list:
+        return [_canonical_value(item) for item in value]
+    if type(value) is dict:
+        return {
+            key: _canonical_value(item)
+            for key, item in sorted(value.items())
+        }
+    raise ValueError("unsupported JSON identity value")
+
+
+def _deterministic_hash(value: object) -> str:
+    canonical = json.dumps(
+        _canonical_value(value),
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+    return sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _chart_payload_identity(payload: dict[str, object]) -> str:
+    identity = dict(payload)
+    identity.pop("bundle_id", None)
+    return _deterministic_hash(identity)
+
+
+def _validate_manifest_identity(
+    manifest: dict[str, object],
+    chart_payload: dict[str, object],
+    model_payload: dict[str, object],
+) -> None:
+    identity = manifest.get("bundle_id_semantic_payload")
+    bundle_id = manifest.get("bundle_id")
+    if type(identity) is not dict or type(bundle_id) is not str:
+        raise ValueError("bundle identity payload is missing")
+    if _deterministic_hash(identity) != bundle_id:
+        raise ValueError("bundle_id does not match bundle_id_semantic_payload")
+    expected_keys = set(identity) | {"bundle_id", "bundle_id_semantic_payload"}
+    if set(manifest) != expected_keys:
+        raise ValueError("manifest semantic fields do not match bundle identity")
+    for key, expected in identity.items():
+        if key == "members":
+            continue
+        if manifest.get(key, _MISSING) != expected:
+            raise ValueError(f"manifest semantic field mismatch: {key}")
+
+    actual_members = manifest.get("members")
+    identity_members = identity.get("members")
+    if type(actual_members) is not list or type(identity_members) is not list:
+        raise ValueError("bundle identity members are malformed")
+    if identity.get("bundle_id_basis_members") != identity_members:
+        raise ValueError("bundle identity basis members do not match members")
+    actual_by_name = {member["name"]: member for member in actual_members}
+    identity_by_name = {
+        member.get("name"): member
+        for member in identity_members
+        if type(member) is dict
+    }
+    if set(actual_by_name) != set(identity_by_name):
+        raise ValueError("bundle identity member names do not match")
+    for name in actual_by_name:
+        if name != "chart_payload.json" and actual_by_name[name] != identity_by_name[name]:
+            raise ValueError(f"bundle identity member mismatch: {name}")
+    if manifest.get("source_bars_sha256") != actual_by_name["source_bars.json"]["sha256"]:
+        raise ValueError("source_bars_sha256 does not match member metadata")
+    if chart_payload.get("bundle_id") != bundle_id:
+        raise ValueError("chart payload bundle_id does not match manifest")
+    if _chart_payload_identity(chart_payload) != manifest.get("chart_payload_identity_hash"):
+        raise ValueError("chart payload identity does not match manifest")
+    model_bars = model_payload.get("bars")
+    if type(model_bars) is not list or not model_bars or type(model_bars[0]) is not dict:
+        raise ValueError("model bars are malformed")
+    if model_payload.get("atr") != manifest.get("atr"):
+        raise ValueError("model ATR provenance does not match manifest")
+    atr = manifest.get("atr")
+    if type(atr) is not dict or atr.get("first_valid_at") != model_bars[0].get("closed_at"):
+        raise ValueError("ATR first_valid_at does not match first model bar closed_at")
 
 
 def validate_bundle(bundle_path: str | Path) -> dict[str, object]:
@@ -87,6 +188,13 @@ def validate_bundle(bundle_path: str | Path) -> dict[str, object]:
         data = member_path.read_bytes()
         if len(data) != byte_length or sha256(data).hexdigest() != digest:
             raise ValueError(f"bundle member hash mismatch: {name}")
+    chart_payload = _load_json(bundle / "chart_payload.json")
+    if type(chart_payload) is not dict:
+        raise ValueError("chart payload must be a mapping")
+    model_payload = _load_json(bundle / "model_bars.json")
+    if type(model_payload) is not dict:
+        raise ValueError("model payload must be a mapping")
+    _validate_manifest_identity(manifest, chart_payload, model_payload)
     return manifest
 
 
