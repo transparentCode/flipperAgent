@@ -14,13 +14,15 @@ target_agent: Quant Review
 
 ## Scope Executed
 
-Applied four blocker remediations to approved V1.5:
+Applied five blocker remediations to approved V1.5:
 
 1. Browser-resolvable package-local Lightweight Charts import.
 2. Direct media-coordinate LINE/BAND rendering without pixel-ratio fields.
 3. Causal ATR provenance timestamp at first model-bar close.
 4. Fail-closed bundle identity, chart binding, semantic consistency, and
    duplicate-JSON-key validation in both validators.
+5. Lightweight Charts primitive hit-test API shape with the required
+   `zOrder: 'bottom'` and `itemType: 'primitive'` fields.
 
 Approved half-open window remains unchanged:
 
@@ -43,6 +45,7 @@ base:         6ed2951a036c5d3dad040f182305fb5ed68e5277
 implementation: 98446634374dcdf7d38a00c1c3e555734d6ed479
 window fix:   842ffa24afc7f6ba64fa5dfb5d09c1d0e6f740e9
 hardening:    afeaf434297884b9049bd88853343446af59ce0e
+viewer fix / evidence: 4a87993bbdb32d7f4e31b7df803d7281aba15d1c
 ```
 
 No merge performed.
@@ -55,6 +58,9 @@ No merge performed.
 - `ZoneRenderer` uses `mediaSize.width`, direct `timeToCoordinate` values,
   direct `priceToCoordinate` values, and configured line width. Added actual
   LINE/BAND live/terminal renderer tests asserting finite geometry and opacity.
+- `ZonePrimitive.hitTest()` returns the Lightweight Charts primitive API shape
+  with `zOrder: 'bottom'` and `itemType: 'primitive'`; added a direct API-shape
+  regression test.
 - `build_model_bars()` records `first_valid_at` as the first model
   `ClosedBar.closed_at`. `TrialResult` and `EvidenceManifest` enforce this
   causal relation.
@@ -98,9 +104,11 @@ Python:
 
 JavaScript/static serving:
 
-- Package-local Node tests: **6 passed**.
+- Package-local Node tests: **7 passed**.
 - Renderer tests cover BAND/live and LINE/terminal direct coordinates; no NaN
   or null geometry.
+- Hit-test regression verifies `externalId`, `zOrder`, `itemType`, and detail
+  payload fields.
 - `npm ci`: 3 packages audited, 0 vulnerabilities.
 - Node syntax checks passed.
 - Corrected local server routes: index 200, main.js 200, package module 200,
@@ -110,12 +118,13 @@ Mandatory browser smoke status: **not completed**. Browser runtime reported
 `No browser is available`; `agent.browsers.list()` returned no instances.
 Static route and Node checks pass, but no real-browser claim is made.
 
-Live trial ran twice from hardening commit `afeaf43`; both runs returned the
-same bundle ID, trace ID, diagnostics ID, and row counts:
+Live trial reran twice from viewer-fix commit `4a87993`; both runs returned the
+same bundle ID, trace ID, diagnostics ID, and row counts. A fresh pair was
+snapshot-compared and all six bundle files were byte-identical:
 
 ```text
-bundle_id:       31a562bd31a7d55216d04f3177aa4d066963a61d952455e4402d094f6a907e05
-output_path:     research/tmp_sr_v1_5/31a562bd31a7d55216d04f3177aa4d066963a61d952455e4402d094f6a907e05
+bundle_id:       09dba7ebb474b3b45b0fca73a3625e35b548a4dbf7365206671226f3b58578b1
+output_path:     research/tmp_sr_v1_5/09dba7ebb474b3b45b0fca73a3625e35b548a4dbf7365206671226f3b58578b1
 raw rows:        811
 ATR warmup:      14
 model rows:      797
@@ -153,13 +162,14 @@ source_bars.json   b99e4c7281b23f6b13e6ce4148a8ef01a5da86c371463c095fcbfe586e4d0
 model_bars.json    fc00d4698196cb54d9e74908a9841a226cc3421191694d182825dea556dca18a  139741
 trace.json         662ff1ff146713505a194aba372809f4dd2e608f0577fb729605db9aefb4e67b  20841771
 diagnostics.json   bf84552c7e807ded22db3f09e8ea3be3ae773ebdd592de017280a3045780d633  213313
-chart_payload.json b2e1970022d130117904a82d1ee13517a2e222bb4819d1dd1bf285d3bbd3512d  400716
+chart_payload.json c7d1ad6f0f6bf3362c726a8ace07c79a6094392a375b86ee726640fd4d8193dd  400716
+manifest.json      d5ff8940d914839ac6a4391c30c84046d72517efab118be78383ea01182118fe  9212
 ```
 
 All-six-file deterministic digest, including manifest:
 
 ```text
-e3b7c7f906f8ad25f0d65e9e7f00338b23105edb99872e28e26049f9d6adcb8d
+27fbff799391c813b5dff1d826050b3fb99425a20b030422ec22264fd2935f71
 ```
 
 ## Not Changed
