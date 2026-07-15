@@ -132,7 +132,7 @@ async def prepare_source_stage_async(
 ) -> dict[str, Any]:
     config = _load_config(config_path, repo_root)
     commit = implementation_commit or repository_commit(repo_root)
-    _, _, resolved_hashes = resolve_frozen_configs(config, repo_root=repo_root)
+    sr_configs, input_configs, resolved_hashes = resolve_frozen_configs(config, repo_root=repo_root)
     tao = load_taousdt_source(
         config,
         repo_root=repo_root,
@@ -146,7 +146,15 @@ async def prepare_source_stage_async(
         expected_grid=tuple(bar.open_time for bar in tao.bars),
         resolved_hashes=resolved_hashes,
     )
-    bundle = build_source_bundle(config, implementation_commit=commit, tao_source=tao, new_sources=new_sources, resolved_hashes=resolved_hashes)
+    bundle = build_source_bundle(
+        config,
+        implementation_commit=commit,
+        tao_source=tao,
+        new_sources=new_sources,
+        resolved_hashes=resolved_hashes,
+        resolved_sr_field_provenance={asset: sr_configs[asset].field_provenance for asset in APPROVED_ASSETS},
+        resolved_input_field_provenance={asset: input_configs[asset].field_provenance for asset in APPROVED_ASSETS},
+    )
     output_root = _root_path(repo_root, config.output_root, field_name="output_root")
     bundle_id, path = publish_source_bundle(bundle, output_root=output_root)
     return {

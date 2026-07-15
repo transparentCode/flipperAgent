@@ -231,10 +231,18 @@ def load_source_bundle(
         bundle = SourceBundle(
             implementation_commit=semantic["implementation_commit"],
             config_hash=semantic["config_hash"],
-            assets=sources,
-            resolved_sr_config_hashes=tuple(tuple(item) for item in semantic["resolved_sr_config_hashes"]),
-            resolved_input_hashes=tuple(tuple(item) for item in semantic["resolved_input_hashes"]),
-        )
+                assets=sources,
+                resolved_sr_config_hashes=tuple(tuple(item) for item in semantic["resolved_sr_config_hashes"]),
+                resolved_input_hashes=tuple(tuple(item) for item in semantic["resolved_input_hashes"]),
+                resolved_sr_field_provenance=tuple(
+                    (asset, tuple(tuple(pair) for pair in entries))
+                    for asset, entries in semantic["resolved_sr_field_provenance"]
+                ),
+                resolved_input_field_provenance=tuple(
+                    (asset, tuple(tuple(pair) for pair in entries))
+                    for asset, entries in semantic["resolved_input_field_provenance"]
+                ),
+            )
     except (KeyError, TypeError, ValueError) as exc:
         raise ContractValidationError("source artifact semantic payload is malformed") from exc
     if manifest["bundle_id"] != bundle.bundle_id or semantic != bundle.identity_payload():
@@ -273,6 +281,14 @@ def publish_evaluation_bundle(
             "config_hash": config.config_hash,
             "resolved_sr_config_hashes": [list(item) for item in source_bundle.resolved_sr_config_hashes],
             "resolved_input_hashes": [list(item) for item in source_bundle.resolved_input_hashes],
+            "resolved_sr_field_provenance": [
+                [asset, [list(pair) for pair in entries]]
+                for asset, entries in source_bundle.resolved_sr_field_provenance
+            ],
+            "resolved_input_field_provenance": [
+                [asset, [list(pair) for pair in entries]]
+                for asset, entries in source_bundle.resolved_input_field_provenance
+            ],
             "atr": {"method": config.atr_method, "period": config.atr_period, "seed": config.atr_seed, "common_start_period": config.common_start_period},
             "outcome": {"start_offset_bars": config.outcome_start_offset_bars, "horizon_bars": config.outcome_horizon_bars, "window_policy": "half_open_utc_daily"},
             "folds": [fold.to_payload() for fold in config.folds],
@@ -306,6 +322,14 @@ def validate_evaluation_bundle(
         "config_hash": config.config_hash,
         "resolved_sr_config_hashes": [list(item) for item in source_bundle.resolved_sr_config_hashes],
         "resolved_input_hashes": [list(item) for item in source_bundle.resolved_input_hashes],
+        "resolved_sr_field_provenance": [
+            [asset, [list(pair) for pair in entries]]
+            for asset, entries in source_bundle.resolved_sr_field_provenance
+        ],
+        "resolved_input_field_provenance": [
+            [asset, [list(pair) for pair in entries]]
+            for asset, entries in source_bundle.resolved_input_field_provenance
+        ],
         "atr": {"method": config.atr_method, "period": config.atr_period, "seed": config.atr_seed, "common_start_period": config.common_start_period},
         "outcome": {"start_offset_bars": config.outcome_start_offset_bars, "horizon_bars": config.outcome_horizon_bars, "window_policy": "half_open_utc_daily"},
         "folds": [fold.to_payload() for fold in config.folds],

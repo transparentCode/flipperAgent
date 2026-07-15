@@ -272,6 +272,8 @@ def build_source_bundle(
     tao_source: AssetSource,
     new_sources: tuple[AssetSource, ...],
     resolved_hashes: dict[str, tuple[str, str]],
+    resolved_sr_field_provenance: dict[str, tuple[tuple[str, str], ...]],
+    resolved_input_field_provenance: dict[str, tuple[tuple[str, str], ...]],
 ) -> SourceBundle:
     sources = (tao_source, *new_sources)
     if tuple(source.asset for source in sources) != APPROVED_ASSETS:
@@ -282,6 +284,12 @@ def build_source_bundle(
         assets=sources,
         resolved_sr_config_hashes=tuple((asset, resolved_hashes[asset][0]) for asset in APPROVED_ASSETS),
         resolved_input_hashes=tuple((asset, resolved_hashes[asset][1]) for asset in APPROVED_ASSETS),
+        resolved_sr_field_provenance=tuple(
+            (asset, resolved_sr_field_provenance[asset]) for asset in APPROVED_ASSETS
+        ),
+        resolved_input_field_provenance=tuple(
+            (asset, resolved_input_field_provenance[asset]) for asset in APPROVED_ASSETS
+        ),
     )
 
 

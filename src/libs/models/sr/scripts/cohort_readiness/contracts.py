@@ -54,6 +54,17 @@ ATR_IMPLEMENTATION_CONTRACT = "true_range_sma_seed_then_wilder_recursion_v1"
 WINDOW_POLICY = "half_open_utc_daily"
 ADAPTER_IDENTITY = "apps.ingestion_app.adapters.binance_native.BinanceNativeAdapter"
 ADAPTER_LIMIT = 1000
+SR_FIELD_PROVENANCE_PATHS = (
+    "association.merge_distance_atr",
+    "detection.pivot_span_bars",
+    "detection.zone_half_width_atr",
+    "lifecycle.break_buffer_atr",
+    "lifecycle.break_confirm_closes",
+    "lifecycle.max_age_bars",
+    "lifecycle.touch_tolerance_atr",
+    "runtime.max_active_zones",
+)
+INPUT_FIELD_PROVENANCE_PATHS = ("atr.method", "atr.period", "atr.seed")
 
 _HASH_RE = re.compile(r"[0-9a-f]{64}")
 _COMMIT_RE = re.compile(r"[0-9a-f]{40,64}")
@@ -97,6 +108,45 @@ def _number(value: Any, *, field_name: str, minimum: float | None = None) -> flo
     if minimum is not None and result < minimum:
         raise ContractValidationError(f"{field_name} must be >= {minimum}")
     return 0.0 if result == 0.0 else result
+
+
+def _provenance_table(
+    value: Any,
+    *,
+    field_name: str,
+    expected_paths: tuple[str, ...],
+) -> tuple[tuple[str, tuple[tuple[str, str], ...]], ...]:
+    if type(value) is not tuple or len(value) != len(APPROVED_ASSETS):
+        raise ContractValidationError(f"{field_name} must cover the canonical assets")
+    normalized: list[tuple[str, tuple[tuple[str, str], ...]]] = []
+    for index, entry in enumerate(value):
+        if type(entry) is not tuple or len(entry) != 2:
+            raise ContractValidationError(f"{field_name}[{index}] must be an asset/provenance pair")
+        asset, raw_entries = entry
+        asset = _string(asset, field_name=f"{field_name}[{index}].asset")
+        if type(raw_entries) is not tuple or len(raw_entries) != len(expected_paths):
+            raise ContractValidationError(f"{field_name}[{index}] has an invalid entry count")
+        entries: list[tuple[str, str]] = []
+        for entry_index, provenance in enumerate(raw_entries):
+            if type(provenance) is not tuple or len(provenance) != 2:
+                raise ContractValidationError(
+                    f"{field_name}[{index}][{entry_index}] must be a path/source pair"
+                )
+            path, source = provenance
+            entries.append(
+                (
+                    _string(path, field_name=f"{field_name}[{index}].path"),
+                    _string(source, field_name=f"{field_name}[{index}].source"),
+                )
+            )
+        if tuple(path for path, _ in entries) != expected_paths:
+            raise ContractValidationError(f"{field_name}[{index}] paths do not match the frozen protocol")
+        if any(source != "defaults" for _, source in entries):
+            raise ContractValidationError(f"{field_name}[{index}] contains an override provenance source")
+        normalized.append((asset, tuple(entries)))
+    if tuple(asset for asset, _ in normalized) != APPROVED_ASSETS:
+        raise ContractValidationError(f"{field_name} must use canonical asset order")
+    return tuple(normalized)
 
 
 def _timestamp(value: Any, *, field_name: str) -> datetime:
@@ -338,6 +388,8 @@ class SourceBundle:
     assets: tuple[AssetSource, ...]
     resolved_sr_config_hashes: tuple[tuple[str, str], ...]
     resolved_input_hashes: tuple[tuple[str, str], ...]
+    resolved_sr_field_provenance: tuple[tuple[str, tuple[tuple[str, str], ...]], ...]
+    resolved_input_field_provenance: tuple[tuple[str, tuple[tuple[str, str], ...]], ...]
     bundle_id: str = field(init=False)
 
     def __post_init__(self) -> None:
@@ -359,6 +411,24 @@ class SourceBundle:
             for asset, value in values:
                 _string(asset, field_name=f"{field_name}.asset")
                 _hash(value, field_name=f"{field_name}.{asset}")
+        object.__setattr__(
+            self,
+            "resolved_sr_field_provenance",
+            _provenance_table(
+                self.resolved_sr_field_provenance,
+                field_name="resolved_sr_field_provenance",
+                expected_paths=SR_FIELD_PROVENANCE_PATHS,
+            ),
+        )
+        object.__setattr__(
+            self,
+            "resolved_input_field_provenance",
+            _provenance_table(
+                self.resolved_input_field_provenance,
+                field_name="resolved_input_field_provenance",
+                expected_paths=INPUT_FIELD_PROVENANCE_PATHS,
+            ),
+        )
         sr_hashes = dict(self.resolved_sr_config_hashes)
         input_hashes = dict(self.resolved_input_hashes)
         for source in self.assets:
@@ -383,6 +453,14 @@ class SourceBundle:
             "assets": [asset.identity_payload() for asset in self.assets],
             "resolved_sr_config_hashes": [list(item) for item in self.resolved_sr_config_hashes],
             "resolved_input_hashes": [list(item) for item in self.resolved_input_hashes],
+            "resolved_sr_field_provenance": [
+                [asset, [list(pair) for pair in entries]]
+                for asset, entries in self.resolved_sr_field_provenance
+            ],
+            "resolved_input_field_provenance": [
+                [asset, [list(pair) for pair in entries]]
+                for asset, entries in self.resolved_input_field_provenance
+            ],
             "provider_calls": {asset.asset: asset.provider_calls for asset in self.assets},
             "members": members,
         }
@@ -673,7 +751,8 @@ __all__ = [
     "ATR_IMPLEMENTATION", "ATR_IMPLEMENTATION_CONTRACT", "CohortAggregate",
     "CohortEvaluation", "CohortFold", "Disposition", "EventAccounting", "FROZEN_INPUT_HASH",
     "FROZEN_SR_CONFIG_HASH", "GateRecord", "MacroAggregate", "MacroMetric",
-    "ReadinessGates", "SCHEMA_VERSION", "SourceBundle", "TAO_BARS_SHA256",
+    "ReadinessGates", "SCHEMA_VERSION", "SourceBundle", "SR_FIELD_PROVENANCE_PATHS",
+    "INPUT_FIELD_PROVENANCE_PATHS", "TAO_BARS_SHA256",
     "TAO_SOURCE_BUNDLE_ID", "TAO_SOURCE_ID", "TAO_SOURCE_IMPLEMENTATION_COMMIT",
     "TAO_SOURCE_MEMBER_SHA256", "WINDOW_POLICY", "bars_sha256", "grid_sha256",
     "source_capsule",

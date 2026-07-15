@@ -23,7 +23,7 @@ from libs.models.sr.scripts.baseline_trial.contracts import SourceBar
 
 
 def _bundle(cohort_config, resolved_configs, tao_source):
-    _, _, hashes = resolved_configs
+    sr_configs, input_configs, hashes = resolved_configs
     sources = [tao_source]
     for asset in APPROVED_ASSETS[1:]:
         bars = tuple(SourceBar(open_time=bar.open_time, closed_at=bar.closed_at, open=bar.open, high=bar.high, low=bar.low, close=bar.close, volume=bar.volume, bar_id=f"binance_usdm:{asset}:1d:{int(bar.open_time.timestamp() * 1000)}") for bar in tao_source.bars)
@@ -32,13 +32,28 @@ def _bundle(cohort_config, resolved_configs, tao_source):
         from libs.models.sr.domain.identity import deterministic_hash
         source_id = deterministic_hash({"asset": asset, "bars_sha256": bar_hash, "grid_sha256": grid_hash, "source_kind": "provider"})
         sources.append(AssetSource(asset=asset, venue="binance_usdm", timeframe="1d", source_id=source_id, source_bundle_id=source_id, bars_sha256=bar_hash, row_count=629, first_open_time=bars[0].open_time, last_closed_at=bars[-1].closed_at, grid_sha256=grid_hash, requested_since=cohort_config.source_since, requested_until=cohort_config.source_until, provider_calls=1, provider_request_since_ms=1712793600000, provider_request_until_ms=1767139199999, adapter_limit=1000, source_kind="provider", resolved_sr_config_hash=hashes[asset][0], resolved_input_hash=hashes[asset][1], bars=bars))
-    return SourceBundle(implementation_commit="a" * 40, config_hash=cohort_config.config_hash, assets=tuple(sources), resolved_sr_config_hashes=tuple((asset, hashes[asset][0]) for asset in APPROVED_ASSETS), resolved_input_hashes=tuple((asset, hashes[asset][1]) for asset in APPROVED_ASSETS))
+    return SourceBundle(
+        implementation_commit="a" * 40,
+        config_hash=cohort_config.config_hash,
+        assets=tuple(sources),
+        resolved_sr_config_hashes=tuple((asset, hashes[asset][0]) for asset in APPROVED_ASSETS),
+        resolved_input_hashes=tuple((asset, hashes[asset][1]) for asset in APPROVED_ASSETS),
+        resolved_sr_field_provenance=tuple(
+            (asset, sr_configs[asset].field_provenance) for asset in APPROVED_ASSETS
+        ),
+        resolved_input_field_provenance=tuple(
+            (asset, input_configs[asset].field_provenance) for asset in APPROVED_ASSETS
+        ),
+    )
 
 
 def test_source_round_trip_and_rehashed_bar_tamper_rejected(tmp_path, cohort_config, resolved_configs, tao_source):
     bundle = _bundle(cohort_config, resolved_configs, tao_source)
     _, path = publish_source_bundle(bundle, output_root=tmp_path)
-    assert load_source_bundle(path, config=cohort_config, implementation_commit="a" * 40).bundle_id == bundle.bundle_id
+    loaded = load_source_bundle(path, config=cohort_config, implementation_commit="a" * 40)
+    assert loaded.bundle_id == bundle.bundle_id
+    assert loaded.resolved_sr_field_provenance == bundle.resolved_sr_field_provenance
+    assert loaded.resolved_input_field_provenance == bundle.resolved_input_field_provenance
     member = path / "BTCUSDT.json"
     payload = json.loads(member.read_text(encoding="utf-8"))
     payload["bars"][0]["open"] = payload["bars"][0]["close"]
