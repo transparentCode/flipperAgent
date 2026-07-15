@@ -7,6 +7,11 @@ import sys
 
 _SR_IMPORT_PREFIX = "libs.models.sr"
 _YAML_ADAPTER = "adapters/yaml_config.py"
+_BASELINE_EXTERNAL_IMPORTS = {
+    "pandas",
+    "libs.features.indicators.volatility.atr",
+    "apps.ingestion_app.adapters.binance_native",
+}
 
 
 def _runtime_files() -> list[Path]:
@@ -36,6 +41,8 @@ def _relative_import_module(
 
 def _allowed_import(path: Path, node: ast.Import | ast.ImportFrom) -> bool:
     package_dir = Path(__file__).parents[3] / "src" / "libs" / "models" / "sr"
+    relative = path.relative_to(package_dir)
+    is_baseline_integration = relative.parts[:2] == ("scripts", "baseline_trial")
     if isinstance(node, ast.Import):
         modules = [alias.name for alias in node.names]
     else:
@@ -53,6 +60,8 @@ def _allowed_import(path: Path, node: ast.Import | ast.ImportFrom) -> bool:
         if module == _SR_IMPORT_PREFIX or module.startswith(
             f"{_SR_IMPORT_PREFIX}."
         ):
+            continue
+        if is_baseline_integration and module in _BASELINE_EXTERNAL_IMPORTS:
             continue
         if (
             (module == "yaml" or module.startswith("yaml."))
@@ -91,3 +100,31 @@ def test_yaml_imports_remain_confined_to_adapter() -> None:
             ):
                 violations.append(f"{path}: {module}")
     assert violations == []
+
+
+def test_root_and_empty_leaf_package_imports_are_side_effect_free() -> None:
+    import subprocess
+
+    package_code = (
+        "import sys; import libs.models.sr; "
+        "assert not any(name.startswith('libs.models.sr.scripts') or "
+        "name.startswith('libs.models.sr.tools') for name in sys.modules)"
+    )
+    subprocess.run(
+        [sys.executable, "-c", package_code],
+        check=True,
+        env={**dict(), "PYTHONPATH": "src"},
+    )
+
+    leaf_code = (
+        "import sys; import libs.models.sr; before = set(sys.modules); "
+        "import libs.models.sr.scripts; "
+        "import libs.models.sr.scripts.baseline_trial; "
+        "import libs.models.sr.tools; import libs.models.sr.tools.zone_viewer; "
+        "assert not ({name for name in set(sys.modules) - before if name.startswith('pandas') or name == 'yaml'})"
+    )
+    subprocess.run(
+        [sys.executable, "-c", leaf_code],
+        check=True,
+        env={**dict(), "PYTHONPATH": "src"},
+    )

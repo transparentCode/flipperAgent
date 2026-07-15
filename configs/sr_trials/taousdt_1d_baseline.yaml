@@ -1,0 +1,32 @@
+version: "1"
+
+trial:
+  trial_name: sr-v1.5-taousdt-1d-baseline
+  venue: binance_usdm
+  symbol: TAOUSDT
+  timeframe: 1d
+  requested_since: "2024-01-01T00:00:00Z"
+  requested_until: "2026-06-30T23:59:59.999Z"
+  adapter_limit: 1500
+  gap_policy: reject
+  sr_config_path: configs/sr.yaml
+  input_config_path: configs/sr_inputs.yaml
+  output_root: research/tmp_sr_v1_5
+
+viewer:
+  library: lightweight-charts
+  library_version: 5.2.0
+  attribution_logo: true
+  live_zone_extent: viewport_right_edge
+  show_terminal_by_default: false
+  show_events_by_default: true
+  background_color: "#131722"
+  text_color: "#d1d4dc"
+  grid_color: "#2a2e39"
+  support_border_color: "#26a69a"
+  support_fill_color: "rgba(38, 166, 154, 0.18)"
+  resistance_border_color: "#ef5350"
+  resistance_fill_color: "rgba(239, 83, 80, 0.18)"
+  pending_border_color: "#f2c94c"
+  terminal_opacity: 0.35
+  zone_line_width: 2

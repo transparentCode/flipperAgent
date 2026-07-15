@@ -1,0 +1,59 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+  background: #131722;
+  color: #d1d4dc;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; min-width: 320px; }
+
+.app-shell { min-height: 100vh; padding: 16px; }
+
+.toolbar {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin: 0 auto 12px;
+  max-width: 1600px;
+}
+
+h1 { font-size: 1.15rem; margin: 0 0 4px; }
+p { color: #9aa1b2; font-size: .85rem; margin: 0; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 12px; }
+label { color: #d1d4dc; font-size: .85rem; }
+
+.chart {
+  height: calc(100vh - 150px);
+  min-height: 420px;
+  margin: 0 auto;
+  max-width: 1600px;
+  width: 100%;
+}
+
+.hover-detail {
+  color: #d1d4dc;
+  font-size: .8rem;
+  margin: 8px auto 0;
+  max-width: 1600px;
+  min-height: 1.2em;
+}
+
+.hover-detail strong { color: #fff; }
+
+.attribution {
+  color: #9aa1b2;
+  font-size: .75rem;
+  margin: 8px auto 0;
+  max-width: 1600px;
+}
+
+a { color: #7aa2f7; }
+
+@media (max-width: 640px) {
+  .toolbar { align-items: flex-start; flex-direction: column; }
+  .chart { min-height: 360px; }
+}

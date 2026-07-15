@@ -1,0 +1,11 @@
+{
+  "name": "sr-zone-viewer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/zone_primitive.test.js"
+  },
+  "dependencies": {
+    "lightweight-charts": "5.2.0"
+  }
+}

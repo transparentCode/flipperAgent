@@ -17,6 +17,10 @@ def _runtime_files() -> list[Path]:
     return [path for path in package_dir.rglob("*.py") if "tests" not in path.parts]
 
 
+def _is_baseline_integration(path: Path, package_dir: Path) -> bool:
+    return path.relative_to(package_dir).parts[:2] == ("scripts", "baseline_trial")
+
+
 def test_runtime_package_has_no_sr_legacy_imports() -> None:
     forbidden_imports: list[str] = []
     package_dir = Path(__file__).parents[4] / "src" / "libs" / "models" / "sr"
@@ -27,20 +31,21 @@ def test_runtime_package_has_no_sr_legacy_imports() -> None:
             if isinstance(node, ast.ImportFrom) and node.module:
                 if node.module.startswith(_FORBIDDEN_PREFIXES):
                     forbidden_imports.append(f"{path}: {node.module}")
-                if _is_module_or_child(node.module, "pandas"):
+                if _is_module_or_child(node.module, "pandas") and not _is_baseline_integration(path, package_dir):
                     forbidden_imports.append(f"{path}: {node.module}")
                 if _is_module_or_child(node.module, _YAML_MODULE):
-                    if path != allowed_yaml_adapter:
+                    if path != allowed_yaml_adapter and not _is_baseline_integration(path, package_dir):
                         forbidden_imports.append(f"{path}: {node.module}")
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     if alias.name.startswith(_FORBIDDEN_PREFIXES):
                         forbidden_imports.append(f"{path}: {alias.name}")
-                    if _is_module_or_child(alias.name, "pandas"):
+                    if _is_module_or_child(alias.name, "pandas") and not _is_baseline_integration(path, package_dir):
                         forbidden_imports.append(f"{path}: {alias.name}")
                     if (
                         _is_module_or_child(alias.name, _YAML_MODULE)
                         and path != allowed_yaml_adapter
+                        and not _is_baseline_integration(path, package_dir)
                     ):
                         forbidden_imports.append(f"{path}: {alias.name}")
     assert forbidden_imports == []

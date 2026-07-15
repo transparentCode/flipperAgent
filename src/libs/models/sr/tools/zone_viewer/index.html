@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SR V1.5 Zone Evidence</title>
+    <link rel="stylesheet" href="/src/styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="toolbar">
+        <div>
+          <h1>SR V1.5 Zone Evidence</h1>
+          <p id="trial-summary">Loading verified chart payload…</p>
+        </div>
+        <div class="controls" aria-label="Viewer controls">
+          <label><input id="show-terminal" type="checkbox"> terminal zones</label>
+          <label><input id="show-events" type="checkbox" checked> events</label>
+        </div>
+      </header>
+      <section id="chart" class="chart" aria-label="Support and resistance chart"></section>
+      <aside id="hover-detail" class="hover-detail" aria-live="polite"></aside>
+      <footer class="attribution">
+        Charts powered by
+        <a href="https://www.tradingview.com/lightweight-charts/" target="_blank" rel="noreferrer">TradingView Lightweight Charts</a>.
+      </footer>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
