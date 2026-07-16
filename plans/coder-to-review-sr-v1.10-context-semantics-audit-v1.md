@@ -4,7 +4,7 @@ stage: coder-to-review
 date_created: 2026-07-16
 last_updated: 2026-07-16
 owner: Codex
-status: Needs Review
+status: Review Ready
 tags: [handoff, quant, sr, v1.10, context-audit, lifecycle, casebook, taousdt]
 source_agent: Codex quant-coder
 target_agent: Quant Review / Orchestrator
@@ -276,15 +276,24 @@ PYTHONPATH=src .venv/bin/python -c "from libs.models.sr.tools.zone_viewer.server
 
 ### Browser smoke status
 
-Mac Chrome smoke pending; no Mac Chrome browser backend is available in the
-coder execution environment, so no visual approval claim is made and the Chrome
-version is not yet recorded. The Mac Chrome smoke must
-verify no console errors, all 36 cases and filters, one-zone/selected-event
-rendering, exact outcome windows, distinguishable pooled/fold-local metrics,
-absence of unpersisted null/excess values, support/resistance geometry,
-terminal/event toggles, hover, pan/zoom, attribution, deterministic marker
-ordering, empty-filter clearing, exact permanent disposition, bundle ID, and
-the unchanged V1.9 negative disposition.
+Arc V1.10 visual smoke passed with full checklist and clean Console, per
+explicit operator confirmation.
+
+- Browser: Arc on macOS;
+- Chromium engine: `150.0.7871.115` (arm64);
+- OS: macOS `26.6`, build `25G5065a`;
+- JavaScript: V8 `15.0.245.15`;
+- User agent: Chrome `150.0.0.0`;
+- Google Chrome was not tested; no Google Chrome acceptance claim is made;
+- Arc/Chromium accepted for this visual-only V1.10 gate;
+- separate Arc application version was not supplied and is not inferred.
+
+Confirmed smoke checks: clean Console; all 36 cases and filters; empty-result
+filter and reset; one-zone/selected-event rendering; exact outcome windows;
+distinguishable pooled/fold-local metrics; no excess metric for non-comparable
+cases; support/resistance geometry; terminal/event toggles; hover; pan/zoom;
+TradingView attribution; deterministic marker ordering; empty-filter clearing;
+exact permanent disposition; bundle ID; and unchanged V1.9 negative disposition.
 
 ## Worktree and boundaries
 
@@ -301,6 +310,7 @@ was introduced or authorized.
 
 ## Follow-up
 
-Complete the Mac browser smoke and route the resulting diagnostic evidence to
-architecture/research review. Any next hypothesis, foundation correction, or
-decision to stop the detector family requires a separately approved plan.
+V1.10 closeout is complete. Route this evidence to architecture/research review.
+V1.10.1 Overview/Focus Viewer is the next separately scoped viewer-only plan;
+V1.11 research, holdout access, production promotion, and merge remain blocked
+until separately authorized.
