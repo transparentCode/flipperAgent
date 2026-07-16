@@ -12,7 +12,7 @@ base_commit: 72072d2076af379d807cdbd390bb73ff82fe5f8c
 source_branch: feature/sr-v1.6-atr-calibration
 target_branch: feature/sr-v1.7-cohort-readiness
 implementation_commits: [42d62f048da1afff6b2b250472fd7c8ab6030279, 1d9b34145aae41b2b3520d97926514e65270b4e2, be6459a8e06ec95b634b2cfb2b91a08cd31d9ba2]
-handoff_commit: ab0abad1d66c2c75235b324cdfc45214d397d901
+handoff_commit: ab0abad13be92a9252b6d7fd5709723cac76547d
 ---
 
 # Coder To Reviewer: SR-V1.7 Cohort Readiness v1
