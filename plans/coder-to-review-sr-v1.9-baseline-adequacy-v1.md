@@ -20,7 +20,7 @@ study on:
 - branch: `feature/sr-v1.9-baseline-adequacy`;
 - approved V1.8 base: `0fc43a19ab696811e8c7e214c56f5351e50c4e1f`;
 - authorization handoff commit: `e0fb98749c1ab89649f4ffb4fc88c60b8494f816`;
-- implementation commit: `f0108caefab9067ccd92a29cb6188b7852c1a462`.
+- implementation commit: `542faeb0991617ec38a3f7cc13551a26c0f567f0`.
 
 The branch remains unmerged. The approved handoff was committed before the
 implementation. Generated evidence remains untracked.
@@ -50,7 +50,13 @@ The implementation enforces:
   SUPPORT, RESISTANCE order;
 - same-fold/same-side null medians and per-real-outcome excess quality;
 - exact sample/comparability/quality gate semantics and disposition precedence;
+- exact 13-gate names/categories/operators/thresholds with value-derived
+  pass flags and diagnostic-only fold gates;
+- explicitly separated approved-pooled, fold-local, and comparable-mapped
+  populations;
 - duplicate-safe canonical JSON, semantic recomputation, and identity binding;
+- manifest implementation identity defaults that remain valid after later docs
+  commits while retaining explicit mismatch rejection;
 - no provider, network, source-preparation, database, viewer, production, or
   holdout import path.
 
@@ -77,7 +83,7 @@ and economic aggregates.
 ## Final Evidence
 
 The evaluation command was run twice at implementation commit
-`f0108caefab9067ccd92a29cb6188b7852c1a462`:
+`542faeb0991617ec38a3f7cc13551a26c0f567f0`:
 
 ```text
 PYTHONPATH=src .venv/bin/python -m libs.models.sr.scripts.baseline_adequacy.cli evaluate --config configs/sr_trials/sr_v1_9_taousdt_1d_baseline_adequacy.yaml
@@ -88,22 +94,34 @@ disposition:
 
 | Evidence field | Value |
 |---|---|
-| Bundle ID | `7f268802d4fe61ee2f1a56c8eb437e9d54fafc4f97e08ece913d63c923986761` |
-| Study ID | `ca196100b9a984a922c125dd625ad5de07801bdc813b0a951d59ed15a25eddd1` |
+| Bundle ID | `12af91cecc3582606da7c41c0c1beaf0320aa17eef8c52edf615214cf0a34df6` |
+| Study ID | `ed19698fec505e2e8cf1057c41336da7c0720bcf412530244139e5c523f12c9f` |
 | Disposition | `BASELINE_NOT_BETTER_THAN_NAIVE_NULL` |
-| Evidence path | `research/tmp_sr_v1_9/evaluation/7f268802d4fe61ee2f1a56c8eb437e9d54fafc4f97e08ece913d63c923986761` |
+| Evidence path | `research/tmp_sr_v1_9/evaluation/12af91cecc3582606da7c41c0c1beaf0320aa17eef8c52edf615214cf0a34df6` |
 | Manifest bytes | `10528` |
-| Manifest SHA-256 | `b892145b3ad23c15d4fa964df55ab0ce3546980dca9a5b1e2479ec52a1c7e4d7` |
-| `study.json` bytes | `856671` |
-| `study.json` SHA-256 | `20c17e49c337e3854bc0bba08e5ac8d0f47d7c0b1972e79f0d1a8161375e721c` |
-| Manifest implementation commit | `f0108caefab9067ccd92a29cb6188b7852c1a462` |
+| Manifest SHA-256 | `5e0942b7c47d1cb31aae93a1b676abf1eafb46592453ccb357801fa59ad1c9d3` |
+| `study.json` bytes | `857146` |
+| `study.json` SHA-256 | `fe80a2933b7f0ef266bbc43756e9a043515f153d6af64b50660ebe832b9c8abf` |
+| Manifest implementation commit | `542faeb0991617ec38a3f7cc13551a26c0f567f0` |
 | Manifest source ID | `fc1ba274454f277a40f005f542fdfd4e6e752e5afa2e1050f3582b21fd8b1120` |
 
 Final CLI validation passed:
 
 ```text
-PYTHONPATH=src .venv/bin/python -m libs.models.sr.scripts.baseline_adequacy.cli validate --config configs/sr_trials/sr_v1_9_taousdt_1d_baseline_adequacy.yaml --bundle research/tmp_sr_v1_9/evaluation/7f268802d4fe61ee2f1a56c8eb437e9d54fafc4f97e08ece913d63c923986761
+PYTHONPATH=src .venv/bin/python -m libs.models.sr.scripts.baseline_adequacy.cli validate --config configs/sr_trials/sr_v1_9_taousdt_1d_baseline_adequacy.yaml --bundle research/tmp_sr_v1_9/evaluation/12af91cecc3582606da7c41c0c1beaf0320aa17eef8c52edf615214cf0a34df6
 ```
+
+Named outcome populations:
+
+| Population | Total | Completed | Right-censored | Folds | Median quality |
+|---|---:|---:|---:|---:|---:|
+| Approved pooled | 36 | 36 | 0 | 6 | `-0.014070405071082426` |
+| Fold-local | 36 | 34 | 2 | 6 | `0.1807362526958346` |
+| Comparable mapped | 31 | 31 | 0 | 5 | `0.12499422337239618` |
+
+Fold-local same-fold comparison and all promotion gates remain unchanged;
+population labels now prevent pooled and fold-local audit values from being
+conflated.
 
 ### Decision gates
 
@@ -129,8 +147,9 @@ Control accounting:
 - six fold completed real counts: `7, 8, 6, 6, 3, 4`;
 - five folds comparable; `2025_q3` is diagnostic-only because it has three
   completed real outcomes;
-- 36 real records total, 34 completed and 2 right-censored; 31 completed
-  outcomes map into comparable folds.
+- approved pooled population: 36 total, 36 completed, 0 right-censored;
+- fold-local population: 36 total, 34 completed, 2 right-censored;
+- comparable mapped population: 31 completed across five comparable folds.
 
 ## Blast Radius Considered
 
@@ -155,13 +174,13 @@ Pre-existing user-owned worktree state was preserved and excluded from commits:
 
 | Check | Result |
 |---|---|
-| V1.9 focused suite | 21 passed |
-| Complete `tests/models/sr` suite | 493 passed in 442.46s |
+| V1.9 focused suite | 27 passed |
+| Complete `tests/models/sr` suite | 499 passed in 497.06s |
 | V1.9 import boundary test | 1 passed |
 | Ruff on V1.9 source/tests | passed (`ruff 0.15.20`) |
 | Python compilation | passed |
 | Final CLI semantic validation | passed |
-| Two evaluation runs | identical IDs and bytes |
+| Two evaluation runs | identical IDs, member bytes, metrics, gates, and disposition |
 
 The focused tests include strict YAML/config mutation, contract invariants,
 causal control eligibility, formula parity, fold accounting, metric gates,
@@ -182,12 +201,11 @@ existing V1.7/V1.8 and protected SR suites.
 
 ## Risks or Follow-up Items
 
-One pre-existing evidence-shape discrepancy is recorded for review: the
-approved V1.7 pooled baseline payload reports 36 completed / 0 censored, while
-its fold-local accounting yields 36 total, 34 completed, and 2 fold-end
-right-censored outcomes. V1.9 preserves the approved replay parity and uses
-the fold-local, same-fold horizon rule for adequacy, producing 31 mapped
-completed outcomes across five comparable folds. No values were imputed.
+V1.9 now persists approved-pooled and fold-local populations separately. The
+approved pooled baseline remains 36 completed / 0 censored with median
+`-0.014070405071082426`; fold-local same-fold accounting remains 36 total,
+34 completed, and 2 right-censored. Comparable mapping remains 31 completed
+outcomes across five comparable folds. No values were imputed.
 
 This is a development adequacy result for one asset/timeframe and one
 pre-registered naive null. It is not profitability, generalization,
