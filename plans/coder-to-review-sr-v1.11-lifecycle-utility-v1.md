@@ -2,7 +2,7 @@
 goal: Review the SR-V1.11 lifecycle resolution utility and its deterministic development evidence
 stage: coder-to-review
 date_created: 2026-07-16
-last_updated: 2026-07-16
+last_updated: 2026-07-17
 owner: Codex
 status: 'Ready'
 tags: [handoff, quant, sr-v1.11, lifecycle-utility]
@@ -14,7 +14,7 @@ target_agent: Quant Review Agent
 
 Implemented SR-V1.11 on branch `feature/sr-v1.11-lifecycle-utility`, based on the exact SR-V1.10.1 closeout commit. Implementation commit:
 
-`25b189d04a6d50b4235b1e7f6f5b5ae664e3e7aa`
+`4d525ef3e50933330af0fd89c4082d550a538eee`
 
 The utility evaluates one first resolved lifecycle episode per unique zone from the frozen TAOUSDT/1d development prefix, anchors the outcome at the resolution-bar close, starts on the next bar, uses Wilder ATR(14), applies the fixed ten-bar horizon and right-censors outcomes crossing their event fold boundary, then compares completed outcomes with the approved V1.9 fold/side null cells.
 
@@ -26,6 +26,8 @@ The utility evaluates one first resolved lifecycle episode per unique zone from 
 - Enforced the effective-side policy: `FALSE_BREAKOUT` retains the original side; `BREAK_CONFIRMED` flips it.
 - Added recursive duplicate-key and fail-closed JSON/YAML handling, rehashed semantic artifact validation, exact gate schema validation, and study population reconciliation.
 - Added focused contract, extraction, outcome, metrics, artifact, runner and import-boundary regressions under `tests/models/sr/scripts/lifecycle_utility/`.
+- Hardened fold-boundary causality: an outcome whose horizon closes exactly at its event fold end is right-censored with the same half-open policy as the V1.9 null.
+- Reconciled study compared-count validation against outcomes in comparable folds, while retaining distinct comparable-fold accounting; sparse valid fold distributions no longer fail contract validation.
 
 ## Blast Radius Considered
 
@@ -33,24 +35,26 @@ The change is additive. No existing SR model, lifecycle, detection, association,
 
 ## Validation Performed
 
-- Focused V1.11 suite: **45 passed**.
-- Full SR suite: **577 passed**.
+- Focused V1.11 suite: **47 passed**.
+- Full SR suite: **579 passed**.
 - Ruff: passed for the new package and tests.
 - Python compilation: passed.
 - `git diff --check`: passed.
-- CLI validation of the published bundle: passed.
-- Two network-free evaluations from implementation commit `25b189d...`: byte-identical bundle and study IDs; the second publication matched the existing member bytes.
+- CLI validation of the published bundle from the remediation implementation commit: passed.
+- Two network-free evaluations from implementation commit `4d525ef...`: byte-identical bundle and study IDs; the second publication matched the existing member bytes.
 
 Evidence bundle:
 
-`research/tmp_sr_v1_11/lifecycle_utility/evaluation/eb57f6cf98c26a86a80093cf72b2b31fa07b99785932ccc05021cacce0fccb61`
+`research/tmp_sr_v1_11/lifecycle_utility/evaluation/d771135ca9caded7cfaff578501836c541f279d51280175588de6545aff2d3eb`
 
-- Bundle ID: `eb57f6cf98c26a86a80093cf72b2b31fa07b99785932ccc05021cacce0fccb61`
-- Study ID: `75d1b015a95148d006bc65fee8833e9879e60579467edbbcfc3a1c7827b8c320`
-- Implementation commit binding: `25b189d04a6d50b4235b1e7f6f5b5ae664e3e7aa`
+- Bundle ID: `d771135ca9caded7cfaff578501836c541f279d51280175588de6545aff2d3eb`
+- Study ID: `8d6770dbba05963db93ebe1271e63a37ba369d2d4e8f5a05f6149fbf85f147b9`
+- Implementation commit binding: `4d525ef3e50933330af0fd89c4082d550a538eee`
 - Config hash: `ba2bde0651902e18cf3f9e4835ea087a1d7c0280dd6bc929683c6769b92d8b59`
-- `manifest.json`: 9,830 bytes; SHA-256 `e277f42f4af4f5ed0dd83e6eb91cce55a487f93508ca1bbb03d9b2c9ef1cfe64`
-- `study.json`: 81,750 bytes; SHA-256 `0f5dc1e72b5c6cf395eea35e23dbce5ba27b9fbf5e189b9a1a123bead6840f66`
+- `manifest.json`: 9,830 bytes; SHA-256 `0709340ce6d647b777604a6e4f4b5aa54f60c606de85c18faee3dd806a4a117a`
+- `study.json`: 81,750 bytes; SHA-256 `429ca0665a5b26808ff29bc988e47f46ce53777a9e343cc64761d23bc8e8be00`
+- Source ID: `fc1ba274454f277a40f005f542fdfd4e6e752e5afa2e1050f3582b21fd8b1120`
+- Source bundle ID: `d210494937ebcd4347e026b8ac02bff3105065e5455752b8690d449def357925`
 
 Accounting and decision metrics:
 
@@ -63,7 +67,7 @@ Accounting and decision metrics:
 | Completed | 18 |
 | Right-censored | 0 |
 | Comparable folds | 4 |
-| Compared outcomes | 18 |
+| Compared outcomes in comparable folds | 18 |
 | Pooled median excess quality | 0.1966199753 ATR |
 | Positive comparable-fold fraction | 0.50 |
 | Worst comparable-fold median excess | -1.8313464204 ATR |
@@ -85,5 +89,6 @@ All readiness gates passed. The pooled median and event-class stability for `BRE
 - The negative research disposition does not authorize lifecycle-context integration, trading, holdout access or production promotion.
 - Any future shadow-context work requires a separately approved handoff; this package deliberately stops at development evidence.
 - Review should independently recompute the semantic study payload and confirm the frozen upstream/member identities before any promotion decision.
+- The published 18-outcome evidence contains no horizon ending exactly at a fold boundary, so the fold-end remediation changes contract behavior and regression coverage without changing these reported metrics.
 
 This handoff is complete enough for the review agent to validate the implementation and evidence without additional assumptions. The branch remains unmerged.
