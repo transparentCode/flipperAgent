@@ -24,6 +24,11 @@ selection enters Focus mode; Focus renders one immutable case zone, its
 lifecycle events, outcome-window markers, causal metrics, and creation-to-
 tenth-bar range. `All zones` returns to Overview.
 
+Remediation commit: `d254152`. Casebook payloads now enable terminal-zone
+visibility by default without changing legacy viewer defaults. Focus metrics
+are cached and restored when crosshair leaves a zone or produces no hit;
+Overview detail remains empty.
+
 ## Changes made
 
 - `src/libs/models/sr/tools/zone_viewer/src/casebook.js`
@@ -34,18 +39,21 @@ tenth-bar range. `All zones` returns to Overview.
   - preserves immutable casebook inputs.
 - `src/libs/models/sr/tools/zone_viewer/src/main.js`
   - defaults casebook viewer to Overview;
+  - enables terminal visibility for casebook payloads only;
   - adds dropdown-to-Focus and `All zones` transitions;
   - applies event toggle only in Focus;
   - preserves terminal toggle in both modes;
   - fits full chart in Overview and uses exact outcome range in Focus;
-  - clears stale details and rendered state for empty filters.
+  - caches/restores Focus metrics on crosshair no-hit/leave;
+  - keeps Overview detail empty and clears stale state for empty filters.
 - `src/libs/models/sr/tools/zone_viewer/index.html`
   - adds `All zones` control.
 - `src/libs/models/sr/tools/zone_viewer/src/styles.css`
   - styles the new control.
 - `src/libs/models/sr/tools/zone_viewer/tests/casebook.test.js`
   - adds Overview/Focus, filtering, marker, metrics, toggle, empty-state,
-    transition, and immutability regressions.
+    transition, immutability, terminal-default, and metric-restoration
+    regressions.
 - `src/libs/models/sr/tools/zone_viewer/tests/zone_primitive.test.js`
   - adds terminal visibility regression across overview/focus zone sets.
 
@@ -59,9 +67,9 @@ payload builder or audit validator changed.
 
 ## Validation performed
 
-- Node viewer suite: **24 passed**;
+- Node viewer suite: **28 passed**;
 - relevant Python viewer suite: **7 passed**;
-- full SR suite: **532 passed in 644.86s**;
+- full SR suite: **532 passed in 645.31s**;
 - Ruff: passed with `/Users/aloobhujia/.local/bin/ruff`;
 - JavaScript syntax checks: passed for `main.js`, `casebook.js`,
   `zone_primitive.js`;
@@ -88,17 +96,20 @@ remain byte-identical:
 
 ## Risks or follow-up items
 
-Arc visual smoke remains required before V1.10.1 approval. Run on macOS from
+Arc visual smoke remains required after this remediation and before V1.10.1
+approval. Do not run it against the pre-remediation commit. Run on macOS from
 this branch:
 
 ```text
 PYTHONPATH=src .venv/bin/python -c "from libs.models.sr.tools.zone_viewer.server import serve_bundle; serve_bundle('src/libs/models/sr/tools/zone_viewer', 'research/tmp_sr_v1_10/audit/a592276b9fed7c24949ad33b503a7b65474e10f4e3088fe734282401ac058a56')"
 ```
 
-Confirm Overview default/all filtered zones, zero Overview markers, dropdown
-Focus, selected-only events and outcome markers, `All zones` reset, terminal
-and event toggles, empty-filter clearing, hover, pan/zoom, attribution, exact
-bundle/disposition visibility, and clean Console. Record Arc version. No Google
-Chrome claim is required for this Arc-specific gate.
+Confirm active and terminal zones visible in default Overview, all filtered
+zones, zero Overview markers, terminal Focus zone visible initially, dropdown
+Focus, selected-only events and outcome markers, `All zones` reset, explicit
+terminal hide/show, event toggle, Focus metrics after no-hit/crosshair leave,
+empty-filter clearing, hover, pan/zoom, attribution, exact bundle/disposition
+visibility, and clean Console. Record Arc version. No Google Chrome claim is
+required for this Arc-specific gate.
 
 Package is complete for review; no further implementation guesswork is needed.
