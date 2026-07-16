@@ -11,7 +11,7 @@ target_agent: Quant Reviewer
 base_commit: 72072d2076af379d807cdbd390bb73ff82fe5f8c
 source_branch: feature/sr-v1.6-atr-calibration
 target_branch: feature/sr-v1.7-cohort-readiness
-implementation_commits: [42d62f048da1afff6b2b250472fd7c8ab6030279, 1d9b34145aae41b2b3520d97926514e65270b4e2, be6459a8e06ec95b634b2cfb2b91a08cd31d9ba2]
+implementation_commits: [42d62f048da1afff6b2b250472fd7c8ab6030279, 1d9b34145aae41b2b3520d97926514e65270b4e2, be6459a8e06ec95b634b2cfb2b91a08cd31d9ba2, 4cb069af6142dbd7dadf7a5ebef49d2da0ba26a7]
 handoff_commit: ab0abad13be92a9252b6d7fd5709723cac76547d
 ---
 
@@ -36,11 +36,12 @@ unchanged.
 Implementation commits:
 
 - `42d62f048da1afff6b2b250472fd7c8ab6030279` — V1.7 package, tests, and trial YAML.
-- `1d9b34145aae41b2b3520d97926514e65270b4e2` — accepts the approved adapter’s documented extra `taker_buy_base_asset_volume` column while retaining required OHLCV validation; adds regression coverage.
+- `1d9b34145aae41b2b3520d97926514e65270b4e2` — accepts the approved adapter’s documented extra `taker_buy_base` column while retaining required OHLCV validation; adds regression coverage.
 - `be6459a8e06ec95b634b2cfb2b91a08cd31d9ba2` — binds per-asset resolved SR/input field provenance in source and evaluation manifests.
+- `4cb069af6142dbd7dadf7a5ebef49d2da0ba26a7` — makes fold-level sample failures diagnostic-only, enforces the explicit provider-column allowlist, permits evaluation to reuse an older source-preparation commit while binding the new evaluation commit, and adds the aggregate-gate boundary regressions.
 
 One pre-correction source attempt under `1d9b341` made a bounded BTC request,
-then rejected the valid seven-column adapter result before publication. No
+then rejected the valid seven-column adapter result (`taker_buy_base`) before publication. No
 evidence from that attempt is used. The final source evidence below was
 prepared once under `be6459a`, with the required `0/1/1/1` provider-call
 record.
@@ -138,15 +139,21 @@ the approved source identity and bars hash are fixed by the trial config.
 
 ## Evaluation evidence
 
-The final evaluation bundle is:
+The corrected final evaluation bundle is:
 
-`research/tmp_sr_v1_7/evaluation/4440028682097fec6519708c13c29e6d71292a9f7ecd6da60913d1f848aa1dfc`
+`research/tmp_sr_v1_7/evaluation/824e9265a63073ba792762a891adf52deec9677d791c40641dc0107c1f2b840d`
 
-Bundle ID: `4440028682097fec6519708c13c29e6d71292a9f7ecd6da60913d1f848aa1dfc`.
+Bundle ID: `824e9265a63073ba792762a891adf52deec9677d791c40641dc0107c1f2b840d`.
 Evaluation ID:
-`949f732489b457797942ed0e80376e9f13e7c56babdc5237b5d95890124dc0eb`.
+`49a895360774ec0c46349eae2d1ec6f56e7262e5f1411ab992f9886d9040fa8d`.
 The evaluation member SHA-256 is
-`8237e5d6b84f4945da6dbfc141e0b03e27e817cfa3cf42eca81533c95a1f6a65`.
+`04589ae75cbb04d775f8d9b0361b85f9cfa50e2eb70f449548280eb7cb704cdc`.
+The manifest SHA-256 is
+`b8a0e791cb6e51a68f3200566e4b2f2204f2f41724c6f6eb2f93c1f147190c17`.
+The evaluation binds implementation commit
+`4cb069af6142dbd7dadf7a5ebef49d2da0ba26a7` and reuses the validated source
+bundle `6b5a0a81117ba299516fb67ca2da81b3cb6e6f35ed6a85986a27689205a565d9`,
+whose preparation identity remains `be6459a8e06ec95b634b2cfb2b91a08cd31d9ba2`.
 The validator recomputes all four replays, traces, metrics, aggregation, gates,
 and disposition from the validated source bundle and accepts the exact payload.
 
@@ -259,17 +266,17 @@ The sample gates are:
 | SOLUSDT | 5 | 34 | `2025_q1` has 3 completed first touches (< 4) |
 
 All four assets meet the minimum four eligible folds and 24 development
-outcomes. Three fold-level sample gates fail, so the exact ordered disposition
-is:
+outcomes. Three fold-level sample gates fail as retained diagnostics only; the
+aggregate sample gates pass, so the exact ordered disposition is:
 
-`INSUFFICIENT_EVIDENCE`
+`READY_FOR_PARAMETER_SENSITIVITY`
 
-This is a sample-coverage result, not a quality or profitability judgment.
+This is a structural-readiness result, not a quality or profitability judgment.
 
 ## Determinism, causality, and adversarial validation
 
-- The two CLI evaluation runs against source bundle `6b5a0a…` returned the same evaluation bundle ID `4440028682…` and evaluation ID `949f7324…`.
-- A further network-free local rerun was compared byte-for-byte against the existing bundle: `evaluation.json` SHA `8237e5d6…` and `manifest.json` SHA `2911bc08…` were unchanged.
+- The two network-free evaluation runs against source bundle `6b5a0a…` returned the same evaluation bundle ID `824e9265a6…` and evaluation ID `49a8953607…`.
+- A further provider-denied local rerun was compared byte-for-byte against the existing bundle: `evaluation.json` SHA `04589ae7…` and `manifest.json` SHA `b8a0e791…` were unchanged.
 - Two source-bundle loads passed with the same source ID and per-asset provider-call counts.
 - Evaluation with the provider constructor replaced by a failing spy completed twice without reaching the provider path.
 - Independent TAOUSDT replay matched V1.6 metrics and trace exactly.
@@ -282,14 +289,14 @@ This is a sample-coverage result, not a quality or profitability judgment.
 
 | Check | Result |
 | --- | --- |
-| V1.7 targeted suite | 24 passed |
-| Full SR suite | 417 passed |
+| V1.7 targeted suite | 29 passed |
+| Full SR suite | 422 passed |
 | Import-boundary tests | 4 passed |
 | Ruff | passed using system `ruff` (`.venv/bin/ruff` is unavailable) |
 | Compileall | passed |
 | `git diff --check` | passed |
 | Final source validator | passed |
-| Final evaluation validator | passed; `INSUFFICIENT_EVIDENCE` |
+| Final evaluation validator | passed; `READY_FOR_PARAMETER_SENSITIVITY` |
 
 ## Scope and residual limitations
 
