@@ -4,7 +4,7 @@ stage: coder-to-review
 date_created: 2026-07-16
 last_updated: 2026-07-16
 owner: Codex
-status: Needs Review
+status: Review Ready
 tags: [handoff, quant, sr, v1.10.1, viewer, casebook]
 source_agent: Codex quant-coder
 target_agent: Quant Review / Orchestrator
@@ -94,22 +94,24 @@ remain byte-identical:
 - V1.11 research or production surfaces;
 - merge to master.
 
-## Risks or follow-up items
+## Arc visual smoke closeout
 
-Arc visual smoke remains required after this remediation and before V1.10.1
-approval. Do not run it against the pre-remediation commit. Run on macOS from
-this branch:
+Arc on macOS smoke: **PASS**. Full V1.10.1 checklist passed with clean
+Console.
 
-```text
-PYTHONPATH=src .venv/bin/python -c "from libs.models.sr.tools.zone_viewer.server import serve_bundle; serve_bundle('src/libs/models/sr/tools/zone_viewer', 'research/tmp_sr_v1_10/audit/a592276b9fed7c24949ad33b503a7b65474e10f4e3088fe734282401ac058a56')"
-```
+- Chromium: `150.0.7871.115` (Official Build) (arm64);
+- separate Arc application version: not provided;
+- Google Chrome: not tested; no Google Chrome acceptance claim;
+- screenshot confirms default Overview with terminal zones enabled, 36-case
+  disposition, and zero event markers.
 
-Confirm active and terminal zones visible in default Overview, all filtered
-zones, zero Overview markers, terminal Focus zone visible initially, dropdown
-Focus, selected-only events and outcome markers, `All zones` reset, explicit
-terminal hide/show, event toggle, Focus metrics after no-hit/crosshair leave,
-empty-filter clearing, hover, pan/zoom, attribution, exact bundle/disposition
-visibility, and clean Console. Record Arc version. No Google Chrome claim is
-required for this Arc-specific gate.
+Confirmed: active and terminal zones in default Overview, filtered zones, zero
+Overview markers, terminal Focus visibility, dropdown Focus, selected-only
+events/outcome markers, `All zones` reset, terminal hide/show, Focus metrics
+after no-hit/crosshair leave, empty-filter clearing, hover, pan/zoom,
+attribution, exact bundle/disposition visibility, and clean Console.
+
+No blocking follow-up remains for V1.10.1. V1.11 research, merge, provider,
+holdout, and production actions remain separately unauthorized.
 
 Package is complete for review; no further implementation guesswork is needed.
