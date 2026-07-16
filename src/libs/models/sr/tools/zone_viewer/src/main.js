@@ -3,6 +3,11 @@ import {
   createChart,
   createSeriesMarkers,
 } from '../node_modules/lightweight-charts/dist/lightweight-charts.standalone.production.mjs';
+import {
+  casebookNoticeText,
+  casebookState,
+  eventMarkers,
+} from './casebook.js';
 import { ZonePrimitive, zoneDetail } from './zone_primitive.js';
 
 const payload = await fetch('/bundle/chart_payload.json').then((response) => {
@@ -63,38 +68,8 @@ series.setData(payload.candles.map((candle) => ({
 const primitive = new ZonePrimitive(payload);
 series.attachPrimitive(primitive);
 
-function eventMarkers(events, selectedCase = null) {
-  const markers = events.map((event) => ({
-  time: event.time,
-  position: event.event_type === 'BREACH_STARTED' || event.event_type === 'BREAK_CONFIRMED'
-    ? 'aboveBar'
-    : 'belowBar',
-  color: event.event_type === 'FALSE_BREAKOUT' ? viewer.pending_border_color : viewer.text_color,
-  shape: event.event_type === 'BREAK_CONFIRMED' ? 'arrowUp' : 'circle',
-  text: event.event_type,
-  }));
-  if (selectedCase) {
-    markers.push(
-      {
-        time: Math.floor(Date.parse(selectedCase.outcome_window.start) / 1000),
-        position: 'aboveBar',
-        color: viewer.pending_border_color,
-        shape: 'square',
-        text: 'OUTCOME_START',
-      },
-      {
-        time: Math.floor(Date.parse(selectedCase.outcome_window.end) / 1000),
-        position: 'aboveBar',
-        color: viewer.pending_border_color,
-        shape: 'square',
-        text: 'OUTCOME_END',
-      },
-    );
-  }
-  return markers;
-}
-
-let markers = eventMarkers(payload.events);
+let selectedCaseId = null;
+let markers = eventMarkers(payload.events, null, viewer);
 const markerSeries = createSeriesMarkers(series, eventsToggle.checked ? markers : []);
 
 function uniqueSorted(values) {
@@ -110,47 +85,35 @@ function setOptions(select, values) {
   }
 }
 
-function filteredCases() {
-  if (!casebook) return [];
-  return casebook.cases.filter((item) => (
-    (caseFilters.fold.value === 'ALL' || item.fold === caseFilters.fold.value)
-    && (caseFilters.side.value === 'ALL' || item.side === caseFilters.side.value)
-    && (caseFilters.completion.value === 'ALL' || (caseFilters.completion.value === 'COMPLETED' ? item.fold_local_outcome.completed : item.fold_local_outcome.right_censored))
-    && (caseFilters.lifecycle.value === 'ALL' || item.horizon_lifecycle_class === caseFilters.lifecycle.value)
-    && (caseFilters.close.value === 'ALL' || item.close_location === caseFilters.close.value)
-  ));
-}
-
 function updateCasebook() {
   if (!casebook) return;
-  const available = filteredCases();
-  const previous = caseSelect.value;
+  const previous = caseSelect.value || selectedCaseId;
+  const filters = Object.fromEntries(
+    Object.entries(caseFilters).map(([key, select]) => [key, select.value]),
+  );
+  const state = casebookState(casebook, filters, previous, viewer);
   caseSelect.replaceChildren();
-  for (const item of available) {
+  for (const item of state.available) {
     const option = document.createElement('option');
     option.value = item.case_id;
     option.textContent = `${item.case_id.slice(0, 8)} · ${item.fold} · ${item.side} · ${item.first_touch_at.slice(0, 10)}`;
     caseSelect.append(option);
   }
-  if (available.some((item) => item.case_id === previous)) caseSelect.value = previous;
-  const selected = available.find((item) => item.case_id === caseSelect.value) ?? available[0] ?? null;
-  if (selected) caseSelect.value = selected.case_id;
+  selectedCaseId = state.selectedCaseId;
+  if (selectedCaseId) caseSelect.value = selectedCaseId;
+  else caseSelect.value = '';
   primitive.payload = {
     ...payload,
-    zones: selected ? [selected.zone] : [],
-    events: selected ? selected.events : [],
+    zones: state.zones,
+    events: state.events,
   };
-  markers = eventMarkers(selected ? selected.events : [], selected);
+  markers = state.markers;
   markerSeries.setMarkers(eventsToggle.checked ? markers : []);
-  if (selected) {
-    const from = Math.floor(Date.parse(selected.creation_event.timestamp) / 1000);
-    const to = Math.floor(Date.parse(selected.outcome_window.end) / 1000);
-    chart.timeScale().setVisibleRange({ from, to });
-    const pooled = selected.pooled_outcome;
-    const local = selected.fold_local_outcome;
-    const comparison = selected.comparison;
-    detail.innerHTML = `<strong>${selected.case_id.slice(0, 12)}</strong> · ${selected.fold} · ${selected.side} · pooled ${pooled.quality_reference_atr ?? 'censored'} · fold-local ${local.quality_reference_atr ?? 'censored'}${comparison ? ` · excess ${comparison.excess_quality}` : ' · no persisted comparison'}`;
+  if (state.selected) {
+    chart.timeScale().setVisibleRange(state.visibleRange);
+    detail.textContent = state.metrics.text;
   } else {
+    detail.textContent = '';
     chart.timeScale().fitContent();
   }
   primitive.requestUpdate?.();
@@ -159,7 +122,7 @@ function updateCasebook() {
 if (casebook) {
   casebookControls.hidden = false;
   casebookNotice.hidden = false;
-  casebookNotice.textContent = `${casebook.notice} ${casebook.case_count} cases; pooled and fold-local outcomes are shown separately.`;
+  casebookNotice.textContent = casebookNoticeText(casebook);
   setOptions(caseFilters.fold, uniqueSorted(casebook.cases.map((item) => item.fold)));
   setOptions(caseFilters.side, uniqueSorted(casebook.cases.map((item) => item.side)));
   setOptions(caseFilters.lifecycle, uniqueSorted(casebook.cases.map((item) => item.horizon_lifecycle_class)));
