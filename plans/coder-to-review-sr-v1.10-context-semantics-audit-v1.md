@@ -245,6 +245,11 @@ rejection:
 PYTHONPATH=src .venv/bin/python -m libs.models.sr.scripts.context_audit.cli validate configs/sr_trials/sr_v1_10_taousdt_1d_context_audit.yaml research/tmp_sr_v1_10/audit/36a1fe0642421b542b3d11103b3d9483666005e146247ff748499d9c5fae3c9c --repo-root .
 ```
 
+Executed from the documentation HEAD after the implementation commit; result:
+`audit_status=COMPLETE`, `case_count=36`, bundle
+`36a1fe0642421b542b3d11103b3d9483666005e146247ff748499d9c5fae3c9c`, and
+unchanged disposition `BASELINE_NOT_BETTER_THAN_NAIVE_NULL`.
+
 Serve the verified casebook locally with:
 
 ```text
