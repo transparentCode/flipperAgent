@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from copy import deepcopy
 import inspect
 
 import pytest
 
+from libs.models.sr.adapters.yaml_config import load_sr_config
 from libs.models.sr.config.models import ResolvedSRConfig
 from libs.models.sr.domain.contracts import ContractValidationError
 from libs.models.sr.scripts.geometry_sensitivity.candidate_grid import (
@@ -13,7 +15,9 @@ from libs.models.sr.scripts.geometry_sensitivity.candidate_grid import (
 )
 from libs.models.sr.scripts.geometry_sensitivity.config import (
     APPROVED_PIVOT_SPANS,
+    APPROVED_SELECTION_THRESHOLDS,
     APPROVED_ZONE_HALF_WIDTHS,
+    parse_geometry_config,
 )
 
 
@@ -21,6 +25,19 @@ def test_real_config_is_strict_and_content_addressed(geometry_config):
     assert geometry_config.config_hash == "86137d2c5b5e12802a5731298ab548822f23c4937d635bae5f21b77a8e7c0da7"
     assert geometry_config.assets == ("TAOUSDT", "BTCUSDT", "ETHUSDT", "SOLUSDT")
     assert geometry_config.v17_config_hash == "370d2b66e8e3031b0df8547e8b52c61288e14c5d1b858612ce9fae712e1690a7"
+
+
+def test_selection_thresholds_match_approved_payload(geometry_config):
+    assert geometry_config.selection.to_payload() == dict(APPROVED_SELECTION_THRESHOLDS)
+
+
+@pytest.mark.parametrize("field_name", tuple(APPROVED_SELECTION_THRESHOLDS))
+def test_selection_threshold_mutation_fails_closed(field_name, repo_root):
+    raw = deepcopy(load_sr_config(repo_root / "configs/sr_trials/sr_v1_8_1d_geometry_sensitivity.yaml"))
+    value = raw["selection"][field_name]
+    raw["selection"][field_name] = value + 1 if type(value) is int else value + 0.01
+    with pytest.raises(ContractValidationError):
+        parse_geometry_config(raw)
 
 
 def test_recursive_duplicate_yaml_key_fails_closed(tmp_path, geometry_config):

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import math
 from pathlib import Path, PurePath
 import re
+from types import MappingProxyType
 from typing import Any
 
 from libs.models.sr.adapters.yaml_config import load_sr_config
@@ -43,6 +44,25 @@ FROZEN_COMMON_START_PERIOD = 28
 FROZEN_OUTCOME_OFFSET = 1
 FROZEN_OUTCOME_HORIZON = 10
 WINDOW_POLICY = "half_open_utc_daily"
+APPROVED_SELECTION_THRESHOLDS = MappingProxyType(
+    {
+        "minimum_completed_first_touches_per_fold": 4,
+        "minimum_eligible_development_folds": 4,
+        "minimum_development_completed_first_touches": 24,
+        "minimum_comparable_folds_per_asset": 4,
+        "minimum_comparable_asset_fold_units": 16,
+        "minimum_median_asset_delta": 0.10,
+        "minimum_micro_delta": 0.10,
+        "minimum_positive_asset_count": 3,
+        "minimum_worst_asset_delta": -0.10,
+        "minimum_asset_fold_win_fraction": 0.60,
+        "maximum_invalidation_rate_delta": 0.05,
+        "minimum_zone_creation_density_ratio": 0.50,
+        "maximum_zone_creation_density_ratio": 2.00,
+        "maximum_churn_rate_delta": 0.10,
+        "maximum_right_censoring_rate_delta": 0.10,
+    }
+)
 
 _HASH_RE = re.compile(r"[0-9a-f]{64}")
 _COMMIT_RE = re.compile(r"[0-9a-f]{40,64}")
@@ -173,6 +193,8 @@ class SelectionThresholds:
             raise ContractValidationError("selection.minimum_zone_creation_density_ratio must be positive")
         object.__setattr__(self, "minimum_zone_creation_density_ratio", minimum_ratio)
         object.__setattr__(self, "maximum_zone_creation_density_ratio", maximum_ratio)
+        if self.to_payload() != dict(APPROVED_SELECTION_THRESHOLDS):
+            raise ContractValidationError("selection thresholds do not match approved V1.8 protocol")
 
     def to_payload(self) -> dict[str, Any]:
         return {name: getattr(self, name) for name in self.__dataclass_fields__}
@@ -265,6 +287,8 @@ class GeometrySensitivityConfig:
             "minimum_development_completed_first_touches": 24,
         }:
             raise ContractValidationError("readiness gates do not match V1.7")
+        if type(self.selection) is not SelectionThresholds or self.selection.to_payload() != dict(APPROVED_SELECTION_THRESHOLDS):
+            raise ContractValidationError("selection thresholds do not match approved V1.8 protocol")
         if type(self.pivot_span_bars) is not tuple or self.pivot_span_bars != APPROVED_PIVOT_SPANS:
             raise ContractValidationError("pivot_span_bars axis is not the exact approved axis")
         widths = tuple(_number(value, path="candidate_grid.zone_half_width_atr", minimum=0.0) for value in self.zone_half_width_atr)
@@ -361,6 +385,7 @@ load_config = load_geometry_config
 
 __all__ = [
     "APPROVED_PIVOT_SPANS", "APPROVED_ZONE_HALF_WIDTHS", "BASELINE_PIVOT_SPAN", "BASELINE_ZONE_HALF_WIDTH",
+    "APPROVED_SELECTION_THRESHOLDS",
     "CONFIG_VERSION", "FROZEN_INPUT_HASH", "FROZEN_SR_CONFIG_HASH", "GeometrySensitivityConfig", "SelectionThresholds",
     "TRIAL_NAME", "V17_CONFIG_HASH", "V17_EVALUATION_BUNDLE_ID", "V17_EVALUATION_ID", "V17_EVALUATION_IMPLEMENTATION_COMMIT",
     "V17_SOURCE_BUNDLE_ID", "V17_SOURCE_IMPLEMENTATION_COMMIT", "load_config", "load_geometry_config", "parse_geometry_config",

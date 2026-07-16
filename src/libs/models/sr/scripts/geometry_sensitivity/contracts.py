@@ -23,6 +23,16 @@ PARAMETER_FAMILY = "detection_geometry"
 _HASH_RE = re.compile(r"[0-9a-f]{64}")
 _COMMIT_RE = re.compile(r"[0-9a-f]{40,64}")
 _OVERRIDE_PATHS = ("detection.pivot_span_bars", "detection.zone_half_width_atr")
+_PROMOTION_GATE_PREFIXES = (
+    "structural.",
+    "sample.",
+    "comparability.",
+    "quality.",
+    "guardrail.",
+    "stability.",
+    "baseline.",
+)
+_DIAGNOSTIC_GATE_PREFIX = "diagnostic."
 
 
 def _string(value: Any, *, path: str) -> str:
@@ -340,7 +350,20 @@ class CandidateDecision:
 
     @property
     def passes_all_gates(self) -> bool:
-        return self.fully_evaluable and self.passes_quality and self.passes_guardrails and self.passes_stability and all(gate.passed for gate in self.gates)
+        known_prefixes = _PROMOTION_GATE_PREFIXES + (_DIAGNOSTIC_GATE_PREFIX,)
+        if any(not gate.name.startswith(known_prefixes) for gate in self.gates):
+            return False
+        authoritative = tuple(
+            gate for gate in self.gates if gate.name.startswith(_PROMOTION_GATE_PREFIXES)
+        )
+        return (
+            bool(authoritative)
+            and self.fully_evaluable
+            and self.passes_quality
+            and self.passes_guardrails
+            and self.passes_stability
+            and all(gate.passed for gate in authoritative)
+        )
 
     def to_payload(self) -> dict[str, Any]:
         return {
