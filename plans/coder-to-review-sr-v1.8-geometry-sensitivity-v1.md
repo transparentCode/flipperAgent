@@ -21,11 +21,11 @@ The implementation is on:
 - branch: feature/sr-v1.8-geometry-sensitivity
 - V1.7 authorization/base: f8ecb2437f7f60a1da2ab496f7d8f9807d770d1f
 - V1.7 parent: 625878b26faa1cccb330af0e1c7062e3e3f4b1b6
-- implementation commit: b12345e36184a4475050d2b9203364532bf7caa9
+- implementation commit: fa819418aa35b7f325c7a6bf2a51a387aa97f60f
 
-The branch remains unmerged. The handoff document is the only change after the
-implementation/evidence commit; the evidence was not rerun after this document
-was written.
+The branch remains unmerged. Two identical evaluations were run after the
+hardening commit. This documentation update was made after evidence generation;
+no evaluation was rerun after this document was written.
 
 The study consumes the already-published V1.7 source and evaluation bundles
 directly. It does not contact Binance, prepare a new source capsule, create or
@@ -64,6 +64,9 @@ The package:
   evaluating challengers;
 - evaluates every candidate independently per asset;
 - applies aggregate eligibility, quality, guardrail, and stability gates;
+- excludes diagnostic fold gates from promotion while rejecting unknown gate
+  categories fail-closed;
+- enforces the exact immutable approved V1.8 selection-threshold payload;
 - emits deterministic, duplicate-safe study and manifest artifacts;
 - exposes only evaluate and validate CLI commands.
 
@@ -185,14 +188,19 @@ staged:
 
 | Check | Result |
 |---|---|
-| V1.8 targeted suite | 13 passed |
-| Full SR suite | 435 passed |
+| V1.8 targeted suite | 50 passed |
+| Full SR suite | 472 passed |
 | SR/import boundary suites | 4 passed |
 | Ruff on V1.8 source/tests | passed |
 | Python compilation | passed |
 | Provider/network spy around run_study | passed; no provider path reached |
 | Final CLI validate | passed |
 | Protected-core/config/diff checks | passed |
+
+The focused V1.8 suite was rerun after hardening and passed 50 tests, including
+all 15 selection-threshold mutation cases and synthetic selection, diagnostic,
+quality-boundary, guardrail-boundary, stability, tie-break, disposition, and
+undefined-denominator cases.
 
 The provider spy rejected provider-module import attempts while the full study
 completed, proving the study is network-free and source-reuse-only.
@@ -207,21 +215,25 @@ Both runs produced the same IDs and bytes:
 
 | Evidence field | Value |
 |---|---|
-| Bundle ID | 53f056b10e46a1e88b9343f3383cf3be5ccd8e57ab4e75bdb3c1e01eaf21643f |
-| Study ID | c306e22330bd1a00fcf8bf33835940f6ac4bc2e44ca2baee98f3852f751e9a1a |
+| Bundle ID | b0ea33decc9c8c40dab98bdbb90635652dc199031fc50b27d3a71a6711378941 |
+| Study ID | 2a324d3a203642bf9030aede611a8d874fcb051c5b394fcb4758582d6cfbc954 |
 | Disposition | RETAIN_BASELINE_GEOMETRY |
 | Selected challenger | none |
-| Bundle path | research/tmp_sr_v1_8/evaluation/53f056b10e46a1e88b9343f3383cf3be5ccd8e57ab4e75bdb3c1e01eaf21643f |
+| Bundle path | research/tmp_sr_v1_8/evaluation/b0ea33decc9c8c40dab98bdbb90635652dc199031fc50b27d3a71a6711378941 |
 | Manifest bytes | 9,130 |
-| Manifest SHA-256 | 758883a4ecca45472b758e2bb635c2fabb663effd6e86c81309ec5e90ad6604b |
+| Manifest SHA-256 | 3e50b07691d32836874ab4d729fe010c6a356b0ff477846b5e29f85267ec0feb |
 | study.json bytes | 2,686,420 |
-| study.json SHA-256 | 2427ddd8dd079a7b7e45a780ebdae34cd7afce0a7ae332f5f1146de021aaa72e |
-| Manifest implementation commit | b12345e36184a4475050d2b9203364532bf7caa9 |
+| study.json SHA-256 | 09318eb5c1281556861961c9cca104194ede39814045b6c8facba6a2ef2e65aa |
+| Manifest implementation commit | fa819418aa35b7f325c7a6bf2a51a387aa97f60f |
 | Manifest config hash | 86137d2c5b5e12802a5731298ab548822f23c4937d635bae5f21b77a8e7c0da7 |
 
 The two run outputs were byte-identical, including manifest and study.json
 member bytes. The final CLI validator accepted the bundle and returned the
 same bundle ID, study ID, and disposition.
+
+Semantic comparison against prior V1.8 study evidence found no changes in any
+candidate, evaluation, or decision payload. Only implementation_commit and the
+derived study_id changed, as required by the corrected implementation identity.
 
 ### Candidate gate matrix
 
