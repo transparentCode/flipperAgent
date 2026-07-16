@@ -41,6 +41,7 @@ from .contracts import (
 
 DAY_MS = 86_400_000
 _REQUIRED_COLUMNS = ("timestamp", "open", "high", "low", "close", "volume")
+_ALLOWED_COLUMNS = frozenset((*_REQUIRED_COLUMNS, "taker_buy_base"))
 
 
 class HistoricalOHLCVAdapter(Protocol):
@@ -104,8 +105,13 @@ def validate_provider_frame(
         raise ContractValidationError("provider result must be exactly pandas.DataFrame")
     if frame.empty or len(frame) != APPROVED_SOURCE_ROWS:
         raise ContractValidationError("provider result must contain exactly 629 rows")
-    if len(set(frame.columns)) != len(frame.columns) or not set(_REQUIRED_COLUMNS).issubset(set(frame.columns)):
-        raise ContractValidationError("provider result must contain unique timestamp/open/high/low/close/volume columns")
+    columns = set(frame.columns)
+    if (
+        len(columns) != len(frame.columns)
+        or not set(_REQUIRED_COLUMNS).issubset(columns)
+        or not columns.issubset(_ALLOWED_COLUMNS)
+    ):
+        raise ContractValidationError("provider result contains unsupported or duplicate columns")
     if len(expected_grid) != APPROVED_SOURCE_ROWS:
         raise ContractValidationError("expected source grid must contain 629 timestamps")
     requested_since_ms, requested_until_ms = effective_provider_request_bounds(config)

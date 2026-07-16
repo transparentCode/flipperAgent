@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from .conftest import frame_for_asset
+from libs.models.sr.scripts.cohort_readiness.artifacts import load_json
 from libs.models.sr.scripts.cohort_readiness.runner import (
     evaluate_stage,
     prepare_source_stage,
@@ -28,6 +31,10 @@ def test_prepare_then_evaluate_is_network_free_and_deterministic(tmp_path, cohor
     assert adapter.calls == ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
     assert result["provider_calls"] == {"TAOUSDT": 0, "BTCUSDT": 1, "ETHUSDT": 1, "SOLUSDT": 1}
     monkeypatch.setattr("libs.models.sr.scripts.cohort_readiness.runner.default_provider_adapter", lambda: (_ for _ in ()).throw(AssertionError("network path used during evaluation")))
-    first = evaluate_stage(repo_root / "configs/sr_trials/sr_v1_7_1d_cohort_readiness.yaml", repo_root=repo_root, source_bundle_id=result["source_bundle_id"], implementation_commit="a" * 40)
-    second = evaluate_stage(repo_root / "configs/sr_trials/sr_v1_7_1d_cohort_readiness.yaml", repo_root=repo_root, source_bundle_id=result["source_bundle_id"], implementation_commit="a" * 40)
+    first = evaluate_stage(repo_root / "configs/sr_trials/sr_v1_7_1d_cohort_readiness.yaml", repo_root=repo_root, source_bundle_id=result["source_bundle_id"], implementation_commit="b" * 40)
+    second = evaluate_stage(repo_root / "configs/sr_trials/sr_v1_7_1d_cohort_readiness.yaml", repo_root=repo_root, source_bundle_id=result["source_bundle_id"], implementation_commit="b" * 40)
     assert first["evaluation_bundle_id"] == second["evaluation_bundle_id"]
+    manifest = load_json(Path(first["evaluation_bundle_path"]) / "manifest.json")
+    source_manifest = load_json(Path(result["source_bundle_path"]) / "manifest.json")
+    assert source_manifest["implementation_commit"] == "a" * 40
+    assert manifest["implementation_commit"] == "b" * 40

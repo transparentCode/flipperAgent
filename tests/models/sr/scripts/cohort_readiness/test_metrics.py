@@ -34,6 +34,24 @@ def _four_asset_evaluations(cohort_config, resolved_configs, tao_source):
     return tuple(replace(base, asset=asset) for asset in cohort_config.assets)
 
 
+def _with_completed_outcomes(window, count):
+    outcomes = tuple(outcome for outcome in window.outcomes if outcome.completed)[:count]
+    invalidated = sum(outcome.invalidated for outcome in outcomes)
+    support = sum(outcome.side.value == "support" for outcome in outcomes)
+    return replace(
+        window,
+        total_first_touch_outcomes=count,
+        completed_first_touch_outcomes=count,
+        right_censored_first_touch_outcomes=0,
+        right_censoring_rate=0.0,
+        support_completed_count=support,
+        resistance_completed_count=count - support,
+        invalidated_completed_outcomes=invalidated,
+        invalidation_rate=None if not outcomes else invalidated / len(outcomes),
+        outcomes=outcomes,
+    )
+
+
 def test_micro_and_macro_aggregation_use_outcome_level_rows(cohort_config, resolved_configs, tao_source):
     evaluations = _four_asset_evaluations(cohort_config, resolved_configs, tao_source)
     micro, macro = aggregate(evaluations)
@@ -73,3 +91,70 @@ def test_readiness_returns_insufficient_evidence_when_only_sample_gate_fails(coh
     gates, disposition = readiness_gates(cohort_config, tuple(evaluations))
     assert disposition.value == "INSUFFICIENT_EVIDENCE"
     assert any(not gate.passed and gate.name == "sample.eligible_development_folds" for gate in gates)
+
+
+def test_four_eligible_folds_and_at_least_24_outcomes_are_ready(cohort_config, resolved_configs, tao_source):
+    evaluations = list(_four_asset_evaluations(cohort_config, resolved_configs, tao_source))
+    folds = tuple(
+        _with_completed_outcomes(fold, 3) if fold.name == "2025_q1" else fold
+        for fold in evaluations[0].metrics.folds
+    )
+    evaluations[0] = replace(evaluations[0], metrics=replace(evaluations[0].metrics, folds=folds))
+    gates, disposition = readiness_gates(cohort_config, tuple(evaluations))
+    assert disposition.value == "READY_FOR_PARAMETER_SENSITIVITY"
+    eligible = next(
+        gate for gate in gates
+        if gate.asset == "TAOUSDT" and gate.name == "sample.eligible_development_folds"
+    )
+    assert eligible.value == 4
+    assert any(
+        not gate.passed and gate.name == "sample.completed_first_touches_per_fold"
+        for gate in gates if gate.asset == "TAOUSDT"
+    )
+
+
+def test_three_eligible_folds_are_insufficient_even_when_total_outcomes_pass(cohort_config, resolved_configs, tao_source):
+    evaluations = list(_four_asset_evaluations(cohort_config, resolved_configs, tao_source))
+    failed = {"2025_q1", "2025_q2"}
+    folds = tuple(
+        _with_completed_outcomes(fold, 3) if fold.name in failed else fold
+        for fold in evaluations[0].metrics.folds
+    )
+    evaluations[0] = replace(evaluations[0], metrics=replace(evaluations[0].metrics, folds=folds))
+    gates, disposition = readiness_gates(cohort_config, tuple(evaluations))
+    assert disposition.value == "INSUFFICIENT_EVIDENCE"
+    eligible = next(
+        gate for gate in gates
+        if gate.asset == "TAOUSDT" and gate.name == "sample.eligible_development_folds"
+    )
+    total = next(
+        gate for gate in gates
+        if gate.asset == "TAOUSDT" and gate.name == "sample.development_completed_first_touches"
+    )
+    assert eligible.value == 3
+    assert total.passed
+
+
+def test_four_eligible_folds_but_fewer_than_24_outcomes_are_insufficient(cohort_config, resolved_configs, tao_source):
+    evaluations = list(_four_asset_evaluations(cohort_config, resolved_configs, tao_source))
+    folds = tuple(
+        _with_completed_outcomes(fold, 3) if fold.name == "2025_q1" else fold
+        for fold in evaluations[0].metrics.folds
+    )
+    pooled = _with_completed_outcomes(evaluations[0].metrics.pooled, 20)
+    evaluations[0] = replace(
+        evaluations[0],
+        metrics=replace(evaluations[0].metrics, folds=folds, pooled=pooled),
+    )
+    gates, disposition = readiness_gates(cohort_config, tuple(evaluations))
+    assert disposition.value == "INSUFFICIENT_EVIDENCE"
+    eligible = next(
+        gate for gate in gates
+        if gate.asset == "TAOUSDT" and gate.name == "sample.eligible_development_folds"
+    )
+    total = next(
+        gate for gate in gates
+        if gate.asset == "TAOUSDT" and gate.name == "sample.development_completed_first_touches"
+    )
+    assert eligible.value == 4
+    assert not total.passed

@@ -70,7 +70,7 @@ def test_evaluation_validator_recomputes_rehashed_semantics(tmp_path, cohort_con
     evaluation = evaluate_cohort(cohort_config, bundle, sr_configs)
     _, path = publish_evaluation_bundle(evaluation, output_root=tmp_path, config=cohort_config, source_bundle=bundle)
     payload = json.loads((path / "evaluation.json").read_text(encoding="utf-8"))
-    payload["disposition"] = "READY_FOR_PARAMETER_SENSITIVITY"
+    payload["disposition"] = "INSUFFICIENT_EVIDENCE"
     evaluation_bytes = (canonical_json(payload) + "\n").encode("utf-8")
     (path / "evaluation.json").write_bytes(evaluation_bytes)
     manifest = json.loads((path / "manifest.json").read_text(encoding="utf-8"))

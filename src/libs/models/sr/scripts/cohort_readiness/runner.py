@@ -202,10 +202,8 @@ def evaluate_stage(
     config = _load_config(config_path, repo_root)
     commit = implementation_commit or repository_commit(repo_root)
     sr_configs, input_configs, _ = resolve_frozen_configs(config, repo_root=repo_root)
-    bundle = source_bundle or load_source_bundle(_source_path(config, repo_root=repo_root, source_bundle_id=source_bundle_id), config=config, implementation_commit=commit, expected_bundle_id=source_bundle_id)
-    if bundle.implementation_commit != commit:
-        raise ContractValidationError("source bundle implementation identity mismatch")
-    evaluation = evaluate_cohort(config, bundle, sr_configs, input_configs)
+    bundle = source_bundle or load_source_bundle(_source_path(config, repo_root=repo_root, source_bundle_id=source_bundle_id), config=config, expected_bundle_id=source_bundle_id)
+    evaluation = evaluate_cohort(config, bundle, sr_configs, input_configs, implementation_commit=commit)
     output_root = _root_path(repo_root, config.output_root, field_name="output_root")
     bundle_id, path = publish_evaluation_bundle(evaluation, output_root=output_root, config=config, source_bundle=bundle)
     return {

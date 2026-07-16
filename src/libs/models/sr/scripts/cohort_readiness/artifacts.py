@@ -308,6 +308,7 @@ def validate_evaluation_bundle(
     source_bundle: SourceBundle,
     resolved_configs: dict[str, Any],
     resolved_inputs: dict[str, Any] | None = None,
+    implementation_commit: str | None = None,
 ) -> CohortEvaluation:
     bundle_path = Path(path)
     manifest = _validate_manifest(bundle_path, {"manifest.json", "evaluation.json"})
@@ -316,7 +317,16 @@ def validate_evaluation_bundle(
         raise ContractValidationError("evaluation artifact context mismatch")
     from .metrics import evaluate_cohort
 
-    recomputed = evaluate_cohort(config, source_bundle, resolved_configs, resolved_inputs)
+    evaluation_commit = semantic.get("implementation_commit") if implementation_commit is None else implementation_commit
+    if semantic.get("implementation_commit") != evaluation_commit:
+        raise ContractValidationError("evaluation implementation identity mismatch")
+    recomputed = evaluate_cohort(
+        config,
+        source_bundle,
+        resolved_configs,
+        resolved_inputs,
+        implementation_commit=evaluation_commit,
+    )
     expected_protocol = {
         "config": config.to_payload(),
         "config_hash": config.config_hash,

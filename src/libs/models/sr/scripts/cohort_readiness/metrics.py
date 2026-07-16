@@ -245,7 +245,14 @@ def readiness_gates(config: CohortConfig, evaluations: tuple[AssetEvaluation, ..
         ))
     if anomalies:
         return tuple(gates), Disposition.STRUCTURAL_ANOMALY
-    failed_samples = [gate for gate in gates if gate.name.startswith("sample.") and not gate.passed]
+    aggregate_sample_gates = {
+        "sample.eligible_development_folds",
+        "sample.development_completed_first_touches",
+    }
+    failed_samples = [
+        gate for gate in gates
+        if gate.name in aggregate_sample_gates and not gate.passed
+    ]
     if failed_samples:
         return tuple(gates), Disposition.INSUFFICIENT_EVIDENCE
     return tuple(gates), Disposition.READY_FOR_PARAMETER_SENSITIVITY
@@ -256,6 +263,8 @@ def evaluate_cohort(
     source_bundle: SourceBundle,
     resolved_configs: dict[str, ResolvedSRConfig],
     resolved_inputs: dict[str, Any] | None = None,
+    *,
+    implementation_commit: str | None = None,
 ) -> CohortEvaluation:
     if source_bundle.config_hash != config.config_hash:
         raise ContractValidationError("source bundle config identity mismatch")
@@ -268,14 +277,15 @@ def evaluate_cohort(
             resolved_input = resolved_inputs[source.asset]
             if getattr(resolved_input, "resolved_input_hash", None) != source.resolved_input_hash:
                 raise ContractValidationError("source and resolved input hashes do not reconcile")
+    evaluation_commit = source_bundle.implementation_commit if implementation_commit is None else implementation_commit
     evaluations = tuple(
-        replay_asset(config, source, resolved_configs[source.asset], implementation_commit=source_bundle.implementation_commit)
+        replay_asset(config, source, resolved_configs[source.asset], implementation_commit=evaluation_commit)
         for source in source_bundle.assets
     )
     micro, macro = aggregate(evaluations)
     gates, disposition = readiness_gates(config, evaluations)
     return CohortEvaluation(
-        implementation_commit=source_bundle.implementation_commit,
+        implementation_commit=evaluation_commit,
         config_hash=config.config_hash,
         source_bundle_id=source_bundle.bundle_id,
         assets=evaluations,
