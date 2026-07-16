@@ -27,6 +27,7 @@ APPROVED_ASSET = "TAOUSDT"
 APPROVED_VENUE = "binance_usdm"
 APPROVED_TIMEFRAME = "1d"
 APPROVED_SOURCE_ROWS = 629
+APPROVED_POOLED_TOTAL_OUTCOMES = 36
 APPROVED_SOURCE_START = datetime(2024, 4, 11, tzinfo=timezone.utc)
 APPROVED_SOURCE_END = datetime(2025, 12, 31, tzinfo=timezone.utc)
 APPROVED_GRID_POLICY = "exact_utc_daily_grid_from_taousdt_development_capsule"
@@ -70,6 +71,15 @@ APPROVED_ADEQUACY_THRESHOLDS = MappingProxyType(
         "minimum_positive_comparable_fold_fraction": 0.60,
         "minimum_worst_comparable_fold_excess_atr": -0.10,
     }
+)
+
+APPROVED_FOLD_NAMES = (
+    "2024_q3",
+    "2024_q4",
+    "2025_q1",
+    "2025_q2",
+    "2025_q3",
+    "2025_q4",
 )
 
 REJECTION_REASON_PRECEDENCE = (
@@ -732,7 +742,40 @@ class FoldAdequacyMetrics:
 
 
 @dataclass(frozen=True)
+class AdequacyPopulation:
+    total_outcomes: int
+    completed_outcomes: int
+    right_censored_outcomes: int
+    median_quality_reference_atr: float | None
+    fold_count: int
+
+    def __post_init__(self) -> None:
+        for name in ("total_outcomes", "completed_outcomes", "right_censored_outcomes", "fold_count"):
+            object.__setattr__(self, name, _integer(getattr(self, name), path=f"population.{name}"))
+        if self.completed_outcomes + self.right_censored_outcomes != self.total_outcomes:
+            raise ContractValidationError("population outcome counts do not reconcile")
+        if self.median_quality_reference_atr is not None:
+            object.__setattr__(self, "median_quality_reference_atr", _number(self.median_quality_reference_atr, path="population.median_quality_reference_atr"))
+        if self.completed_outcomes == 0 and self.median_quality_reference_atr is not None:
+            raise ContractValidationError("empty population cannot have a quality median")
+        if self.completed_outcomes > 0 and self.median_quality_reference_atr is None:
+            raise ContractValidationError("completed population lacks a quality median")
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "total_outcomes": self.total_outcomes,
+            "completed_outcomes": self.completed_outcomes,
+            "right_censored_outcomes": self.right_censored_outcomes,
+            "median_quality_reference_atr": self.median_quality_reference_atr,
+            "fold_count": self.fold_count,
+        }
+
+
+@dataclass(frozen=True)
 class AdequacyAggregateMetrics:
+    approved_pooled: AdequacyPopulation
+    fold_local: AdequacyPopulation
+    comparable_mapped: AdequacyPopulation
     total_real_outcomes: int
     total_completed_real_outcomes: int
     total_right_censored_real_outcomes: int
@@ -746,14 +789,26 @@ class AdequacyAggregateMetrics:
     pooled_control_resistance_median_quality: float | None
 
     def __post_init__(self) -> None:
+        if type(self.approved_pooled) is not AdequacyPopulation or type(self.fold_local) is not AdequacyPopulation or type(self.comparable_mapped) is not AdequacyPopulation:
+            raise ContractValidationError("aggregate populations are invalid")
         for name in ("total_real_outcomes", "total_completed_real_outcomes", "total_right_censored_real_outcomes", "completed_real_count", "comparable_fold_count"):
             object.__setattr__(self, name, _integer(getattr(self, name), path=f"aggregate.{name}"))
-        if self.total_completed_real_outcomes + self.total_right_censored_real_outcomes != self.total_real_outcomes:
-            raise ContractValidationError("aggregate real outcome counts do not reconcile")
+        if (self.total_real_outcomes, self.total_completed_real_outcomes, self.total_right_censored_real_outcomes) != (
+            self.fold_local.total_outcomes,
+            self.fold_local.completed_outcomes,
+            self.fold_local.right_censored_outcomes,
+        ):
+            raise ContractValidationError("aggregate fold-local population does not reconcile")
+        if self.completed_real_count != self.comparable_mapped.completed_outcomes or self.comparable_fold_count != self.comparable_mapped.fold_count:
+            raise ContractValidationError("aggregate comparable population does not reconcile")
+        if self.comparable_mapped.total_outcomes != self.comparable_mapped.completed_outcomes or self.comparable_mapped.right_censored_outcomes != 0:
+            raise ContractValidationError("comparable mapped population must be fully completed")
         for name in ("pooled_median_excess_quality", "positive_comparable_fold_fraction", "worst_comparable_fold_excess", "pooled_real_baseline_median_quality", "pooled_control_support_median_quality", "pooled_control_resistance_median_quality"):
             value = getattr(self, name)
             if value is not None:
                 object.__setattr__(self, name, _number(value, path=f"aggregate.{name}"))
+        if self.pooled_real_baseline_median_quality != self.approved_pooled.median_quality_reference_atr:
+            raise ContractValidationError("aggregate approved pooled median does not reconcile")
         if self.comparable_fold_count == 0 and (self.completed_real_count != 0 or self.pooled_median_excess_quality is not None or self.positive_comparable_fold_fraction is not None or self.worst_comparable_fold_excess is not None):
             raise ContractValidationError("undefined comparable aggregate was populated")
         if self.comparable_fold_count > 0 and (self.positive_comparable_fold_fraction is None or self.worst_comparable_fold_excess is None):
@@ -762,10 +817,36 @@ class AdequacyAggregateMetrics:
             raise ContractValidationError("positive fold fraction must be in [0, 1]")
 
     def to_payload(self) -> dict[str, Any]:
-        return {name: getattr(self, name) for name in self.__dataclass_fields__}
+        return {name: getattr(self, name).to_payload() if isinstance(getattr(self, name), AdequacyPopulation) else getattr(self, name) for name in self.__dataclass_fields__}
 
 
 _GATE_CATEGORIES = frozenset({"sample", "comparability", "quality", "diagnostic"})
+
+_AUTHORITATIVE_GATE_SPECS = (
+    ("sample.completed_real_outcomes", "sample", ">=", APPROVED_ADEQUACY_THRESHOLDS["minimum_completed_real_outcomes"], "integer"),
+    ("comparability.comparable_folds", "comparability", ">=", APPROVED_ADEQUACY_THRESHOLDS["minimum_comparable_folds"], "integer"),
+    ("comparability.minimum_real_outcomes_per_comparable_fold", "comparability", ">=", APPROVED_ADEQUACY_THRESHOLDS["minimum_real_outcomes_per_comparable_fold"], "integer"),
+    ("comparability.minimum_controls_per_side_per_comparable_fold", "comparability", ">=", APPROVED_ADEQUACY_THRESHOLDS["minimum_controls_per_side_per_comparable_fold"], "integer"),
+    ("quality.pooled_median_excess_quality_atr", "quality", ">=", APPROVED_ADEQUACY_THRESHOLDS["minimum_pooled_median_excess_quality_atr"], "quality"),
+    ("quality.positive_comparable_fold_fraction", "quality", ">=", APPROVED_ADEQUACY_THRESHOLDS["minimum_positive_comparable_fold_fraction"], "quality"),
+    ("quality.worst_comparable_fold_excess_atr", "quality", ">=", APPROVED_ADEQUACY_THRESHOLDS["minimum_worst_comparable_fold_excess_atr"], "quality"),
+)
+
+_DIAGNOSTIC_GATE_SPECS = tuple(
+    (f"diagnostic.fold.{fold}.comparable", "diagnostic", "==", 1, "binary", fold)
+    for fold in APPROVED_FOLD_NAMES
+)
+_APPROVED_GATE_NAMES = tuple(item[0] for item in _AUTHORITATIVE_GATE_SPECS) + tuple(item[0] for item in _DIAGNOSTIC_GATE_SPECS)
+
+
+def _gate_spec(name: str) -> tuple[str, str, int | float, str, str | None]:
+    for item in _AUTHORITATIVE_GATE_SPECS:
+        if item[0] == name:
+            return (*item[1:], None)
+    for item in _DIAGNOSTIC_GATE_SPECS:
+        if item[0] == name:
+            return item[1:]
+    raise ContractValidationError("unknown adequacy gate name")
 
 
 @dataclass(frozen=True)
@@ -782,18 +863,34 @@ class AdequacyGateResult:
     def __post_init__(self) -> None:
         object.__setattr__(self, "name", _string(self.name, path="gate.name"))
         object.__setattr__(self, "category", _string(self.category, path="gate.category"))
-        if self.category not in _GATE_CATEGORIES:
-            raise ContractValidationError("unknown adequacy gate category")
-        if type(self.passed) is not bool or self.operator not in {">=", ">", "<=", "=="} or type(self.reason) is not str or not self.reason:
+        expected_category, expected_operator, expected_threshold, value_kind, expected_fold = _gate_spec(self.name)
+        if self.category not in _GATE_CATEGORIES or self.category != expected_category:
+            raise ContractValidationError("adequacy gate category does not match approved schema")
+        if self.operator != expected_operator or type(self.reason) is not str or not self.reason:
             raise ContractValidationError("adequacy gate fields are invalid")
+        if value_kind in {"integer", "binary"} and self.threshold is not None and type(self.threshold) is not int:
+            raise ContractValidationError("count gate threshold must be an integer")
+        if self.threshold is None or _number(self.threshold, path="gate.threshold") != float(expected_threshold):
+            raise ContractValidationError("adequacy gate threshold does not match approved schema")
+        if value_kind in {"integer", "binary"} and self.value is not None and type(self.value) is not int:
+            raise ContractValidationError("count gate value must be an integer")
+        if value_kind == "binary" and (type(self.value) is not int or self.value not in {0, 1}):
+            raise ContractValidationError("diagnostic gate value must be 0 or 1")
         if self.value is not None:
             object.__setattr__(self, "value", _number(self.value, path="gate.value"))
-        if self.threshold is not None:
-            object.__setattr__(self, "threshold", _number(self.threshold, path="gate.threshold"))
-        if self.fold is not None:
-            object.__setattr__(self, "fold", _string(self.fold, path="gate.fold"))
-        if self.value is None and self.passed:
-            raise ContractValidationError("undefined gate value cannot pass")
+        object.__setattr__(self, "threshold", _number(self.threshold, path="gate.threshold"))
+        if expected_fold is None:
+            if self.fold is not None:
+                raise ContractValidationError("non-diagnostic gate cannot carry a fold")
+        elif self.fold != expected_fold:
+            raise ContractValidationError("diagnostic gate fold does not match approved schema")
+        expected_passed = False if self.value is None else (
+            self.value >= self.threshold if self.operator == ">=" else self.value > self.threshold if self.operator == ">" else self.value <= self.threshold if self.operator == "<=" else self.value == self.threshold
+        )
+        if type(self.passed) is not bool or self.passed != expected_passed:
+            raise ContractValidationError("adequacy gate passed flag does not match value")
+        if value_kind == "binary" and self.value is None:
+            raise ContractValidationError("diagnostic gate value cannot be undefined")
 
     def to_payload(self) -> dict[str, Any]:
         return {"name": self.name, "category": self.category, "passed": self.passed, "value": self.value, "threshold": self.threshold, "operator": self.operator, "reason": self.reason, "fold": self.fold}
@@ -811,6 +908,8 @@ class BaselineAdequacyDecision:
             raise ContractValidationError("decision gates are invalid")
         if len({item.name for item in self.gates}) != len(self.gates):
             raise ContractValidationError("decision gate names must be unique")
+        if tuple(item.name for item in self.gates) != _APPROVED_GATE_NAMES:
+            raise ContractValidationError("decision gates do not match exact approved schema")
         if type(self.reason) is not str or not self.reason:
             raise ContractValidationError("decision reason must be non-empty")
         authoritative = [item for item in self.gates if item.category in {"sample", "comparability"}]
@@ -908,6 +1007,14 @@ class BaselineAdequacyStudy:
             raise ContractValidationError("study aggregate/decision are invalid")
         if self.aggregate.total_real_outcomes != len(self.real_outcomes) or self.aggregate.total_completed_real_outcomes != sum(item.outcome.completed for item in self.real_outcomes) or self.aggregate.total_right_censored_real_outcomes != sum(item.outcome.right_censored for item in self.real_outcomes):
             raise ContractValidationError("study real outcome accounting does not reconcile")
+        if (
+            self.aggregate.approved_pooled.total_outcomes,
+            self.aggregate.approved_pooled.completed_outcomes,
+            self.aggregate.approved_pooled.right_censored_outcomes,
+        ) != (APPROVED_POOLED_TOTAL_OUTCOMES, APPROVED_POOLED_TOTAL_OUTCOMES, 0):
+            raise ContractValidationError("approved pooled population does not match frozen baseline")
+        if self.aggregate.approved_pooled.fold_count != 6 or self.aggregate.fold_local.fold_count != 6:
+            raise ContractValidationError("pooled population fold counts do not match frozen protocol")
         if tuple(item.fold for item in self.fold_metrics) != tuple(item.fold for item in self.control_accounting.folds if item.fold is not None):
             raise ContractValidationError("study fold accounting ordering mismatch")
         object.__setattr__(self, "study_id", deterministic_hash(self.identity_payload()))
@@ -962,7 +1069,7 @@ class StudyRunResult:
 
 
 __all__ = [
-    "APPROVED_ASSET", "APPROVED_ADEQUACY_THRESHOLDS", "APPROVED_GRID_POLICY", "APPROVED_SOURCE_END", "APPROVED_SOURCE_ROWS", "APPROVED_SOURCE_START", "APPROVED_TIMEFRAME", "APPROVED_VENUE",
-    "AdequacyAggregateMetrics", "AdequacyGateResult", "AdequacyResult", "AdequacyThresholds", "BaselineAdequacyConfig", "BaselineAdequacyDecision", "BaselineAdequacyDisposition", "BaselineAdequacyStudy", "BaselineParity",
+    "APPROVED_ASSET", "APPROVED_ADEQUACY_THRESHOLDS", "APPROVED_GRID_POLICY", "APPROVED_POOLED_TOTAL_OUTCOMES", "APPROVED_SOURCE_END", "APPROVED_SOURCE_ROWS", "APPROVED_SOURCE_START", "APPROVED_TIMEFRAME", "APPROVED_VENUE",
+    "AdequacyAggregateMetrics", "AdequacyGateResult", "AdequacyPopulation", "AdequacyResult", "AdequacyThresholds", "BaselineAdequacyConfig", "BaselineAdequacyDecision", "BaselineAdequacyDisposition", "BaselineAdequacyStudy", "BaselineParity",
     "CONFIG_VERSION", "CONTROL_ID_SCHEMA_VERSION", "CONTROL_SIDE_ORDER", "CONTROLS_PER_ANCHOR", "ControlAccounting", "ControlAnchor", "ControlBuildResult", "ControlEligibilityReason", "ControlOutcome", "DISPOSITION_VALUES", "ENTRY_VISIBLE_STATES", "FROZEN_ATR_METHOD", "FROZEN_ATR_PERIOD", "FROZEN_ATR_SEED", "FROZEN_COMMON_START_PERIOD", "FROZEN_INPUT_HASH", "FROZEN_OUTCOME_HORIZON", "FROZEN_OUTCOME_OFFSET", "FoldAdequacyMetrics", "FoldControlAccounting", "FoldSideNull", "FROZEN_SR_CONFIG_HASH", "INTERSECTION_POLICY", "PREVIOUS_SNAPSHOT_POLICY", "REJECTION_REASON_PRECEDENCE", "RealOutcomeComparison", "RealOutcomeRecord", "SCHEMA_VERSION", "StudyRunResult", "TRIAL_NAME", "V17_CONFIG_HASH", "V17_EVALUATION_BUNDLE_ID", "V17_EVALUATION_ID", "V17_EVALUATION_IMPLEMENTATION_COMMIT", "V17_SOURCE_BUNDLE_ID", "V17_SOURCE_IMPLEMENTATION_COMMIT", "V18_BASELINE_CANDIDATE_ID", "V18_CONFIG_HASH", "V18_IMPLEMENTATION_COMMIT", "V18_STUDY_BUNDLE_ID", "V18_STUDY_ID", "WINDOW_POLICY",
 ]

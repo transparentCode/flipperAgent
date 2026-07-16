@@ -16,6 +16,16 @@ def test_round_trip_and_recomputed_identity(adequacy_study, adequacy_config, rep
     assert loaded.study_id == adequacy_study.study_id
 
 
+def test_validation_uses_manifest_commit_after_docs_change(adequacy_study, adequacy_config, repo_root, tmp_path, monkeypatch):
+    bundle_id, path = publish_evaluation_bundle(adequacy_study, output_root=tmp_path, config=adequacy_config)
+
+    import libs.models.sr.scripts.baseline_adequacy.runner as runner
+
+    monkeypatch.setattr(runner, "repository_commit", lambda _root: "8" * 40)
+    loaded = validate_evaluation_bundle(path, config=adequacy_config, repo_root=repo_root, expected_bundle_id=bundle_id)
+    assert loaded.implementation_commit == adequacy_study.implementation_commit
+
+
 def test_rehashed_study_tampering_is_rejected(adequacy_study, adequacy_config, repo_root, tmp_path):
     bundle_id, path = publish_evaluation_bundle(adequacy_study, output_root=tmp_path, config=adequacy_config)
     study = json.loads((path / "study.json").read_text(encoding="utf-8"))

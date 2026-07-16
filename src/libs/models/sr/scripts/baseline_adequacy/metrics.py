@@ -5,10 +5,12 @@ from __future__ import annotations
 from statistics import median
 
 from libs.models.sr.domain.contracts import ContractValidationError, ZoneSide
+from libs.models.sr.scripts.atr_calibration.metrics import FirstTouchOutcome
 
 from .contracts import (
     AdequacyAggregateMetrics,
     AdequacyGateResult,
+    AdequacyPopulation,
     AdequacyResult,
     BaselineAdequacyConfig,
     BaselineAdequacyDecision,
@@ -48,11 +50,28 @@ def _comparison_median(comparisons: tuple[RealOutcomeComparison, ...], side: Zon
     return _median(values)
 
 
+def _population(outcomes: tuple[FirstTouchOutcome, ...], *, fold_count: int) -> AdequacyPopulation:
+    if type(outcomes) is not tuple or any(type(item) is not FirstTouchOutcome for item in outcomes):
+        raise ContractValidationError("population outcomes must be FirstTouchOutcome values")
+    completed = tuple(item for item in outcomes if item.completed)
+    quality_values = tuple(item.quality_reference_atr for item in completed if item.quality_reference_atr is not None)
+    if len(quality_values) != len(completed):
+        raise ContractValidationError("completed population outcome lacks quality")
+    return AdequacyPopulation(
+        total_outcomes=len(outcomes),
+        completed_outcomes=len(completed),
+        right_censored_outcomes=sum(item.right_censored for item in outcomes),
+        median_quality_reference_atr=_median(list(quality_values)),
+        fold_count=fold_count,
+    )
+
+
 def evaluate_adequacy(
     real_outcomes: tuple[RealOutcomeRecord, ...],
     controls: ControlBuildResult,
     *,
     config: BaselineAdequacyConfig,
+    approved_pooled_outcomes: tuple[FirstTouchOutcome, ...] | None = None,
 ) -> AdequacyResult:
     """Evaluate completed real outcomes against same-fold, same-side nulls."""
     if type(real_outcomes) is not tuple or any(type(item) is not RealOutcomeRecord for item in real_outcomes):
@@ -115,22 +134,31 @@ def evaluate_adequacy(
             comparable_metrics.append(metric)
             all_comparisons.extend(comparison_tuple)
 
-    total_completed = sum(item.outcome.completed for item in real_outcomes)
-    total_censored = sum(item.outcome.right_censored for item in real_outcomes)
+    approved_pooled_population = _population(approved_pooled_outcomes or (), fold_count=len(config.folds))
+    fold_local_population = _population(tuple(item.outcome for item in real_outcomes), fold_count=len(config.folds))
     comparable_comparisons = tuple(all_comparisons)
-    pooled_real_values = [item.outcome.quality_reference_atr for item in real_outcomes if item.outcome.completed and item.outcome.quality_reference_atr is not None]
+    comparable_ids = {item.real_outcome_id for item in comparable_comparisons}
+    if len(comparable_ids) != len(comparable_comparisons):
+        raise ContractValidationError("comparable mapped outcomes must be unique")
+    comparable_mapped_population = _population(
+        tuple(item.outcome for item in real_outcomes if item.record_id in comparable_ids),
+        fold_count=len(comparable_metrics),
+    )
     pooled_support_controls = [item.quality_reference_atr for item in controls.outcomes if item.side is ZoneSide.SUPPORT]
     pooled_resistance_controls = [item.quality_reference_atr for item in controls.outcomes if item.side is ZoneSide.RESISTANCE]
     aggregate = AdequacyAggregateMetrics(
-        total_real_outcomes=len(real_outcomes),
-        total_completed_real_outcomes=total_completed,
-        total_right_censored_real_outcomes=total_censored,
+        approved_pooled=approved_pooled_population,
+        fold_local=fold_local_population,
+        comparable_mapped=comparable_mapped_population,
+        total_real_outcomes=fold_local_population.total_outcomes,
+        total_completed_real_outcomes=fold_local_population.completed_outcomes,
+        total_right_censored_real_outcomes=fold_local_population.right_censored_outcomes,
         completed_real_count=len(comparable_comparisons),
         comparable_fold_count=len(comparable_metrics),
         pooled_median_excess_quality=_median([item.excess_quality for item in comparable_comparisons]),
         positive_comparable_fold_fraction=None if not comparable_metrics else sum(item.fold_median_excess is not None and item.fold_median_excess > 0 for item in comparable_metrics) / len(comparable_metrics),
         worst_comparable_fold_excess=None if not comparable_metrics else min(item.fold_median_excess for item in comparable_metrics if item.fold_median_excess is not None),
-        pooled_real_baseline_median_quality=_median(pooled_real_values),
+        pooled_real_baseline_median_quality=approved_pooled_population.median_quality_reference_atr,
         pooled_control_support_median_quality=_median(pooled_support_controls),
         pooled_control_resistance_median_quality=_median(pooled_resistance_controls),
     )

@@ -171,9 +171,7 @@ def validate_evaluation_bundle(
     if semantic["config_hash"] != config.config_hash or semantic["config"] != config.to_payload():
         raise ContractValidationError("V1.9 manifest config binding mismatch")
     if implementation_commit is None:
-        from .runner import repository_commit
-
-        implementation_commit = repository_commit(repo_root)
+        implementation_commit = semantic["implementation_commit"]
     if semantic["implementation_commit"] != implementation_commit:
         raise ContractValidationError("V1.9 implementation identity mismatch")
     from .runner import compute_study

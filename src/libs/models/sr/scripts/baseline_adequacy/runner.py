@@ -205,7 +205,12 @@ def compute_study(config: BaselineAdequacyConfig, *, repo_root: str | Path, impl
     baseline, parity = validate_baseline_parity(config, frozen, implementation_commit=implementation_commit)
     controls: ControlBuildResult = build_controls(baseline.replay, config=config)
     real_outcomes = _real_outcomes(baseline, config)
-    adequacy = evaluate_adequacy(real_outcomes, controls, config=config)
+    adequacy = evaluate_adequacy(
+        real_outcomes,
+        controls,
+        config=config,
+        approved_pooled_outcomes=baseline.metrics.pooled.outcomes,
+    )
     return BaselineAdequacyStudy(
         implementation_commit=implementation_commit,
         config_hash=config.config_hash,
