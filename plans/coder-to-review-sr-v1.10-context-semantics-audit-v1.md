@@ -4,7 +4,7 @@ stage: coder-to-review
 date_created: 2026-07-16
 last_updated: 2026-07-16
 owner: Codex
-status: Ready
+status: Needs Review
 tags: [handoff, quant, sr, v1.10, context-audit, lifecycle, casebook, taousdt]
 source_agent: Codex quant-coder
 target_agent: Quant Review / Orchestrator
@@ -19,7 +19,7 @@ branch `feature/sr-v1.10-context-semantics-audit`.
 
 - exact V1.9 documentation base: `676feeaac0993020355e6da155771e65642eec51`;
 - authorization commit: `f7779d3a562bb53ce3d3c760d44b361b27775539`;
-- implementation commit: `2a6c09ba5ae62f41c2b7a49933ad80b688ee8fa4`;
+- implementation/remediation commit: `e52e96eb779ccc9ada0b4bef6b1082177091ebc8`;
 - implementation commit remains unmerged.
 
 The package validates the approved V1.9 study, replays the frozen causal trace,
@@ -47,6 +47,8 @@ Added:
 - `tests/models/sr/scripts/context_audit/test_config.py`;
 - `tests/models/sr/scripts/context_audit/test_import_boundaries.py`;
 - `tests/models/sr/tools/zone_viewer/test_context_audit.py`.
+- `src/libs/models/sr/tools/zone_viewer/src/casebook.js`;
+- `src/libs/models/sr/tools/zone_viewer/tests/casebook.test.js`.
 
 Modified additively:
 
@@ -55,12 +57,21 @@ Modified additively:
 - `src/libs/models/sr/tools/zone_viewer/server.py`;
 - `src/libs/models/sr/tools/zone_viewer/src/main.js`;
 - `src/libs/models/sr/tools/zone_viewer/src/styles.css`.
+- `src/libs/models/sr/tools/zone_viewer/package.json`;
+- `tests/models/sr/scripts/context_audit/test_artifacts.py`;
+- `tests/models/sr/scripts/context_audit/test_audit.py`.
 
 The legacy viewer payload/server contract remains unchanged when the optional
 casebook block is absent. The casebook mode contains all 36 cases, filters the
 visible selection without mutating payload data, renders the selected zone and
 events, exposes pooled/fold-local metrics, and retains the existing toggles,
 hover details, attribution, and pinned Lightweight Charts 5.2.0 boundary.
+
+The remediation commit adds deterministic chronological marker ordering with
+stable same-bar ordering, clears all casebook state when filters produce no
+cases, and permanently renders the exact V1.9 disposition in the viewer
+notice. It also adds focused viewer, causal, identity, and rehashed tamper
+regressions and fixes the previously unused Ruff import.
 
 ## Frozen input identities
 
@@ -91,8 +102,8 @@ half-open folds. State continues across fold boundaries.
 
 ## Final evidence
 
-The evaluate command was run twice at implementation commit
-`2a6c09ba5ae62f41c2b7a49933ad80b688ee8fa4`:
+The evaluate command was run twice at implementation/remediation commit
+`e52e96eb779ccc9ada0b4bef6b1082177091ebc8`:
 
 ```text
 PYTHONPATH=src .venv/bin/python -m libs.models.sr.scripts.context_audit.cli evaluate configs/sr_trials/sr_v1_10_taousdt_1d_context_audit.yaml --repo-root .
@@ -103,26 +114,26 @@ and disposition:
 
 | Evidence field | Value |
 |---|---|
-| Bundle ID | `36a1fe0642421b542b3d11103b3d9483666005e146247ff748499d9c5fae3c9c` |
-| Audit ID | `665d56390634c4534b072ea278e8dee9aa2a7a65c9cbd55148287c673307df9b` |
+| Bundle ID | `a592276b9fed7c24949ad33b503a7b65474e10f4e3088fe734282401ac058a56` |
+| Audit ID | `147df6b76fea1a2d8cf5f77840f4e82af6e7d7e8207410e2c43249442ea81c07` |
 | Trace ID | `5e58eeb1e3aef84a096d348779d92d76268da619ad4445dee397d56fe688047f` |
 | Config hash | `1ae6cdf31951e20540a9625a85e593e9bfbb9520364b68d6e783f05ab477207f` |
 | Audit status | `COMPLETE` |
 | V1.9 disposition | `BASELINE_NOT_BETTER_THAN_NAIVE_NULL` |
-| Evidence path | `research/tmp_sr_v1_10/audit/36a1fe0642421b542b3d11103b3d9483666005e146247ff748499d9c5fae3c9c` |
-| Chart identity hash | `b21ce52d76702c5084ecb81c42feefb5985db34cbcec0b0ad2c251515b16ced9` |
+| Evidence path | `research/tmp_sr_v1_10/audit/a592276b9fed7c24949ad33b503a7b65474e10f4e3088fe734282401ac058a56` |
+| Chart identity hash | `e3ddf8d2e4b4dca4ee29de32afe4cfa10f87015c9a98302498b2edf3893a5344` |
 
 Final published member bytes:
 
 | Member | Bytes | SHA-256 |
 |---|---:|---|
-| `manifest.json` | 9854 | `0af04df078a9cfe1e07090a6117040fdc7c765f6a4ec2b224c65a25a14a145dd` |
-| `audit.json` | 266791 | `dcedde9c4a73c82fb3796492e96bdba6a1996b3420d2863ed5975677340a6433` |
-| `chart_payload.json` | 605404 | `e0d07728dbe421cdcf9d4d49f76c4ed34576320f38f6498f6645bb1af23d5fdb` |
+| `manifest.json` | 9854 | `482dc10c3a5eaa1142b1b8b7967eea39464f9975ceef14b3aaddb04c66588baf` |
+| `audit.json` | 266791 | `27afe6242cc68e0222c7f93ef212b9ad87faaaf53c1b21e6edcbc5a8e2eaceb1` |
+| `chart_payload.json` | 605404 | `621df3d8cbd6191567c00b31bed54848acf4a91d0f1f920d7fc1ea2f70cf0714` |
 
 The bundle identity basis correctly uses the unbound chart payload member:
 `chart_payload.json`, 605342 bytes, SHA-256
-`4d66551d5e9078f94e76a11382fde24d3819bc6eeb0201c96c6e093867f9593`.
+`ba2bfdb03d306db01adfdcd36285f0890f737bb73eb7d73e505a7a54a7adc30a`.
 The final chart member then binds the bundle ID and has the published hash above.
 
 ## Exact audit accounting
@@ -207,15 +218,22 @@ feature work, or authorize production promotion.
 
 | Check | Result |
 |---|---|
-| Focused Python audit/viewer suite | 28 passed |
-| Complete `tests/models/sr` suite | 521 passed in 620.34s |
-| Node viewer suite (`npm test`) | 7 passed |
+| Focused Python audit/viewer suite | 39 passed |
+| Complete `tests/models/sr` suite | 532 passed in 622.11s |
+| Node viewer suite (`npm test`) | 15 passed |
 | Python compilation | passed |
 | `git diff --check` | passed |
 | `node --check src/libs/models/sr/tools/zone_viewer/src/main.js` | passed |
-| Ruff | unavailable in the project environment (`no-ruff`) |
+| Ruff | passed with `/Users/aloobhujia/.local/bin/ruff` |
 | Provider/network/source-preparation spies | passed; no provider call or new capsule |
 | Semantic artifact/tamper validation | passed |
+
+The viewer regression suite covers all 36 case selections, fold/side/completion
+filters, selected-case state, exact outcome-window bounds, deterministic
+marker ordering, empty-filter clearing, metrics, disposition rendering, and
+legacy primitive compatibility. The audit regressions cover causal event
+ordering, nested identity reuse, rehashed payload tampering, and metric
+reconciliation.
 
 Focused Python command:
 
@@ -242,29 +260,31 @@ defaults to the manifest implementation commit and retains explicit mismatch
 rejection:
 
 ```text
-PYTHONPATH=src .venv/bin/python -m libs.models.sr.scripts.context_audit.cli validate configs/sr_trials/sr_v1_10_taousdt_1d_context_audit.yaml research/tmp_sr_v1_10/audit/36a1fe0642421b542b3d11103b3d9483666005e146247ff748499d9c5fae3c9c --repo-root .
+PYTHONPATH=src .venv/bin/python -m libs.models.sr.scripts.context_audit.cli validate configs/sr_trials/sr_v1_10_taousdt_1d_context_audit.yaml research/tmp_sr_v1_10/audit/a592276b9fed7c24949ad33b503a7b65474e10f4e3088fe734282401ac058a56 --repo-root .
 ```
 
 Executed from the documentation HEAD after the implementation commit; result:
 `audit_status=COMPLETE`, `case_count=36`, bundle
-`36a1fe0642421b542b3d11103b3d9483666005e146247ff748499d9c5fae3c9c`, and
+`a592276b9fed7c24949ad33b503a7b65474e10f4e3088fe734282401ac058a56`, and
 unchanged disposition `BASELINE_NOT_BETTER_THAN_NAIVE_NULL`.
 
 Serve the verified casebook locally with:
 
 ```text
-PYTHONPATH=src .venv/bin/python -c "from libs.models.sr.tools.zone_viewer.server import serve_bundle; serve_bundle('src/libs/models/sr/tools/zone_viewer', 'research/tmp_sr_v1_10/audit/36a1fe0642421b542b3d11103b3d9483666005e146247ff748499d9c5fae3c9c')"
+PYTHONPATH=src .venv/bin/python -c "from libs.models.sr.tools.zone_viewer.server import serve_bundle; serve_bundle('src/libs/models/sr/tools/zone_viewer', 'research/tmp_sr_v1_10/audit/a592276b9fed7c24949ad33b503a7b65474e10f4e3088fe734282401ac058a56')"
 ```
 
 ### Browser smoke status
 
-Browser Smoke Pending. No browser backend was available in the coder execution
-environment, so no visual approval claim is made. The Mac Chrome smoke must
+Mac Chrome smoke pending; no Mac Chrome browser backend is available in the
+coder execution environment, so no visual approval claim is made and the Chrome
+version is not yet recorded. The Mac Chrome smoke must
 verify no console errors, all 36 cases and filters, one-zone/selected-event
 rendering, exact outcome windows, distinguishable pooled/fold-local metrics,
 absence of unpersisted null/excess values, support/resistance geometry,
-terminal/event toggles, hover, pan/zoom, attribution, bundle ID, and the
-unchanged V1.9 negative disposition.
+terminal/event toggles, hover, pan/zoom, attribution, deterministic marker
+ordering, empty-filter clearing, exact permanent disposition, bundle ID, and
+the unchanged V1.9 negative disposition.
 
 ## Worktree and boundaries
 
