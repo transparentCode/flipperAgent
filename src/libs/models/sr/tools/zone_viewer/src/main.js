@@ -16,6 +16,17 @@ const detail = document.querySelector('#hover-detail');
 const summary = document.querySelector('#trial-summary');
 const terminalToggle = document.querySelector('#show-terminal');
 const eventsToggle = document.querySelector('#show-events');
+const casebook = payload.casebook ?? null;
+const casebookControls = document.querySelector('#casebook-controls');
+const casebookNotice = document.querySelector('#casebook-notice');
+const caseSelect = document.querySelector('#case-select');
+const caseFilters = {
+  fold: document.querySelector('#case-fold-filter'),
+  side: document.querySelector('#case-side-filter'),
+  completion: document.querySelector('#case-completion-filter'),
+  lifecycle: document.querySelector('#case-lifecycle-filter'),
+  close: document.querySelector('#case-close-filter'),
+};
 
 summary.textContent = `${payload.trial_name} · ${payload.candles.length} source bars · bundle ${payload.bundle_id}`;
 terminalToggle.checked = viewer.show_terminal_by_default;
@@ -52,7 +63,8 @@ series.setData(payload.candles.map((candle) => ({
 const primitive = new ZonePrimitive(payload);
 series.attachPrimitive(primitive);
 
-const markers = payload.events.map((event) => ({
+function eventMarkers(events, selectedCase = null) {
+  const markers = events.map((event) => ({
   time: event.time,
   position: event.event_type === 'BREACH_STARTED' || event.event_type === 'BREAK_CONFIRMED'
     ? 'aboveBar'
@@ -60,8 +72,102 @@ const markers = payload.events.map((event) => ({
   color: event.event_type === 'FALSE_BREAKOUT' ? viewer.pending_border_color : viewer.text_color,
   shape: event.event_type === 'BREAK_CONFIRMED' ? 'arrowUp' : 'circle',
   text: event.event_type,
-}));
+  }));
+  if (selectedCase) {
+    markers.push(
+      {
+        time: Math.floor(Date.parse(selectedCase.outcome_window.start) / 1000),
+        position: 'aboveBar',
+        color: viewer.pending_border_color,
+        shape: 'square',
+        text: 'OUTCOME_START',
+      },
+      {
+        time: Math.floor(Date.parse(selectedCase.outcome_window.end) / 1000),
+        position: 'aboveBar',
+        color: viewer.pending_border_color,
+        shape: 'square',
+        text: 'OUTCOME_END',
+      },
+    );
+  }
+  return markers;
+}
+
+let markers = eventMarkers(payload.events);
 const markerSeries = createSeriesMarkers(series, eventsToggle.checked ? markers : []);
+
+function uniqueSorted(values) {
+  return [...new Set(values)].sort();
+}
+
+function setOptions(select, values) {
+  for (const value of values) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = value;
+    select.append(option);
+  }
+}
+
+function filteredCases() {
+  if (!casebook) return [];
+  return casebook.cases.filter((item) => (
+    (caseFilters.fold.value === 'ALL' || item.fold === caseFilters.fold.value)
+    && (caseFilters.side.value === 'ALL' || item.side === caseFilters.side.value)
+    && (caseFilters.completion.value === 'ALL' || (caseFilters.completion.value === 'COMPLETED' ? item.fold_local_outcome.completed : item.fold_local_outcome.right_censored))
+    && (caseFilters.lifecycle.value === 'ALL' || item.horizon_lifecycle_class === caseFilters.lifecycle.value)
+    && (caseFilters.close.value === 'ALL' || item.close_location === caseFilters.close.value)
+  ));
+}
+
+function updateCasebook() {
+  if (!casebook) return;
+  const available = filteredCases();
+  const previous = caseSelect.value;
+  caseSelect.replaceChildren();
+  for (const item of available) {
+    const option = document.createElement('option');
+    option.value = item.case_id;
+    option.textContent = `${item.case_id.slice(0, 8)} · ${item.fold} · ${item.side} · ${item.first_touch_at.slice(0, 10)}`;
+    caseSelect.append(option);
+  }
+  if (available.some((item) => item.case_id === previous)) caseSelect.value = previous;
+  const selected = available.find((item) => item.case_id === caseSelect.value) ?? available[0] ?? null;
+  if (selected) caseSelect.value = selected.case_id;
+  primitive.payload = {
+    ...payload,
+    zones: selected ? [selected.zone] : [],
+    events: selected ? selected.events : [],
+  };
+  markers = eventMarkers(selected ? selected.events : [], selected);
+  markerSeries.setMarkers(eventsToggle.checked ? markers : []);
+  if (selected) {
+    const from = Math.floor(Date.parse(selected.creation_event.timestamp) / 1000);
+    const to = Math.floor(Date.parse(selected.outcome_window.end) / 1000);
+    chart.timeScale().setVisibleRange({ from, to });
+    const pooled = selected.pooled_outcome;
+    const local = selected.fold_local_outcome;
+    const comparison = selected.comparison;
+    detail.innerHTML = `<strong>${selected.case_id.slice(0, 12)}</strong> · ${selected.fold} · ${selected.side} · pooled ${pooled.quality_reference_atr ?? 'censored'} · fold-local ${local.quality_reference_atr ?? 'censored'}${comparison ? ` · excess ${comparison.excess_quality}` : ' · no persisted comparison'}`;
+  } else {
+    chart.timeScale().fitContent();
+  }
+  primitive.requestUpdate?.();
+}
+
+if (casebook) {
+  casebookControls.hidden = false;
+  casebookNotice.hidden = false;
+  casebookNotice.textContent = `${casebook.notice} ${casebook.case_count} cases; pooled and fold-local outcomes are shown separately.`;
+  setOptions(caseFilters.fold, uniqueSorted(casebook.cases.map((item) => item.fold)));
+  setOptions(caseFilters.side, uniqueSorted(casebook.cases.map((item) => item.side)));
+  setOptions(caseFilters.lifecycle, uniqueSorted(casebook.cases.map((item) => item.horizon_lifecycle_class)));
+  setOptions(caseFilters.close, uniqueSorted(casebook.cases.map((item) => item.close_location)));
+  for (const select of Object.values(caseFilters)) select.addEventListener('change', updateCasebook);
+  caseSelect.addEventListener('change', updateCasebook);
+  updateCasebook();
+}
 
 function updateVisibility() {
   primitive.payload = {
@@ -74,7 +180,7 @@ function updateVisibility() {
 
 terminalToggle.addEventListener('change', updateVisibility);
 eventsToggle.addEventListener('change', updateVisibility);
-chart.timeScale().fitContent();
+if (!casebook) chart.timeScale().fitContent();
 
 chart.subscribeCrosshairMove((param) => {
   if (!param.point) {

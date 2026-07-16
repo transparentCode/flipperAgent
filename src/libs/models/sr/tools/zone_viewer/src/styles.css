@@ -26,6 +26,29 @@ p { color: #9aa1b2; font-size: .85rem; margin: 0; }
 .controls { display: flex; flex-wrap: wrap; gap: 12px; }
 label { color: #d1d4dc; font-size: .85rem; }
 
+.casebook-controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin: 0 auto 8px;
+  max-width: 1600px;
+}
+
+.casebook-controls select {
+  background: #1e2230;
+  border: 1px solid #434a5e;
+  color: #d1d4dc;
+  margin-left: 4px;
+  padding: 3px 6px;
+}
+
+.casebook-notice {
+  color: #f2c94c;
+  margin: 0 auto 8px;
+  max-width: 1600px;
+}
+
 .chart {
   height: calc(100vh - 150px);
   min-height: 420px;

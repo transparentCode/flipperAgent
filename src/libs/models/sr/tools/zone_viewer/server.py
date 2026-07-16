@@ -21,6 +21,9 @@ _BUNDLE_MEMBERS = frozenset(
         "chart_payload.json",
     }
 )
+_CONTEXT_BUNDLE_MEMBERS = frozenset(
+    {"manifest.json", "audit.json", "chart_payload.json"}
+)
 _CONTENT_TYPES = {
     ".css": "text/css; charset=utf-8",
     ".html": "text/html; charset=utf-8",
@@ -141,14 +144,73 @@ def _validate_manifest_identity(
         raise ValueError("ATR first_valid_at does not match first model bar closed_at")
 
 
+def _validate_context_bundle(bundle: Path, manifest: dict[str, object]) -> dict[str, object]:
+    semantic = manifest.get("bundle_id_semantic_payload")
+    bundle_id = manifest.get("bundle_id")
+    if type(semantic) is not dict or type(bundle_id) is not str:
+        raise ValueError("context audit bundle identity payload is missing")
+    if semantic.get("stage") != "context_semantics_audit_development":
+        raise ValueError("unsupported context audit bundle stage")
+    if _deterministic_hash(semantic) != bundle_id or bundle.name != bundle_id:
+        raise ValueError("context audit bundle identity mismatch")
+    expected_semantic = {
+        "schema_version", "stage", "created_by", "implementation_commit", "config_hash", "config",
+        "trial_name", "venue", "asset", "timeframe", "purpose", "audit_status", "audit_id",
+        "v19_bundle_id", "v19_study_id", "v19_disposition", "source_bundle_id", "source_id",
+        "trace_id", "case_count", "comparison_count", "chart_payload_identity_hash",
+        "bundle_id_basis_members",
+    }
+    if set(semantic) != expected_semantic or set(manifest) != expected_semantic | {"bundle_id", "members", "bundle_id_semantic_payload"}:
+        raise ValueError("context audit manifest schema mismatch")
+    for key, value in semantic.items():
+        if key != "bundle_id_basis_members" and manifest.get(key) != value:
+            raise ValueError(f"context audit manifest semantic field mismatch: {key}")
+    basis = semantic.get("bundle_id_basis_members")
+    members = manifest.get("members")
+    if type(basis) is not list or len(basis) != 2 or type(members) is not list or len(members) != 2:
+        raise ValueError("context audit member metadata is malformed")
+    for collection_name, collection in (("basis", basis), ("final", members)):
+        for member in collection:
+            if type(member) is not dict or set(member) != {"name", "sha256", "byte_length"}:
+                raise ValueError(f"context audit {collection_name} member metadata is malformed")
+            if member["name"] not in {"audit.json", "chart_payload.json"} or type(member["sha256"]) is not str or len(member["sha256"]) != 64 or type(member["byte_length"]) is not int or member["byte_length"] < 0:
+                raise ValueError(f"context audit {collection_name} member metadata is invalid")
+    final_by_name = {member["name"]: member for member in members}
+    if set(final_by_name) != {"audit.json", "chart_payload.json"}:
+        raise ValueError("context audit final member names are invalid")
+    for name, member in final_by_name.items():
+        data = (bundle / name).read_bytes()
+        if len(data) != member["byte_length"] or sha256(data).hexdigest() != member["sha256"]:
+            raise ValueError(f"context audit member hash mismatch: {name}")
+    audit_payload = _load_json(bundle / "audit.json")
+    chart_payload = _load_json(bundle / "chart_payload.json")
+    if type(audit_payload) is not dict or type(chart_payload) is not dict:
+        raise ValueError("context audit payloads must be mappings")
+    if audit_payload.get("audit_id") != semantic.get("audit_id") or audit_payload.get("case_count") != 36 or type(audit_payload.get("cases")) is not list or len(audit_payload["cases"]) != 36:
+        raise ValueError("context audit audit payload does not match manifest")
+    if chart_payload.get("bundle_id") != bundle_id:
+        raise ValueError("context audit chart bundle_id does not match manifest")
+    if _chart_payload_identity(chart_payload) != semantic.get("chart_payload_identity_hash"):
+        raise ValueError("context audit chart identity does not match manifest")
+    casebook = chart_payload.get("casebook")
+    if chart_payload.get("audit_id") != semantic.get("audit_id") or type(casebook) is not dict or casebook.get("case_count") != 36:
+        raise ValueError("context audit chart casebook does not match manifest")
+    return manifest
+
+
 def validate_bundle(bundle_path: str | Path) -> dict[str, object]:
     """Validate the selected bundle without importing SR model code."""
     bundle = Path(bundle_path).resolve()
     if not bundle.is_dir():
         raise ValueError("bundle path must be a directory")
+    actual_members = {item.name for item in bundle.iterdir()}
     manifest = _load_json(bundle / "manifest.json")
     if type(manifest) is not dict:
         raise ValueError("manifest must be a mapping")
+    if actual_members == _CONTEXT_BUNDLE_MEMBERS:
+        return _validate_context_bundle(bundle, manifest)
+    if actual_members != _BUNDLE_MEMBERS:
+        raise ValueError("bundle contains unexpected files")
     bundle_id = manifest.get("bundle_id")
     if type(bundle_id) is not str or bundle.name != bundle_id:
         raise ValueError("bundle directory does not match manifest bundle_id")
@@ -162,8 +224,6 @@ def validate_bundle(bundle_path: str | Path) -> dict[str, object]:
         raise ValueError("bundle member names must be strings")
     if set(names) != _BUNDLE_MEMBERS - {"manifest.json"} or len(names) != 5:
         raise ValueError("manifest members do not match bundle schema")
-    if {path.name for path in bundle.iterdir()} != _BUNDLE_MEMBERS:
-        raise ValueError("bundle contains unexpected files")
     for member in members:
         if set(member) != {"name", "sha256", "byte_length"}:
             raise ValueError("malformed bundle member metadata")
@@ -218,6 +278,7 @@ def _safe_file(root: Path, relative_path: str) -> Path:
 class _ViewerHandler(BaseHTTPRequestHandler):
     viewer_root: Path
     bundle_root: Path
+    bundle_members: frozenset[str] = _BUNDLE_MEMBERS
 
     def _serve(self, *, head_only: bool = False) -> None:
         request_path = unquote(urlsplit(self.path).path)
@@ -226,7 +287,7 @@ class _ViewerHandler(BaseHTTPRequestHandler):
                 file_path = _safe_file(self.viewer_root, "index.html")
             elif request_path.startswith("/bundle/"):
                 relative = request_path.removeprefix("/bundle/")
-                if relative not in _BUNDLE_MEMBERS:
+                if relative not in self.bundle_members:
                     raise FileNotFoundError(relative)
                 file_path = _safe_file(self.bundle_root, relative)
             else:
@@ -264,13 +325,18 @@ def make_server(
     if not viewer.is_dir():
         raise ValueError("viewer_root must be a directory")
     bundle = Path(bundle_path).resolve()
-    validate_bundle(bundle)
+    manifest = validate_bundle(bundle)
 
     class Handler(_ViewerHandler):
         pass
 
     Handler.viewer_root = viewer
     Handler.bundle_root = bundle
+    Handler.bundle_members = (
+        _CONTEXT_BUNDLE_MEMBERS
+        if manifest.get("stage") == "context_semantics_audit_development"
+        else _BUNDLE_MEMBERS
+    )
     return ThreadingHTTPServer((host, port), Handler)
 
 

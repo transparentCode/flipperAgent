@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SR V1.5 Zone Evidence</title>
+    <title>SR Support/Resistance Evidence</title>
     <link rel="stylesheet" href="/src/styles.css">
   </head>
   <body>
@@ -18,6 +18,15 @@
           <label><input id="show-events" type="checkbox" checked> events</label>
         </div>
       </header>
+      <section id="casebook-controls" class="casebook-controls" hidden aria-label="Context audit casebook controls">
+        <label>case <select id="case-select"></select></label>
+        <label>fold <select id="case-fold-filter"><option value="ALL">all</option></select></label>
+        <label>side <select id="case-side-filter"><option value="ALL">all</option></select></label>
+        <label>fold-local outcome <select id="case-completion-filter"><option value="ALL">all</option><option value="COMPLETED">completed</option><option value="RIGHT_CENSORED">right-censored</option></select></label>
+        <label>lifecycle <select id="case-lifecycle-filter"><option value="ALL">all</option></select></label>
+        <label>close location <select id="case-close-filter"><option value="ALL">all</option></select></label>
+      </section>
+      <p id="casebook-notice" class="casebook-notice" hidden></p>
       <section id="chart" class="chart" aria-label="Support and resistance chart"></section>
       <aside id="hover-detail" class="hover-detail" aria-live="polite"></aside>
       <footer class="attribution">
