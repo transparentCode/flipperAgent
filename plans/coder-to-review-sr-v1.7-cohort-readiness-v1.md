@@ -311,9 +311,8 @@ approved base contains only the committed V1.7 YAML, the new cohort-readiness
 package, and its mirrored tests.
 
 The evidence covers one fixed daily development window and descriptive zone
-behavior only. The three failed fold sample gates mean no later parameter
-sensitivity study is authorized by this result. Any future holdout must be
-defined and opened under a separately approved protocol.
+behavior only. The three failed fold diagnostics are diagnostic-only; every
+aggregate readiness gate passes, authorizing V1.8 parameter-sensitivity planning. Any future holdout still requires a separate approved protocol.
 
 This handoff is documentation-only and is the final action on the branch until
 review feedback is issued. No merge was performed.
