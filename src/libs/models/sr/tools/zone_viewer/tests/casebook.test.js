@@ -1,15 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import {
+  casebookDetailText,
   casebookMarkers,
   casebookMetrics,
   casebookNoticeText,
   casebookOutcomeRange,
   casebookState,
+  defaultTerminalVisibility,
   eventMarkers,
   filterCasebookCases,
   selectCasebookCase,
 } from '../src/casebook.js';
+import { ZonePrimitive } from '../src/zone_primitive.js';
 
 const viewer = {
   pending_border_color: '#f2c94c',
@@ -270,6 +274,76 @@ test('events toggle applies only to focus mode', () => {
   assert.deepEqual(casebookMarkers(overview, false), []);
   assert.deepEqual(casebookMarkers(focus, false), []);
   assert.deepEqual(casebookMarkers(focus, true), focus.markers);
+});
+
+test('casebook default shows active and terminal zones in overview and terminal focus', () => {
+  const active = caseView({
+    case_id: 'active-case',
+    zone: { zone_id: 'active-zone', final_status: 'ACTIVE' },
+  });
+  const terminal = caseView({
+    case_id: 'terminal-case',
+    zone: { zone_id: 'terminal-zone', final_status: 'BROKEN' },
+  });
+  const book = casebook([active, terminal]);
+  const overview = casebookState(book, {}, '', viewer, 'overview');
+  const primitive = new ZonePrimitive({
+    zones: overview.zones,
+    viewer: { show_terminal_by_default: defaultTerminalVisibility(book, false) },
+  });
+
+  assert.equal(defaultTerminalVisibility(book, false), true);
+  assert.deepEqual(primitive.visibleZones().map(({ zone_id }) => zone_id), [
+    'active-zone',
+    'terminal-zone',
+  ]);
+
+  const focus = casebookState(book, {}, terminal.case_id, viewer, 'focus');
+  primitive.payload.zones = focus.zones;
+  assert.deepEqual(primitive.visibleZones().map(({ zone_id }) => zone_id), ['terminal-zone']);
+});
+
+test('legacy terminal default remains configured and explicit terminal toggle hides/shows', () => {
+  const active = caseView({
+    case_id: 'active-case',
+    zone: { zone_id: 'active-zone', final_status: 'ACTIVE' },
+  });
+  const terminal = caseView({
+    case_id: 'terminal-case',
+    zone: { zone_id: 'terminal-zone', final_status: 'EXPIRED' },
+  });
+  const primitive = new ZonePrimitive({
+    zones: [active.zone, terminal.zone],
+    viewer: { show_terminal_by_default: defaultTerminalVisibility(null, false) },
+  });
+
+  assert.equal(defaultTerminalVisibility(null, false), false);
+  assert.deepEqual(primitive.visibleZones().map(({ zone_id }) => zone_id), ['active-zone']);
+  primitive.payload.viewer.show_terminal_by_default = true;
+  assert.deepEqual(primitive.visibleZones().map(({ zone_id }) => zone_id), [
+    'active-zone',
+    'terminal-zone',
+  ]);
+  primitive.payload.viewer.show_terminal_by_default = false;
+  assert.deepEqual(primitive.visibleZones().map(({ zone_id }) => zone_id), ['active-zone']);
+});
+
+test('focus metrics restore after no-hit and crosshair-leave while overview stays empty', () => {
+  const selected = caseView({ case_id: 'selected' });
+  const book = casebook([selected]);
+  const focus = casebookState(book, {}, selected.case_id, viewer, 'focus');
+  const overview = casebookState(book, {}, '', viewer, 'overview');
+
+  assert.equal(casebookDetailText(focus), focus.metrics.text);
+  assert.equal(casebookDetailText(overview), '');
+});
+
+test('browser entry restores cached Focus metrics after no-hit and crosshair leave', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+
+  assert.match(main, /focusMetricsText = casebookDetailText\(state\)/);
+  assert.match(main, /if \(!param\.point\) \{\s*restoreCasebookDetail\(\);/);
+  assert.match(main, /if \(!hit\?\.detail\) \{\s*restoreCasebookDetail\(\);/);
 });
 
 test('empty filters and mode transitions leave no stale state', () => {

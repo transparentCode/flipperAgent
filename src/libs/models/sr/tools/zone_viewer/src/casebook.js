@@ -117,6 +117,14 @@ export function casebookMarkers(state, eventsEnabled) {
   return state.mode === 'focus' && eventsEnabled ? state.markers : [];
 }
 
+export function casebookDetailText(state) {
+  return state.mode === 'focus' && state.metrics ? state.metrics.text : '';
+}
+
+export function defaultTerminalVisibility(casebook, configured) {
+  return casebook ? true : configured;
+}
+
 export function casebookNoticeText(casebook) {
   return `${casebook.notice} Disposition: ${casebook.disposition}. ${casebook.case_count} cases; pooled and fold-local outcomes are shown separately.`;
 }

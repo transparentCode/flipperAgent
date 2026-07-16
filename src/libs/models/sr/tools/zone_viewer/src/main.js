@@ -4,9 +4,11 @@ import {
   createSeriesMarkers,
 } from '../node_modules/lightweight-charts/dist/lightweight-charts.standalone.production.mjs';
 import {
+  casebookDetailText,
   casebookMarkers,
   casebookNoticeText,
   casebookState,
+  defaultTerminalVisibility,
   eventMarkers,
 } from './casebook.js';
 import { ZonePrimitive, zoneDetail } from './zone_primitive.js';
@@ -36,7 +38,7 @@ const caseFilters = {
 };
 
 summary.textContent = `${payload.trial_name} · ${payload.candles.length} source bars · bundle ${payload.bundle_id}`;
-terminalToggle.checked = viewer.show_terminal_by_default;
+terminalToggle.checked = defaultTerminalVisibility(casebook, viewer.show_terminal_by_default);
 eventsToggle.checked = viewer.show_events_by_default;
 
 const chart = createChart(container, {
@@ -73,6 +75,7 @@ series.attachPrimitive(primitive);
 let selectedCaseId = null;
 let casebookMode = casebook ? 'overview' : null;
 let markers = casebook ? [] : eventMarkers(payload.events, null, viewer);
+let focusMetricsText = '';
 
 function visibleMarkers() {
   if (casebook) return casebookMarkers({ mode: casebookMode, markers }, eventsToggle.checked);
@@ -92,6 +95,10 @@ function setOptions(select, values) {
     option.textContent = value;
     select.append(option);
   }
+}
+
+function restoreCasebookDetail() {
+  detail.textContent = focusMetricsText;
 }
 
 function updateCasebook() {
@@ -119,11 +126,12 @@ function updateCasebook() {
   };
   markers = state.markers;
   markerSeries.setMarkers(visibleMarkers());
+  focusMetricsText = casebookDetailText(state);
   if (state.selected) {
     chart.timeScale().setVisibleRange(state.visibleRange);
-    detail.textContent = state.metrics.text;
+    restoreCasebookDetail();
   } else {
-    detail.textContent = '';
+    restoreCasebookDetail();
     chart.timeScale().fitContent();
   }
   primitive.requestUpdate?.();
@@ -165,12 +173,12 @@ if (!casebook) chart.timeScale().fitContent();
 
 chart.subscribeCrosshairMove((param) => {
   if (!param.point) {
-    detail.textContent = '';
+    restoreCasebookDetail();
     return;
   }
   const hit = primitive.hitTest(param.point.x, param.point.y);
   if (!hit?.detail) {
-    detail.textContent = '';
+    restoreCasebookDetail();
     return;
   }
   const selected = hit.detail;
