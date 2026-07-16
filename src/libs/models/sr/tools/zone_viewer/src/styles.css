@@ -43,6 +43,14 @@ label { color: #d1d4dc; font-size: .85rem; }
   padding: 3px 6px;
 }
 
+.casebook-controls button {
+  background: #1e2230;
+  border: 1px solid #434a5e;
+  color: #d1d4dc;
+  cursor: pointer;
+  padding: 3px 8px;
+}
+
 .casebook-notice {
   color: #f2c94c;
   margin: 0 auto 8px;

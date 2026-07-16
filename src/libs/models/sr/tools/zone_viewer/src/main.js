@@ -4,6 +4,7 @@ import {
   createSeriesMarkers,
 } from '../node_modules/lightweight-charts/dist/lightweight-charts.standalone.production.mjs';
 import {
+  casebookMarkers,
   casebookNoticeText,
   casebookState,
   eventMarkers,
@@ -24,6 +25,7 @@ const eventsToggle = document.querySelector('#show-events');
 const casebook = payload.casebook ?? null;
 const casebookControls = document.querySelector('#casebook-controls');
 const casebookNotice = document.querySelector('#casebook-notice');
+const caseOverview = document.querySelector('#case-overview');
 const caseSelect = document.querySelector('#case-select');
 const caseFilters = {
   fold: document.querySelector('#case-fold-filter'),
@@ -69,8 +71,15 @@ const primitive = new ZonePrimitive(payload);
 series.attachPrimitive(primitive);
 
 let selectedCaseId = null;
-let markers = eventMarkers(payload.events, null, viewer);
-const markerSeries = createSeriesMarkers(series, eventsToggle.checked ? markers : []);
+let casebookMode = casebook ? 'overview' : null;
+let markers = casebook ? [] : eventMarkers(payload.events, null, viewer);
+
+function visibleMarkers() {
+  if (casebook) return casebookMarkers({ mode: casebookMode, markers }, eventsToggle.checked);
+  return eventsToggle.checked ? markers : [];
+}
+
+const markerSeries = createSeriesMarkers(series, visibleMarkers());
 
 function uniqueSorted(values) {
   return [...new Set(values)].sort();
@@ -91,7 +100,7 @@ function updateCasebook() {
   const filters = Object.fromEntries(
     Object.entries(caseFilters).map(([key, select]) => [key, select.value]),
   );
-  const state = casebookState(casebook, filters, previous, viewer);
+  const state = casebookState(casebook, filters, previous, viewer, casebookMode);
   caseSelect.replaceChildren();
   for (const item of state.available) {
     const option = document.createElement('option');
@@ -104,11 +113,12 @@ function updateCasebook() {
   else caseSelect.value = '';
   primitive.payload = {
     ...payload,
+    viewer: { ...payload.viewer, show_terminal_by_default: terminalToggle.checked },
     zones: state.zones,
     events: state.events,
   };
   markers = state.markers;
-  markerSeries.setMarkers(eventsToggle.checked ? markers : []);
+  markerSeries.setMarkers(visibleMarkers());
   if (state.selected) {
     chart.timeScale().setVisibleRange(state.visibleRange);
     detail.textContent = state.metrics.text;
@@ -128,7 +138,15 @@ if (casebook) {
   setOptions(caseFilters.lifecycle, uniqueSorted(casebook.cases.map((item) => item.horizon_lifecycle_class)));
   setOptions(caseFilters.close, uniqueSorted(casebook.cases.map((item) => item.close_location)));
   for (const select of Object.values(caseFilters)) select.addEventListener('change', updateCasebook);
-  caseSelect.addEventListener('change', updateCasebook);
+  caseOverview.addEventListener('click', () => {
+    casebookMode = 'overview';
+    selectedCaseId = null;
+    updateCasebook();
+  });
+  caseSelect.addEventListener('change', () => {
+    casebookMode = caseSelect.value ? 'focus' : 'overview';
+    updateCasebook();
+  });
   updateCasebook();
 }
 
@@ -138,7 +156,7 @@ function updateVisibility() {
     viewer: { ...primitive.payload.viewer, show_terminal_by_default: terminalToggle.checked },
   };
   primitive.requestUpdate?.();
-  markerSeries.setMarkers(eventsToggle.checked ? markers : []);
+  markerSeries.setMarkers(visibleMarkers());
 }
 
 terminalToggle.addEventListener('change', updateVisibility);

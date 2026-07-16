@@ -38,6 +38,25 @@ test('terminal zones stop at their frozen visible_until', () => {
   assert.equal(zoneVisibleAt(terminal, '2024-01-04T00:00:01Z'), false);
 });
 
+test('terminal toggle controls terminal visibility for overview and focus zone sets', () => {
+  const terminal = {
+    ...zone,
+    zone_id: 'terminal-zone',
+    final_status: 'BROKEN',
+    visible_until: '2024-01-04T00:00:00Z',
+  };
+  const primitive = new ZonePrimitive({
+    zones: [zone, terminal],
+    viewer: { show_terminal_by_default: false },
+  });
+
+  assert.deepEqual(primitive.visibleZones().map(({ zone_id }) => zone_id), ['zone-1']);
+  primitive.payload.viewer.show_terminal_by_default = true;
+  assert.deepEqual(primitive.visibleZones().map(({ zone_id }) => zone_id), ['zone-1', 'terminal-zone']);
+  primitive.payload.zones = [terminal];
+  assert.deepEqual(primitive.visibleZones().map(({ zone_id }) => zone_id), ['terminal-zone']);
+});
+
 test('hover detail contains only payload fields', () => {
   assert.deepEqual(zoneDetail(zone), {
     zone_id: 'zone-1',

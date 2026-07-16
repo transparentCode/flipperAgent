@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  casebookMarkers,
   casebookMetrics,
   casebookNoticeText,
   casebookOutcomeRange,
@@ -126,7 +127,7 @@ test('changing selected case updates zone, events, metrics, and visible range', 
     zone: { zone_id: 'zone-resistance-selected' },
     side: 'RESISTANCE',
   });
-  const state = casebookState(casebook([selected]), {}, '', viewer);
+  const state = casebookState(casebook([selected]), {}, selected.case_id, viewer, 'focus');
 
   assert.equal(state.selectedCaseId, 'resistance-selected');
   assert.deepEqual(state.zones, [selected.zone]);
@@ -177,4 +178,127 @@ test('empty filters clear all casebook state, including stale metrics and select
 test('permanent casebook notice renders exact V1.9 disposition', () => {
   const text = casebookNoticeText(casebook([caseView()]));
   assert.match(text, /Disposition: BASELINE_NOT_BETTER_THAN_NAIVE_NULL\./);
+});
+
+test('default overview contains all zones and no lifecycle markers', () => {
+  const cases = Array.from({ length: 36 }, (_, index) => caseView({
+    case_id: `case-${index}`,
+    zone: { zone_id: `zone-${index}` },
+  }));
+  const state = casebookState(casebook(cases), {}, '', viewer);
+
+  assert.equal(state.mode, 'overview');
+  assert.equal(state.available.length, 36);
+  assert.equal(state.zones.length, 36);
+  assert.deepEqual(state.events, []);
+  assert.deepEqual(state.markers, []);
+  assert.equal(state.metrics, null);
+  assert.equal(state.selectedCaseId, null);
+});
+
+test('filtered overview contains exact matching zone subset', () => {
+  const cases = [
+    caseView({ case_id: 'support-a', zone: { zone_id: 'zone-a' } }),
+    caseView({ case_id: 'support-b', zone: { zone_id: 'zone-b' }, fold: '2024_q4' }),
+    caseView({ case_id: 'resistance-a', zone: { zone_id: 'zone-c' }, side: 'RESISTANCE' }),
+  ];
+  const state = casebookState(casebook(cases), { side: 'SUPPORT' }, '', viewer);
+
+  assert.deepEqual(state.zones.map(({ zone_id }) => zone_id), ['zone-a', 'zone-b']);
+  assert.deepEqual(state.markers, []);
+  assert.equal(state.metrics, null);
+});
+
+test('dropdown selection enters focus with one zone and only selected events', () => {
+  const selected = caseView({
+    case_id: 'focus-case',
+    zone: { zone_id: 'focus-zone' },
+    events: [
+      { time: 1719964800, event_type: 'TOUCHED' },
+      { time: 1720000000, event_type: 'BREAK_CONFIRMED' },
+    ],
+  });
+  const other = caseView({ case_id: 'other-case', zone: { zone_id: 'other-zone' } });
+  const state = casebookState(casebook([selected, other]), {}, selected.case_id, viewer, 'focus');
+
+  assert.equal(state.mode, 'focus');
+  assert.equal(state.selectedCaseId, 'focus-case');
+  assert.deepEqual(state.zones, [selected.zone]);
+  assert.deepEqual(state.events, selected.events);
+  assert.deepEqual(state.markers.map(({ text }) => text), [
+    'TOUCHED',
+    'BREAK_CONFIRMED',
+    'OUTCOME_START',
+    'OUTCOME_END',
+  ]);
+  assert.equal(state.metrics.excessQuality, 0.1);
+});
+
+test('focus markers include only selected lifecycle and outcome-window markers', () => {
+  const selected = caseView({ case_id: 'selected', events: [{ time: 10, event_type: 'TOUCHED' }] });
+  const state = casebookState(casebook([selected]), {}, selected.case_id, viewer, 'focus');
+
+  assert.deepEqual(state.markers.map(({ text }) => text), [
+    'TOUCHED',
+    'OUTCOME_START',
+    'OUTCOME_END',
+  ]);
+  assert.ok(state.markers.every(({ text }) => text !== 'OTHER_CASE_EVENT'));
+});
+
+test('returning to overview removes focus markers, events, metrics and selection', () => {
+  const selected = caseView({ case_id: 'selected', zone: { zone_id: 'selected-zone' } });
+  const book = casebook([selected]);
+  const focus = casebookState(book, {}, selected.case_id, viewer, 'focus');
+  const overview = casebookState(book, {}, focus.selectedCaseId, viewer, 'overview');
+
+  assert.equal(overview.mode, 'overview');
+  assert.equal(overview.selectedCaseId, null);
+  assert.deepEqual(overview.zones, [selected.zone]);
+  assert.deepEqual(overview.events, []);
+  assert.deepEqual(overview.markers, []);
+  assert.equal(overview.metrics, null);
+});
+
+test('events toggle applies only to focus mode', () => {
+  const selected = caseView({ case_id: 'selected' });
+  const book = casebook([selected]);
+  const overview = casebookState(book, {}, '', viewer, 'overview');
+  const focus = casebookState(book, {}, selected.case_id, viewer, 'focus');
+
+  assert.deepEqual(casebookMarkers(overview, true), []);
+  assert.deepEqual(casebookMarkers(overview, false), []);
+  assert.deepEqual(casebookMarkers(focus, false), []);
+  assert.deepEqual(casebookMarkers(focus, true), focus.markers);
+});
+
+test('empty filters and mode transitions leave no stale state', () => {
+  const selected = caseView({ case_id: 'selected' });
+  const book = casebook([selected]);
+  const focus = casebookState(book, {}, selected.case_id, viewer, 'focus');
+  const empty = casebookState(
+    book,
+    { side: 'RESISTANCE', fold: 'missing' },
+    focus.selectedCaseId,
+    viewer,
+    'overview',
+  );
+
+  assert.deepEqual(empty.available, []);
+  assert.deepEqual(empty.zones, []);
+  assert.deepEqual(empty.events, []);
+  assert.deepEqual(empty.markers, []);
+  assert.equal(empty.metrics, null);
+  assert.equal(empty.selectedCaseId, null);
+});
+
+test('casebook state and modes never mutate original payload', () => {
+  const cases = [caseView(), caseView({ case_id: 'case-2', zone: { zone_id: 'zone-2' } })];
+  const book = casebook(cases);
+  const original = JSON.stringify(book);
+
+  casebookState(book, {}, cases[0].case_id, viewer, 'focus');
+  casebookState(book, { side: 'SUPPORT' }, '', viewer, 'overview');
+
+  assert.equal(JSON.stringify(book), original);
 });

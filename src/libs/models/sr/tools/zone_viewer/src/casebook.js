@@ -88,18 +88,33 @@ export function casebookOutcomeRange(selected) {
   };
 }
 
-export function casebookState(casebook, filters = {}, previousCaseId = '', viewer = {}) {
+export function casebookState(
+  casebook,
+  filters = {},
+  previousCaseId = '',
+  viewer = {},
+  mode = 'overview',
+) {
   const { available, selected } = selectCasebookCase(casebook, filters, previousCaseId);
+  const focus = mode === 'focus';
+  const selectedForView = focus ? selected : null;
   return {
+    mode: focus ? 'focus' : 'overview',
     available,
-    selected,
-    selectedCaseId: selected?.case_id ?? null,
-    zones: selected ? [selected.zone] : [],
-    events: selected ? selected.events : [],
-    markers: eventMarkers(selected ? selected.events : [], selected, viewer),
-    metrics: casebookMetrics(selected),
-    visibleRange: casebookOutcomeRange(selected),
+    selected: selectedForView,
+    selectedCaseId: selectedForView?.case_id ?? null,
+    zones: selectedForView ? [selectedForView.zone] : available.map((item) => item.zone),
+    events: selectedForView ? selectedForView.events : [],
+    markers: selectedForView
+      ? eventMarkers(selectedForView.events, selectedForView, viewer)
+      : [],
+    metrics: casebookMetrics(selectedForView),
+    visibleRange: casebookOutcomeRange(selectedForView),
   };
+}
+
+export function casebookMarkers(state, eventsEnabled) {
+  return state.mode === 'focus' && eventsEnabled ? state.markers : [];
 }
 
 export function casebookNoticeText(casebook) {
