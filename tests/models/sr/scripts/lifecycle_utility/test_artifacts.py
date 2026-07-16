@@ -28,6 +28,14 @@ def test_bundle_is_deterministic_and_semantically_revalidated(tmp_path, monkeypa
     assert validated.to_payload() == study.to_payload()
 
 
+def test_sparse_fold_study_reconciles_comparable_records(lifecycle_config, synthetic_study):
+    study = synthetic_study(counts=(5, 5, 5, 1))
+    assert study.aggregate.comparable_fold_count == 3
+    assert study.aggregate.compared_count == 15
+    assert sum(item.compared for item in study.outcomes) == 16
+    assert study.decision.disposition.value == "INSUFFICIENT_EVIDENCE"
+
+
 def test_rehashed_study_tampering_is_rejected(tmp_path, monkeypatch, lifecycle_config, synthetic_study):
     study = synthetic_study()
     _, original = publish_lifecycle_bundle(study, config=lifecycle_config, output_root=tmp_path)

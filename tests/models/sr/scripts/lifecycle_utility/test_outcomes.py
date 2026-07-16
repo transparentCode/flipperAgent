@@ -78,6 +78,20 @@ def test_horizon_crossing_event_fold_is_right_censored(make_bars, make_event, li
     assert outcome.null_control_count == 0
 
 
+def test_horizon_ending_exactly_at_fold_end_is_right_censored(make_bars, make_event, lifecycle_config):
+    bars = make_bars(40, datetime(2024, 9, 1, tzinfo=timezone.utc))
+    event = make_event(
+        seed="exact-fold-end",
+        event_at=bars[19].closed_at,
+        event_bar_id=bars[19].bar_id,
+        anchor_close=bars[19].close,
+    )
+    assert bars[29].closed_at == datetime(2024, 10, 1, tzinfo=timezone.utc)
+    outcome = build_resolution_outcome(event, bars, config=lifecycle_config, null_cell=None)
+    assert outcome.right_censored is True
+    assert outcome.completed is False
+
+
 def test_anchor_and_bar_misalignment_fail_closed(make_bars, make_event, lifecycle_config):
     bars = make_bars(40, datetime(2024, 6, 15, tzinfo=timezone.utc))
     event = make_event(

@@ -183,19 +183,31 @@ def null_cells():
 
 @pytest.fixture
 def synthetic_study(lifecycle_config, make_event, make_outcome, null_cells):
-    def factory(implementation_commit: str = "a" * 40) -> LifecycleUtilityStudy:
-        folds = FROZEN_FOLD_NAMES[:4]
-        events = tuple(
-            make_event(
-                seed=f"study-{index}",
-                fold=folds[index // 4],
-                event_class="FALSE_BREAKOUT" if index % 2 == 0 else "BREAK_CONFIRMED",
-                side=ZoneSide.SUPPORT if index % 3 else ZoneSide.RESISTANCE,
-                event_at=datetime(2024, 7, 2, tzinfo=timezone.utc) + timedelta(days=index * 5),
-                event_bar_id=f"study-bar-{index}",
-            )
-            for index in range(16)
+    def factory(implementation_commit: str = "a" * 40, counts: tuple[int, ...] = (4, 4, 4, 4)) -> LifecycleUtilityStudy:
+        fold_starts = (
+            datetime(2024, 7, 2, tzinfo=timezone.utc),
+            datetime(2024, 10, 2, tzinfo=timezone.utc),
+            datetime(2025, 1, 2, tzinfo=timezone.utc),
+            datetime(2025, 4, 2, tzinfo=timezone.utc),
+            datetime(2025, 7, 2, tzinfo=timezone.utc),
+            datetime(2025, 10, 2, tzinfo=timezone.utc),
         )
+        events_list = []
+        serial = 0
+        for fold, count, fold_start in zip(FROZEN_FOLD_NAMES, counts, fold_starts):
+            for index in range(count):
+                events_list.append(
+                    make_event(
+                        seed=f"study-{serial}",
+                        fold=fold,
+                        event_class="FALSE_BREAKOUT" if serial % 2 == 0 else "BREAK_CONFIRMED",
+                        side=ZoneSide.SUPPORT if serial % 3 else ZoneSide.RESISTANCE,
+                        event_at=fold_start + timedelta(days=index),
+                        event_bar_id=f"study-bar-{serial}",
+                    )
+                )
+                serial += 1
+        events = tuple(events_list)
         outcomes = tuple(make_outcome(event, quality=0.25) for event in events)
         metrics = evaluate_metrics(outcomes, config=lifecycle_config)
         accounting = EventAccounting(

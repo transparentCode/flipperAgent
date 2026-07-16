@@ -108,7 +108,7 @@ def build_resolution_outcome(
     if end_index >= len(bars):
         raise ContractValidationError("resolution horizon exceeds the frozen source")
     horizon_bar = bars[end_index]
-    if horizon_bar.closed_at > fold_end:
+    if horizon_bar.closed_at >= fold_end:
         return ResolutionOutcome(
             resolution_id=event.resolution_id,
             zone_id=event.zone_id,

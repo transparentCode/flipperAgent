@@ -591,7 +591,9 @@ class LifecycleUtilityStudy:
             raise ContractValidationError("study event accounting does not reconcile with records")
         if self.aggregate.total_resolution_count != len(self.outcomes) or self.aggregate.completed_count != sum(item.completed for item in self.outcomes) or self.aggregate.right_censored_count != sum(item.right_censored for item in self.outcomes):
             raise ContractValidationError("study aggregate does not reconcile with outcomes")
-        if self.aggregate.compared_count != sum(item.compared for item in self.outcomes) or self.aggregate.comparable_fold_count != sum(item.comparable for item in self.fold_metrics):
+        comparable_folds = {item.fold for item in self.fold_metrics if item.comparable}
+        comparable_record_count = sum(item.compared and item.event_fold in comparable_folds for item in self.outcomes)
+        if self.aggregate.compared_count != comparable_record_count or self.aggregate.comparable_fold_count != len(comparable_folds):
             raise ContractValidationError("study aggregate comparable metrics do not reconcile")
         for resolution, outcome in zip(self.resolutions, self.outcomes):
             if (
