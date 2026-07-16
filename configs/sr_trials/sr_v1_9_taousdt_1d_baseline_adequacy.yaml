@@ -1,0 +1,105 @@
+version: "1"
+
+trial:
+  trial_name: sr-v1.9-taousdt-1d-baseline-adequacy
+  venue: binance_usdm
+  asset: TAOUSDT
+  timeframe: 1d
+
+inputs:
+  v17_config_path: configs/sr_trials/sr_v1_7_1d_cohort_readiness.yaml
+  v17_config_hash: 370d2b66e8e3031b0df8547e8b52c61288e14c5d1b858612ce9fae712e1690a7
+  source_bundle_path: research/tmp_sr_v1_7/source/6b5a0a81117ba299516fb67ca2da81b3cb6e6f35ed6a85986a27689205a565d9
+  source_bundle_id: 6b5a0a81117ba299516fb67ca2da81b3cb6e6f35ed6a85986a27689205a565d9
+  source_implementation_commit: be6459a8e06ec95b634b2cfb2b91a08cd31d9ba2
+  v17_evaluation_bundle_path: research/tmp_sr_v1_7/evaluation/824e9265a63073ba792762a891adf52deec9677d791c40641dc0107c1f2b840d
+  v17_evaluation_bundle_id: 824e9265a63073ba792762a891adf52deec9677d791c40641dc0107c1f2b840d
+  v17_evaluation_id: 49a895360774ec0c46349eae2d1ec6f56e7262e5f1411ab992f9886d9040fa8d
+  v17_evaluation_implementation_commit: 4cb069af6142dbd7dadf7a5ebef49d2da0ba26a7
+  v18_config_path: configs/sr_trials/sr_v1_8_1d_geometry_sensitivity.yaml
+  v18_study_bundle_path: research/tmp_sr_v1_8/evaluation/b0ea33decc9c8c40dab98bdbb90635652dc199031fc50b27d3a71a6711378941
+  v18_study_bundle_id: b0ea33decc9c8c40dab98bdbb90635652dc199031fc50b27d3a71a6711378941
+  v18_study_id: 2a324d3a203642bf9030aede611a8d874fcb051c5b394fcb4758582d6cfbc954
+  v18_config_hash: 86137d2c5b5e12802a5731298ab548822f23c4937d635bae5f21b77a8e7c0da7
+  v18_implementation_commit: fa819418aa35b7f325c7a6bf2a51a387aa97f60f
+  sr_config_path: configs/sr.yaml
+  input_config_path: configs/sr_inputs.yaml
+  frozen_sr_config_hash: cb9b4143921de95c5423899a5655fef0b186cf1f8e9a84c69427bf64df030299
+  frozen_input_hash: 5ece92803341696df06efa0dba5d7a44ee0f5451aa3ce6555d3a4ef6c59fab6d
+
+source:
+  row_count: 629
+  start: "2024-04-11T00:00:00Z"
+  end: "2025-12-31T00:00:00Z"
+  grid_policy: exact_utc_daily_grid_from_taousdt_development_capsule
+
+baseline:
+  pivot_span_bars: 5
+  zone_half_width_atr: 0.25
+  merge_distance_atr: 0.50
+  touch_tolerance_atr: 0.25
+  break_buffer_atr: 0.25
+  break_confirm_closes: 2
+  max_age_bars: 50
+  max_active_zones: 8
+  atr_method: wilder_rma
+  atr_period: 14
+  atr_seed: sma
+  common_start_period: 28
+
+protocol:
+  outcome:
+    start_offset_bars: 1
+    horizon_bars: 10
+    window_policy: half_open_utc_daily
+  folds:
+    - name: 2024_q3
+      start: "2024-07-01T00:00:00Z"
+      end: "2024-10-01T00:00:00Z"
+    - name: 2024_q4
+      start: "2024-10-01T00:00:00Z"
+      end: "2025-01-01T00:00:00Z"
+    - name: 2025_q1
+      start: "2025-01-01T00:00:00Z"
+      end: "2025-04-01T00:00:00Z"
+    - name: 2025_q2
+      start: "2025-04-01T00:00:00Z"
+      end: "2025-07-01T00:00:00Z"
+    - name: 2025_q3
+      start: "2025-07-01T00:00:00Z"
+      end: "2025-10-01T00:00:00Z"
+    - name: 2025_q4
+      start: "2025-10-01T00:00:00Z"
+      end: "2026-01-01T00:00:00Z"
+  visibility:
+    entry_visible_states: [ACTIVE, BREACH_PENDING]
+    intersection_policy: inclusive_ohlc_against_visible_zone_band
+    previous_snapshot_policy: previous_aligned_model_snapshot_only
+
+controls:
+  side_order: [SUPPORT, RESISTANCE]
+  controls_per_anchor: 2
+  control_id_schema_version: "1.0"
+  rejection_reason_precedence:
+    - NO_PREVIOUS_MODEL_SNAPSHOT
+    - OUTSIDE_FOLD_OR_WARMUP
+    - ATR_UNAVAILABLE_OR_INVALID
+    - ENTRY_VISIBLE_ZONE_INTERSECTION
+    - INCOMPLETE_SAME_FOLD_HORIZON
+
+gates:
+  minimum_completed_real_outcomes: 24
+  minimum_comparable_folds: 4
+  minimum_real_outcomes_per_comparable_fold: 4
+  minimum_controls_per_side_per_comparable_fold: 4
+  minimum_pooled_median_excess_quality_atr: 0.10
+  minimum_positive_comparable_fold_fraction: 0.60
+  minimum_worst_comparable_fold_excess_atr: -0.10
+
+dispositions:
+  - BASELINE_BEATS_NAIVE_NULL
+  - BASELINE_NOT_BETTER_THAN_NAIVE_NULL
+  - INSUFFICIENT_EVIDENCE
+
+output:
+  root: research/tmp_sr_v1_9
