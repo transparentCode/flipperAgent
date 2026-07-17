@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
-from hashlib import sha256
-import json
-import math
-import os
 from pathlib import Path
-import tempfile
 from typing import Any
 
 from libs.models.sr.domain.contracts import ContractValidationError
-from libs.models.sr.domain.identity import canonical_json, deterministic_hash
+from libs.models.sr.domain.identity import deterministic_hash
+from libs.models.sr.research.artifacts.canonical_json import (
+    canonical_json_bytes,
+    sha256_hex,
+)
+from libs.models.sr.research.artifacts.manifest import (
+    member_metadata,
+    validate_member_metadata,
+)
+from libs.models.sr.research.artifacts.publisher import publish_immutable_directory
+from libs.models.sr.research.artifacts.validator import load_strict_json
 from libs.models.sr.research.artifacts.path_safety import (
     reject_symlink_components,
     require_regular_file,
@@ -26,82 +31,28 @@ _STAGE = "candidate_reinforcement_audit_development"
 
 
 def _bytes(payload: Any) -> bytes:
-    return (canonical_json(payload) + "\n").encode("utf-8")
+    return canonical_json_bytes(payload)
 
 
 def _sha(data: bytes) -> str:
-    return sha256(data).hexdigest()
+    return sha256_hex(data)
 
 
 def _member(name: str, data: bytes) -> dict[str, Any]:
-    return {"name": name, "sha256": _sha(data), "byte_length": len(data)}
+    return member_metadata(name, data)
 
 
 def _atomic_publish(path: Path, files: dict[str, bytes]) -> None:
-    reject_symlink_components(path, description="V1.12 artifact")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-        if not path.is_dir() or path.is_symlink() or {item.name for item in path.iterdir()} != set(files):
-            raise ContractValidationError("existing V1.12 artifact path has unexpected members")
-        for name, data in files.items():
-            member_path = path / name
-            require_regular_file(member_path, description="V1.12 artifact member")
-            try:
-                current = member_path.read_bytes()
-            except OSError as exc:
-                raise ContractValidationError("existing V1.12 artifact member cannot be read") from exc
-            if current != data:
-                raise ContractValidationError("existing V1.12 artifact bytes differ")
-        return
-    temporary = Path(tempfile.mkdtemp(prefix=f".{path.name}.", dir=path.parent))
-    try:
-        for name, data in files.items():
-            (temporary / name).write_bytes(data)
-        os.replace(temporary, path)
-    except OSError as exc:
-        raise ContractValidationError("atomic V1.12 artifact publication failed") from exc
-    finally:
-        if temporary.exists():
-            for item in temporary.iterdir():
-                item.unlink()
-            temporary.rmdir()
-
-
-def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-    result: dict[str, Any] = {}
-    for key, value in pairs:
-        if key in result:
-            raise ValueError(f"duplicate JSON key: {key}")
-        result[key] = value
-    return result
-
-
-def _reject_constant(value: str) -> Any:
-    raise ValueError(f"non-finite JSON constant: {value}")
-
-
-def _finite(value: Any, *, path: str = "json") -> None:
-    if type(value) is float and not math.isfinite(value):
-        raise ContractValidationError(f"non-finite V1.12 artifact value at {path}")
-    if type(value) is dict:
-        for key, item in value.items():
-            _finite(item, path=f"{path}.{key}")
-    elif type(value) is list:
-        for index, item in enumerate(value):
-            _finite(item, path=f"{path}[{index}]")
+    publish_immutable_directory(path, files, description="V1.12 artifact")
 
 
 def load_json(path: str | Path) -> Any:
-    try:
-        payload = json.loads(
-            Path(path).read_text(encoding="utf-8"),
-            object_pairs_hook=_reject_duplicate_keys,
-            parse_constant=_reject_constant,
-        )
-    except (OSError, UnicodeError, TypeError, ValueError) as exc:
-        raise ContractValidationError(f"invalid V1.12 JSON artifact: {path}") from exc
-    _finite(payload)
-    return payload
+    return load_strict_json(
+        path,
+        description="V1.12 JSON artifact",
+        value_description="V1.12 artifact",
+        require_regular=False,
+    )
 
 
 def _semantic(audit: CandidateReinforcementAudit, config: CandidateAuditConfig, member: dict[str, Any]) -> dict[str, Any]:
@@ -154,9 +105,11 @@ def _validate_manifest(path: Path) -> dict[str, Any]:
     for key, value in semantic.items():
         if manifest.get(key) != value:
             raise ContractValidationError(f"V1.12 manifest semantic field mismatch: {key}")
-    member = semantic["member"]
-    if type(member) is not dict or set(member) != {"name", "sha256", "byte_length"} or member.get("name") != "audit.json" or type(member.get("sha256")) is not str or len(member["sha256"]) != 64 or type(member.get("byte_length")) is not int or member["byte_length"] < 0:
-        raise ContractValidationError("V1.12 audit member metadata is malformed")
+    member = validate_member_metadata(
+        semantic["member"],
+        expected_name="audit.json",
+        description="V1.12 audit member",
+    )
     try:
         data = audit_path.read_bytes()
     except OSError as exc:
