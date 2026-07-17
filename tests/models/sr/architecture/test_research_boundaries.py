@@ -29,6 +29,7 @@ _FORBIDDEN_RESEARCH_PREFIXES = (
     "ccxt",
     "httpx",
     "libs.models.sr.scripts",
+    "libs.models.sr.research.studies",
     "libs.models.sr.tools",
     "libs.sr",
     "pandas",
@@ -99,21 +100,23 @@ def _relative_path(path: Path) -> str:
     return path.relative_to(_PACKAGE_DIR).as_posix()
 
 
-def _study_name(module: str) -> str | None:
-    prefix = f"{_PACKAGE_PREFIX}.scripts."
+def _study_name(module: str, *, prefix: str) -> str | None:
     if not module.startswith(prefix):
         return None
     parts = module.removeprefix(prefix).split(".")
     return parts[0] if parts and parts[0] else None
 
 
-def _sibling_imports() -> Counter[tuple[str, str]]:
-    scripts_dir = _PACKAGE_DIR / "scripts"
+def _sibling_imports(
+    *,
+    studies_dir: Path,
+    module_prefix: str,
+) -> Counter[tuple[str, str]]:
     imports: Counter[tuple[str, str]] = Counter()
-    for path in sorted(scripts_dir.rglob("*.py")):
-        importer = path.relative_to(scripts_dir).parts[0]
+    for path in sorted(studies_dir.rglob("*.py")):
+        importer = path.relative_to(studies_dir).parts[0]
         for _, module in _imported_modules(path):
-            imported = _study_name(module)
+            imported = _study_name(module, prefix=module_prefix)
             if imported is not None and imported != importer:
                 imports[importer, imported] += 1
     return imports
@@ -257,7 +260,10 @@ def test_yaml_imports_stay_at_the_two_approved_locations() -> None:
 
 
 def test_sibling_study_imports_match_the_recorded_r2_baseline() -> None:
-    assert _sibling_imports() == _EXPECTED_SIBLING_IMPORT_STATEMENTS
+    assert _sibling_imports(
+        studies_dir=_PACKAGE_DIR / "scripts",
+        module_prefix=f"{_PACKAGE_PREFIX}.scripts.",
+    ) == _EXPECTED_SIBLING_IMPORT_STATEMENTS
 
 
 def test_shared_research_package_import_graph_is_acyclic() -> None:
@@ -298,6 +304,13 @@ def test_r3a_canonical_studies_do_not_import_script_studies() -> None:
         if _is_prefix(module, f"{_PACKAGE_PREFIX}.scripts")
     ]
     assert violations == []
+
+
+def test_r3a_canonical_studies_do_not_import_sibling_studies() -> None:
+    assert _sibling_imports(
+        studies_dir=_PACKAGE_DIR / "research" / "studies",
+        module_prefix=f"{_PACKAGE_PREFIX}.research.studies.",
+    ) == Counter()
 
 
 def test_r3a_script_facades_only_forward_to_canonical_studies() -> None:

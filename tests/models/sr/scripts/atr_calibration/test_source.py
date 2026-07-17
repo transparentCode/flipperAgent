@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 from pathlib import Path
 from hashlib import sha256
+from shutil import copytree
 
 import pytest
 
@@ -22,6 +24,52 @@ def test_exact_frozen_source_identity(calibration_config):
     assert len(bars) == 811
     assert bars[0].open_time.isoformat() == "2024-04-11T00:00:00+00:00"
     assert bars[-1].closed_at.isoformat() == "2026-07-01T00:00:00+00:00"
+
+
+def _copied_frozen_source_bundle(tmp_path, calibration_config):
+    repository_root = Path(__file__).resolve().parents[5]
+    source_bundle = repository_root / calibration_config.source_bundle_path
+    copied_bundle = tmp_path / "bundle"
+    copytree(source_bundle, copied_bundle)
+    return (
+        replace(calibration_config, source_bundle_path="bundle"),
+        copied_bundle,
+    )
+
+
+def test_frozen_source_rejects_rehashed_member_metadata_tamper(
+    tmp_path,
+    calibration_config,
+):
+    copied_config, copied_bundle = _copied_frozen_source_bundle(
+        tmp_path,
+        calibration_config,
+    )
+    manifest_path = copied_bundle / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    source_member = next(
+        member for member in manifest["members"] if member["name"] == "source_bars.json"
+    )
+    source_member["byte_length"] += 1
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ContractValidationError):
+        load_frozen_source(copied_config, repo_root=tmp_path)
+
+
+def test_frozen_source_rejects_source_member_symlink(tmp_path, calibration_config):
+    copied_config, copied_bundle = _copied_frozen_source_bundle(
+        tmp_path,
+        calibration_config,
+    )
+    source_path = copied_bundle / "source_bars.json"
+    copied_member = tmp_path / "source_bars-copy.json"
+    copied_member.write_bytes(source_path.read_bytes())
+    source_path.unlink()
+    source_path.symlink_to(copied_member)
+
+    with pytest.raises(ContractValidationError):
+        load_frozen_source(copied_config, repo_root=tmp_path)
 
 
 def test_source_capsule_round_trip_and_member_tamper_rejection(tmp_path, calibration_config, source_capsules):
@@ -105,3 +153,4 @@ def test_source_module_has_no_provider_adapter_or_network_dependency():
     assert "BinanceNativeAdapter" not in text
     assert "requests" not in text
     assert "httpx" not in text
+    assert "research.studies.baseline_trial" not in text
