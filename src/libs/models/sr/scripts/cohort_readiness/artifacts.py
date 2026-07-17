@@ -11,7 +11,7 @@ from typing import Any
 
 from libs.models.sr.domain.contracts import ContractValidationError
 from libs.models.sr.domain.identity import canonical_json, deterministic_hash
-from libs.models.sr.scripts.baseline_trial.contracts import SourceBar
+from libs.models.sr.research.source.contracts import SourceBar
 
 from .config import CohortConfig
 from .contracts import (

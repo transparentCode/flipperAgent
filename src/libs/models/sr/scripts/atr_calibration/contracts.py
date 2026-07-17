@@ -19,8 +19,7 @@ from libs.models.sr.domain.contracts import (
 from libs.models.sr.domain.identity import deterministic_hash, require_utc, utc_isoformat
 from libs.models.sr.evaluation.contracts import SREvaluationTrace
 from libs.models.sr.evaluation.diagnostics import SRDiagnostics
-
-from libs.models.sr.scripts.baseline_trial.contracts import SourceBar
+from libs.models.sr.research.source.contracts import SourceBar
 
 
 SCHEMA_VERSION = "1.0"

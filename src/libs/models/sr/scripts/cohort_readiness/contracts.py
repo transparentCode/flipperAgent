@@ -23,6 +23,8 @@ from libs.models.sr.domain.identity import (
     require_utc,
     utc_isoformat,
 )
+from libs.models.sr.research.source.contracts import SourceBar
+from libs.models.sr.research.windows.folds import CohortFold
 from libs.models.sr.scripts.atr_calibration.contracts import (
     CandidateReplay,
     SourceCapsule,
@@ -31,7 +33,6 @@ from libs.models.sr.scripts.atr_calibration.metrics import (
     CandidateMetrics,
     FirstTouchOutcome,
 )
-from libs.models.sr.scripts.baseline_trial.contracts import SourceBar
 
 
 SCHEMA_VERSION = "1.0"
@@ -216,25 +217,6 @@ class EventAccounting:
 
     def to_payload(self) -> dict[str, int]:
         return {name: getattr(self, name) for name in self.__dataclass_fields__}
-
-
-@dataclass(frozen=True)
-class CohortFold:
-    name: str
-    start: datetime
-    end: datetime
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "name", _string(self.name, field_name="fold.name"))
-        start = _timestamp(self.start, field_name="fold.start")
-        end = _timestamp(self.end, field_name="fold.end")
-        if start >= end:
-            raise ContractValidationError("fold.start must be before fold.end")
-        object.__setattr__(self, "start", start)
-        object.__setattr__(self, "end", end)
-
-    def to_payload(self) -> dict[str, Any]:
-        return {"name": self.name, "start": utc_isoformat(self.start), "end": utc_isoformat(self.end)}
 
 
 @dataclass(frozen=True)

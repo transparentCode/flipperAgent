@@ -9,7 +9,7 @@ from typing import Any
 
 from libs.models.sr.domain.contracts import ContractValidationError
 from libs.models.sr.domain.identity import require_utc
-from libs.models.sr.scripts.baseline_trial.contracts import SourceBar
+from libs.models.sr.research.source.contracts import SourceBar
 from libs.models.sr.scripts.context_audit.artifacts import validate_audit_bundle
 from libs.models.sr.scripts.context_audit.config import (
     ContextAuditConfig,

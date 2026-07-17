@@ -11,8 +11,8 @@ from typing import Any
 
 from libs.models.sr.domain.contracts import ContractValidationError
 from libs.models.sr.domain.identity import canonical_json, utc_isoformat
+from libs.models.sr.research.source.contracts import SourceBar
 from libs.models.sr.scripts.baseline_trial.artifacts import validate_bundle
-from libs.models.sr.scripts.baseline_trial.contracts import SourceBar
 
 from .config import (
     CalibrationConfig,

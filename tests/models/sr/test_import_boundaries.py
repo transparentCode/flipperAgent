@@ -6,7 +6,10 @@ import sys
 
 
 _SR_IMPORT_PREFIX = "libs.models.sr"
-_YAML_LOADER = "config/loader.py"
+_YAML_IMPORT_PATHS = {
+    "config/loader.py",
+    "research/config/strict_yaml.py",
+}
 _BASELINE_EXTERNAL_IMPORTS = {
     "pandas",
     "libs.features.indicators.volatility.atr",
@@ -65,7 +68,7 @@ def _allowed_import(path: Path, node: ast.Import | ast.ImportFrom) -> bool:
             continue
         if (
             (module == "yaml" or module.startswith("yaml."))
-            and path.as_posix().endswith(_YAML_LOADER)
+            and any(path.as_posix().endswith(allowed) for allowed in _YAML_IMPORT_PATHS)
         ):
             continue
         return False
@@ -95,8 +98,8 @@ def test_yaml_imports_remain_confined_to_canonical_config_loader() -> None:
                     module = "yaml"
             elif isinstance(node, ast.ImportFrom) and node.module == "yaml":
                 module = "yaml"
-            if module is not None and not path.as_posix().endswith(
-                _YAML_LOADER
+            if module is not None and not any(
+                path.as_posix().endswith(allowed) for allowed in _YAML_IMPORT_PATHS
             ):
                 violations.append(f"{path}: {module}")
     assert violations == []

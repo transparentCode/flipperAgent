@@ -22,7 +22,7 @@ from libs.models.sr.scripts.atr_calibration.source import (
     load_capsule,
     validate_development_prefix,
 )
-from libs.models.sr.scripts.baseline_trial.contracts import SourceBar
+from libs.models.sr.research.source.contracts import SourceBar
 
 from .config import CohortConfig
 from .contracts import (

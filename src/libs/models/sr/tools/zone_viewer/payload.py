@@ -15,10 +15,10 @@ from libs.models.sr.evaluation.contracts import (
     ZoneObservation,
 )
 from libs.models.sr.evaluation.diagnostics import SRDiagnostics
+from libs.models.sr.research.source.contracts import SourceBar
 
 from libs.models.sr.scripts.baseline_trial.contracts import (
     ResolvedInputConfig,
-    SourceBar,
     TrialSpec,
 )
 

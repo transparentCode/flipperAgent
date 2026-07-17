@@ -7,7 +7,7 @@ access, and artifact publication live in separate leaf modules.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import math
 from pathlib import Path, PurePath
 import re
@@ -23,6 +23,7 @@ from libs.models.sr.domain.contracts import (
 from libs.models.sr.domain.identity import deterministic_hash, require_utc
 from libs.models.sr.evaluation.contracts import SREvaluationTrace
 from libs.models.sr.evaluation.diagnostics import SRDiagnostics
+from libs.models.sr.research.source.contracts import SourceBar
 
 
 SR_BASELINE_TRIAL_SCHEMA_VERSION = "1.0"
@@ -408,39 +409,6 @@ class TrialSpec:
             "output_root": self.output_root,
             "viewer": self.viewer.to_payload(),
         }
-
-
-@dataclass(frozen=True)
-class SourceBar:
-    open_time: datetime
-    closed_at: datetime
-    open: float
-    high: float
-    low: float
-    close: float
-    volume: float
-    bar_id: str
-
-    def __post_init__(self) -> None:
-        open_time = _timestamp(self.open_time, field_name="open_time")
-        closed_at = _timestamp(self.closed_at, field_name="closed_at")
-        if closed_at != open_time + timedelta(days=1):
-            raise ContractValidationError("closed_at must equal open_time + 1 day")
-        object.__setattr__(self, "open_time", open_time)
-        object.__setattr__(self, "closed_at", closed_at)
-        for field_name in ("open", "high", "low", "close"):
-            value = _number(getattr(self, field_name), field_name=field_name, minimum=0.0)
-            if value <= 0:
-                raise ContractValidationError(f"{field_name} must be positive")
-            object.__setattr__(self, field_name, value)
-        if self.low > self.high or not self.low <= self.open <= self.high or not self.low <= self.close <= self.high:
-            raise ContractValidationError("source OHLC values must satisfy low <= open/close <= high")
-        object.__setattr__(
-            self,
-            "volume",
-            _number(self.volume, field_name="volume", minimum=0.0),
-        )
-        object.__setattr__(self, "bar_id", _string(self.bar_id, field_name="bar_id"))
 
 
 @dataclass(frozen=True)

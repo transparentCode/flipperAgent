@@ -11,7 +11,8 @@ from libs.models.sr.scripts.baseline_adequacy.contracts import (
     BaselineAdequacyStudy,
     RealOutcomeRecord,
 )
-from libs.models.sr.scripts.cohort_readiness.contracts import AssetEvaluation, SourceBar
+from libs.models.sr.research.source.contracts import SourceBar
+from libs.models.sr.scripts.cohort_readiness.contracts import AssetEvaluation
 
 from .config import (
     APPROVED_ASSET,

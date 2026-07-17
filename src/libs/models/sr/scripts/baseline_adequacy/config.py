@@ -10,8 +10,8 @@ from typing import Any
 
 from libs.models.sr.adapters.yaml_config import load_sr_config
 from libs.models.sr.domain.contracts import ContractValidationError, ZoneSide, ZoneStatus
-from libs.models.sr.scripts.cohort_readiness.contracts import CohortFold
 from libs.models.sr.domain.identity import require_utc
+from libs.models.sr.research.windows.folds import CohortFold
 
 from .contracts import (
     AdequacyThresholds,

@@ -7,7 +7,7 @@ import math
 from typing import Any
 
 from libs.models.sr.domain.contracts import ContractValidationError, ZoneSide
-from libs.models.sr.scripts.baseline_trial.contracts import SourceBar
+from libs.models.sr.research.source.contracts import SourceBar
 
 from .config import LifecycleUtilityConfig
 from .contracts import NullCell, ResolutionEvent, ResolutionOutcome
