@@ -19,7 +19,7 @@ Implemented the approved, development-only forensic audit on branch
 
 - Exact base/documentation HEAD: `6e6a25232ca1c55e32191945176192777c7c290d`.
 - Authorization commit: `b608463ce5079ac30e72691d3afed5ef0f9014e7`.
-- Implementation commit: `2c651b7d4b8ec8c538fc38c1fbb24b0a0b50608d`.
+- Implementation commit: `1f36168e77fa14b0c1a3a0b0f6b2f4ea07d2b5e7`.
 - No merge commits are present after the base.
 - V1.11 remediation implementation remains `4d525ef3e50933330af0fd89c4082d550a538eee`.
 
@@ -28,6 +28,13 @@ The package reconstructs every frozen detector candidate around the unchanged
 proves seed-to-zone lineage, computes unique eligible reinforcements, checks
 uninterrupted/checkpoint/canonical replay parity, and publishes a deterministic
 two-member audit bundle.
+
+The remediation assigns each zone's unique confirmation to the fold of its
+first eligible candidate in canonical replay order. Later eligible matches stay
+in their actual candidate folds as diagnostic `eligible_match_count` values but
+cannot inflate later-fold unique counts. The audit contract recomputes the same
+first-confirmation assignment, and eligible reinforcements without an approved
+fold are rejected.
 
 ## Changes Made
 
@@ -41,7 +48,8 @@ Added only the approved V1.12 surfaces:
   - deterministic publication and semantic revalidation;
   - network-free CLI.
 - `tests/models/sr/scripts/candidate_reinforcement_audit/`
-  - configuration, contract, lineage, artifact-tamper, import-boundary, and runner regressions.
+  - configuration, contract, lineage, audit replay, matcher ordering, capacity,
+    checkpoint, artifact-tamper, import-boundary, and runner regressions.
 
 The frozen replay boundary is explicitly bound to the approved V1.9 canonical
 replay: Wilder ATR(14)/SMA and `common_start_index: 28`. The approved source
@@ -76,16 +84,17 @@ Validated upstream evidence:
 
 The final deterministic bundle is:
 
-- Bundle ID: `89a617b734e1af75869c37d939dc24df9f52e7741239207afe5b5da2c13423fc`.
-- Path: `research/tmp_sr_v1_12/candidate_reinforcement_audit/audit/89a617b734e1af75869c37d939dc24df9f52e7741239207afe5b5da2c13423fc`.
-- Audit ID: `ec9fb7c6f57f066601c16f492eebe77667d6123a8bef014e41c135da4ec55a5f`.
-- Manifest SHA-256 / bytes: `1c7f0038cabdda371e2e0e76a8f632263e8a5f01592acf699400e347c971e4e5` / 11,670.
-- Audit SHA-256 / bytes: `f83b0b063240a5c45b0d1646751d8f372bc21f438715f69eea558657d7bbc027` / 104,978.
-- Implementation binding: `2c651b7d4b8ec8c538fc38c1fbb24b0a0b50608d`.
+- Bundle ID: `8279c5d4fe62bbb931a953358a2bc2f8415793126e1babdbe3f9a1d475283189`.
+- Path: `research/tmp_sr_v1_12/candidate_reinforcement_audit/audit/8279c5d4fe62bbb931a953358a2bc2f8415793126e1babdbe3f9a1d475283189`.
+- Audit ID: `45ab8be9fc7bafec33deb1d9c387ac654cc0c6151802f622e7970d967eacb17a`.
+- Manifest SHA-256 / bytes: `224b93a835ed23487ca06fd4e2934d424901e9ceadd67098d2dd645da50ed191` / 11,670.
+- Audit SHA-256 / bytes: `9a404cc4e9c7c47762a897c075fdc0af229049ca6d2ccdaeee42aa06bc3bcf27` / 104,978.
+- Implementation binding: `1f36168e77fa14b0c1a3a0b0f6b2f4ea07d2b5e7`.
 - Members: exactly `manifest.json` and `audit.json`.
 
 Two complete evaluations from the implementation commit produced the same
-bundle ID, audit ID, path, member bytes, hashes, and disposition.
+bundle ID, audit ID, path, member bytes, hashes, and disposition. The final
+semantic validator recomputed the same audit and accepted the bundle.
 
 ## Candidate and Lineage Accounting
 
@@ -152,11 +161,12 @@ prepare a source capsule or contact a provider.
 
 ## Validation Performed
 
-- Focused V1.12: `PYTHONPATH=src .venv/bin/python -m pytest -q tests/models/sr/scripts/candidate_reinforcement_audit` — 21 passed.
-- Full SR: `PYTHONPATH=src .venv/bin/python -m pytest -q tests/models/sr` — 600 passed.
+- Focused V1.12: `PYTHONPATH=src .venv/bin/python -m pytest -q tests/models/sr/scripts/candidate_reinforcement_audit` — 41 passed.
+- Full SR: `PYTHONPATH=src .venv/bin/python -m pytest -q tests/models/sr` — 620 passed.
 - Ruff: `/Users/aloobhujia/.local/bin/ruff check src/libs/models/sr/scripts/candidate_reinforcement_audit tests/models/sr/scripts/candidate_reinforcement_audit` — passed.
 - Compilation: `PYTHONPATH=src .venv/bin/python -m compileall -q src/libs/models/sr/scripts/candidate_reinforcement_audit` — passed.
-- Final semantic validation: `PYTHONPATH=src .venv/bin/python -m libs.models.sr.scripts.candidate_reinforcement_audit.cli validate configs/sr_trials/sr_v1_12_taousdt_1d_candidate_reinforcement_audit.yaml research/tmp_sr_v1_12/candidate_reinforcement_audit/audit/89a617b734e1af75869c37d939dc24df9f52e7741239207afe5b5da2c13423fc --repo-root . --implementation-commit 2c651b7d4b8ec8c538fc38c1fbb24b0a0b50608d` — passed.
+- Evaluation twice: `PYTHONPATH=src .venv/bin/python -m libs.models.sr.scripts.candidate_reinforcement_audit.cli evaluate configs/sr_trials/sr_v1_12_taousdt_1d_candidate_reinforcement_audit.yaml --repo-root . --implementation-commit 1f36168e77fa14b0c1a3a0b0f6b2f4ea07d2b5e7` — identical bundle/audit IDs, member bytes, hashes, and disposition.
+- Final semantic validation: `PYTHONPATH=src .venv/bin/python -m libs.models.sr.scripts.candidate_reinforcement_audit.cli validate configs/sr_trials/sr_v1_12_taousdt_1d_candidate_reinforcement_audit.yaml research/tmp_sr_v1_12/candidate_reinforcement_audit/audit/8279c5d4fe62bbb931a953358a2bc2f8415793126e1babdbe3f9a1d475283189 --repo-root . --implementation-commit 1f36168e77fa14b0c1a3a0b0f6b2f4ea07d2b5e7` — passed.
 - V1.11 semantic upstream validation and complete V1.9/V1.10 frozen-input validation — passed through the V1.12 evaluation and final validator.
 - `git diff --check` — passed before handoff drafting.
 - Branch lineage: exact base plus authorization and implementation commits; no merge commits.
