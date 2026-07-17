@@ -1,0 +1,73 @@
+version: "1"
+
+trial:
+  trial_name: sr-v1.7-1d-cohort-readiness
+  venue: binance_usdm
+  timeframe: 1d
+  assets: [TAOUSDT, BTCUSDT, ETHUSDT, SOLUSDT]
+
+sources:
+  taousdt:
+    path: research/tmp_sr_v1_6/source/development/fc1ba274454f277a40f005f542fdfd4e6e752e5afa2e1050f3582b21fd8b1120
+    source_id: fc1ba274454f277a40f005f542fdfd4e6e752e5afa2e1050f3582b21fd8b1120
+    source_bundle_id: d210494937ebcd4347e026b8ac02bff3105065e5455752b8690d449def357925
+    bars_sha256: 703367048f4ed7dc432ca9dfe0ad4afdc5a56eb2a508597ef00bdc3de8b81163
+    source_member_sha256: b9ed3cf63e87fd3c413843f6bbc88d647eb051131cac6524af079fc1458c2ff3
+    implementation_commit: 928583c7677255ed5ac8c16e5d04fdfa8927bbd6
+    row_count: 629
+  window:
+    since: "2024-04-11T00:00:00Z"
+    until: "2025-12-31T00:00:00Z"
+
+provider:
+  adapter: apps.ingestion_app.adapters.binance_native.BinanceNativeAdapter
+  limit: 1000
+
+grid:
+  policy: exact_utc_daily_grid_from_taousdt_development_capsule
+
+configs:
+  sr_path: configs/sr.yaml
+  input_path: configs/sr_inputs.yaml
+  expected_sr_hash: cb9b4143921de95c5423899a5655fef0b186cf1f8e9a84c69427bf64df030299
+  expected_input_hash: 5ece92803341696df06efa0dba5d7a44ee0f5451aa3ce6555d3a4ef6c59fab6d
+
+atr:
+  method: wilder_rma
+  period: 14
+  seed: sma
+  common_start_period: 28
+
+outcome:
+  start_offset_bars: 1
+  horizon_bars: 10
+  primary_metric: descriptive_first_touch_quality_reference_atr
+  primary_location: per_asset_and_cohort
+
+folds:
+  - name: 2024_q3
+    start: "2024-07-01T00:00:00Z"
+    end: "2024-10-01T00:00:00Z"
+  - name: 2024_q4
+    start: "2024-10-01T00:00:00Z"
+    end: "2025-01-01T00:00:00Z"
+  - name: 2025_q1
+    start: "2025-01-01T00:00:00Z"
+    end: "2025-04-01T00:00:00Z"
+  - name: 2025_q2
+    start: "2025-04-01T00:00:00Z"
+    end: "2025-07-01T00:00:00Z"
+  - name: 2025_q3
+    start: "2025-07-01T00:00:00Z"
+    end: "2025-10-01T00:00:00Z"
+  - name: 2025_q4
+    start: "2025-10-01T00:00:00Z"
+    end: "2026-01-01T00:00:00Z"
+
+readiness:
+  minimum_completed_first_touches_per_fold: 4
+  minimum_eligible_development_folds: 4
+  minimum_development_completed_first_touches: 24
+
+output:
+  root: research/tmp_sr_v1_7

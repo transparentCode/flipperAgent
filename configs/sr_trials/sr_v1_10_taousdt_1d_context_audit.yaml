@@ -1,0 +1,97 @@
+version: "1"
+
+trial:
+  trial_name: sr-v1.10-taousdt-1d-context-audit
+  venue: binance_usdm
+  asset: TAOUSDT
+  timeframe: 1d
+  purpose: diagnostic_only
+
+inputs:
+  v19:
+    config_path: configs/sr_trials/sr_v1_9_taousdt_1d_baseline_adequacy.yaml
+    config_hash: ae8b290674f8c9feb3ce630910753f44dcff87a64795428f614735b0cc2dc9a9
+    bundle_path: research/tmp_sr_v1_9/evaluation/12af91cecc3582606da7c41c0c1beaf0320aa17eef8c52edf615214cf0a34df6
+    bundle_id: 12af91cecc3582606da7c41c0c1beaf0320aa17eef8c52edf615214cf0a34df6
+    study_id: ed19698fec505e2e8cf1057c41336da7c0720bcf412530244139e5c523f12c9f
+    implementation_commit: 542faeb0991617ec38a3f7cc13551a26c0f567f0
+    disposition: BASELINE_NOT_BETTER_THAN_NAIVE_NULL
+  upstream:
+    v17_config_hash: 370d2b66e8e3031b0df8547e8b52c61288e14c5d1b858612ce9fae712e1690a7
+    v17_source_bundle_id: 6b5a0a81117ba299516fb67ca2da81b3cb6e6f35ed6a85986a27689205a565d9
+    v17_source_member_id: fc1ba274454f277a40f005f542fdfd4e6e752e5afa2e1050f3582b21fd8b1120
+    v17_evaluation_bundle_id: 824e9265a63073ba792762a891adf52deec9677d791c40641dc0107c1f2b840d
+    v17_evaluation_id: 49a895360774ec0c46349eae2d1ec6f56e7262e5f1411ab992f9886d9040fa8d
+    v18_config_hash: 86137d2c5b5e12802a5731298ab548822f23c4937d635bae5f21b77a8e7c0da7
+    v18_study_bundle_id: b0ea33decc9c8c40dab98bdbb90635652dc199031fc50b27d3a71a6711378941
+    v18_study_id: 2a324d3a203642bf9030aede611a8d874fcb051c5b394fcb4758582d6cfbc954
+    v18_baseline_candidate_id: 37769b33cc663e4baf5488001252a996b9cb2ec67d0182400f12cb928015709c
+  frozen:
+    production_sr_config_hash: cb9b4143921de95c5423899a5655fef0b186cf1f8e9a84c69427bf64df030299
+    frozen_input_hash: 5ece92803341696df06efa0dba5d7a44ee0f5451aa3ce6555d3a4ef6c59fab6d
+
+protocol:
+  source:
+    row_count: 629
+    start: "2024-04-11T00:00:00Z"
+    end: "2025-12-31T00:00:00Z"
+    grid_policy: exact_utc_daily_grid_from_taousdt_development_capsule
+  model:
+    atr_method: wilder_rma
+    atr_period: 14
+    atr_seed: sma
+    pivot_span_bars: 5
+    zone_half_width_atr: 0.25
+    merge_distance_atr: 0.50
+    touch_tolerance_atr: 0.25
+    break_buffer_atr: 0.25
+    break_confirm_closes: 2
+    max_age_bars: 50
+    max_active_zones: 8
+  outcome:
+    start_offset_bars: 1
+    horizon_bars: 10
+    window_policy: half_open_utc_daily
+  folds:
+    - name: 2024_q3
+      start: "2024-07-01T00:00:00Z"
+      end: "2024-10-01T00:00:00Z"
+    - name: 2024_q4
+      start: "2024-10-01T00:00:00Z"
+      end: "2025-01-01T00:00:00Z"
+    - name: 2025_q1
+      start: "2025-01-01T00:00:00Z"
+      end: "2025-04-01T00:00:00Z"
+    - name: 2025_q2
+      start: "2025-04-01T00:00:00Z"
+      end: "2025-07-01T00:00:00Z"
+    - name: 2025_q3
+      start: "2025-07-01T00:00:00Z"
+      end: "2025-10-01T00:00:00Z"
+    - name: 2025_q4
+      start: "2025-10-01T00:00:00Z"
+      end: "2026-01-01T00:00:00Z"
+  case_order: [first_touch_at, zone_id]
+
+viewer:
+  library: lightweight-charts
+  library_version: 5.2.0
+  attribution_logo: true
+  live_zone_extent: viewport_right_edge
+  show_terminal_by_default: false
+  show_events_by_default: true
+  background_color: "#131722"
+  text_color: "#d1d4dc"
+  grid_color: "#2a2e39"
+  support_border_color: "#26a69a"
+  support_fill_color: "rgba(38, 166, 154, 0.18)"
+  resistance_border_color: "#ef5350"
+  resistance_fill_color: "rgba(239, 83, 80, 0.18)"
+  pending_border_color: "#f2c94c"
+  terminal_opacity: 0.35
+  zone_line_width: 2
+
+output:
+  root: research/tmp_sr_v1_10/audit
+
+audit_status: COMPLETE

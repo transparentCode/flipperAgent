@@ -19,10 +19,13 @@ These are the foundational instructions for any AI assistant working on the `fli
 - **Link, don't embed:** Refer to [README.md](README.md) for project purpose and architectural overviews.
 ## Memory & Context Protocol (Applies to ALL Agents)
 - **NO PREASSUMPTIONS OR SHORTCUTS:** You must not assume context. If a requirement, constraint, or fact is unclear, do not guess.
-- **START OF TASK:** Always retrieve prior context from the `mem0` memory harness before beginning any solution architecture, coding, or review.
+- Retrieve mem0 context for non-trivial research, architecture, implementation,
+  review, and continuation tasks where prior decisions materially matter.
+- Do not block trivial or self-contained work solely because memory is unavailable.
+- Persist durable decisions, experiment outcomes, accepted risks, and completed
+  phase state; do not save routine command output or transient observations.
 - **BUILD CONTEXT WHEN UNCLEAR:** When prior memory is incomplete or ambiguous, ask the user a focused series of related questions to establish facts. State your current understanding and ask for confirmation or correction before proceeding.
 - **FACT-CHECK BEFORE ACTING:** Validate assumptions against memory, the codebase, or explicit user input. If contradictions arise, surface them and ask the user to resolve.
-- **END OF TASK:** Always save updated state, architectural outcomes, or major findings to the `mem0` memory harness before handing off or returning to the user.
 
 ## Subagent Lifecycle (Applies to ALL Agents)
 
@@ -37,7 +40,7 @@ These are the foundational instructions for any AI assistant working on the `fli
 
 ### Before Invoking
 1. Retrieve prior context from `mem0`.
-2. Produce a concise, stage-correct handoff package (see `quant-handoff` skill).
+2. Produce a concise, stage-correct handoff package (see `quant-write-handoff` skill).
 3. Include: objective, scope boundaries, explicit non-goals, acceptance criteria, and known risks.
 
 ### During Subagent Execution
@@ -54,8 +57,15 @@ These are the foundational instructions for any AI assistant working on the `fli
 4. Save the outcome to `mem0`.
 
 ### Anti-Patterns
-- NEVER route `coder → review → coder → review` without an explicit `quant-architect` or user decision in between.
-- NEVER spawn a subagent without a written handoff.
+- `quant-review → quant-coder` is allowed for bounded implementation remediation.
+- Route to `quant-architect` only when review exposes architectural ambiguity,
+  scope drift, missing design decisions, or conflicting acceptance criteria.
+- After remediation, return to `quant-review` for independent re-review.
+- Workspace-writing agents require a durable handoff under `plans/`.
+- Read-only research, exploration, and review agents may receive a complete
+  inline delegation package from the root orchestrator.
+- Every delegation must include objective, scope, non-goals, acceptance
+  criteria, and expected output.
 - NEVER discard a subagent's findings without recording why.
 
 <!-- codebase-memory:start -->

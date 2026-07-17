@@ -1,0 +1,70 @@
+version: "1"
+
+calibration:
+  trial_name: sr-v1.6-taousdt-1d-atr-calibration
+  venue: binance_usdm
+  symbol: TAOUSDT
+  timeframe: 1d
+  source_bundle_path: research/tmp_sr_v1_5/d210494937ebcd4347e026b8ac02bff3105065e5455752b8690d449def357925
+  source_bundle_id: d210494937ebcd4347e026b8ac02bff3105065e5455752b8690d449def357925
+  source_implementation_commit: 2b8306b21a7e69f097218ffa05c34515b607de75
+  source_bars_sha256: b99e4c7281b23f6b13e6ce4148a8ef01a5da86c371463c095fcbfe586e4d0535
+  source_row_count: 811
+  sr_config_path: configs/sr.yaml
+  input_config_path: configs/sr_inputs.yaml
+  expected_sr_config_hash: cb9b4143921de95c5423899a5655fef0b186cf1f8e9a84c69427bf64df030299
+  expected_input_hash: 5ece92803341696df06efa0dba5d7a44ee0f5451aa3ce6555d3a4ef6c59fab6d
+  output_root: research/tmp_sr_v1_6
+
+atr:
+  method: wilder_rma
+  seed: sma
+  baseline_period: 14
+  candidate_periods: [7, 10, 14, 20, 28]
+  common_start_period: 28
+  evaluation_reference_period: 14
+
+outcome:
+  start_offset_bars: 1
+  horizon_bars: 10
+  primary_metric: median_first_touch_quality_reference_atr
+  primary_location: median
+
+development:
+  folds:
+    - name: 2024_q3
+      start: "2024-07-01T00:00:00.000Z"
+      end: "2024-10-01T00:00:00.000Z"
+    - name: 2024_q4
+      start: "2024-10-01T00:00:00.000Z"
+      end: "2025-01-01T00:00:00.000Z"
+    - name: 2025_q1
+      start: "2025-01-01T00:00:00.000Z"
+      end: "2025-04-01T00:00:00.000Z"
+    - name: 2025_q2
+      start: "2025-04-01T00:00:00.000Z"
+      end: "2025-07-01T00:00:00.000Z"
+    - name: 2025_q3
+      start: "2025-07-01T00:00:00.000Z"
+      end: "2025-10-01T00:00:00.000Z"
+    - name: 2025_q4
+      start: "2025-10-01T00:00:00.000Z"
+      end: "2026-01-01T00:00:00.000Z"
+
+holdout:
+  start: "2026-01-01T00:00:00.000Z"
+  end: "2026-07-01T00:00:00.000Z"
+
+selection_gates:
+  minimum_completed_first_touches_per_fold: 4
+  minimum_eligible_development_folds: 4
+  minimum_development_completed_first_touches: 24
+  minimum_holdout_completed_first_touches: 8
+  minimum_development_fold_win_fraction: 0.75
+  minimum_development_pooled_delta_reference_atr: 0.10
+  minimum_holdout_delta_reference_atr: 0.05
+  maximum_invalidation_rate_delta: 0.05
+  minimum_zone_creation_density_ratio: 0.50
+  maximum_zone_creation_density_ratio: 2.00
+  maximum_churn_rate_delta: 0.10
+  maximum_right_censoring_rate_delta: 0.10
