@@ -11,8 +11,10 @@ from typing import Any
 
 from libs.models.sr.domain.contracts import ContractValidationError
 from libs.models.sr.domain.identity import canonical_json, utc_isoformat
+from libs.models.sr.research.config.identities import ContentIdentity
+from libs.models.sr.research.provenance.repository import resolve_repository_path
 from libs.models.sr.research.source.contracts import SourceBar
-from libs.models.sr.research.studies.baseline_trial.artifacts import validate_bundle
+from libs.models.sr.research.source.frozen import read_verified_frozen_file
 
 from .config import (
     CalibrationConfig,
@@ -41,6 +43,8 @@ _SOURCE_KEYS = {
 }
 _BAR_KEYS = {"open_time", "closed_at", "open", "high", "low", "close", "volume", "bar_id"}
 _CAPSULE_MEMBER_NAMES = ("manifest.json", "source_bars.json")
+_SOURCE_MEMBER_NAME = "source_bars.json"
+_MEMBER_KEYS = {"name", "sha256", "byte_length"}
 
 
 def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -162,30 +166,94 @@ def _parse_source_bars(payload: Any, *, config: CalibrationConfig) -> tuple[Sour
     return tuple(bars)
 
 
-def load_frozen_source(config: CalibrationConfig, *, repo_root: str | Path) -> tuple[SourceBar, ...]:
-    """Validate the exact approved V1.5 bundle and return its source bars."""
-    root = Path(repo_root).resolve()
-    bundle = _resolve_under(root, config.source_bundle_path, field_name="source_bundle_path")
-    if not bundle.is_dir() or bundle.is_symlink():
-        raise ContractValidationError("approved V1.5 bundle is missing or is a symlink")
-    try:
-        manifest = validate_bundle(bundle)
-    except (OSError, ValueError, TypeError, KeyError, IndexError) as exc:
-        raise ContractValidationError("approved V1.5 bundle failed validation") from exc
-    if manifest.get("bundle_id") != config.source_bundle_id:
-        raise ContractValidationError("V1.5 bundle ID does not match calibration config")
+def _source_member_identity(
+    manifest: Any,
+    *,
+    bundle: Path,
+    config: CalibrationConfig,
+) -> ContentIdentity:
+    """Validate only V1.5 fields ATR calibration consumes as frozen input."""
+
+    if type(manifest) is not dict:
+        raise ContractValidationError("approved V1.5 bundle failed validation")
+    if manifest.get("bundle_id") != config.source_bundle_id or bundle.name != config.source_bundle_id:
+        raise ContractValidationError("approved V1.5 bundle failed validation")
     semantic = manifest.get("bundle_id_semantic_payload")
-    if type(semantic) is not dict or semantic.get("source_bars_sha256") != config.source_bars_sha256:
+    if type(semantic) is not dict:
+        raise ContractValidationError("approved V1.5 bundle failed validation")
+    if semantic.get("source_bars_sha256") != config.source_bars_sha256:
         raise ContractValidationError("V1.5 source identity payload mismatch")
     if semantic.get("implementation_commit") != config.source_implementation_commit:
         raise ContractValidationError("V1.5 implementation identity mismatch")
-    source_path = bundle / "source_bars.json"
-    if source_path.is_symlink():
-        raise ContractValidationError("V1.5 source member must not be a symlink")
-    source_bytes = source_path.read_bytes()
-    if _sha(source_bytes) != config.source_bars_sha256:
-        raise ContractValidationError("V1.5 source member hash mismatch")
-    return _parse_source_bars(_json_load(source_path), config=config)
+    members = manifest.get("members")
+    if type(members) is not list:
+        raise ContractValidationError("approved V1.5 bundle failed validation")
+    source_members = [
+        member
+        for member in members
+        if type(member) is dict and member.get("name") == _SOURCE_MEMBER_NAME
+    ]
+    if len(source_members) != 1 or len({member.get("name") for member in members if type(member) is dict}) != len(members):
+        raise ContractValidationError("approved V1.5 bundle failed validation")
+    source_member = source_members[0]
+    if (
+        set(source_member) != _MEMBER_KEYS
+        or type(source_member["sha256"]) is not str
+        or type(source_member["byte_length"]) is not int
+        or source_member["byte_length"] < 0
+        or source_member["sha256"] != config.source_bars_sha256
+    ):
+        raise ContractValidationError("approved V1.5 bundle failed validation")
+    return ContentIdentity(
+        sha256=source_member["sha256"],
+        byte_length=source_member["byte_length"],
+    )
+
+
+def _load_frozen_source_bytes(
+    config: CalibrationConfig,
+    *,
+    repo_root: str | Path,
+) -> bytes:
+    bundle = resolve_repository_path(
+        repo_root,
+        config.source_bundle_path,
+        field_name="source_bundle_path",
+    )
+    if not bundle.is_dir() or bundle.is_symlink():
+        raise ContractValidationError("approved V1.5 bundle is missing or is a symlink")
+    manifest_path = bundle / "manifest.json"
+    if manifest_path.is_symlink() or not manifest_path.is_file():
+        raise ContractValidationError("approved V1.5 bundle failed validation")
+    identity = _source_member_identity(
+        _json_load(manifest_path),
+        bundle=bundle,
+        config=config,
+    )
+    try:
+        return read_verified_frozen_file(
+            bundle / _SOURCE_MEMBER_NAME,
+            identity=identity,
+            description="V1.5 source member",
+        )
+    except ContractValidationError as exc:
+        raise ContractValidationError("V1.5 source member hash mismatch") from exc
+
+
+def load_frozen_source(config: CalibrationConfig, *, repo_root: str | Path) -> tuple[SourceBar, ...]:
+    """Validate the exact approved V1.5 bundle and return its source bars."""
+    source_bytes = _load_frozen_source_bytes(config, repo_root=repo_root)
+    try:
+        payload = json.loads(
+            source_bytes.decode("utf-8"),
+            object_pairs_hook=_reject_duplicate_keys,
+            parse_constant=lambda value: (_ for _ in ()).throw(
+                ValueError(f"non-finite JSON constant: {value}")
+            ),
+        )
+    except (UnicodeError, ValueError) as exc:
+        raise ContractValidationError("invalid JSON source member: source_bars.json") from exc
+    return _parse_source_bars(payload, config=config)
 
 
 def _bar_payload(bar: SourceBar) -> dict[str, Any]:

@@ -20,9 +20,10 @@ from libs.models.sr.domain.contracts import (
     SRSnapshot,
     SRState,
 )
-from libs.models.sr.domain.identity import deterministic_hash, require_utc
+from libs.models.sr.domain.identity import require_utc
 from libs.models.sr.evaluation.contracts import SREvaluationTrace
 from libs.models.sr.evaluation.diagnostics import SRDiagnostics
+from libs.models.sr.research.config.input_resolution import ResolvedInputConfig
 from libs.models.sr.research.source.contracts import SourceBar
 
 
@@ -39,7 +40,6 @@ VIEWER_LIBRARY = "lightweight-charts"
 VIEWER_LIBRARY_VERSION = "5.2.0"
 _HASH_RE = re.compile(r"[0-9a-f]{64}")
 _COMMIT_RE = re.compile(r"[0-9a-f]{40,64}")
-_INPUT_PATHS = ("atr.method", "atr.period", "atr.seed")
 
 
 def _string(value: Any, *, field_name: str) -> str:
@@ -128,112 +128,6 @@ def _relative_path(value: Any, *, field_name: str) -> str:
         )
     return value
 
-
-@dataclass(frozen=True)
-class ResolvedInputConfig:
-    """Resolved causal ATR-input configuration and field provenance."""
-
-    version: str
-    asset: str
-    timeframe: str
-    atr_method: str
-    atr_period: int
-    atr_seed: str
-    field_provenance: tuple[tuple[str, str], ...]
-    resolved_input_hash: str
-
-    def __post_init__(self) -> None:
-        if _string(self.version, field_name="version") != "1":
-            raise ContractValidationError(
-                f"unsupported input config version: {self.version!r}"
-            )
-        object.__setattr__(self, "asset", _string(self.asset, field_name="asset"))
-        object.__setattr__(
-            self,
-            "timeframe",
-            _string(self.timeframe, field_name="timeframe"),
-        )
-        if _string(self.atr_method, field_name="atr_method") != "wilder_rma":
-            raise ContractValidationError("atr_method must be exactly 'wilder_rma'")
-        object.__setattr__(
-            self,
-            "atr_period",
-            _integer(self.atr_period, field_name="atr_period", minimum=1),
-        )
-        if _string(self.atr_seed, field_name="atr_seed") != "sma":
-            raise ContractValidationError("atr_seed must be exactly 'sma'")
-        if type(self.field_provenance) is not tuple:
-            raise ContractValidationError("field_provenance must be exactly a tuple")
-        entries = []
-        for index, entry in enumerate(self.field_provenance):
-            if type(entry) is not tuple or len(entry) != 2:
-                raise ContractValidationError(
-                    f"field_provenance[{index}] must be a pair tuple"
-                )
-            entries.append(
-                (
-                    _string(entry[0], field_name=f"field_provenance[{index}].path"),
-                    _string(entry[1], field_name=f"field_provenance[{index}].source"),
-                )
-            )
-        if tuple(path for path, _ in entries) != _INPUT_PATHS:
-            raise ContractValidationError(
-                "field_provenance must contain exactly the ATR input paths"
-            )
-        allowed_sources = {
-            "defaults",
-            f"timeframe:{self.timeframe}",
-            f"asset_timeframe:{self.asset}:{self.timeframe}",
-        }
-        if any(source not in allowed_sources for _, source in entries):
-            raise ContractValidationError("invalid input field provenance source")
-        object.__setattr__(self, "field_provenance", tuple(entries))
-        expected_hash = deterministic_hash(self.hash_payload())
-        if _hash(self.resolved_input_hash, field_name="resolved_input_hash") != expected_hash:
-            raise ContractValidationError("resolved_input_hash does not match content")
-
-    def hash_payload(self) -> dict[str, Any]:
-        return {
-            "version": self.version,
-            "asset": self.asset,
-            "timeframe": self.timeframe,
-            "atr_method": self.atr_method,
-            "atr_period": self.atr_period,
-            "atr_seed": self.atr_seed,
-            "field_provenance": [list(pair) for pair in self.field_provenance],
-        }
-
-    @classmethod
-    def create(
-        cls,
-        *,
-        version: str,
-        asset: str,
-        timeframe: str,
-        atr_method: str,
-        atr_period: int,
-        atr_seed: str,
-        field_provenance: tuple[tuple[str, str], ...],
-    ) -> ResolvedInputConfig:
-        payload = {
-            "version": version,
-            "asset": asset,
-            "timeframe": timeframe,
-            "atr_method": atr_method,
-            "atr_period": atr_period,
-            "atr_seed": atr_seed,
-            "field_provenance": [list(pair) for pair in field_provenance],
-        }
-        return cls(
-            version=version,
-            asset=asset,
-            timeframe=timeframe,
-            atr_method=atr_method,
-            atr_period=atr_period,
-            atr_seed=atr_seed,
-            field_provenance=field_provenance,
-            resolved_input_hash=deterministic_hash(payload),
-        )
 
 
 @dataclass(frozen=True)
