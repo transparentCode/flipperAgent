@@ -5,11 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-import subprocess
 from typing import Any
 
 from libs.models.sr.config.models import ResolvedSRConfig
 from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.research.provenance.repository import (
+    repository_commit as _repository_commit,
+    resolve_repository_path,
+)
 from libs.models.sr.scripts.baseline_trial.config import (
     load_and_resolve_input_config,
     load_resolved_sr_config,
@@ -56,21 +59,13 @@ from .config import (
 
 def repository_commit(repo_root: str | Path) -> str:
     try:
-        return subprocess.check_output(
-            ["git", "-C", str(Path(repo_root).resolve()), "rev-parse", "HEAD"],
-            text=True,
-            stderr=subprocess.STDOUT,
-        ).strip()
-    except (OSError, subprocess.CalledProcessError) as exc:
+        return _repository_commit(repo_root)
+    except ContractValidationError as exc:
         raise ContractValidationError("cannot determine V1.12 implementation commit") from exc
 
 
 def _root_path(repo_root: str | Path, relative: str, *, field_name: str) -> Path:
-    root = Path(repo_root).resolve()
-    path = (root / relative).resolve()
-    if root not in path.parents and path != root:
-        raise ContractValidationError(f"{field_name} escaped repository root")
-    return path
+    return resolve_repository_path(repo_root, relative, field_name=field_name)
 
 
 def _file_identity(path: Path, *, expected_sha256: str, expected_bytes: int, field_name: str) -> None:
