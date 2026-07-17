@@ -7,6 +7,7 @@ import json
 import math
 import os
 from pathlib import Path
+import stat
 import tempfile
 from typing import Any
 
@@ -33,14 +34,25 @@ def _member(name: str, data: bytes) -> dict[str, Any]:
     return {"name": name, "sha256": _sha(data), "byte_length": len(data)}
 
 
+def _require_regular_member(path: Path) -> None:
+    try:
+        mode = path.lstat().st_mode
+    except OSError as exc:
+        raise ContractValidationError(f"V1.12 artifact member cannot be read: {path}") from exc
+    if not stat.S_ISREG(mode):
+        raise ContractValidationError(f"V1.12 artifact member must be a regular file: {path}")
+
+
 def _atomic_publish(path: Path, files: dict[str, bytes]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
         if not path.is_dir() or path.is_symlink() or {item.name for item in path.iterdir()} != set(files):
             raise ContractValidationError("existing V1.12 artifact path has unexpected members")
         for name, data in files.items():
+            member_path = path / name
+            _require_regular_member(member_path)
             try:
-                current = (path / name).read_bytes()
+                current = member_path.read_bytes()
             except OSError as exc:
                 raise ContractValidationError("existing V1.12 artifact member cannot be read") from exc
             if current != data:
@@ -125,7 +137,11 @@ def _semantic(audit: CandidateReinforcementAudit, config: CandidateAuditConfig, 
 def _validate_manifest(path: Path) -> dict[str, Any]:
     if not path.is_dir() or path.is_symlink() or {item.name for item in path.iterdir()} != _MEMBERS:
         raise ContractValidationError("V1.12 artifact member set mismatch")
-    manifest = load_json(path / "manifest.json")
+    manifest_path = path / "manifest.json"
+    audit_path = path / "audit.json"
+    _require_regular_member(manifest_path)
+    _require_regular_member(audit_path)
+    manifest = load_json(manifest_path)
     if type(manifest) is not dict:
         raise ContractValidationError("V1.12 manifest must be a mapping")
     semantic = manifest.get("bundle_id_semantic_payload")
@@ -147,7 +163,7 @@ def _validate_manifest(path: Path) -> dict[str, Any]:
     if type(member) is not dict or set(member) != {"name", "sha256", "byte_length"} or member.get("name") != "audit.json" or type(member.get("sha256")) is not str or len(member["sha256"]) != 64 or type(member.get("byte_length")) is not int or member["byte_length"] < 0:
         raise ContractValidationError("V1.12 audit member metadata is malformed")
     try:
-        data = (path / "audit.json").read_bytes()
+        data = audit_path.read_bytes()
     except OSError as exc:
         raise ContractValidationError("V1.12 audit member cannot be read") from exc
     if _sha(data) != member["sha256"] or len(data) != member["byte_length"]:

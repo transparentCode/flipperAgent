@@ -60,3 +60,54 @@ def test_wrong_implementation_binding_is_rejected(tmp_path, candidate_config, sy
     _, path = publish_audit_bundle(synthetic_audit, config=candidate_config, output_root=tmp_path)
     with pytest.raises(ContractValidationError):
         validate_audit_bundle(path, config=candidate_config, repo_root=tmp_path, implementation_commit="b" * 40)
+
+
+@pytest.mark.parametrize("member_name", ("manifest.json", "audit.json"))
+def test_member_symlink_is_rejected_during_validation(
+    tmp_path, monkeypatch, candidate_config, synthetic_audit, member_name
+):
+    _, path = publish_audit_bundle(synthetic_audit, config=candidate_config, output_root=tmp_path)
+    member_path = path / member_name
+    target = tmp_path / f"{member_name}.target"
+    target.write_bytes(member_path.read_bytes())
+    member_path.unlink()
+    member_path.symlink_to(target)
+
+    monkeypatch.setattr(runner, "compute_audit", lambda *args, **kwargs: synthetic_audit)
+    with pytest.raises(ContractValidationError, match="regular file"):
+        validate_audit_bundle(
+            path,
+            config=candidate_config,
+            repo_root=tmp_path,
+            implementation_commit=synthetic_audit.implementation_commit,
+        )
+
+
+@pytest.mark.parametrize("member_name", ("manifest.json", "audit.json"))
+def test_existing_bundle_publication_rejects_member_symlink(
+    tmp_path, candidate_config, synthetic_audit, member_name
+):
+    _, path = publish_audit_bundle(synthetic_audit, config=candidate_config, output_root=tmp_path)
+    member_path = path / member_name
+    target = tmp_path / f"{member_name}.publish-target"
+    target.write_bytes(member_path.read_bytes())
+    member_path.unlink()
+    member_path.symlink_to(target)
+
+    with pytest.raises(ContractValidationError, match="regular file"):
+        publish_audit_bundle(synthetic_audit, config=candidate_config, output_root=tmp_path)
+
+
+@pytest.mark.parametrize("member_name", ("manifest.json", "audit.json"))
+def test_non_regular_member_is_rejected_during_validation(
+    tmp_path, candidate_config, synthetic_audit, member_name
+):
+    _, path = publish_audit_bundle(synthetic_audit, config=candidate_config, output_root=tmp_path)
+    member_path = path / member_name
+    member_path.unlink()
+    member_path.mkdir()
+
+    with pytest.raises(ContractValidationError, match="regular file"):
+        from libs.models.sr.scripts.candidate_reinforcement_audit.artifacts import _validate_manifest
+
+        _validate_manifest(path)
