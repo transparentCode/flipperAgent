@@ -41,7 +41,6 @@ _FORBIDDEN_RESEARCH_PREFIXES = (
 )
 _EXPECTED_SIBLING_IMPORT_STATEMENTS = Counter(
     {
-        ("atr_calibration", "baseline_trial"): 3,
         ("baseline_adequacy", "baseline_trial"): 1,
         ("baseline_adequacy", "cohort_readiness"): 4,
         ("baseline_adequacy", "geometry_sensitivity"): 2,
@@ -60,7 +59,7 @@ _EXPECTED_SIBLING_IMPORT_STATEMENTS = Counter(
 )
 _EXPECTED_TOP_LEVEL_CYCLES = {
     frozenset({"config", "domain"}),
-    frozenset({"scripts", "tools"}),
+    frozenset({"research", "tools"}),
 }
 
 
@@ -125,6 +124,8 @@ def _research_package_graph() -> dict[str, set[str]]:
     graph: dict[str, set[str]] = defaultdict(set)
     prefix = f"{_PACKAGE_PREFIX}.research."
     for path in sorted(research_dir.rglob("*.py")):
+        if path.relative_to(research_dir).parts[0] == "studies":
+            continue
         source = path.relative_to(research_dir).parts[0]
         graph.setdefault(source, set())
         for _, module in _imported_modules(path):
@@ -237,6 +238,7 @@ def test_shared_research_modules_do_not_import_studies_or_runtime_services() -> 
     violations = [
         f"{_relative_path(path)}:{line} imports {module}"
         for path in sorted(research_dir.rglob("*.py"))
+        if path.relative_to(research_dir).parts[0] != "studies"
         for line, module in _imported_modules(path)
         if any(_is_prefix(module, forbidden) for forbidden in _FORBIDDEN_RESEARCH_PREFIXES)
     ]
@@ -269,6 +271,8 @@ def test_active_top_level_import_cycles_match_the_recorded_r2_baseline() -> None
 def test_shared_package_facades_are_export_only() -> None:
     violations: list[str] = []
     for path in sorted((_PACKAGE_DIR / "research").rglob("__init__.py")):
+        if path.relative_to(_PACKAGE_DIR / "research").parts[0] == "studies":
+            continue
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in tree.body:
             if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
@@ -282,4 +286,36 @@ def test_shared_package_facades_are_export_only() -> None:
             ):
                 continue
             violations.append(f"{_relative_path(path)}:{node.lineno}")
+    assert violations == []
+
+
+def test_r3a_canonical_studies_do_not_import_script_studies() -> None:
+    canonical_dir = _PACKAGE_DIR / "research" / "studies"
+    violations = [
+        f"{_relative_path(path)}:{line} imports {module}"
+        for path in sorted(canonical_dir.rglob("*.py"))
+        for line, module in _imported_modules(path)
+        if _is_prefix(module, f"{_PACKAGE_PREFIX}.scripts")
+    ]
+    assert violations == []
+
+
+def test_r3a_script_facades_only_forward_to_canonical_studies() -> None:
+    facade_dirs = (
+        _PACKAGE_DIR / "scripts" / "baseline_trial",
+        _PACKAGE_DIR / "scripts" / "atr_calibration",
+    )
+    violations: list[str] = []
+    for facade_dir in facade_dirs:
+        for path in sorted(facade_dir.glob("*.py")):
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            for node in tree.body:
+                if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
+                    if isinstance(node.value.value, str):
+                        continue
+                if isinstance(node, (ast.Import, ast.ImportFrom)):
+                    continue
+                if isinstance(node, ast.If) and isinstance(node.test, ast.Compare):
+                    continue
+                violations.append(f"{_relative_path(path)}:{node.lineno}")
     assert violations == []
