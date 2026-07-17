@@ -19,7 +19,7 @@ Implemented the approved, development-only forensic audit on branch
 
 - Exact base/documentation HEAD: `6e6a25232ca1c55e32191945176192777c7c290d`.
 - Authorization commit: `b608463ce5079ac30e72691d3afed5ef0f9014e7`.
-- Implementation commit: `0427de3a9db5ef2d79a437212b6cbd922f7fd717`.
+- Implementation commit: `2412fbb5a26b4429ecd99025e0edb028d8cb46c4`.
 - No merge commits are present after the base.
 - V1.11 remediation implementation remains `4d525ef3e50933330af0fd89c4082d550a538eee`.
 
@@ -45,8 +45,9 @@ Added only the approved V1.12 surfaces:
   - strict duplicate-key YAML configuration;
   - immutable protocol, identity, ledger, lineage, accounting, gate, and parity contracts;
   - causal candidate reconstruction around the existing engine;
-  - deterministic publication and semantic revalidation, including regular-file
-    checks that reject symlinked or non-regular manifest/audit members;
+  - deterministic publication and semantic revalidation, including path-component
+    guards plus regular-file checks that reject symlinked or non-regular bundle
+    and manifest/audit members;
   - network-free CLI.
 - `tests/models/sr/scripts/candidate_reinforcement_audit/`
   - configuration, contract, lineage, audit replay, matcher ordering, capacity,
@@ -85,12 +86,12 @@ Validated upstream evidence:
 
 The final deterministic bundle is:
 
-- Bundle ID: `7e9b02a652734337aa0591c03b861d33dbc7c538b307ce73e3229f13f1a88454`.
-- Path: `research/tmp_sr_v1_12/candidate_reinforcement_audit/audit/7e9b02a652734337aa0591c03b861d33dbc7c538b307ce73e3229f13f1a88454`.
-- Audit ID: `2dbb7363994f948f76e8c2e6c290d2d0c16e2f0ab13d0a5542cceb7010b22c51`.
-- Manifest SHA-256 / bytes: `da8190478561daa42bc13221f576db87e3c509117e9fd64281e24dcb7b6445e7` / 11,670.
-- Audit SHA-256 / bytes: `a25450d11992fba5133d7f400d9c152fb8a5c2f31b095f50e2107b67f39bf580` / 104,978.
-- Implementation binding: `0427de3a9db5ef2d79a437212b6cbd922f7fd717`.
+- Bundle ID: `fd3eaf4cb58a23ee47c0f8645a3d4affd09ef05bf3cafb74831621826a58c206`.
+- Path: `research/tmp_sr_v1_12/candidate_reinforcement_audit/audit/fd3eaf4cb58a23ee47c0f8645a3d4affd09ef05bf3cafb74831621826a58c206`.
+- Audit ID: `cd452938e2befc66f0d2a4e12d79083b88cf6e03a3124180c356d56a6f2b8adb`.
+- Manifest SHA-256 / bytes: `c2d0e03f43ea1154bac9c005a2c4d021188a33f56d4ddd17dd6376b9f77c43e6` / 11,670.
+- Audit SHA-256 / bytes: `41bd97da3cef62f10a96f263ac0278e0aff524ebe8337abce0aee986995fee32` / 104,978.
+- Implementation binding: `2412fbb5a26b4429ecd99025e0edb028d8cb46c4`.
 - Members: exactly `manifest.json` and `audit.json`.
 
 Two complete evaluations from the implementation commit produced the same
@@ -162,12 +163,12 @@ prepare a source capsule or contact a provider.
 
 ## Validation Performed
 
-- Focused V1.12: `PYTHONPATH=src .venv/bin/python -m pytest -q tests/models/sr/scripts/candidate_reinforcement_audit` — 47 passed.
-- Full SR: `PYTHONPATH=src .venv/bin/python -m pytest -q tests/models/sr` — 626 passed.
+- Focused V1.12: `PYTHONPATH=src .venv/bin/python -m pytest -q tests/models/sr/scripts/candidate_reinforcement_audit` — 49 passed.
+- Full SR: `PYTHONPATH=src .venv/bin/python -m pytest -q tests/models/sr` — 628 passed.
 - Ruff: `/Users/aloobhujia/.local/bin/ruff check src/libs/models/sr/scripts/candidate_reinforcement_audit tests/models/sr/scripts/candidate_reinforcement_audit` — passed.
 - Compilation: `PYTHONPATH=src .venv/bin/python -m compileall -q src/libs/models/sr/scripts/candidate_reinforcement_audit` — passed.
-- Evaluation twice: `PYTHONPATH=src .venv/bin/python -m libs.models.sr.scripts.candidate_reinforcement_audit.cli evaluate configs/sr_trials/sr_v1_12_taousdt_1d_candidate_reinforcement_audit.yaml --repo-root . --implementation-commit 0427de3a9db5ef2d79a437212b6cbd922f7fd717` — identical bundle/audit IDs, member bytes, hashes, and disposition.
-- Final semantic validation: `PYTHONPATH=src .venv/bin/python -m libs.models.sr.scripts.candidate_reinforcement_audit.cli validate configs/sr_trials/sr_v1_12_taousdt_1d_candidate_reinforcement_audit.yaml research/tmp_sr_v1_12/candidate_reinforcement_audit/audit/7e9b02a652734337aa0591c03b861d33dbc7c538b307ce73e3229f13f1a88454 --repo-root . --implementation-commit 0427de3a9db5ef2d79a437212b6cbd922f7fd717` — passed.
+- Evaluation twice: `PYTHONPATH=src .venv/bin/python -m libs.models.sr.scripts.candidate_reinforcement_audit.cli evaluate configs/sr_trials/sr_v1_12_taousdt_1d_candidate_reinforcement_audit.yaml --repo-root . --implementation-commit 2412fbb5a26b4429ecd99025e0edb028d8cb46c4` — identical bundle/audit IDs, member bytes, hashes, and disposition.
+- Final semantic validation: `PYTHONPATH=src .venv/bin/python -m libs.models.sr.scripts.candidate_reinforcement_audit.cli validate configs/sr_trials/sr_v1_12_taousdt_1d_candidate_reinforcement_audit.yaml research/tmp_sr_v1_12/candidate_reinforcement_audit/audit/fd3eaf4cb58a23ee47c0f8645a3d4affd09ef05bf3cafb74831621826a58c206 --repo-root . --implementation-commit 2412fbb5a26b4429ecd99025e0edb028d8cb46c4` — passed.
 - V1.11 semantic upstream validation and complete V1.9/V1.10 frozen-input validation — passed through the V1.12 evaluation and final validator.
 - `git diff --check` — passed before handoff drafting.
 - Branch lineage: exact base plus authorization and implementation commits; no merge commits.
