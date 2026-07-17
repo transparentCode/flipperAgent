@@ -24,10 +24,16 @@ Completed Package B / R3a from
 - Retained every historical `libs.models.sr.scripts.baseline_trial` and
   `libs.models.sr.scripts.atr_calibration` module as a logic-free forwarding
   facade, including CLI `__main__` forwarding.
-- Removed the three ATR-calibration imports of baseline-trial through the
-  historical `scripts` path. Canonical ATR code now imports canonical baseline
-  modules directly.
-- Reduced the recorded sibling-study import baseline from 41 to 38.
+- Removed all three ATR-calibration-to-baseline-trial sibling imports.
+  Generic input resolution now belongs to
+  `research.config.input_resolution` and `research.config.resolution`;
+  baseline re-exports exact compatibility objects.
+- Replaced ATR's baseline bundle-validator import with an ATR-owned frozen
+  upstream-input boundary. It validates only consumed V1.5 source identity and
+  member metadata, then uses shared path safety and content-identity reading.
+- Correct sibling accounting: legacy `scripts/` edges are 38, canonical
+  `research/studies/` edges are 0, and logical sibling-study total is 38
+  (41 → 38).
 - Added R3a architecture and class-identity compatibility tests. The existing
   general import-boundary checks now recognize baseline trial at its canonical
   study location as the same approved pandas/provider integration boundary as
@@ -39,6 +45,8 @@ Implementation commits:
 - `5032014` — `refactor(sr): migrate ATR calibration study`
 - `1a198a7` — `test(sr): lock R3a compatibility boundaries`
 - `b0fe923` — `test(sr): allow canonical baseline study imports`
+- `b18f46f` — `fix(sr): decouple ATR from baseline study`
+- `5f779da` — `test(sr): enforce canonical study independence`
 
 ## Changes Made
 
@@ -50,8 +58,9 @@ Implementation commits:
 - Tests that need to monkeypatch non-public module seams target canonical
   modules; their public calls continue through the historical facade.
 - Architecture tests enforce that canonical R3a study modules do not import
-  `libs.models.sr.scripts`, and that both legacy study directories contain only
-  imports, documentation, and necessary CLI forwarding.
+  `libs.models.sr.scripts` or another canonical study. Both legacy study
+  directories contain only imports, documentation, and necessary CLI
+  forwarding.
 
 ## Blast Radius Considered
 
@@ -65,10 +74,10 @@ metric, artifact, or evidence behavior was altered.
 ## Validation Performed
 
 - Baseline-trial, ATR-calibration, and architecture focused suites:
-  **104 passed**.
-- Architecture compatibility/boundary suite: **12 passed**.
+  **108 passed**.
+- Architecture compatibility/boundary suite: **14 passed**.
 - Import-boundary repair slice: **16 passed**.
-- Full active SR suite: **821 passed** in 706.99 seconds.
+- Full active SR suite: **825 passed** in 702.48 seconds.
 - Historical CLI modules load successfully:
   - `python -m libs.models.sr.scripts.baseline_trial.cli --help`
   - `python -m libs.models.sr.scripts.atr_calibration.cli --help`
@@ -95,8 +104,8 @@ metric, artifact, or evidence behavior was altered.
   behavior, configuration, artifact schemas, or evidence bytes changed.
 - No provider, network, database, source refresh, sealed/holdout access,
   viewer change, merge, or evidence regeneration occurred.
-- No R3b study migration began. All remaining sibling-study imports stay at the
-  recorded R3a baseline of 38 for later approved packages.
+- No R3b study migration began. Remaining logical sibling-study imports are
+  exactly 38: 38 legacy-script edges and zero canonical-study edges.
 
 ## Risks or Follow-Up Items
 

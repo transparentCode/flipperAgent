@@ -101,6 +101,22 @@ in dependency order without changing valid behavior.
 compatibility edge. It is outside the sibling-study count and must remain
 unchanged until its owning R3 package is migrated.
 
+### R3a Accounting Clarification
+
+The R2 inventory's 41 statements were logical sibling-study edges before
+canonical study packages existed. Early R3a reporting incorrectly treated the
+remaining 38 legacy `scripts/` statements as the whole logical total while
+three canonical ATR-to-baseline edges remained. After R3a remediation:
+
+| Edge location | Count |
+|---|---:|
+| Legacy `scripts/<study>` sibling imports | 38 |
+| Canonical `research/studies/<study>` sibling imports | 0 |
+| Logical sibling-study total | 38 |
+
+This is the correct R3a reduction: **41 → 38**. The clarification changes no
+R2 evidence, frozen identity, or historical R2 validation result.
+
 ## Remaining Study-Owned or Duplicated Infrastructure
 
 These concerns are deliberately not generalized in R2:
