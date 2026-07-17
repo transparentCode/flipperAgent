@@ -7,12 +7,15 @@ import json
 import math
 import os
 from pathlib import Path
-import stat
 import tempfile
 from typing import Any
 
 from libs.models.sr.domain.contracts import ContractValidationError
 from libs.models.sr.domain.identity import canonical_json, deterministic_hash
+from libs.models.sr.research.artifacts.path_safety import (
+    reject_symlink_components,
+    require_regular_file,
+)
 
 from .config import CandidateAuditConfig
 from .contracts import CandidateReinforcementAudit, validate_audit_payload
@@ -34,42 +37,15 @@ def _member(name: str, data: bytes) -> dict[str, Any]:
     return {"name": name, "sha256": _sha(data), "byte_length": len(data)}
 
 
-def _require_regular_member(path: Path) -> None:
-    try:
-        mode = path.lstat().st_mode
-    except OSError as exc:
-        raise ContractValidationError(f"V1.12 artifact member cannot be read: {path}") from exc
-    if not stat.S_ISREG(mode):
-        raise ContractValidationError(f"V1.12 artifact member must be a regular file: {path}")
-
-
-def _reject_symlink_components(path: Path) -> None:
-    candidate = path if path.is_absolute() else Path.cwd() / path
-    current = Path(candidate.anchor)
-    for component in candidate.parts[1:]:
-        if component == "..":
-            current = current.parent
-            continue
-        current /= component
-        try:
-            mode = current.lstat().st_mode
-        except FileNotFoundError:
-            break
-        except OSError as exc:
-            raise ContractValidationError(f"V1.12 artifact path cannot be inspected: {current}") from exc
-        if stat.S_ISLNK(mode):
-            raise ContractValidationError(f"V1.12 artifact path contains symlink: {current}")
-
-
 def _atomic_publish(path: Path, files: dict[str, bytes]) -> None:
-    _reject_symlink_components(path)
+    reject_symlink_components(path, description="V1.12 artifact")
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
         if not path.is_dir() or path.is_symlink() or {item.name for item in path.iterdir()} != set(files):
             raise ContractValidationError("existing V1.12 artifact path has unexpected members")
         for name, data in files.items():
             member_path = path / name
-            _require_regular_member(member_path)
+            require_regular_file(member_path, description="V1.12 artifact member")
             try:
                 current = member_path.read_bytes()
             except OSError as exc:
@@ -158,8 +134,8 @@ def _validate_manifest(path: Path) -> dict[str, Any]:
         raise ContractValidationError("V1.12 artifact member set mismatch")
     manifest_path = path / "manifest.json"
     audit_path = path / "audit.json"
-    _require_regular_member(manifest_path)
-    _require_regular_member(audit_path)
+    require_regular_file(manifest_path, description="V1.12 artifact member")
+    require_regular_file(audit_path, description="V1.12 artifact member")
     manifest = load_json(manifest_path)
     if type(manifest) is not dict:
         raise ContractValidationError("V1.12 manifest must be a mapping")
@@ -216,7 +192,7 @@ def validate_audit_bundle(
     implementation_commit: str | None = None,
     expected_bundle_id: str | None = None,
 ) -> CandidateReinforcementAudit:
-    _reject_symlink_components(Path(path))
+    reject_symlink_components(Path(path), description="V1.12 artifact")
     bundle_path = Path(path).resolve()
     manifest = _validate_manifest(bundle_path)
     semantic = manifest["bundle_id_semantic_payload"]
