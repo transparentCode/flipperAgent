@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from hashlib import sha256
 from types import SimpleNamespace
 
 import pytest
@@ -27,6 +28,25 @@ def test_repository_commit_preserves_v112_error_context(monkeypatch):
 def test_root_path_preserves_v112_escape_error(tmp_path):
     with pytest.raises(ContractValidationError, match="inputs.path escaped repository root"):
         runner._root_path(tmp_path, "../escape.json", field_name="inputs.path")
+
+
+def test_file_identity_preserves_v112_frozen_error_context(tmp_path):
+    member = tmp_path / "manifest.json"
+    member.write_bytes(b"manifest")
+
+    runner._file_identity(
+        member,
+        expected_sha256=sha256(b"manifest").hexdigest(),
+        expected_bytes=len(b"manifest"),
+        field_name="V1.11 manifest",
+    )
+    with pytest.raises(ContractValidationError, match="frozen V1.11 manifest identity mismatch"):
+        runner._file_identity(
+            member,
+            expected_sha256="0" * 64,
+            expected_bytes=len(b"manifest"),
+            field_name="V1.11 manifest",
+        )
 
 
 def test_compute_audit_does_not_import_provider_or_create_source(monkeypatch, candidate_config):

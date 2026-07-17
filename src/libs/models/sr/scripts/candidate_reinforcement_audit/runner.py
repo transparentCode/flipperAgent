@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +12,8 @@ from libs.models.sr.research.provenance.repository import (
     repository_commit as _repository_commit,
     resolve_repository_path,
 )
+from libs.models.sr.research.config.identities import ContentIdentity
+from libs.models.sr.research.source.frozen import read_verified_frozen_file
 from libs.models.sr.scripts.baseline_trial.config import (
     load_and_resolve_input_config,
     load_resolved_sr_config,
@@ -69,12 +70,11 @@ def _root_path(repo_root: str | Path, relative: str, *, field_name: str) -> Path
 
 
 def _file_identity(path: Path, *, expected_sha256: str, expected_bytes: int, field_name: str) -> None:
-    try:
-        data = path.read_bytes()
-    except (OSError, UnicodeError) as exc:
-        raise ContractValidationError(f"cannot read frozen {field_name}: {path}") from exc
-    if len(data) != expected_bytes or sha256(data).hexdigest() != expected_sha256:
-        raise ContractValidationError(f"frozen {field_name} identity mismatch")
+    read_verified_frozen_file(
+        path,
+        identity=ContentIdentity(sha256=expected_sha256, byte_length=expected_bytes),
+        description=f"frozen {field_name}",
+    )
 
 
 @dataclass(frozen=True)

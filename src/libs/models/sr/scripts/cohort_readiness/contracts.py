@@ -24,6 +24,11 @@ from libs.models.sr.domain.identity import (
     utc_isoformat,
 )
 from libs.models.sr.research.source.contracts import SourceBar
+from libs.models.sr.research.source.frozen import (
+    source_bar_payload,
+    source_bars_sha256,
+    source_grid_sha256,
+)
 from libs.models.sr.research.windows.folds import CohortFold
 from libs.models.sr.research.metrics.first_touch import FirstTouchOutcome
 from libs.models.sr.research.replay.candidates import CandidateReplay
@@ -155,26 +160,15 @@ def _timestamp(value: Any, *, field_name: str) -> datetime:
 
 
 def _bar_payload(bar: SourceBar) -> dict[str, Any]:
-    return {
-        "open_time": utc_isoformat(bar.open_time),
-        "closed_at": utc_isoformat(bar.closed_at),
-        "open": bar.open,
-        "high": bar.high,
-        "low": bar.low,
-        "close": bar.close,
-        "volume": bar.volume,
-        "bar_id": bar.bar_id,
-    }
+    return source_bar_payload(bar)
 
 
 def bars_sha256(bars: tuple[SourceBar, ...]) -> str:
-    return sha256(canonical_json([_bar_payload(bar) for bar in bars]).encode("utf-8")).hexdigest()
+    return source_bars_sha256(bars)
 
 
 def grid_sha256(bars: tuple[SourceBar, ...]) -> str:
-    return sha256(
-        canonical_json([utc_isoformat(bar.open_time) for bar in bars]).encode("utf-8")
-    ).hexdigest()
+    return source_grid_sha256(bars)
 
 
 class Disposition(str, Enum):
