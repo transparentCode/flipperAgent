@@ -10,6 +10,12 @@ from typing import Any
 
 from libs.models.sr.domain.contracts import ContractValidationError
 from libs.models.sr.domain.identity import deterministic_hash, require_utc, utc_isoformat
+from libs.models.sr.research.config.identities import (
+    BundleReference,
+    ConfigReference,
+    ContentIdentity,
+    SourceIdentity,
+)
 from libs.models.sr.research.config.primitives import (
     require_exact_keys,
     require_finite_number,
@@ -381,6 +387,20 @@ def _parse_upstream(raw: Any, *, path: str, cls: type[Any], keys: set[str]) -> A
             values[name] = _commit(value, path=f"{path}.{name}")
         else:
             values[name] = _hash(value, path=f"{path}.{name}")
+    ConfigReference(path=values["config_path"], sha256=values["config_hash"])
+    BundleReference(
+        path=values["bundle_path"],
+        bundle_id=values["bundle_id"],
+        implementation_commit=values["implementation_commit"],
+    )
+    for prefix in ("manifest", "study", "audit", "chart"):
+        sha256_name = f"{prefix}_sha256"
+        byte_length_name = f"{prefix}_bytes"
+        if sha256_name in values:
+            ContentIdentity(
+                sha256=values[sha256_name],
+                byte_length=values[byte_length_name],
+            )
     return cls(**values)
 
 
@@ -396,12 +416,22 @@ def _parse_config(raw: Any) -> CandidateAuditConfig:
     v10 = _parse_upstream(inputs["v10"], path="inputs.v10", cls=UpstreamV10, keys=set(UpstreamV10.__dataclass_fields__))
     frozen_raw = _mapping(inputs["frozen"], path="inputs.frozen")
     _exact(frozen_raw, set(FrozenSource.__dataclass_fields__), path="inputs.frozen")
+    source_bundle_id = _hash(frozen_raw["source_bundle_id"], path="inputs.frozen.source_bundle_id")
+    source_id = _hash(frozen_raw["source_id"], path="inputs.frozen.source_id")
+    bars_sha256 = _hash(frozen_raw["bars_sha256"], path="inputs.frozen.bars_sha256")
+    row_count = _integer(frozen_raw["row_count"], path="inputs.frozen.row_count", minimum=1)
+    SourceIdentity(
+        source_bundle_id=source_bundle_id,
+        source_id=source_id,
+        bars_sha256=bars_sha256,
+        row_count=row_count,
+    )
     frozen = FrozenSource(
-        source_bundle_id=_hash(frozen_raw["source_bundle_id"], path="inputs.frozen.source_bundle_id"),
+        source_bundle_id=source_bundle_id,
         upstream_source_bundle_id=_hash(frozen_raw["upstream_source_bundle_id"], path="inputs.frozen.upstream_source_bundle_id"),
-        source_id=_hash(frozen_raw["source_id"], path="inputs.frozen.source_id"),
-        bars_sha256=_hash(frozen_raw["bars_sha256"], path="inputs.frozen.bars_sha256"),
-        row_count=_integer(frozen_raw["row_count"], path="inputs.frozen.row_count", minimum=1),
+        source_id=source_id,
+        bars_sha256=bars_sha256,
+        row_count=row_count,
         start=_utc(frozen_raw["start"], path="inputs.frozen.start"),
         end=_utc(frozen_raw["end"], path="inputs.frozen.end"),
         grid_policy=_string(frozen_raw["grid_policy"], path="inputs.frozen.grid_policy"),
