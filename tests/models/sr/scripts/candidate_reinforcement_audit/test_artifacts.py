@@ -111,3 +111,39 @@ def test_non_regular_member_is_rejected_during_validation(
         from libs.models.sr.scripts.candidate_reinforcement_audit.artifacts import _validate_manifest
 
         _validate_manifest(path)
+
+
+def test_bundle_directory_symlink_is_rejected_by_public_validation(
+    tmp_path, monkeypatch, candidate_config, synthetic_audit
+):
+    _, path = publish_audit_bundle(synthetic_audit, config=candidate_config, output_root=tmp_path)
+    alias = tmp_path / "bundle-alias"
+    alias.symlink_to(path, target_is_directory=True)
+
+    monkeypatch.setattr(runner, "compute_audit", lambda *args, **kwargs: synthetic_audit)
+    with pytest.raises(ContractValidationError, match="contains symlink"):
+        validate_audit_bundle(
+            alias,
+            config=candidate_config,
+            repo_root=tmp_path,
+            implementation_commit=synthetic_audit.implementation_commit,
+        )
+
+
+def test_symlinked_parent_directory_is_rejected_by_public_validation(
+    tmp_path, monkeypatch, candidate_config, synthetic_audit
+):
+    real_root = tmp_path / "real-root"
+    _, path = publish_audit_bundle(synthetic_audit, config=candidate_config, output_root=real_root)
+    linked_root = tmp_path / "linked-root"
+    linked_root.symlink_to(real_root, target_is_directory=True)
+    aliased_path = linked_root / "audit" / path.name
+
+    monkeypatch.setattr(runner, "compute_audit", lambda *args, **kwargs: synthetic_audit)
+    with pytest.raises(ContractValidationError, match="contains symlink"):
+        validate_audit_bundle(
+            aliased_path,
+            config=candidate_config,
+            repo_root=tmp_path,
+            implementation_commit=synthetic_audit.implementation_commit,
+        )

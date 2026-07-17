@@ -43,7 +43,26 @@ def _require_regular_member(path: Path) -> None:
         raise ContractValidationError(f"V1.12 artifact member must be a regular file: {path}")
 
 
+def _reject_symlink_components(path: Path) -> None:
+    candidate = path if path.is_absolute() else Path.cwd() / path
+    current = Path(candidate.anchor)
+    for component in candidate.parts[1:]:
+        if component == "..":
+            current = current.parent
+            continue
+        current /= component
+        try:
+            mode = current.lstat().st_mode
+        except FileNotFoundError:
+            break
+        except OSError as exc:
+            raise ContractValidationError(f"V1.12 artifact path cannot be inspected: {current}") from exc
+        if stat.S_ISLNK(mode):
+            raise ContractValidationError(f"V1.12 artifact path contains symlink: {current}")
+
+
 def _atomic_publish(path: Path, files: dict[str, bytes]) -> None:
+    _reject_symlink_components(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
         if not path.is_dir() or path.is_symlink() or {item.name for item in path.iterdir()} != set(files):
@@ -197,6 +216,7 @@ def validate_audit_bundle(
     implementation_commit: str | None = None,
     expected_bundle_id: str | None = None,
 ) -> CandidateReinforcementAudit:
+    _reject_symlink_components(Path(path))
     bundle_path = Path(path).resolve()
     manifest = _validate_manifest(bundle_path)
     semantic = manifest["bundle_id_semantic_payload"]
