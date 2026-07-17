@@ -6,7 +6,7 @@ from statistics import median
 from typing import Any, Iterable
 
 from libs.models.sr.domain.contracts import ContractValidationError, SREventType
-from libs.models.sr.scripts.atr_calibration.metrics import FirstTouchOutcome
+from libs.models.sr.research.metrics.first_touch import FirstTouchOutcome
 from libs.models.sr.scripts.baseline_adequacy.contracts import (
     BaselineAdequacyStudy,
     RealOutcomeRecord,

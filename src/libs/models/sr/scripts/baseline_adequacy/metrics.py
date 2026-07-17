@@ -5,7 +5,7 @@ from __future__ import annotations
 from statistics import median
 
 from libs.models.sr.domain.contracts import ContractValidationError, ZoneSide
-from libs.models.sr.scripts.atr_calibration.metrics import FirstTouchOutcome
+from libs.models.sr.research.metrics.first_touch import FirstTouchOutcome
 
 from .contracts import (
     AdequacyAggregateMetrics,

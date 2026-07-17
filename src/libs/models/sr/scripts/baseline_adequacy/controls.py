@@ -8,7 +8,7 @@ import math
 from typing import Any
 
 from libs.models.sr.domain.contracts import ContractValidationError, ZoneSide
-from libs.models.sr.scripts.atr_calibration.contracts import CandidateReplay
+from libs.models.sr.research.replay.candidates import CandidateReplay
 
 from .contracts import (
     CONTROL_SIDE_ORDER,

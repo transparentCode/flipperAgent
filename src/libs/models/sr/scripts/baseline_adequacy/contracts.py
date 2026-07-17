@@ -16,8 +16,8 @@ from libs.models.sr.domain.contracts import (
     ZoneStatus,
 )
 from libs.models.sr.domain.identity import deterministic_hash, require_utc, utc_isoformat
+from libs.models.sr.research.metrics.first_touch import FirstTouchOutcome
 from libs.models.sr.research.windows.folds import CohortFold
-from libs.models.sr.scripts.atr_calibration.metrics import FirstTouchOutcome
 
 
 SCHEMA_VERSION = "1.0"

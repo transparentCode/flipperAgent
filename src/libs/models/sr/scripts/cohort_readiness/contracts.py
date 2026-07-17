@@ -25,14 +25,10 @@ from libs.models.sr.domain.identity import (
 )
 from libs.models.sr.research.source.contracts import SourceBar
 from libs.models.sr.research.windows.folds import CohortFold
-from libs.models.sr.scripts.atr_calibration.contracts import (
-    CandidateReplay,
-    SourceCapsule,
-)
-from libs.models.sr.scripts.atr_calibration.metrics import (
-    CandidateMetrics,
-    FirstTouchOutcome,
-)
+from libs.models.sr.research.metrics.first_touch import FirstTouchOutcome
+from libs.models.sr.research.replay.candidates import CandidateReplay
+from libs.models.sr.scripts.atr_calibration.contracts import SourceCapsule
+from libs.models.sr.scripts.atr_calibration.metrics import CandidateMetrics
 
 
 SCHEMA_VERSION = "1.0"
