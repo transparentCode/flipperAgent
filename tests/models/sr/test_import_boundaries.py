@@ -6,7 +6,7 @@ import sys
 
 
 _SR_IMPORT_PREFIX = "libs.models.sr"
-_YAML_ADAPTER = "adapters/yaml_config.py"
+_YAML_LOADER = "config/loader.py"
 _BASELINE_EXTERNAL_IMPORTS = {
     "pandas",
     "libs.features.indicators.volatility.atr",
@@ -65,7 +65,7 @@ def _allowed_import(path: Path, node: ast.Import | ast.ImportFrom) -> bool:
             continue
         if (
             (module == "yaml" or module.startswith("yaml."))
-            and path.as_posix().endswith(_YAML_ADAPTER)
+            and path.as_posix().endswith(_YAML_LOADER)
         ):
             continue
         return False
@@ -84,7 +84,7 @@ def test_sr_runtime_uses_only_approved_imports() -> None:
     assert violations == []
 
 
-def test_yaml_imports_remain_confined_to_adapter() -> None:
+def test_yaml_imports_remain_confined_to_canonical_config_loader() -> None:
     violations: list[str] = []
     for path in _runtime_files():
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -96,7 +96,7 @@ def test_yaml_imports_remain_confined_to_adapter() -> None:
             elif isinstance(node, ast.ImportFrom) and node.module == "yaml":
                 module = "yaml"
             if module is not None and not path.as_posix().endswith(
-                _YAML_ADAPTER
+                _YAML_LOADER
             ):
                 violations.append(f"{path}: {module}")
     assert violations == []

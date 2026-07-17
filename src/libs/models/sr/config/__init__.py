@@ -1,14 +1,14 @@
-"""SR configuration: typed groups, strict validation, and resolution."""
+"""Canonical SR configuration schema, loading, and resolution."""
 
 from __future__ import annotations
 
-from .models import (
+from .resolved import ResolvedSRConfig
+from .schema import SRConfig
+from .sections import (
     AssociationConfig,
     DetectionConfig,
     LifecycleConfig,
-    ResolvedSRConfig,
     RuntimeConfig,
-    SRConfig,
 )
 from .resolver import SRConfigResolver
 
