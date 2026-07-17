@@ -39,6 +39,7 @@ from .contracts import (
     ReplayParity,
     StatusCount,
     ZoneSeedLineage,
+    _first_confirmation_by_zone,
 )
 
 
@@ -405,13 +406,14 @@ def _accounting(
             raise ContractValidationError("eligible reinforcement lacks target zone")
         by_zone[item.target_zone_id] = by_zone.get(item.target_zone_id, 0) + 1
     zone_counts = tuple(ReinforcementZoneCount(zone_id, count) for zone_id, count in sorted(by_zone.items()))
+    first_confirmations = _first_confirmation_by_zone(candidates)
     folds = tuple(
         FoldAccounting(
             fold=fold,
             candidate_count=sum(item.fold == fold for item in candidates),
             created_zone_count=sum(item.fold == fold and item.decision is DecisionCategory.CREATED_ZONE for item in candidates),
             eligible_match_count=sum(item.fold == fold for item in eligible),
-            unique_reinforced_zone_count=len({item.target_zone_id for item in eligible if item.fold == fold}),
+            unique_reinforced_zone_count=sum(item.fold == fold for item in first_confirmations.values()),
         )
         for fold in FOLD_NAMES
     )

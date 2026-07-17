@@ -231,6 +231,8 @@ class CandidateDecisionRecord:
             object.__setattr__(self, "fold", fold)
         if type(self.eligible_reinforcement) is not bool:
             raise ContractValidationError("candidate.eligible_reinforcement must be boolean")
+        if self.eligible_reinforcement and self.fold is None:
+            raise ContractValidationError("eligible reinforcement must belong to an evaluation fold")
         if self.decision is DecisionCategory.CREATED_ZONE:
             if self.created_zone_id is None or any(value is not None for value in (self.target_zone_id, self.target_seed_candidate_id, self.target_pre_advance_status, self.target_post_advance_status, self.center_distance, self.center_distance_atr)) or self.eligible_reinforcement:
                 raise ContractValidationError("created candidate decision fields do not reconcile")
@@ -328,6 +330,21 @@ class ZoneSeedLineage:
 
     def to_payload(self) -> dict[str, Any]:
         return {**self.identity_payload(), "lineage_id": self.lineage_id}
+
+
+def _first_confirmation_by_zone(
+    candidates: tuple[CandidateDecisionRecord, ...],
+) -> dict[str, CandidateDecisionRecord]:
+    confirmations: dict[str, CandidateDecisionRecord] = {}
+    ordered = sorted(
+        (item for item in candidates if item.eligible_reinforcement),
+        key=lambda item: (item.replay_closed_at, item.formed_at, item.available_at, item.candidate_id),
+    )
+    for item in ordered:
+        if item.target_zone_id is None:
+            raise ContractValidationError("eligible reinforcement lacks target zone")
+        confirmations.setdefault(item.target_zone_id, item)
+    return confirmations
 
 
 @dataclass(frozen=True)
@@ -590,7 +607,8 @@ class CandidateReinforcementAudit:
         if (accounting.total_candidates, accounting.created_zone_count, accounting.matched_start_zone_suppressed, accounting.matched_same_batch_zone_suppressed, accounting.capacity_suppressed) != (len(self.candidates), category_counts[DECISION_CATEGORIES[0]], category_counts[DECISION_CATEGORIES[1]], category_counts[DECISION_CATEGORIES[2]], category_counts[DECISION_CATEGORIES[3]]):
             raise ContractValidationError("audit candidate category accounting mismatch")
         eligible = tuple(item for item in self.candidates if item.eligible_reinforcement)
-        if accounting.eligible_reinforcement_count != len(eligible) or accounting.unique_reinforced_zone_count != len({item.target_zone_id for item in eligible}):
+        first_confirmations = _first_confirmation_by_zone(self.candidates)
+        if accounting.eligible_reinforcement_count != len(eligible) or accounting.unique_reinforced_zone_count != len(first_confirmations):
             raise ContractValidationError("audit reinforcement accounting mismatch")
         if accounting.support_candidate_count != sum(item.side is ZoneSide.SUPPORT for item in self.candidates) or accounting.resistance_candidate_count != sum(item.side is ZoneSide.RESISTANCE for item in self.candidates):
             raise ContractValidationError("audit side accounting mismatch")
@@ -607,7 +625,7 @@ class CandidateReinforcementAudit:
                 sum(item.fold == fold for item in self.candidates),
                 sum(item.fold == fold and item.decision is DecisionCategory.CREATED_ZONE for item in self.candidates),
                 sum(item.fold == fold and item.eligible_reinforcement for item in self.candidates),
-                len({item.target_zone_id for item in eligible if item.fold == fold}),
+                sum(item.fold == fold for item in first_confirmations.values()),
             )
             for fold in FOLD_NAMES
         )

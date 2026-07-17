@@ -80,20 +80,30 @@ def make_created(*, seed: str = "seed", side: ZoneSide = ZoneSide.SUPPORT, fold:
     )
 
 
-def make_match(seed: CandidateDecisionRecord, *, same_batch: bool = False, eligible: bool = True, side: ZoneSide | None = None) -> CandidateDecisionRecord:
-    formed = BASE + timedelta(days=3)
-    available = BASE + timedelta(days=4)
+def make_match(
+    seed: CandidateDecisionRecord,
+    *,
+    match_name: str = "match",
+    same_batch: bool = False,
+    eligible: bool = True,
+    side: ZoneSide | None = None,
+    fold: str | None = "2024_q3",
+    formed: datetime | None = None,
+    available: datetime | None = None,
+) -> CandidateDecisionRecord:
+    available = available or BASE + timedelta(days=4)
+    formed = formed or available - timedelta(days=1)
     target_side = seed.side if side is None else side
     return CandidateDecisionRecord(
-        candidate_id=digest("candidate:match"),
+        candidate_id=digest(f"candidate:{match_name}"),
         state_key=STATE_KEY,
         side=target_side,
         source="PIVOT_LOW" if target_side is ZoneSide.SUPPORT else "PIVOT_HIGH",
         formed_at=formed,
         available_at=available,
-        formed_bar_id="bar:match:formed",
-        available_bar_id="bar:match:available",
-        replay_bar_id="bar:match:available",
+        formed_bar_id=f"bar:{match_name}:formed",
+        available_bar_id=f"bar:{match_name}:available",
+        replay_bar_id=f"bar:{match_name}:available",
         replay_closed_at=available,
         center=100.25,
         half_width=1.0,
@@ -111,7 +121,7 @@ def make_match(seed: CandidateDecisionRecord, *, same_batch: bool = False, eligi
         merge_threshold_price=1.0,
         merge_distance_atr=0.5,
         active_zone_count_before_capacity=1,
-        fold="2024_q3",
+        fold=fold,
         eligible_reinforcement=eligible and not same_batch,
     )
 
