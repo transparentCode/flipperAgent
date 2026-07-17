@@ -45,7 +45,10 @@ def _relative_import_module(
 def _allowed_import(path: Path, node: ast.Import | ast.ImportFrom) -> bool:
     package_dir = Path(__file__).parents[3] / "src" / "libs" / "models" / "sr"
     relative = path.relative_to(package_dir)
-    is_baseline_integration = relative.parts[:2] == ("scripts", "baseline_trial")
+    is_baseline_integration = relative.parts[:2] == (
+        "scripts",
+        "baseline_trial",
+    ) or relative.parts[:3] == ("research", "studies", "baseline_trial")
     if isinstance(node, ast.Import):
         modules = [alias.name for alias in node.names]
     else:

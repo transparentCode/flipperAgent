@@ -18,7 +18,12 @@ def _runtime_files() -> list[Path]:
 
 
 def _is_baseline_integration(path: Path, package_dir: Path) -> bool:
-    return path.relative_to(package_dir).parts[:2] == ("scripts", "baseline_trial")
+    relative_parts = path.relative_to(package_dir).parts
+    return relative_parts[:2] == ("scripts", "baseline_trial") or relative_parts[:3] == (
+        "research",
+        "studies",
+        "baseline_trial",
+    )
 
 
 def test_runtime_package_has_no_sr_legacy_imports() -> None:
