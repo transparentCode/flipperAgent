@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 from .canonical_json import canonical_json_bytes, sha256_hex
-from .manifest import member_metadata, validate_member_metadata
+from .manifest import (
+    member_metadata,
+    validate_member_bytes,
+    validate_member_metadata,
+    validate_member_name,
+)
 from .path_safety import reject_symlink_components, require_regular_file
 from .publisher import publish_immutable_directory
 from .validator import load_strict_json
@@ -18,4 +23,6 @@ __all__ = [
     "require_regular_file",
     "sha256_hex",
     "validate_member_metadata",
+    "validate_member_bytes",
+    "validate_member_name",
 ]
