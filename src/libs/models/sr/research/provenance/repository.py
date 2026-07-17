@@ -9,7 +9,7 @@ import subprocess
 from libs.models.sr.domain.contracts import ContractValidationError
 
 
-_COMMIT_SHA = re.compile(r"[0-9a-f]{40}")
+_COMMIT_SHA = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
 
 
 def resolve_repository_root(repo_root: str | Path) -> Path:
@@ -60,7 +60,8 @@ def resolve_repository_path(
     relative = Path(relative_path)
     windows_relative = PureWindowsPath(relative_path)
     if (
-        relative.is_absolute()
+        "\x00" in relative_path
+        or relative.is_absolute()
         or windows_relative.is_absolute()
         or windows_relative.drive
         or ".." in relative.parts
@@ -69,7 +70,7 @@ def resolve_repository_path(
         raise _path_error(field_name)
     try:
         resolved = (root / relative).resolve(strict=False)
-    except (OSError, RuntimeError) as exc:
+    except (OSError, RuntimeError, ValueError) as exc:
         raise _path_error(field_name) from exc
     if resolved != root and root not in resolved.parents:
         raise _path_error(field_name)

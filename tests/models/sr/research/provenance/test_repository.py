@@ -42,9 +42,35 @@ def test_repository_commit_translates_git_command_failure(tmp_path, monkeypatch)
         repository.repository_commit(root)
 
 
-def test_repository_commit_rejects_malformed_git_output(monkeypatch):
+@pytest.mark.parametrize("commit", ("a" * 40, "b" * 64))
+def test_repository_commit_accepts_supported_lowercase_sha(monkeypatch, commit):
     monkeypatch.setattr(repository, "resolve_repository_root", lambda _: Path.cwd())
-    monkeypatch.setattr(repository.subprocess, "check_output", lambda *args, **kwargs: "not-a-sha\n")
+    monkeypatch.setattr(
+        repository.subprocess,
+        "check_output",
+        lambda *args, **kwargs: f"{commit}\n",
+    )
+
+    assert repository.repository_commit(".") == commit
+
+
+@pytest.mark.parametrize(
+    "output",
+    (
+        "a" * 39 + "\n",
+        "a" * 41 + "\n",
+        "a" * 63 + "\n",
+        "a" * 65 + "\n",
+        "A" * 40 + "\n",
+        "g" * 40 + "\n",
+        " " + "a" * 40 + "\n",
+        "a" * 40 + " \n",
+        "a" * 40 + "\nextra\n",
+    ),
+)
+def test_repository_commit_rejects_malformed_git_output(monkeypatch, output):
+    monkeypatch.setattr(repository, "resolve_repository_root", lambda _: Path.cwd())
+    monkeypatch.setattr(repository.subprocess, "check_output", lambda *args, **kwargs: output)
 
     with pytest.raises(ContractValidationError, match="cannot determine repository commit"):
         repository.repository_commit(".")
@@ -71,6 +97,14 @@ def test_resolve_repository_path_rejects_absolute_and_parent_escape(tmp_path):
     for relative in (str(tmp_path / "absolute.json"), "../escape.json"):
         with pytest.raises(ContractValidationError, match="input escaped repository root"):
             repository.resolve_repository_path(root, relative, field_name="input")
+
+
+def test_resolve_repository_path_translates_embedded_nul(tmp_path):
+    root = tmp_path / "repository"
+    root.mkdir()
+
+    with pytest.raises(ContractValidationError, match="input escaped repository root"):
+        repository.resolve_repository_path(root, "nul\x00path", field_name="input")
 
 
 def test_resolve_repository_path_rejects_symlink_escape(tmp_path):
