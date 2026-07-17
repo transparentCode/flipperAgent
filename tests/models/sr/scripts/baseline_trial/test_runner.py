@@ -37,7 +37,7 @@ def _trial(output_root: str):
 
 
 def test_runner_fetches_once_replays_once_and_binds_all_identities(monkeypatch) -> None:
-    import libs.models.sr.scripts.baseline_trial.runner as runner_module
+    import libs.models.sr.research.studies.baseline_trial.runner as runner_module
 
     adapter = _FakeAdapter(_frame())
     trial = _trial("research/tmp_sr_v1_5_runner_test")

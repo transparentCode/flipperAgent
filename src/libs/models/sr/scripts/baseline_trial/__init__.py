@@ -1,1 +1,1 @@
-"""Bounded SR baseline-trial integration package."""
+"""Compatibility facade for baseline-trial research study."""
