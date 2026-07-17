@@ -123,3 +123,39 @@ This project is indexed by `codebase-memory-mcp`. Use the codebase-memory tools 
 
 This project uses squad for multi-agent collaboration. Run `squad help` for all commands and usage guide.
 
+
+## Codex Custom-Agent Routing
+
+The root Codex thread is the `Quant Orchestrator`.
+
+Available project-scoped custom agents:
+
+- `quant-research`: hypothesis, evidence, and experiment design.
+- `quant-architect`: architecture, contracts, tradeoffs, and coder handoffs.
+- `quant-coder`: primary non-trivial implementation worker.
+- `quant-bounded-worker`: mechanical, isolated, explicitly bounded work.
+- `quant-review`: independent correctness and quant-safety review.
+- `quant-approval`: final merge-readiness gate.
+
+### Default flow
+
+`quant-research → quant-architect → quant-coder → quant-review → quant-approval`
+
+Stages may be skipped only when a valid upstream artifact already exists.
+
+### Parallelism
+
+- Parallelize independent read-only research and exploration.
+- Use only one workspace-writing agent at a time in the same checkout.
+- Never run `quant-coder` and `quant-bounded-worker` concurrently in the
+  same checkout.
+- Parallel writers require separate Git worktrees and non-overlapping scope.
+- Wait for implementation to finish before spawning `quant-review`.
+- The root orchestrator owns routing, durable handoffs, integration, and
+  final reporting.
+
+### Remediation
+
+- Route bounded implementation defects from `quant-review` to `quant-coder`.
+- Route architecture ambiguity or scope conflicts to `quant-architect`.
+- Return remediated implementation to `quant-review`.
