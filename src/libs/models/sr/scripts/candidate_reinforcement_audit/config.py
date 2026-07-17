@@ -5,14 +5,23 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-import math
-from pathlib import Path, PurePath
-import re
+from pathlib import Path
 from typing import Any
 
-from libs.models.sr.adapters.yaml_config import load_sr_config
 from libs.models.sr.domain.contracts import ContractValidationError
 from libs.models.sr.domain.identity import deterministic_hash, require_utc, utc_isoformat
+from libs.models.sr.research.config.primitives import (
+    require_exact_keys,
+    require_finite_number,
+    require_git_commit,
+    require_integer,
+    require_mapping,
+    require_nonempty_string,
+    require_safe_relative_path,
+    require_sha256,
+    require_utc_timestamp,
+)
+from libs.models.sr.research.config.strict_yaml import load_strict_research_yaml
 
 
 CONFIG_VERSION = "1"
@@ -106,93 +115,40 @@ READINESS_THRESHOLDS = {
     "minimum_reinforced_zones_per_comparable_fold": 2,
 }
 
-_HASH_RE = re.compile(r"[0-9a-f]{64}")
-_COMMIT_RE = re.compile(r"[0-9a-f]{40,64}")
-
-
 def _mapping(value: Any, *, path: str) -> Mapping[str, Any]:
-    if not isinstance(value, Mapping) or any(type(key) is not str for key in value):
-        raise ContractValidationError(f"{path} must be a mapping with string keys")
-    return value
+    return require_mapping(value, path=path)
 
 
 def _exact(value: Mapping[str, Any], expected: set[str], *, path: str) -> None:
-    actual = set(value)
-    if actual != expected:
-        raise ContractValidationError(
-            f"{path} keys mismatch; missing={sorted(expected - actual)} unknown={sorted(actual - expected)}"
-        )
+    require_exact_keys(value, expected, path=path)
 
 
 def _string(value: Any, *, path: str) -> str:
-    if type(value) is not str or not value.strip():
-        raise ContractValidationError(f"{path} must be a non-empty string")
-    return value
+    return require_nonempty_string(value, path=path)
 
 
 def _hash(value: Any, *, path: str) -> str:
-    value = _string(value, path=path)
-    if _HASH_RE.fullmatch(value) is None:
-        raise ContractValidationError(f"{path} must be a lowercase SHA-256 hex string")
-    return value
+    return require_sha256(value, path=path)
 
 
 def _commit(value: Any, *, path: str) -> str:
-    value = _string(value, path=path)
-    if _COMMIT_RE.fullmatch(value) is None:
-        raise ContractValidationError(f"{path} must be a git SHA")
-    return value
+    return require_git_commit(value, path=path)
 
 
 def _integer(value: Any, *, path: str, minimum: int = 0) -> int:
-    if isinstance(value, bool) or type(value) is not int or value < minimum:
-        raise ContractValidationError(f"{path} must be an integer >= {minimum}")
-    return value
+    return require_integer(value, path=path, minimum=minimum)
 
 
 def _number(value: Any, *, path: str, minimum: float | None = None) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ContractValidationError(f"{path} must be numeric")
-    try:
-        result = float(value)
-    except OverflowError as exc:
-        raise ContractValidationError(f"{path} must be finite") from exc
-    if not math.isfinite(result):
-        raise ContractValidationError(f"{path} must be finite")
-    if minimum is not None and result < minimum:
-        raise ContractValidationError(f"{path} must be >= {minimum}")
-    return 0.0 if result == 0.0 else result
+    return require_finite_number(value, path=path, minimum=minimum)
 
 
 def _utc(value: Any, *, path: str) -> datetime:
-    value = _string(value, path=path)
-    if not value.endswith("Z"):
-        raise ContractValidationError(f"{path} must use strict UTC Z notation")
-    try:
-        parsed = require_utc(datetime.fromisoformat(value[:-1] + "+00:00"), field_name=path)
-    except (TypeError, ValueError) as exc:
-        raise ContractValidationError(f"{path} must be a valid UTC timestamp") from exc
-    if parsed.hour or parsed.minute or parsed.second or parsed.microsecond:
-        raise ContractValidationError(f"{path} must align to a UTC daily boundary")
-    return parsed
+    return require_utc_timestamp(value, path=path, require_daily_boundary=True)
 
 
 def _path(value: Any, *, path: str) -> str:
-    value = _string(value, path=path)
-    normalized = value.replace("\\", "/")
-    if Path(value).is_absolute() or normalized.startswith("/") or ".." in PurePath(normalized).parts:
-        raise ContractValidationError(f"{path} must be a safe relative path")
-    return value
-
-
-def _reject_aliases(path: str | Path) -> None:
-    try:
-        text = Path(path).read_text(encoding="utf-8")
-    except (OSError, UnicodeError) as exc:
-        raise ContractValidationError(f"cannot read V1.12 config: {path}") from exc
-    for line in text.splitlines():
-        if re.match(r"^\s*<<\s*:", line) or re.search(r"(?:^|[\s\[,])(?:&|\*)[A-Za-z_][A-Za-z0-9_.-]*", line):
-            raise ContractValidationError("YAML aliases and merge keys are forbidden")
+    return require_safe_relative_path(value, path=path)
 
 
 @dataclass(frozen=True)
@@ -522,9 +478,8 @@ def _parse_config(raw: Any) -> CandidateAuditConfig:
 
 
 def load_candidate_audit_config(path: str | Path) -> CandidateAuditConfig:
-    _reject_aliases(path)
     try:
-        raw = load_sr_config(path)
+        raw = load_strict_research_yaml(path, description="V1.12 config")
         return _parse_config(raw)
     except ContractValidationError:
         raise
