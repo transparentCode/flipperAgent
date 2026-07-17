@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from libs.models.sr.domain.contracts import ContractValidationError
-from libs.models.sr.scripts.atr_calibration import runner
+from libs.models.sr.research.studies.atr_calibration import runner
 from libs.models.sr.scripts.atr_calibration.runner import prepare_source_stage
 from libs.models.sr.scripts.atr_calibration.source import publish_source_capsule
 

@@ -8,7 +8,7 @@ import subprocess
 from libs.models.sr.config.models import ResolvedSRConfig
 from libs.models.sr.domain.contracts import ContractValidationError
 
-from libs.models.sr.scripts.baseline_trial.config import (
+from libs.models.sr.research.studies.baseline_trial.config import (
     load_and_resolve_input_config,
     load_resolved_sr_config,
 )

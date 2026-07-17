@@ -486,7 +486,9 @@ def _resolve_validation_inputs(
     if resolved_config is None:
         if root is None:
             raise ContractValidationError("resolved SR config is required for semantic validation")
-        from libs.models.sr.scripts.baseline_trial.config import load_resolved_sr_config
+        from libs.models.sr.research.studies.baseline_trial.config import (
+            load_resolved_sr_config,
+        )
 
         resolved_config = load_resolved_sr_config(
             root / config.sr_config_path,
