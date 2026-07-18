@@ -17,7 +17,7 @@ def test_three_member_round_trip_and_manifest_commit_default(context_result, con
     bundle_id, path = publish_audit_bundle(audit, chart, config=context_config, output_root=tmp_path)
     assert path.name == bundle_id
     assert {item.name for item in path.iterdir()} == {"manifest.json", "audit.json", "chart_payload.json"}
-    import libs.models.sr.scripts.context_audit.runner as runner
+    import libs.models.sr.research.evidence.context_audit.runner as runner
     monkeypatch.setattr(runner, "compute_audit", lambda *args, **kwargs: (audit, chart))
     loaded = validate_audit_bundle(path, config=context_config, repo_root=repo_root)
     assert loaded.audit_id == audit.audit_id
@@ -26,7 +26,7 @@ def test_three_member_round_trip_and_manifest_commit_default(context_result, con
 def test_explicit_implementation_mismatch_is_rejected(context_result, context_config, repo_root, tmp_path, monkeypatch):
     audit, chart = context_result
     _, path = publish_audit_bundle(audit, chart, config=context_config, output_root=tmp_path)
-    import libs.models.sr.scripts.context_audit.runner as runner
+    import libs.models.sr.research.evidence.context_audit.runner as runner
     monkeypatch.setattr(runner, "compute_audit", lambda *args, **kwargs: (audit, chart))
     with pytest.raises(ContractValidationError):
         validate_audit_bundle(path, config=context_config, repo_root=repo_root, implementation_commit="0" * 40)
@@ -57,7 +57,7 @@ def test_rehashed_chart_tampering_is_rejected(context_result, context_config, re
     manifest["bundle_id"] = new_bundle_id
     manifest["bundle_id_semantic_payload"] = semantic
     (path / "manifest.json").write_bytes((canonical_json(manifest) + "\n").encode("utf-8"))
-    import libs.models.sr.scripts.context_audit.runner as runner
+    import libs.models.sr.research.evidence.context_audit.runner as runner
     monkeypatch.setattr(runner, "compute_audit", lambda *args, **kwargs: (audit, chart))
     with pytest.raises(ContractValidationError):
         validate_audit_bundle(path, config=context_config, repo_root=repo_root)

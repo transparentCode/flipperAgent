@@ -1,16 +1,3 @@
-"""SR-V1.11 lifecycle resolution utility."""
+"""Compatibility facade for the canonical lifecycle-utility study."""
 
-from .config import LifecycleUtilityConfig, load_lifecycle_utility_config
-from .contracts import (
-    LifecycleUtilityDisposition,
-    LifecycleUtilityStudy,
-    ResolutionEvent,
-    ResolutionOutcome,
-)
-from .runner import compute_study, run_study
-
-__all__ = [
-    "LifecycleUtilityConfig", "LifecycleUtilityDisposition", "LifecycleUtilityStudy",
-    "ResolutionEvent", "ResolutionOutcome", "compute_study", "load_lifecycle_utility_config",
-    "run_study",
-]
+from libs.models.sr.research.studies.lifecycle_utility import *  # noqa: F401,F403

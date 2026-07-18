@@ -15,6 +15,13 @@ from libs.models.sr import (
 )
 from libs.models.sr.evaluation import build_evaluation_trace, compute_diagnostics
 from libs.models.sr.replay import replay_bars
+from libs.models.sr.research.viewer.casebook_payload import (
+    build_casebook_chart_payload as shared_build_casebook_chart_payload,
+)
+from libs.models.sr.research.studies.baseline_trial.chart_payload import (
+    build_chart_payload as canonical_build_chart_payload,
+    chart_payload_identity as canonical_chart_payload_identity,
+)
 from libs.models.sr.scripts.baseline_trial.config import (
     load_and_resolve_input_config,
     load_trial_config,
@@ -22,6 +29,7 @@ from libs.models.sr.scripts.baseline_trial.config import (
 from libs.models.sr.scripts.baseline_trial.contracts import SourceBar
 from libs.models.sr.tools.zone_viewer.payload import (
     SR_ZONE_VIEWER_PAYLOAD_SCHEMA_VERSION,
+    build_casebook_chart_payload,
     build_chart_payload,
     chart_payload_identity,
 )
@@ -33,6 +41,15 @@ _INPUT = load_and_resolve_input_config(
     _ROOT / "configs/sr_inputs.yaml", asset="TAOUSDT", timeframe="1d"
 )
 _T0 = datetime(2024, 1, 1, tzinfo=timezone.utc)
+
+
+def test_casebook_payload_builder_keeps_tool_export_identity() -> None:
+    assert build_casebook_chart_payload is shared_build_casebook_chart_payload
+
+
+def test_baseline_chart_payload_builders_keep_tool_export_identity() -> None:
+    assert build_chart_payload is canonical_build_chart_payload
+    assert chart_payload_identity is canonical_chart_payload_identity
 
 
 def _inputs(width: float):

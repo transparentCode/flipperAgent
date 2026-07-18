@@ -4,7 +4,7 @@ import ast
 from pathlib import Path
 
 
-PACKAGE = Path(__file__).resolve().parents[5] / "src/libs/models/sr/scripts/lifecycle_utility"
+PACKAGE = Path(__file__).resolve().parents[5] / "src/libs/models/sr/research/evidence/lifecycle_utility"
 FORBIDDEN_PREFIXES = (
     "libs.sr",
     "apps.ingestion_app",

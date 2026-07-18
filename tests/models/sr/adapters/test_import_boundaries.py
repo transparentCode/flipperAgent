@@ -18,13 +18,21 @@ def _runtime_files() -> list[Path]:
 
 
 def _is_baseline_integration(path: Path, package_dir: Path) -> bool:
-    return path.relative_to(package_dir).parts[:2] == ("scripts", "baseline_trial")
+    relative_parts = path.relative_to(package_dir).parts
+    return relative_parts[:2] == ("scripts", "baseline_trial") or relative_parts[:3] == (
+        "research",
+        "studies",
+        "baseline_trial",
+    )
 
 
 def test_runtime_package_has_no_sr_legacy_imports() -> None:
     forbidden_imports: list[str] = []
     package_dir = Path(__file__).parents[4] / "src" / "libs" / "models" / "sr"
-    allowed_yaml_adapter = package_dir / "adapters" / "yaml_config.py"
+    allowed_yaml_imports = {
+        package_dir / "config" / "loader.py",
+        package_dir / "research" / "config" / "strict_yaml.py",
+    }
     for path in _runtime_files():
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
@@ -34,7 +42,7 @@ def test_runtime_package_has_no_sr_legacy_imports() -> None:
                 if _is_module_or_child(node.module, "pandas") and not _is_baseline_integration(path, package_dir):
                     forbidden_imports.append(f"{path}: {node.module}")
                 if _is_module_or_child(node.module, _YAML_MODULE):
-                    if path != allowed_yaml_adapter and not _is_baseline_integration(path, package_dir):
+                    if path not in allowed_yaml_imports and not _is_baseline_integration(path, package_dir):
                         forbidden_imports.append(f"{path}: {node.module}")
             if isinstance(node, ast.Import):
                 for alias in node.names:
@@ -44,7 +52,7 @@ def test_runtime_package_has_no_sr_legacy_imports() -> None:
                         forbidden_imports.append(f"{path}: {alias.name}")
                     if (
                         _is_module_or_child(alias.name, _YAML_MODULE)
-                        and path != allowed_yaml_adapter
+                        and path not in allowed_yaml_imports
                         and not _is_baseline_integration(path, package_dir)
                     ):
                         forbidden_imports.append(f"{path}: {alias.name}")

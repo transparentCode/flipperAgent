@@ -3,6 +3,7 @@
 Resolution precedence:
   mandatory defaults
   → timeframe override
+  → asset-wide defaults
   → asset/timeframe override
 
 RuntimeConfig values use same YAML precedence as other configuration groups.
@@ -15,18 +16,16 @@ from dataclasses import fields
 from types import MappingProxyType
 from typing import Any, Mapping
 
-from libs.models.sr.domain.identity import ContractValidationError
+from libs.models.sr.domain.errors import ContractValidationError
 
-from .models import (
+from .resolved import ResolvedSRConfig
+from .schema import SRConfig, _SECTIONS, _validate_raw_config
+from .sections import (
     AssociationConfig,
     DetectionConfig,
     LifecycleConfig,
-    ResolvedSRConfig,
     RuntimeConfig,
-    SRConfig,
-    _SECTIONS,
     _string,
-    _validate_raw_config,
 )
 
 
@@ -141,12 +140,25 @@ class SRConfigResolver:
                 source=f"timeframe:{timeframe}",
             )
 
-        # Layer 3: exact asset/timeframe override
+        # Layer 3: asset-wide defaults
         asset_block = _as_mapping(
             raw.get("assets", {}), path="assets"
         ).get(asset, {})
         if asset_block:
             asset_block = _as_mapping(asset_block, path=f"assets.{asset}")
+            asset_defaults = _as_mapping(
+                asset_block.get("defaults", {}),
+                path=f"assets.{asset}.defaults",
+            )
+            if asset_defaults:
+                _merge_layer(
+                    base,
+                    asset_defaults,
+                    provenance,
+                    source=f"asset:{asset}",
+                )
+
+            # Layer 4: exact asset/timeframe override
             asset_timeframes = _as_mapping(
                 asset_block.get("timeframes", {}),
                 path=f"assets.{asset}.timeframes",

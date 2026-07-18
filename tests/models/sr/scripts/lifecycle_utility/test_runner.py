@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from libs.models.sr.scripts.lifecycle_utility import runner
+from libs.models.sr.research.evidence.lifecycle_utility import runner
 
 
 def test_compute_study_consumes_only_validated_inputs(monkeypatch, lifecycle_config, synthetic_study):

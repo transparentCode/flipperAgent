@@ -25,8 +25,8 @@ from libs.models.sr.domain.contracts import (
     ZoneStatus,
 )
 from libs.models.sr.scripts.baseline_trial.config import load_resolved_sr_config
-from libs.models.sr.scripts.candidate_reinforcement_audit import audit
-from libs.models.sr.scripts.candidate_reinforcement_audit.audit import (
+from libs.models.sr.research.studies.candidate_reinforcement_audit import audit
+from libs.models.sr.research.studies.candidate_reinforcement_audit.audit import (
     _ReplayPass,
     _accounting,
     _decision,

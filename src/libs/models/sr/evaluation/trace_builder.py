@@ -3,22 +3,19 @@
 from __future__ import annotations
 
 from libs.models.sr.config.models import ResolvedSRConfig
-from libs.models.sr.domain.contracts import (
-    ContractValidationError,
-    SREvent,
-    SRSnapshot,
-    ZoneRecord,
-    ZoneStatus,
-)
+from libs.models.sr.domain.errors import ContractValidationError
+from libs.models.sr.domain.events import SREvent
+from libs.models.sr.domain.snapshots import SRSnapshot
+from libs.models.sr.domain.zones import ZoneRecord, ZoneStatus
 
-from .contracts import (
+from .observations import (
     ObservedEvent,
-    SREvaluationTrace,
     SR_EVALUATION_SCHEMA_VERSION,
     SnapshotReference,
     ZoneObservation,
     ZoneRenderKind,
 )
+from .traces import SREvaluationTrace
 
 
 def _validate_inputs(

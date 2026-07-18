@@ -6,7 +6,10 @@ import sys
 
 
 _SR_IMPORT_PREFIX = "libs.models.sr"
-_YAML_ADAPTER = "adapters/yaml_config.py"
+_YAML_IMPORT_PATHS = {
+    "config/loader.py",
+    "research/config/strict_yaml.py",
+}
 _BASELINE_EXTERNAL_IMPORTS = {
     "pandas",
     "libs.features.indicators.volatility.atr",
@@ -42,7 +45,10 @@ def _relative_import_module(
 def _allowed_import(path: Path, node: ast.Import | ast.ImportFrom) -> bool:
     package_dir = Path(__file__).parents[3] / "src" / "libs" / "models" / "sr"
     relative = path.relative_to(package_dir)
-    is_baseline_integration = relative.parts[:2] == ("scripts", "baseline_trial")
+    is_baseline_integration = relative.parts[:2] == (
+        "scripts",
+        "baseline_trial",
+    ) or relative.parts[:3] == ("research", "studies", "baseline_trial")
     if isinstance(node, ast.Import):
         modules = [alias.name for alias in node.names]
     else:
@@ -65,7 +71,7 @@ def _allowed_import(path: Path, node: ast.Import | ast.ImportFrom) -> bool:
             continue
         if (
             (module == "yaml" or module.startswith("yaml."))
-            and path.as_posix().endswith(_YAML_ADAPTER)
+            and any(path.as_posix().endswith(allowed) for allowed in _YAML_IMPORT_PATHS)
         ):
             continue
         return False
@@ -84,7 +90,7 @@ def test_sr_runtime_uses_only_approved_imports() -> None:
     assert violations == []
 
 
-def test_yaml_imports_remain_confined_to_adapter() -> None:
+def test_yaml_imports_remain_confined_to_canonical_config_loader() -> None:
     violations: list[str] = []
     for path in _runtime_files():
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -95,8 +101,8 @@ def test_yaml_imports_remain_confined_to_adapter() -> None:
                     module = "yaml"
             elif isinstance(node, ast.ImportFrom) and node.module == "yaml":
                 module = "yaml"
-            if module is not None and not path.as_posix().endswith(
-                _YAML_ADAPTER
+            if module is not None and not any(
+                path.as_posix().endswith(allowed) for allowed in _YAML_IMPORT_PATHS
             ):
                 violations.append(f"{path}: {module}")
     assert violations == []

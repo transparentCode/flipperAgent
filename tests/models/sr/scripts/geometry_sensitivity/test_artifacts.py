@@ -43,3 +43,31 @@ def test_fully_rehashed_decision_tampering_is_rejected(tmp_path, study, geometry
     path.rename(new_path)
     with pytest.raises(ContractValidationError):
         validate_evaluation_bundle(new_path, config=geometry_config, repo_root=repo_root, implementation_commit="a" * 40)
+
+
+def test_validator_rejects_wrong_bundle_directory_name(tmp_path, study, geometry_config, repo_root):
+    _, path = publish_evaluation_bundle(study, output_root=tmp_path, config=geometry_config)
+    wrong_path = path.parent / "wrong-bundle-name"
+    path.rename(wrong_path)
+
+    with pytest.raises(ContractValidationError, match="V1.8 bundle identity mismatch"):
+        validate_evaluation_bundle(wrong_path, config=geometry_config, repo_root=repo_root, implementation_commit="a" * 40)
+
+
+def test_validator_rejects_unexpected_member(tmp_path, study, geometry_config, repo_root):
+    _, path = publish_evaluation_bundle(study, output_root=tmp_path, config=geometry_config)
+    (path / "unexpected.json").write_text("{}", encoding="utf-8")
+
+    with pytest.raises(ContractValidationError, match="V1.8 artifact member set mismatch"):
+        validate_evaluation_bundle(path, config=geometry_config, repo_root=repo_root, implementation_commit="a" * 40)
+
+
+def test_validator_rejects_symlinked_member(tmp_path, study, geometry_config, repo_root):
+    _, path = publish_evaluation_bundle(study, output_root=tmp_path, config=geometry_config)
+    target = tmp_path / "study-target.json"
+    target.write_bytes((path / "study.json").read_bytes())
+    (path / "study.json").unlink()
+    (path / "study.json").symlink_to(target)
+
+    with pytest.raises(ContractValidationError, match="V1.8 artifact member set mismatch"):
+        validate_evaluation_bundle(path, config=geometry_config, repo_root=repo_root, implementation_commit="a" * 40)

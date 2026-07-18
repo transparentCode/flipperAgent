@@ -7,13 +7,13 @@ import pytest
 
 from libs.models.sr.domain.contracts import ContractValidationError, SREventType, ZoneSide
 from libs.models.sr.scripts.context_audit.contracts import AuditResult
-from libs.models.sr.scripts.lifecycle_utility import extraction
+from libs.models.sr.research.evidence.lifecycle_utility import extraction
 from libs.models.sr.scripts.lifecycle_utility.config import (
     FROZEN_SOURCE_ID,
     V10_TRACE_ID,
     V10_UPSTREAM_SOURCE_BUNDLE_ID,
 )
-from libs.models.sr.scripts.lifecycle_utility.extraction import (
+from libs.models.sr.research.evidence.lifecycle_utility.extraction import (
     extract_first_resolution_events,
     load_validated_inputs,
 )

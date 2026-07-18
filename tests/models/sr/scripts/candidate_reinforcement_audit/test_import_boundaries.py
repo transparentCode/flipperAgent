@@ -4,7 +4,7 @@ import ast
 from pathlib import Path
 
 
-PACKAGE = Path(__file__).resolve().parents[5] / "src/libs/models/sr/scripts/candidate_reinforcement_audit"
+PACKAGE = Path(__file__).resolve().parents[5] / "src/libs/models/sr/research/studies/candidate_reinforcement_audit"
 FORBIDDEN = (
     "apps.ingestion_app",
     "binance",

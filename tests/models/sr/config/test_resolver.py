@@ -128,6 +128,24 @@ def test_unknown_field_rejected() -> None:
         SRConfigResolver(raw)
 
 
+@pytest.mark.parametrize(
+    ("section", "field", "value"),
+    [
+        ("detection", "pivot_span_bars", True),
+        ("detection", "zone_half_width_atr", float("inf")),
+        ("association", "merge_distance_atr", float("nan")),
+        ("lifecycle", "break_confirm_closes", False),
+    ],
+)
+def test_non_finite_and_boolean_parameter_values_fail_closed(
+    section: str, field: str, value: object
+) -> None:
+    defaults = _complete_defaults()
+    defaults[section][field] = value
+    with pytest.raises(ContractValidationError):
+        SRConfigResolver({"version": "1", "defaults": defaults})
+
+
 def test_empty_timeframe_override_rejected() -> None:
     raw = {
         "version": "1",
@@ -248,20 +266,79 @@ def test_resolution_precedence() -> None:
     assert provenance["association.merge_distance_atr"] == "defaults"
 
 
-def test_no_asset_wide_defaults_layer() -> None:
+def test_four_layer_resolution_precedence_and_provenance() -> None:
+    raw = {
+        "version": "1",
+        "defaults": _complete_defaults(),
+        "timeframes": {
+            "1h": {
+                "detection": {"pivot_span_bars": 10},
+                "lifecycle": {"max_age_bars": 80},
+            }
+        },
+        "assets": {
+            "BTCUSDT": {
+                "defaults": {
+                    "association": {"merge_distance_atr": 0.4},
+                    "lifecycle": {"max_age_bars": 90},
+                },
+                "timeframes": {
+                    "1h": {
+                        "detection": {"pivot_span_bars": 7},
+                    }
+                },
+            }
+        },
+    }
+    resolved = SRConfigResolver(raw).resolve(asset="BTCUSDT", timeframe="1h")
+
+    assert resolved.detection.pivot_span_bars == 7
+    assert resolved.lifecycle.max_age_bars == 90
+    assert resolved.association.merge_distance_atr == 0.4
+    provenance = dict(resolved.field_provenance)
+    assert provenance["detection.pivot_span_bars"] == "asset_timeframe:BTCUSDT:1h"
+    assert provenance["lifecycle.max_age_bars"] == "asset:BTCUSDT"
+    assert provenance["association.merge_distance_atr"] == "asset:BTCUSDT"
+
+
+def test_asset_wide_defaults_apply_without_an_exact_asset_timeframe_override() -> None:
     raw = {
         "version": "1",
         "defaults": _complete_defaults(),
         "assets": {
             "BTCUSDT": {
                 "defaults": {
-                    "lifecycle": {"max_age_bars": 999},
-                }
+                    "runtime": {"max_active_zones": 12},
+                },
             }
         },
     }
-    # V1.0 explicitly rejects asset-wide defaults; only exact asset/timeframe
-    # overrides are permitted.
+    resolver = SRConfigResolver(raw)
+
+    resolved = resolver.resolve(asset="BTCUSDT", timeframe="4h")
+    unrelated = resolver.resolve(asset="ETHUSDT", timeframe="4h")
+
+    assert resolved.runtime.max_active_zones == 12
+    assert dict(resolved.field_provenance)["runtime.max_active_zones"] == "asset:BTCUSDT"
+    assert unrelated.runtime.max_active_zones == 8
+    assert dict(unrelated.field_provenance)["runtime.max_active_zones"] == "defaults"
+
+
+@pytest.mark.parametrize(
+    "asset_defaults",
+    [
+        {},
+        {"unknown": {}},
+        {"detection": {}},
+        {"detection": {"pivot_span_bars": 0}},
+    ],
+)
+def test_asset_wide_defaults_are_strictly_validated(asset_defaults: dict) -> None:
+    raw = {
+        "version": "1",
+        "defaults": _complete_defaults(),
+        "assets": {"BTCUSDT": {"defaults": asset_defaults}},
+    }
     with pytest.raises(ContractValidationError):
         SRConfigResolver(raw)
 
@@ -354,6 +431,42 @@ def test_hash_changes_with_override() -> None:
     r_base = SRConfigResolver(base).resolve(asset="BTCUSDT", timeframe="1h")
     r_over = SRConfigResolver(overridden).resolve(asset="BTCUSDT", timeframe="1h")
     assert r_base.resolved_config_hash != r_over.resolved_config_hash
+
+
+def test_config_hash_and_provenance_are_independent_of_mapping_insertion_order() -> None:
+    defaults = _complete_defaults()
+    ordered = {
+        "version": "1",
+        "defaults": defaults,
+        "timeframes": {"1h": {"detection": {"pivot_span_bars": 7}}},
+        "assets": {
+            "BTCUSDT": {
+                "defaults": {"association": {"merge_distance_atr": 0.4}},
+                "timeframes": {"1h": {"runtime": {"max_active_zones": 10}}},
+            }
+        },
+    }
+    reordered = {
+        "assets": {
+            "BTCUSDT": {
+                "timeframes": {"1h": {"runtime": {"max_active_zones": 10}}},
+                "defaults": {"association": {"merge_distance_atr": 0.4}},
+            }
+        },
+        "timeframes": {"1h": {"detection": {"pivot_span_bars": 7}}},
+        "defaults": {
+            "runtime": defaults["runtime"],
+            "lifecycle": defaults["lifecycle"],
+            "association": defaults["association"],
+            "detection": defaults["detection"],
+        },
+        "version": "1",
+    }
+
+    first = SRConfigResolver(ordered).resolve(asset="BTCUSDT", timeframe="1h")
+    second = SRConfigResolver(reordered).resolve(asset="BTCUSDT", timeframe="1h")
+
+    assert first.to_dict() == second.to_dict()
 
 
 @pytest.mark.parametrize(
@@ -492,3 +605,20 @@ def test_from_sr_config_preserves_immutable_source() -> None:
     assert resolver.resolve(asset="BTCUSDT", timeframe="1h").runtime == RuntimeConfig(
         max_active_zones=8
     )
+
+
+def test_legacy_models_imports_are_canonical_reexports() -> None:
+    from libs.models.sr.config.models import (  # noqa: PLC0415
+        DetectionConfig as LegacyDetectionConfig,
+    )
+    from libs.models.sr.config.resolved import (  # noqa: PLC0415
+        ResolvedSRConfig as CanonicalResolvedSRConfig,
+    )
+    from libs.models.sr.config.schema import SRConfig as CanonicalSRConfig  # noqa: PLC0415
+    from libs.models.sr.config.sections import (  # noqa: PLC0415
+        DetectionConfig as CanonicalDetectionConfig,
+    )
+
+    assert LegacyDetectionConfig is CanonicalDetectionConfig
+    assert ResolvedSRConfig is CanonicalResolvedSRConfig
+    assert SRConfig is CanonicalSRConfig

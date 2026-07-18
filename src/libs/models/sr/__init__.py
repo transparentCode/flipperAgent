@@ -6,15 +6,6 @@ configuration resolution.
 
 from __future__ import annotations
 
-from .config import (
-    AssociationConfig,
-    DetectionConfig,
-    LifecycleConfig,
-    ResolvedSRConfig,
-    RuntimeConfig,
-    SRConfig,
-    SRConfigResolver,
-)
 from .domain import (
     CandidateLevel,
     ClosedBar,
@@ -39,7 +30,48 @@ from .domain import (
     hash_zone_definition,
     require_utc,
 )
-from .lifecycle import SREngine
+
+_CONFIG_EXPORTS = {
+    "AssociationConfig",
+    "DetectionConfig",
+    "LifecycleConfig",
+    "ResolvedSRConfig",
+    "RuntimeConfig",
+    "SRConfig",
+    "SRConfigResolver",
+}
+
+
+def __getattr__(name: str) -> object:
+    """Load non-domain public exports without coupling domain import to config."""
+    if name in _CONFIG_EXPORTS:
+        from .config import (
+            AssociationConfig,
+            DetectionConfig,
+            LifecycleConfig,
+            ResolvedSRConfig,
+            RuntimeConfig,
+            SRConfig,
+            SRConfigResolver,
+        )
+
+        exports = {
+            "AssociationConfig": AssociationConfig,
+            "DetectionConfig": DetectionConfig,
+            "LifecycleConfig": LifecycleConfig,
+            "ResolvedSRConfig": ResolvedSRConfig,
+            "RuntimeConfig": RuntimeConfig,
+            "SRConfig": SRConfig,
+            "SRConfigResolver": SRConfigResolver,
+        }
+        globals().update(exports)
+        return exports[name]
+    if name == "SREngine":
+        from .lifecycle import SREngine
+
+        globals()[name] = SREngine
+        return SREngine
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     "AssociationConfig",

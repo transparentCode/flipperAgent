@@ -7,17 +7,13 @@ from datetime import datetime
 import re
 from typing import Any
 
-from .contracts import (
-    ContractValidationError,
-    ObservedEvent,
-    SREvaluationTrace,
-    SREventType,
-    ZoneSide,
-    ZoneObservation,
-    ZoneRenderKind,
-    ZoneStatus,
-)
+from libs.models.sr.domain.errors import ContractValidationError
+from libs.models.sr.domain.events import SREventType
+from libs.models.sr.domain.zones import ZoneSide, ZoneStatus
+
+from .observations import ObservedEvent, ZoneObservation, ZoneRenderKind
 from .identity import canonical_timestamp, evaluation_hash, normalize_utc
+from .traces import SREvaluationTrace
 
 
 _HASH_RE = re.compile(r"[0-9a-f]{64}")
