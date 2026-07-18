@@ -45,6 +45,10 @@ _EXPECTED_TOP_LEVEL_CYCLES = {
     frozenset({"config", "domain"}),
     frozenset({"research", "tools"}),
 }
+_CONTRACT_FACADES = {
+    "domain/contracts.py",
+    "evaluation/contracts.py",
+}
 
 
 def _runtime_files() -> list[Path]:
@@ -255,6 +259,41 @@ def test_shared_research_package_import_graph_is_acyclic() -> None:
 
 def test_active_top_level_import_cycles_match_the_recorded_r2_baseline() -> None:
     assert _cycle_components(_top_level_package_graph()) == _EXPECTED_TOP_LEVEL_CYCLES
+
+
+def test_active_modules_import_canonical_contract_owners_not_facades() -> None:
+    facade_imports = (
+        f"{_PACKAGE_PREFIX}.domain.contracts",
+        f"{_PACKAGE_PREFIX}.evaluation.contracts",
+    )
+    violations = [
+        f"{_relative_path(path)}:{line} imports {module}"
+        for path in _runtime_files()
+        if _relative_path(path) not in _CONTRACT_FACADES
+        for line, module in _imported_modules(path)
+        if module in facade_imports
+    ]
+    assert violations == []
+
+
+def test_core_contract_facades_are_export_only() -> None:
+    violations: list[str] = []
+    for relative_path in sorted(_CONTRACT_FACADES):
+        path = _PACKAGE_DIR / relative_path
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in tree.body:
+            if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
+                if isinstance(node.value.value, str):
+                    continue
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                continue
+            if isinstance(node, ast.Assign) and all(
+                isinstance(target, ast.Name) and target.id == "__all__"
+                for target in node.targets
+            ):
+                continue
+            violations.append(f"{relative_path}:{node.lineno}")
+    assert violations == []
 
 
 def test_shared_package_facades_are_export_only() -> None:
