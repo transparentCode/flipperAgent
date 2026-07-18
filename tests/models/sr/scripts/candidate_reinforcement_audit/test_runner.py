@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from libs.models.sr.domain.contracts import ContractValidationError
-from libs.models.sr.scripts.candidate_reinforcement_audit import runner
+from libs.models.sr.research.studies.candidate_reinforcement_audit import runner
 
 
 def test_repository_commit_is_full_sha():
