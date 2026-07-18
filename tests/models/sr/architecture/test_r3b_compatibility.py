@@ -10,6 +10,7 @@ from libs.models.sr.research.studies.cohort_readiness import config as canonical
 from libs.models.sr.research.studies.cohort_readiness import contracts as canonical_cohort_contracts
 from libs.models.sr.research.studies.cohort_readiness import runner as canonical_cohort_runner
 from libs.models.sr.research.studies.cohort_readiness import metrics as canonical_cohort_metrics
+from libs.models.sr.research.studies.cohort_readiness import source as canonical_cohort_source
 from libs.models.sr.research.studies.geometry_sensitivity import cli as canonical_geometry_cli
 from libs.models.sr.research.studies.geometry_sensitivity import contracts as canonical_geometry_contracts
 from libs.models.sr.research.studies.geometry_sensitivity import runner as canonical_geometry_runner
@@ -31,6 +32,7 @@ def test_r3b_cohort_contracts_keep_exact_legacy_and_shared_identity() -> None:
     assert legacy_cohort_config.CohortConfig is canonical_cohort_config.CohortConfig
     assert legacy_cohort_config.CohortConfig is shared_cohort_config.CohortConfig
     assert legacy_cohort_runner.evaluate_stage is canonical_cohort_runner.evaluate_stage
+    assert legacy_cohort_runner.default_provider_adapter is canonical_cohort_source.default_provider_adapter
     assert canonical_cohort_contracts.SourceBundle is shared_cohort_contracts.SourceBundle
     assert legacy_cohort_artifacts.validate_evaluation_bundle is canonical_cohort_artifacts.validate_evaluation_bundle
     assert canonical_cohort_artifacts.validate_evaluation_bundle is shared_cohort_artifacts.validate_evaluation_bundle
