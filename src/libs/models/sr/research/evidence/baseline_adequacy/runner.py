@@ -15,6 +15,16 @@ from libs.models.sr.research.cohort.artifacts import load_source_bundle, validat
 from libs.models.sr.research.cohort.config import load_cohort_config
 from libs.models.sr.research.cohort.contracts import APPROVED_ASSETS, AssetEvaluation, CohortEvaluation, SourceBundle
 from libs.models.sr.research.cohort.metrics import replay_asset
+from libs.models.sr.research.evidence.geometry_sensitivity.artifacts import (
+    validate_evaluation_bundle as validate_v18_study,
+)
+from libs.models.sr.research.evidence.geometry_sensitivity.config import (
+    GeometrySensitivityConfig,
+    load_geometry_config,
+)
+from libs.models.sr.research.evidence.geometry_sensitivity.contracts import (
+    GeometrySensitivityStudy,
+)
 
 from .config import load_baseline_adequacy_config
 from .contracts import (
@@ -27,7 +37,6 @@ from .contracts import (
     V18_BASELINE_CANDIDATE_ID,
 )
 from .controls import build_controls
-from .geometry import FrozenGeometryConfig, FrozenGeometryStudy, load_frozen_geometry_study
 from .metrics import evaluate_adequacy
 
 
@@ -36,8 +45,8 @@ class FrozenInputs:
     v17_config: Any
     source_bundle: SourceBundle
     v17_evaluation: CohortEvaluation
-    v18_config: FrozenGeometryConfig
-    v18_study: FrozenGeometryStudy
+    v18_config: GeometrySensitivityConfig
+    v18_study: GeometrySensitivityStudy
     resolved_configs: dict[str, ResolvedSRConfig]
     resolved_inputs: dict[str, Any]
 
@@ -118,6 +127,9 @@ def load_frozen_inputs(config: BaselineAdequacyConfig, *, repo_root: str | Path)
     v17_config = load_cohort_config(_root_path(root, config.v17_config_path, field_name="v17_config_path"))
     if v17_config.config_hash != config.v17_config_hash:
         raise ContractValidationError("loaded V1.7 config identity mismatch")
+    v18_config = load_geometry_config(_root_path(root, config.v18_config_path, field_name="v18_config_path"))
+    if v18_config.config_hash != config.v18_config_hash:
+        raise ContractValidationError("loaded V1.8 config identity mismatch")
     sr_configs, input_configs = resolve_frozen_configs(config, repo_root=root)
     source_bundle = load_source_bundle(
         _root_path(root, config.source_bundle_path, field_name="source_bundle_path"),
@@ -143,13 +155,14 @@ def load_frozen_inputs(config: BaselineAdequacyConfig, *, repo_root: str | Path)
     )
     if v17_evaluation.evaluation_id != config.v17_evaluation_id or v17_evaluation.implementation_commit != config.v17_evaluation_implementation_commit:
         raise ContractValidationError("V1.7 evaluation identity mismatch")
-    v18_config, v18_study = load_frozen_geometry_study(
+    v18_study = validate_v18_study(
         _root_path(root, config.v18_study_bundle_path, field_name="v18_study_bundle_path"),
-        config_hash=config.v18_config_hash,
+        config=v18_config,
+        repo_root=root,
         implementation_commit=config.v18_implementation_commit,
-        bundle_id=config.v18_study_bundle_id,
+        expected_bundle_id=config.v18_study_bundle_id,
     )
-    if v18_study.study_id != config.v18_study_id or v18_study.disposition != "RETAIN_BASELINE_GEOMETRY" or v18_study.selected_candidate_id is not None or v18_study.baseline_candidate_id != V18_BASELINE_CANDIDATE_ID:
+    if v18_study.study_id != config.v18_study_id or v18_study.disposition.value != "RETAIN_BASELINE_GEOMETRY" or v18_study.selected_candidate_id is not None or v18_study.baseline_candidate_id != V18_BASELINE_CANDIDATE_ID:
         raise ContractValidationError("V1.8 study is not the approved retained baseline")
     return FrozenInputs(v17_config=v17_config, source_bundle=source_bundle, v17_evaluation=v17_evaluation, v18_config=v18_config, v18_study=v18_study, resolved_configs=sr_configs, resolved_inputs=input_configs)
 

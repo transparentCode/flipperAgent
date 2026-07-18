@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from libs.models.sr.domain.contracts import ContractValidationError
-from libs.models.sr.research.evidence.baseline_adequacy.geometry import (
-    load_frozen_geometry_study,
+from libs.models.sr.research.evidence.geometry_sensitivity.config import (
+    GeometrySensitivityConfig,
 )
+from libs.models.sr.research.evidence.geometry_sensitivity.contracts import (
+    GeometrySensitivityStudy,
+)
+from libs.models.sr.research.evidence.baseline_adequacy import runner as adequacy_runner
 from libs.models.sr.scripts.baseline_adequacy.runner import load_frozen_inputs
 
 
@@ -24,33 +29,40 @@ def test_frozen_inputs_are_validated_without_provider_or_source_preparation(adeq
     monkeypatch.setattr(cohort_source, "load_taousdt_source", fail)
     frozen = load_frozen_inputs(adequacy_config, repo_root=Path(repo_root))
     assert frozen.tao_source.row_count == 629
+    assert type(frozen.v18_config) is GeometrySensitivityConfig
+    assert type(frozen.v18_study) is GeometrySensitivityStudy
 
 
-def test_geometry_frozen_evidence_boundary_rejects_member_byte_tampering(
+def test_frozen_inputs_reject_missing_v18_config(adequacy_config, repo_root):
+    config = replace(adequacy_config, v18_config_path="definitely/missing/v18.yaml")
+
+    with pytest.raises(ContractValidationError):
+        load_frozen_inputs(config, repo_root=repo_root)
+
+
+def test_frozen_inputs_reject_mutated_v18_config(
     adequacy_config,
     repo_root,
     tmp_path,
+    monkeypatch,
 ):
-    source = Path(repo_root) / adequacy_config.v18_study_bundle_path
-    bundle = tmp_path / source.name
-    bundle.mkdir()
-    for name in ("manifest.json", "study.json"):
-        (bundle / name).write_bytes((source / name).read_bytes())
-
-    config, study = load_frozen_geometry_study(
-        bundle,
-        config_hash=adequacy_config.v18_config_hash,
-        implementation_commit=adequacy_config.v18_implementation_commit,
-        bundle_id=adequacy_config.v18_study_bundle_id,
+    source = Path(repo_root) / adequacy_config.v18_config_path
+    mutated = tmp_path / source.name
+    mutated.write_text(
+        source.read_text(encoding="utf-8").replace(
+            "root: research/tmp_sr_v1_8",
+            "root: research/mutated_v18",
+        ),
+        encoding="utf-8",
     )
-    assert config.config_hash == adequacy_config.v18_config_hash
-    assert study.study_id == adequacy_config.v18_study_id
+    original_root_path = adequacy_runner._root_path
 
-    (bundle / "study.json").write_bytes((bundle / "study.json").read_bytes() + b" ")
-    with pytest.raises(ContractValidationError, match="V1.8 study member hash mismatch"):
-        load_frozen_geometry_study(
-            bundle,
-            config_hash=adequacy_config.v18_config_hash,
-            implementation_commit=adequacy_config.v18_implementation_commit,
-            bundle_id=adequacy_config.v18_study_bundle_id,
-        )
+    def root_path(repo_root, relative, *, field_name):
+        if field_name == "v18_config_path":
+            return mutated
+        return original_root_path(repo_root, relative, field_name=field_name)
+
+    monkeypatch.setattr(adequacy_runner, "_root_path", root_path)
+
+    with pytest.raises(ContractValidationError, match="loaded V1.8 config identity mismatch"):
+        load_frozen_inputs(adequacy_config, repo_root=repo_root)
