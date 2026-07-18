@@ -6,7 +6,7 @@ import pytest
 
 from libs.models.sr.domain.contracts import ContractValidationError
 from libs.models.sr.domain.identity import canonical_json, deterministic_hash
-from libs.models.sr.scripts.lifecycle_utility import runner
+from libs.models.sr.research.evidence.lifecycle_utility import runner
 from libs.models.sr.scripts.lifecycle_utility.artifacts import (
     load_json,
     publish_lifecycle_bundle,
