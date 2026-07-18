@@ -456,7 +456,7 @@ def test_zone_viewer_payload_facade_is_export_only() -> None:
     assert violations == []
 
 
-def test_r3_completion_has_exactly_eight_canonical_studies() -> None:
+def test_canonical_study_set_includes_v2_displacement_origin() -> None:
     canonical_dir = _PACKAGE_DIR / "research" / "studies"
     assert {path.name for path in canonical_dir.iterdir() if path.is_dir() and path.name != "__pycache__"} == {
         "atr_calibration",
@@ -465,6 +465,7 @@ def test_r3_completion_has_exactly_eight_canonical_studies() -> None:
         "candidate_reinforcement_audit",
         "cohort_readiness",
         "context_audit",
+        "displacement_origin_adequacy",
         "geometry_sensitivity",
         "lifecycle_utility",
     }

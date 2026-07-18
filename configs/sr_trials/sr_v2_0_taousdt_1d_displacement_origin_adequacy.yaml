@@ -1,0 +1,81 @@
+version: "1"
+
+trial:
+  trial_name: sr-v2.0-taousdt-1d-displacement-origin-adequacy
+  venue: binance_usdm
+  asset: TAOUSDT
+  timeframe: 1d
+
+source:
+  bundle_path: research/tmp_sr_v1_7/source/6b5a0a81117ba299516fb67ca2da81b3cb6e6f35ed6a85986a27689205a565d9
+  bundle_id: 6b5a0a81117ba299516fb67ca2da81b3cb6e6f35ed6a85986a27689205a565d9
+  implementation_commit: be6459a8e06ec95b634b2cfb2b91a08cd31d9ba2
+  source_id: fc1ba274454f277a40f005f542fdfd4e6e752e5afa2e1050f3582b21fd8b1120
+  source_bundle_id: d210494937ebcd4347e026b8ac02bff3105065e5455752b8690d449def357925
+  bars_sha256: 703367048f4ed7dc432ca9dfe0ad4afdc5a56eb2a508597ef00bdc3de8b81163
+  grid_sha256: d1f60173bc59a1301d08c8521b9f78fa0831daad3fd8b58edae392237d1e54e8
+  row_count: 629
+  start: "2024-04-11T00:00:00Z"
+  end: "2025-12-31T00:00:00Z"
+  grid_policy: exact_utc_daily_grid_from_taousdt_development_capsule
+
+atr:
+  method: wilder_rma
+  period: 14
+  seed: sma
+  common_start_index: 28
+
+detector:
+  displacement_atr: 1.0
+  minimum_body_fraction: 0.60
+  structure_lookback_bars: 5
+  base_search_bars: 3
+
+outcome:
+  first_touch_offset_bars: 1
+  touch_search_bars: 50
+  horizon_bars: 10
+  window_policy: half_open_utc_daily
+
+folds:
+  - name: 2024_q3
+    start: "2024-07-01T00:00:00Z"
+    end: "2024-10-01T00:00:00Z"
+  - name: 2024_q4
+    start: "2024-10-01T00:00:00Z"
+    end: "2025-01-01T00:00:00Z"
+  - name: 2025_q1
+    start: "2025-01-01T00:00:00Z"
+    end: "2025-04-01T00:00:00Z"
+  - name: 2025_q2
+    start: "2025-04-01T00:00:00Z"
+    end: "2025-07-01T00:00:00Z"
+  - name: 2025_q3
+    start: "2025-07-01T00:00:00Z"
+    end: "2025-10-01T00:00:00Z"
+  - name: 2025_q4
+    start: "2025-10-01T00:00:00Z"
+    end: "2026-01-01T00:00:00Z"
+
+controls:
+  per_real_touch: 2
+  side_order: [SUPPORT, RESISTANCE]
+
+gates:
+  minimum_completed_real_outcomes: 24
+  minimum_comparable_folds: 4
+  minimum_real_outcomes_per_comparable_fold: 4
+  minimum_controls_per_side_per_comparable_fold: 4
+  minimum_pooled_median_excess_quality_atr: 0.10
+  minimum_positive_comparable_fold_fraction: 0.60
+  minimum_worst_comparable_fold_excess_atr: -0.10
+
+dispositions:
+  - DISPLACEMENT_ORIGIN_BEATS_NAIVE_NULL
+  - DISPLACEMENT_ORIGIN_NOT_BETTER_THAN_NAIVE_NULL
+  - INSUFFICIENT_EVIDENCE
+
+artifact:
+  output_root: research/tmp_sr_v2
+  stage: displacement_origin_adequacy_development
+  members: [manifest.json, study.json, cases.json]
