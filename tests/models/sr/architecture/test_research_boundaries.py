@@ -251,7 +251,9 @@ def test_shared_research_modules_do_not_import_studies_or_runtime_services() -> 
         for path in sorted(research_dir.rglob("*.py"))
         if path.relative_to(research_dir).parts[0] != "studies"
         for line, module in _imported_modules(path)
-        if any(_is_prefix(module, forbidden) for forbidden in _FORBIDDEN_RESEARCH_PREFIXES)
+        if any(
+            _is_prefix(module, forbidden) for forbidden in _FORBIDDEN_RESEARCH_PREFIXES
+        )
     ]
     assert violations == []
 
@@ -261,17 +263,19 @@ def test_yaml_imports_stay_at_the_two_approved_locations() -> None:
         f"{_relative_path(path)}:{line} imports {module}"
         for path in _runtime_files()
         for line, module in _imported_modules(path)
-        if _is_prefix(module, "yaml")
-        and _relative_path(path) not in _YAML_IMPORT_PATHS
+        if _is_prefix(module, "yaml") and _relative_path(path) not in _YAML_IMPORT_PATHS
     ]
     assert yaml_imports == []
 
 
 def test_sibling_study_imports_are_eliminated_at_r3_completion() -> None:
-    assert _sibling_imports(
-        studies_dir=_PACKAGE_DIR / "scripts",
-        module_prefix=f"{_PACKAGE_PREFIX}.scripts.",
-    ) == _EXPECTED_SIBLING_IMPORT_STATEMENTS
+    assert (
+        _sibling_imports(
+            studies_dir=_PACKAGE_DIR / "scripts",
+            module_prefix=f"{_PACKAGE_PREFIX}.scripts.",
+        )
+        == _EXPECTED_SIBLING_IMPORT_STATEMENTS
+    )
 
 
 def test_shared_research_package_import_graph_is_acyclic() -> None:
@@ -295,10 +299,7 @@ def test_domain_factory_config_validation_dependency_is_late_and_explicit() -> N
         for node in tree.body
         if isinstance(node, ast.FunctionDef) and node.name == "create_initial_state"
     )
-    imports = {
-        module
-        for _, module in _imports_from_nodes(path, ast.walk(factory))
-    }
+    imports = {module for _, module in _imports_from_nodes(path, ast.walk(factory))}
     assert imports == {f"{_PACKAGE_PREFIX}.config.models"}
 
 
@@ -404,10 +405,13 @@ def test_canonical_studies_do_not_import_script_studies() -> None:
 
 
 def test_canonical_studies_do_not_import_sibling_studies() -> None:
-    assert _sibling_imports(
-        studies_dir=_PACKAGE_DIR / "research" / "studies",
-        module_prefix=f"{_PACKAGE_PREFIX}.research.studies.",
-    ) == Counter()
+    assert (
+        _sibling_imports(
+            studies_dir=_PACKAGE_DIR / "research" / "studies",
+            module_prefix=f"{_PACKAGE_PREFIX}.research.studies.",
+        )
+        == Counter()
+    )
 
 
 def test_r3d_script_facades_only_forward_to_canonical_studies() -> None:
@@ -456,9 +460,13 @@ def test_zone_viewer_payload_facade_is_export_only() -> None:
     assert violations == []
 
 
-def test_canonical_study_set_includes_v2_displacement_origin() -> None:
+def test_canonical_study_set_includes_approved_v2_studies() -> None:
     canonical_dir = _PACKAGE_DIR / "research" / "studies"
-    assert {path.name for path in canonical_dir.iterdir() if path.is_dir() and path.name != "__pycache__"} == {
+    assert {
+        path.name
+        for path in canonical_dir.iterdir()
+        if path.is_dir() and path.name != "__pycache__"
+    } == {
         "atr_calibration",
         "baseline_adequacy",
         "baseline_trial",
@@ -468,4 +476,5 @@ def test_canonical_study_set_includes_v2_displacement_origin() -> None:
         "displacement_origin_adequacy",
         "geometry_sensitivity",
         "lifecycle_utility",
+        "pivot_rejection_adequacy",
     }

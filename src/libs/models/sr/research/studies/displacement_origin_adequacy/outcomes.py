@@ -8,6 +8,7 @@ import math
 from libs.models.sr.detection.displacement_origin import detect_displacement_origins
 from libs.models.sr.domain import CandidateLevel, ClosedBar, ContractValidationError, SRStateKey, ZoneGeometry, ZoneSide
 from libs.models.sr.research.metrics.first_touch import FirstTouchOutcome
+from libs.models.sr.research.metrics.first_revisit import intersects_band
 from libs.models.sr.research.replay.atr import compute_atr_series
 from libs.models.sr.research.source.capsules import SourceCapsule
 
@@ -46,7 +47,7 @@ def _fold_end(fold_name: str, config: DisplacementOriginAdequacyConfig) -> datet
 
 
 def _intersection(bar: ClosedBar, candidate: CandidateLevel) -> bool:
-    return bar.high >= candidate.geometry.lower_bound and bar.low <= candidate.geometry.upper_bound
+    return intersects_band(bar, candidate)
 
 
 def _outcome(*, candidate: CandidateLevel, touch: ClosedBar, touch_index: int, fold_end: datetime, bars: tuple[ClosedBar, ...], config: DisplacementOriginAdequacyConfig) -> FirstTouchOutcome:
