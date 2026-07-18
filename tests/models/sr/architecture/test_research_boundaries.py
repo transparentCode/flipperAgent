@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import ast
 from collections import Counter, defaultdict
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
+import os
 from pathlib import Path
+import subprocess
+import sys
 
 
 _PACKAGE_PREFIX = "libs.models.sr"
@@ -41,8 +44,7 @@ _FORBIDDEN_RESEARCH_PREFIXES = (
     "urllib",
 )
 _EXPECTED_SIBLING_IMPORT_STATEMENTS: Counter[tuple[str, str]] = Counter()
-_EXPECTED_TOP_LEVEL_CYCLES = {
-    frozenset({"config", "domain"}),
+_EXPECTED_NON_CORE_IMPORT_TIME_CYCLES = {
     frozenset({"research", "tools"}),
 }
 _CONTRACT_FACADES = {
@@ -68,15 +70,27 @@ def _relative_import_module(path: Path, node: ast.ImportFrom) -> str | None:
     return ".".join(base_parts)
 
 
-def _imported_modules(path: Path) -> Iterator[tuple[int, str]]:
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    for node in ast.walk(tree):
+def _imports_from_nodes(
+    path: Path,
+    nodes: Iterable[ast.AST],
+) -> Iterator[tuple[int, str]]:
+    for node in nodes:
         if isinstance(node, ast.Import):
             yield from ((node.lineno, alias.name) for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
             module = _relative_import_module(path, node)
             if module is not None:
                 yield node.lineno, module
+
+
+def _imported_modules(path: Path) -> Iterator[tuple[int, str]]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    yield from _imports_from_nodes(path, ast.walk(tree))
+
+
+def _module_scope_imported_modules(path: Path) -> Iterator[tuple[int, str]]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    yield from _imports_from_nodes(path, tree.body)
 
 
 def _is_prefix(module: str, prefix: str) -> bool:
@@ -151,7 +165,7 @@ def _top_level_package_graph() -> dict[str, set[str]]:
     for path in _runtime_files():
         source = path.relative_to(_PACKAGE_DIR).parts[0]
         graph.setdefault(source, set())
-        for _, module in _imported_modules(path):
+        for _, module in _module_scope_imported_modules(path):
             if not _is_prefix(module, _PACKAGE_PREFIX):
                 continue
             suffix = module.removeprefix(f"{_PACKAGE_PREFIX}.")
@@ -257,8 +271,55 @@ def test_shared_research_package_import_graph_is_acyclic() -> None:
     assert not _has_cycle(_research_package_graph())
 
 
-def test_active_top_level_import_cycles_match_the_recorded_r2_baseline() -> None:
-    assert _cycle_components(_top_level_package_graph()) == _EXPECTED_TOP_LEVEL_CYCLES
+def test_core_import_time_package_graph_is_acyclic() -> None:
+    cycles = _cycle_components(_top_level_package_graph())
+    assert {cycle for cycle in cycles if cycle & _CORE_AREAS} == set()
+
+
+def test_non_core_import_time_cycles_remain_recorded_for_r5() -> None:
+    cycles = _cycle_components(_top_level_package_graph())
+    assert {
+        cycle for cycle in cycles if not cycle & _CORE_AREAS
+    } == _EXPECTED_NON_CORE_IMPORT_TIME_CYCLES
+
+
+def test_domain_factory_config_validation_dependency_is_late_and_explicit() -> None:
+    path = _PACKAGE_DIR / "domain" / "factory.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    factory = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "create_initial_state"
+    )
+    imports = {
+        module
+        for _, module in _imports_from_nodes(path, ast.walk(factory))
+    }
+    assert imports == {f"{_PACKAGE_PREFIX}.config.models"}
+
+
+def test_importing_domain_does_not_import_config_in_a_fresh_process() -> None:
+    environment = os.environ.copy()
+    source_root = _PACKAGE_DIR.parents[3]
+    environment["PYTHONPATH"] = os.pathsep.join(
+        value
+        for value in (str(source_root), environment.get("PYTHONPATH", ""))
+        if value
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; import libs.models.sr.domain; "
+            "assert not any(name == 'libs.models.sr.config' or "
+            "name.startswith('libs.models.sr.config.') for name in sys.modules)",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
 
 
 def test_active_modules_import_canonical_contract_owners_not_facades() -> None:
@@ -273,6 +334,22 @@ def test_active_modules_import_canonical_contract_owners_not_facades() -> None:
         for line, module in _imported_modules(path)
         if module in facade_imports
     ]
+    assert violations == []
+
+
+def test_active_modules_import_contract_validation_error_from_canonical_owner() -> None:
+    legacy_error_module = f"{_PACKAGE_PREFIX}.domain.identity"
+    violations: list[str] = []
+    for path in _runtime_files():
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ImportFrom):
+                continue
+            module = _relative_import_module(path, node)
+            if module != legacy_error_module:
+                continue
+            if any(alias.name == "ContractValidationError" for alias in node.names):
+                violations.append(f"{_relative_path(path)}:{node.lineno}")
     assert violations == []
 
 
