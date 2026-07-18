@@ -28,11 +28,18 @@ Completed Package D / R3c from
 - Extracted Baseline Adequacy's reusable frozen-evidence contracts,
   deterministic controls/metrics, artifact validation, and frozen-input
   replay service to `research.evidence.baseline_adequacy`.
-- Added the narrow `research.evidence.baseline_adequacy.geometry` boundary for
-  the immutable V1.8 member needed by V1.9. It validates requested config,
-  implementation and bundle identities; strict manifest/top-level bindings;
-  a regular non-symlink study member; exact member bytes; and the retained
-  baseline identity before V1.9 consumes it.
+- Restored V1.8 frozen-evidence ownership at
+  `research.evidence.geometry_sensitivity`, including the complete geometry
+  config, contracts, candidate grid, selection, artifact validator, and
+  semantic replay runner. Canonical Geometry Sensitivity remains an
+  identity-preserving facade over this neutral evidence service.
+- Baseline Adequacy again resolves `v18_config_path`, verifies the complete
+  Geometry config hash and payload, enforces the V1.8 bundle directory ID and
+  exact `{manifest.json, study.json}` member set, and semantically recomputes
+  every V1.8 candidate before consuming the complete geometry study object.
+- V1.8 validation and existing-bundle publication reject symlinked or
+  non-regular members. The former reduced V1.8 placeholder boundary is
+  removed.
 - Moved the exact `ViewerConfig` contract to
   `research.viewer.contracts`; Baseline Trial re-exports the same class object.
 - Context Audit now consumes only neutral V1.9 frozen-evidence contracts and
@@ -43,6 +50,7 @@ Implementation commits:
 
 - `1aab33e` — `refactor(sr): migrate baseline adequacy study`
 - `8e122cf` — `refactor(sr): migrate context audit study`
+- `3a9d4db` — `fix(sr): restore V1.8 evidence boundary`
 
 ## Compatibility and Dependency Accounting
 
@@ -70,18 +78,21 @@ Lifecycle Utility (3); Lifecycle Utility → Context Audit (4).
   disposition behavior changed.
 - Context Audit still requires the exact V1.9 negative disposition
   `BASELINE_NOT_BETTER_THAN_NAIVE_NULL`, 36 cases, and 31 comparable mappings.
-- The new V1.8 frozen-member regression proves direct byte tampering fails
-  closed before V1.9 replay consumption.
+- V1.8 regressions prove missing or mutated configuration, a wrong bundle
+  directory name, unexpected or symlinked members, and fully rehashed
+  manifest/study tampering all fail closed before V1.9 replay consumption.
+- `FrozenInputs.v18_config` and `FrozenInputs.v18_study` are once again the
+  complete canonical `GeometrySensitivityConfig` and
+  `GeometrySensitivityStudy` types; historical, canonical, and neutral
+  Geometry exports retain exact object identity.
 - No provider, network, database, holdout, source refresh, evidence
   regeneration, or viewer operation was performed.
 
 ## Validation Performed
 
-- Architecture, compatibility, Baseline Trial contract/configuration, and
-  R3c boundary slice: **49 passed**.
-- Baseline Adequacy and Context Audit focused suites passed, including frozen
-  V1.7/V1.8/V1.9 revalidation and Context Audit artifact checks.
-- Full active SR suite: **843 passed** in 276.65 seconds.
+- R3c focused Baseline Adequacy, Context Audit, Geometry Sensitivity, and
+  architecture suite: **136 passed**.
+- Full active SR suite: **848 passed**.
 - Historical CLI modules load successfully:
   - `python -m libs.models.sr.scripts.baseline_adequacy.cli --help`
   - `python -m libs.models.sr.scripts.context_audit.cli --help`
@@ -111,7 +122,10 @@ Lifecycle Utility (3); Lifecycle Utility → Context Audit (4).
 
 ## Review Request
 
-Review this package as an ownership and dependency-only migration. Confirm the
-two historical facade trees are logic-free, the canonical-study sibling count
-is zero, the remaining logical edge count is exactly nine, and V1.12 semantic
-validation plus frozen-byte identities remain unchanged.
+Review this package as an ownership and dependency-only migration with restored
+V1.8 semantic evidence validation. Confirm `v18_config_path` is consumed, the
+complete Geometry config/study types are returned, the V1.8 member/directory
+and semantic-recomputation checks are fail-closed, the two historical facade
+trees are logic-free, the canonical-study sibling count is zero, the remaining
+logical edge count is exactly nine, and V1.12 semantic validation plus
+frozen-byte identities remain unchanged.
