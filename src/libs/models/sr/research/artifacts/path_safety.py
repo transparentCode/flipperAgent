@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 import stat
 
-from libs.models.sr.domain.identity import ContractValidationError
+from libs.models.sr.domain.errors import ContractValidationError
 
 
 def require_regular_file(path: str | Path, *, description: str) -> None:

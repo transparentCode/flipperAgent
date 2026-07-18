@@ -6,7 +6,7 @@ from dataclasses import dataclass, field, fields
 from types import MappingProxyType
 from typing import Any, Mapping
 
-from libs.models.sr.domain.identity import ContractValidationError
+from libs.models.sr.domain.errors import ContractValidationError
 
 from .sections import (
     AssociationConfig,

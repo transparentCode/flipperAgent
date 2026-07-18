@@ -16,7 +16,7 @@ from dataclasses import fields
 from types import MappingProxyType
 from typing import Any, Mapping
 
-from libs.models.sr.domain.identity import ContractValidationError
+from libs.models.sr.domain.errors import ContractValidationError
 
 from .resolved import ResolvedSRConfig
 from .schema import SRConfig, _SECTIONS, _validate_raw_config

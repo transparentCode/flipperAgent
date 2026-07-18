@@ -10,7 +10,7 @@ import yaml
 from yaml.constructor import ConstructorError
 from yaml.resolver import BaseResolver
 
-from libs.models.sr.domain.identity import ContractValidationError
+from libs.models.sr.domain.errors import ContractValidationError
 
 
 class _UniqueKeySafeLoader(yaml.SafeLoader):

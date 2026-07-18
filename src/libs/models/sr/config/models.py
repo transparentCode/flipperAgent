@@ -6,7 +6,7 @@ Existing callers may continue importing the public configuration contracts here.
 
 from __future__ import annotations
 
-from libs.models.sr.domain.identity import ContractValidationError
+from libs.models.sr.domain.errors import ContractValidationError
 
 from .resolved import ResolvedSRConfig
 from .schema import SRConfig

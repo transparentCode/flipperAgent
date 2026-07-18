@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import math
 from typing import Any
 
-from libs.models.sr.domain.identity import ContractValidationError
+from libs.models.sr.domain.errors import ContractValidationError
 
 
 def _string(value: Any, *, field_name: str) -> str:

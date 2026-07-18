@@ -6,7 +6,8 @@ from dataclasses import asdict, dataclass
 import re
 from typing import Any, Mapping
 
-from libs.models.sr.domain.identity import ContractValidationError, deterministic_hash
+from libs.models.sr.domain.errors import ContractValidationError
+from libs.models.sr.domain.identity import deterministic_hash
 
 from .schema import _PARAMETER_PATHS
 from .sections import (
