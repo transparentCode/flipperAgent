@@ -1,10 +1,10 @@
 ---
-goal: Review SR-V2.0 displacement-origin adequacy implementation and frozen development evidence.
+goal: Review the corrected SR-V2.0 displacement-origin adequacy implementation and frozen development evidence.
 stage: coder-to-review
 date_created: 2026-07-18
 last_updated: 2026-07-18
 owner: Codex
-status: Ready
+status: Review Ready
 tags: [handoff, quant, sr, v2, displacement-origin, adequacy]
 source_agent: Codex quant-coder
 target_agent: Quant Review Agent
@@ -12,100 +12,104 @@ target_agent: Quant Review Agent
 
 # Scope Executed
 
-Implemented the approved SR-V2.0 displacement-origin adequacy experiment on
-`feature/sr-v2.0-displacement-origin-adequacy`, based on
-`4dd1f74d22dc0296c3d09599ef75906a7d0f147a`.
+Implemented the approved V3 remediation on
+`feature/sr-v2.0-displacement-origin-adequacy`. The code change is
+`0c93096d05396c6d3791e036284773faaad94c23`, on top of the original V2
+implementation.
 
-- Added a pure, closed-bar displacement-origin candidate detector with the
-  locked four-parameter V2 baseline.
-- Added strict trial configuration and a standalone canonical research study.
-- Evaluated only the frozen 629-row TAOUSDT/1d development input. No provider,
-  refresh, holdout, or production engine path was used.
-- Reused neutral ATR, source, fold, control, artifact, path-safety, and
-  provenance services. The small shared control-outcome extraction preserves
-  V1 baseline-control behavior.
+- Preserved the frozen 629-row TAOUSDT/1d development input; no provider,
+  network, holdout, or production path was used.
+- Replaced the invalid real-touch-time control with an independently evaluated,
+  prior-close naïve band for every in-fold displacement-origin candidate.
+- Regenerated deterministic V2 evidence twice from the remediation commit.
 
 # Changes Made
 
-- `detection/displacement_origin.py`: causal candidate detection using prior
-  ATR, strict five-bar structure, nearest opposing base in the prior three
-  bars, and immutable full-range geometry.
-- `configs/sr_trials/sr_v2_0_taousdt_1d_displacement_origin_adequacy.yaml`:
-  locked source, ATR, detector, folds, outcomes, gates, controls, and artifact
-  protocol; no numeric fallback defaults.
-- `research/studies/displacement_origin_adequacy/`: strict configuration,
-  raw-zone first-touch outcomes, matched controls, gates, artifact publication,
-  semantic validation, runner, and CLI.
-- `research/evidence/baseline_adequacy/controls.py`: extracted the existing
-  pure control-outcome calculation for neutral reuse; V1 wrapper behavior is
-  retained.
-- Focused detector, configuration, outcome, gate, runner, import-boundary, and
-  rehashed-artifact tamper tests. Added exact 50-bar expiry coverage and tests
-  for case, metric, identity, and disposition tampering.
+- `detection/displacement_origin.py`: prior-bar ATR still scales only the
+  displacement threshold; each candidate stores confirmation-bar ATR. Support
+  now requires `close > open`; resistance requires `close < open`, in addition
+  to the existing strict structural-break conditions.
+- `research/studies/displacement_origin_adequacy/`: builds two controls per
+  in-fold candidate at `close[t-1]`, with the real candidate's half-width,
+  confirmation time, confirmation ATR, fold, and each stable side. Controls
+  locate their own first touch from `t+1`; they are not conditioned on a real
+  touch.
+- Paired metrics now use completed same-side pairs only:
+  `real directional quality - same-side naïve control directional quality`.
+  Readiness evaluates 24 completed pairs, four comparable folds, four pairs per
+  comparable fold, and four controls per side per comparable fold before
+  utility gates.
+- The runner uses the canonical cohort `source_capsule()` adapter. The study
+  now records the outer cohort source bundle and the underlying frozen source
+  capsule identity separately.
+- Updated strict configuration, contracts, deterministic artifacts and semantic
+  recomputation. Tests cover corrected ATR ownership, candle direction,
+  independent control touches, pair/config/source identity tampering, and
+  readiness/utility disposition precedence.
 
-Final implementation commit: `159806458bfce5b4a480ac33242269b51c5724e2`.
+Deterministic evidence was generated twice with byte-identical outputs:
 
-Deterministic evidence was generated twice from that commit with identical
-member bytes:
+- Bundle: `7b4ce100136be1ad74f8e29858a127f46b4b467ff577275ec8543e11547372bc`
+- Study: `db98da4de57285673f909d0b4c6ae272268bbf74f653675174fcd61b8bef32ee`
+- Manifest SHA-256: `d2c28de5b67c6ddd19f5a1a7d67d0b9ccc3b2ef89f4b4ef6c3aef6e0ccb7ca6a`
+- Study SHA-256: `d877dfa5dac6b57783c7f6ef8515897077c36e042bd483f4245b6323e92dfd91`
+- Manifest/study byte lengths: `6524` / `2879`
 
-- Bundle: `2623894d6cc782a967c6f2c83305c42d598eba34effa45ae34407734fb3cd5c4`
-- Study: `9856c44834cd1355431c8b4b2adf92fbefadbbcc203f85b31b6628236db5fd58`
-- Manifest SHA-256: `7435d0b785d00502ead5024c0d680c182ca2cc7955f07f38f5c4b0d8beab581c`
-- Study SHA-256: `3ad4a962bb5751f13bdafe5ca57df75beb62a7afe86276befee16b6789fed85a`
-- Cases SHA-256: `6a6fc55c34a51d0c3407807689cfc94731403755fd5e42d2052fbd043a3445b8`
+Semantic reconstruction returns 28 candidates, 56 controls, and 23 completed
+same-side pairs. The outer cohort source bundle is
+`6b5a0a81117ba299516fb67ca2da81b3cb6e6f35ed6a85986a27689205a565d9`; the
+canonical source capsule bundle is
+`d210494937ebcd4347e026b8ac02bff3105065e5455752b8690d449def357925`.
 
 Result: `INSUFFICIENT_EVIDENCE`.
 
-- 28 candidates: 19 support, 9 resistance.
-- 23 completed first-touch outcomes; 5 no-touch cases; 46 matched controls.
-- Fold candidate counts: 2024_q3=7, 2024_q4=4, 2025_q1=1, 2025_q2=8,
-  2025_q3=5, 2025_q4=3.
-- Base-distance counts: one bar=13, two bars=6, three bars=9.
-- Four comparable folds. Readiness fails only completed outcomes: 23 vs 24.
-- Diagnostic utility values: pooled median excess `0.6662978121065044 ATR`,
-  positive comparable-fold fraction `0.5`, worst fold `0.0 ATR`.
+- Comparable folds: `2024_q3`, `2024_q4`, `2025_q2`, `2025_q3`.
+- Completed pairs: `23 / 24` required; the readiness disposition is therefore
+  authoritative.
+- Diagnostic paired utility: pooled median `0.0 ATR`, positive comparable-fold
+  fraction `0.0`, worst comparable-fold median `-0.14263155242029035 ATR`.
+
+The old V2 bundle `2623894d…` and study `9856c448…` are superseded, remain
+ignored, and were neither modified nor deleted.
 
 # Blast Radius Considered
 
-`detect_displacement_origins` is a new isolated detector, not wired into
-`SREngine`. The only shared-symbol change is the pure control-outcome helper;
-its direct V1 control regression was included in the focused validation and
-the complete SR suite. Architecture checks confirm the V2 study has no sibling
-study, provider, network, or legacy `libs.sr` imports.
+`detect_displacement_origins` remains an isolated V2 detector; it is not wired
+into `SREngine`. The V2 control/outcome and artifact changes are confined to
+the V2 study package. Architecture checks confirm no provider, network, legacy
+`libs.sr`, sibling-study, or production-engine dependency was introduced.
 
 # Validation Performed
 
-- `tests/models/sr/detection/test_displacement_origin.py -q -rA`: 21 passed.
-- `tests/models/sr/research/studies/displacement_origin_adequacy -q -rA`:
-  21 passed.
-- `tests/models/sr/architecture -q`: 34 passed.
-- `tests/models/sr -q`: 954 passed in 656.93 seconds.
+- V2 study, displacement detector, and architecture suites: `86 passed`.
+- Full SR suite: `964 passed in 642.43s`.
+- V2 artifact semantic recomputation: passed.
+- Two V2 CLI evaluations from `0c93096…`: same bundle ID and byte-identical
+  `manifest.json` / `study.json`.
 - Ruff: `$HOME/.local/bin/ruff check src/libs/models/sr tests/models/sr`.
 - Compilation: `PYTHONPATH=src .venv/bin/python -m compileall -q
   src/libs/models/sr`.
-- Package import and V2 CLI help: passed.
-- `git diff --check`: passed.
-- V2 bundle semantic recomputation: passed.
+- V2 CLI help and package import: passed.
+- `git diff --check 4dd1f74..HEAD`: passed.
 - V1.12 public semantic validation: passed with 65 candidates, 50 created
   zones, 15 eligible matches, 13 unique reinforced zones, and
   `INSUFFICIENT_REINFORCEMENT_EVIDENCE`.
-- Frozen protected hashes remain exact:
-  `configs/sr.yaml` `0c7c11aea8f1ea1e11ef810a6f38d7370a14834c1517d4aab43ac71c378a2119`,
-  V1.12 manifest `c2d0e03f43ea1154bac9c005a2c4d021188a33f56d4ddd17dd6376b9f77c43e6`,
+- Protected hashes remain exact: `configs/sr.yaml`
+  `0c7c11aea8f1ea1e11ef810a6f38d7370a14834c1517d4aab43ac71c378a2119`, V1.12
+  manifest `c2d0e03f43ea1154bac9c005a2c4d021188a33f56d4ddd17dd6376b9f77c43e6`,
   V1.12 audit `41bd97da3cef62f10a96f263ac0278e0aff524ebe8337abce0aee986995fee32`.
 
 # Not Changed
 
-No V1 engine, lifecycle, association, detection behavior, `configs/sr.yaml`,
-provider, network, database, holdout, viewer, deployment, production decision,
-or legacy `libs.sr` code changed. Generated V2 evidence is ignored and was not
-committed. No merge or V2.1 work was performed.
+No V1 model, engine, lifecycle, association, `configs/sr.yaml`, provider,
+network, database, holdout, viewer, production decision, deployment, legacy
+`libs.sr`, merge, tuning, or V2.1 work changed. Generated V2 evidence is
+ignored and is not committed.
 
 # Risks or Follow-Up Items
 
-No implementation blocker is known. The result is a readiness failure, not
-permission to loosen V2.0 parameters or fetch more data. Review should verify
-the causal detector, raw-zone outcome timing, control equivalence, and semantic
-artifact validator against the locked plan. If accepted, route the result using
-the plan's `INSUFFICIENT_EVIDENCE` decision rule; do not tune this detector in
-this branch.
+No implementation blocker is known. The corrected result is an evidence
+shortfall, not permission to loosen parameters, fetch data, access holdout, or
+promote this detector. Review should verify candidate ATR/direction semantics,
+prior-close control geometry and independent touch timing, paired gate
+accounting, source-capsule provenance, and semantic artifact reconstruction.
