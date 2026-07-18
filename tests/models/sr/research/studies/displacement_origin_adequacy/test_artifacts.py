@@ -66,6 +66,7 @@ def test_rehashed_disposition_tampering_is_rejected_by_semantic_recomputation(
     [
         ("cases", ("cases", 0, "base_distance_bars"), 2),
         ("cases", ("controls", 0, "candidate", "geometry", "center"), -999.0),
+        ("cases", ("controls", 0, "real_confirmation_id"), "f" * 64),
         ("cases", ("controls", 0, "outcome", "touch_bar_id"), "forged-touch"),
         ("cases", ("pairs", 0, "real_case_id"), "f" * 64),
         ("study", ("fold_metrics", 0, "completed_real_count"), 999),

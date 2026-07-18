@@ -30,7 +30,7 @@ def _controls(case: CandidateCase, quality: float) -> tuple[NaiveControl, ...]:
     result: list[NaiveControl] = []
     for side in (ZoneSide.SUPPORT, ZoneSide.RESISTANCE):
         candidate = CandidateLevel(state_key=case.candidate.state_key, side=side, geometry=ZoneGeometry(center=case.candidate.geometry.center + 10.0, half_width=case.candidate.geometry.half_width), source="prior_close_naive_v2", formed_at=case.candidate.formed_at, available_at=case.candidate.available_at, atr_at_creation=case.candidate.atr_at_creation)
-        result.append(NaiveControl(real_case_id=case.case_id, candidate=candidate, confirmation_bar_id=case.confirmation_bar_id, confirmation_index=case.confirmation_index, fold=case.fold or "missing", status=OutcomeStatus.COMPLETED, outcome=_outcome(candidate, quality, case.confirmation_index), zone_width_atr=case.zone_width_atr))
+        result.append(NaiveControl(real_confirmation_id=case.confirmation_id, candidate=candidate, confirmation_bar_id=case.confirmation_bar_id, confirmation_index=case.confirmation_index, fold=case.fold or "missing", status=OutcomeStatus.COMPLETED, outcome=_outcome(candidate, quality, case.confirmation_index), zone_width_atr=case.zone_width_atr))
     return tuple(result)
 
 
@@ -59,6 +59,16 @@ def test_pairing_rejects_control_geometry_or_width_mismatch() -> None:
     object.__setattr__(bad[0], "zone_width_atr", 3.0)
     with pytest.raises(ContractValidationError, match="matching contract"):
         build_study(cases, tuple(bad), config=config, implementation_commit="a" * 40)
+
+
+def test_study_rejects_missing_extra_or_duplicate_side_controls_per_case() -> None:
+    config = load_displacement_origin_adequacy_config(_CONFIG)
+    cases, controls = _population(1.0, 0.0, 24)
+    # Keep total 48: first candidate has four controls; second has none.
+    malformed = controls[:2] + controls[:2] + controls[4:]
+
+    with pytest.raises(ContractValidationError, match="ordered SUPPORT/RESISTANCE topology"):
+        build_study(cases, malformed, config=config, implementation_commit="a" * 40)
 
 
 def test_study_rejects_malformed_implementation_identity() -> None:

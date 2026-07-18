@@ -110,7 +110,8 @@ def test_bearish_displacement_creates_resistance_from_nearest_bullish_base() -> 
 def test_prior_atr_scales_threshold_but_confirmation_atr_owns_candidate_identity() -> None:
     bars = list(_bullish_bars())
     bars[4] = _bar(4, open_price=101, high=102, low=98, close=100, atr=2.0)
-    bars[5] = _bar(5, open_price=100, high=107, low=99, close=106, atr=3.0)
+    # Body=5: passes 2 * ATR[t-1] (=4) but fails 2 * ATR[t] (=6).
+    bars[5] = _bar(5, open_price=100, high=105, low=100, close=105, atr=3.0)
 
     candidates = detect_displacement_origins(tuple(bars), _config(displacement_atr=2.0))
 

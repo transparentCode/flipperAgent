@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
-from libs.models.sr.domain import ClosedBar, SRStateKey
+from libs.models.sr.domain import CandidateLevel, ClosedBar, SRStateKey, ZoneGeometry, ZoneSide
 from libs.models.sr.research.studies.displacement_origin_adequacy.config import (
     load_displacement_origin_adequacy_config,
 )
 from libs.models.sr.research.studies.displacement_origin_adequacy.contracts import (
+    CandidateCase,
     OutcomeStatus,
 )
 from libs.models.sr.research.studies.displacement_origin_adequacy.outcomes import (
@@ -112,6 +114,79 @@ def test_no_intersection_before_expiry_is_explicitly_accounted() -> None:
     assert cases[0].outcome is None
     controls = build_naive_controls(cases, tuple(bars), config=config)
     assert len(controls) == 2
+
+
+def test_controls_bind_causal_confirmation_identity_not_future_real_outcome() -> None:
+    config = load_displacement_origin_adequacy_config(_CONFIG)
+    bars = _completed_touch_bars()
+    completed_case = evaluate_candidates(bars, config=config)[0]
+    no_touch_case = replace(completed_case, status=OutcomeStatus.NO_TOUCH, outcome=None)
+
+    completed_controls = build_naive_controls((completed_case,), bars, config=config)
+    no_touch_controls = build_naive_controls((no_touch_case,), bars, config=config)
+
+    assert completed_case.case_id != no_touch_case.case_id
+    assert completed_case.confirmation_id == no_touch_case.confirmation_id
+    assert completed_controls == no_touch_controls
+    assert tuple(item.control_id for item in completed_controls) == tuple(
+        item.control_id for item in no_touch_controls
+    )
+    assert all(
+        control.real_confirmation_id == completed_case.confirmation_id
+        for control in completed_controls
+    )
+
+
+def test_changing_real_width_changes_naive_bounds_and_touch_result() -> None:
+    config = load_displacement_origin_adequacy_config(_CONFIG)
+    bars = tuple(
+        _bar(index, open_price=101.75, high=102.0, low=101.5, close=101.8)
+        for index in range(17)
+    )
+    bars = (
+        bars[:4]
+        + (_bar(4, open_price=100.0, high=101.0, low=99.0, close=100.0),)
+        + (_bar(5, open_price=100.0, high=101.0, low=99.0, close=100.0),)
+        + bars[6:]
+    )
+
+    def case(half_width: float) -> CandidateCase:
+        candidate = CandidateLevel(
+            state_key=SRStateKey("binance_usdm", "TAOUSDT", "1d"),
+            side=ZoneSide.SUPPORT,
+            geometry=ZoneGeometry(center=200.0, half_width=half_width),
+            source="displacement_origin_v2",
+            formed_at=bars[4].closed_at,
+            available_at=bars[5].closed_at,
+            atr_at_creation=1.0,
+        )
+        return CandidateCase(
+            candidate=candidate,
+            confirmation_bar_id=bars[5].bar_id,
+            confirmation_index=5,
+            base_distance_bars=1,
+            fold="2024_q3",
+            status=OutcomeStatus.NO_TOUCH,
+            outcome=None,
+            zone_width_atr=2.0 * half_width,
+        )
+
+    wide_case, narrow_case = case(2.0), case(0.25)
+    wide_control = next(
+        item
+        for item in build_naive_controls((wide_case,), bars, config=config)
+        if item.candidate.side is ZoneSide.SUPPORT
+    )
+    narrow_control = next(
+        item
+        for item in build_naive_controls((narrow_case,), bars, config=config)
+        if item.candidate.side is ZoneSide.SUPPORT
+    )
+
+    assert (wide_control.candidate.geometry.lower_bound, wide_control.candidate.geometry.upper_bound) == (98.0, 102.0)
+    assert (narrow_control.candidate.geometry.lower_bound, narrow_control.candidate.geometry.upper_bound) == (99.75, 100.25)
+    assert wide_control.status is OutcomeStatus.COMPLETED
+    assert narrow_control.status is OutcomeStatus.NO_TOUCH
 
 
 def test_touch_at_the_fifty_first_search_bar_is_excluded() -> None:

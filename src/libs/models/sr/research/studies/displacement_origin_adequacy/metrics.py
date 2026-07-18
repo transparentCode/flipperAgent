@@ -36,14 +36,28 @@ def build_study(cases: tuple[CandidateCase, ...], controls: tuple[NaiveControl, 
     by_case = {item.case_id: item for item in cases}
     if len(by_case) != len(cases):
         raise ContractValidationError("V2.0 metrics require unique cases")
-    expected_control_count = sum(case.fold is not None for case in cases) * config.controls_per_real_candidate
-    if len(controls) != expected_control_count:
-        raise ContractValidationError("V2.0 controls do not reconcile to in-fold candidates")
+    in_fold_cases = tuple(item for item in cases if item.fold is not None)
+    by_confirmation = {item.confirmation_id: item for item in in_fold_cases}
+    if len(by_confirmation) != len(in_fold_cases):
+        raise ContractValidationError("V2.0 metrics require unique causal case identities")
+    expected_topology = tuple(
+        (case.confirmation_id, side)
+        for case in in_fold_cases
+        for side in config.control_side_order
+    )
+    observed_topology = tuple(
+        (control.real_confirmation_id, control.candidate.side)
+        for control in controls
+    )
+    if observed_topology != expected_topology:
+        raise ContractValidationError(
+            "V2.0 controls must contain ordered SUPPORT/RESISTANCE topology per in-fold case"
+        )
     pairs: list[PairedOutcome] = []
     for control in controls:
-        real = by_case.get(control.real_case_id)
+        real = by_confirmation.get(control.real_confirmation_id)
         if real is None or real.fold != control.fold:
-            raise ContractValidationError("naive control references unknown or mismatched real case")
+            raise ContractValidationError("naive control references unknown or mismatched causal case")
         if (
             real.confirmation_bar_id != control.confirmation_bar_id
             or real.confirmation_index != control.confirmation_index

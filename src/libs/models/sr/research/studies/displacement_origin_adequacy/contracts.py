@@ -122,25 +122,39 @@ class CandidateCase:
     def case_id(self) -> str:
         return deterministic_hash(self.identity_payload())
 
-    def identity_payload(self) -> dict[str, object]:
+    @property
+    def confirmation_id(self) -> str:
+        """Causal case identity available at confirmation, before any outcome."""
+        return deterministic_hash(self.confirmation_identity_payload())
+
+    def confirmation_identity_payload(self) -> dict[str, object]:
         return {
             "candidate": candidate_payload(self.candidate),
             "confirmation_bar_id": self.confirmation_bar_id,
             "confirmation_index": self.confirmation_index,
             "base_distance_bars": self.base_distance_bars,
             "fold": self.fold,
-            "status": self.status.value,
-            "outcome": None if self.outcome is None else self.outcome.to_payload(),
             "zone_width_atr": self.zone_width_atr,
         }
 
+    def identity_payload(self) -> dict[str, object]:
+        return {
+            **self.confirmation_identity_payload(),
+            "status": self.status.value,
+            "outcome": None if self.outcome is None else self.outcome.to_payload(),
+        }
+
     def to_payload(self) -> dict[str, object]:
-        return {**self.identity_payload(), "case_id": self.case_id}
+        return {
+            **self.identity_payload(),
+            "confirmation_id": self.confirmation_id,
+            "case_id": self.case_id,
+        }
 
 
 @dataclass(frozen=True)
 class NaiveControl:
-    real_case_id: str
+    real_confirmation_id: str
     candidate: CandidateLevel
     confirmation_bar_id: str
     confirmation_index: int
@@ -150,7 +164,11 @@ class NaiveControl:
     zone_width_atr: float
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "real_case_id", _string(self.real_case_id, path="control.real_case_id"))
+        object.__setattr__(
+            self,
+            "real_confirmation_id",
+            _string(self.real_confirmation_id, path="control.real_confirmation_id"),
+        )
         if type(self.candidate) is not CandidateLevel or self.candidate.source != _NAIVE_SOURCE:
             raise ContractValidationError("control must contain prior-close naive candidate")
         object.__setattr__(self, "confirmation_bar_id", _string(self.confirmation_bar_id, path="control.confirmation_bar_id"))
@@ -169,7 +187,7 @@ class NaiveControl:
 
     def identity_payload(self) -> dict[str, object]:
         return {
-            "real_case_id": self.real_case_id,
+            "real_confirmation_id": self.real_confirmation_id,
             "candidate": candidate_payload(self.candidate),
             "confirmation_bar_id": self.confirmation_bar_id,
             "confirmation_index": self.confirmation_index,
@@ -300,7 +318,11 @@ class DisplacementOriginStudy:
             raise ContractValidationError("study.controls must be NaiveControl tuple")
         if type(self.pairs) is not tuple or any(type(item) is not PairedOutcome for item in self.pairs):
             raise ContractValidationError("study.pairs must be PairedOutcome tuple")
-        if len({item.case_id for item in self.cases}) != len(self.cases) or len({item.control_id for item in self.controls}) != len(self.controls):
+        if (
+            len({item.case_id for item in self.cases}) != len(self.cases)
+            or len({item.confirmation_id for item in self.cases}) != len(self.cases)
+            or len({item.control_id for item in self.controls}) != len(self.controls)
+        ):
             raise ContractValidationError("study case/control identities must be unique")
         if type(self.fold_metrics) is not tuple or any(type(item) is not FoldMetrics for item in self.fold_metrics):
             raise ContractValidationError("study.fold_metrics must be FoldMetrics tuple")
