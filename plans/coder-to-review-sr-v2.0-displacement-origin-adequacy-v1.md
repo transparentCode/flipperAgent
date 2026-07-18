@@ -12,16 +12,16 @@ target_agent: Quant Review Agent
 
 # Scope Executed
 
-Implemented the approved V3 remediation on
-`feature/sr-v2.0-displacement-origin-adequacy`. The code change is
-`0c93096d05396c6d3791e036284773faaad94c23`, on top of the original V2
-implementation.
+Implemented bounded review remediation on
+`feature/sr-v2.0-displacement-origin-adequacy`. Implementation commit:
+`689990051168bed5c58cd08130a451afcc6ab600`, on top of V3 correction
+`0c93096d05396c6d3791e036284773faaad94c23`.
 
 - Preserved the frozen 629-row TAOUSDT/1d development input; no provider,
   network, holdout, or production path was used.
 - Replaced the invalid real-touch-time control with an independently evaluated,
   prior-close naïve band for every in-fold displacement-origin candidate.
-- Regenerated deterministic V2 evidence twice from the remediation commit.
+- Regenerated deterministic V2 evidence twice from `6899900…`.
 
 # Changes Made
 
@@ -34,6 +34,13 @@ implementation.
   confirmation time, confirmation ATR, fold, and each stable side. Controls
   locate their own first touch from `t+1`; they are not conditioned on a real
   touch.
+- `CandidateCase.confirmation_id` is a causal confirmation-time identity.
+  Controls bind it instead of outcome-bearing `case_id`; real status/outcome
+  remains in the casebook and study identity.
+- Study construction now requires exact ordered
+  `(confirmation_id, SUPPORT), (confirmation_id, RESISTANCE)` controls for
+  each in-fold candidate. Missing, extra, reordered, or duplicate-side controls
+  fail before pairing.
 - Paired metrics now use completed same-side pairs only:
   `real directional quality - same-side naïve control directional quality`.
   Readiness evaluates 24 completed pairs, four comparable folds, four pairs per
@@ -42,18 +49,19 @@ implementation.
 - The runner uses the canonical cohort `source_capsule()` adapter. The study
   now records the outer cohort source bundle and the underlying frozen source
   capsule identity separately.
-- Updated strict configuration, contracts, deterministic artifacts and semantic
-  recomputation. Tests cover corrected ATR ownership, candle direction,
-  independent control touches, pair/config/source identity tampering, and
-  readiness/utility disposition precedence.
+- Updated contracts, deterministic artifacts and semantic recomputation. Tests
+  cover outcome-independent control IDs, exact per-case topology, ATR body
+  strictly between prior/current ATR thresholds, width-dependent naïve touch,
+  independent control touches, and rehashed causal-ID tampering.
 
 Deterministic evidence was generated twice with byte-identical outputs:
 
-- Bundle: `7b4ce100136be1ad74f8e29858a127f46b4b467ff577275ec8543e11547372bc`
-- Study: `db98da4de57285673f909d0b4c6ae272268bbf74f653675174fcd61b8bef32ee`
-- Manifest SHA-256: `d2c28de5b67c6ddd19f5a1a7d67d0b9ccc3b2ef89f4b4ef6c3aef6e0ccb7ca6a`
-- Study SHA-256: `d877dfa5dac6b57783c7f6ef8515897077c36e042bd483f4245b6323e92dfd91`
-- Manifest/study byte lengths: `6524` / `2879`
+- Bundle: `60d8ac404b4e5a6aaf44eb9325bba7ddf6be154f663aa6a08e7a634bedbe695c`
+- Study: `5d9a85ef87bac80407f969eba244f258ae198a1af508ed1ab27cda079e96360a`
+- Manifest SHA-256: `223821f50a9e4b2e6329b9441510eb3d46dc32258ef1c298262ca3467c7631f2`
+- Study SHA-256: `5d7fa49cec06811cd71113e97bf9c0f0a043b3dcf484a512be59b7095536a480`
+- Cases SHA-256: `1dbc19acb1944e89ad02ecc518c4498662dcf9aaf4a9b798b0cf45cda956fb47`
+- Manifest/study/cases byte lengths: `6524` / `2879` / `107625`
 
 Semantic reconstruction returns 28 candidates, 56 controls, and 23 completed
 same-side pairs. The outer cohort source bundle is
@@ -69,8 +77,9 @@ Result: `INSUFFICIENT_EVIDENCE`.
 - Diagnostic paired utility: pooled median `0.0 ATR`, positive comparable-fold
   fraction `0.0`, worst comparable-fold median `-0.14263155242029035 ATR`.
 
-The old V2 bundle `2623894d…` and study `9856c448…` are superseded, remain
-ignored, and were neither modified nor deleted.
+Old V2 bundles `2623894d…` and `7b4ce100…`, with studies `9856c448…` and
+`db98da4…`, are superseded, remain ignored, and were neither modified nor
+deleted.
 
 # Blast Radius Considered
 
@@ -81,11 +90,12 @@ the V2 study package. Architecture checks confirm no provider, network, legacy
 
 # Validation Performed
 
-- V2 study, displacement detector, and architecture suites: `86 passed`.
-- Full SR suite: `964 passed in 642.43s`.
+- V2 study suite: `32 passed`.
+- Detector, focused V2 remediation, and architecture suites: `86 passed`.
+- Full SR suite: `968 passed in 640.17s`.
 - V2 artifact semantic recomputation: passed.
-- Two V2 CLI evaluations from `0c93096…`: same bundle ID and byte-identical
-  `manifest.json` / `study.json`.
+- Two V2 CLI evaluations from `6899900…`: same bundle ID and byte-identical
+  `manifest.json`, `study.json`, and `cases.json`.
 - Ruff: `$HOME/.local/bin/ruff check src/libs/models/sr tests/models/sr`.
 - Compilation: `PYTHONPATH=src .venv/bin/python -m compileall -q
   src/libs/models/sr`.
