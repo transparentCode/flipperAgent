@@ -40,12 +40,22 @@ Completed Package F from
 - Updated active SR imports away from both contract facades to canonical
   package exports or direct core owners. Architecture tests now forbid new
   active imports of either facade.
+- Completed the bounded Package F remediation:
+  - every active `ContractValidationError` import now uses `domain.errors`;
+  - `domain.identity.ContractValidationError` remains the exact canonical
+    object for compatibility;
+  - the public SR package loads configuration and lifecycle exports lazily, so
+    importing `libs.models.sr.domain` has no configuration-import side effect;
+  - import-time core-cycle checks ignore late function-local validation imports
+    and require zero core cycles.
 
 Implementation commits:
 
 - `fb5378d` — `refactor(sr): split domain contract ownership`
 - `dff318a` — `refactor(sr): split evaluation contract ownership`
 - `f6f5578` — `test(sr): lock core contract compatibility`
+- `3a64572` — `fix(sr): complete contract error ownership`
+- `9228196` — `test(sr): enforce import-time core acyclicity`
 
 ## Changes Made
 
@@ -58,8 +68,16 @@ Implementation commits:
   serialization formats.
 - Retained public package exports from `domain`, `evaluation`, and historical
   `contracts` modules.
-- Preserved existing top-level import-cycle baseline; Package F adds no cycle
-  and adds no core-to-research dependency.
+- Retained exact top-level public exports through lazy configuration/lifecycle
+  loading; `from libs.models.sr import ...` continues to return the canonical
+  objects.
+- Architecture enforcement now rejects active imports of
+  `ContractValidationError` through `domain.identity`.
+- Core package-cycle analysis uses module-scope imports only: core import-time
+  cycles are zero. The exact `domain.factory.create_initial_state` local
+  `config.models.ResolvedSRConfig` validation remains explicit and separately
+  locked. The non-core `research`/`tools` import-time cycle remains recorded
+  for R5.
 
 ## Blast Radius Considered
 
@@ -82,6 +100,10 @@ serialization, evaluation, architecture, and active-SR regression suites ran.
 - Architecture/import-boundary suite: **28 passed**.
 - Final export-compatibility and architecture suite: **68 passed**.
 - Full active SR suite: **895 passed** in **687.60 seconds**.
+- Remediation config/domain/artifact path-safety suite: **158 passed**.
+- Remediation export/architecture suite: **77 passed**.
+- Remediation domain/evaluation/replay/serialization suite: **194 passed**.
+- Remediation full active SR suite: **899 passed** in **656.26 seconds**.
 - Ruff over active SR and SR tests: passed.
 - Full `src/libs/models/sr` compilation: passed.
 - `git diff --check`: passed.
@@ -114,7 +136,8 @@ serialization, evaluation, architecture, and active-SR regression suites ran.
 
 - Package G lifecycle-engine cohesion has **not** started.
 - Review must verify facades remain logic-free, all old/new public symbols are
-  exact objects, no canonical state/event/snapshot/replay digest changed, no
-  core import cycle was added, and V1.12 evidence remains byte-identical.
+  exact objects, lazy top-level exports retain those exact objects, no
+  canonical state/event/snapshot/replay digest changed, core import-time
+  cycles remain zero, and V1.12 evidence remains byte-identical.
 - Do not start Package G, merge, access provider or holdout data, or regenerate
   evidence during this review.
