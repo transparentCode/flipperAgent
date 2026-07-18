@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
+import pandas as pd
 import pytest
 
 from libs.models.sr.domain.contracts import ContractValidationError
@@ -22,6 +23,10 @@ class SpyAdapter:
     async def get_historical_ohlcv(self, symbol, timeframe, since=None, until=None, limit=None):
         self.calls.append((symbol, timeframe, since, until, limit))
         return self.frames[symbol]
+
+
+class ProviderFrameSubclass(pd.DataFrame):
+    pass
 
 
 def test_tao_source_is_exact_and_provider_free(tao_source):
@@ -50,6 +55,22 @@ def test_documented_binance_taker_column_is_allowed(cohort_config, tao_source, r
     frame["taker_buy_base"] = frame["volume"]
     source = validate_provider_frame(frame, config=cohort_config, asset="BTCUSDT", expected_grid=tuple(bar.open_time for bar in tao_source.bars), resolved_sr_config_hash=hashes["BTCUSDT"][0], resolved_input_hash=hashes["BTCUSDT"][1])
     assert source.row_count == 629
+
+
+def test_real_pandas_dataframe_is_accepted_exactly(cohort_config, tao_source, resolved_configs):
+    _, _, hashes = resolved_configs
+    frame = frame_for_asset(tao_source, "BTCUSDT")
+    assert type(frame) is pd.DataFrame
+    source = validate_provider_frame(frame, config=cohort_config, asset="BTCUSDT", expected_grid=tuple(bar.open_time for bar in tao_source.bars), resolved_sr_config_hash=hashes["BTCUSDT"][0], resolved_input_hash=hashes["BTCUSDT"][1])
+    assert source.row_count == 629
+
+
+@pytest.mark.parametrize("frame_factory", [ProviderFrameSubclass, lambda frame: object()])
+def test_provider_frame_lookalikes_and_subclasses_are_rejected(cohort_config, tao_source, resolved_configs, frame_factory):
+    _, _, hashes = resolved_configs
+    frame = frame_factory(frame_for_asset(tao_source, "BTCUSDT"))
+    with pytest.raises(ContractValidationError, match="provider result must be exactly pandas.DataFrame"):
+        validate_provider_frame(frame, config=cohort_config, asset="BTCUSDT", expected_grid=tuple(bar.open_time for bar in tao_source.bars), resolved_sr_config_hash=hashes["BTCUSDT"][0], resolved_input_hash=hashes["BTCUSDT"][1])
 
 
 @pytest.mark.parametrize("column", ["unknown", "taker_buy_base_asset_volume"])
