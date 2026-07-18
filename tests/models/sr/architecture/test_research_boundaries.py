@@ -48,13 +48,9 @@ _EXPECTED_SIBLING_IMPORT_STATEMENTS = Counter(
         ("candidate_reinforcement_audit", "baseline_adequacy"): 1,
         ("candidate_reinforcement_audit", "baseline_trial"): 1,
         ("candidate_reinforcement_audit", "lifecycle_utility"): 3,
-        ("cohort_readiness", "atr_calibration"): 7,
-        ("cohort_readiness", "baseline_trial"): 1,
         ("context_audit", "baseline_adequacy"): 4,
         ("context_audit", "baseline_trial"): 1,
         ("context_audit", "cohort_readiness"): 2,
-        ("geometry_sensitivity", "baseline_trial"): 1,
-        ("geometry_sensitivity", "cohort_readiness"): 6,
         ("lifecycle_utility", "context_audit"): 4,
     }
 )
@@ -295,7 +291,7 @@ def test_shared_package_facades_are_export_only() -> None:
     assert violations == []
 
 
-def test_r3a_canonical_studies_do_not_import_script_studies() -> None:
+def test_r3b_canonical_studies_do_not_import_script_studies() -> None:
     canonical_dir = _PACKAGE_DIR / "research" / "studies"
     violations = [
         f"{_relative_path(path)}:{line} imports {module}"
@@ -306,17 +302,19 @@ def test_r3a_canonical_studies_do_not_import_script_studies() -> None:
     assert violations == []
 
 
-def test_r3a_canonical_studies_do_not_import_sibling_studies() -> None:
+def test_r3b_canonical_studies_do_not_import_sibling_studies() -> None:
     assert _sibling_imports(
         studies_dir=_PACKAGE_DIR / "research" / "studies",
         module_prefix=f"{_PACKAGE_PREFIX}.research.studies.",
     ) == Counter()
 
 
-def test_r3a_script_facades_only_forward_to_canonical_studies() -> None:
+def test_r3b_script_facades_only_forward_to_canonical_studies() -> None:
     facade_dirs = (
         _PACKAGE_DIR / "scripts" / "baseline_trial",
         _PACKAGE_DIR / "scripts" / "atr_calibration",
+        _PACKAGE_DIR / "scripts" / "cohort_readiness",
+        _PACKAGE_DIR / "scripts" / "geometry_sensitivity",
     )
     violations: list[str] = []
     for facade_dir in facade_dirs:
