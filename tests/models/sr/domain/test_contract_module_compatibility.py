@@ -7,6 +7,7 @@ from dataclasses import fields
 
 import pytest
 
+import libs.models.sr.domain as public_domain
 from libs.models.sr.domain import contracts as legacy_contracts
 from libs.models.sr.domain.bars import ClosedBar, SRStateKey
 from libs.models.sr.domain.candidates import CandidateLevel
@@ -49,6 +50,41 @@ def test_contracts_facade_exports_exact_canonical_objects(
     canonical: object,
 ) -> None:
     assert legacy is canonical
+
+
+def test_public_domain_package_exports_exact_canonical_objects() -> None:
+    assert public_domain.CandidateLevel is CandidateLevel
+    assert public_domain.ClosedBar is ClosedBar
+    assert public_domain.ContractValidationError is ContractValidationError
+    assert public_domain.SREvent is SREvent
+    assert public_domain.SRState is SRState
+    assert public_domain.SRSnapshot is SRSnapshot
+    assert public_domain.ZoneDefinition is ZoneDefinition
+    assert public_domain.ZoneGeometry is ZoneGeometry
+    assert public_domain.ZoneRecord is ZoneRecord
+    assert public_domain.ZoneRuntimeState is ZoneRuntimeState
+
+
+def test_contracts_facade_keeps_exact_public_exports() -> None:
+    assert legacy_contracts.__all__ == [
+        "ContractValidationError",
+        "ZoneSide",
+        "ZoneStatus",
+        "SR_SCHEMA_VERSION",
+        "SREventType",
+        "SRStateKey",
+        "ClosedBar",
+        "ZoneGeometry",
+        "CandidateLevel",
+        "ZoneDefinition",
+        "ZoneRuntimeState",
+        "ZoneRecord",
+        "SREvent",
+        "SRState",
+        "SRSnapshot",
+        "canonical_json",
+        "deterministic_hash",
+    ]
 
 
 def test_contract_validation_error_keeps_identity_compatibility() -> None:

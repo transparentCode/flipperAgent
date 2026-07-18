@@ -7,6 +7,7 @@ from dataclasses import fields
 
 import pytest
 
+import libs.models.sr.evaluation as public_evaluation
 from libs.models.sr.evaluation import contracts as legacy_contracts
 from libs.models.sr.evaluation.observations import (
     ObservedEvent,
@@ -32,6 +33,25 @@ def test_contracts_facade_exports_exact_canonical_objects(
     canonical: object,
 ) -> None:
     assert legacy is canonical
+
+
+def test_public_evaluation_package_exports_exact_canonical_objects() -> None:
+    assert public_evaluation.ObservedEvent is ObservedEvent
+    assert public_evaluation.SREvaluationTrace is SREvaluationTrace
+    assert public_evaluation.SnapshotReference is SnapshotReference
+    assert public_evaluation.ZoneObservation is ZoneObservation
+    assert public_evaluation.ZoneRenderKind is ZoneRenderKind
+
+
+def test_contracts_facade_keeps_exact_public_exports() -> None:
+    assert legacy_contracts.__all__ == [
+        "ObservedEvent",
+        "SREvaluationTrace",
+        "SR_EVALUATION_SCHEMA_VERSION",
+        "SnapshotReference",
+        "ZoneObservation",
+        "ZoneRenderKind",
+    ]
 
 
 @pytest.mark.parametrize(
