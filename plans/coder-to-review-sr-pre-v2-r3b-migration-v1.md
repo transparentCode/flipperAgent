@@ -4,7 +4,7 @@ stage: coder-to-review
 date_created: 2026-07-18
 last_updated: 2026-07-18
 owner: quant-coder
-status: 'Ready'
+status: 'Review Ready'
 tags: [handoff, quant, sr, refactor, r3b]
 source_agent: Codex quant-coder
 target_agent: quant-review
@@ -35,12 +35,21 @@ Completed Package C / R3b from
   Geometry outgoing sibling-study imports.
 - Enforced that canonical studies import neither historical `scripts` studies
   nor a sibling canonical study.
+- Restored the historical `SourceCapsule` acceptance range for lowercase Git
+  identities: every length from 40 through 64 characters is valid.
+- Made Cohort's provider boundary accept only the exact runtime
+  `pandas.DataFrame` class via its study-local lazy import, retaining rejection
+  of lookalikes and subclasses without adding a static pandas import outside
+  the approved integration boundary.
 
 Implementation commits:
 
 - `5f67931` — `refactor(sr): migrate cohort readiness study`
 - `58e331b` — `refactor(sr): migrate geometry sensitivity study`
 - `a19e5ec` — `test(sr): lock R3b compatibility boundaries`
+- `e451878` — `fix(sr): preserve source capsule commit contract`
+- `4d96a03` — `fix(sr): accept real pandas cohort frames`
+- `fd56184` — `fix(sr): preserve cohort import boundaries`
 
 ## Compatibility and Dependency Accounting
 
@@ -50,6 +59,8 @@ Implementation commits:
 - Historical and canonical Geometry `GeometryCandidate`,
   `GeometrySensitivityStudy`, `compute_study`, and CLI parser/main exports
   retain exact object identity.
+- Legacy ATR, canonical ATR, and neutral shared paths export the same exact
+  `SourceCapsule` class object.
 - The historical Cohort runner preserves the existing
   `default_provider_adapter` monkeypatch seam as the exact canonical adapter
   factory object.
@@ -70,9 +81,11 @@ Implementation commits:
 
 ## Validation Performed
 
-- R3b focused compatibility, architecture, Cohort runner, and Geometry suites:
-  **68 passed**.
-- Full active SR suite: **828 passed** in 654.66 seconds.
+- Source capsule, Cohort source/runner, Geometry, and architecture focused
+  suites: **111 passed**.
+- Final exact-pandas and runtime import-boundary regression slice:
+  **16 passed**.
+- Full active SR suite: **838 passed** in 629.34 seconds.
 - Historical CLI modules load successfully:
   - `python -m libs.models.sr.scripts.cohort_readiness.cli --help`
   - `python -m libs.models.sr.scripts.geometry_sensitivity.cli --help`
