@@ -3,7 +3,6 @@ from __future__ import annotations
 import ast
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Iterator
-import os
 from pathlib import Path
 import subprocess
 import sys
@@ -44,9 +43,6 @@ _FORBIDDEN_RESEARCH_PREFIXES = (
     "urllib",
 )
 _EXPECTED_SIBLING_IMPORT_STATEMENTS: Counter[tuple[str, str]] = Counter()
-_EXPECTED_NON_CORE_IMPORT_TIME_CYCLES = {
-    frozenset({"research", "tools"}),
-}
 _CONTRACT_FACADES = {
     "domain/contracts.py",
     "evaluation/contracts.py",
@@ -276,11 +272,8 @@ def test_core_import_time_package_graph_is_acyclic() -> None:
     assert {cycle for cycle in cycles if cycle & _CORE_AREAS} == set()
 
 
-def test_non_core_import_time_cycles_remain_recorded_for_r5() -> None:
-    cycles = _cycle_components(_top_level_package_graph())
-    assert {
-        cycle for cycle in cycles if not cycle & _CORE_AREAS
-    } == _EXPECTED_NON_CORE_IMPORT_TIME_CYCLES
+def test_active_sr_import_time_package_graph_is_acyclic() -> None:
+    assert _cycle_components(_top_level_package_graph()) == set()
 
 
 def test_domain_factory_config_validation_dependency_is_late_and_explicit() -> None:
@@ -299,13 +292,7 @@ def test_domain_factory_config_validation_dependency_is_late_and_explicit() -> N
 
 
 def test_importing_domain_does_not_import_config_in_a_fresh_process() -> None:
-    environment = os.environ.copy()
-    source_root = _PACKAGE_DIR.parents[3]
-    environment["PYTHONPATH"] = os.pathsep.join(
-        value
-        for value in (str(source_root), environment.get("PYTHONPATH", ""))
-        if value
-    )
+    environment = {"PYTHONPATH": str(_PACKAGE_DIR.parents[2])}
     result = subprocess.run(
         [
             sys.executable,
@@ -436,6 +423,25 @@ def test_r3d_script_facades_only_forward_to_canonical_studies() -> None:
                 if isinstance(node, ast.If) and isinstance(node.test, ast.Compare):
                     continue
                 violations.append(f"{_relative_path(path)}:{node.lineno}")
+    assert violations == []
+
+
+def test_zone_viewer_payload_facade_is_export_only() -> None:
+    path = _PACKAGE_DIR / "tools" / "zone_viewer" / "payload.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    violations: list[int] = []
+    for node in tree.body:
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
+            if isinstance(node.value.value, str):
+                continue
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            continue
+        if isinstance(node, ast.Assign) and all(
+            isinstance(target, ast.Name) and target.id == "__all__"
+            for target in node.targets
+        ):
+            continue
+        violations.append(node.lineno)
     assert violations == []
 
 

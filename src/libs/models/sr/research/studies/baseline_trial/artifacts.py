@@ -21,7 +21,7 @@ from libs.models.sr.research.studies.baseline_trial.contracts import (
     TrialResult,
     effective_provider_request_bounds,
 )
-from libs.models.sr.tools.zone_viewer.payload import (
+from libs.models.sr.research.studies.baseline_trial.chart_payload import (
     build_chart_payload,
     chart_payload_identity,
 )
