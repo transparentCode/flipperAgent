@@ -233,6 +233,17 @@ def test_core_modules_do_not_depend_on_research() -> None:
     assert violations == []
 
 
+def test_research_modules_do_not_depend_on_tools() -> None:
+    research_dir = _PACKAGE_DIR / "research"
+    violations = [
+        f"{_relative_path(path)}:{line} imports {module}"
+        for path in sorted(research_dir.rglob("*.py"))
+        for line, module in _imported_modules(path)
+        if _is_prefix(module, f"{_PACKAGE_PREFIX}.tools")
+    ]
+    assert violations == []
+
+
 def test_shared_research_modules_do_not_import_studies_or_runtime_services() -> None:
     research_dir = _PACKAGE_DIR / "research"
     violations = [
