@@ -89,7 +89,7 @@ def test_bullish_displacement_creates_support_from_nearest_bearish_base() -> Non
     assert candidate.geometry.upper_bound == 102.0
     assert candidate.formed_at == bars[4].closed_at
     assert candidate.available_at == bars[5].closed_at
-    assert candidate.atr_at_creation == bars[4].atr_at_close
+    assert candidate.atr_at_creation == bars[5].atr_at_close
     assert candidate.source == "displacement_origin_v2"
 
 
@@ -105,6 +105,30 @@ def test_bearish_displacement_creates_resistance_from_nearest_bullish_base() -> 
     assert candidate.geometry.upper_bound == 107.0
     assert candidate.formed_at == bars[4].closed_at
     assert candidate.available_at == bars[5].closed_at
+
+
+def test_prior_atr_scales_threshold_but_confirmation_atr_owns_candidate_identity() -> None:
+    bars = list(_bullish_bars())
+    bars[4] = _bar(4, open_price=101, high=102, low=98, close=100, atr=2.0)
+    bars[5] = _bar(5, open_price=100, high=107, low=99, close=106, atr=3.0)
+
+    candidates = detect_displacement_origins(tuple(bars), _config(displacement_atr=2.0))
+
+    assert len(candidates) == 1
+    assert candidates[0].atr_at_creation == 3.0
+
+
+@pytest.mark.parametrize(
+    "bars",
+    [
+        # Gap-up bearish body closes above prior structure: not support.
+        _bullish_bars()[:5] + (_bar(5, open_price=108, high=109, low=99, close=106),),
+        # Gap-down bullish body closes below prior structure: not resistance.
+        _bearish_bars()[:5] + (_bar(5, open_price=96, high=107, low=95, close=98),),
+    ],
+)
+def test_structural_break_requires_matching_candle_direction(bars: tuple[ClosedBar, ...]) -> None:
+    assert detect_displacement_origins(bars, _config()) == ()
 
 
 @pytest.mark.parametrize(

@@ -58,14 +58,14 @@ folds:
     end: "2026-01-01T00:00:00Z"
 
 controls:
-  per_real_touch: 2
+  per_real_candidate: 2
   side_order: [SUPPORT, RESISTANCE]
 
 gates:
-  minimum_completed_real_outcomes: 24
+  minimum_completed_pairs: 24
   minimum_comparable_folds: 4
-  minimum_real_outcomes_per_comparable_fold: 4
-  minimum_controls_per_side_per_comparable_fold: 4
+  minimum_pairs_per_comparable_fold: 4
+  minimum_completed_naive_controls_per_side_per_comparable_fold: 4
   minimum_pooled_median_excess_quality_atr: 0.10
   minimum_positive_comparable_fold_fraction: 0.60
   minimum_worst_comparable_fold_excess_atr: -0.10

@@ -10,7 +10,7 @@ from libs.models.sr.research.studies.displacement_origin_adequacy.contracts impo
     OutcomeStatus,
 )
 from libs.models.sr.research.studies.displacement_origin_adequacy.outcomes import (
-    build_matched_controls,
+    build_naive_controls,
     evaluate_candidates,
 )
 
@@ -56,7 +56,7 @@ def _completed_touch_bars() -> tuple[ClosedBar, ...]:
     return tuple(bars)
 
 
-def test_first_touch_starts_after_availability_and_builds_two_matched_controls() -> None:
+def test_first_touch_starts_after_availability_and_builds_two_independent_naive_controls() -> None:
     config = load_displacement_origin_adequacy_config(_CONFIG)
     bars = _completed_touch_bars()
 
@@ -68,11 +68,35 @@ def test_first_touch_starts_after_availability_and_builds_two_matched_controls()
     assert case.outcome is not None
     assert case.outcome.touch_bar_id == "bar-6"
     assert case.outcome.tenth_outcome_bar_closed_at == bars[16].closed_at
-    controls = build_matched_controls(cases, bars, config=config)
+    controls = build_naive_controls(cases, bars, config=config)
     assert len(controls) == 2
-    assert {item.outcome.side.value for item in controls} == {"SUPPORT", "RESISTANCE"}
-    assert all(item.outcome.anchor_at == case.outcome.first_touch_at for item in controls)
+    assert {item.candidate.side.value for item in controls} == {"SUPPORT", "RESISTANCE"}
+    assert all(item.candidate.geometry.center == bars[4].close for item in controls)
+    assert all(item.candidate.geometry.half_width == case.candidate.geometry.half_width for item in controls)
     assert all(item.zone_width_atr == case.zone_width_atr for item in controls)
+    assert all(item.candidate.available_at == case.candidate.available_at for item in controls)
+
+
+def test_real_and_same_side_naive_band_can_touch_on_different_bars() -> None:
+    config = load_displacement_origin_adequacy_config(_CONFIG)
+    bars = list(_completed_touch_bars())
+    # Nearest opposing base moves to bar 2 (98-102); prior close is 104, so
+    # same-width naïve support is 102-106.
+    bars[3] = _bar(3, open_price=99, high=101, low=97, close=100)
+    bars[4] = _bar(4, open_price=100, high=105, low=100, close=104)
+    bars[6] = _bar(6, open_price=104, high=106, low=104, close=105)
+    bars[7] = _bar(7, open_price=100, high=101, low=99, close=100)
+    bars.append(_bar(17, open_price=108, high=110, low=106, close=109))
+
+    cases = evaluate_candidates(tuple(bars), config=config)
+    controls = build_naive_controls(cases, tuple(bars), config=config)
+
+    assert len(cases) == 1
+    assert cases[0].outcome is not None
+    same_side = next(item for item in controls if item.candidate.side is cases[0].candidate.side)
+    assert same_side.outcome is not None
+    assert cases[0].outcome.touch_bar_id == "bar-7"
+    assert same_side.outcome.touch_bar_id == "bar-6"
 
 
 def test_no_intersection_before_expiry_is_explicitly_accounted() -> None:
@@ -86,6 +110,8 @@ def test_no_intersection_before_expiry_is_explicitly_accounted() -> None:
     assert len(cases) == 1
     assert cases[0].status is OutcomeStatus.NO_TOUCH
     assert cases[0].outcome is None
+    controls = build_naive_controls(cases, tuple(bars), config=config)
+    assert len(controls) == 2
 
 
 def test_touch_at_the_fifty_first_search_bar_is_excluded() -> None:

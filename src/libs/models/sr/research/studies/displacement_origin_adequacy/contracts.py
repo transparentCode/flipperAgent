@@ -1,4 +1,4 @@
-"""Immutable result contracts for the SR-V2.0 displacement-origin study."""
+"""Immutable result contracts for SR-V2.0 displacement-origin adequacy."""
 
 from __future__ import annotations
 
@@ -7,9 +7,8 @@ from enum import Enum
 import math
 import re
 
-from libs.models.sr.domain import CandidateLevel, ContractValidationError
+from libs.models.sr.domain import CandidateLevel, ContractValidationError, ZoneSide
 from libs.models.sr.domain.identity import deterministic_hash, utc_isoformat
-from libs.models.sr.research.evidence.baseline_adequacy.contracts import ControlOutcome
 from libs.models.sr.research.metrics.first_touch import FirstTouchOutcome
 
 
@@ -27,6 +26,7 @@ class DisplacementOriginDisposition(str, Enum):
 
 
 _COMMIT_RE = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
+_NAIVE_SOURCE = "prior_close_naive_v2"
 
 
 def _finite(value: object, *, path: str, minimum: float | None = None) -> float:
@@ -36,10 +36,8 @@ def _finite(value: object, *, path: str, minimum: float | None = None) -> float:
         number = float(value)
     except OverflowError as exc:
         raise ContractValidationError(f"{path} must be finite") from exc
-    if not math.isfinite(number):
-        raise ContractValidationError(f"{path} must be finite")
-    if minimum is not None and number < minimum:
-        raise ContractValidationError(f"{path} must be >= {minimum}")
+    if not math.isfinite(number) or (minimum is not None and number < minimum):
+        raise ContractValidationError(f"{path} must be finite and >= {minimum}")
     return 0.0 if number == 0.0 else number
 
 
@@ -79,6 +77,21 @@ def candidate_payload(candidate: CandidateLevel) -> dict[str, object]:
     }
 
 
+def _validate_outcome(
+    outcome: FirstTouchOutcome | None, status: OutcomeStatus, *, candidate_id: str, path: str
+) -> None:
+    if status is OutcomeStatus.COMPLETED:
+        if type(outcome) is not FirstTouchOutcome or not outcome.completed:
+            raise ContractValidationError(f"{path} completed status requires completed outcome")
+    elif status is OutcomeStatus.RIGHT_CENSORED:
+        if type(outcome) is not FirstTouchOutcome or not outcome.right_censored:
+            raise ContractValidationError(f"{path} censored status requires censored outcome")
+    elif outcome is not None:
+        raise ContractValidationError(f"{path} non-touch status cannot contain outcome")
+    if outcome is not None and outcome.zone_id != candidate_id:
+        raise ContractValidationError(f"{path} outcome zone identity mismatch")
+
+
 @dataclass(frozen=True)
 class CandidateCase:
     candidate: CandidateLevel
@@ -91,32 +104,19 @@ class CandidateCase:
     zone_width_atr: float
 
     def __post_init__(self) -> None:
-        if type(self.candidate) is not CandidateLevel:
-            raise ContractValidationError("case.candidate must be exactly CandidateLevel")
+        if type(self.candidate) is not CandidateLevel or type(self.status) is not OutcomeStatus:
+            raise ContractValidationError("case has invalid candidate or status type")
         object.__setattr__(self, "confirmation_bar_id", _string(self.confirmation_bar_id, path="case.confirmation_bar_id"))
         object.__setattr__(self, "confirmation_index", _integer(self.confirmation_index, path="case.confirmation_index"))
         object.__setattr__(self, "base_distance_bars", _integer(self.base_distance_bars, path="case.base_distance_bars", minimum=1))
         if self.fold is not None:
             object.__setattr__(self, "fold", _string(self.fold, path="case.fold"))
-        if type(self.status) is not OutcomeStatus:
-            raise ContractValidationError("case.status must be exactly OutcomeStatus")
         object.__setattr__(self, "zone_width_atr", _finite(self.zone_width_atr, path="case.zone_width_atr", minimum=0.0))
         if self.zone_width_atr <= 0.0:
             raise ContractValidationError("case.zone_width_atr must be positive")
-        if self.status is OutcomeStatus.COMPLETED:
-            if type(self.outcome) is not FirstTouchOutcome or not self.outcome.completed:
-                raise ContractValidationError("completed case requires completed FirstTouchOutcome")
-        elif self.status is OutcomeStatus.RIGHT_CENSORED:
-            if type(self.outcome) is not FirstTouchOutcome or not self.outcome.right_censored:
-                raise ContractValidationError("right-censored case requires censored FirstTouchOutcome")
-        elif self.outcome is not None:
-            raise ContractValidationError("non-touch case must not contain an outcome")
-        if self.status is OutcomeStatus.OUTSIDE_FOLDS and self.fold is not None:
-            raise ContractValidationError("outside-fold case cannot name a fold")
-        if self.status is not OutcomeStatus.OUTSIDE_FOLDS and self.fold is None:
-            raise ContractValidationError("in-fold case requires a fold")
-        if self.outcome is not None and self.outcome.zone_id != self.candidate.candidate_id:
-            raise ContractValidationError("case outcome zone_id does not match candidate")
+        if (self.status is OutcomeStatus.OUTSIDE_FOLDS) != (self.fold is None):
+            raise ContractValidationError("case fold/status do not reconcile")
+        _validate_outcome(self.outcome, self.status, candidate_id=self.candidate.candidate_id, path="case")
 
     @property
     def case_id(self) -> str:
@@ -139,28 +139,68 @@ class CandidateCase:
 
 
 @dataclass(frozen=True)
-class MatchedControl:
+class NaiveControl:
     real_case_id: str
-    candidate_id: str
+    candidate: CandidateLevel
+    confirmation_bar_id: str
+    confirmation_index: int
+    fold: str
+    status: OutcomeStatus
+    outcome: FirstTouchOutcome | None
     zone_width_atr: float
-    outcome: ControlOutcome
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "real_case_id", _string(self.real_case_id, path="control.real_case_id"))
-        object.__setattr__(self, "candidate_id", _string(self.candidate_id, path="control.candidate_id"))
+        if type(self.candidate) is not CandidateLevel or self.candidate.source != _NAIVE_SOURCE:
+            raise ContractValidationError("control must contain prior-close naive candidate")
+        object.__setattr__(self, "confirmation_bar_id", _string(self.confirmation_bar_id, path="control.confirmation_bar_id"))
+        object.__setattr__(self, "confirmation_index", _integer(self.confirmation_index, path="control.confirmation_index"))
+        object.__setattr__(self, "fold", _string(self.fold, path="control.fold"))
+        if type(self.status) is not OutcomeStatus or self.status is OutcomeStatus.OUTSIDE_FOLDS:
+            raise ContractValidationError("control status must be an in-fold OutcomeStatus")
         object.__setattr__(self, "zone_width_atr", _finite(self.zone_width_atr, path="control.zone_width_atr", minimum=0.0))
         if self.zone_width_atr <= 0.0:
             raise ContractValidationError("control.zone_width_atr must be positive")
-        if type(self.outcome) is not ControlOutcome:
-            raise ContractValidationError("control.outcome must be exactly ControlOutcome")
+        _validate_outcome(self.outcome, self.status, candidate_id=self.candidate.candidate_id, path="control")
 
-    def to_payload(self) -> dict[str, object]:
+    @property
+    def control_id(self) -> str:
+        return deterministic_hash(self.identity_payload())
+
+    def identity_payload(self) -> dict[str, object]:
         return {
             "real_case_id": self.real_case_id,
-            "candidate_id": self.candidate_id,
+            "candidate": candidate_payload(self.candidate),
+            "confirmation_bar_id": self.confirmation_bar_id,
+            "confirmation_index": self.confirmation_index,
+            "fold": self.fold,
+            "status": self.status.value,
+            "outcome": None if self.outcome is None else self.outcome.to_payload(),
             "zone_width_atr": self.zone_width_atr,
-            "outcome": self.outcome.to_payload(),
         }
+
+    def to_payload(self) -> dict[str, object]:
+        return {**self.identity_payload(), "control_id": self.control_id}
+
+
+@dataclass(frozen=True)
+class PairedOutcome:
+    real_case_id: str
+    control_id: str
+    candidate_id: str
+    fold: str
+    side: ZoneSide
+    paired_excess_quality_atr: float
+
+    def __post_init__(self) -> None:
+        for name in ("real_case_id", "control_id", "candidate_id", "fold"):
+            object.__setattr__(self, name, _string(getattr(self, name), path=f"pair.{name}"))
+        if type(self.side) is not ZoneSide:
+            raise ContractValidationError("pair.side must be exactly ZoneSide")
+        object.__setattr__(self, "paired_excess_quality_atr", _finite(self.paired_excess_quality_atr, path="pair.paired_excess_quality_atr"))
+
+    def to_payload(self) -> dict[str, object]:
+        return {name: (getattr(self, name).value if name == "side" else getattr(self, name)) for name in self.__dataclass_fields__}
 
 
 @dataclass(frozen=True)
@@ -169,19 +209,20 @@ class FoldMetrics:
     completed_real_count: int
     support_control_count: int
     resistance_control_count: int
+    completed_pair_count: int
     comparable: bool
-    median_excess_quality_atr: float | None
+    median_paired_excess_quality_atr: float | None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "fold", _string(self.fold, path="fold_metrics.fold"))
-        for name in ("completed_real_count", "support_control_count", "resistance_control_count"):
+        for name in ("completed_real_count", "support_control_count", "resistance_control_count", "completed_pair_count"):
             object.__setattr__(self, name, _integer(getattr(self, name), path=f"fold_metrics.{name}"))
         if type(self.comparable) is not bool:
             raise ContractValidationError("fold_metrics.comparable must be boolean")
-        if self.median_excess_quality_atr is not None:
-            object.__setattr__(self, "median_excess_quality_atr", _finite(self.median_excess_quality_atr, path="fold_metrics.median_excess_quality_atr"))
-        if self.comparable != (self.median_excess_quality_atr is not None):
-            raise ContractValidationError("fold metric comparability and median do not reconcile")
+        if self.median_paired_excess_quality_atr is not None:
+            object.__setattr__(self, "median_paired_excess_quality_atr", _finite(self.median_paired_excess_quality_atr, path="fold_metrics.median_paired_excess_quality_atr"))
+        if self.comparable != (self.median_paired_excess_quality_atr is not None):
+            raise ContractValidationError("fold metric comparability does not reconcile")
 
     def to_payload(self) -> dict[str, object]:
         return {name: getattr(self, name) for name in self.__dataclass_fields__}
@@ -198,20 +239,13 @@ class GateResult:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "name", _string(self.name, path="gate.name"))
-        if self.category not in {"readiness", "utility"}:
-            raise ContractValidationError("gate.category is unknown")
+        if self.category not in {"readiness", "utility"} or self.operator != ">=":
+            raise ContractValidationError("gate category/operator is unsupported")
         if self.value is not None:
             object.__setattr__(self, "value", _finite(self.value, path="gate.value"))
         object.__setattr__(self, "threshold", _finite(self.threshold, path="gate.threshold"))
-        if self.operator not in {">=", "=="}:
-            raise ContractValidationError("gate.operator is unsupported")
-        if type(self.passed) is not bool:
-            raise ContractValidationError("gate.passed must be boolean")
-        derived = self.value is not None and (
-            self.value >= self.threshold if self.operator == ">=" else self.value == self.threshold
-        )
-        if self.passed != derived:
-            raise ContractValidationError("gate.passed does not match its value and threshold")
+        if type(self.passed) is not bool or self.passed != (self.value is not None and self.value >= self.threshold):
+            raise ContractValidationError("gate.passed does not match value")
 
     def to_payload(self) -> dict[str, object]:
         return {name: getattr(self, name) for name in self.__dataclass_fields__}
@@ -224,12 +258,10 @@ class Decision:
     reason: str
 
     def __post_init__(self) -> None:
-        if type(self.disposition) is not DisplacementOriginDisposition:
-            raise ContractValidationError("decision.disposition must be exactly DisplacementOriginDisposition")
-        if type(self.gates) is not tuple or not self.gates or any(type(item) is not GateResult for item in self.gates):
-            raise ContractValidationError("decision.gates must be a non-empty GateResult tuple")
+        if type(self.disposition) is not DisplacementOriginDisposition or type(self.gates) is not tuple or not self.gates or any(type(item) is not GateResult for item in self.gates):
+            raise ContractValidationError("decision has invalid disposition or gates")
         if len({item.name for item in self.gates}) != len(self.gates):
-            raise ContractValidationError("decision.gates must have unique names")
+            raise ContractValidationError("decision gate names must be unique")
         object.__setattr__(self, "reason", _string(self.reason, path="decision.reason"))
 
     def to_payload(self) -> dict[str, object]:
@@ -241,13 +273,15 @@ class DisplacementOriginStudy:
     implementation_commit: str
     config_hash: str
     source_bundle_id: str
+    source_capsule_bundle_id: str
     source_id: str
     cases: tuple[CandidateCase, ...]
-    controls: tuple[MatchedControl, ...]
+    controls: tuple[NaiveControl, ...]
+    pairs: tuple[PairedOutcome, ...]
     fold_metrics: tuple[FoldMetrics, ...]
-    pooled_median_excess_quality_atr: float | None
+    pooled_median_paired_excess_quality_atr: float | None
     positive_comparable_fold_fraction: float | None
-    worst_comparable_fold_excess_atr: float | None
+    worst_comparable_fold_paired_excess_atr: float | None
     decision: Decision
     study_id: str = field(init=False)
 
@@ -255,25 +289,24 @@ class DisplacementOriginStudy:
         object.__setattr__(self, "implementation_commit", _string(self.implementation_commit, path="study.implementation_commit"))
         if _COMMIT_RE.fullmatch(self.implementation_commit) is None:
             raise ContractValidationError("study.implementation_commit must be a lowercase git SHA")
-        for name in ("config_hash", "source_bundle_id", "source_id"):
+        for name in ("config_hash", "source_bundle_id", "source_capsule_bundle_id", "source_id"):
             value = _string(getattr(self, name), path=f"study.{name}")
-            if len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
+            if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
                 raise ContractValidationError(f"study.{name} must be lowercase SHA-256")
             object.__setattr__(self, name, value)
         if type(self.cases) is not tuple or any(type(item) is not CandidateCase for item in self.cases):
-            raise ContractValidationError("study.cases must be a CandidateCase tuple")
-        if len({item.case_id for item in self.cases}) != len(self.cases):
-            raise ContractValidationError("study cases must be unique")
-        if type(self.controls) is not tuple or any(type(item) is not MatchedControl for item in self.controls):
-            raise ContractValidationError("study.controls must be a MatchedControl tuple")
+            raise ContractValidationError("study.cases must be CandidateCase tuple")
+        if type(self.controls) is not tuple or any(type(item) is not NaiveControl for item in self.controls):
+            raise ContractValidationError("study.controls must be NaiveControl tuple")
+        if type(self.pairs) is not tuple or any(type(item) is not PairedOutcome for item in self.pairs):
+            raise ContractValidationError("study.pairs must be PairedOutcome tuple")
+        if len({item.case_id for item in self.cases}) != len(self.cases) or len({item.control_id for item in self.controls}) != len(self.controls):
+            raise ContractValidationError("study case/control identities must be unique")
         if type(self.fold_metrics) is not tuple or any(type(item) is not FoldMetrics for item in self.fold_metrics):
-            raise ContractValidationError("study.fold_metrics must be a FoldMetrics tuple")
-        if len({item.fold for item in self.fold_metrics}) != len(self.fold_metrics):
-            raise ContractValidationError("study fold metrics must be unique")
-        for name in ("pooled_median_excess_quality_atr", "positive_comparable_fold_fraction", "worst_comparable_fold_excess_atr"):
-            value = getattr(self, name)
-            if value is not None:
-                object.__setattr__(self, name, _finite(value, path=f"study.{name}"))
+            raise ContractValidationError("study.fold_metrics must be FoldMetrics tuple")
+        for name in ("pooled_median_paired_excess_quality_atr", "positive_comparable_fold_fraction", "worst_comparable_fold_paired_excess_atr"):
+            if getattr(self, name) is not None:
+                object.__setattr__(self, name, _finite(getattr(self, name), path=f"study.{name}"))
         if type(self.decision) is not Decision:
             raise ContractValidationError("study.decision must be exactly Decision")
         object.__setattr__(self, "study_id", deterministic_hash(self.identity_payload()))
@@ -283,22 +316,20 @@ class DisplacementOriginStudy:
         return tuple(item for item in self.cases if item.status is OutcomeStatus.COMPLETED)
 
     def casebook_payload(self) -> dict[str, object]:
-        return {
-            "cases": [item.to_payload() for item in self.cases],
-            "controls": [item.to_payload() for item in self.controls],
-        }
+        return {"cases": [item.to_payload() for item in self.cases], "controls": [item.to_payload() for item in self.controls], "pairs": [item.to_payload() for item in self.pairs]}
 
     def identity_payload(self) -> dict[str, object]:
         return {
             "implementation_commit": self.implementation_commit,
             "config_hash": self.config_hash,
             "source_bundle_id": self.source_bundle_id,
+            "source_capsule_bundle_id": self.source_capsule_bundle_id,
             "source_id": self.source_id,
             "casebook_id": deterministic_hash(self.casebook_payload()),
             "fold_metrics": [item.to_payload() for item in self.fold_metrics],
-            "pooled_median_excess_quality_atr": self.pooled_median_excess_quality_atr,
+            "pooled_median_paired_excess_quality_atr": self.pooled_median_paired_excess_quality_atr,
             "positive_comparable_fold_fraction": self.positive_comparable_fold_fraction,
-            "worst_comparable_fold_excess_atr": self.worst_comparable_fold_excess_atr,
+            "worst_comparable_fold_paired_excess_atr": self.worst_comparable_fold_paired_excess_atr,
             "decision": self.decision.to_payload(),
         }
 
@@ -307,13 +338,6 @@ class DisplacementOriginStudy:
 
 
 __all__ = [
-    "CandidateCase",
-    "Decision",
-    "DisplacementOriginDisposition",
-    "DisplacementOriginStudy",
-    "FoldMetrics",
-    "GateResult",
-    "MatchedControl",
-    "OutcomeStatus",
-    "candidate_payload",
+    "CandidateCase", "Decision", "DisplacementOriginDisposition", "DisplacementOriginStudy",
+    "FoldMetrics", "GateResult", "NaiveControl", "OutcomeStatus", "PairedOutcome", "candidate_payload",
 ]

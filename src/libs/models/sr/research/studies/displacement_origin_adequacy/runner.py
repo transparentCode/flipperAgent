@@ -3,27 +3,27 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 
-from libs.models.sr.domain import ContractValidationError
+from libs.models.sr.domain import ClosedBar, ContractValidationError
 from libs.models.sr.research.cohort.artifacts import load_source_bundle
+from libs.models.sr.research.cohort.contracts import source_capsule
 from libs.models.sr.research.provenance.repository import (
     repository_commit as _repository_commit,
     resolve_repository_path,
 )
-from libs.models.sr.research.source.capsules import CapsuleStage, SourceCapsule
+from libs.models.sr.research.source.capsules import SourceCapsule
 
 from .config import DisplacementOriginAdequacyConfig, load_displacement_origin_adequacy_config
 from .contracts import DisplacementOriginStudy
 from .metrics import build_study
-from .outcomes import build_matched_controls, build_model_bars, evaluate_candidates
+from .outcomes import build_model_bars, build_naive_controls, evaluate_candidates
 
 
 @dataclass(frozen=True)
 class FrozenInputs:
     capsule: SourceCapsule
-    model_bars: tuple
+    model_bars: tuple[ClosedBar, ...]
 
 
 def repository_commit(repo_root: str | Path) -> str:
@@ -69,15 +69,9 @@ def load_frozen_inputs(
         or source.source_kind != "frozen_v1_6"
     ):
         raise ContractValidationError("frozen TAOUSDT source identity does not match V2.0 configuration")
-    capsule = SourceCapsule(
-        stage=CapsuleStage.DEVELOPMENT,
-        source_bundle_id=config.source.bundle_id,
-        source_bars_sha256=source.bars_sha256,
-        source_row_count=source.row_count,
-        split_boundary=datetime(2026, 1, 1, tzinfo=timezone.utc),
-        implementation_commit=config.source.implementation_commit,
-        bars=source.bars,
-    )
+    capsule = source_capsule(source, implementation_commit=config.source.implementation_commit)
+    if capsule.source_bundle_id != config.source.source_bundle_id:
+        raise ContractValidationError("canonical source capsule identity does not match V2.0 source")
     model_bars = build_model_bars(capsule, config=config)
     return FrozenInputs(capsule=capsule, model_bars=model_bars)
 
@@ -92,7 +86,7 @@ def compute_displacement_origin_study(
         raise ContractValidationError("V2.0 requires typed configuration")
     frozen = load_frozen_inputs(config, repo_root=repo_root)
     cases = evaluate_candidates(frozen.model_bars, config=config)
-    controls = build_matched_controls(cases, frozen.model_bars, config=config)
+    controls = build_naive_controls(cases, frozen.model_bars, config=config)
     return build_study(
         cases,
         controls,

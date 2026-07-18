@@ -49,7 +49,7 @@ TOUCH_SEARCH_BARS = 50
 OUTCOME_HORIZON = 10
 WINDOW_POLICY = "half_open_utc_daily"
 CONTROL_SIDE_ORDER = (ZoneSide.SUPPORT, ZoneSide.RESISTANCE)
-CONTROLS_PER_REAL_TOUCH = 2
+CONTROLS_PER_REAL_CANDIDATE = 2
 STAGE = "displacement_origin_adequacy_development"
 ARTIFACT_MEMBERS = ("manifest.json", "study.json", "cases.json")
 FOLD_BOUNDS = (
@@ -67,10 +67,10 @@ APPROVED_DETECTOR = {
     "base_search_bars": 3,
 }
 APPROVED_GATES = {
-    "minimum_completed_real_outcomes": 24,
+    "minimum_completed_pairs": 24,
     "minimum_comparable_folds": 4,
-    "minimum_real_outcomes_per_comparable_fold": 4,
-    "minimum_controls_per_side_per_comparable_fold": 4,
+    "minimum_pairs_per_comparable_fold": 4,
+    "minimum_completed_naive_controls_per_side_per_comparable_fold": 4,
     "minimum_pooled_median_excess_quality_atr": 0.10,
     "minimum_positive_comparable_fold_fraction": 0.60,
     "minimum_worst_comparable_fold_excess_atr": -0.10,
@@ -196,20 +196,20 @@ class OutcomeProtocol:
 
 @dataclass(frozen=True)
 class AdequacyGates:
-    minimum_completed_real_outcomes: int
+    minimum_completed_pairs: int
     minimum_comparable_folds: int
-    minimum_real_outcomes_per_comparable_fold: int
-    minimum_controls_per_side_per_comparable_fold: int
+    minimum_pairs_per_comparable_fold: int
+    minimum_completed_naive_controls_per_side_per_comparable_fold: int
     minimum_pooled_median_excess_quality_atr: float
     minimum_positive_comparable_fold_fraction: float
     minimum_worst_comparable_fold_excess_atr: float
 
     def __post_init__(self) -> None:
         for name in (
-            "minimum_completed_real_outcomes",
+            "minimum_completed_pairs",
             "minimum_comparable_folds",
-            "minimum_real_outcomes_per_comparable_fold",
-            "minimum_controls_per_side_per_comparable_fold",
+            "minimum_pairs_per_comparable_fold",
+            "minimum_completed_naive_controls_per_side_per_comparable_fold",
         ):
             object.__setattr__(self, name, require_integer(getattr(self, name), path=f"gates.{name}", minimum=1))
         for name in (
@@ -267,7 +267,7 @@ class DisplacementOriginAdequacyConfig:
     detector: DisplacementOriginConfig
     outcome: OutcomeProtocol
     folds: tuple[CohortFold, ...]
-    controls_per_real_touch: int
+    controls_per_real_candidate: int
     control_side_order: tuple[ZoneSide, ...]
     gates: AdequacyGates
     dispositions: tuple[str, ...]
@@ -285,8 +285,8 @@ class DisplacementOriginAdequacyConfig:
             raise ContractValidationError("detector parameters are not the approved immutable V2.0 payload")
         if type(self.folds) is not tuple or tuple((fold.name, fold.start, fold.end) for fold in self.folds) != FOLD_BOUNDS:
             raise ContractValidationError("V2.0 requires the exact six development folds")
-        if type(self.controls_per_real_touch) is not int or self.controls_per_real_touch != CONTROLS_PER_REAL_TOUCH:
-            raise ContractValidationError("V2.0 requires exactly two controls per completed real touch")
+        if type(self.controls_per_real_candidate) is not int or self.controls_per_real_candidate != CONTROLS_PER_REAL_CANDIDATE:
+            raise ContractValidationError("V2.0 requires exactly two controls per in-fold real candidate")
         if type(self.control_side_order) is not tuple or self.control_side_order != CONTROL_SIDE_ORDER:
             raise ContractValidationError("V2.0 control side order is not frozen")
         if type(self.dispositions) is not tuple or self.dispositions != DISPOSITION_VALUES:
@@ -302,7 +302,7 @@ class DisplacementOriginAdequacyConfig:
             "detector": self.detector.to_payload(),
             "outcome": self.outcome.to_payload(),
             "folds": [fold.to_payload() for fold in self.folds],
-            "controls": {"per_real_touch": self.controls_per_real_touch, "side_order": [side.value for side in self.control_side_order]},
+            "controls": {"per_real_candidate": self.controls_per_real_candidate, "side_order": [side.value for side in self.control_side_order]},
             "gates": self.gates.to_payload(),
             "dispositions": list(self.dispositions),
             "artifact": self.artifact.to_payload(),
@@ -334,7 +334,7 @@ def load_displacement_origin_adequacy_config(path: str) -> DisplacementOriginAde
     outcome = _mapping(raw["outcome"], path="outcome")
     _exact(outcome, {"first_touch_offset_bars", "touch_search_bars", "horizon_bars", "window_policy"}, path="outcome")
     controls = _mapping(raw["controls"], path="controls")
-    _exact(controls, {"per_real_touch", "side_order"}, path="controls")
+    _exact(controls, {"per_real_candidate", "side_order"}, path="controls")
     if type(controls["side_order"]) is not list:
         raise ContractValidationError("controls.side_order must be a list")
     try:
@@ -387,7 +387,7 @@ def load_displacement_origin_adequacy_config(path: str) -> DisplacementOriginAde
             window_policy=_string(outcome["window_policy"], path="outcome.window_policy"),
         ),
         folds=_folds(raw["folds"]),
-        controls_per_real_touch=require_integer(controls["per_real_touch"], path="controls.per_real_touch", minimum=1),
+        controls_per_real_candidate=require_integer(controls["per_real_candidate"], path="controls.per_real_candidate", minimum=1),
         control_side_order=control_sides,
         gates=AdequacyGates(**{name: gates[name] for name in APPROVED_GATES}),
         dispositions=tuple(_string(item, path=f"dispositions[{index}]") for index, item in enumerate(raw["dispositions"])),

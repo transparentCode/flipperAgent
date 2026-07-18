@@ -201,6 +201,11 @@ def detect_displacement_origins(
         low = _finite_bar_value(confirmation, field_name="low")
         open_price = _finite_bar_value(confirmation, field_name="open")
         close = _finite_bar_value(confirmation, field_name="close")
+        confirmation_atr = _finite_bar_value(
+            confirmation, field_name="atr_at_close"
+        )
+        if confirmation_atr <= 0.0:
+            raise ContractValidationError("confirmation atr_at_close must be positive")
         bar_range = high - low
         if bar_range <= 0.0:
             continue
@@ -217,9 +222,15 @@ def detect_displacement_origins(
             confirmation_index - config.structure_lookback_bars : confirmation_index
         ]
         side: ZoneSide | None = None
-        if close > max(_finite_bar_value(bar, field_name="high") for bar in structure):
+        if (
+            close > open_price
+            and close > max(_finite_bar_value(bar, field_name="high") for bar in structure)
+        ):
             side = ZoneSide.SUPPORT
-        elif close < min(_finite_bar_value(bar, field_name="low") for bar in structure):
+        elif (
+            close < open_price
+            and close < min(_finite_bar_value(bar, field_name="low") for bar in structure)
+        ):
             side = ZoneSide.RESISTANCE
         if side is None:
             continue
@@ -235,7 +246,7 @@ def detect_displacement_origins(
         candidate = _candidate(
             base=base,
             confirmation=confirmation,
-            atr_at_creation=prior_atr,
+            atr_at_creation=confirmation_atr,
             side=side,
         )
         if candidate is not None:
