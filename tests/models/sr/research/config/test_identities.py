@@ -184,7 +184,7 @@ def test_v1_12_config_payload_hash_remains_frozen() -> None:
 
 
 def test_v1_12_parsing_instantiates_neutral_identity_contracts(monkeypatch) -> None:
-    import libs.models.sr.scripts.candidate_reinforcement_audit.config as candidate_config_module
+    import libs.models.sr.research.studies.candidate_reinforcement_audit.config as candidate_config_module
 
     calls: list[str] = []
 

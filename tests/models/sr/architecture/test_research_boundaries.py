@@ -40,14 +40,7 @@ _FORBIDDEN_RESEARCH_PREFIXES = (
     "sqlite3",
     "urllib",
 )
-_EXPECTED_SIBLING_IMPORT_STATEMENTS = Counter(
-    {
-        ("candidate_reinforcement_audit", "baseline_adequacy"): 1,
-        ("candidate_reinforcement_audit", "baseline_trial"): 1,
-        ("candidate_reinforcement_audit", "lifecycle_utility"): 3,
-        ("lifecycle_utility", "context_audit"): 4,
-    }
-)
+_EXPECTED_SIBLING_IMPORT_STATEMENTS: Counter[tuple[str, str]] = Counter()
 _EXPECTED_TOP_LEVEL_CYCLES = {
     frozenset({"config", "domain"}),
     frozenset({"research", "tools"}),
@@ -249,7 +242,7 @@ def test_yaml_imports_stay_at_the_two_approved_locations() -> None:
     assert yaml_imports == []
 
 
-def test_sibling_study_imports_match_the_recorded_r3c_baseline() -> None:
+def test_sibling_study_imports_are_eliminated_at_r3_completion() -> None:
     assert _sibling_imports(
         studies_dir=_PACKAGE_DIR / "scripts",
         module_prefix=f"{_PACKAGE_PREFIX}.scripts.",
@@ -303,7 +296,7 @@ def test_canonical_studies_do_not_import_sibling_studies() -> None:
     ) == Counter()
 
 
-def test_r3c_script_facades_only_forward_to_canonical_studies() -> None:
+def test_r3d_script_facades_only_forward_to_canonical_studies() -> None:
     facade_dirs = (
         _PACKAGE_DIR / "scripts" / "baseline_trial",
         _PACKAGE_DIR / "scripts" / "atr_calibration",
@@ -311,6 +304,8 @@ def test_r3c_script_facades_only_forward_to_canonical_studies() -> None:
         _PACKAGE_DIR / "scripts" / "geometry_sensitivity",
         _PACKAGE_DIR / "scripts" / "baseline_adequacy",
         _PACKAGE_DIR / "scripts" / "context_audit",
+        _PACKAGE_DIR / "scripts" / "lifecycle_utility",
+        _PACKAGE_DIR / "scripts" / "candidate_reinforcement_audit",
     )
     violations: list[str] = []
     for facade_dir in facade_dirs:
@@ -326,3 +321,17 @@ def test_r3c_script_facades_only_forward_to_canonical_studies() -> None:
                     continue
                 violations.append(f"{_relative_path(path)}:{node.lineno}")
     assert violations == []
+
+
+def test_r3_completion_has_exactly_eight_canonical_studies() -> None:
+    canonical_dir = _PACKAGE_DIR / "research" / "studies"
+    assert {path.name for path in canonical_dir.iterdir() if path.is_dir() and path.name != "__pycache__"} == {
+        "atr_calibration",
+        "baseline_adequacy",
+        "baseline_trial",
+        "candidate_reinforcement_audit",
+        "cohort_readiness",
+        "context_audit",
+        "geometry_sensitivity",
+        "lifecycle_utility",
+    }
