@@ -91,7 +91,8 @@ the V2 study package. Architecture checks confirm no provider, network, legacy
 # Validation Performed
 
 - V2 study suite: `32 passed`.
-- Detector, focused V2 remediation, and architecture suites: `86 passed`.
+- Detector, focused V2 remediation, and architecture suites: `90 passed`
+  (detector `24`, V2 study `32`, architecture `34`).
 - Full SR suite: `968 passed in 640.17s`.
 - V2 artifact semantic recomputation: passed.
 - Two V2 CLI evaluations from `6899900…`: same bundle ID and byte-identical
