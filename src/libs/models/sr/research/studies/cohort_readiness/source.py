@@ -14,8 +14,6 @@ from numbers import Integral, Real
 from pathlib import Path
 from typing import Any, Protocol
 
-from pandas import DataFrame
-
 from libs.models.sr.domain.contracts import ContractValidationError
 from libs.models.sr.domain.identity import deterministic_hash, utc_isoformat
 from libs.models.sr.research.artifacts.validator import load_strict_json
@@ -131,7 +129,8 @@ def validate_provider_frame(
     """Validate one adapter response without sorting, repair, or coercion."""
     if asset not in APPROVED_ASSETS or asset == "TAOUSDT":
         raise ContractValidationError("provider validation is only for BTCUSDT/ETHUSDT/SOLUSDT")
-    if type(frame) is not DataFrame:
+    pandas_dataframe = import_module("pandas").DataFrame
+    if type(frame) is not pandas_dataframe:
         raise ContractValidationError("provider result must be exactly pandas.DataFrame")
     if frame.empty or len(frame) != APPROVED_SOURCE_ROWS:
         raise ContractValidationError("provider result must contain exactly 629 rows")
