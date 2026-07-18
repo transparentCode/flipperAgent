@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .contracts import SR_SCHEMA_VERSION, SRState, SRStateKey
-from .identity import ContractValidationError
+from .bars import SRStateKey
+from .errors import ContractValidationError
+from .state import SR_SCHEMA_VERSION, SRState
 
 if TYPE_CHECKING:
     from libs.models.sr.config.models import ResolvedSRConfig

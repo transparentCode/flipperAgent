@@ -15,9 +15,7 @@ import json
 import math
 from typing import Any, Mapping
 
-
-class ContractValidationError(ValueError):
-    """Raised when an SR contract invariant is violated."""
+from .errors import ContractValidationError
 
 
 def require_utc(timestamp: datetime, *, field_name: str = "timestamp") -> datetime:

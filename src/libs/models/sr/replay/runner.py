@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 from libs.models.sr.config.models import ResolvedSRConfig
-from libs.models.sr.domain.contracts import (
-    ClosedBar,
-    ContractValidationError,
-    SRSnapshot,
-    SRState,
-)
+from libs.models.sr.domain.bars import ClosedBar
+from libs.models.sr.domain.errors import ContractValidationError
+from libs.models.sr.domain.snapshots import SRSnapshot
+from libs.models.sr.domain.state import SRState
 from libs.models.sr.lifecycle.engine import SREngine
 
 

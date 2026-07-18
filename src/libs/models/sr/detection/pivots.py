@@ -5,13 +5,11 @@ from __future__ import annotations
 import math
 
 from libs.models.sr.config.models import DetectionConfig
-from libs.models.sr.domain.contracts import (
-    CandidateLevel,
-    ClosedBar,
-    ContractValidationError,
-    ZoneGeometry,
-    ZoneSide,
-)
+from libs.models.sr.domain.bars import ClosedBar
+from libs.models.sr.domain.candidates import CandidateLevel
+from libs.models.sr.domain.errors import ContractValidationError
+from libs.models.sr.domain.geometry import ZoneGeometry
+from libs.models.sr.domain.zones import ZoneSide
 
 
 def _finite(value: float, *, field_name: str) -> float:

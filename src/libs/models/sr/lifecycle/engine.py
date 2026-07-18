@@ -5,15 +5,14 @@ from __future__ import annotations
 from libs.models.sr.association import match_candidate
 from libs.models.sr.config.models import LifecycleConfig, ResolvedSRConfig
 from libs.models.sr.detection import detect_confirmed_pivots
-from libs.models.sr.domain.contracts import (
-    ClosedBar,
-    ContractValidationError,
-    SREvent,
-    SREventType,
-    SRState,
-    SRSnapshot,
-    ZoneRecord,
+from libs.models.sr.domain.bars import ClosedBar
+from libs.models.sr.domain.errors import ContractValidationError
+from libs.models.sr.domain.events import SREvent, SREventType
+from libs.models.sr.domain.snapshots import SRSnapshot
+from libs.models.sr.domain.state import SRState
+from libs.models.sr.domain.zones import (
     ZoneDefinition,
+    ZoneRecord,
     ZoneRuntimeState,
     ZoneStatus,
 )

@@ -5,12 +5,9 @@ from __future__ import annotations
 import math
 
 from libs.models.sr.config.models import LifecycleConfig
-from libs.models.sr.domain.contracts import (
-    ClosedBar,
-    ContractValidationError,
-    ZoneDefinition,
-    ZoneSide,
-)
+from libs.models.sr.domain.bars import ClosedBar
+from libs.models.sr.domain.errors import ContractValidationError
+from libs.models.sr.domain.zones import ZoneDefinition, ZoneSide
 
 
 def _finite(value: float, *, field_name: str) -> float:

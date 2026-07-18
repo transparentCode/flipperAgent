@@ -5,11 +5,9 @@ from __future__ import annotations
 import math
 
 from libs.models.sr.config.models import AssociationConfig
-from libs.models.sr.domain.contracts import (
-    CandidateLevel,
-    ContractValidationError,
-    ZoneRecord,
-)
+from libs.models.sr.domain.candidates import CandidateLevel
+from libs.models.sr.domain.errors import ContractValidationError
+from libs.models.sr.domain.zones import ZoneRecord
 
 
 def _finite(value: float, *, field_name: str) -> float:
