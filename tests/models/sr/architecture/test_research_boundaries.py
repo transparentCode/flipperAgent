@@ -42,15 +42,9 @@ _FORBIDDEN_RESEARCH_PREFIXES = (
 )
 _EXPECTED_SIBLING_IMPORT_STATEMENTS = Counter(
     {
-        ("baseline_adequacy", "baseline_trial"): 1,
-        ("baseline_adequacy", "cohort_readiness"): 4,
-        ("baseline_adequacy", "geometry_sensitivity"): 2,
         ("candidate_reinforcement_audit", "baseline_adequacy"): 1,
         ("candidate_reinforcement_audit", "baseline_trial"): 1,
         ("candidate_reinforcement_audit", "lifecycle_utility"): 3,
-        ("context_audit", "baseline_adequacy"): 4,
-        ("context_audit", "baseline_trial"): 1,
-        ("context_audit", "cohort_readiness"): 2,
         ("lifecycle_utility", "context_audit"): 4,
     }
 )
@@ -255,7 +249,7 @@ def test_yaml_imports_stay_at_the_two_approved_locations() -> None:
     assert yaml_imports == []
 
 
-def test_sibling_study_imports_match_the_recorded_r2_baseline() -> None:
+def test_sibling_study_imports_match_the_recorded_r3c_baseline() -> None:
     assert _sibling_imports(
         studies_dir=_PACKAGE_DIR / "scripts",
         module_prefix=f"{_PACKAGE_PREFIX}.scripts.",
@@ -291,7 +285,7 @@ def test_shared_package_facades_are_export_only() -> None:
     assert violations == []
 
 
-def test_r3b_canonical_studies_do_not_import_script_studies() -> None:
+def test_canonical_studies_do_not_import_script_studies() -> None:
     canonical_dir = _PACKAGE_DIR / "research" / "studies"
     violations = [
         f"{_relative_path(path)}:{line} imports {module}"
@@ -302,19 +296,21 @@ def test_r3b_canonical_studies_do_not_import_script_studies() -> None:
     assert violations == []
 
 
-def test_r3b_canonical_studies_do_not_import_sibling_studies() -> None:
+def test_canonical_studies_do_not_import_sibling_studies() -> None:
     assert _sibling_imports(
         studies_dir=_PACKAGE_DIR / "research" / "studies",
         module_prefix=f"{_PACKAGE_PREFIX}.research.studies.",
     ) == Counter()
 
 
-def test_r3b_script_facades_only_forward_to_canonical_studies() -> None:
+def test_r3c_script_facades_only_forward_to_canonical_studies() -> None:
     facade_dirs = (
         _PACKAGE_DIR / "scripts" / "baseline_trial",
         _PACKAGE_DIR / "scripts" / "atr_calibration",
         _PACKAGE_DIR / "scripts" / "cohort_readiness",
         _PACKAGE_DIR / "scripts" / "geometry_sensitivity",
+        _PACKAGE_DIR / "scripts" / "baseline_adequacy",
+        _PACKAGE_DIR / "scripts" / "context_audit",
     )
     violations: list[str] = []
     for facade_dir in facade_dirs:
