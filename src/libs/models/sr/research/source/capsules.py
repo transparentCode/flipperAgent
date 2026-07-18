@@ -16,7 +16,7 @@ from .contracts import SourceBar
 
 SCHEMA_VERSION = "1.0"
 _HASH_RE = re.compile(r"[0-9a-f]{64}")
-_COMMIT_RE = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
+_COMMIT_RE = re.compile(r"[0-9a-f]{40,64}")
 
 
 class CapsuleStage(str, Enum):

@@ -5,6 +5,8 @@ from dataclasses import replace
 import pytest
 
 from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.research.source.capsules import SourceCapsule as SharedSourceCapsule
+from libs.models.sr.research.studies.atr_calibration.contracts import SourceCapsule as CanonicalATRSourceCapsule
 from libs.models.sr.scripts.atr_calibration.contracts import CapsuleStage, SourceCapsule
 
 
@@ -35,3 +37,21 @@ def test_invalid_capsule_stage_fails_with_public_contract_error(source_capsules)
             implementation_commit=development.implementation_commit,
             bars=development.bars,
         )
+
+
+def test_legacy_atr_and_shared_source_capsule_exports_are_identical():
+    assert SourceCapsule is CanonicalATRSourceCapsule is SharedSourceCapsule
+
+
+@pytest.mark.parametrize("commit_length", [40, 41, 63, 64])
+def test_source_capsule_preserves_historical_git_identity_range(source_capsules, commit_length):
+    development, _ = source_capsules
+    capsule = replace(development, implementation_commit="a" * commit_length)
+    assert capsule.implementation_commit == "a" * commit_length
+
+
+@pytest.mark.parametrize("commit_length", [39, 65])
+def test_source_capsule_rejects_outside_historical_git_identity_range(source_capsules, commit_length):
+    development, _ = source_capsules
+    with pytest.raises(ContractValidationError, match="implementation_commit must be a git SHA"):
+        replace(development, implementation_commit="a" * commit_length)
