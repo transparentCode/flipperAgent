@@ -10,7 +10,7 @@ from pathlib import Path
 import tempfile
 from typing import Any
 
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 from libs.models.sr.domain.identity import canonical_json, deterministic_hash
 
 from .config import GeometrySensitivityConfig

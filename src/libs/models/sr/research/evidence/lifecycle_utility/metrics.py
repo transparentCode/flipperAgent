@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from statistics import median
 
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 
 from .config import FROZEN_EVENT_CLASSES, LifecycleUtilityConfig
 from .contracts import (

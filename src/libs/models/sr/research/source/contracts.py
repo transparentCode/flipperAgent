@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import math
 from typing import Any
 
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 from libs.models.sr.domain.identity import require_utc
 
 

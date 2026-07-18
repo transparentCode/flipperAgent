@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
-from libs.models.sr.domain.contracts import ContractValidationError, SREventType
+from libs.models.sr.domain import ContractValidationError, SREventType
 from libs.models.sr.domain.identity import utc_isoformat
 from libs.models.sr.research.source.contracts import SourceBar
 

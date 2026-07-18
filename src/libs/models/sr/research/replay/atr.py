@@ -8,7 +8,7 @@ from typing import Iterable
 
 from libs.models.sr.config.models import ResolvedSRConfig
 from libs.models.sr.domain import create_initial_state
-from libs.models.sr.domain.contracts import ClosedBar, ContractValidationError, SRStateKey
+from libs.models.sr.domain import ClosedBar, ContractValidationError, SRStateKey
 from libs.models.sr.evaluation.diagnostics import compute_diagnostics
 from libs.models.sr.evaluation.trace_builder import build_evaluation_trace
 from libs.models.sr.replay.runner import replay_bars

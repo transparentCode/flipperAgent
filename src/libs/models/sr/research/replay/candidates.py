@@ -6,13 +6,13 @@ from dataclasses import dataclass
 import math
 from typing import Any
 
-from libs.models.sr.domain.contracts import (
+from libs.models.sr.domain import (
     ClosedBar,
     ContractValidationError,
     SRSnapshot,
     SRState,
 )
-from libs.models.sr.evaluation.contracts import SREvaluationTrace
+from libs.models.sr.evaluation import SREvaluationTrace
 from libs.models.sr.evaluation.diagnostics import SRDiagnostics
 
 

@@ -9,7 +9,7 @@ from libs.models.sr.association import match_candidate
 from libs.models.sr.config.models import ResolvedSRConfig
 from libs.models.sr.detection import detect_confirmed_pivots
 from libs.models.sr.domain import create_initial_state
-from libs.models.sr.domain.contracts import (
+from libs.models.sr.domain import (
     ClosedBar,
     ContractValidationError,
     SREvent,
@@ -23,7 +23,7 @@ from libs.models.sr.domain.contracts import (
 )
 from libs.models.sr.domain.identity import deterministic_hash
 from libs.models.sr.lifecycle.engine import SREngine
-from libs.models.sr.evaluation.contracts import ObservedEvent
+from libs.models.sr.evaluation import ObservedEvent
 
 from .config import CandidateAuditConfig, FOLD_NAMES
 from .contracts import (

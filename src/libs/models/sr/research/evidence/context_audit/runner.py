@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import subprocess
 
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 from libs.models.sr.research.evidence.baseline_adequacy.artifacts import (
     validate_evaluation_bundle as validate_v19_evaluation,
 )

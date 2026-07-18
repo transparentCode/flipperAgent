@@ -9,7 +9,7 @@ from typing import Any, Protocol
 import pandas as pd
 
 from libs.features.indicators.volatility.atr import ATR
-from libs.models.sr.domain.contracts import ClosedBar, ContractValidationError, SRStateKey
+from libs.models.sr.domain import ClosedBar, ContractValidationError, SRStateKey
 from libs.models.sr.research.source.contracts import SourceBar
 
 from .contracts import (

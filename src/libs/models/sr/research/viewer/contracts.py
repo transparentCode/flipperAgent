@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import math
 from typing import Any
 
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 
 
 VIEWER_LIBRARY = "lightweight-charts"

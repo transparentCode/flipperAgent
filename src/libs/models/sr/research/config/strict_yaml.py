@@ -11,7 +11,7 @@ from yaml.nodes import MappingNode, Node, SequenceNode
 from yaml.tokens import AliasToken, AnchorToken
 
 from libs.models.sr.config.loader import load_sr_config
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 
 
 def _contains_merge_key(node: Node | None, seen: set[int]) -> bool:

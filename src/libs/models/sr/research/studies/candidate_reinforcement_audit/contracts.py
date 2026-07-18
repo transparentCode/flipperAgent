@@ -9,7 +9,7 @@ import math
 import re
 from typing import Any
 
-from libs.models.sr.domain.contracts import (
+from libs.models.sr.domain import (
     ContractValidationError,
     SRStateKey,
     ZoneSide,

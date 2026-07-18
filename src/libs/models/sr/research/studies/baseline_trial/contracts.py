@@ -14,14 +14,14 @@ import re
 from typing import Any
 
 from libs.models.sr.config.models import ResolvedSRConfig
-from libs.models.sr.domain.contracts import (
+from libs.models.sr.domain import (
     ClosedBar,
     ContractValidationError,
     SRSnapshot,
     SRState,
 )
 from libs.models.sr.domain.identity import require_utc
-from libs.models.sr.evaluation.contracts import SREvaluationTrace
+from libs.models.sr.evaluation import SREvaluationTrace
 from libs.models.sr.evaluation.diagnostics import SRDiagnostics
 from libs.models.sr.research.config.input_resolution import ResolvedInputConfig
 from libs.models.sr.research.source.contracts import SourceBar

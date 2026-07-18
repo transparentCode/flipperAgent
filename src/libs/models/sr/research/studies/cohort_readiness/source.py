@@ -14,7 +14,7 @@ from numbers import Integral, Real
 from pathlib import Path
 from typing import Any, Protocol
 
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 from libs.models.sr.domain.identity import deterministic_hash, utc_isoformat
 from libs.models.sr.research.artifacts.validator import load_strict_json
 from libs.models.sr.research.config.identities import ContentIdentity

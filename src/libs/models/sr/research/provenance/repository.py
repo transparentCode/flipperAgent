@@ -6,7 +6,7 @@ from pathlib import Path, PureWindowsPath
 import re
 import subprocess
 
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 
 
 _COMMIT_SHA = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")

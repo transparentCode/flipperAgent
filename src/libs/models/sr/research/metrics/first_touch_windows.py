@@ -8,7 +8,7 @@ import math
 from statistics import median
 from typing import Any
 
-from libs.models.sr.domain.contracts import ContractValidationError, SREventType, ZoneSide
+from libs.models.sr.domain import ContractValidationError, SREventType, ZoneSide
 from libs.models.sr.research.metrics.first_touch import FirstTouchOutcome
 
 from libs.models.sr.research.replay.candidates import CandidateReplay

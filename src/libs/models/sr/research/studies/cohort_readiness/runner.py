@@ -8,7 +8,7 @@ import subprocess
 from typing import Any
 
 from libs.models.sr.config.models import ResolvedSRConfig
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 from libs.models.sr.adapters.yaml_config import load_sr_config
 from libs.models.sr.research.config.input_resolution import (
     load_and_resolve_input_config,

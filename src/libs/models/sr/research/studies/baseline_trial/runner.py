@@ -7,7 +7,7 @@ from pathlib import Path
 import subprocess
 
 from libs.models.sr.domain import create_initial_state
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 from libs.models.sr.evaluation.diagnostics import compute_diagnostics
 from libs.models.sr.evaluation.trace_builder import build_evaluation_trace
 from libs.models.sr.replay.runner import replay_bars

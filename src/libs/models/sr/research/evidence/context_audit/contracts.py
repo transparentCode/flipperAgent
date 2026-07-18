@@ -9,14 +9,14 @@ import math
 import re
 from typing import Any
 
-from libs.models.sr.domain.contracts import (
+from libs.models.sr.domain import (
     ContractValidationError,
     SREventType,
     ZoneSide,
     ZoneStatus,
 )
 from libs.models.sr.domain.identity import deterministic_hash, require_utc, utc_isoformat
-from libs.models.sr.evaluation.contracts import ZoneRenderKind
+from libs.models.sr.evaluation import ZoneRenderKind
 
 
 SCHEMA_VERSION = "1.0"

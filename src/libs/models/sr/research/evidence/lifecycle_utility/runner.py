@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 import subprocess
 
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 
 from .artifacts import publish_lifecycle_bundle
 from .config import LifecycleUtilityConfig, load_lifecycle_utility_config

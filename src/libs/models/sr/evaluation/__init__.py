@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from .contracts import (
+from .observations import (
     ObservedEvent,
-    SREvaluationTrace,
     SR_EVALUATION_SCHEMA_VERSION,
     SnapshotReference,
     ZoneObservation,
     ZoneRenderKind,
 )
+from .traces import SREvaluationTrace
 from .diagnostics import (
     SRDiagnostics,
     SnapshotDiagnostics,

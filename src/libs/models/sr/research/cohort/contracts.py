@@ -16,7 +16,7 @@ import math
 import re
 from typing import Any
 
-from libs.models.sr.domain.contracts import ContractValidationError, SREventType
+from libs.models.sr.domain import ContractValidationError, SREventType
 from libs.models.sr.domain.identity import (
     canonical_json,
     deterministic_hash,
@@ -498,7 +498,7 @@ class AssetEvaluation:
 
     @property
     def created_zone_counts(self) -> tuple[int, int]:
-        from libs.models.sr.domain.contracts import SREventType, ZoneSide
+        from libs.models.sr.domain import SREventType, ZoneSide
 
         sides = {observation.zone_id: observation.side for observation in self.replay.trace.zone_observations}
         created = {event.zone_id for event in self.replay.trace.events if event.event_type is SREventType.CREATED}

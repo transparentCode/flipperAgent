@@ -5,10 +5,10 @@ from __future__ import annotations
 from collections import OrderedDict
 from typing import Any
 
-from libs.models.sr.domain.contracts import ContractValidationError, SREventType
+from libs.models.sr.domain import ContractValidationError, SREventType
 from libs.models.sr.config.models import ResolvedSRConfig
 from libs.models.sr.domain.identity import deterministic_hash, utc_isoformat
-from libs.models.sr.evaluation.contracts import (
+from libs.models.sr.evaluation import (
     ObservedEvent,
     SREvaluationTrace,
     ZoneObservation,

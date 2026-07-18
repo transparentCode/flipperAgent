@@ -7,7 +7,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 from libs.models.sr.domain.identity import require_utc
 from libs.models.sr.research.source.contracts import SourceBar
 from libs.models.sr.research.evidence.context_audit.artifacts import validate_audit_bundle

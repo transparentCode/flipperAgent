@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from statistics import median
 from typing import Any
 
-from libs.models.sr.domain.contracts import ContractValidationError, SREventType, ZoneSide
+from libs.models.sr.domain import ContractValidationError, SREventType, ZoneSide
 from libs.models.sr.config.models import ResolvedSRConfig
 from libs.models.sr.research.metrics.first_touch_windows import compute_candidate_metrics
 from libs.models.sr.research.replay.atr import replay_candidates

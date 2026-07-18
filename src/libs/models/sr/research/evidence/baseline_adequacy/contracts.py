@@ -10,7 +10,7 @@ import re
 from types import MappingProxyType
 from typing import Any
 
-from libs.models.sr.domain.contracts import (
+from libs.models.sr.domain import (
     ContractValidationError,
     ZoneSide,
     ZoneStatus,

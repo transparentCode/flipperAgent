@@ -9,7 +9,7 @@ import os
 import tempfile
 from typing import Any
 
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 from libs.models.sr.domain.identity import canonical_json, utc_isoformat
 from libs.models.sr.research.config.identities import ContentIdentity
 from libs.models.sr.research.provenance.repository import resolve_repository_path

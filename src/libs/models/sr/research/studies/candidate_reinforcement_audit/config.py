@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 from libs.models.sr.domain.identity import deterministic_hash, require_utc, utc_isoformat
 from libs.models.sr.research.config.identities import (
     BundleReference,

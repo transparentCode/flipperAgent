@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from libs.models.sr.config.models import ResolvedSRConfig
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 from libs.models.sr.research.provenance.repository import (
     repository_commit as _repository_commit,
     resolve_repository_path,

@@ -6,7 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 
 from .artifacts import validate_audit_bundle
 from .config import load_candidate_audit_config

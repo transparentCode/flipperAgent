@@ -7,7 +7,7 @@ from pathlib import Path
 import tempfile
 from typing import Any, Mapping
 
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 
 from .manifest import validate_member_bytes, validate_member_name
 from .path_safety import reject_symlink_components, require_regular_file

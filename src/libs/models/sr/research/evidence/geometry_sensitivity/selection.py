@@ -5,7 +5,7 @@ from __future__ import annotations
 from statistics import median
 from typing import Any
 
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 
 from .candidate_grid import baseline_candidate, build_candidate_grid, orthogonal_neighbors
 from .config import GeometrySensitivityConfig

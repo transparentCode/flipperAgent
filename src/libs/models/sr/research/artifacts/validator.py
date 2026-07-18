@@ -7,7 +7,7 @@ import math
 from pathlib import Path
 from typing import Any
 
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 
 from .path_safety import require_regular_file
 

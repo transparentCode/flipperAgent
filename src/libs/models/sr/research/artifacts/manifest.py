@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 
 from .canonical_json import sha256_hex
 

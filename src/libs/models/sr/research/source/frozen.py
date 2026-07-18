@@ -6,7 +6,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 from libs.models.sr.domain.identity import canonical_json, utc_isoformat
 from libs.models.sr.research.artifacts.path_safety import (
     reject_symlink_components,

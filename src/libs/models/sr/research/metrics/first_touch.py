@@ -7,7 +7,7 @@ from datetime import datetime
 import math
 from typing import Any
 
-from libs.models.sr.domain.contracts import ContractValidationError, ZoneSide
+from libs.models.sr.domain import ContractValidationError, ZoneSide
 from libs.models.sr.domain.identity import require_utc, utc_isoformat
 
 

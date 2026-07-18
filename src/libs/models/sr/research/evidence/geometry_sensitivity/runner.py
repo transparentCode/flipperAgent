@@ -9,7 +9,7 @@ import subprocess
 from typing import Any
 
 from libs.models.sr.config.models import ResolvedSRConfig
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 from libs.models.sr.research.cohort.artifacts import (
     load_source_bundle,
     validate_evaluation_bundle,

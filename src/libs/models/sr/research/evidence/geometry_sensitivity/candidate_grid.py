@@ -9,7 +9,7 @@ from libs.models.sr.config.models import (
     ResolvedSRConfig,
     RuntimeConfig,
 )
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 
 from .config import (
     APPROVED_PIVOT_SPANS,

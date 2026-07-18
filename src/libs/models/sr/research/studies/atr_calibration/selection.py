@@ -8,7 +8,7 @@ import re
 from statistics import median
 from typing import Any, Mapping
 
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 from libs.models.sr.domain.identity import deterministic_hash
 
 from .config import CalibrationConfig

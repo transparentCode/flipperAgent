@@ -5,7 +5,7 @@ from __future__ import annotations
 from statistics import median
 from typing import Any, Iterable
 
-from libs.models.sr.domain.contracts import ContractValidationError, SREventType
+from libs.models.sr.domain import ContractValidationError, SREventType
 from libs.models.sr.research.metrics.first_touch import FirstTouchOutcome
 from libs.models.sr.research.evidence.baseline_adequacy.contracts import (
     BaselineAdequacyStudy,

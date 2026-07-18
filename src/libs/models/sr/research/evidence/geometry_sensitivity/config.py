@@ -12,7 +12,7 @@ from types import MappingProxyType
 from typing import Any
 
 from libs.models.sr.adapters.yaml_config import load_sr_config
-from libs.models.sr.domain.contracts import ContractValidationError
+from libs.models.sr.domain import ContractValidationError
 from libs.models.sr.domain.identity import deterministic_hash, require_utc
 from libs.models.sr.research.cohort.contracts import (
     APPROVED_ASSETS,
