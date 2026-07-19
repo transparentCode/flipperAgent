@@ -36,15 +36,36 @@ def synthetic_provider_rows(config, asset: str):
         open_value = center - (0.5 if index % 3 else -0.5)
         high = max(open_value, close) + 1.5
         low = min(open_value, close) - 1.5
-        rows.append((int(timestamp.timestamp() * 1000), open_value, high, low, close, 10.0 + index))
+        rows.append(
+            (
+                int(timestamp.timestamp() * 1000),
+                open_value,
+                high,
+                low,
+                close,
+                10.0 + index,
+                3.0 + index,
+            )
+        )
     return tuple(rows)
 
 
 class FakeFrame:
-    columns = ("timestamp", "open", "high", "low", "close", "volume")
-
-    def __init__(self, rows):
+    def __init__(
+        self,
+        rows,
+        columns=(
+            "timestamp",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "taker_buy_base",
+        ),
+    ):
         self._rows = tuple(rows)
+        self.columns = columns
 
     def itertuples(self, *, index, name):
         assert index is False

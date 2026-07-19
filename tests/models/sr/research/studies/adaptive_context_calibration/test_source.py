@@ -70,6 +70,27 @@ def test_provider_boundary_rejects_order_duplicates_and_nonfinite(config, synthe
             implementation_commit="60331170abbbb5e538a4a67fa3a970a137160758",
         )
     rows = list(synthetic_frame._rows)
+    rows[6] = (*rows[6][:-1], -1.0)
+    with pytest.raises(BlockedSourceError, match="taker_buy_base is negative"):
+        canonicalize_12h_response(
+            type(synthetic_frame)(rows),
+            asset="TAOUSDT",
+            config=config,
+            implementation_commit="60331170abbbb5e538a4a67fa3a970a137160758",
+        )
+    for columns in (
+        synthetic_frame.columns[:-1],
+        (*synthetic_frame.columns[:2], "unexpected", *synthetic_frame.columns[3:]),
+        tuple(reversed(synthetic_frame.columns)),
+    ):
+        with pytest.raises(BlockedSourceError, match="columns are missing, additional, or reordered"):
+            canonicalize_12h_response(
+                type(synthetic_frame)(synthetic_frame._rows, columns),
+                asset="TAOUSDT",
+                config=config,
+                implementation_commit="60331170abbbb5e538a4a67fa3a970a137160758",
+            )
+    rows = list(synthetic_frame._rows)
     rows[4] = (*rows[4][:2], float("nan"), *rows[4][3:])
     with pytest.raises(BlockedSourceError):
         canonicalize_12h_response(
@@ -78,6 +99,51 @@ def test_provider_boundary_rejects_order_duplicates_and_nonfinite(config, synthe
             config=config,
             implementation_commit="60331170abbbb5e538a4a67fa3a970a137160758",
         )
+
+
+def test_real_adapter_parser_schema_is_accepted_and_taker_is_not_hashed(config, synthetic_frame) -> None:
+    from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
+
+    class _Client:
+        def klines(self, *_args, **_kwargs):
+            return [
+                [
+                    row[0],
+                    str(row[1]),
+                    str(row[2]),
+                    str(row[3]),
+                    str(row[4]),
+                    str(row[5]),
+                    row[0] + 43_199_999,
+                    "0",
+                    1,
+                    str(row[6]),
+                    "0",
+                    "0",
+                ]
+                for row in synthetic_frame._rows
+            ]
+
+    adapter = BinanceNativeAdapter.__new__(BinanceNativeAdapter)
+    adapter.client = _Client()
+    parsed = adapter._fetch_and_parse_klines_sync("TAOUSDT", "12h")
+    member = canonicalize_12h_response(
+        parsed,
+        asset="TAOUSDT",
+        config=config,
+        implementation_commit="60331170abbbb5e538a4a67fa3a970a137160758",
+    )
+    altered = list(synthetic_frame._rows)
+    altered[0] = (*altered[0][:-1], altered[0][-1] + 100.0)
+    unchanged = canonicalize_12h_response(
+        type(synthetic_frame)(altered),
+        asset="TAOUSDT",
+        config=config,
+        implementation_commit="60331170abbbb5e538a4a67fa3a970a137160758",
+    )
+    assert tuple(parsed.columns) == synthetic_frame.columns
+    assert member.bars_sha256 == unchanged.bars_sha256
+    assert member.source_id == unchanged.source_id
 
 
 def test_provider_call_is_one_and_failure_is_not_retried(config, synthetic_frame) -> None:

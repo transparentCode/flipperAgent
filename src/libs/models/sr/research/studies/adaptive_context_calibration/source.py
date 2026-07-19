@@ -87,7 +87,7 @@ def _row_values(row: Any, *, index: int) -> tuple[Any, ...]:
         values = tuple(row)
     except TypeError as exc:
         raise _blocked(f"row {index} is not iterable", exc) from exc
-    if len(values) != 6:
+    if len(values) != 7:
         raise _blocked(f"row {index} has an invalid column count")
     return values
 
@@ -101,7 +101,15 @@ def canonicalize_12h_response(
 ) -> V23SourceMember:
     """Validate one adapter response without sorting, repairing, or filtering."""
 
-    expected_columns = ("timestamp", "open", "high", "low", "close", "volume")
+    expected_columns = (
+        "timestamp",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "taker_buy_base",
+    )
     try:
         columns = tuple(response.columns)
         rows = tuple(response.itertuples(index=False, name=None))
@@ -117,7 +125,7 @@ def canonicalize_12h_response(
     seen_timestamps: set[int] = set()
     for index, row in enumerate(rows):
         values = _row_values(row, index=index)
-        timestamp, open_value, high, low, close, volume = values
+        timestamp, open_value, high, low, close, volume, taker_buy_base = values
         try:
             if isinstance(timestamp, bool):
                 raise ValueError("boolean timestamp")
@@ -130,8 +138,15 @@ def canonicalize_12h_response(
         expected_ms = _epoch_ms(expected_open)
         if timestamp_ms in seen_timestamps or timestamp_ms != expected_ms or actual_open != expected_open:
             raise _blocked(f"provider row {index} is missing, duplicate, unordered, or off-grid")
-        if not all(isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(float(value)) for value in values[1:]):
+        if not all(
+            isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and math.isfinite(float(value))
+            for value in values[1:]
+        ):
             raise _blocked(f"provider row {index} contains a non-finite OHLCV value")
+        if float(taker_buy_base) < 0.0:
+            raise _blocked(f"provider row {index} taker_buy_base is negative")
         bar_id = f"{protocol.venue}:{asset}:{protocol.timeframe}:{timestamp_ms}"
         try:
             bars.append(IntervalBar(actual_open, actual_open + INTERVAL, float(open_value), float(high), float(low), float(close), float(volume), bar_id))
