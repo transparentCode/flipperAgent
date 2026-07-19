@@ -16,6 +16,10 @@ _BASELINE_EXTERNAL_IMPORTS = {
     "apps.ingestion_app.adapters.binance_native",
 }
 
+_V23_SOURCE_EXTERNAL_IMPORTS = {
+    "apps.ingestion_app.adapters.binance_native",
+}
+
 
 def _runtime_files() -> list[Path]:
     package_dir = Path(__file__).parents[3] / "src" / "libs" / "models" / "sr"
@@ -49,6 +53,24 @@ def _allowed_import(path: Path, node: ast.Import | ast.ImportFrom) -> bool:
         "scripts",
         "baseline_trial",
     ) or relative.parts[:3] == ("research", "studies", "baseline_trial")
+    is_v23_source = relative.parts[:4] == (
+        "research",
+        "studies",
+        "adaptive_context_calibration",
+        "source.py",
+    )
+    is_v23_calibration = relative.parts[:4] == (
+        "research",
+        "studies",
+        "adaptive_context_calibration",
+        "calibration.py",
+    )
+    is_v23_metrics = relative.parts[:4] == (
+        "research",
+        "studies",
+        "adaptive_context_calibration",
+        "metrics.py",
+    )
     if isinstance(node, ast.Import):
         modules = [alias.name for alias in node.names]
     else:
@@ -68,6 +90,12 @@ def _allowed_import(path: Path, node: ast.Import | ast.ImportFrom) -> bool:
         ):
             continue
         if is_baseline_integration and module in _BASELINE_EXTERNAL_IMPORTS:
+            continue
+        if is_v23_source and module in _V23_SOURCE_EXTERNAL_IMPORTS:
+            continue
+        if is_v23_calibration and module == "scipy.stats":
+            continue
+        if is_v23_metrics and module == "numpy":
             continue
         if (
             (module == "yaml" or module.startswith("yaml."))

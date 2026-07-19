@@ -468,6 +468,7 @@ def test_canonical_study_set_includes_approved_v2_studies() -> None:
         if path.is_dir() and path.name != "__pycache__"
     } == {
         "atr_calibration",
+        "adaptive_context_calibration",
         "baseline_adequacy",
         "baseline_trial",
         "candidate_reinforcement_audit",
