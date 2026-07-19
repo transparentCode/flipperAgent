@@ -57,6 +57,9 @@ No V1 engine/runtime wiring occurred. The detector is not registered with
   unavailability, zero-wick and malformed detector input, touch bars 50/51,
   fold-end censoring, all decision dispositions and precedence, gate topology,
   rehashed semantic tampering, and member/parent symlink rejection.
+- Replaced the prefix-parity tuple-copy tautology with a causal 11-bar prefix
+  versus 16-bar extended-replay assertion. Test-only correction; evidence
+  semantics and bytes remain unchanged.
 - Updated architecture’s canonical study-set assertion to include the approved
   V2.1 package; added the test-package marker required for hermetic full-suite
   collection.
@@ -109,6 +112,8 @@ association, replay, checkpoint, provider, viewer, database, or legacy
 
 # Validation Performed
 
+- V2.1 focused detector/study suite after prefix-parity correction:
+  `17 passed`.
 - V2.1 + V2.0 + architecture focused suite: `83 passed`.
 - V2.1 semantic reconstruction: passed exactly with study `a726b09e…`,
   `65` candidates, `120` controls, `38` pairs, and
