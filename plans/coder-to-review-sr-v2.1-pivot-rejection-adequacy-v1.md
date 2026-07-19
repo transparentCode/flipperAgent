@@ -9,13 +9,13 @@ tags: [handoff, quant, sr, v2.1, pivot, rejection-wick, adequacy]
 source_agent: Codex quant-coder
 target_agent: Quant Review Agent
 source_base: 83428720308f7cce8a3ba5823911b23638792d96
-implementation_commit: 13f5ae54d29fdb8bf9934071c09fa8e276ee9b27
+implementation_commit: 5070c5c271a2b687e239a660c82bf0dbffd9225d
 ---
 
 # Scope Executed
 
 Implemented SR-V2.1 on `feature/sr-v2.1-pivot-rejection-adequacy` from exact
-base `8342872…`. The immutable implementation commit is `13f5ae5…`.
+base `8342872…`. The review-ready implementation commit is `5070c5c…`.
 
 - Added an unregistered strict span-5 pivot-rejection detector. It uses only
   causal confirmation, stores confirmation-bar ATR, and emits observed wick
@@ -46,23 +46,30 @@ No V1 engine/runtime wiring occurred. The detector is not registered with
 - `configs/sr_trials/sr_v2_1_taousdt_1d_pivot_rejection_adequacy.yaml`:
   strict frozen TAOUSDT/1d configuration; SHA-256
   `0ab7b7ff86a9e0388489131a5e55f27ca12dce3d77d1ab087754c9a1d4960aa2`.
-- Added detector/config/study/artifact/import-boundary regressions, including
-  causal control identity, wrong-prior-close rejection, exact two-control
-  topology, independent control touch timing, strict config mutation, and
-  semantic recomputation.
+- Hardened the review boundary without changing the hypothesis, numeric gates,
+  data, folds, geometry, or outcome semantics. The decision now requires the
+  exact ordered seven-gate topology, known name/category/operator/threshold
+  pairs, and a disposition/reason derived from readiness then utility gates.
+- Bound each causal case to the actual prior-bar close at confirmation; naïve
+  controls reject a mismatched bar-derived center. Future outcome changes no
+  longer influence case/control identities.
+- Added adversarial regressions for full/prefix replay, pre-confirmation
+  unavailability, zero-wick and malformed detector input, touch bars 50/51,
+  fold-end censoring, all decision dispositions and precedence, gate topology,
+  rehashed semantic tampering, and member/parent symlink rejection.
 - Updated architecture’s canonical study-set assertion to include the approved
   V2.1 package; added the test-package marker required for hermetic full-suite
   collection.
 
 # Evidence
 
-Two evaluations from `13f5ae5…` produced byte-identical V2.1 evidence:
+Two evaluations from `5070c5c…` produced byte-identical V2.1 evidence:
 
-- Bundle: `a031f6067ffd256fbeb882933394f12d80d6997152d5d5d948227aae7319b157`
-- Study: `05ea5b0c8b17a8bdb585bc9d33098971368ca6e59cfca1d9c00d9ae82297fdd0`
-- Manifest SHA-256 / bytes: `cb3c8bf46a87db213db70e3d86b8e5557ee30bb63c0977c1ee0cc9dac3f77944` / `6370`
-- Study SHA-256 / bytes: `1d6a61815d875375667d71652cb80c686db94ed8d6348a9533be383ba1e77d00` / `2956`
-- Cases SHA-256 / bytes: `eb23f3c6278f85e0ca041190988838ec49d623ae2d6bd7600de296fd38d70f9c` / `233373`
+- Bundle: `99686050a4e8ad17c2bfe0cbda5f2c75278cc9935e5903ab6590460100ac3e94`
+- Study: `a726b09e1523dbcb90954ba0975dab404ea387c856bd58e35ac4a304b5dac146`
+- Manifest SHA-256 / bytes: `7861436ff60c035b8ccdce7c1252d3e57ca4e7a1ab207b13f11faa71b334561a` / `6370`
+- Study SHA-256 / bytes: `94da18678dfd137ab7aed4a5766f1c396f9a243861afe2b8a4a7faf3939b73b4` / `2956`
+- Cases SHA-256 / bytes: `7980064b976da6aff08e49c374f989fc31ae9dacf937b7677c2e2ddf2efe711e` / `234732`
 
 Source identity is unchanged:
 
@@ -72,9 +79,9 @@ Source identity is unchanged:
   `d210494937ebcd4347e026b8ac02bff3105065e5455752b8690d449def357925`
 - Source ID: `fc1ba274454f277a40f005f542fdfd4e6e752e5afa2e1050f3582b21fd8b1120`
 
-The earlier ignored V2.1 bundle `04ea1b60…` was produced before the required
-test-package/architecture correction and is superseded. It was not modified
-or committed.
+The earlier ignored V2.1 bundles `04ea1b60…` and `a031f606…` are superseded
+by the current causal-identity and gate-contract remediation. They were not
+modified or committed.
 
 ## Result
 
@@ -102,19 +109,23 @@ association, replay, checkpoint, provider, viewer, database, or legacy
 
 # Validation Performed
 
-- V2.1 focused detector/study/artifact/import suite: `10 passed`.
-- Existing V2 displacement-origin/detector suite after neutral extraction:
-  `56 passed`.
-- V2.1 semantic reconstruction and CLI help: passed.
+- V2.1 + V2.0 + architecture focused suite: `83 passed`.
+- V2.1 semantic reconstruction: passed exactly with study `a726b09e…`,
+  `65` candidates, `120` controls, `38` pairs, and
+  `PIVOT_REJECTION_NOT_BETTER_THAN_NAIVE_NULL`.
 - V2.0 semantic reconstruction: passed exactly with study
   `5d9a85ef…`, `28` candidates, `56` controls, `23` pairs, and
   `INSUFFICIENT_EVIDENCE`.
-- Full active SR suite: `978 passed in 684.76s`.
+- V1.12 public semantic validation exited cleanly; protected frozen evidence
+  remains bundle `fd3eaf4c…`, audit `cd452938…`, and
+  `INSUFFICIENT_REINFORCEMENT_EVIDENCE`.
+- Full active SR suite: `985 passed in 651.98s`.
 - Ruff (`$HOME/.local/bin/ruff check src/libs/models/sr tests/models/sr`),
-  `compileall`, package imports, and `git diff --check 8342872..HEAD`: passed.
+  `compileall`, and `git diff --check`: passed.
 - Protected V1.12 bytes remain exact: `configs/sr.yaml`
   `0c7c11ae…`, manifest `c2d0e03f…`, audit `41bd97da…`.
-- Deterministic rerun: same V2.1 bundle ID and member SHA-256 values above.
+- Deterministic rerun: same V2.1 bundle ID and all member SHA-256 values
+  above.
 
 # Not Changed
 
@@ -126,8 +137,9 @@ Generated V2.1 evidence remains ignored.
 # Risks or Follow-Up Items
 
 No implementation blocker is known. Review should independently verify strict
-span-5 prefix causality, wick formulas and confirmation ATR, causal control
-identity/topology, independent touch outcomes, pair/gate math, semantic
+span-5 prefix causality, wick formulas and confirmation ATR, actual-bar
+prior-close control binding, future-outcome-independent identities, complete
+gate/disposition topology, independent touch outcomes, pair math, semantic
 tamper/path rejection, and the negative development disposition. This result
 does not authorize tuning, holdout access, runtime wiring, trading, or
 promotion.
