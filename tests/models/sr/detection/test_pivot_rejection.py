@@ -73,8 +73,11 @@ def test_prefix_parity_preconfirmation_unavailability_and_zero_wick_suppression(
     assert all(
         detect_pivot_rejection_bands(bars[:index], config) == () for index in range(11)
     )
+    extended_bars = bars + tuple(
+        _bar(index, high=12.0, low=8.0) for index in range(11, 16)
+    )
     assert detect_pivot_rejection_bands(bars, config) == detect_pivot_rejection_bands(
-        tuple(bars), config
+        extended_bars, config
     )
 
     zero_wick = (
