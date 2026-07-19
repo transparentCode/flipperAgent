@@ -4,11 +4,15 @@ stage: coder-to-review
 date_created: 2026-07-19
 last_updated: 2026-07-19
 owner: Codex
-status: Ready
+status: Approved
 tags: [handoff, quant, sr, v2-2, research]
 source_agent: quant-coder
 target_agent: quant-review
 ---
+
+> Review outcome: **APPROVE — Research Only**. V2.2 is an approved negative
+> development result. No merge, holdout access, production promotion, or rescue
+> tuning is authorized.
 
 # SR-V2.2 causal swing-reversal adequacy — coder to review
 
