@@ -4,7 +4,7 @@ stage: coder-to-review
 date_created: 2026-07-19
 last_updated: 2026-07-19
 owner: Codex
-status: Review Ready
+status: Approved Research Only
 tags: [handoff, quant, sr, v2.1, pivot, rejection-wick, adequacy]
 source_agent: Codex quant-coder
 target_agent: Quant Review Agent
@@ -101,6 +101,16 @@ modified or committed.
   comparable-fold pairs `6/4`, minimum controls per side `8/4`.
 - Utility gates fail: pooled median paired excess `0.0 < 0.10`, positive fold
   fraction `0.4 < 0.60`, worst median `-0.46570768758912295 < -0.10` ATR.
+
+# Approval Record
+
+V2.1 is accepted as approved negative development research:
+`PIVOT_REJECTION_NOT_BETTER_THAN_NAIVE_NULL`. It does not support this
+pivot-rejection zone kernel over matched naïve controls on frozen TAOUSDT/1d
+development data.
+
+No merge, tuning, holdout access, provider call, runtime wiring, trading, or
+production promotion is authorized. The V2.1 bundle remains frozen.
 
 # Blast Radius Considered
 
