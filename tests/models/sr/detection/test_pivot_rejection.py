@@ -62,3 +62,34 @@ def test_tied_pivot_is_rejected_and_invalid_config_fails_closed() -> None:
     assert detect_pivot_rejection_bands(bars, PivotRejectionConfig(5)) == ()
     with pytest.raises(ContractValidationError):
         PivotRejectionConfig(True)
+
+
+def test_prefix_parity_preconfirmation_unavailability_and_zero_wick_suppression() -> (
+    None
+):
+    bars = tuple(_bar(index, high=12.0, low=8.0) for index in range(11))
+    bars = bars[:5] + (_bar(5, high=20.0, low=1.0, open_=10.0, close=15.0),) + bars[6:]
+    config = PivotRejectionConfig(5)
+    assert all(
+        detect_pivot_rejection_bands(bars[:index], config) == () for index in range(11)
+    )
+    assert detect_pivot_rejection_bands(bars, config) == detect_pivot_rejection_bands(
+        tuple(bars), config
+    )
+
+    zero_wick = (
+        bars[:5] + (_bar(5, high=15.0, low=1.0, open_=15.0, close=14.0),) + bars[6:]
+    )
+    assert [item.side for item in detect_pivot_rejection_bands(zero_wick, config)] == [
+        ZoneSide.SUPPORT
+    ]
+
+
+def test_malformed_detector_inputs_fail_closed() -> None:
+    bars = tuple(_bar(index, high=12.0, low=8.0) for index in range(11))
+    with pytest.raises(ContractValidationError, match="tuple"):
+        detect_pivot_rejection_bands(list(bars), PivotRejectionConfig(5))  # type: ignore[arg-type]
+    duplicated = bars[:10] + (_bar(10, high=12.0, low=8.0),)
+    duplicated = duplicated[:10] + (bars[0],)
+    with pytest.raises(ContractValidationError, match="duplicate"):
+        detect_pivot_rejection_bands(duplicated, PivotRejectionConfig(5))

@@ -67,8 +67,6 @@ def build_study(
             raise ContractValidationError(
                 "naive control references unknown or mismatched causal case"
             )
-        prior_center_expected = None  # Geometry/timing checks are completed by outcome construction and caller alignment.
-        del prior_center_expected
         if (
             real.confirmation_bar_id != control.confirmation_bar_id
             or real.confirmation_index != control.confirmation_index
@@ -76,6 +74,8 @@ def build_study(
             or real.candidate.available_at != control.candidate.available_at
             or real.candidate.atr_at_creation != control.candidate.atr_at_creation
             or real.zone_width_atr != control.zone_width_atr
+            or real.prior_close != control.prior_close
+            or control.candidate.geometry.center != real.prior_close
             or real.candidate.geometry.half_width
             != control.candidate.geometry.half_width
             or real.candidate.candidate_id == control.candidate.candidate_id

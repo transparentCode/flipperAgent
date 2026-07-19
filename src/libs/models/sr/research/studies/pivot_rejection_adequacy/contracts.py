@@ -11,9 +11,52 @@ from libs.models.sr.domain import CandidateLevel, ContractValidationError, ZoneS
 from libs.models.sr.domain.identity import deterministic_hash, utc_isoformat
 from libs.models.sr.research.metrics.first_touch import FirstTouchOutcome
 
+from .config import APPROVED_GATES
+
 
 _COMMIT_RE = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
 _NAIVE_SOURCE = "prior_close_naive_v2_1"
+_GATE_TOPOLOGY = (
+    (
+        "readiness.completed_pairs",
+        "readiness",
+        APPROVED_GATES["minimum_completed_pairs"],
+    ),
+    (
+        "readiness.comparable_folds",
+        "readiness",
+        APPROVED_GATES["minimum_comparable_folds"],
+    ),
+    (
+        "readiness.pairs_per_comparable_fold",
+        "readiness",
+        APPROVED_GATES["minimum_pairs_per_comparable_fold"],
+    ),
+    (
+        "readiness.naive_controls_per_side_per_comparable_fold",
+        "readiness",
+        APPROVED_GATES["minimum_completed_naive_controls_per_side_per_comparable_fold"],
+    ),
+    (
+        "utility.pooled_median_paired_excess_quality_atr",
+        "utility",
+        APPROVED_GATES["minimum_pooled_median_excess_quality_atr"],
+    ),
+    (
+        "utility.positive_comparable_fold_fraction",
+        "utility",
+        APPROVED_GATES["minimum_positive_comparable_fold_fraction"],
+    ),
+    (
+        "utility.worst_comparable_fold_paired_excess_atr",
+        "utility",
+        APPROVED_GATES["minimum_worst_comparable_fold_excess_atr"],
+    ),
+)
+_GATE_BY_NAME = {
+    name: (category, threshold) for name, category, threshold in _GATE_TOPOLOGY
+}
+_READINESS_GATE_COUNT = 4
 
 
 def _string(value: object, *, path: str) -> str:
@@ -115,6 +158,7 @@ class CandidateCase:
     confirmation_bar_id: str
     confirmation_index: int
     pivot_index: int
+    prior_close: float
     fold: str | None
     status: OutcomeStatus
     outcome: FirstTouchOutcome | None
@@ -141,6 +185,13 @@ class CandidateCase:
         )
         if self.pivot_index >= self.confirmation_index:
             raise ContractValidationError("case pivot must precede confirmation")
+        object.__setattr__(
+            self,
+            "prior_close",
+            _finite(self.prior_close, path="case.prior_close", minimum=0.0),
+        )
+        if self.prior_close <= 0.0:
+            raise ContractValidationError("case.prior_close must be positive")
         if self.fold is not None:
             object.__setattr__(self, "fold", _string(self.fold, path="case.fold"))
         object.__setattr__(
@@ -171,6 +222,7 @@ class CandidateCase:
             "confirmation_bar_id": self.confirmation_bar_id,
             "confirmation_index": self.confirmation_index,
             "pivot_index": self.pivot_index,
+            "prior_close": self.prior_close,
             "fold": self.fold,
             "zone_width_atr": self.zone_width_atr,
         }
@@ -369,13 +421,18 @@ class GateResult:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "name", _string(self.name, path="gate.name"))
-        if self.category not in {"readiness", "utility"} or self.operator != ">=":
-            raise ContractValidationError("gate category/operator is unsupported")
+        expected = _GATE_BY_NAME.get(self.name)
+        if expected is None or self.category != expected[0] or self.operator != ">=":
+            raise ContractValidationError("gate name/category/operator is unsupported")
         if self.value is not None:
             object.__setattr__(self, "value", _finite(self.value, path="gate.value"))
         object.__setattr__(
             self, "threshold", _finite(self.threshold, path="gate.threshold")
         )
+        if self.threshold != expected[1]:
+            raise ContractValidationError(
+                "gate threshold is not the approved V2.1 value"
+            )
         if type(self.passed) is not bool or self.passed != (
             self.value is not None and self.value >= self.threshold
         ):
@@ -400,7 +457,29 @@ class Decision:
             or len({item.name for item in self.gates}) != len(self.gates)
         ):
             raise ContractValidationError("decision has invalid disposition or gates")
-        object.__setattr__(self, "reason", _string(self.reason, path="decision.reason"))
+        if tuple(item.name for item in self.gates) != tuple(
+            name for name, _, _ in _GATE_TOPOLOGY
+        ):
+            raise ContractValidationError(
+                "decision gate topology is incomplete or unordered"
+            )
+        reason = _string(self.reason, path="decision.reason")
+        readiness = self.gates[:_READINESS_GATE_COUNT]
+        utility = self.gates[_READINESS_GATE_COUNT:]
+        if any(not item.passed for item in readiness):
+            expected_disposition = PivotRejectionDisposition.INSUFFICIENT_EVIDENCE
+            expected_reason = "readiness gates failed"
+        elif all(item.passed for item in utility):
+            expected_disposition = PivotRejectionDisposition.BEATS_NAIVE_NULL
+            expected_reason = "all utility gates passed after readiness"
+        else:
+            expected_disposition = PivotRejectionDisposition.NOT_BETTER_THAN_NAIVE_NULL
+            expected_reason = "one or more utility gates failed after readiness"
+        if self.disposition is not expected_disposition or reason != expected_reason:
+            raise ContractValidationError(
+                "decision disposition/reason does not reconcile to gates"
+            )
+        object.__setattr__(self, "reason", reason)
 
     def to_payload(self) -> dict[str, object]:
         return {

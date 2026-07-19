@@ -143,6 +143,7 @@ def evaluate_candidates(
                 confirmation_bar_id=bars[confirmation_index].bar_id,
                 confirmation_index=confirmation_index,
                 pivot_index=pivot_index,
+                prior_close=bars[confirmation_index - 1].close,
                 fold=fold,
                 status=status,
                 outcome=outcome,
@@ -177,6 +178,10 @@ def build_naive_controls(
         ):
             raise ContractValidationError("control confirmation cannot be aligned")
         prior = bars[case.confirmation_index - 1]
+        if case.prior_close != prior.close:
+            raise ContractValidationError(
+                "case prior_close does not match confirmation predecessor"
+            )
         for side in config.control_side_order:
             candidate = prior_close_control_candidate(
                 case.candidate, prior_bar=prior, side=side, source=_NAIVE_SOURCE
@@ -195,7 +200,7 @@ def build_naive_controls(
                     confirmation_bar_id=case.confirmation_bar_id,
                     confirmation_index=case.confirmation_index,
                     fold=case.fold,
-                    prior_close=prior.close,
+                    prior_close=case.prior_close,
                     status=status,
                     outcome=outcome,
                     zone_width_atr=case.zone_width_atr,
