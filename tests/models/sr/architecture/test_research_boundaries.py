@@ -477,4 +477,5 @@ def test_canonical_study_set_includes_approved_v2_studies() -> None:
         "geometry_sensitivity",
         "lifecycle_utility",
         "pivot_rejection_adequacy",
+        "swing_reversal_adequacy",
     }
