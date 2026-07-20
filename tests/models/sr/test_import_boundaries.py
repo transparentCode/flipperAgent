@@ -20,6 +20,10 @@ _V23_SOURCE_EXTERNAL_IMPORTS = {
     "apps.ingestion_app.adapters.binance_native",
 }
 
+_V24_SOURCE_EXTERNAL_IMPORTS = {
+    "apps.ingestion_app.adapters.binance_native",
+}
+
 
 def _runtime_files() -> list[Path]:
     package_dir = Path(__file__).parents[3] / "src" / "libs" / "models" / "sr"
@@ -71,6 +75,18 @@ def _allowed_import(path: Path, node: ast.Import | ast.ImportFrom) -> bool:
         "adaptive_context_calibration",
         "metrics.py",
     )
+    is_v24_source = relative.parts[:4] == (
+        "research",
+        "studies",
+        "relative_salience_rank_utility",
+        "source.py",
+    )
+    is_v24_metrics = relative.parts[:4] == (
+        "research",
+        "studies",
+        "relative_salience_rank_utility",
+        "metrics.py",
+    )
     if isinstance(node, ast.Import):
         modules = [alias.name for alias in node.names]
     else:
@@ -93,9 +109,13 @@ def _allowed_import(path: Path, node: ast.Import | ast.ImportFrom) -> bool:
             continue
         if is_v23_source and module in _V23_SOURCE_EXTERNAL_IMPORTS:
             continue
+        if is_v24_source and module in _V24_SOURCE_EXTERNAL_IMPORTS:
+            continue
         if is_v23_calibration and module == "scipy.stats":
             continue
         if is_v23_metrics and module == "numpy":
+            continue
+        if is_v24_metrics and module == "numpy":
             continue
         if (
             (module == "yaml" or module.startswith("yaml."))
