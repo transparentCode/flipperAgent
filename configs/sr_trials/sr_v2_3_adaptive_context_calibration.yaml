@@ -1,0 +1,105 @@
+version: "1"
+
+trial:
+  trial_name: sr-v2.3-adaptive-context-calibration
+  venue: binance_usdm
+  assets: [TAOUSDT, ETHUSDT, SOLUSDT]
+  timeframes: [1d, 12h]
+
+sources:
+  frozen_1d:
+    bundle_path: research/tmp_sr_v1_7/source/6b5a0a81117ba299516fb67ca2da81b3cb6e6f35ed6a85986a27689205a565d9
+    outer_bundle_id: 6b5a0a81117ba299516fb67ca2da81b3cb6e6f35ed6a85986a27689205a565d9
+    implementation_commit: be6459a8e06ec95b634b2cfb2b91a08cd31d9ba2
+    venue: binance_usdm
+    timeframe: 1d
+    grid_policy: exact_utc_daily_grid_from_verified_v1_7_member
+    members:
+      - asset: TAOUSDT
+        source_id: fc1ba274454f277a40f005f542fdfd4e6e752e5afa2e1050f3582b21fd8b1120
+        source_bundle_id: d210494937ebcd4347e026b8ac02bff3105065e5455752b8690d449def357925
+        bars_sha256: 703367048f4ed7dc432ca9dfe0ad4afdc5a56eb2a508597ef00bdc3de8b81163
+        grid_sha256: d1f60173bc59a1301d08c8521b9f78fa0831daad3fd8b58edae392237d1e54e8
+        row_count: 629
+        start: "2024-04-11T00:00:00Z"
+        end: "2025-12-31T00:00:00Z"
+        provider_calls: 0
+      - asset: ETHUSDT
+        source_id: 3c525aca69ebba5931f7f6da2648ae79d2ce35315edab47ba7bea97f1cd32837
+        source_bundle_id: 3c525aca69ebba5931f7f6da2648ae79d2ce35315edab47ba7bea97f1cd32837
+        bars_sha256: 4f6a898a74cc0ea1c10f6f5d166c6a2c9d3990458af5cf0b876af6419c3f6231
+        grid_sha256: d1f60173bc59a1301d08c8521b9f78fa0831daad3fd8b58edae392237d1e54e8
+        row_count: 629
+        start: "2024-04-11T00:00:00Z"
+        end: "2025-12-31T00:00:00Z"
+        provider_calls: 0
+      - asset: SOLUSDT
+        source_id: 2fc22c565f84fbdac4f8607ba7ea43432f5e6cd4c5073e8f29a320513d404685
+        source_bundle_id: 2fc22c565f84fbdac4f8607ba7ea43432f5e6cd4c5073e8f29a320513d404685
+        bars_sha256: 810b973c78b632b839e992002649c5e73865e75b8750701cf058336997c8ba82
+        grid_sha256: d1f60173bc59a1301d08c8521b9f78fa0831daad3fd8b58edae392237d1e54e8
+        row_count: 629
+        start: "2024-04-11T00:00:00Z"
+        end: "2025-12-31T00:00:00Z"
+        provider_calls: 0
+  provider_12h:
+    adapter: apps.ingestion_app.adapters.binance_native.BinanceNativeAdapter
+    venue: binance_usdm
+    timeframe: 12h
+    start: "2024-08-19T00:00:00Z"
+    end: "2026-01-01T00:00:00Z"
+    expected_rows: 1000
+    open_time_spacing_hours: 12
+    request_since_inclusive: true
+    request_until_exclusive: true
+    adapter_limit: 1000
+    max_calls_per_asset: 1
+
+atr:
+  method: wilder_rma
+  period: 14
+  seed: sma
+  common_start_index: 28
+
+normalization:
+  history_days: 365
+  buckets: [Q1, Q2, Q3, Q4]
+  rank: deterministic_midrank
+
+calibration:
+  prior_alpha: 0.5
+  prior_beta: 0.5
+  external_precision: sqrt_successes_plus_failures
+  history_days: 365
+
+outcome:
+  first_touch_offset_bars: 1
+  touch_search_bars: 50
+  horizon_bars: 10
+  control_side_order: [SUPPORT, RESISTANCE]
+  label_rule: paired_excess_quality_atr_strictly_greater_than_zero
+  label_availability_rule: last_closed_outcome_bar_strictly_before_prediction
+
+folds:
+  - {name: 2025_q1, start: "2025-01-01T00:00:00Z", end: "2025-04-01T00:00:00Z"}
+  - {name: 2025_q2, start: "2025-04-01T00:00:00Z", end: "2025-07-01T00:00:00Z"}
+  - {name: 2025_q3, start: "2025-07-01T00:00:00Z", end: "2025-10-01T00:00:00Z"}
+  - {name: 2025_q4, start: "2025-10-01T00:00:00Z", end: "2026-01-01T00:00:00Z"}
+
+bootstrap:
+  draws: 10000
+  generator: numpy.random.Generator
+  bit_generator: PCG64
+  seed: 2303
+  resampling: cohort_fold_cells_then_cases_within_selected_cells
+  interval: central_90_percent
+
+dispositions:
+  - ADAPTIVE_CONTEXT_SUPPORTED_FOR_SHADOW
+  - ADAPTIVE_CONTEXT_NOT_SUPPORTED
+  - INSUFFICIENT_CALIBRATION_EVIDENCE
+
+artifact:
+  output_root: research/tmp_sr_v2_3
+  source_members: [manifest.json, TAOUSDT_1d.json, ETHUSDT_1d.json, SOLUSDT_1d.json, TAOUSDT_12h.json, ETHUSDT_12h.json, SOLUSDT_12h.json]
+  evaluation_members: [manifest.json, study.json, cases.json, predictions.json]

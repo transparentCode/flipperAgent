@@ -8,6 +8,7 @@ import math
 from typing import Any
 
 from libs.models.sr.domain import ContractValidationError, ZoneSide
+from libs.models.sr.domain.bars import ClosedBar
 from libs.models.sr.research.replay.candidates import CandidateReplay
 
 from .contracts import (
@@ -111,19 +112,32 @@ def _make_anchor(
     )
 
 
-def _outcome(
+def compute_control_outcome(
     anchor: ControlAnchor,
     side: ZoneSide,
-    replay: CandidateReplay,
+    model_bars: tuple[ClosedBar, ...],
     *,
-    config: BaselineAdequacyConfig,
+    outcome_start_offset_bars: int,
+    outcome_horizon_bars: int,
+    config_hash: str,
 ) -> ControlOutcome:
+    """Evaluate one prevalidated neutral control anchor without lifecycle state."""
+    if type(anchor) is not ControlAnchor:
+        raise ContractValidationError("control outcome requires exactly ControlAnchor")
+    if type(side) is not ZoneSide:
+        raise ContractValidationError("control outcome side must be exactly ZoneSide")
+    if type(model_bars) is not tuple or any(type(bar) is not ClosedBar for bar in model_bars):
+        raise ContractValidationError("control outcome model_bars must be ClosedBar tuple")
+    if type(outcome_start_offset_bars) is not int or outcome_start_offset_bars < 1:
+        raise ContractValidationError("control outcome offset must be a positive integer")
+    if type(outcome_horizon_bars) is not int or outcome_horizon_bars < 1:
+        raise ContractValidationError("control outcome horizon must be a positive integer")
     if not anchor.eligible or anchor.fold is None or anchor.reference_atr_14 is None:
         raise ContractValidationError("control outcome requires eligible anchor")
-    start_index = anchor.model_index + config.outcome_start_offset_bars
-    end_index = start_index + config.outcome_horizon_bars
-    horizon = replay.model_bars[start_index:end_index]
-    if len(horizon) != config.outcome_horizon_bars:
+    start_index = anchor.model_index + outcome_start_offset_bars
+    end_index = start_index + outcome_horizon_bars
+    horizon = model_bars[start_index:end_index]
+    if len(horizon) != outcome_horizon_bars:
         raise ContractValidationError("control outcome horizon is incomplete")
     if side is ZoneSide.SUPPORT:
         favorable_raw = max(max(bar.high for bar in horizon) - anchor.anchor_close, 0.0)
@@ -149,12 +163,29 @@ def _outcome(
         side=side,
         anchor_close=anchor.anchor_close,
         reference_atr_14=reference,
-        outcome_start_offset_bars=config.outcome_start_offset_bars,
-        outcome_horizon_bars=config.outcome_horizon_bars,
+        outcome_start_offset_bars=outcome_start_offset_bars,
+        outcome_horizon_bars=outcome_horizon_bars,
         tenth_outcome_bar_closed_at=horizon[-1].closed_at,
         favorable_reference_atr=favorable,
         adverse_reference_atr=adverse,
         quality_reference_atr=quality,
+        config_hash=config_hash,
+    )
+
+
+def _outcome(
+    anchor: ControlAnchor,
+    side: ZoneSide,
+    replay: CandidateReplay,
+    *,
+    config: BaselineAdequacyConfig,
+) -> ControlOutcome:
+    return compute_control_outcome(
+        anchor,
+        side,
+        replay.model_bars,
+        outcome_start_offset_bars=config.outcome_start_offset_bars,
+        outcome_horizon_bars=config.outcome_horizon_bars,
         config_hash=config.config_hash,
     )
 
@@ -191,4 +222,4 @@ def build_controls(
     return ControlBuildResult(anchors=anchors, outcomes=tuple(outcomes), accounting=accounting)
 
 
-__all__ = ["build_controls"]
+__all__ = ["build_controls", "compute_control_outcome"]
