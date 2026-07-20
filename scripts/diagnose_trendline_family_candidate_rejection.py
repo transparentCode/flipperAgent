@@ -23,23 +23,23 @@ for import_root in (PROJECT_ROOT, SRC_ROOT):
     if str(import_root) not in sys.path:
         sys.path.insert(0, str(import_root))
 
-from libs.models.trendline_family.config import ResolvedTrendlineFamilyConfig
-from libs.models.trendline_family.config_resolver import TrendlineFamilyConfigResolver
-from libs.models.trendline_family.contracts import ContractValidationError, LineCandidate
-from libs.models.trendline_family.optimization.contracts import (
+from libs.models.trendline.config import ResolvedTrendlineFamilyConfig
+from libs.models.trendline.config_resolver import TrendlineFamilyConfigResolver
+from libs.models.trendline.contracts import ContractValidationError, LineCandidate
+from libs.models.trendline.optimization.contracts import (
     OptimizationStage,
     TrialResult,
     canonical_json,
     primitive,
     semantic_id,
 )
-from libs.models.trendline_family.optimization.evaluator import apply_stage_overrides
-from libs.models.trendline_family.optimization.folds import ImmutableHistoricalFrame, WalkForwardFold
-from libs.models.trendline_family.provider import (
+from libs.models.trendline.optimization.evaluator import apply_stage_overrides
+from libs.models.trendline.optimization.folds import ImmutableHistoricalFrame, WalkForwardFold
+from libs.models.trendline.provider import (
     CandidateGenerationStatus,
     NativeDeterministicLineProvider,
 )
-from libs.models.trendline_family.research_lab.artifacts import PhaseIArtifactBrowser
+from libs.models.trendline.research_lab.artifacts import PhaseIArtifactBrowser
 from scripts import build_trendline_family_candidate_evidence_report as evidence_report
 
 

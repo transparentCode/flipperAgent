@@ -1,0 +1,133 @@
+"""Offline-only Trendline optimization APIs with lazy cross-model compatibility."""
+
+from importlib import import_module
+from .artifacts import (
+    ArtifactEnvelope,
+    CompletionArtifactIndex,
+    RunManifest,
+    VerifiedRunBundle,
+    atomic_write_json,
+    build_completion_artifact_index,
+    load_artifact_envelope,
+    verify_artifact_bundle,
+    write_phase_i_artifacts,
+)
+from .candidate_optimizer import CandidateGeometryEvaluator, CandidateOutcomePolicy, run_candidate_geometry_optimization
+from .contracts import (
+    FailureCode,
+    FeatureGroup,
+    FinalistFreeze,
+    HoldoutOpenAudit,
+    MetricRecord,
+    ObjectiveGate,
+    ObjectiveSpec,
+    OptimizationStage,
+    ParameterEffectAudit,
+    PromotionDecision,
+    PromotionRecommendation,
+    TrialConfig,
+    TrialResult,
+    TrialStatus,
+    WindowResult,
+)
+from .evaluator import (
+    HoldoutOpenRegistry,
+    build_holdout_open_audit,
+    build_promotion_recommendation,
+    evaluate_holdout_once,
+    freeze_validation_finalist,
+    run_stage_grid,
+    select_validation_finalist,
+    verify_parameter_effect_audits,
+    verify_persisted_trial_result,
+)
+from .folds import FoldPlan, HoldoutPlan, ImmutableHistoricalFrame, WalkForwardFold, build_walk_forward_fold_plan, hash_historical_frame
+from .interaction_optimizer import (
+    FrozenFamilySnapshotStream,
+    InteractionEvaluator,
+    InteractionOutcomePolicy,
+    build_frozen_family_snapshot_stream,
+    run_interaction_optimization,
+)
+from .runner import PhaseIEvaluationResult, run_phase_i_evaluation
+from .tracker_optimizer import FrozenCandidateStream, TrackerEvaluator, build_frozen_candidate_stream, run_tracker_optimization
+
+__all__ = [
+    "FEATURE_GROUP_SPECS",
+    "CandidateGeometryEvaluator",
+    "CandidateOutcomePolicy",
+    "FailureCode",
+    "FinalistFreeze",
+    "FeatureGroup",
+    "FoldPlan",
+    "FrozenCandidateStream",
+    "FrozenFamilySnapshotStream",
+    "HoldoutPlan",
+    "HoldoutOpenAudit",
+    "HoldoutOpenRegistry",
+    "ImmutableHistoricalFrame",
+    "InteractionEvaluator",
+    "InteractionOutcomePolicy",
+    "MetricRecord",
+    "ObjectiveGate",
+    "ObjectiveSpec",
+    "OptimizationStage",
+    "ParameterEffectAudit",
+    "PhaseIEvaluationResult",
+    "PromotionDecision",
+    "PromotionRecommendation",
+    "RegimeFeatureAblationEvaluator",
+    "RunManifest",
+    "ArtifactEnvelope",
+    "CompletionArtifactIndex",
+    "VerifiedRunBundle",
+    "TrackerEvaluator",
+    "TrialConfig",
+    "TrialResult",
+    "TrialStatus",
+    "WalkForwardFold",
+    "WeightedFeatureScorer",
+    "WindowResult",
+    "atomic_write_json",
+    "build_frozen_candidate_stream",
+    "build_frozen_family_snapshot_stream",
+    "build_completion_artifact_index",
+    "build_holdout_open_audit",
+    "build_promotion_recommendation",
+    "build_walk_forward_fold_plan",
+    "evaluate_holdout_once",
+    "evaluate_regime_feature_group_holdout",
+    "freeze_validation_finalist",
+    "hash_historical_frame",
+    "load_artifact_envelope",
+    "run_candidate_geometry_optimization",
+    "run_interaction_optimization",
+    "run_phase_i_evaluation",
+    "run_regime_feature_ablation",
+    "run_stage_grid",
+    "run_tracker_optimization",
+    "select_validation_finalist",
+    "write_phase_i_artifacts",
+    "verify_artifact_bundle",
+    "verify_parameter_effect_audits",
+    "verify_persisted_trial_result",
+]
+
+_CROSS_MODEL_COMPAT_EXPORTS = frozenset(
+    {
+        "FEATURE_GROUP_SPECS",
+        "RegimeFeatureAblationEvaluator",
+        "WeightedFeatureScorer",
+        "evaluate_regime_feature_group_holdout",
+        "run_regime_feature_ablation",
+    }
+)
+
+
+def __getattr__(name: str):
+    """Preserve historical ablation imports without loading integration at startup."""
+
+    if name in _CROSS_MODEL_COMPAT_EXPORTS:
+        module = import_module("libs.integrations.trendline_regime_v2.ablation")
+        return getattr(module, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

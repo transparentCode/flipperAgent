@@ -27,33 +27,33 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
-from libs.models.trendline_family.config import ResolvedTrendlineFamilyConfig
-from libs.models.trendline_family.config_resolver import TrendlineFamilyConfigResolver
-from libs.models.trendline_family.contracts import ContractValidationError
-from libs.models.trendline_family.optimization.candidate_optimizer import (
+from libs.models.trendline.config import ResolvedTrendlineFamilyConfig
+from libs.models.trendline.config_resolver import TrendlineFamilyConfigResolver
+from libs.models.trendline.contracts import ContractValidationError
+from libs.models.trendline.optimization.candidate_optimizer import (
     CandidateGeometryEvaluator,
     CandidateOutcomePolicy,
 )
-from libs.models.trendline_family.optimization.contracts import (
+from libs.models.trendline.optimization.contracts import (
     ObjectiveSpec,
     OptimizationStage,
     TrialResult,
 )
-from libs.models.trendline_family.optimization.evaluator import enumerate_grid
-from libs.models.trendline_family.optimization.folds import (
+from libs.models.trendline.optimization.evaluator import enumerate_grid
+from libs.models.trendline.optimization.folds import (
     FoldPlan,
     ImmutableHistoricalFrame,
     build_walk_forward_fold_plan,
 )
-from libs.models.trendline_family.optimization.runner import (
+from libs.models.trendline.optimization.runner import (
     PhaseIEvaluationResult,
     run_phase_i_evaluation,
 )
-from libs.models.trendline_family.research_lab.artifacts import (
+from libs.models.trendline.research_lab.artifacts import (
     PhaseIArtifactBrowser,
     load_verified_phase_i_artifacts,
 )
-from libs.models.trendline_family.research_lab.replay import normalize_binance_ohlcv
+from libs.models.trendline.research_lab.replay import normalize_binance_ohlcv
 
 
 ASSET = "BTCUSDT"

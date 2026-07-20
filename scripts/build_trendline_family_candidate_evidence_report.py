@@ -22,8 +22,8 @@ SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from libs.models.trendline_family.contracts import ContractValidationError
-from libs.models.trendline_family.optimization.contracts import (
+from libs.models.trendline.contracts import ContractValidationError
+from libs.models.trendline.optimization.contracts import (
     OptimizationStage,
     PromotionDecision,
     TrialResult,
@@ -31,8 +31,8 @@ from libs.models.trendline_family.optimization.contracts import (
     primitive,
     semantic_id,
 )
-from libs.models.trendline_family.optimization.folds import ImmutableHistoricalFrame
-from libs.models.trendline_family.research_lab.artifacts import (
+from libs.models.trendline.optimization.folds import ImmutableHistoricalFrame
+from libs.models.trendline.research_lab.artifacts import (
     PhaseIArtifactBrowser,
     load_verified_phase_i_artifacts,
 )

@@ -23,8 +23,8 @@ for import_root in (PROJECT_ROOT, SRC_ROOT):
     if str(import_root) not in sys.path:
         sys.path.insert(0, str(import_root))
 
-from libs.models.trendline_family.contracts import ContractValidationError
-from libs.models.trendline_family.optimization.contracts import canonical_json, semantic_id
+from libs.models.trendline.contracts import ContractValidationError
+from libs.models.trendline.optimization.contracts import canonical_json, semantic_id
 from scripts.diagnose_trendline_family_candidate_rejection import (
     OUTPUT_ROOT as DIAGNOSIS_ROOT,
     validate_diagnosis_bundle,

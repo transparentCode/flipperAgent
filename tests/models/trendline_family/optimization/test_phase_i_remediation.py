@@ -298,6 +298,9 @@ def test_verified_artifact_bundle_rejects_cross_artifact_run_rewrite(tmp_path) -
         evaluator=evaluator, output_root=tmp_path / "phase_i", maximum_trial_count=1,
         evaluation_spec=fixture_evaluation_spec("artifact-rewrite"),
     )
+    manifest_config = result.manifest.resolved_configurations["BTCUSDT:1h"]
+    assert manifest_config["resolved_values"] == config.to_dict()
+    assert manifest_config["configuration_fingerprint"] == config.configuration_fingerprint
     verify_artifact_bundle(result.artifact_paths)
     target = result.artifact_paths["fold_plan"]
     forged = json.loads(target.read_text(encoding="ascii"))

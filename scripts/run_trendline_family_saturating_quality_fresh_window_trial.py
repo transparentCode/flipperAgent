@@ -30,12 +30,12 @@ for import_root in (PROJECT_ROOT, SRC_ROOT):
         sys.path.insert(0, str(import_root))
 
 from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
-from libs.models.trendline_family.config import ResolvedTrendlineFamilyConfig
-from libs.models.trendline_family.config_resolver import TrendlineFamilyConfigResolver
-from libs.models.trendline_family.contracts import ContractValidationError, FamilyRole, LineCandidate
-from libs.models.trendline_family.interactions import calculate_interaction_atr
-from libs.models.trendline_family.optimization.candidate_optimizer import CandidateOutcomePolicy
-from libs.models.trendline_family.optimization.contracts import (
+from libs.models.trendline.config import ResolvedTrendlineFamilyConfig
+from libs.models.trendline.config_resolver import TrendlineFamilyConfigResolver
+from libs.models.trendline.contracts import ContractValidationError, FamilyRole, LineCandidate
+from libs.models.trendline.interactions import calculate_interaction_atr
+from libs.models.trendline.optimization.candidate_optimizer import CandidateOutcomePolicy
+from libs.models.trendline.optimization.contracts import (
     FinalistFreeze,
     HoldoutOpenAudit,
     MetricRecord,
@@ -50,7 +50,7 @@ from libs.models.trendline_family.optimization.contracts import (
     primitive,
     semantic_id,
 )
-from libs.models.trendline_family.optimization.evaluator import (
+from libs.models.trendline.optimization.evaluator import (
     HoldoutOpenRegistry,
     apply_stage_overrides,
     build_holdout_open_audit,
@@ -59,20 +59,21 @@ from libs.models.trendline_family.optimization.evaluator import (
     freeze_validation_finalist,
     run_validation_trial,
 )
-from libs.models.trendline_family.optimization.folds import (
+from libs.models.trendline.optimization.folds import (
     FoldPlan,
     HoldoutPlan,
     ImmutableHistoricalFrame,
     WalkForwardFold,
     build_walk_forward_fold_plan,
 )
-from libs.models.trendline_family.optimization.metrics import mean_metric, ratio_metric
-from libs.models.trendline_family.provider import (
+from libs.models.trendline.optimization.metrics import mean_metric, ratio_metric
+from libs.models.trendline.provider import (
     CandidateGenerationStatus,
     LineCandidateProvider,
     NativeDeterministicLineProvider,
+    provider_identity,
 )
-from libs.models.trendline_family.research_lab.replay import normalize_binance_ohlcv
+from libs.models.trendline.research_lab.replay import normalize_binance_ohlcv
 from scripts import analyze_trendline_family_candidate_quality_normalization as quality_study
 
 
@@ -662,7 +663,7 @@ def build_candidate_stream(
         "window_kind": window_kind,
         "dataset_hash": dataset.dataset_hash,
         "research_config_hash": config.resolved_config_hash,
-        "provider_identity": f"{provider.__class__.__module__}.{provider.__class__.__qualname__}",
+        "provider_identity": provider_identity(provider),
         "fold_plan_id": fold_plan.fold_plan_id,
         "holdout_plan_id": fold_plan.holdout.holdout_plan_id if window_kind == "holdout" else None,
         "finalist_freeze_id": None if finalist_freeze is None else finalist_freeze.freeze_id,
@@ -1354,8 +1355,8 @@ def execute_research_evaluation(
     fold_plan: FoldPlan,
 ) -> Mapping[str, Any]:
     provider = NativeDeterministicLineProvider()
-    provider_identity = f"{provider.__class__.__module__}.{provider.__class__.__qualname__}"
-    spec = evaluation_spec(research_config=research_config, provider_identity=provider_identity)
+    provider_identity_value = provider_identity(provider)
+    spec = evaluation_spec(research_config=research_config, provider_identity=provider_identity_value)
     validation_stream = build_candidate_stream(dataset=dataset, config=research_config, fold_plan=fold_plan, provider=provider, window_kind="validation")
     validation_evidence = build_outcome_evidence(dataset=dataset, stream=validation_stream, window_kind="validation")
     baseline_trial, primary_trials = build_trial_configs(dataset=dataset, fold_plan=fold_plan, research_config=research_config, spec=spec)
