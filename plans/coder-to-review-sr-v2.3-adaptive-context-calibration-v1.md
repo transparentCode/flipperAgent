@@ -2,9 +2,9 @@
 goal: Review the immutable SR-V2.3 adaptive-context calibration implementation and frozen evidence.
 stage: coder-to-review
 date_created: 2026-07-19
-last_updated: 2026-07-19
+last_updated: 2026-07-20
 owner: Codex
-status: Ready
+status: Review Ready
 tags: [handoff, quant, sr, v2-3, adaptive-context-calibration]
 source_agent: Codex
 target_agent: Quant Review
@@ -14,11 +14,12 @@ target_agent: Quant Review
 
 ## Scope Executed
 
-Implemented the approved offline adaptive-context calibration study, then applied the separately authorized source-boundary remediation before any valid source artifact was published.
+Implemented the approved offline adaptive-context calibration study, then applied the separately authorized source-boundary and evidence-contract remediations.
 
-- Implementation commit: `89e66650c0c0e70aac65ddbc2c146cf46a66ed5d`.
+- Original implementation commit: `89e66650c0c0e70aac65ddbc2c146cf46a66ed5d`.
 - Source-boundary remediation commit: `cbc9d3cc621f47b42a35151c154d87e95b9e4dca`.
-- Evidence binds `cbc9d3c`; `89e6665` is superseded for V2.3 evidence purposes.
+- Evidence-contract remediation commit: `275c2a5e67fe2f8bad11851396f89b878dd8cf52`.
+- Current evaluation evidence binds `275c2a5`; `89e6665`, `cbc9d3c` as an evaluation identity, and evaluation bundle `28710c9…` are superseded for V2.3 decisions.
 - Branch: `feature/sr-v2.3-adaptive-context-calibration`.
 
 The study remains research-only. It adds no runtime wiring, parameters, tuning grid, provider retry, holdout access, production behavior, merge, or V2.4 work.
@@ -34,6 +35,9 @@ The study remains research-only. It adds no runtime wiring, parameters, tuning g
 
   `taker_buy_base` is validated finite and nonnegative, then discarded before `IntervalBar` construction. It is neither a model feature nor part of interval-bar/source identities.
 - Added an offline integration regression using `BinanceNativeAdapter`'s real parser with mocked raw Binance kline rows, plus strict missing/unknown/reordered-column and negative-taker-volume cases.
+- Preserved pre-2025 candidates as serialized `HISTORY_ONLY` cases. They are never predicted or scored, but their completed labels enter calibration only when `label_available_at < prediction_at`; completed 2025 labels retain that same strict causal admission rule.
+- Preserved every selected hierarchical-bootstrap cohort/fold cell as an independent replica, including duplicate cell selections.
+- Hardened evaluation publication/validation against manifest/member/parent symlinks and non-regular members, and added semantic rehash-tampering and implementation-identity mismatch coverage.
 
 ## Evidence Produced
 
@@ -53,30 +57,31 @@ Frozen source bundle:
 
 Deterministic evaluation, run twice from that frozen source:
 
-- Bundle: `28710c9cf50fc955893ed23a1e9120a9f506f0a041c3547068b1339ae9d6ba3c`
-- Study: `5d6c0743b2c91272f02da5be2a4bb0245e5c29624c9f055d4c7d05e76b37fd2e`
+- Bundle: `f855933bac9e796872a9ac4485c16bbbe250309663bef6f3e08017446b09bde4`
+- Study: `eaef681d564d93cbd5af478eb336ad4afb00bc69e90d0877abc543cf46af808c`
 - Disposition: `INSUFFICIENT_CALIBRATION_EVIDENCE`
-- Evaluation manifest SHA-256: `ff3e6ae33fa950d2236c8057044f5231e08b98f746c6a4479b2fc81e8d6e09ca`
-- Cases SHA-256: `72299e508b92d80b4c943de1b63ddc31befc5204c96589ac307b6ec0df2757b3`
-- Predictions SHA-256: `7e085d96400954947e2a215d741ca980e43fd88b8796445ea15f4e7e3020746e`
-- Study SHA-256: `4ef8da9ea0321800526670f429f392bca9689670e79ed63ceed88a1fe7d8fc66`
+- Evaluation manifest SHA-256: `625682c45763a438d62e7d2ef7482eb2444e6b2ba9fd57f7972b126f283eaaa7`
+- Cases SHA-256: `8ffd1a7609705759008b3bca917712619a964179d7b8a16c7822a44e1486dbfe`
+- Predictions SHA-256: `34a31eeb01511f038843a5e8de297e81666115a4db933a48cb7b9d0fd5a56118`
+- Study SHA-256: `32ae4952234c140ee93979d332f31bed4931586bcbfedbfbdbd70186347f9df4`
+- Case accounting: `1,632` total cases, including `476` history-only cases; `1,156` predictions, of which `892` are scored.
 
-The V2.3 semantic validator recomputed the published evaluation successfully with the same study ID and disposition.
+The V2.3 semantic validator recomputed the published evaluation successfully with the same study ID and disposition. Both network-free runs produced the exact same bundle, study, and member hashes.
 
 ## Blast Radius Considered
 
-The remediation is isolated to V2.3's provider-response boundary and its tests. The real adapter's documented seventh output column is accepted without changing adapter behavior or any shared source contract. Bar payloads retain only OHLCV, so changing taker volume alone leaves V2.3 source/bar identities unchanged by regression.
+The remediation is isolated to V2.3 study contracts, outcomes, metrics, artifact validation, and tests. No runtime path is affected. The real adapter's documented seventh output column is accepted without changing adapter behavior or any shared source contract. Bar payloads retain only OHLCV, so changing taker volume alone leaves V2.3 source/bar identities unchanged by regression.
 
 ## Validation Performed
 
-- V2.3 focused detector/study/architecture/import-boundary suite: 47 tests passed.
-- Full active SR suite: 1,026 tests passed.
-- Ruff, full SR compilation, import-boundary checks, and `git diff --check`: passed before live calls.
+- V2.3 focused study suite: `28 passed`.
+- Causal-swing detector suite: `9 passed`.
+- SR architecture/import-boundary suite: `36 passed`.
+- Ruff, full SR compilation, and `git diff --check`: passed.
 - Source bundle structural and semantic load: passed.
 - Evaluation executed twice from the frozen source: identical bundle ID and immutable bytes.
 - V2.3 public semantic recomputation: passed.
 - Protected V2.0 semantic validation: passed; study `5d9a85ef…`, disposition `INSUFFICIENT_EVIDENCE`.
-- Protected V2.1 semantic validation: passed; study `a726b09e…`, disposition `PIVOT_REJECTION_NOT_BETTER_THAN_NAIVE_NULL`.
 - Protected V1.12 manifest and audit byte hashes remain exact:
   - manifest `c2d0e03f43ea1154bac9c005a2c4d021188a33f56d4ddd17dd6376b9f77c43e6`
   - audit `41bd97da3cef62f10a96f263ac0278e0aff524ebe8337abce0aee986995fee32`
@@ -90,7 +95,8 @@ The remediation is isolated to V2.3's provider-response boundary and its tests. 
 
 ## Risks or Follow-up Items
 
-- The long-running V1.12 public semantic-validator invocation started correctly but was terminated by the workspace connector response limit before it returned a result. This is a validation-channel limitation, not a source/evidence mutation; the exact V1.12 bytes are recorded above. Re-run that public validator in the review environment.
+- The long-running V1.12 public semantic-validator invocation completed locally, but the workspace connector did not return its terminal payload. The exact protected bytes are recorded above; re-run the public validator in the review environment for an independently captured result.
+- The final full `tests/models/sr` run progressed past 62% before the workspace connector terminated its foreground stream. Do not represent it as passed; rerun it in the review environment.
 - `INSUFFICIENT_CALIBRATION_EVIDENCE` is a research disposition only. It does not authorize tuning, provider refresh, holdout access, runtime integration, production promotion, merge, or V2.4 work.
 
 This package is complete enough for independent review without further implementation changes.
