@@ -13,7 +13,10 @@ from typing import Any
 
 from libs.models.sr.domain import ContractValidationError
 from libs.models.sr.domain.identity import canonical_json, deterministic_hash
-from libs.models.sr.research.artifacts.path_safety import reject_symlink_components
+from libs.models.sr.research.artifacts.path_safety import (
+    reject_symlink_components,
+    require_regular_file,
+)
 from libs.models.sr.research.source.contracts import SourceBar
 
 from .config import AdaptiveContextCalibrationConfig
@@ -178,7 +181,10 @@ def _validated_manifest(path: Path, expected_members: set[str]) -> dict[str, Any
     _ensure_safe_dir(path, description="artifact bundle")
     if {item.name for item in path.iterdir()} != expected_members:
         raise ContractValidationError("artifact member set mismatch")
-    manifest = load_json(path / "manifest.json")
+    manifest_path = path / "manifest.json"
+    reject_symlink_components(manifest_path, description="artifact manifest")
+    require_regular_file(manifest_path, description="artifact manifest")
+    manifest = load_json(manifest_path)
     if type(manifest) is not dict:
         raise ContractValidationError("artifact manifest must be a mapping")
     semantic = manifest.get("bundle_id_semantic_payload")
@@ -200,7 +206,10 @@ def _validated_manifest(path: Path, expected_members: set[str]) -> dict[str, Any
         if type(name) is not str or name == "manifest.json" or "/" in name or "\\" in name or ".." in Path(name).parts:
             raise ContractValidationError("unsafe artifact member name")
         member_path = path / name
-        if member_path.is_symlink() or not member_path.is_file() or sha256_hex(member_path.read_bytes()) != item["sha256"] or len(member_path.read_bytes()) != item["byte_length"]:
+        reject_symlink_components(member_path, description=f"artifact member {name}")
+        require_regular_file(member_path, description=f"artifact member {name}")
+        data = member_path.read_bytes()
+        if sha256_hex(data) != item["sha256"] or len(data) != item["byte_length"]:
             raise ContractValidationError(f"artifact member hash mismatch: {name}")
     if set(manifest) != set(semantic) | {"bundle_id", "bundle_id_semantic_payload"}:
         raise ContractValidationError("artifact manifest schema mismatch")
@@ -277,6 +286,8 @@ def validate_evaluation_bundle(
         raise ContractValidationError("evaluation bundle ID mismatch")
     if semantic.get("config_hash") != config.config_hash or semantic.get("source_bundle_id") != source_bundle.bundle_id:
         raise ContractValidationError("evaluation protocol identity mismatch")
+    if implementation_commit is not None and semantic.get("implementation_commit") != implementation_commit:
+        raise ContractValidationError("evaluation implementation identity mismatch")
     from .runner import compute_study
 
     commit = implementation_commit or semantic.get("implementation_commit")

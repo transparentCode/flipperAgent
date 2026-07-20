@@ -23,6 +23,7 @@ from .config import AdaptiveContextCalibrationConfig, load_adaptive_context_cali
 from .contracts import (
     CANONICAL_COHORTS,
     CandidateCase,
+    CaseMembership,
     NormalizationStatus,
     PredictionRecord,
     SalienceBucket,
@@ -127,6 +128,8 @@ def _build_predictions(
 ) -> tuple[PredictionRecord, ...]:
     predictions = []
     for case in cases:
+        if case.membership is CaseMembership.HISTORY_ONLY:
+            continue
         if case.normalization_status is not NormalizationStatus.READY:
             continue
         if type(case.bucket) is not SalienceBucket:
@@ -186,6 +189,9 @@ def _candidate_diagnostics(replays: tuple[CohortReplay, ...]) -> dict[str, Any]:
             "candidate_count": len(candidates),
             "zero_wick_confirmation_count": len(replay.observations) - len(candidates),
             "in_fold_candidate_case_count": len(in_fold),
+            "history_only_case_count": sum(
+                item.membership is CaseMembership.HISTORY_ONLY for item in in_fold
+            ),
             "normalization_warmup_case_count": sum(
                 item.normalization_status is NormalizationStatus.NORMALIZATION_WARMUP
                 for item in in_fold
@@ -274,6 +280,9 @@ def compute_study(
     metrics["normalization_diagnostics"] = _normalization_diagnostics(replays)
     metrics["fixed_v2_2_detector_candidate_counts"] = _fixed_v22_diagnostic(replays, config=config)
     metrics["historical_label_count"] = len(labels)
+    metrics["history_only_case_count"] = sum(
+        item.membership is CaseMembership.HISTORY_ONLY for item in cases
+    )
     metrics["cohort_case_counts"] = dict(Counter(_cohort_key(replay.member) for replay in replays for _ in replay.cases))
     metrics["cohort_prediction_counts"] = dict(Counter(f"{item.asset}/{item.timeframe}" for item in predictions))
     boot = bootstrap_summary(predictions, cases, config=config)

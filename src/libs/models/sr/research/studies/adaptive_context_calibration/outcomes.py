@@ -17,6 +17,7 @@ from libs.models.sr.research.replay.atr import compute_atr_series
 from .config import AdaptiveContextCalibrationConfig
 from .contracts import (
     CANONICAL_COHORTS,
+    CaseMembership,
     CandidateCase,
     ControlRecord,
     NormalizationStatus,
@@ -138,11 +139,20 @@ def _status_and_outcome(
     return (OutcomeStatus.COMPLETED if outcome.completed else OutcomeStatus.RIGHT_CENSORED), outcome
 
 
+def _history_end(bars: tuple[ClosedBar, ...]) -> datetime:
+    """Permit history outcomes to complete after 2025 begins, never past source."""
+
+    if len(bars) < 2:
+        raise ContractValidationError("history outcome requires at least two bars")
+    return bars[-1].closed_at + (bars[-1].closed_at - bars[-2].closed_at)
+
+
 def evaluate_candidate_outcomes(
     candidate,
     *,
     confirmation_index: int,
     fold: str,
+    history_only: bool,
     bars: tuple[ClosedBar, ...],
     config: AdaptiveContextCalibrationConfig,
 ) -> CandidateOutcomeBundle:
@@ -153,12 +163,19 @@ def evaluate_candidate_outcomes(
     width = (candidate.geometry.upper_bound - candidate.geometry.lower_bound) / candidate.atr_at_creation
     if not math.isfinite(width) or width <= 0.0:
         raise ContractValidationError("candidate width in ATR must be finite and positive")
-    status, outcome = _status_and_outcome(
+    fold_end = _history_end(bars) if history_only else _fold_end(fold, config)
+    payload = config.outcome.expected
+    outcome = first_revisit_outcome(
         candidate,
         confirmation_index=confirmation_index,
-        fold=fold,
+        fold_end=fold_end,
         bars=bars,
-        config=config,
+        first_touch_offset_bars=payload["first_touch_offset_bars"],
+        touch_search_bars=payload["touch_search_bars"],
+        horizon_bars=payload["horizon_bars"],
+    )
+    status = OutcomeStatus.NO_TOUCH if outcome is None else (
+        OutcomeStatus.COMPLETED if outcome.completed else OutcomeStatus.RIGHT_CENSORED
     )
     prior = bars[confirmation_index - 1]
     controls = []
@@ -169,12 +186,17 @@ def evaluate_candidate_outcomes(
             side=side,
             source="prior_close_naive_v2_3",
         )
-        control_status, control_outcome = _status_and_outcome(
+        control_outcome = first_revisit_outcome(
             control_candidate,
             confirmation_index=confirmation_index,
-            fold=fold,
+            fold_end=fold_end,
             bars=bars,
-            config=config,
+            first_touch_offset_bars=payload["first_touch_offset_bars"],
+            touch_search_bars=payload["touch_search_bars"],
+            horizon_bars=payload["horizon_bars"],
+        )
+        control_status = OutcomeStatus.NO_TOUCH if control_outcome is None else (
+            OutcomeStatus.COMPLETED if control_outcome.completed else OutcomeStatus.RIGHT_CENSORED
         )
         controls.append(ControlRecord(side, control_candidate, control_status, control_outcome, width))
     return CandidateOutcomeBundle(status, outcome, tuple(controls), width)
@@ -188,7 +210,7 @@ def build_candidate_cases(
     config: AdaptiveContextCalibrationConfig,
     normalized: dict[tuple[str, str, str], NormalizationResult],
 ) -> tuple[CandidateCase, ...]:
-    """Build all in-fold real candidates; normalization is supplied causally."""
+    """Build all calibration-history and in-fold candidates causally."""
 
     if tuple((member.asset, member.timeframe)) not in CANONICAL_COHORTS:
         raise ContractValidationError("member is outside canonical V2.3 cohorts")
@@ -198,13 +220,19 @@ def build_candidate_cases(
         if candidate is None:
             continue
         fold = _fold_for(candidate.available_at, config)
-        if fold is None:
+        history_only = candidate.available_at < config.folds[0].start
+        if fold is None and not history_only:
             continue
+        membership = CaseMembership.HISTORY_ONLY if history_only else CaseMembership.IN_FOLD
+        case_fold = "HISTORY_ONLY" if history_only else fold
+        if case_fold is None:
+            raise ContractValidationError("in-fold candidate has no fold")
         result = normalized[(member.asset, member.timeframe, observation.confirmation_bar_id)]
         bundle = evaluate_candidate_outcomes(
             candidate,
             confirmation_index=observation.confirmation_index,
-            fold=fold,
+            fold=case_fold,
+            history_only=history_only,
             bars=bars,
             config=config,
         )
@@ -225,7 +253,8 @@ def build_candidate_cases(
             CandidateCase(
                 asset=member.asset,
                 timeframe=member.timeframe,
-                fold=fold,
+                fold=case_fold,
+                membership=membership,
                 confirmation_bar_id=observation.confirmation_bar_id,
                 confirmation_index=observation.confirmation_index,
                 extreme_bar_id=observation.extreme_bar_id,

@@ -453,6 +453,13 @@ class NormalizationStatus(str, Enum):
     NORMALIZATION_WARMUP = "NORMALIZATION_WARMUP"
 
 
+class CaseMembership(str, Enum):
+    """Whether a candidate is calibration history or a 2025 scored case."""
+
+    HISTORY_ONLY = "HISTORY_ONLY"
+    IN_FOLD = "IN_FOLD"
+
+
 class SalienceBucket(str, Enum):
     Q1 = "Q1"
     Q2 = "Q2"
@@ -594,6 +601,7 @@ class CandidateCase:
     asset: str
     timeframe: str
     fold: str
+    membership: CaseMembership
     confirmation_bar_id: str
     confirmation_index: int
     extreme_bar_id: str
@@ -616,6 +624,12 @@ class CandidateCase:
         object.__setattr__(self, "asset", _string(self.asset, path="case.asset"))
         object.__setattr__(self, "timeframe", _string(self.timeframe, path="case.timeframe"))
         object.__setattr__(self, "fold", _string(self.fold, path="case.fold"))
+        if type(self.membership) is not CaseMembership:
+            raise ContractValidationError("case membership is invalid")
+        if self.membership is CaseMembership.HISTORY_ONLY and self.fold != "HISTORY_ONLY":
+            raise ContractValidationError("history-only case must use HISTORY_ONLY fold")
+        if self.membership is CaseMembership.IN_FOLD and self.fold == "HISTORY_ONLY":
+            raise ContractValidationError("in-fold case cannot use HISTORY_ONLY fold")
         for name in ("confirmation_bar_id", "extreme_bar_id"):
             object.__setattr__(self, name, _string(getattr(self, name), path=f"case.{name}"))
         for name in ("confirmation_index", "extreme_index"):
@@ -674,6 +688,7 @@ class CandidateCase:
             "asset": self.asset,
             "timeframe": self.timeframe,
             "fold": self.fold,
+            "membership": self.membership.value,
             "confirmation_bar_id": self.confirmation_bar_id,
             "confirmation_index": self.confirmation_index,
             "extreme_bar_id": self.extreme_bar_id,
@@ -830,6 +845,13 @@ class StudyResult:
             raise ContractValidationError("study result summary types are invalid")
         if len({item.case_id for item in self.cases}) != len(self.cases) or len({item.prediction_id for item in self.predictions}) != len(self.predictions):
             raise ContractValidationError("study case/prediction IDs must be unique")
+        cases_by_id = {item.case_id: item for item in self.cases}
+        if any(
+            item.case_id not in cases_by_id
+            or cases_by_id[item.case_id].membership is not CaseMembership.IN_FOLD
+            for item in self.predictions
+        ):
+            raise ContractValidationError("study prediction references a non-scored case")
         object.__setattr__(self, "study_id", deterministic_hash(self.identity_payload()))
 
     def identity_payload(self) -> dict[str, Any]:
@@ -854,6 +876,7 @@ class StudyResult:
 __all__ = [
     "AdaptiveDisposition",
     "CANONICAL_COHORTS",
+    "CaseMembership",
     "CandidateCase",
     "ControlRecord",
     "IntervalBar",

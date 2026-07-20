@@ -78,6 +78,15 @@ def test_provider_boundary_rejects_order_duplicates_and_nonfinite(config, synthe
             config=config,
             implementation_commit="60331170abbbb5e538a4a67fa3a970a137160758",
         )
+    rows = list(synthetic_frame._rows)
+    rows[6] = (*rows[6][:-1], float("nan"))
+    with pytest.raises(BlockedSourceError, match="non-finite"):
+        canonicalize_12h_response(
+            type(synthetic_frame)(rows),
+            asset="TAOUSDT",
+            config=config,
+            implementation_commit="60331170abbbb5e538a4a67fa3a970a137160758",
+        )
     for columns in (
         synthetic_frame.columns[:-1],
         (*synthetic_frame.columns[:2], "unexpected", *synthetic_frame.columns[3:]),
@@ -133,10 +142,10 @@ def test_real_adapter_parser_schema_is_accepted_and_taker_is_not_hashed(config, 
         config=config,
         implementation_commit="60331170abbbb5e538a4a67fa3a970a137160758",
     )
-    altered = list(synthetic_frame._rows)
-    altered[0] = (*altered[0][:-1], altered[0][-1] + 100.0)
+    altered = parsed.copy(deep=True)
+    altered.loc[altered.index[0], "taker_buy_base"] += 100.0
     unchanged = canonicalize_12h_response(
-        type(synthetic_frame)(altered),
+        altered,
         asset="TAOUSDT",
         config=config,
         implementation_commit="60331170abbbb5e538a4a67fa3a970a137160758",

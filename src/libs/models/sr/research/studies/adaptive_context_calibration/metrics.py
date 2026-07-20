@@ -12,7 +12,12 @@ from libs.models.sr.domain import ContractValidationError
 
 from .calibration import brier_loss, log_loss
 from .config import AdaptiveContextCalibrationConfig
-from .contracts import AdaptiveDisposition, CandidateCase, PredictionRecord
+from .contracts import (
+    AdaptiveDisposition,
+    CandidateCase,
+    CaseMembership,
+    PredictionRecord,
+)
 
 
 def _mean(values: list[float]) -> float | None:
@@ -34,6 +39,8 @@ def _score_records(
         case = cases.get(prediction.case_id)
         if case is None:
             raise ContractValidationError("prediction references an unknown case")
+        if case.membership is not CaseMembership.IN_FOLD:
+            raise ContractValidationError("history-only case cannot be scored")
         if case.real_status is not None and case.real_status.value == "RIGHT_CENSORED":
             censoring[key] += 1
         if prediction.label is None:
@@ -129,6 +136,21 @@ def _quantile(values: list[float]) -> dict[str, float | None]:
     return {"lower_90": float(np.quantile(values, 0.05)), "upper_90": float(np.quantile(values, 0.95))}
 
 
+def _sample_cell_replicas(
+    cells: tuple[tuple[str, tuple[tuple[float, float, float, float, float], ...]], ...],
+    selected: Any,
+    generator: Any,
+) -> list[list[tuple[float, float, float, float, float]]]:
+    """Resample each selected cohort-fold cell as an independent replica."""
+
+    replicas = []
+    for selected_index in selected:
+        _, values = cells[int(selected_index)]
+        indices = generator.integers(0, len(values), size=len(values))
+        replicas.append([values[int(index)] for index in indices])
+    return replicas
+
+
 def bootstrap_summary(
     predictions: tuple[PredictionRecord, ...],
     cases: tuple[CandidateCase, ...],
@@ -160,12 +182,8 @@ def bootstrap_summary(
     cell_count = len(cells)
     for _ in range(draws):
         selected = generator.integers(0, cell_count, size=cell_count)
-        sampled_by_cohort: dict[str, list[tuple[float, float, float, float, float]]] = defaultdict(list)
-        for selected_index in selected:
-            key, values = cells[int(selected_index)]
-            indices = generator.integers(0, len(values), size=len(values))
-            sampled_by_cohort[key].extend(values[int(index)] for index in indices)
-        sampled = [item for values in sampled_by_cohort.values() for item in values]
+        sampled_cells = _sample_cell_replicas(cells, selected, generator)
+        sampled = [item for values in sampled_cells for item in values]
         adaptive_brier = sum(item[0] for item in sampled) / len(sampled)
         null_brier = sum(item[1] for item in sampled) / len(sampled)
         adaptive_log = sum(item[2] for item in sampled) / len(sampled)
@@ -174,7 +192,7 @@ def bootstrap_summary(
         brier_values.append(null_brier - adaptive_brier)
         log_values.append(null_log - adaptive_log)
         cohort_improvements = []
-        for values in sampled_by_cohort.values():
+        for values in sampled_cells:
             cohort_improvements.append(sum(item[1] - item[0] for item in values) / len(values))
         median_cohort_values.append(float(median(cohort_improvements)))
     return {
