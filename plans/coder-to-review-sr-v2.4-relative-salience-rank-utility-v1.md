@@ -2,7 +2,7 @@
 goal: Review the immutable SR-V2.4 causal relative-salience rank-utility implementation and fresh six-cohort evidence.
 stage: coder-to-review
 date_created: 2026-07-20
-last_updated: 2026-07-20
+last_updated: 2026-07-21
 owner: Codex
 status: Ready
 tags: [handoff, quant, sr, v2-4, relative-salience-rank-utility]
@@ -19,6 +19,7 @@ Implemented the approved fixed SR-V2.4 rank-utility study and its frozen six-coh
 - Branch: `feature/sr-v2.4-relative-salience-rank-utility`.
 - Offline implementation commit: `8c303b37229018a902ca664bcc71752cec13fc4c`.
 - Narrow file-scoped import-boundary remediation commit: `f4d2fe28b524daf0c3439a995a62bab86fd3dc9a`.
+- Provenance remediation commit: `a671105407e333713bf6238dd3f9f796d5555674`.
 - All frozen source and evaluation evidence binds `f4d2fe28`; `8c303b3` is superseded as an evidence implementation identity.
 
 This is research-only. It does not authorize parameter tuning, another provider request, holdout access, runtime integration, production promotion, merge, a viewer, or V2.5.
@@ -34,10 +35,12 @@ This is research-only. It does not authorize parameter tuning, another provider 
   - `relative_salience_rank_utility/source.py` -> `apps.ingestion_app.adapters.binance_native`
 
   The allowlist remains file-scoped and module-exact; it does not broaden SR-wide NumPy or ingestion-app access.
+- Corrected provenance-only command behavior: `prepare-source` and `evaluate` resolve current repository HEAD, while `validate` recomputes against `source.implementation_commit`.
+- Added a fail-closed source/evaluation implementation-identity check before case construction. A later implementation cannot publish an evaluation from frozen source evidence bound to another commit.
 
 ## Blast Radius Considered
 
-The implementation is isolated to the new V2.4 study, its immutable trial YAML, focused tests, and the two explicit import-boundary entries. The shared continuous-swing detector and existing V1/V2 contracts are consumed without modification. The six provider calls occurred only after the final implementation commit and full offline validation.
+The implementation is isolated to the new V2.4 study, its immutable trial YAML, focused tests, and the two explicit import-boundary entries. The shared continuous-swing detector and existing V1/V2 contracts are consumed without modification. The six provider calls occurred only after the evidence implementation commit and full offline validation. The later provenance fix does not alter study semantics or frozen bytes.
 
 ## Validation Performed
 
@@ -49,6 +52,9 @@ The implementation is isolated to the new V2.4 study, its immutable trial YAML, 
 - The source bundle loaded structurally and semantically with each daily cohort at `629` history + `181` fresh rows and each 12-hour cohort at `1,000` history + `362` fresh rows.
 - Evaluation ran twice from the immutable source and produced byte-identical output with the same bundle and study IDs.
 - V2.4 semantic validation passed, reconstructing the published study and disposition.
+- Provenance regression, V2.4 focused, import-boundary, and research-architecture tests: `42 passed in 84.87s`.
+- Ruff, compilation, and `git diff --check`: passed for the provenance remediation.
+- Required post-remediation full SR suite from unchanged `a671105`: `1,054 passed in 793.65s (0:13:13)`; log: `/tmp/sr-v2.4-provenance-full-suite.log`.
 - Protected V2.0 semantic validation passed: study `5d9a85ef87bac80407f969eba244f258ae198a1af508ed1ab27cda079e96360a`, `INSUFFICIENT_EVIDENCE`.
 - Protected V2.3 semantic validation passed: study `eaef681d564d93cbd5af478eb336ad4afb00bc69e90d0877abc543cf46af808c`, `INSUFFICIENT_CALIBRATION_EVIDENCE`.
 - Protected V1.12 manifest and audit hashes remain exact:
@@ -93,6 +99,7 @@ The AUC and Q4 success-lift support gates pass. The Q4 paired-excess and median-
 - `configs/sr.yaml` remains SHA-256 `0c7c11aea8f1ea1e11ef810a6f38d7370a14834c1517d4aab43ac71c378a2119`.
 - No shared runtime S/R model, detector parameter, lifecycle rule, geometry, outcome, control topology, provider adapter, or production configuration changed.
 - No provider code, holdout, tuning, viewer, merge, or V2.5 work was started.
+- No provider call, source preparation, evaluation publication, artifact regeneration, or new artifact directory occurred during provenance remediation.
 - User-owned untracked architect/review plan drafts were not staged or modified.
 
 ## Risks or Follow-up Items
