@@ -23,8 +23,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     root = Path(args.repo_root).resolve()
     config = load_relative_salience_rank_config(str(root / args.config))
-    commit = repository_commit(root)
     if args.command == "prepare-source":
+        commit = repository_commit(root)
         bundle = fetch_and_freeze_source_sync(config, repo_root=root, implementation_commit=commit)
         bundle_id, _ = publish_source_bundle(bundle, output_root=root / config.payload["artifact"]["output_root"])
         print(bundle_id)
@@ -33,13 +33,19 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--source is required")
     source = load_source_bundle(root / args.source)
     if args.command == "evaluate":
+        commit = repository_commit(root)
         study = compute_study(config, source_bundle=source, implementation_commit=commit)
         bundle_id, _ = publish_evaluation_bundle(study, config=config, output_root=root / config.payload["artifact"]["output_root"])
         print(bundle_id)
         return 0
     if args.evaluation is None:
         parser.error("--evaluation is required for validate")
-    study = validate_evaluation_bundle(root / args.evaluation, config=config, source_bundle=source, implementation_commit=commit)
+    study = validate_evaluation_bundle(
+        root / args.evaluation,
+        config=config,
+        source_bundle=source,
+        implementation_commit=source.implementation_commit,
+    )
     print(study.study_id)
     return 0
 

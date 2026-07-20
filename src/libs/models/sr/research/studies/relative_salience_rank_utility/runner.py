@@ -94,6 +94,8 @@ def compute_study(
         raise ContractValidationError("V2.4 study requires typed config/source")
     if source_bundle.config_hash != config.config_hash:
         raise ContractValidationError("V2.4 source/config identity mismatch")
+    if implementation_commit != source_bundle.implementation_commit:
+        raise ContractValidationError("V2.4 source/evaluation implementation identity mismatch")
     cases = tuple(case for member in source_bundle.members for case in _member_cases(member))
     metrics, gates, disposition = assess(cases, config=config)
     return RankStudy(implementation_commit, config.config_hash, source_bundle.bundle_id, cases, gates, disposition, metrics)
