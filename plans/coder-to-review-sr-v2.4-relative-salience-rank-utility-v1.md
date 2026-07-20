@@ -4,7 +4,7 @@ stage: coder-to-review
 date_created: 2026-07-20
 last_updated: 2026-07-21
 owner: Codex
-status: Ready
+status: Approved Research Only
 tags: [handoff, quant, sr, v2-4, relative-salience-rank-utility]
 source_agent: Codex
 target_agent: Quant Review
@@ -23,6 +23,8 @@ Implemented the approved fixed SR-V2.4 rank-utility study and its frozen six-coh
 - All frozen source and evaluation evidence binds `f4d2fe28`; `8c303b3` is superseded as an evidence implementation identity.
 
 This is research-only. It does not authorize parameter tuning, another provider request, holdout access, runtime integration, production promotion, merge, a viewer, or V2.5.
+
+Final review classification: engineering status approved; research disposition `INSUFFICIENT_RANK_EVIDENCE`; shadow and production promotion remain unauthorized. The V2 price-only sequence stops here.
 
 ## Changes Made
 
@@ -104,7 +106,8 @@ The AUC and Q4 success-lift support gates pass. The Q4 paired-excess and median-
 
 ## Risks or Follow-up Items
 
-- The V1.12 public semantic-validator process stalled without output through this workspace connector and was stopped; this matches prior connector behavior, not a validation failure. Its frozen member hashes remain exact. Re-run that public validator in the review environment if an independently captured terminal result is required.
-- The result is insufficient evidence, not support or rejection of the broader descriptive S/R domain. It does not authorize a rescue variant on this source window.
+- No open V2.4 implementation or evidence finding remains.
+- V2.4 found ranking information—AUC and Q4 success-rate lift passed—but did not demonstrate stable economic magnitude across asset/timeframe cohorts. This does not authorize a rescue variant on this source window.
+- Future work, if authorized separately, is a point-in-time trader-annotated context benchmark. It is not V2.5 and is outside this package.
 
-This package is complete enough for independent review without further implementation changes.
+V2.4 is closed as `APPROVE — Research Only`. No merge, provider call, evidence regeneration, runtime wiring, tuning, holdout access, or production action follows from this approval.
