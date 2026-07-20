@@ -4,7 +4,7 @@ stage: coder-to-review
 date_created: 2026-07-19
 last_updated: 2026-07-20
 owner: Codex
-status: Review Ready
+status: Approved Research Only
 tags: [handoff, quant, sr, v2-3, adaptive-context-calibration]
 source_agent: Codex
 target_agent: Quant Review
@@ -82,6 +82,7 @@ The remediation is isolated to V2.3 study contracts, outcomes, metrics, artifact
 - Evaluation executed twice from the frozen source: identical bundle ID and immutable bytes.
 - V2.3 public semantic recomputation: passed.
 - Protected V2.0 semantic validation: passed; study `5d9a85ef…`, disposition `INSUFFICIENT_EVIDENCE`.
+- Final local full SR suite: `1,035 passed in 694.28s`.
 - Protected V1.12 manifest and audit byte hashes remain exact:
   - manifest `c2d0e03f43ea1154bac9c005a2c4d021188a33f56d4ddd17dd6376b9f77c43e6`
   - audit `41bd97da3cef62f10a96f263ac0278e0aff524ebe8337abce0aee986995fee32`
@@ -96,7 +97,11 @@ The remediation is isolated to V2.3 study contracts, outcomes, metrics, artifact
 ## Risks or Follow-up Items
 
 - The long-running V1.12 public semantic-validator invocation completed locally, but the workspace connector did not return its terminal payload. The exact protected bytes are recorded above; re-run the public validator in the review environment for an independently captured result.
-- The final full `tests/models/sr` run progressed past 62% before the workspace connector terminated its foreground stream. Do not represent it as passed; rerun it in the review environment.
+- Local closeout command completed outside the workspace connector:
+
+  `PYTHONPATH=src .venv/bin/pytest -q tests/models/sr`
+
+  Result: `1,035 passed in 694.28s`.
 - `INSUFFICIENT_CALIBRATION_EVIDENCE` is a research disposition only. It does not authorize tuning, provider refresh, holdout access, runtime integration, production promotion, merge, or V2.4 work.
 
 This package is complete enough for independent review without further implementation changes.
