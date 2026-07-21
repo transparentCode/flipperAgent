@@ -1,14 +1,11 @@
-# Stage Routing Matrix
+# Three-Role Routing
 
-- `research`: idea exploration, hypothesis testing, indicator/model comparison, experiment design, web research for external evidence.
-- `architecture`: vague request, strategy idea, pipeline design, tradeoff analysis, missing implementation-ready scope.
-- `coder`: approved handoff exists and execution scope is clear.
-- `review`: implementation finished and needs correctness/risk review.
-- `approval`: review complete; user requests sign-off/merge readiness.
-- `write-handoff`: user asks to persist stage package in `plans/`.
+| Situation | Owner | Next owner |
+|---|---|---|
+| Unclear hypothesis, evidence, experiment, architecture, or contract | Architect | Orchestrator |
+| Complete implementation contract or bounded fix | Coder | Orchestrator |
+| Review, remediation decision, final approval, integration | Orchestrator | Architect or coder only if needed |
 
-Escalation rules:
-- If coder/review/approval finds architectural ambiguity, route back to `architecture`.
-- If review finds execution defects, route to `coder`.
-- If research needs external evidence, invoke `search-specialist` skill for deep web research.
-- If any stage produces a durable artifact, route to `write-handoff`.
+Skip architect when objective, scope, non-goals, acceptance criteria, and validation
+are already complete. Never create separate research, bounded-worker, review, or
+approval agents.

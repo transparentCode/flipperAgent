@@ -1,34 +1,40 @@
 ---
 name: quant-write-handoff
-description: Persist stage handoff packages into plans markdown files. Use when converting architecture, execution, review, or approval outputs into durable, stage-correct documents.
-user-invocable: true
+description: Write durable three-role flipperAgent coordination documents under plans. Use for architect-to-coder contracts, coder-to-orchestrator execution evidence, and orchestrator decisions.
 ---
 
 # Quant Write Handoff
 
-## Workflow
-1. Confirm stage type and consumer.
-2. Gather exact scope and latest validated findings.
-3. If code paths were touched, include blast radius summary.
-4. Write file in `plans/` using stage-first naming.
-5. Ensure no placeholders and explicit non-goals/follow-ups.
+## Active Stages
 
-## Repo Context
-- Handoff directory: `plans/` at repository root (already contains 30+ existing handoffs).
-- Shared handoff format: `.github/skills/quant-handoff/SKILL.md`.
-- Detailed file-writing procedure with required front matter: `.github/skills/write-quant-handoff/SKILL.md`.
-- Naming convention matches existing files in `plans/` (e.g., `architect-to-coder-<topic>-v1.md`).
+- `orchestrator-to-architect-<topic>-vN.md`
+- `architect-to-coder-<topic>-vN.md`
+- `coder-to-orchestrator-<topic>-vN.md`
+- `orchestrator-decision-<topic>-vN.md`
 
-## File Naming
-- `architect-to-coder-<topic>-v1.md`
-- `coder-to-review-<topic>-v1.md`
-- `review-to-architect-<topic>-v1.md`
-- `review-to-approval-<topic>-v1.md`
-- `approval-decision-<topic>-v1.md`
+Historical handoffs may use retired stage names. Preserve them as evidence.
 
-## Token Rules
-- Use compact sections only for selected stage template.
-- Load `references/stage-templates.md` when writing the file.
+## Required Front Matter
 
-## Extended Version
-An alternate, more verbose version of this skill is available at `.github/skills/write-quant-handoff/SKILL.md`.
+```yaml
+---
+goal: concise outcome
+stage: orchestrator-to-architect | architect-to-coder | coder-to-orchestrator | orchestrator-decision
+date_created: YYYY-MM-DD
+last_updated: YYYY-MM-DD
+owner: responsible role or user
+status: Draft | Ready | Needs Revision | Approved | Not Approved
+source_agent: source role
+target_agent: target role or user
+tags: [handoff, quant]
+---
+```
+
+## Requirements
+
+- Save under `plans/`; never overwrite protected prior evidence.
+- Include objective, scope, non-goals, affected files/symbols/flows, acceptance
+  criteria, validation evidence or plan, blockers, and residual risk as applicable.
+- Separate verified facts from assumptions and unresolved questions.
+- Remove placeholders. State whether the next owner can act without guessing.
+- Load `references/stage-templates.md` only when a full template is needed.

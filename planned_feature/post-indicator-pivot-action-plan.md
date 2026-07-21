@@ -2,7 +2,7 @@
 
 **Date**: 2026-05-27
 **Status**: Approved
-**Owner**: Quant Research Architect → Coder Agent
+**Owner**: Quant Architect → Quant Coder
 
 ---
 

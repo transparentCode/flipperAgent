@@ -29,16 +29,23 @@ from conductor.storage import ConductorStorage
 
 # Map workflow stages to the handoff stage name used in plans/ files.
 _STAGE_HANDOFF_MAP: dict[WorkflowStage, str] = {
-    WorkflowStage.RESEARCH: "orchestrator-to-researcher",
-    WorkflowStage.ARCHITECT: "researcher-to-architect",
+    WorkflowStage.ARCHITECT: "orchestrator-to-architect",
     WorkflowStage.CODE: "architect-to-coder",
-    WorkflowStage.REVIEW: "coder-to-review",
-    WorkflowStage.APPROVAL: "review-to-approval",
+    WorkflowStage.REVIEW: "coder-to-orchestrator",
+    WorkflowStage.APPROVAL: "orchestrator-decision",
+}
+
+# Read old handoffs and persisted workflows, but never emit these retired stages.
+_LEGACY_HANDOFF_STAGE_MAP: dict[str, WorkflowStage] = {
+    "orchestrator-to-researcher": WorkflowStage.RESEARCH,
+    "researcher-to-architect": WorkflowStage.ARCHITECT,
+    "coder-to-review": WorkflowStage.REVIEW,
+    "review-to-approval": WorkflowStage.APPROVAL,
 }
 
 
 class WorkflowEngine:
-    """Drive a quant workflow through research → architect → code → review → approval."""
+    """Drive work through orchestrator → architect → coder → orchestrator."""
 
     def __init__(
         self,
@@ -163,7 +170,7 @@ class WorkflowEngine:
             gate_reason = state.gate_reason or "Architecture complete; human approval required before coding."
             suggested = f"Review the architect handoff, then run: {approve_cmd}"
         elif state.current_stage == WorkflowStage.HUMAN_REVIEW:
-            gate_reason = state.gate_reason or "Review complete; human approval required before final approval."
+            gate_reason = state.gate_reason or "Orchestrator review complete; human final approval required."
             suggested = f"Inspect review findings, then run: {approve_cmd}"
         else:
             gate_reason = state.gate_reason or "Workflow paused for human input."
@@ -264,7 +271,7 @@ class WorkflowEngine:
             else:
                 state.current_stage = next_stage
         elif result.verdict == Verdict.FAIL:
-            # Failed review/approval goes back to the previous producer stage.
+            # Failed orchestrator review returns to the configured producer stage.
             state.current_stage = self._retry_stage(task.stage)
         elif result.verdict in {Verdict.TIMEOUT, Verdict.STALLED}:
             state = self._handle_timeout(state, task, result)
@@ -340,7 +347,7 @@ class WorkflowEngine:
         if stage == WorkflowStage.ARCHITECT:
             return "Human gate before coding: architecture approval required."
         if stage == WorkflowStage.REVIEW:
-            return "Human gate before approval: inspect review findings."
+            return "Human gate before completion: inspect orchestrator review findings."
         risk = self.settings.gate_policy._has_risk_signal(handoff, [])
         if risk:
             return "Risk signal detected; human approval required."
@@ -383,11 +390,19 @@ class WorkflowEngine:
         paths = state.handoffs.get(stage, [])
         if not paths:
             # Try to discover a matching handoff from plans/.
-            handoff_stage = _STAGE_HANDOFF_MAP.get(stage)
-            if handoff_stage:
+            handoff_stages = [
+                name
+                for name, mapped_stage in {
+                    **{name: mapped for mapped, name in _STAGE_HANDOFF_MAP.items()},
+                    **_LEGACY_HANDOFF_STAGE_MAP,
+                }.items()
+                if mapped_stage == stage
+            ]
+            for handoff_stage in handoff_stages:
                 paths = find_handoffs(self.settings.plans_dir, stage=handoff_stage)
                 if paths:
                     state.handoffs[stage] = paths
+                    break
         if not paths:
             return None
         return parse_handoff(paths[-1])
@@ -412,6 +427,7 @@ class WorkflowEngine:
 
     def _infer_stage(self, handoff: Handoff) -> WorkflowStage:
         stage_map = {v: k for k, v in _STAGE_HANDOFF_MAP.items()}
+        stage_map.update(_LEGACY_HANDOFF_STAGE_MAP)
         return stage_map.get(handoff.stage, WorkflowStage.INTAKE)
 
     @staticmethod

@@ -11,36 +11,28 @@ conductor:
     log_level: INFO
     default_local_roles:
       - orchestrator
-      - researcher
       - architect
       - coder
-      - reviewer
-    default_remote_roles:
-      - remote_planner
-      - remote_reviewer
-      - remote_approval
+    default_remote_roles: []
     agent_commands:
       orchestrator: [.venv/bin/python, conductor/scripts/opencode_wrapper.py]
-      researcher: [.venv/bin/python, conductor/scripts/opencode_wrapper.py]
       architect: [.venv/bin/python, conductor/scripts/opencode_wrapper.py]
       coder: [.venv/bin/python, conductor/scripts/codex_wrapper.py]
-      reviewer: [.venv/bin/python, conductor/scripts/opencode_wrapper.py]
-      approval: [stub]
   workflow:
     role_for_stage:
       intake: orchestrator
-      research: researcher
+      research: architect
       architect: architect
       code: coder
-      review: reviewer
-      approval: approval
+      review: orchestrator
+      approval: orchestrator
     transitions:
       next_stage:
-        intake: research
+        intake: architect
         research: architect
         architect: code
         code: review
-        review: approval
+        review: done
         approval: done
         done: done
       gate_stage_for:
@@ -48,7 +40,7 @@ conductor:
         review: human_review
       gate_target:
         human_ready: code
-        human_review: approval
+        human_review: done
       retry_stage:
         review: code
         approval: architect
@@ -57,17 +49,13 @@ conductor:
         human_ready: architect
         human_review: code
     stub_stage_transitions:
-      architect: code
-      coder: review
-      reviewer: approval
-      approval: done
+      architect: coder
+      coder: orchestrator
+      orchestrator: done
   remote:
     poll_seconds: 30
     timeout_seconds: 86400
-    roles:
-      - remote_planner
-      - remote_reviewer
-      - remote_approval
+    roles: []
   human_gates:
     before_code: true
     before_approval: true

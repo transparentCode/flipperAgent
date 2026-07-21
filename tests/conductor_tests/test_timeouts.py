@@ -82,11 +82,8 @@ def tmp_settings(tmp_path: Path) -> ConductorSettings:
         ),
         agent_commands={
             "orchestrator": ["stub"],
-            "researcher": ["stub"],
             "architect": ["stub"],
             "coder": ["stub"],
-            "reviewer": ["stub"],
-            "approval": ["stub"],
         },
         workflow_config=_workflow_config(),
     )
@@ -97,18 +94,18 @@ def _workflow_config():
     return WorkflowConfig(
         role_for_stage={
             WorkflowStage.INTAKE: "orchestrator",
-            WorkflowStage.RESEARCH: "researcher",
+            WorkflowStage.RESEARCH: "architect",
             WorkflowStage.ARCHITECT: "architect",
             WorkflowStage.CODE: "coder",
-            WorkflowStage.REVIEW: "reviewer",
-            WorkflowStage.APPROVAL: "approval",
+            WorkflowStage.REVIEW: "orchestrator",
+            WorkflowStage.APPROVAL: "orchestrator",
         },
         next_stage={
-            WorkflowStage.INTAKE: WorkflowStage.RESEARCH,
+            WorkflowStage.INTAKE: WorkflowStage.ARCHITECT,
             WorkflowStage.RESEARCH: WorkflowStage.ARCHITECT,
             WorkflowStage.ARCHITECT: WorkflowStage.CODE,
             WorkflowStage.CODE: WorkflowStage.REVIEW,
-            WorkflowStage.REVIEW: WorkflowStage.APPROVAL,
+            WorkflowStage.REVIEW: WorkflowStage.DONE,
             WorkflowStage.APPROVAL: WorkflowStage.DONE,
             WorkflowStage.DONE: WorkflowStage.DONE,
         },
@@ -118,7 +115,7 @@ def _workflow_config():
         },
         gate_target={
             WorkflowStage.HUMAN_READY: WorkflowStage.CODE,
-            WorkflowStage.HUMAN_REVIEW: WorkflowStage.APPROVAL,
+            WorkflowStage.HUMAN_REVIEW: WorkflowStage.DONE,
         },
         retry_stage={
             WorkflowStage.REVIEW: WorkflowStage.CODE,
@@ -130,10 +127,9 @@ def _workflow_config():
             WorkflowStage.HUMAN_REVIEW: WorkflowStage.CODE,
         },
         stub_stage_transitions={
-            "architect": "code",
-            "coder": "review",
-            "reviewer": "approval",
-            "approval": "done",
+            "architect": "coder",
+            "coder": "orchestrator",
+            "orchestrator": "done",
         },
     )
 
@@ -171,11 +167,8 @@ def engine_no_gates(tmp_path: Path) -> WorkflowEngine:
         ),
         agent_commands={
             "orchestrator": ["stub"],
-            "researcher": ["stub"],
             "architect": ["stub"],
             "coder": ["stub"],
-            "reviewer": ["stub"],
-            "approval": ["stub"],
         },
         workflow_config=_workflow_config(),
     )
@@ -196,8 +189,7 @@ def _write_handoff(path: Path, goal: str = "Test", stage: str = "architect-to-co
 @pytest.mark.asyncio
 async def test_timeout_result_requeues_stage(engine_no_gates: WorkflowEngine, tmp_path: Path) -> None:
     code_handoff = _write_handoff(tmp_path / "code.md", stage="architect-to-coder")
-    review_handoff = _write_handoff(tmp_path / "review.md", stage="coder-to-review")
-    approval_handoff = _write_handoff(tmp_path / "approval.md", stage="review-to-approval")
+    review_handoff = _write_handoff(tmp_path / "review.md", stage="coder-to-orchestrator")
     state = engine_no_gates.create_workflow("test")
     state.handoffs[WorkflowStage.CODE] = [code_handoff]
     state.current_stage = WorkflowStage.CODE
@@ -209,8 +201,7 @@ async def test_timeout_result_requeues_stage(engine_no_gates: WorkflowEngine, tm
             timeouts_before_pass=1,
             pass_result=AgentResult(task_id="t-1", verdict=Verdict.PASS, handoff_path=review_handoff),
         ),
-        "reviewer": FakeAgent("reviewer", AgentResult(task_id="t-2", verdict=Verdict.PASS, handoff_path=approval_handoff)),
-        "approval": FakeAgent("approval", AgentResult(task_id="t-3", verdict=Verdict.PASS)),
+        "orchestrator": FakeAgent("orchestrator", AgentResult(task_id="t-2", verdict=Verdict.PASS)),
     }
 
     state = await engine_no_gates.run_workflow(state.id)
@@ -237,7 +228,7 @@ async def test_timeout_exhaustion_moves_to_human_blocked(engine: WorkflowEngine,
 
 @pytest.mark.asyncio
 async def test_human_gate_does_not_timeout(engine: WorkflowEngine, tmp_path: Path) -> None:
-    handoff_path = _write_handoff(tmp_path / "architect.md", stage="researcher-to-architect")
+    handoff_path = _write_handoff(tmp_path / "architect.md", stage="orchestrator-to-architect")
     state = engine.create_workflow("test")
     state.handoffs[WorkflowStage.ARCHITECT] = [handoff_path]
     state.current_stage = WorkflowStage.ARCHITECT
@@ -262,14 +253,14 @@ async def test_remote_agent_timeout(engine: WorkflowEngine, tmp_path: Path) -> N
 
     settings = engine.settings
     remote_agent = RemoteAgent(
-        "reviewer",
+        "orchestrator",
         tasks_dir=settings.remote_tasks_dir(),
         poll_seconds=0.1,
         timeout_seconds=0.2,
     )
-    engine.agent_factory = {"reviewer": remote_agent}
+    engine.agent_factory = {"orchestrator": remote_agent}
 
-    handoff_path = _write_handoff(tmp_path / "review.md", stage="coder-to-review")
+    handoff_path = _write_handoff(tmp_path / "review.md", stage="coder-to-orchestrator")
     state = engine.create_workflow("test")
     state.handoffs[WorkflowStage.REVIEW] = [handoff_path]
     state.current_stage = WorkflowStage.REVIEW
@@ -298,7 +289,7 @@ def test_timeout_config_stage_override() -> None:
 
 
 def test_abort_prevents_timeout_loop(engine: WorkflowEngine, tmp_path: Path) -> None:
-    handoff_path = _write_handoff(tmp_path / "architect.md", stage="researcher-to-architect")
+    handoff_path = _write_handoff(tmp_path / "architect.md", stage="orchestrator-to-architect")
     state = engine.create_workflow("test")
     state.handoffs[WorkflowStage.ARCHITECT] = [handoff_path]
     state.current_stage = WorkflowStage.HUMAN_READY

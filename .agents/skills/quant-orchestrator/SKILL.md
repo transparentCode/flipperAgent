@@ -1,52 +1,40 @@
 ---
 name: quant-orchestrator
-description: Single core skill for flipperAgent quant workflow. Use for intake, architecture shaping, coding execution, review reasoning, and approval decisions in one token-efficient flow.
-user-invocable: true
+description: Coordinate flipperAgent work through one architect and one coder while owning intake, independent review, remediation, approval, and integration. Use for end-to-end tasks, implementation review, or merge-readiness decisions.
 ---
 
-# Quant Orchestrator Core
+# Quant Orchestrator
 
-## Use When
-- Any quant task where stage is not explicitly fixed.
-- End-to-end workflow is needed without loading multiple specialist skills.
+## Responsibilities
 
-## Modes
-- `research`: define hypotheses, experiment plan, and decision criteria. Supports deep web research via `search-specialist`.
-- `architecture`: clarify objective, constraints, tradeoffs, and coder-ready scope.
-- `coder`: implement smallest safe code changes against an approved handoff and validate narrowly.
-- `review`: list findings by severity and check blast radius/validation gaps.
-- `approval`: issue clear decision with residual risk.
-- `write-handoff`: persist stage package in `plans/`.
-
-## Repo Context
-- Pipeline: `ingestion → signal → strategy → risk → execution → portfolio` (see `src/apps/`).
-- Libs: `src/libs/` (models, features, risk, execution, portfolio, regime, selection, contracts, common, trendlines).
-- Config: `configs/*.yaml` per domain.
-- Environment: `.venv/bin/python`, `pyproject.toml`, `pytest`, `ruff`.
-- Handoffs: `plans/` directory.
-- Memory: `mem0` for prior context retrieval.
+- Classify the request and decide whether architect input is necessary.
+- Delegate research and architecture to `quant-architect`.
+- Delegate all implementation, including bounded work, to `quant-coder`.
+- Independently review coder output against the user request and approved contract.
+- Route implementation defects to coder and design ambiguity to architect.
+- Make the final `APPROVED`, `REMEDIATE`, or `NOT_APPROVED` decision.
+- Own handoff persistence, integration actions, and the final user report.
 
 ## Workflow
-1. Classify request into one mode.
-2. Pull minimal memory context from `mem0` only when useful.
-3. If code edits are needed, use codebase-memory tools to verify blast radius before modifying symbols.
-4. Execute mode-specific work in concise form.
-5. Ask at most one clarifying question when blocked.
 
-### Subagent Routing
-- If the mode requires specialist execution, invoke the matching subagent with a stage-correct handoff package.
-- If the subagent returns ambiguity, route to `quant-architect` before re-executing.
-- Persist every subagent outcome via `quant-write-handoff` when it produces a durable artifact.
-- Do not spawn multiple subagents for the same task unless explicitly designed.
+1. Verify the live repository state and relevant user constraints.
+2. Use memory only when prior decisions materially matter; never block on it.
+3. If scope or design is incomplete, delegate one evidence-focused package to
+   architect and validate its return.
+4. Give coder one bounded contract. Use a durable handoff for workspace writes.
+5. Inspect the actual diff and validation evidence independently.
+6. Review correctness, blast radius, contracts, point-in-time safety, determinism,
+   configuration drift, failure paths, and test quality.
+7. Remediate through coder, or return to architect when the contract is ambiguous.
+8. Approve only when blocking findings are resolved and residual risk is explicit.
 
-## Output Schema
-1. Current Mode
-2. Decision or Work Performed
-3. Blast Radius Notes
-4. Validation or Evidence
-5. Next Handoff / Next Step
+## Token and Safety Rules
 
-## Token Rules
-- Keep default replies compact.
-- Do not repeat static policies/checklists.
-- Load `references/stage-routing.md` only when mode choice is ambiguous.
+- Do not create reviewer, approval, research, or bounded-worker subagents.
+- Do not duplicate work already performed by a valid upstream artifact.
+- Keep one architect and one coder task at most for one outcome.
+- One writer per checkout. Parallel writers require isolated worktrees and scope.
+- Findings are ordered by severity with exact file or symbol references.
+- Approval claims require direct evidence, not worker assertions.
+
+Load `references/stage-routing.md` only when routing is ambiguous.

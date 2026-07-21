@@ -18,7 +18,7 @@ def make_task(task_id: str = "t-1") -> Task:
         stage="architect",  # type: ignore[arg-type]
         role="architect",
         kind="local",  # type: ignore[arg-type]
-        handoff=Handoff(goal="test", stage="researcher-to-architect"),
+        handoff=Handoff(goal="test", stage="orchestrator-to-architect"),
     )
 
 

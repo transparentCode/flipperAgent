@@ -1,161 +1,99 @@
-# flipperAgent - AI Agent Guidelines
+# flipperAgent Agent Policy
 
-## Overview
-These are the foundational instructions for any AI assistant working on the `flipperAgent` project.
+## Source of Truth
 
-## Start Here
-- Preferred user-facing entry point: `Quant Orchestrator`.
-- Treat the specialized quant agents as internal workflow stages coordinated by the orchestrator unless the user explicitly asks to work with a specific specialist.
+This root file is the repository-wide policy. Do not add a duplicate
+`.codex/AGENTS.md`; nested files are only for genuinely narrower directory rules.
 
-## Development Environment
-- **Ecosystem:** Python.
-- **Environment:** The project uses a local virtual environment located in `.venv/`. Agents should activate this environment or use the Python executable within `.venv/bin/python` when running commands or tests.
+The default user-facing role is the root `Quant Orchestrator`.
 
-## Coding Conventions & Workflow
-- Maintain modular design by placing core logic in a dedicated module (e.g., `src/` or `flipper_agent/`).
-- Make sure to update a `requirements.txt`, `pyproject.toml`, or `Pipfile` when adding dependencies.
-- Use `pytest` (or the preferred testing framework) and keep tests easily runnable in a `tests/` folder.
-- Follow general Python best practices and PEP 8 guidelines.
-- **Link, don't embed:** Refer to [README.md](README.md) for project purpose and architectural overviews.
-## Memory & Context Protocol (Applies to ALL Agents)
-- **NO PREASSUMPTIONS OR SHORTCUTS:** You must not assume context. If a requirement, constraint, or fact is unclear, do not guess.
-- **START OF TASK:** Always retrieve prior context from the `mem0` memory harness before beginning any solution architecture, coding, or review.
-- **BUILD CONTEXT WHEN UNCLEAR:** When prior memory is incomplete or ambiguous, ask the user a focused series of related questions to establish facts. State your current understanding and ask for confirmation or correction before proceeding.
-- **FACT-CHECK BEFORE ACTING:** Validate assumptions against memory, the codebase, or explicit user input. If contradictions arise, surface them and ask the user to resolve.
-- **END OF TASK:** Always save updated state, architectural outcomes, or major findings to the `mem0` memory harness before handing off or returning to the user.
+## Three-Role Architecture
 
-## Subagent Lifecycle (Applies to ALL Agents)
+- `Quant Orchestrator` (root session): intake, routing, handoff persistence,
+  independent review, remediation decisions, final approval, and integration.
+- `quant-architect`: research, external evidence, experiment design, architecture,
+  tradeoffs, contracts, and coder-ready handoffs. Read-only.
+- `quant-coder`: non-trivial and bounded implementation, tests, validation,
+  self-review, and execution evidence. Workspace write.
 
-### When to Invoke a Subagent
-- Use a subagent when the task clearly maps to a specialist role:
-  - `quant-research` → hypothesis/experiment design
-  - `quant-architect` → architecture and tradeoffs
-  - `quant-coder` → implementation against approved handoff
-  - `quant-review` → safety and correctness review
-  - `quant-approval` → final sign-off
-- Do **not** spawn a subagent for trivial one-step tasks you can complete directly.
+Removed roles are intentionally absorbed:
 
-### Before Invoking
-1. Retrieve prior context from `mem0`.
-2. Produce a concise, stage-correct handoff package (see `quant-handoff` skill).
-3. Include: objective, scope boundaries, explicit non-goals, acceptance criteria, and known risks.
+- research -> architect
+- bounded/mechanical worker -> coder
+- review and approval -> orchestrator
 
-### During Subagent Execution
-- Do not spawn multiple subagents in parallel for the same task unless explicitly designed.
-- Do not interrupt a subagent unless it is blocked or has asked for input.
+Default flow: `orchestrator -> architect -> coder -> orchestrator`.
 
-### After Subagent Returns
-1. Validate the output against the handoff's acceptance criteria.
-2. Identify unresolved blockers or follow-ups.
-3. Decide next action:
-   - **Approve** → route to `quant-write-handoff` or next stage.
-   - **Revise** → return to the same subagent with specific feedback.
-   - **Escalate** → route to `quant-architect` if scope ambiguity is found.
-4. Save the outcome to `mem0`.
+Skip architect only when the request already defines scope, non-goals, acceptance
+criteria, and validation. Route architectural ambiguity back to architect. Route
+bounded implementation defects back to coder, then independently re-review in the
+orchestrator.
 
-### Anti-Patterns
-- NEVER route `coder → review → coder → review` without an explicit `quant-architect` or user decision in between.
-- NEVER spawn a subagent without a written handoff.
-- NEVER discard a subagent's findings without recording why.
+## Delegation and Parallelism
 
-<!-- codebase-memory:start -->
-# Codebase Memory — Code Intelligence
+- Do not spawn a subagent for trivial work.
+- Keep at most one architect and one coder task active for one outcome.
+- Use only one workspace-writing agent per checkout.
+- Parallel writers require separate Git worktrees, separate branches,
+  non-overlapping scope, and separate mutable runtime resources.
+- The orchestrator validates every return against its delegation before routing.
+- Agents do not merge, cherry-pick, switch branches, or commit unless the user or
+  orchestrator explicitly requests it.
 
-This project is indexed by `codebase-memory-mcp`. Use the codebase-memory tools to understand code, assess impact, and navigate safely.
+Workspace-writing delegation requires a durable `plans/architect-to-coder-*.md`
+handoff. Read-only architect work may use a complete inline delegation. Every
+delegation includes objective, scope, non-goals, acceptance criteria, validation,
+and expected output.
 
-> If any codebase-memory tool warns the index is stale, run `codebase-memory-mcp cli index_repository '{"repo_path": "/Users/aloobhujia/flipperAgent"}'` in terminal first. The indexed project name is `Users-aloobhujia-flipperAgent`.
+## Context and Memory
 
-## Always Do
+- Verify repository facts from the live checkout; do not rely on remembered paths,
+  topology, parameters, benchmarks, or prior results.
+- Retrieve memory only when prior decisions materially affect non-trivial work.
+- Memory is optional: continue from code, docs, and explicit user context if it is
+  unavailable. Do not save routine output. Persist only durable decisions when the
+  user explicitly asks or the active memory policy requires it.
+- Ask a focused question only when an undiscoverable choice would materially alter
+  the result.
 
-- **MUST use codebase-memory before editing any existing symbol.** Before modifying a function, class, or method, query the codebase graph to understand callers, callees, and affected execution paths.
-- **MUST verify scope before committing** to confirm your changes only affect expected symbols and files.
-- **MUST warn the user** if impact analysis reveals HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `search_graph` and `search_code` to find execution flows instead of relying solely on grep.
-- When you need full context on a specific symbol — callers, callees, which flows it participates in — use `get_code_snippet` and `trace_path`.
+## Code Intelligence
 
-## When Debugging
+This repository is indexed as `Users-aloobhujia-flipperAgent` by
+`codebase-memory-mcp`.
 
-1. `search_graph` / `search_code` — find execution flows related to the issue.
-2. `trace_path` — see inbound and outbound call chains for a suspect function.
-3. `get_code_snippet` — read the source for a symbol by qualified name.
-4. For regressions: `detect_changes` — map git diff to affected symbols with risk classification.
+- For code discovery, prefer `search_graph`, `trace_path`, `get_code_snippet`,
+  `query_graph`, then `get_architecture`.
+- Before editing an existing symbol, inspect callers, callees, and affected flows.
+- Use text search for config, docs, literals, generated files, or when graph results
+  are insufficient.
+- Before handoff, inspect the final diff and use change-impact analysis when shared
+  code or contracts changed.
+- Surface HIGH or CRITICAL impact before making a risky change.
 
-## When Refactoring
+## Engineering and Quant Safety
 
-- **Renaming**: Use careful multi-file review and tests; codebase-memory can help locate all references via `search_graph`.
-- **Extracting/Splitting**: Use `trace_path` to see all incoming/outgoing refs, then verify all external callers before moving code.
-- After any refactor: review changed files to verify only expected symbols changed.
+- Python environment: `.venv/bin/python`.
+- Dependency source of truth: `pyproject.toml`.
+- Production packages live under `src/apps/`, `src/libs/`, and `conductor/`.
+- Tests live under `tests/`; use focused pytest first, then broader validation in
+  proportion to risk. Run Ruff for Python changes.
+- Keep changes minimal and preserve public contracts unless explicitly changed.
+- Never invent parameters, schemas, lifecycle states, data availability, or
+  acceptance criteria.
+- Preserve point-in-time correctness, deterministic behavior, timezone/calendar
+  semantics, symbol identity, transaction-cost assumptions, and protected evidence.
+- Never hide look-ahead bias, leakage, survivorship bias, configuration drift, or
+  execution-timing changes.
 
-## Never Do
+## Handoffs
 
-- NEVER edit a function, class, or method without first understanding its callers and callees.
-- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with naive find-and-replace — trace the call graph first.
+Use `.agents/skills/quant-write-handoff/SKILL.md` when durable coordination is
+needed. Active stages are:
 
-## Tools Quick Reference
+- `orchestrator-to-architect`
+- `architect-to-coder`
+- `coder-to-orchestrator`
+- `orchestrator-decision`
 
-| Tool | When to use | Example |
-|------|-------------|---------|
-| `index_repository` | Index or re-index the repo | `index_repository({"repo_path": "/Users/aloobhujia/flipperAgent"})` |
-| `search_graph` | Find symbols by name, label, file | `search_graph({"project": "Users-aloobhujia-flipperAgent", "name_pattern": ".*Handler.*", "label": "Function"})` |
-| `search_code` | Graph-augmented grep | `search_code({"project": "Users-aloobhujia-flipperAgent", "query": "auth validation"})` |
-| `trace_path` | Blast radius / call chain | `trace_path({"project": "Users-aloobhujia-flipperAgent", "function_name": "X", "direction": "both"})` |
-| `get_code_snippet` | Read source for a symbol | `get_code_snippet({"project": "Users-aloobhujia-flipperAgent", "qualified_name": "flipperAgent.src.libs.X"})` |
-| `get_architecture` | Codebase overview | `get_architecture({"project": "Users-aloobhujia-flipperAgent"})` |
-| `detect_changes` | Pre-commit scope check | `detect_changes({"project": "Users-aloobhujia-flipperAgent"})` |
-| `query_graph` | Custom Cypher-like queries | `query_graph({"project": "Users-aloobhujia-flipperAgent", "query": "MATCH (f:Function) RETURN f.name LIMIT 5"})` |
-
-## CLI Skill Reference
-
-| Task | Read this skill file |
-|------|---------------------|
-| Understand architecture / "How does X work?" | `.agents/skills/codebase-memory/exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.agents/skills/codebase-memory/impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.agents/skills/codebase-memory/debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.agents/skills/codebase-memory/refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.agents/skills/codebase-memory/guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.agents/skills/codebase-memory/cli/SKILL.md` |
-
-<!-- codebase-memory:end -->
-
-
-## Squad Collaboration
-
-This project uses squad for multi-agent collaboration. Run `squad help` for all commands and usage guide.
-
-
-## Codex Custom-Agent Routing
-
-The root Codex thread is the `Quant Orchestrator`.
-
-Available project-scoped custom agents:
-
-- `quant-research`: hypothesis, evidence, and experiment design.
-- `quant-architect`: architecture, contracts, tradeoffs, and coder handoffs.
-- `quant-coder`: primary non-trivial implementation worker.
-- `quant-bounded-worker`: mechanical, isolated, explicitly bounded work.
-- `quant-review`: independent correctness and quant-safety review.
-- `quant-approval`: final merge-readiness gate.
-
-### Default flow
-
-`quant-research → quant-architect → quant-coder → quant-review → quant-approval`
-
-Stages may be skipped only when a valid upstream artifact already exists.
-
-### Parallelism
-
-- Parallelize independent read-only research and exploration.
-- Use only one workspace-writing agent at a time in the same checkout.
-- Never run `quant-coder` and `quant-bounded-worker` concurrently in the
-  same checkout.
-- Parallel writers require separate Git worktrees and non-overlapping scope.
-- Wait for implementation to finish before spawning `quant-review`.
-- The root orchestrator owns routing, durable handoffs, integration, and
-  final reporting.
-
-### Remediation
-
-- Route bounded implementation defects from `quant-review` to `quant-coder`.
-- Route architecture ambiguity or scope conflicts to `quant-architect`.
-- Return remediated implementation to `quant-review`.
+Historical files in `plans/` may use older stage names; do not rewrite them merely
+to match the current architecture.

@@ -69,11 +69,8 @@ class ConductorSettings:
 
         default_agent_commands = {
             "orchestrator": ["opencode", "-c"],
-            "researcher": ["opencode", "-c"],
             "architect": ["opencode", "-c"],
             "coder": ["opencode", "-c"],
-            "reviewer": ["opencode", "-c"],
-            "approval": ["stub"],
         }
         agent_commands = runtime_cfg.get("agent_commands", default_agent_commands)
 
@@ -112,7 +109,7 @@ class ConductorSettings:
                     "default_remote_roles",
                     remote_cfg.get(
                         "roles",
-                        ["remote_planner", "remote_reviewer", "remote_approval"],
+                        [],
                     ),
                 ),
             ),

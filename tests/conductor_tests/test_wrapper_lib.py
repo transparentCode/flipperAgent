@@ -16,7 +16,7 @@ def test_parse_handoff_text_with_frontmatter() -> None:
     text = (
         "---\n"
         "goal: 'Test goal'\n"
-        "stage: 'researcher-to-architect'\n"
+        "stage: 'orchestrator-to-architect'\n"
         "status: 'Ready'\n"
         "---\n\n"
         "# Body\n\n"
@@ -24,7 +24,7 @@ def test_parse_handoff_text_with_frontmatter() -> None:
     )
     handoff = parse_handoff_text(text)
     assert handoff.goal == "Test goal"
-    assert handoff.stage == "researcher-to-architect"
+    assert handoff.stage == "orchestrator-to-architect"
     assert handoff.status == "Ready"
     assert "Some content." in handoff.body
 
@@ -37,9 +37,8 @@ def test_parse_handoff_text_without_frontmatter() -> None:
 
 def test_next_stage_default() -> None:
     assert next_stage("architect") == "coder"
-    assert next_stage("coder") == "reviewer"
-    assert next_stage("reviewer") == "approval"
-    assert next_stage("approval") == "done"
+    assert next_stage("coder") == "orchestrator"
+    assert next_stage("orchestrator") == "done"
 
 
 def test_next_stage_custom() -> None:

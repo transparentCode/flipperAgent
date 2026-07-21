@@ -1,29 +1,26 @@
 conductor:
   runtime:
     mode: local-only          # no remote devspace agent
-    default_local_roles: [architect, coder, reviewer, approval]
+    default_local_roles: [orchestrator, architect, coder]
     agent_commands:
       orchestrator: [stub]
-      researcher: [stub]
       architect: [stub]
       coder: [stub]
-      reviewer: [stub]
-      approval: [stub]
   workflow:
     role_for_stage:
       intake: orchestrator
-      research: researcher
+      research: architect
       architect: architect
       code: coder
-      review: reviewer
-      approval: approval
+      review: orchestrator
+      approval: orchestrator
     transitions:
       next_stage:
-        intake: research
+        intake: architect
         research: architect
         architect: code
         code: review
-        review: approval
+        review: done
         approval: done
         done: done
       gate_stage_for:
@@ -31,7 +28,7 @@ conductor:
         review: human_review
       gate_target:
         human_ready: code
-        human_review: approval
+        human_review: done
       retry_stage:
         review: code
         approval: architect
@@ -40,10 +37,9 @@ conductor:
         human_ready: architect
         human_review: code
     stub_stage_transitions:
-      architect: code
-      coder: review
-      reviewer: approval
-      approval: done
+      architect: coder
+      coder: orchestrator
+      orchestrator: done
   remote:
     enabled: false
   human_gates:

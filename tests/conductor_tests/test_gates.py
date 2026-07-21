@@ -64,11 +64,8 @@ def tmp_settings(tmp_path: Path) -> ConductorSettings:
         ),
         agent_commands={
             "orchestrator": ["stub"],
-            "researcher": ["stub"],
             "architect": ["stub"],
             "coder": ["stub"],
-            "reviewer": ["stub"],
-            "approval": ["stub"],
         },
         workflow_config=_workflow_config(),
     )
@@ -79,18 +76,18 @@ def _workflow_config():
     return WorkflowConfig(
         role_for_stage={
             WorkflowStage.INTAKE: "orchestrator",
-            WorkflowStage.RESEARCH: "researcher",
+            WorkflowStage.RESEARCH: "architect",
             WorkflowStage.ARCHITECT: "architect",
             WorkflowStage.CODE: "coder",
-            WorkflowStage.REVIEW: "reviewer",
-            WorkflowStage.APPROVAL: "approval",
+            WorkflowStage.REVIEW: "orchestrator",
+            WorkflowStage.APPROVAL: "orchestrator",
         },
         next_stage={
-            WorkflowStage.INTAKE: WorkflowStage.RESEARCH,
+            WorkflowStage.INTAKE: WorkflowStage.ARCHITECT,
             WorkflowStage.RESEARCH: WorkflowStage.ARCHITECT,
             WorkflowStage.ARCHITECT: WorkflowStage.CODE,
             WorkflowStage.CODE: WorkflowStage.REVIEW,
-            WorkflowStage.REVIEW: WorkflowStage.APPROVAL,
+            WorkflowStage.REVIEW: WorkflowStage.DONE,
             WorkflowStage.APPROVAL: WorkflowStage.DONE,
             WorkflowStage.DONE: WorkflowStage.DONE,
         },
@@ -100,7 +97,7 @@ def _workflow_config():
         },
         gate_target={
             WorkflowStage.HUMAN_READY: WorkflowStage.CODE,
-            WorkflowStage.HUMAN_REVIEW: WorkflowStage.APPROVAL,
+            WorkflowStage.HUMAN_REVIEW: WorkflowStage.DONE,
         },
         retry_stage={
             WorkflowStage.REVIEW: WorkflowStage.CODE,
@@ -112,10 +109,9 @@ def _workflow_config():
             WorkflowStage.HUMAN_REVIEW: WorkflowStage.CODE,
         },
         stub_stage_transitions={
-            "architect": "code",
-            "coder": "review",
-            "reviewer": "approval",
-            "approval": "done",
+            "architect": "coder",
+            "coder": "orchestrator",
+            "orchestrator": "done",
         },
     )
 
@@ -142,7 +138,7 @@ def _write_handoff(path: Path, goal: str = "Test", stage: str = "architect-to-co
 
 @pytest.mark.asyncio
 async def test_architect_pass_pauses_at_human_ready(engine: WorkflowEngine, tmp_path: Path) -> None:
-    handoff_path = _write_handoff(tmp_path / "architect.md", stage="researcher-to-architect")
+    handoff_path = _write_handoff(tmp_path / "architect.md", stage="orchestrator-to-architect")
     state = engine.create_workflow("test", metadata={"trigger": "test"})
     state.handoffs[WorkflowStage.ARCHITECT] = [handoff_path]
     state.current_stage = WorkflowStage.ARCHITECT
@@ -162,7 +158,7 @@ async def test_architect_pass_pauses_at_human_ready(engine: WorkflowEngine, tmp_
 
 @pytest.mark.asyncio
 async def test_human_approve_advances_to_code(engine: WorkflowEngine, tmp_path: Path) -> None:
-    handoff_path = _write_handoff(tmp_path / "architect.md", stage="researcher-to-architect")
+    handoff_path = _write_handoff(tmp_path / "architect.md", stage="orchestrator-to-architect")
     state = engine.create_workflow("test")
     state.handoffs[WorkflowStage.ARCHITECT] = [handoff_path]
     state.current_stage = WorkflowStage.ARCHITECT
@@ -184,7 +180,7 @@ async def test_human_approve_advances_to_code(engine: WorkflowEngine, tmp_path: 
 
 @pytest.mark.asyncio
 async def test_human_reject_returns_to_architect(engine: WorkflowEngine, tmp_path: Path) -> None:
-    handoff_path = _write_handoff(tmp_path / "architect.md", stage="researcher-to-architect")
+    handoff_path = _write_handoff(tmp_path / "architect.md", stage="orchestrator-to-architect")
     state = engine.create_workflow("test")
     state.handoffs[WorkflowStage.ARCHITECT] = [handoff_path]
     state.current_stage = WorkflowStage.ARCHITECT

@@ -11,9 +11,8 @@ import yaml
 
 DEFAULT_STAGE_TRANSITIONS: dict[str, str] = {
     "architect": "coder",
-    "coder": "reviewer",
-    "reviewer": "approval",
-    "approval": "done",
+    "coder": "orchestrator",
+    "orchestrator": "done",
 }
 
 

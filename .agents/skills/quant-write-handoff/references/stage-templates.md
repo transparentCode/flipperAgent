@@ -1,43 +1,35 @@
-# Stage Templates
+# Three-Role Handoff Templates
+
+## Orchestrator to Architect
+
+1. Objective and decision needed
+2. Known context and evidence
+3. Scope, constraints, and non-goals
+4. Questions the architect must resolve
+5. Expected coder-ready output
 
 ## Architect to Coder
-- Objective
-- Scope Boundaries
-- Affected Symbols/Modules/Flows
-- Data Contracts/Interfaces
-- Implementation Order
-- Acceptance Criteria
-- Validation Checklist
-- Explicit Non-Goals
 
-## Coder to Review
-- Scope Executed
-- Changes Made
-- Blast Radius Considered
-- Validation Performed
-- Not Changed
-- Risks or Follow-up Items
+1. Objective and evidence
+2. Scope and non-goals
+3. Affected files, symbols, contracts, and flows
+4. Selected design and implementation order
+5. Acceptance criteria and validation
+6. Risks, compatibility, and rollback
 
-## Review to Coder/Architect
-- Review Scope
-- Findings by Severity
-- Blast Radius and Affected Flows
-- Validation Gaps or Confirmations
-- Approval Status
-- Recommended Handoff
+## Coder to Orchestrator
 
-## Review to Approval
-- Reviewed Scope
-- Resolved Findings
-- Remaining Non-Blocking Follow-Ups
-- Blast Radius Confirmation
-- Validation Evidence Summary
-- Recommended Approval Status
+1. Scope executed and not changed
+2. Files and symbols changed
+3. Blast radius considered
+4. Validation commands and exact results
+5. Self-review findings
+6. Blockers and residual risks
 
-## Approval Decision
-- Approval Scope
-- Blocking Issues
-- Blast Radius Confirmation
-- Validation Sufficiency
-- Approval Decision
-- Required Handoff
+## Orchestrator Decision
+
+1. Reviewed scope and contract
+2. Findings by severity
+3. Validation sufficiency and blast-radius conclusion
+4. Decision: APPROVED, REMEDIATE, or NOT_APPROVED
+5. Required next action and accepted residual risk

@@ -17,10 +17,10 @@ def sample_handoff(tmp_path: Path) -> Path:
 goal: 'Sample Handoff'
 stage: 'architect-to-coder'
 date_created: '2026-07-12'
-owner: 'Quant Research Architect'
+owner: 'Quant Architect'
 status: 'Ready'
 tags: ['handoff', 'quant']
-target_agent: 'Coder Agent'
+target_agent: 'Quant Coder'
 ---
 
 # Architect-to-Coder Handoff: Sample

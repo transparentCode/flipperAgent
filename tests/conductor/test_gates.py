@@ -14,11 +14,11 @@ from conductor.contracts import (
     GatePolicy,
     Handoff,
     Task,
+    TimeoutConfig,
     Verdict,
     WorkflowStage,
-    WorkflowState,
 )
-from conductor.settings import ConductorSettings
+from conductor.settings import ConductorSettings, WorkflowConfig
 from conductor.squad_client import SquadClient
 from conductor.storage import ConductorStorage
 from conductor.workflow import WorkflowEngine
@@ -56,10 +56,58 @@ def tmp_settings(tmp_path: Path) -> ConductorSettings:
             force_human_if_changed_paths=["src/libs/risk"],
             force_human_if_keywords=["leverage"],
         ),
-        soft_timeout_seconds=300.0,
-        hard_timeout_seconds=1800.0,
-        max_retries=2,
-        max_stalls=2,
+        timeout_config=TimeoutConfig(
+            soft_timeout_seconds=300.0,
+            hard_timeout_seconds=1800.0,
+            max_retry_count=2,
+            max_stall_count=2,
+        ),
+        agent_commands={
+            "orchestrator": ["stub"],
+            "architect": ["stub"],
+            "coder": ["stub"],
+        },
+        workflow_config=WorkflowConfig(
+            role_for_stage={
+                WorkflowStage.INTAKE: "orchestrator",
+                WorkflowStage.RESEARCH: "architect",
+                WorkflowStage.ARCHITECT: "architect",
+                WorkflowStage.CODE: "coder",
+                WorkflowStage.REVIEW: "orchestrator",
+                WorkflowStage.APPROVAL: "orchestrator",
+            },
+            next_stage={
+                WorkflowStage.INTAKE: WorkflowStage.ARCHITECT,
+                WorkflowStage.RESEARCH: WorkflowStage.ARCHITECT,
+                WorkflowStage.ARCHITECT: WorkflowStage.CODE,
+                WorkflowStage.CODE: WorkflowStage.REVIEW,
+                WorkflowStage.REVIEW: WorkflowStage.DONE,
+                WorkflowStage.APPROVAL: WorkflowStage.DONE,
+                WorkflowStage.DONE: WorkflowStage.DONE,
+            },
+            gate_stage_for={
+                WorkflowStage.ARCHITECT: WorkflowStage.HUMAN_READY,
+                WorkflowStage.REVIEW: WorkflowStage.HUMAN_REVIEW,
+            },
+            gate_target={
+                WorkflowStage.HUMAN_READY: WorkflowStage.CODE,
+                WorkflowStage.HUMAN_REVIEW: WorkflowStage.DONE,
+            },
+            retry_stage={
+                WorkflowStage.REVIEW: WorkflowStage.CODE,
+                WorkflowStage.APPROVAL: WorkflowStage.ARCHITECT,
+                WorkflowStage.CODE: WorkflowStage.ARCHITECT,
+            },
+            retry_stage_for_gate={
+                WorkflowStage.HUMAN_READY: WorkflowStage.ARCHITECT,
+                WorkflowStage.HUMAN_REVIEW: WorkflowStage.CODE,
+            },
+            stub_stage_transitions={
+                "architect": "coder",
+                "coder": "orchestrator",
+                "orchestrator": "done",
+            },
+        ),
     )
 
 
@@ -74,17 +122,26 @@ def make_handoff(goal: str = "Test", stage: str = "architect-to-coder") -> Hando
     return Handoff(goal=goal, stage=stage)
 
 
+def _write_handoff(path: Path, stage: str = "orchestrator-to-architect") -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        f"---\ngoal: Test\nstage: {stage}\n---\n\n# Test\n",
+        encoding="utf-8",
+    )
+    return path
+
+
 @pytest.mark.asyncio
 async def test_architect_pass_pauses_at_human_ready(engine: WorkflowEngine, tmp_settings: ConductorSettings) -> None:
-    seed = make_handoff(stage="researcher-to-architect")
+    handoff_path = _write_handoff(tmp_settings.plans_dir / "input.md")
     state = engine.create_workflow("test", metadata={"trigger": "test"})
-    state.handoffs[WorkflowStage.ARCHITECT] = [Path("/tmp/fake.md")]
+    state.handoffs[WorkflowStage.ARCHITECT] = [handoff_path]
     state.current_stage = WorkflowStage.ARCHITECT
     engine.storage.save_workflow(state)
 
     fake_agent = FakeAgent(
         "architect",
-        AgentResult(task_id="t-1", verdict=Verdict.PASS, handoff_path=Path("/tmp/fake.md")),
+        AgentResult(task_id="t-1", verdict=Verdict.PASS, handoff_path=handoff_path),
     )
     engine.agent_factory = {"architect": fake_agent}
 
@@ -95,16 +152,16 @@ async def test_architect_pass_pauses_at_human_ready(engine: WorkflowEngine, tmp_
 
 
 @pytest.mark.asyncio
-async def test_human_approve_advances_to_code(engine: WorkflowEngine) -> None:
-    seed = make_handoff(stage="researcher-to-architect")
+async def test_human_approve_advances_to_code(engine: WorkflowEngine, tmp_settings: ConductorSettings) -> None:
+    handoff_path = _write_handoff(tmp_settings.plans_dir / "input.md")
     state = engine.create_workflow("test")
-    state.handoffs[WorkflowStage.ARCHITECT] = [Path("/tmp/fake.md")]
+    state.handoffs[WorkflowStage.ARCHITECT] = [handoff_path]
     state.current_stage = WorkflowStage.ARCHITECT
     engine.storage.save_workflow(state)
 
     fake_agent = FakeAgent(
         "architect",
-        AgentResult(task_id="t-1", verdict=Verdict.PASS, handoff_path=Path("/tmp/fake.md")),
+        AgentResult(task_id="t-1", verdict=Verdict.PASS, handoff_path=handoff_path),
     )
     engine.agent_factory = {"architect": fake_agent}
 
@@ -117,9 +174,10 @@ async def test_human_approve_advances_to_code(engine: WorkflowEngine) -> None:
 
 
 @pytest.mark.asyncio
-async def test_human_reject_returns_to_architect(engine: WorkflowEngine) -> None:
+async def test_human_reject_returns_to_architect(engine: WorkflowEngine, tmp_settings: ConductorSettings) -> None:
+    handoff_path = _write_handoff(tmp_settings.plans_dir / "input.md")
     state = engine.create_workflow("test")
-    state.handoffs[WorkflowStage.ARCHITECT] = [Path("/tmp/fake.md")]
+    state.handoffs[WorkflowStage.ARCHITECT] = [handoff_path]
     state.current_stage = WorkflowStage.ARCHITECT
     engine.storage.save_workflow(state)
 

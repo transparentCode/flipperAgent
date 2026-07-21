@@ -1,37 +1,37 @@
-# Codex CLI MCP configuration
-# Mirrors the servers defined in .vscode/mcp.json
+# Project-scoped Codex defaults. MCP names mirror .vscode/mcp.json.
 
 model = "gpt-5.6-sol"
-model_reasoning_effort = "xhigh"
+model_reasoning_effort = "high"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
 
 [mcp_servers.mem0-local]
 url = "http://localhost:8889/mcp"
-default_tools_approval_mode = "auto"
+required = false
+default_tools_approval_mode = "writes"
 
-[mcp_servers.mem0-local.tools.search_memories]
-approval_mode = "approve"
-
-[mcp_servers.codebase-memory]
+[mcp_servers.codebase-memory-mcp]
 command = "codebase-memory-mcp"
 args = []
 default_tools_approval_mode = "auto"
-
-[mcp_servers.codebase-memory.tools.search_code]
-approval_mode = "approve"
-
-[mcp_servers.codebase-memory.tools.get_code_snippet]
-approval_mode = "approve"
-
-[mcp_servers.codebase-memory.tools.trace_path]
-approval_mode = "approve"
-
-[mcp_servers.codebase-memory.tools.detect_changes]
-approval_mode = "approve"
+enabled_tools = [
+  "list_projects",
+  "index_status",
+  "index_repository",
+  "search_graph",
+  "search_code",
+  "trace_path",
+  "get_code_snippet",
+  "query_graph",
+  "get_graph_schema",
+  "get_architecture",
+  "detect_changes",
+]
 
 [sandbox_workspace_write]
-network_access = true
+network_access = false
 
 [agents]
-max_threads = 6
+max_threads = 3
 max_depth = 1
 interrupt_message = true
