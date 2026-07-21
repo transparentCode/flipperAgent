@@ -42,7 +42,6 @@ Validated source scope:
 src/libs/models/trendline_v2/configuration/__init__.py
 src/libs/models/trendline_v2/configuration/field_policy.py
 src/libs/models/trendline_v2/configuration/provider.py
-src/libs/models/trendline_v2/discovery/__init__.py
 src/libs/models/trendline_v2/discovery/contracts.py
 src/libs/models/trendline_v2/discovery/provider_evidence.py
 tests/models/trendline_v2/test_provider.py

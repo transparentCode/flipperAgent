@@ -18,10 +18,12 @@ from libs.models.trendline_v2.configuration import (
     resolve_trendline_v2_config,
 )
 from libs.models.trendline_v2.discovery import (
-    ConfirmedExtremaPairEvidence,
-    ExtremaKind,
     ProviderInput,
     ProviderRequest,
+)
+from libs.models.trendline_v2.discovery.provider_evidence import (
+    ConfirmedExtremaPairEvidence,
+    ExtremaKind,
 )
 from libs.models.trendline_v2.domain.validation import ContractValidationError
 
