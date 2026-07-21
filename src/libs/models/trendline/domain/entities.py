@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..contracts import TrendlineFamilyState
+from .families import TrendlineFamilyState
 
 # Published family state already carries stable identity and invariant metadata.
 # A second family DTO would duplicate tracker state and break type identity.

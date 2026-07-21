@@ -20,6 +20,11 @@ from libs.models.trendline.domain import (
     trendline_context_from_snapshot,
 )
 from libs.models.trendline.domain.events import FamilyTransition as DomainFamilyTransition
+from libs.models.trendline.domain.candidates import LineCandidate as DomainLineCandidate
+from libs.models.trendline.domain.families import TrendlineFamilyState as DomainTrendlineFamilyState
+from libs.models.trendline.domain.geometry import LineGeometry as DomainLineGeometry
+from libs.models.trendline.domain.interactions import FamilyInteractionObservation as DomainInteractionObservation
+from libs.models.trendline.domain.snapshots import TrendlineFamilySnapshot as DomainTrendlineFamilySnapshot
 from libs.models.trendline.repository import InMemoryTrendlineFamilyRepository as NewRepository
 from libs.models.trendline_family.api import update_trendline_families as old_update_trendline_families
 from libs.models.trendline_family.contracts import (
@@ -28,6 +33,9 @@ from libs.models.trendline_family.contracts import (
     FamilyRole,
     FamilyTransition,
     FamilyTransitionType,
+    FamilyInteractionObservation,
+    LineCandidate,
+    LineGeometry,
     TrendlineFamilySnapshot,
     TrendlineFamilyState,
 )
@@ -69,6 +77,11 @@ def test_domain_aliases_preserve_contract_and_enum_identity() -> None:
     assert DomainFamilyRole is FamilyRole
     assert DomainFamilyLifecycleState is FamilyLifecycleState
     assert DomainFamilyTransitionType is FamilyTransitionType
+    assert DomainLineGeometry is LineGeometry
+    assert DomainLineCandidate is LineCandidate
+    assert DomainTrendlineFamilyState is TrendlineFamilyState
+    assert DomainInteractionObservation is FamilyInteractionObservation
+    assert DomainTrendlineFamilySnapshot is TrendlineFamilySnapshot
     assert tuple(DomainFamilyRole) == tuple(FamilyRole)
     assert tuple(DomainFamilyLifecycleState) == tuple(FamilyLifecycleState)
     assert tuple(DomainFamilyTransitionType) == tuple(FamilyTransitionType)

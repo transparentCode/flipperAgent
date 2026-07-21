@@ -6,6 +6,7 @@ observation fields; it never reads OHLCV or recreates zones/classification.
 
 from __future__ import annotations
 
+from .domain.events import is_allowed_event_transition as is_allowed_event_transition
 from .contracts import (
     FamilyInteractionEvent,
     FamilyInteractionObservation,
@@ -37,32 +38,6 @@ TERMINAL_EVENT_STATES = frozenset(
         InteractionEventState.ROLE_REVERSED,
     }
 )
-
-# Every persisted transition is checked against this bounded table by the
-# snapshot contract.  Episode creation/reset has no transition record.
-_ALLOWED_TRANSITIONS: dict[InteractionEventState, frozenset[InteractionEventState]] = {
-    InteractionEventState.FAR: frozenset({InteractionEventState.APPROACHING, InteractionEventState.IN_ZONE, InteractionEventState.WICK_BREACHED, InteractionEventState.BODY_BREACHED, InteractionEventState.BREAK_PENDING}),
-    InteractionEventState.APPROACHING: frozenset({InteractionEventState.FAR, InteractionEventState.IN_ZONE, InteractionEventState.WICK_BREACHED, InteractionEventState.BODY_BREACHED, InteractionEventState.BREAK_PENDING}),
-    InteractionEventState.IN_ZONE: frozenset({InteractionEventState.PRESSURING, InteractionEventState.WICK_BREACHED, InteractionEventState.BODY_BREACHED, InteractionEventState.BREAK_PENDING, InteractionEventState.REJECTING}),
-    InteractionEventState.REJECTING: frozenset({InteractionEventState.FAR, InteractionEventState.APPROACHING, InteractionEventState.IN_ZONE, InteractionEventState.WICK_BREACHED, InteractionEventState.BODY_BREACHED, InteractionEventState.BREAK_PENDING}),
-    InteractionEventState.PRESSURING: frozenset({InteractionEventState.REJECTING, InteractionEventState.WICK_BREACHED, InteractionEventState.BODY_BREACHED, InteractionEventState.BREAK_PENDING}),
-    InteractionEventState.WICK_BREACHED: frozenset({InteractionEventState.IN_ZONE, InteractionEventState.PRESSURING, InteractionEventState.BODY_BREACHED, InteractionEventState.BREAK_PENDING, InteractionEventState.REJECTING}),
-    InteractionEventState.BODY_BREACHED: frozenset({InteractionEventState.IN_ZONE, InteractionEventState.PRESSURING, InteractionEventState.WICK_BREACHED, InteractionEventState.BREAK_PENDING, InteractionEventState.REJECTING}),
-    InteractionEventState.BREAK_PENDING: frozenset({InteractionEventState.IN_ZONE, InteractionEventState.WICK_BREACHED, InteractionEventState.BODY_BREACHED, InteractionEventState.BREAK_CONFIRMED, InteractionEventState.REJECTING}),
-    InteractionEventState.BREAK_CONFIRMED: frozenset({InteractionEventState.RETEST_PENDING, InteractionEventState.FAILED_BREAK}),
-    InteractionEventState.RETEST_PENDING: frozenset({InteractionEventState.RETEST_SUCCESS, InteractionEventState.FAILED_BREAK, InteractionEventState.FAR}),
-    InteractionEventState.RETEST_SUCCESS: frozenset({InteractionEventState.ROLE_REVERSED}),
-    InteractionEventState.FAILED_BREAK: frozenset(),
-    InteractionEventState.ROLE_REVERSED: frozenset(),
-}
-
-
-def is_allowed_event_transition(
-    from_state: InteractionEventState,
-    to_state: InteractionEventState,
-) -> bool:
-    return to_state in _ALLOWED_TRANSITIONS[from_state]
-
 
 def opposite_role(role: FamilyRole) -> FamilyRole:
     """Return the causal role after a confirmed break/retest reversal."""
