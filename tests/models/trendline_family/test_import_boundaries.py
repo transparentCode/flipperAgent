@@ -36,6 +36,12 @@ _TRANSITIONAL_FACADES = frozenset(
         "libs.models.trendline.tracker",
     }
 )
+_REGIME_COMPATIBILITY_FILES = frozenset(
+    {
+        ("optimization", "__init__.py"),
+        ("optimization", "ablation.py"),
+    }
+)
 
 
 def _runtime_files() -> list[Path]:
@@ -103,8 +109,14 @@ def test_canonical_runtime_does_not_depend_on_regime_v2() -> None:
     assert _forbidden_imports(_canonical_runtime_files(), _FORBIDDEN_CANONICAL_UPSTREAM_PREFIXES) == []
 
 
-def test_entire_canonical_package_has_no_regime_integration_imports() -> None:
-    assert _forbidden_imports(_canonical_files(), _FORBIDDEN_CANONICAL_UPSTREAM_PREFIXES) == []
+def test_only_deprecated_ablation_facades_may_reference_regime_integration() -> None:
+    package_dir = Path(__file__).parents[3] / "src" / "libs" / "models" / "trendline"
+    core_files = [
+        path
+        for path in _canonical_files()
+        if path.relative_to(package_dir).parts not in _REGIME_COMPATIBILITY_FILES
+    ]
+    assert _forbidden_imports(core_files, _FORBIDDEN_CANONICAL_UPSTREAM_PREFIXES) == []
 
 
 def test_owner_packages_do_not_depend_on_transitional_facades() -> None:
