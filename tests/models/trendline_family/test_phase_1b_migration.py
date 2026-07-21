@@ -10,6 +10,11 @@ from libs.models.trendline.optimization.candidate_optimizer import CandidateGeom
 from libs.models.trendline.optimization.contracts import CandidateEvaluationSpec as NewCandidateEvaluationSpec
 from libs.models.trendline.optimization.ablation import WeightedFeatureScorer, scorer_identity
 from libs.models.trendline.provider import NativeDeterministicLineProvider as NewNativeDeterministicLineProvider
+from libs.models.trendline.discovery.provider import NativeDeterministicLineProvider as DiscoveryNativeDeterministicLineProvider
+from libs.models.trendline.discovery.fitting.pathfinding import PathfindingLineFitter as DiscoveryPathfindingLineFitter
+from libs.models.trendline.discovery.pivots.fractal import CausalFractalPivotExtractor as DiscoveryFractalPivotExtractor
+from libs.models.trendline.fitting import PathfindingLineFitter
+from libs.models.trendline.pivots import CausalFractalPivotExtractor
 from libs.models.trendline.provider import provider_identity
 from libs.models.trendline.repository import serialize_snapshot as new_serialize_snapshot
 from libs.models.trendline_family import TrendlineFamilySnapshot as OldTrendlineFamilySnapshot
@@ -77,6 +82,9 @@ def test_compatibility_modules_resolve_to_canonical_objects() -> None:
     assert OldFamilyTransition is NewFamilyTransition
     assert OldNativeDeterministicLineProvider is NewNativeDeterministicLineProvider
     assert OldCandidateGeometryEvaluator is NewCandidateGeometryEvaluator
+    assert DiscoveryNativeDeterministicLineProvider is NewNativeDeterministicLineProvider
+    assert DiscoveryPathfindingLineFitter is PathfindingLineFitter
+    assert DiscoveryFractalPivotExtractor is CausalFractalPivotExtractor
 
 
 def test_serialized_contract_and_provider_identity_parity(snapshot) -> None:

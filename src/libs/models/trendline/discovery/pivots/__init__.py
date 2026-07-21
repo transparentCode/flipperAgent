@@ -1,6 +1,6 @@
-"""Transitional forwarding path for canonical pivot discovery."""
+"""Causal pivot extraction seams."""
 
-from .discovery.pivots import (
+from .fractal import (
     PIVOT_PROVIDER_NAME,
     CausalFractalPivotExtractor,
     ConfirmedPivot,
