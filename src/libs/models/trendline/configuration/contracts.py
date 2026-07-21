@@ -8,7 +8,8 @@ import re
 from types import MappingProxyType
 from typing import Any, Mapping
 
-from ..contracts import ContractValidationError, deterministic_hash
+from ..domain.identity import deterministic_hash
+from ..domain.validation import ContractValidationError
 
 
 def _string(value: Any, *, field_name: str) -> str:

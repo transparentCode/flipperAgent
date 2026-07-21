@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from types import MappingProxyType
 
-from ..contracts import ContractValidationError
+from ..domain.validation import ContractValidationError
 from .fitting.pathfinding import FITTER_NAME, PathfindingLineFitter
 from .pivots.fractal import PIVOT_PROVIDER_NAME, CausalFractalPivotExtractor
 from .provider import LINE_PROVIDER_NAME, NativeDeterministicLineProvider

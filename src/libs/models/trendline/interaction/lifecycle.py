@@ -8,18 +8,12 @@ from types import MappingProxyType
 from typing import Iterable, Mapping
 
 from ..configuration.contracts import ResolvedTrendlineFamilyConfig
-from ..contracts import (
-    ContractValidationError,
-    FamilyInteractionEvent,
-    FamilyInteractionEventTransition,
-    FamilyInteractionObservation,
-    FamilyLifecycleState,
-    FamilyRole,
-    InteractionEventState,
-    InteractionObservationState,
-    TrendlineFamilyState,
-    deterministic_id,
-)
+from ..domain.enums import FamilyLifecycleState, FamilyRole, InteractionEventState, InteractionObservationState
+from ..domain.events import FamilyInteractionEvent, FamilyInteractionEventTransition
+from ..domain.families import TrendlineFamilyState
+from ..domain.identity import deterministic_id
+from ..domain.interactions import FamilyInteractionObservation
+from ..domain.validation import ContractValidationError
 from .state import (
     PRESSURE_EVENT_STATES,
     TERMINAL_EVENT_STATES,

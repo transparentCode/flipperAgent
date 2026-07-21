@@ -5,14 +5,11 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from ..contracts import (
-    ContractValidationError,
-    FamilyCorridor,
-    FamilyInteractionEvent,
-    FamilyInteractionObservation,
-    TrendlineFamilyState,
-    TrendlineFamilySnapshot,
-)
+from ..domain.events import FamilyInteractionEvent
+from ..domain.families import FamilyCorridor, TrendlineFamilyState
+from ..domain.interactions import FamilyInteractionObservation
+from ..domain.snapshots import TrendlineFamilySnapshot
+from ..domain.validation import ContractValidationError
 from .state import compatibility_label
 
 

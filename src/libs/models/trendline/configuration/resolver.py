@@ -9,7 +9,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Mapping
 
-from ..contracts import ContractValidationError
+from ..domain.validation import ContractValidationError
 from .contracts import CandidateConfig, EventsConfig, InteractionConfig, LifecycleConfig, MatchingConfig, MTFConfig, ModelConfig, RailsConfig, RankingConfig, RepositoryConfig, ResolvedTrendlineFamilyConfig, RuntimeConfig, TrendlineFamilyConfig
 from .field_policy import ConfigScope, FIELD_POLICIES, validate_field_scope
 from .loader import load_trendline_family_config

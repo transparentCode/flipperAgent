@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 
-from ..contracts import ContractValidationError, TrendlineFamilySnapshot, canonical_json
+from ..domain.identity import canonical_json
+from ..domain.snapshots import TrendlineFamilySnapshot
+from ..domain.validation import ContractValidationError
 
 
 def serialize_snapshot(snapshot: TrendlineFamilySnapshot) -> str:

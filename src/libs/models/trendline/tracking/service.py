@@ -9,28 +9,26 @@ from typing import Any, Mapping
 import pandas as pd
 
 from ..configuration.contracts import ResolvedTrendlineFamilyConfig
-from .corridors import build_family_corridors
-from ..contracts import (
-    ContractValidationError,
-    FamilyInteractionObservation,
-    FamilyLifecycleState,
+from ..domain.candidates import LineCandidate
+from ..domain.enums import FamilyLifecycleState, FamilyRole, FamilyTransitionType
+from ..domain.events import FamilyTransition
+from ..domain.families import (
     FamilyMember,
-    FamilyRole,
     FamilySourceGroupAudit,
-    FamilyTransition,
-    FamilyTransitionType,
-    LineCandidate,
     LineUncertainty,
+    TrendlineFamilyState,
+)
+from ..domain.identity import deterministic_hash, deterministic_id
+from ..domain.interactions import FamilyInteractionObservation
+from ..domain.snapshots import (
     TrendlineFamilyOutput,
     TrendlineFamilySnapshot,
-    TrendlineFamilyState,
     compute_trendline_family_snapshot_id,
-    deterministic_id,
-    deterministic_hash,
-    require_utc,
 )
+from ..domain.validation import ContractValidationError, require_utc
+from .corridors import build_family_corridors
 from ..interaction.lifecycle import advance_interaction_events, pending_role_reversal_family_ids
-from ..events import opposite_role
+from ..interaction.state import opposite_role
 from ..interaction.features import build_interaction_features
 from ..interaction.observations import (
     InteractionAtr,
@@ -46,7 +44,7 @@ from .matching import (
     greedy_match_rail_groups,
 )
 from ..discovery.pivots import confirmed_ohlcv_window
-from ..discovery.provider import CandidateGenerationResult, CandidateGenerationStatus, LineCandidateProvider
+from ..discovery.contracts import CandidateGenerationResult, CandidateGenerationStatus, LineCandidateProvider
 from .rails import (
     RailCandidateGroup,
     RailGroupingResult,
@@ -59,7 +57,7 @@ from .rails import (
 )
 from .ranking import current_relevance as calculate_current_relevance
 from .ranking import nearest_role_id, rank_families, ranked_role_ids
-from ..repository import TrendlineFamilyRepository
+from ..storage.repository import TrendlineFamilyRepository
 
 
 class TrendlineFamilyUpdateError(ContractValidationError):

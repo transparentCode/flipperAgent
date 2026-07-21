@@ -6,7 +6,8 @@ from dataclasses import dataclass
 import math
 from typing import Iterable
 
-from ..contracts import FamilyRole, TrendlineFamilyState
+from ..domain.enums import FamilyRole
+from ..domain.families import TrendlineFamilyState
 
 
 @dataclass(frozen=True)

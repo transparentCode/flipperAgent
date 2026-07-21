@@ -5,8 +5,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Protocol
 
-from ..contracts import ContractValidationError
-from ..domain import TrendlineContext, TrendlineEvent, TrendlineFamily, TrendlineSnapshot
+from ..domain.context import TrendlineContext
+from ..domain.events import FamilyInteractionEvent as TrendlineEvent
+from ..domain.families import TrendlineFamilyState as TrendlineFamily
+from ..domain.snapshots import TrendlineFamilySnapshot as TrendlineSnapshot
+from ..domain.validation import ContractValidationError
 from .serialization import deserialize_snapshot, serialize_snapshot
 
 

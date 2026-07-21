@@ -5,20 +5,18 @@ from __future__ import annotations
 import math
 from datetime import datetime
 
-from ..contracts import (
-    ContractValidationError,
-    FamilyInteractionEvent,
-    FamilyLifecycleState,
-    FamilySourceGroupAudit,
-    FamilyTransition,
-    FamilyTransitionType,
-    TrendlineFamilyState,
+from ..domain.context import TrendlineContext
+from ..domain.enums import FamilyLifecycleState, FamilyTransitionType
+from ..domain.events import FamilyInteractionEvent, FamilyTransition
+from ..domain.families import FamilySourceGroupAudit, TrendlineFamilyState
+from ..domain.events import FamilyInteractionEvent as TrendlineEvent
+from ..domain.families import TrendlineFamilyState as TrendlineFamily
+from ..domain.snapshots import (
     TrendlineFamilySnapshot,
-    require_utc,
     trendline_family_snapshot_has_phase_g_evidence,
     validate_trendline_family_snapshot_identity,
 )
-from ..domain import TrendlineContext, TrendlineEvent, TrendlineFamily
+from ..domain.validation import ContractValidationError, require_utc
 from .repository import SnapshotVersionError, deserialize_snapshot, serialize_snapshot
 
 

@@ -11,7 +11,9 @@ from typing import Any, Literal, Mapping, Protocol
 
 import pandas as pd
 
-from ...contracts import AnchorRef, ContractValidationError, deterministic_id, require_utc
+from ...domain.geometry import AnchorRef
+from ...domain.identity import deterministic_id
+from ...domain.validation import ContractValidationError, require_utc
 
 
 PIVOT_PROVIDER_NAME = "fractal"

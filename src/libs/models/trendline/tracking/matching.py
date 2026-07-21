@@ -10,7 +10,9 @@ from typing import TYPE_CHECKING, Iterable
 import pandas as pd
 
 from ..configuration.contracts import ResolvedTrendlineFamilyConfig
-from ..contracts import ContractValidationError, LineCandidate, TrendlineFamilyState, require_utc
+from ..domain.candidates import LineCandidate
+from ..domain.families import TrendlineFamilyState
+from ..domain.validation import ContractValidationError, require_utc
 
 if TYPE_CHECKING:
     from .rails import RailCandidateGroup

@@ -2,36 +2,27 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
-from typing import Any, Mapping, Protocol
+from typing import Any, Mapping
 
 import pandas as pd
 
 from ..configuration.contracts import ResolvedTrendlineFamilyConfig
-from ..contracts import ContractValidationError, LineCandidate, LineDiagnostics, deterministic_id, require_utc
+from ..domain.candidates import LineCandidate, LineDiagnostics
+from ..domain.identity import deterministic_id
+from ..domain.validation import ContractValidationError, require_utc
+from .contracts import CandidateGenerationResult, CandidateGenerationStatus, LineCandidateProvider
 from .fitting.pathfinding import FITTER_NAME, FittedPath, PathfindingFitStatus, PathfindingLineFitter
 from .pivots.fractal import (
     PIVOT_PROVIDER_NAME,
     CausalFractalPivotExtractor,
     PivotExtractionStatus,
     confirmed_ohlcv_window,
-    freeze_result_metadata,
 )
 
 
 LINE_PROVIDER_NAME = "native_deterministic"
 _HISTORICAL_NATIVE_PROVIDER_IDENTITY = "libs.models.trendline_family.provider.NativeDeterministicLineProvider"
-
-
-class CandidateGenerationStatus(str, Enum):
-    VALID = "valid"
-    INSUFFICIENT_DATA = "insufficient_data"
-    NO_CONFIRMED_PIVOTS = "no_confirmed_pivots"
-    NO_VALID_FITTED_PATHS = "no_valid_fitted_paths"
-    REJECTED_LOW_QUALITY = "rejected_low_quality_candidates"
-    PROVIDER_CONFIG_ERROR = "provider_config_error"
 
 
 class _ProviderRequestValidationError(ContractValidationError):
@@ -40,61 +31,6 @@ class _ProviderRequestValidationError(ContractValidationError):
     def __init__(self, reason_code: str, message: str) -> None:
         super().__init__(message)
         self.reason_code = reason_code
-
-
-@dataclass(frozen=True)
-class CandidateGenerationResult:
-    """A valid candidate set or an explicit immutable abstention."""
-
-    status: CandidateGenerationStatus | str
-    candidates: tuple[LineCandidate, ...]
-    reason_codes: tuple[str, ...]
-    metadata: Mapping[str, Any] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        try:
-            status = CandidateGenerationStatus(self.status)
-        except (TypeError, ValueError) as exc:
-            raise ContractValidationError(f"invalid candidate generation status: {self.status!r}") from exc
-        candidates = tuple(self.candidates)
-        if any(not isinstance(candidate, LineCandidate) for candidate in candidates):
-            raise ContractValidationError("candidates must contain only LineCandidate values")
-        if len({candidate.candidate_id for candidate in candidates}) != len(candidates):
-            raise ContractValidationError("candidate IDs must be unique")
-        reason_codes = tuple(self.reason_codes)
-        if any(not isinstance(reason, str) or not reason for reason in reason_codes):
-            raise ContractValidationError("reason_codes must contain non-empty strings")
-        if len(set(reason_codes)) != len(reason_codes):
-            raise ContractValidationError("reason_codes must be unique")
-        if status is CandidateGenerationStatus.VALID:
-            if not candidates or reason_codes:
-                raise ContractValidationError("valid candidate result requires candidates and no reason codes")
-        elif candidates or not reason_codes:
-            raise ContractValidationError("abstention result requires no candidates and at least one reason code")
-        object.__setattr__(self, "status", status)
-        object.__setattr__(self, "candidates", candidates)
-        object.__setattr__(self, "reason_codes", reason_codes)
-        object.__setattr__(
-            self,
-            "metadata",
-            freeze_result_metadata(self.metadata, field_name="candidate generation metadata"),
-        )
-
-
-class LineCandidateProvider(Protocol):
-    """Small provider surface; lifecycle state is intentionally absent."""
-
-    def generate(
-        self,
-        ohlcv: pd.DataFrame,
-        *,
-        asset: str,
-        timeframe: str,
-        observed_at: datetime,
-        config: ResolvedTrendlineFamilyConfig,
-        context: Mapping[str, Any] | None = None,
-    ) -> CandidateGenerationResult:
-        """Generate candidates using only completed bars at ``observed_at``."""
 
 
 class NativeDeterministicLineProvider:

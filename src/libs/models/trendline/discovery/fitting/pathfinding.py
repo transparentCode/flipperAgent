@@ -10,7 +10,9 @@ from typing import Any, Mapping
 import pandas as pd
 
 from ...configuration.contracts import CandidateConfig, ResolvedTrendlineFamilyConfig
-from ...contracts import ContractValidationError, FamilyRole, LineGeometry, require_utc
+from ...domain.enums import FamilyRole
+from ...domain.geometry import LineGeometry
+from ...domain.validation import ContractValidationError, require_utc
 from ..pivots.fractal import (
     ConfirmedPivot,
     PivotExtractionResult,

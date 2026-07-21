@@ -10,17 +10,11 @@ from typing import Any
 import pandas as pd
 
 from ..configuration.contracts import ResolvedTrendlineFamilyConfig
-from ..contracts import (
-    CandleDirection,
-    ContractValidationError,
-    FamilyInteractionObservation,
-    FamilyRole,
-    InteractionObservationState,
-    InteractionZone,
-    TrendlineFamilyState,
-    deterministic_id,
-    require_utc,
-)
+from ..domain.enums import CandleDirection, FamilyRole, InteractionObservationState
+from ..domain.families import TrendlineFamilyState
+from ..domain.identity import deterministic_id
+from ..domain.interactions import FamilyInteractionObservation, InteractionZone
+from ..domain.validation import ContractValidationError, require_utc
 
 
 INTERACTION_ATR_METHOD = "simple_true_range_mean_v1"

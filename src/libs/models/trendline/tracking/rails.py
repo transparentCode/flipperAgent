@@ -9,15 +9,11 @@ from statistics import median
 from typing import Iterable
 
 from ..configuration.contracts import ResolvedTrendlineFamilyConfig
-from ..contracts import (
-    ContractValidationError,
-    FamilyMember,
-    FamilyRole,
-    LineCandidate,
-    TrendlineFamilyState,
-    deterministic_id,
-    require_utc,
-)
+from ..domain.candidates import LineCandidate
+from ..domain.enums import FamilyRole
+from ..domain.families import FamilyMember, TrendlineFamilyState
+from ..domain.identity import deterministic_id
+from ..domain.validation import ContractValidationError, require_utc
 from .matching import NormalizationAtr
 
 

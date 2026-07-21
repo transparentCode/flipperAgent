@@ -6,15 +6,14 @@ observation fields; it never reads OHLCV or recreates zones/classification.
 
 from __future__ import annotations
 
-from ..domain.events import is_allowed_event_transition as is_allowed_event_transition
-from ..contracts import (
-    FamilyInteractionEvent,
-    FamilyInteractionObservation,
+from ..domain.enums import (
     FamilyRole,
     InteractionCompatibilityLabel,
     InteractionEventState,
     InteractionObservationState,
 )
+from ..domain.events import FamilyInteractionEvent, is_allowed_event_transition as is_allowed_event_transition
+from ..domain.interactions import FamilyInteractionObservation
 
 
 CONTACT_OBSERVATION_STATES = frozenset(

@@ -19,20 +19,15 @@ from ..configuration.contracts import (
     canonical_mtf_source_timeframes,
     canonical_timeframe_duration_seconds,
 )
-from ..contracts import (
-    ContractValidationError,
-    FamilyLifecycleState,
-    FamilyRole,
-    LineGeometry,
+from ..domain.enums import FamilyLifecycleState, FamilyRole
+from ..domain.geometry import LineGeometry
+from ..domain.identity import canonical_json, deterministic_hash, deterministic_id
+from ..domain.snapshots import (
     TrendlineFamilySnapshot,
-    canonical_json,
-    deterministic_hash,
-    deterministic_id,
-    parse_utc_isoformat,
-    require_utc,
     trendline_family_snapshot_has_phase_g_evidence,
     validate_trendline_family_snapshot_identity,
 )
+from ..domain.validation import ContractValidationError, parse_utc_isoformat, require_utc
 
 
 _FLOAT_TOLERANCE = 1e-9

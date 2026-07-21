@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Mapping
 
-from ..contracts import ContractValidationError
+from ..domain.validation import ContractValidationError
 from .contracts import ResolvedTrendlineFamilyConfig
 
 

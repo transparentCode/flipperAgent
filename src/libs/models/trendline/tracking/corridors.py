@@ -8,13 +8,9 @@ from statistics import median, pstdev
 from typing import Iterable
 
 from ..configuration.contracts import ResolvedTrendlineFamilyConfig
-from ..contracts import (
-    FamilyCorridor,
-    FamilyRailProjection,
-    TrendlineFamilyState,
-    deterministic_id,
-    require_utc,
-)
+from ..domain.families import FamilyCorridor, FamilyRailProjection, TrendlineFamilyState
+from ..domain.identity import deterministic_id
+from ..domain.validation import require_utc
 
 
 def build_family_corridors(

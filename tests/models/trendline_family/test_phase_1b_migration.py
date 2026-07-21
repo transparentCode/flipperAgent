@@ -10,6 +10,12 @@ from libs.models.trendline.optimization.candidate_optimizer import CandidateGeom
 from libs.models.trendline.optimization.contracts import CandidateEvaluationSpec as NewCandidateEvaluationSpec
 from libs.integrations.trendline_regime_v2.ablation import WeightedFeatureScorer, scorer_identity
 from libs.models.trendline.provider import NativeDeterministicLineProvider as NewNativeDeterministicLineProvider
+from libs.models.trendline.provider import CandidateGenerationResult as NewCandidateGenerationResult
+from libs.models.trendline.provider import CandidateGenerationStatus as NewCandidateGenerationStatus
+from libs.models.trendline.provider import LineCandidateProvider as NewLineCandidateProvider
+from libs.models.trendline.discovery.contracts import CandidateGenerationResult as DiscoveryCandidateGenerationResult
+from libs.models.trendline.discovery.contracts import CandidateGenerationStatus as DiscoveryCandidateGenerationStatus
+from libs.models.trendline.discovery.contracts import LineCandidateProvider as DiscoveryLineCandidateProvider
 from libs.models.trendline.discovery.provider import NativeDeterministicLineProvider as DiscoveryNativeDeterministicLineProvider
 from libs.models.trendline.discovery.fitting.pathfinding import PathfindingLineFitter as DiscoveryPathfindingLineFitter
 from libs.models.trendline.discovery.pivots.fractal import CausalFractalPivotExtractor as DiscoveryFractalPivotExtractor
@@ -23,6 +29,9 @@ from libs.models.trendline_family.contracts import FamilyTransition as OldFamily
 from libs.models.trendline_family.optimization.candidate_optimizer import CandidateGeometryEvaluator as OldCandidateGeometryEvaluator
 from libs.models.trendline_family.optimization.contracts import CandidateEvaluationSpec as OldCandidateEvaluationSpec
 from libs.models.trendline_family.provider import NativeDeterministicLineProvider as OldNativeDeterministicLineProvider
+from libs.models.trendline_family.provider import CandidateGenerationResult as OldCandidateGenerationResult
+from libs.models.trendline_family.provider import CandidateGenerationStatus as OldCandidateGenerationStatus
+from libs.models.trendline_family.provider import LineCandidateProvider as OldLineCandidateProvider
 from libs.models.trendline_family.repository import serialize_snapshot as old_serialize_snapshot
 from libs.models.trendlines_old import __name__ as legacy_copy_name
 from libs.trendlines import __name__ as legacy_name
@@ -85,6 +94,9 @@ def test_compatibility_modules_resolve_to_canonical_objects() -> None:
     assert DiscoveryNativeDeterministicLineProvider is NewNativeDeterministicLineProvider
     assert DiscoveryPathfindingLineFitter is PathfindingLineFitter
     assert DiscoveryFractalPivotExtractor is CausalFractalPivotExtractor
+    assert OldCandidateGenerationResult is NewCandidateGenerationResult is DiscoveryCandidateGenerationResult
+    assert OldCandidateGenerationStatus is NewCandidateGenerationStatus is DiscoveryCandidateGenerationStatus
+    assert OldLineCandidateProvider is NewLineCandidateProvider is DiscoveryLineCandidateProvider
 
 
 def test_serialized_contract_and_provider_identity_parity(snapshot) -> None:
