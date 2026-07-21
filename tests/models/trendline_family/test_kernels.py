@@ -19,6 +19,18 @@ def test_atr_kernel_compiled_python_parity_and_repeat_determinism() -> None:
 
 def test_atr_kernel_minimum_irregular_values_and_wrapper_rejections() -> None:
     assert numeric_true_range_mean(np.array([2.0]), np.array([1.0]), np.array([1.5]), window=1) == 1.0
+    assert numeric_true_range_mean(
+        np.array([2.0, 3.0]),
+        np.array([1.0, 1.5]),
+        np.array([1.5, 2.5]),
+        window=20,
+    ) == numeric_true_range_mean(
+        np.array([2.0, 3.0]),
+        np.array([1.0, 1.5]),
+        np.array([1.5, 2.5]),
+        window=20,
+        compiled=False,
+    )
     with pytest.raises(ValueError, match="fit"):
         numeric_true_range_mean(np.array([]), np.array([]), np.array([]), window=1)
     with pytest.raises(ValueError, match="finite"):

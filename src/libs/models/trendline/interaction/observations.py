@@ -7,17 +7,19 @@ from datetime import datetime
 import math
 from typing import Any
 
-import pandas as pd
-
 from ..configuration.contracts import ResolvedTrendlineFamilyConfig
 from ..domain.enums import CandleDirection, FamilyRole, InteractionObservationState
 from ..domain.families import TrendlineFamilyState
 from ..domain.identity import deterministic_id
 from ..domain.interactions import FamilyInteractionObservation, InteractionZone
 from ..domain.validation import ContractValidationError, require_utc
+from .atr import (
+    INTERACTION_ATR_METHOD as INTERACTION_ATR_METHOD,
+    InteractionAtr as InteractionAtr,
+    calculate_interaction_atr as calculate_interaction_atr,
+)
 
 
-INTERACTION_ATR_METHOD = "simple_true_range_mean_v1"
 INTERACTION_ZONE_POLICY = "atr_tick_floor_v1"
 _CONTACT_STATES = frozenset(
     {
@@ -27,25 +29,6 @@ _CONTACT_STATES = frozenset(
         InteractionObservationState.CLOSE_BEYOND,
     }
 )
-
-
-@dataclass(frozen=True)
-class InteractionAtr:
-    value: float
-    method: str
-    sample_count: int
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.value, (int, float)) or isinstance(self.value, bool):
-            raise ContractValidationError("interaction ATR value must be numeric")
-        value = float(self.value)
-        if not math.isfinite(value) or value <= 0.0:
-            raise ContractValidationError("interaction ATR must be finite and positive")
-        if not isinstance(self.method, str) or not self.method:
-            raise ContractValidationError("interaction ATR method must be non-empty")
-        if isinstance(self.sample_count, bool) or not isinstance(self.sample_count, int) or self.sample_count < 1:
-            raise ContractValidationError("interaction ATR sample_count must be a positive integer")
-        object.__setattr__(self, "value", value)
 
 
 @dataclass(frozen=True)
@@ -69,41 +52,6 @@ class _ZoneBuild:
     atr_half_width: float
     tick_half_width: float | None
     tick_floor_applied: bool
-
-
-def calculate_interaction_atr(ohlcv: pd.DataFrame, *, window: int) -> InteractionAtr:
-    """Compute the interaction-owned causal simple true-range mean."""
-
-    if isinstance(window, bool) or not isinstance(window, int) or window < 1:
-        raise ContractValidationError("interaction ATR window must be an integer >= 1")
-    if not isinstance(ohlcv, pd.DataFrame) or len(ohlcv) < 2:
-        raise ContractValidationError("at least two confirmed bars are required for interaction ATR")
-    required = {"high", "low", "close"}
-    if required.difference(ohlcv.columns):
-        raise ContractValidationError("interaction ATR requires high, low, and close columns")
-    try:
-        high = ohlcv["high"].astype(float).to_list()
-        low = ohlcv["low"].astype(float).to_list()
-        close = ohlcv["close"].astype(float).to_list()
-    except (TypeError, ValueError) as exc:
-        raise ContractValidationError("interaction ATR inputs must be numeric") from exc
-    if any(not math.isfinite(value) for value in high + low + close):
-        raise ContractValidationError("interaction ATR inputs must be finite")
-    true_ranges = [high[0] - low[0]]
-    for index in range(1, len(ohlcv)):
-        true_ranges.append(
-            max(
-                high[index] - low[index],
-                abs(high[index] - close[index - 1]),
-                abs(low[index] - close[index - 1]),
-            )
-        )
-    samples = true_ranges[-window:]
-    return InteractionAtr(
-        value=sum(samples) / len(samples),
-        method=INTERACTION_ATR_METHOD,
-        sample_count=len(samples),
-    )
 
 
 def build_interaction_zone(

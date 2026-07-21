@@ -13,6 +13,7 @@ from ..configuration.contracts import ResolvedTrendlineFamilyConfig
 from ..domain.candidates import LineCandidate
 from ..domain.families import TrendlineFamilyState
 from ..domain.validation import ContractValidationError, require_utc
+from ..interaction.atr import numeric_true_range_mean
 
 if TYPE_CHECKING:
     from .rails import RailCandidateGroup
@@ -100,7 +101,12 @@ class FamilyRailGroupMatch:
             raise ContractValidationError("representative_gate_passed must be boolean")
 
 
-def calculate_normalization_atr(ohlcv: pd.DataFrame, *, window: int) -> NormalizationAtr:
+def calculate_normalization_atr(
+    ohlcv: pd.DataFrame,
+    *,
+    window: int,
+    compiled: bool = True,
+) -> NormalizationAtr:
     """Compute a causal simple-mean true range from confirmed normalized bars."""
 
     if isinstance(window, bool) or not isinstance(window, int) or window < 1:
@@ -110,21 +116,26 @@ def calculate_normalization_atr(ohlcv: pd.DataFrame, *, window: int) -> Normaliz
     required = {"high", "low", "close"}
     if required.difference(ohlcv.columns):
         raise ContractValidationError("normalization ATR requires high, low, and close columns")
-    high = ohlcv["high"].astype(float).to_list()
-    low = ohlcv["low"].astype(float).to_list()
-    close = ohlcv["close"].astype(float).to_list()
-    true_ranges = [high[0] - low[0]]
-    for index in range(1, len(ohlcv)):
-        true_ranges.append(
-            max(
-                high[index] - low[index],
-                abs(high[index] - close[index - 1]),
-                abs(low[index] - close[index - 1]),
-            )
+    try:
+        arrays = tuple(
+            ohlcv[column].to_numpy(dtype="float64", copy=False)
+            for column in ("high", "low", "close")
         )
-    samples = true_ranges[-window:]
-    value = sum(samples) / len(samples)
-    return NormalizationAtr(value=value, method=NORMALIZATION_ATR_METHOD, sample_count=len(samples))
+        effective_window = min(window, len(ohlcv))
+        value = numeric_true_range_mean(
+            *arrays,
+            window=effective_window,
+            compiled=compiled,
+        )
+    except (TypeError, ValueError) as exc:
+        raise ContractValidationError(
+            "normalization ATR inputs must be numeric and finite"
+        ) from exc
+    return NormalizationAtr(
+        value=value,
+        method=NORMALIZATION_ATR_METHOD,
+        sample_count=effective_window,
+    )
 
 
 def score_family_candidate(
