@@ -1,23 +1,23 @@
 # Trendline Family Configuration
 
-The canonical semantic source remains [\x60configs/trendline_family.yaml\x60](../trendline_family.yaml) for this makeover. There is no second editable model file. The canonical loader lives under \x60libs.models.trendline.configuration\x60; the integration loader is a forwarding seam.
+The canonical semantic source remains [`configs/trendline_family.yaml`](../trendline_family.yaml) for this makeover. There is no second editable model file. The canonical loader lives under `libs.models.trendline.configuration`; the integration loader is a forwarding seam.
 
 Resolution precedence remains:
 
-\x60\x60\x60text
+```text
 schema compatibility fallback
 -> YAML model/global
 -> YAML defaults
 -> equally specific asset or timeframe values
 -> explicit asset-timeframe resolution
 -> typed research/invocation override
-\x60\x60\x60
+```
 
 Asset and timeframe values at equal specificity may coexist when they address different fields or agree. A differing value for the same field requires an asset-timeframe entry. The production canonical YAML is checked for complete semantic ownership. Sparse mappings remain supported only as the documented schema-compatibility and isolated-test path.
 
-\x60model.enabled\x60 remains deployment activation metadata and \x60model.model_version\x60 remains release-contract metadata. Their existing runtime and hash behavior is intentionally unchanged. Runtime-only backend controls, derived values, exchange metadata, and tick size are not semantic YAML fields.
+`model.enabled` remains deployment activation metadata and `model.model_version` remains release-contract metadata. Their existing runtime and hash behavior is intentionally unchanged. Runtime-only backend controls, derived values, exchange metadata, and tick size are not semantic YAML fields.
 
-Derived values are exposed by \x60derive_configuration\x60 and are not writable through YAML: canonical timeframe duration, minimum warm-up bars, and maximum historical horizon. Runtime execution controls are intentionally absent until an execution backend requires them.
+Derived values are exposed by `derive_configuration` and are not writable through YAML: canonical timeframe duration, minimum warm-up bars, and maximum historical horizon. Runtime execution controls are intentionally absent until an execution backend requires them.
 
 ## Field policy
 

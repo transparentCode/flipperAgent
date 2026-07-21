@@ -24,10 +24,12 @@ kernels       -> NumPy arrays and numeric scalars only
 integrations  -> canonical trendline API
 ```
 
-The canonical package must never import the legacy trendline implementations,
-the support/resistance model, RegimeV2, or a trendline integration. Optimization
-and research code may consume canonical seams but runtime modules do not depend on
-them.
+The canonical runtime package must never import the legacy trendline
+implementations, the support/resistance model, RegimeV2, or a trendline
+integration. Optimization and research code may consume canonical seams, but
+runtime owner modules do not depend on them. The two deprecated ablation
+compatibility facades under `optimization` lazily forward to the RegimeV2
+integration; they are explicitly outside the runtime dependency graph.
 
 ## Ownership target
 
@@ -46,6 +48,40 @@ Root modules are transitional compatibility paths. When ownership moves, each
 root module becomes an explicit forwarding module whose exports are the same
 runtime objects as the owning module. `libs.models.trendline_family` remains a
 forwarding-only compatibility package.
+
+Owner packages import direct owner modules. They do not use transitional root
+facades internally. Discovery contracts own provider protocols and result types;
+provider implementations depend on those contracts.
+
+## Tracker update phases
+
+`TrendlineFamilyTracker.update()` is orchestration over nine explicit phases:
+
+```text
+confirmed frame -> prior state -> candidates -> rails/association
+-> family lifecycle -> interactions/events -> snapshot -> persistence -> output
+```
+
+Frozen phase-result records make each boundary testable without relocating
+state-machine policy into domain objects. Phase replay tests compare serialized
+snapshot bytes, identities, transitions, events, features, ordering, and repository
+writes with the public update path.
+
+## MTF ownership
+
+`mtf/composition.py` validates sources and orchestrates only. Immutable contracts
+and validation live in `contracts.py`; projection, freshness, relations,
+clustering, serialization, feature projection, and latest-snapshot storage each
+live in their named owner module. MTF remains downstream and cannot mutate
+single-timeframe state.
+
+## Numeric execution
+
+`kernels/atr.py` owns the shared deterministic true-range loop and accepts only
+NumPy arrays plus an integer window. Validated pandas adapters in `interaction.atr`
+and `tracking.matching` apply `min(configured_window, row_count)` before dispatch.
+Compiled and `.py_func` modes are runtime-only choices and produce identical model
+objects and serialized snapshots.
 
 ## Locked behaviour
 
