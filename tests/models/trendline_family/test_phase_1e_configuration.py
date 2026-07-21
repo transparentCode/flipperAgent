@@ -16,8 +16,12 @@ from libs.models.trendline.configuration import (
     TrendlineFamilyConfig,
     TrendlineFamilyConfigResolver,
     configuration_manifest,
+    derive_configuration,
     legacy_v1_profile,
 )
+from libs.models.trendline.configuration.field_policy import FIELD_POLICIES, configuration_field_names
+from libs.models.trendline.configuration.loader import load_trendline_family_config as canonical_loader
+from libs.integrations.trendline_configuration.loader import load_trendline_family_config as integration_loader
 from libs.models.trendline.configuration.contracts import CandidateConfig
 from libs.models.trendline.configuration.resolver import TrendlineConfigPatch as CanonicalPatch
 from libs.models.trendline_family.config import TrendlineFamilyConfig as FamilyCompatTrendlineConfig
@@ -118,6 +122,33 @@ def test_existing_canonical_yaml_resolves_as_legacy_v1_without_profile_or_hash_d
     assert resolved.interaction.tolerance_atr == 0.22
     assert resolved.lifecycle.expire_after_bars == 60
     assert resolved.events.retest_window_bars == 6
+    assert resolved.resolved_config_hash == "da15ebbcb42a9148714394b35d94e246c412af964c53024d43f221c30bd8a08f"
+    assert resolved.mtf_config_hash == "d9cae516fb96eb3449c8ad684453789e0fed825bda57d0913c111b0cd6b8aa7b"
+
+
+def test_field_policy_is_complete_unique_and_enforced() -> None:
+    policy_names = tuple(policy.field for policy in FIELD_POLICIES)
+    assert len(policy_names) == len(set(policy_names))
+    assert frozenset(policy_names) == configuration_field_names()
+    with pytest.raises(ContractValidationError, match="not allowed at timeframe scope"):
+        _resolver({"version": 1, "timeframes": {"4h": {"candidate": {"pivot_provider": "fractal"}}}})
+
+
+def test_canonical_loader_identity_completion_and_derived_values() -> None:
+    assert integration_loader is canonical_loader
+    raw = canonical_loader("configs/trendline_family.yaml")
+    TrendlineFamilyConfigResolver(raw, require_complete=True)
+    incomplete = dict(raw)
+    incomplete["defaults"] = dict(raw["defaults"])
+    incomplete["defaults"]["candidate"] = dict(raw["defaults"]["candidate"])
+    incomplete["defaults"]["candidate"].pop("lookback_bars")
+    with pytest.raises(ContractValidationError, match="semantic profile is incomplete"):
+        TrendlineFamilyConfigResolver(incomplete, require_complete=True)
+    resolved = TrendlineFamilyConfigResolver(raw, require_complete=True).resolve(asset="BTCUSDT", timeframe="4h")
+    derived = derive_configuration(resolved)
+    assert derived.timeframe_duration_seconds == 14_400
+    assert derived.minimum_warmup_bars == 40
+    assert derived.maximum_historical_horizon_bars == 180
 
 
 def test_scoped_resolution_merges_non_overlapping_equal_specificity_fields() -> None:
