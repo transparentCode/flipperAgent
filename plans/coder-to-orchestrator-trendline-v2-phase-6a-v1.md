@@ -62,7 +62,7 @@ tests/models/trendline_family: 399 passed
 ruff: passed
 compileall: passed
 git diff --check: passed
-codebase-memory index: passed; 58,015 nodes / 231,548 edges
+codebase-memory index: passed; 58,016 nodes / 231,585 edges
 ```
 
 ## Review checklist
