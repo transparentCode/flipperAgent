@@ -11,8 +11,9 @@ import pandas as pd
 from ..configuration.contracts import ResolvedTrendlineFamilyConfig
 from ..domain.candidates import LineCandidate
 from ..domain.enums import FamilyLifecycleState, FamilyRole, FamilyTransitionType
-from ..domain.events import FamilyTransition
+from ..domain.events import FamilyInteractionEvent, FamilyTransition
 from ..domain.families import (
+    FamilyCorridor,
     FamilyMember,
     FamilySourceGroupAudit,
     LineUncertainty,
@@ -27,7 +28,11 @@ from ..domain.snapshots import (
 )
 from ..domain.validation import ContractValidationError, require_utc
 from .corridors import build_family_corridors
-from ..interaction.lifecycle import advance_interaction_events, pending_role_reversal_family_ids
+from ..interaction.lifecycle import (
+    EventLifecycleResult,
+    advance_interaction_events,
+    pending_role_reversal_family_ids,
+)
 from ..interaction.state import opposite_role
 from ..interaction.features import build_interaction_features
 from ..interaction.observations import (
@@ -86,6 +91,56 @@ class _FamilyDraft:
     representative_changed: bool = False
 
 
+@dataclass(frozen=True)
+class _PreparedUpdatePhase:
+    timestamp: datetime
+    frame: pd.DataFrame
+    tick_size: float | None
+
+
+@dataclass(frozen=True)
+class _PriorStatePhase:
+    previous_snapshot: TrendlineFamilySnapshot | None
+    previous_events: tuple[FamilyInteractionEvent, ...]
+    previous_families: tuple[TrendlineFamilyState, ...]
+    scheduled_role_reversals: frozenset[str]
+    applied_role_reversals: frozenset[str]
+
+
+@dataclass(frozen=True)
+class _CandidatePhase:
+    provider_result: CandidateGenerationResult
+    candidates: tuple[LineCandidate, ...]
+    current_price: float
+
+
+@dataclass(frozen=True)
+class _AssociationPhase:
+    atr: NormalizationAtr | None
+    grouping: RailGroupingResult
+    groups: tuple[RailCandidateGroup, ...]
+    matches: tuple[FamilyRailGroupMatch, ...]
+
+
+@dataclass(frozen=True)
+class _LifecyclePhase:
+    drafts: tuple[_FamilyDraft, ...]
+    rejected_birth_ids: tuple[str, ...]
+    unmatched_active_count: int
+    applied_role_reversals: frozenset[str]
+    deferred_role_reversals: frozenset[str]
+
+
+@dataclass(frozen=True)
+class _InteractionPhase:
+    interaction_atr: InteractionAtr | None
+    observations: tuple[FamilyInteractionObservation, ...]
+    active_families: tuple[TrendlineFamilyState, ...]
+    dormant_families: tuple[TrendlineFamilyState, ...]
+    corridors: tuple[FamilyCorridor, ...]
+    event_result: EventLifecycleResult
+
+
 class TrendlineFamilyTracker:
     """Apply one confirmed-bar candidate observation to immutable family state."""
 
@@ -109,28 +164,113 @@ class TrendlineFamilyTracker:
         observed_at: datetime | None = None,
         tick_size: float | None = None,
     ) -> TrendlineFamilyOutput:
-        timestamp, frame = self._prepare_confirmed_frame(ohlcv, observed_at=observed_at)
+        prepared = self._prepare_update_phase(
+            ohlcv,
+            observed_at=observed_at,
+            tick_size=tick_size,
+        )
+        prior = self._load_prior_state_phase(timestamp=prepared.timestamp)
+        candidate_phase = self._generate_candidate_phase(
+            frame=prepared.frame,
+            timestamp=prepared.timestamp,
+        )
+        association = self._associate_rails_phase(
+            frame=prepared.frame,
+            timestamp=prepared.timestamp,
+            candidates=candidate_phase.candidates,
+            prior=prior,
+        )
+        lifecycle = self._advance_family_lifecycle_phase(
+            timestamp=prepared.timestamp,
+            current_price=candidate_phase.current_price,
+            candidates=candidate_phase.candidates,
+            previous_families=prior.previous_families,
+            association=association,
+            scheduled_role_reversals=prior.scheduled_role_reversals,
+            applied_role_reversals=prior.applied_role_reversals,
+        )
+        interaction = self._advance_interaction_phase(
+            lifecycle=lifecycle,
+            frame=prepared.frame,
+            timestamp=prepared.timestamp,
+            tick_size=prepared.tick_size,
+            previous_events=prior.previous_events,
+            atr=association.atr,
+        )
+        snapshot = self._build_snapshot_phase(
+            timestamp=prepared.timestamp,
+            prior=prior,
+            candidate_phase=candidate_phase,
+            association=association,
+            lifecycle=lifecycle,
+            interaction=interaction,
+        )
+        self._persist_snapshot_phase(snapshot)
+        return self._build_output_phase(
+            snapshot,
+            current_price=candidate_phase.current_price,
+            atr=association.atr,
+        )
+
+    def _prepare_update_phase(
+        self,
+        ohlcv: pd.DataFrame,
+        *,
+        observed_at: datetime | None,
+        tick_size: float | None,
+    ) -> _PreparedUpdatePhase:
+        timestamp, frame = self._prepare_confirmed_frame(
+            ohlcv,
+            observed_at=observed_at,
+        )
         try:
             normalized_tick_size = validate_tick_size(tick_size)
         except ContractValidationError as exc:
             raise TrendlineFamilyUpdateError(str(exc)) from exc
-        previous_snapshot = self.repository.latest_snapshot(self.config.asset, self.config.timeframe)
+        return _PreparedUpdatePhase(
+            timestamp=timestamp,
+            frame=frame,
+            tick_size=normalized_tick_size,
+        )
+
+    def _load_prior_state_phase(self, *, timestamp: datetime) -> _PriorStatePhase:
+        previous_snapshot = self.repository.latest_snapshot(
+            self.config.asset,
+            self.config.timeframe,
+        )
         if previous_snapshot is not None:
             self._assert_repository_head_compatible(previous_snapshot)
-        if previous_snapshot is not None and timestamp <= previous_snapshot.timestamp:
-            raise TrendlineFamilyUpdateError("update timestamp must advance beyond repository head")
-
-        previous_events = () if previous_snapshot is None else previous_snapshot.interaction_events
+            if timestamp <= previous_snapshot.timestamp:
+                raise TrendlineFamilyUpdateError(
+                    "update timestamp must advance beyond repository head"
+                )
+        previous_events = (
+            () if previous_snapshot is None else previous_snapshot.interaction_events
+        )
         scheduled_role_reversals = pending_role_reversal_family_ids(previous_events)
         previous_families, applied_role_reversals = (
             ((), frozenset())
             if previous_snapshot is None
             else self._apply_pending_role_reversals(
-                previous_snapshot.active_families + previous_snapshot.dormant_families,
+                previous_snapshot.active_families
+                + previous_snapshot.dormant_families,
                 scheduled_role_reversals=scheduled_role_reversals,
             )
         )
+        return _PriorStatePhase(
+            previous_snapshot=previous_snapshot,
+            previous_events=previous_events,
+            previous_families=previous_families,
+            scheduled_role_reversals=scheduled_role_reversals,
+            applied_role_reversals=applied_role_reversals,
+        )
 
+    def _generate_candidate_phase(
+        self,
+        *,
+        frame: pd.DataFrame,
+        timestamp: datetime,
+    ) -> _CandidatePhase:
         provider_result = self.provider.generate(
             frame,
             asset=self.config.asset,
@@ -139,33 +279,55 @@ class TrendlineFamilyTracker:
             config=self.config,
         )
         if not isinstance(provider_result, CandidateGenerationResult):
-            raise TrendlineFamilyUpdateError("candidate provider returned a non-canonical result")
+            raise TrendlineFamilyUpdateError(
+                "candidate provider returned a non-canonical result"
+            )
         if provider_result.status is CandidateGenerationStatus.PROVIDER_CONFIG_ERROR:
             raise TrendlineFamilyUpdateError(
                 f"candidate provider failed closed: {', '.join(provider_result.reason_codes)}"
             )
-        if provider_result.status not in _NORMAL_ABSTENTIONS | {CandidateGenerationStatus.VALID}:
-            raise TrendlineFamilyUpdateError("candidate provider returned an unsupported status")
+        if provider_result.status not in _NORMAL_ABSTENTIONS | {
+            CandidateGenerationStatus.VALID
+        }:
+            raise TrendlineFamilyUpdateError(
+                "candidate provider returned an unsupported status"
+            )
         candidates = (
-            tuple(sorted(provider_result.candidates, key=lambda candidate: candidate.candidate_id))
+            tuple(
+                sorted(
+                    provider_result.candidates,
+                    key=lambda candidate: candidate.candidate_id,
+                )
+            )
             if provider_result.status is CandidateGenerationStatus.VALID
             else ()
         )
         self._validate_candidates(candidates, timestamp=timestamp)
+        return _CandidatePhase(
+            provider_result=provider_result,
+            candidates=candidates,
+            current_price=float(frame["close"].iloc[-1]),
+        )
 
+    def _associate_rails_phase(
+        self,
+        *,
+        frame: pd.DataFrame,
+        timestamp: datetime,
+        candidates: tuple[LineCandidate, ...],
+        prior: _PriorStatePhase,
+    ) -> _AssociationPhase:
         eligible_match_families = tuple(
             family
-            for family in previous_families
+            for family in prior.previous_families
             if family.lifecycle_state is not FamilyLifecycleState.DORMANT
             or family.bars_since_match < self.config.lifecycle.expire_after_bars
         )
-        current_price = float(frame["close"].iloc[-1])
-        atr = self._normalization_atr(
-            frame,
-            required=bool(candidates),
-        )
+        atr = self._normalization_atr(frame, required=bool(candidates))
         if candidates and atr is None:
-            raise TrendlineFamilyUpdateError("normalization ATR is required for rail grouping")
+            raise TrendlineFamilyUpdateError(
+                "normalization ATR is required for rail grouping"
+            )
         grouping = (
             group_rail_candidates(
                 candidates,
@@ -179,13 +341,18 @@ class TrendlineFamilyTracker:
         groups = grouping.groups
         dormant_ids = (
             set()
-            if previous_snapshot is None
-            else {family.family_id for family in previous_snapshot.dormant_families}
+            if prior.previous_snapshot is None
+            else {
+                family.family_id
+                for family in prior.previous_snapshot.dormant_families
+            }
         )
-        matches = ()
+        matches: tuple[FamilyRailGroupMatch, ...] = ()
         if groups and eligible_match_families:
             if atr is None:
-                raise TrendlineFamilyUpdateError("normalization ATR is required for family matching")
+                raise TrendlineFamilyUpdateError(
+                    "normalization ATR is required for family matching"
+                )
             matches = greedy_match_rail_groups(
                 groups,
                 eligible_match_families,
@@ -194,10 +361,30 @@ class TrendlineFamilyTracker:
                 config=self.config,
                 dormant_family_ids=dormant_ids,
             )
-        match_by_family = {match.family_id: match for match in matches}
-        group_by_id = {group.group_id: group for group in groups}
-        matched_group_ids = {match.group_id for match in matches}
+        return _AssociationPhase(
+            atr=atr,
+            grouping=grouping,
+            groups=groups,
+            matches=matches,
+        )
 
+    def _advance_family_lifecycle_phase(
+        self,
+        *,
+        timestamp: datetime,
+        current_price: float,
+        candidates: tuple[LineCandidate, ...],
+        previous_families: tuple[TrendlineFamilyState, ...],
+        association: _AssociationPhase,
+        scheduled_role_reversals: frozenset[str],
+        applied_role_reversals: frozenset[str],
+    ) -> _LifecyclePhase:
+        atr = association.atr
+        match_by_family = {
+            match.family_id: match for match in association.matches
+        }
+        group_by_id = {group.group_id: group for group in association.groups}
+        matched_group_ids = {match.group_id for match in association.matches}
         drafts: list[_FamilyDraft] = []
         unmatched_active_count = 0
         for family in sorted(previous_families, key=lambda item: item.family_id):
@@ -233,7 +420,7 @@ class TrendlineFamilyTracker:
             atr=atr,
             applied_role_reversals=applied_role_reversals,
         )
-        for group in groups:
+        for group in association.groups:
             if group.group_id in matched_group_ids:
                 continue
             residual_candidates = tuple(
@@ -248,9 +435,13 @@ class TrendlineFamilyTracker:
                 if len(residual_candidates) == len(group.candidates)
                 else subset_rail_candidate_group(group, residual_candidates)
             )
-            if max(
-                candidate.diagnostics.normalized_quality for candidate in birth_group.candidates
-            ) < self.config.candidate.birth_quality_threshold:
+            if (
+                max(
+                    candidate.diagnostics.normalized_quality
+                    for candidate in birth_group.candidates
+                )
+                < self.config.candidate.birth_quality_threshold
+            ):
                 rejected_birth_ids.extend(birth_group.candidate_ids)
                 continue
             drafts.append(
@@ -269,24 +460,47 @@ class TrendlineFamilyTracker:
             atr=atr.value if atr is not None else None,
             rejected_birth_ids=rejected_birth_ids,
         )
-        applied_role_reversals, deferred_role_reversals = self._settle_pending_role_reversal_drafts(
+        applied, deferred = self._settle_pending_role_reversal_drafts(
             drafts,
             scheduled_role_reversals=scheduled_role_reversals,
             applied_role_reversals=applied_role_reversals,
         )
-        self._mark_role_reversal_drafts(drafts, applied_role_reversals=applied_role_reversals)
+        self._mark_role_reversal_drafts(
+            drafts,
+            applied_role_reversals=applied,
+        )
+        return _LifecyclePhase(
+            drafts=tuple(drafts),
+            rejected_birth_ids=tuple(rejected_birth_ids),
+            unmatched_active_count=unmatched_active_count,
+            applied_role_reversals=applied,
+            deferred_role_reversals=deferred,
+        )
+
+    def _advance_interaction_phase(
+        self,
+        *,
+        lifecycle: _LifecyclePhase,
+        frame: pd.DataFrame,
+        timestamp: datetime,
+        tick_size: float | None,
+        previous_events: tuple[FamilyInteractionEvent, ...],
+        atr: NormalizationAtr | None,
+    ) -> _InteractionPhase:
+        drafts = list(lifecycle.drafts)
         interaction_atr, observations = self._apply_interactions(
             drafts,
             frame=frame,
             timestamp=timestamp,
-            tick_size=normalized_tick_size,
+            tick_size=tick_size,
         )
         active_families = tuple(
             sorted(
                 (
                     draft.state
                     for draft in drafts
-                    if draft.state is not None and draft.state.lifecycle_state is FamilyLifecycleState.ACTIVE
+                    if draft.state is not None
+                    and draft.state.lifecycle_state is FamilyLifecycleState.ACTIVE
                 ),
                 key=lambda family: family.family_id,
             )
@@ -296,14 +510,17 @@ class TrendlineFamilyTracker:
                 (
                     draft.state
                     for draft in drafts
-                    if draft.state is not None and draft.state.lifecycle_state is FamilyLifecycleState.DORMANT
+                    if draft.state is not None
+                    and draft.state.lifecycle_state is FamilyLifecycleState.DORMANT
                 ),
                 key=lambda family: family.family_id,
             )
         )
         published_families = active_families + dormant_families
         if published_families and atr is None:
-            raise TrendlineFamilyUpdateError("normalization ATR is required for family corridors")
+            raise TrendlineFamilyUpdateError(
+                "normalization ATR is required for family corridors"
+            )
         corridors = (
             build_family_corridors(
                 published_families,
@@ -327,17 +544,38 @@ class TrendlineFamilyTracker:
                     if event.family_id not in event_reset_family_ids
                 ),
                 observations=observations,
-                families=active_families + dormant_families,
+                families=published_families,
                 timestamp=timestamp,
                 config=self.config,
-                role_reversed_family_ids=applied_role_reversals,
-                deferred_role_reversal_family_ids=deferred_role_reversals,
+                role_reversed_family_ids=lifecycle.applied_role_reversals,
+                deferred_role_reversal_family_ids=(
+                    lifecycle.deferred_role_reversals
+                ),
             )
         except ContractValidationError as exc:
             raise TrendlineFamilyUpdateError(str(exc)) from exc
+        return _InteractionPhase(
+            interaction_atr=interaction_atr,
+            observations=observations,
+            active_families=active_families,
+            dormant_families=dormant_families,
+            corridors=corridors,
+            event_result=event_result,
+        )
+
+    def _build_snapshot_phase(
+        self,
+        *,
+        timestamp: datetime,
+        prior: _PriorStatePhase,
+        candidate_phase: _CandidatePhase,
+        association: _AssociationPhase,
+        lifecycle: _LifecyclePhase,
+        interaction: _InteractionPhase,
+    ) -> TrendlineFamilySnapshot:
         source_group_by_group_id = {
             draft.group.group_id: self._source_group_audit(draft.group)
-            for draft in drafts
+            for draft in lifecycle.drafts
             if draft.group is not None
         }
         transitions = tuple(
@@ -346,87 +584,92 @@ class TrendlineFamilyTracker:
                     self._transition_from_draft(
                         draft,
                         timestamp=timestamp,
-                        atr=atr,
+                        atr=association.atr,
                         source_group=(
                             None
                             if draft.group is None
                             else source_group_by_group_id[draft.group.group_id]
                         ),
                     )
-                    for draft in drafts
+                    for draft in lifecycle.drafts
                     if draft.state is not None
                     or draft.transition_type is FamilyTransitionType.EXPIRE
                 ),
                 key=lambda transition: transition.transition_id,
             )
         )
+        transition_source_group_ids = {
+            transition.source_group_id for transition in transitions
+        }
         source_group_audits = tuple(
             sorted(
                 (
                     audit
                     for audit in source_group_by_group_id.values()
-                    if audit.source_group_id
-                    in {transition.source_group_id for transition in transitions}
+                    if audit.source_group_id in transition_source_group_ids
                 ),
                 key=lambda audit: audit.source_group_id,
             )
         )
         diagnostics = self._snapshot_diagnostics(
-            provider_result=provider_result,
-            candidates=candidates,
-            grouping=grouping,
-            matches=matches,
-            drafts=drafts,
-            rejected_birth_ids=rejected_birth_ids,
-            unmatched_active_count=unmatched_active_count,
-            atr=atr,
-            previous_family_count=len(previous_families),
-            active_families=active_families,
-            dormant_families=dormant_families,
-            corridors=corridors,
-            interaction_atr=interaction_atr,
-            observation_count=len(observations),
+            provider_result=candidate_phase.provider_result,
+            candidates=candidate_phase.candidates,
+            grouping=association.grouping,
+            matches=association.matches,
+            drafts=list(lifecycle.drafts),
+            rejected_birth_ids=list(lifecycle.rejected_birth_ids),
+            unmatched_active_count=lifecycle.unmatched_active_count,
+            atr=association.atr,
+            previous_family_count=len(prior.previous_families),
+            active_families=interaction.active_families,
+            dormant_families=interaction.dormant_families,
+            corridors=interaction.corridors,
+            interaction_atr=interaction.interaction_atr,
+            observation_count=len(interaction.observations),
         )
-        snapshot = TrendlineFamilySnapshot(
-            snapshot_id=compute_trendline_family_snapshot_id(
-                asset=self.config.asset,
-                timeframe=self.config.timeframe,
-                timestamp=timestamp,
-                previous_snapshot_id=(
-                    None if previous_snapshot is None else previous_snapshot.snapshot_id
-                ),
-                model_version=self.config.model_version,
-                config_version=self.config.config_version,
-                resolved_config_hash=self.config.resolved_config_hash,
-                active_families=active_families,
-                dormant_families=dormant_families,
-                transitions=transitions,
-                source_group_audits=source_group_audits,
-                corridors=corridors,
-                observations=observations,
-                interaction_events=event_result.events,
-                interaction_event_transitions=event_result.transitions,
-                diagnostics=diagnostics,
-            ),
-            asset=self.config.asset,
-            timeframe=self.config.timeframe,
-            timestamp=timestamp,
-            previous_snapshot_id=None if previous_snapshot is None else previous_snapshot.snapshot_id,
-            model_version=self.config.model_version,
-            config_version=self.config.config_version,
-            resolved_config_hash=self.config.resolved_config_hash,
-            active_families=active_families,
-            dormant_families=dormant_families,
-            transitions=transitions,
-            source_group_audits=source_group_audits,
-            corridors=corridors,
-            observations=observations,
-            interaction_events=event_result.events,
-            interaction_event_transitions=event_result.transitions,
-            diagnostics=diagnostics,
+        previous_snapshot_id = (
+            None
+            if prior.previous_snapshot is None
+            else prior.previous_snapshot.snapshot_id
         )
+        identity_fields = {
+            "asset": self.config.asset,
+            "timeframe": self.config.timeframe,
+            "timestamp": timestamp,
+            "previous_snapshot_id": previous_snapshot_id,
+            "model_version": self.config.model_version,
+            "config_version": self.config.config_version,
+            "resolved_config_hash": self.config.resolved_config_hash,
+            "active_families": interaction.active_families,
+            "dormant_families": interaction.dormant_families,
+            "transitions": transitions,
+            "source_group_audits": source_group_audits,
+            "corridors": interaction.corridors,
+            "observations": interaction.observations,
+            "interaction_events": interaction.event_result.events,
+            "interaction_event_transitions": interaction.event_result.transitions,
+            "diagnostics": diagnostics,
+        }
+        return TrendlineFamilySnapshot(
+            snapshot_id=compute_trendline_family_snapshot_id(**identity_fields),
+            **identity_fields,
+        )
+
+    def _persist_snapshot_phase(self, snapshot: TrendlineFamilySnapshot) -> None:
         self.repository.save_snapshot(snapshot)
-        return self._output(snapshot, current_price=current_price, atr=atr.value if atr is not None else None)
+
+    def _build_output_phase(
+        self,
+        snapshot: TrendlineFamilySnapshot,
+        *,
+        current_price: float,
+        atr: NormalizationAtr | None,
+    ) -> TrendlineFamilyOutput:
+        return self._output(
+            snapshot,
+            current_price=current_price,
+            atr=None if atr is None else atr.value,
+        )
 
     def _prepare_confirmed_frame(
         self,
