@@ -30,7 +30,8 @@ identity, serialization, configuration hash, or causal replay changed.
 - Feature branch: `refactor/trendline-model-makeover-v1`
 - Worktree: `/Users/aloobhujia/flipperAgent-trendline-makeover-v1`
 - Final implementation commit before closeout: `ca4ec9f`
-- Final branch commit: `HEAD` at the closeout commit containing this handoff
+- Closeout commit: `9d5d10e` `docs(trendline): close makeover remediation`
+- Final branch commit: `HEAD` at the import-guard correction containing this handoff update
 - Original checkout: clean on `main` at the repository base commit
 - Push, merge, rebase, force-push, branch switch, cherry-pick: none
 
@@ -61,7 +62,8 @@ Remediation commits:
 4. `26ac1c2` `refactor(trendline): complete mtf responsibility ownership`
 5. `63df565` `perf(trendline): wire deterministic atr kernel`
 6. `ca4ec9f` `fix(trendline): restore ablation compatibility`
-7. `HEAD` `docs(trendline): close makeover remediation`
+7. `9d5d10e` `docs(trendline): close makeover remediation`
+8. `HEAD` `test(trendline): fix relative import guard`
 
 ## Final package ownership
 
@@ -150,6 +152,9 @@ AST tests prove:
   trendline-Regime integration packages;
 - only the two explicit deprecated optimization ablation facades may reference
   the RegimeV2 integration.
+- relative imports are resolved from the containing package for ordinary modules;
+  a synthetic `tracking/service.py` `from ..contracts import ...` import is
+  explicitly detected as the transitional root contracts facade.
 
 The dependency scan covers:
 
@@ -228,6 +233,7 @@ Focused remediation evidence:
 - ablation compatibility: `28 passed`; canonical suite: `394 passed`
 - final identity/import/config/phase/kernel probe: `19 passed in 0.98s`
 - direct public ablation import probe: passed, 5 symbols across 4 surfaces
+- corrected import-boundary guard: `8 passed in 0.43s`
 
 Exact final combined command:
 
@@ -240,7 +246,7 @@ PYTHONPATH=src .venv/bin/python -m pytest \
   -q -ra
 ```
 
-Result: `415 passed in 24.31s`.
+Result after the relative-import guard correction: `416 passed in 25.09s`.
 
 Other final checks:
 

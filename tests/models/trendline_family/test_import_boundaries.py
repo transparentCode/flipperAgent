@@ -72,17 +72,16 @@ def _owner_files() -> list[Path]:
     ]
 
 
-def _module_name(path: Path) -> str:
+def _package_name(path: Path) -> str:
     src_root = Path(__file__).parents[3] / "src"
     relative = path.relative_to(src_root).with_suffix("")
-    parts = relative.parts[:-1] if relative.name == "__init__" else relative.parts
-    return ".".join(parts)
+    return ".".join(relative.parts[:-1])
 
 
 def _resolved_import(path: Path, node: ast.ImportFrom) -> str | None:
     if node.level == 0:
         return node.module
-    package = _module_name(path)
+    package = _package_name(path)
     return resolve_name(f"{'.' * node.level}{node.module or ''}", package)
 
 
@@ -135,6 +134,19 @@ def test_owner_packages_do_not_depend_on_transitional_facades() -> None:
                     if alias.name in _TRANSITIONAL_FACADES
                 )
     assert violations == []
+
+
+def test_relative_facade_import_resolves_from_containing_package() -> None:
+    package_dir = Path(__file__).parents[3] / "src" / "libs" / "models" / "trendline"
+    path = package_dir / "tracking" / "service.py"
+    tree = ast.parse("from ..contracts import ContractValidationError")
+    node = tree.body[0]
+    assert isinstance(node, ast.ImportFrom)
+
+    imported = _resolved_import(path, node)
+
+    assert imported == "libs.models.trendline.contracts"
+    assert imported in _TRANSITIONAL_FACADES
 
 
 def test_discovery_contracts_do_not_import_provider_implementation() -> None:
