@@ -1,0 +1,233 @@
+"""Small provider boundary with explicit data and failure semantics."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Protocol, runtime_checkable
+
+from ..configuration.contracts import ResolvedTrendlineV2Config
+from ..domain.candidates import LineCandidate
+from ..domain.identity import deterministic_hash, provider_identity
+from ..domain.provider_input import ProviderInput
+from ..domain.validation import (
+    ContractValidationError,
+    require_integer,
+    require_number,
+    require_string,
+)
+
+
+class ProviderStatus(str, Enum):
+    SUCCESS = "success"
+    ABSTAINED = "abstained"
+    FAILED = "failed"
+
+
+class ProviderReason(str, Enum):
+    INSUFFICIENT_INPUT = "insufficient_input"
+    NO_CANDIDATES = "no_candidates"
+    INVALID_INPUT = "invalid_input"
+    CONFIGURATION_ERROR = "configuration_error"
+    PROVIDER_FAILURE = "provider_failure"
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderRequest:
+    """Explicit immutable input/config boundary for one provider execution."""
+
+    input_data: ProviderInput
+    config: ResolvedTrendlineV2Config
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.input_data, ProviderInput):
+            raise ContractValidationError("provider_request.input_data must be ProviderInput")
+        if not isinstance(self.config, ResolvedTrendlineV2Config):
+            raise ContractValidationError(
+                "provider_request.config must be ResolvedTrendlineV2Config"
+            )
+
+    @property
+    def asset(self) -> str:
+        return self.input_data.asset
+
+    @property
+    def timeframe(self) -> str:
+        return self.input_data.timeframe
+
+    @property
+    def observed_at(self):
+        return self.input_data.observed_at
+
+    @property
+    def confirmed_through(self):
+        return self.input_data.confirmed_through
+
+    @property
+    def input_identity(self) -> str:
+        return self.input_data.input_identity
+
+    @property
+    def config_identity(self) -> str:
+        return self.config.semantic_hash
+
+    @property
+    def request_identity(self) -> str:
+        return deterministic_hash(
+            "trendline_v2_provider_request",
+            {"input_identity": self.input_identity, "config_identity": self.config_identity},
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "input_data": self.input_data.to_dict(),
+            "config": self.config.to_dict(),
+            "input_identity": self.input_identity,
+            "config_identity": self.config_identity,
+            "request_identity": self.request_identity,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderDiagnostics:
+    candidate_count: int
+    input_row_count: int
+    elapsed_ms: float | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "candidate_count",
+            require_integer(self.candidate_count, field_name="diagnostics.candidate_count"),
+        )
+        object.__setattr__(
+            self,
+            "input_row_count",
+            require_integer(
+                self.input_row_count, field_name="diagnostics.input_row_count", minimum=1
+            ),
+        )
+        if self.elapsed_ms is not None:
+            object.__setattr__(
+                self,
+                "elapsed_ms",
+                require_number(
+                    self.elapsed_ms, field_name="diagnostics.elapsed_ms", minimum=0.0
+                ),
+            )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "candidate_count": self.candidate_count,
+            "input_row_count": self.input_row_count,
+            "elapsed_ms": self.elapsed_ms,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderResult:
+    provider_name: str
+    provider_version: str
+    request: ProviderRequest
+    status: ProviderStatus | str
+    candidates: tuple[LineCandidate, ...]
+    diagnostics: ProviderDiagnostics
+    reason: ProviderReason | str | None = None
+    detail: str | None = None
+
+    def __post_init__(self) -> None:
+        name = require_string(self.provider_name, field_name="provider_result.provider_name")
+        version = require_string(
+            self.provider_version, field_name="provider_result.provider_version"
+        )
+        if not isinstance(self.request, ProviderRequest):
+            raise ContractValidationError("provider request must be ProviderRequest")
+        try:
+            status = ProviderStatus(self.status)
+        except (TypeError, ValueError) as exc:
+            raise ContractValidationError("invalid provider status") from exc
+        if not isinstance(self.diagnostics, ProviderDiagnostics):
+            raise ContractValidationError("provider diagnostics must be ProviderDiagnostics")
+        candidates = tuple(self.candidates)
+        if any(not isinstance(candidate, LineCandidate) for candidate in candidates):
+            raise ContractValidationError("provider candidates must be LineCandidate values")
+        if len({candidate.candidate_id for candidate in candidates}) != len(candidates):
+            raise ContractValidationError("provider candidate IDs must be unique")
+        if any(
+            candidate.provider_name != name
+            or candidate.provider_version != version
+            or candidate.asset != self.request.asset
+            or candidate.timeframe != self.request.timeframe
+            or candidate.observed_at != self.request.observed_at
+            for candidate in candidates
+        ):
+            raise ContractValidationError("candidate provenance or request identity mismatch")
+        reason = None
+        if self.reason is not None:
+            try:
+                reason = ProviderReason(self.reason)
+            except (TypeError, ValueError) as exc:
+                raise ContractValidationError("invalid provider reason") from exc
+        if self.detail is not None:
+            detail = require_string(self.detail, field_name="provider_result.detail")
+        else:
+            detail = None
+        if status is ProviderStatus.SUCCESS and (not candidates or reason is not None):
+            raise ContractValidationError(
+                "successful provider result requires candidates and no reason"
+            )
+        if status is not ProviderStatus.SUCCESS and (candidates or reason is None):
+            raise ContractValidationError(
+                "non-success provider result requires reason and no candidates"
+            )
+        if self.diagnostics.candidate_count != len(candidates):
+            raise ContractValidationError("provider candidate diagnostic count mismatch")
+        if self.diagnostics.input_row_count != self.request.input_data.row_count:
+            raise ContractValidationError("provider input diagnostic count mismatch")
+        object.__setattr__(self, "provider_name", name)
+        object.__setattr__(self, "provider_version", version)
+        object.__setattr__(self, "status", status)
+        object.__setattr__(self, "candidates", candidates)
+        object.__setattr__(self, "reason", reason)
+        object.__setattr__(self, "detail", detail)
+
+    @property
+    def provider_identity(self) -> str:
+        return provider_identity(self.provider_name, self.provider_version)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "provider_name": self.provider_name,
+            "provider_version": self.provider_version,
+            "provider_identity": self.provider_identity,
+            "request": self.request.to_dict(),
+            "status": self.status.value,
+            "candidates": [candidate.to_dict() for candidate in self.candidates],
+            "diagnostics": self.diagnostics.to_dict(),
+            "reason": self.reason.value if self.reason is not None else None,
+            "detail": self.detail,
+        }
+
+
+@runtime_checkable
+class CandidateProvider(Protocol):
+    """Technique-independent provider interface; no registry is implied."""
+
+    @property
+    def provider_name(self) -> str: ...
+
+    @property
+    def provider_version(self) -> str: ...
+
+    def generate(self, request: ProviderRequest) -> ProviderResult: ...
+
+
+__all__ = [
+    "CandidateProvider",
+    "ProviderDiagnostics",
+    "ProviderInput",
+    "ProviderReason",
+    "ProviderRequest",
+    "ProviderResult",
+    "ProviderStatus",
+]
