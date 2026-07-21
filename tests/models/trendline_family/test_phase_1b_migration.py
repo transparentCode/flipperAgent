@@ -33,6 +33,7 @@ _FORBIDDEN_CANONICAL_IMPORTS = (
     "libs.trendlines",
     "libs.models.trendlines_old",
     "app.trendlines",
+    "libs.models.sr",
 )
 
 
