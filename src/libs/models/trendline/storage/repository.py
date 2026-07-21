@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from datetime import datetime
 from typing import Protocol
 
-from ..contracts import ContractValidationError, TrendlineFamilySnapshot, canonical_json
+from ..contracts import ContractValidationError
 from ..domain import TrendlineContext, TrendlineEvent, TrendlineFamily, TrendlineSnapshot
+from .serialization import deserialize_snapshot, serialize_snapshot
 
 
 class SnapshotVersionError(ContractValidationError):
@@ -32,22 +32,6 @@ class TrendlineRepository(Protocol):
 
 # Existing tracker and consumers retain this protocol name.
 TrendlineFamilyRepository = TrendlineRepository
-
-
-def serialize_snapshot(snapshot: TrendlineFamilySnapshot) -> str:
-    return canonical_json(snapshot.to_dict())
-
-
-def deserialize_snapshot(payload: str) -> TrendlineFamilySnapshot:
-    if not isinstance(payload, str):
-        raise ContractValidationError("snapshot payload must be a JSON string")
-    try:
-        value = json.loads(payload)
-        return TrendlineFamilySnapshot.from_dict(value)
-    except ContractValidationError:
-        raise
-    except (json.JSONDecodeError, TypeError, ValueError) as exc:
-        raise ContractValidationError("snapshot payload is not valid JSON") from exc
 
 
 __all__ = [

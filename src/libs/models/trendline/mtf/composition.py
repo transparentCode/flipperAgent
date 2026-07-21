@@ -14,12 +14,12 @@ import math
 from types import MappingProxyType
 from typing import Any, Iterable, Mapping
 
-from .configuration.contracts import (
+from ..configuration.contracts import (
     ResolvedTrendlineFamilyConfig,
     canonical_mtf_source_timeframes,
     canonical_timeframe_duration_seconds,
 )
-from .contracts import (
+from ..contracts import (
     ContractValidationError,
     FamilyLifecycleState,
     FamilyRole,
