@@ -10,7 +10,7 @@ from typing import Any, Mapping, Protocol, Sequence
 import pandas as pd
 
 from libs.models.trendline.configuration.contracts import ResolvedTrendlineFamilyConfig
-from libs.models.trendline.contracts import ContractValidationError
+from libs.models.trendline.domain.validation import ContractValidationError
 from libs.models.trendline.optimization.contracts import (
     FeatureGroup,
     FinalistFreeze,

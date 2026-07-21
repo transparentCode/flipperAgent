@@ -21,7 +21,11 @@ _OWNER_PACKAGES = frozenset(
 _TRANSITIONAL_FACADES = frozenset(
     {
         "libs.models.trendline.contracts",
+        "libs.models.trendline.config",
+        "libs.models.trendline.config_loader",
+        "libs.models.trendline.config_resolver",
         "libs.models.trendline.corridors",
+        "libs.models.trendline.event_lifecycle",
         "libs.models.trendline.events",
         "libs.models.trendline.features",
         "libs.models.trendline.fitting",
@@ -32,6 +36,7 @@ _TRANSITIONAL_FACADES = frozenset(
         "libs.models.trendline.provider",
         "libs.models.trendline.rails",
         "libs.models.trendline.ranking",
+        "libs.models.trendline.registry",
         "libs.models.trendline.repository",
         "libs.models.trendline.tracker",
     }
@@ -69,6 +74,16 @@ def _owner_files() -> list[Path]:
         path
         for owner in sorted(_OWNER_PACKAGES)
         for path in (package_dir / owner).rglob("*.py")
+    ]
+
+
+def _direct_owner_implementation_files() -> list[Path]:
+    root = Path(__file__).parents[3]
+    return [
+        root / "src" / "libs" / "models" / "trendline" / "api.py",
+        root / "src" / "libs" / "models" / "trendline" / "config_loader.py",
+        root / "src" / "libs" / "integrations" / "trendline_regime_v2" / "ablation.py",
+        root / "src" / "libs" / "integrations" / "trendline_regime_v2" / "shadow.py",
     ]
 
 
@@ -121,6 +136,24 @@ def test_only_deprecated_ablation_facades_may_reference_regime_integration() -> 
 def test_owner_packages_do_not_depend_on_transitional_facades() -> None:
     violations: list[str] = []
     for path in _owner_files():
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                imported = _resolved_import(path, node)
+                if imported in _TRANSITIONAL_FACADES:
+                    violations.append(f"{path}: {imported}")
+            elif isinstance(node, ast.Import):
+                violations.extend(
+                    f"{path}: {alias.name}"
+                    for alias in node.names
+                    if alias.name in _TRANSITIONAL_FACADES
+                )
+    assert violations == []
+
+
+def test_api_and_integration_implementations_use_direct_owners() -> None:
+    violations: list[str] = []
+    for path in _direct_owner_implementation_files():
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom):

@@ -20,17 +20,15 @@ import pandas as pd
 
 from libs.models.trendline.api import update_trendline_families
 from libs.models.trendline.configuration.contracts import ResolvedTrendlineFamilyConfig
-from libs.models.trendline.contracts import (
-    ContractValidationError,
-    FamilyRole,
-    FamilyTransitionType,
-    TrendlineFamilyOutput,
-    TrendlineFamilyState,
-)
-from libs.models.trendline.mtf import MTFGeometrySnapshot, build_mtf_shadow_features
-from libs.models.trendline.provider import LineCandidateProvider
-from libs.models.trendline.storage import (
-    InMemoryTrendlineFamilyRepository,
+from libs.models.trendline.discovery.contracts import LineCandidateProvider
+from libs.models.trendline.domain.enums import FamilyRole, FamilyTransitionType
+from libs.models.trendline.domain.families import TrendlineFamilyState
+from libs.models.trendline.domain.snapshots import TrendlineFamilyOutput
+from libs.models.trendline.domain.validation import ContractValidationError
+from libs.models.trendline.mtf.contracts import MTFGeometrySnapshot
+from libs.models.trendline.mtf.features import build_mtf_shadow_features
+from libs.models.trendline.storage.memory import InMemoryTrendlineFamilyRepository
+from libs.models.trendline.storage.repository import (
     SnapshotVersionError,
     TrendlineFamilyRepository,
 )

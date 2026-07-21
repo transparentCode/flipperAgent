@@ -10,12 +10,14 @@ import pandas as pd
 
 from .configuration.contracts import ResolvedTrendlineFamilyConfig
 from .configuration.resolver import TrendlineFamilyConfigResolver
-from .contracts import ContractValidationError, TrendlineFamilyOutput, TrendlineFamilySnapshot
-from .provider import LineCandidateProvider
-from .registry import get_line_provider
-from .repository import TrendlineFamilyRepository
-from .tracker import TrendlineFamilyTracker
-from .mtf import MTFGeometrySnapshot, MTFNormalizationContext, compose_mtf_snapshot
+from .discovery.contracts import LineCandidateProvider
+from .discovery.registry import get_line_provider
+from .domain.snapshots import TrendlineFamilyOutput, TrendlineFamilySnapshot
+from .domain.validation import ContractValidationError
+from .mtf.composition import compose_mtf_snapshot
+from .mtf.contracts import MTFGeometrySnapshot, MTFNormalizationContext
+from .storage.repository import TrendlineFamilyRepository
+from .tracking.service import TrendlineFamilyTracker
 
 
 def update_trendline_families(
