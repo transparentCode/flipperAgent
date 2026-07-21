@@ -30,6 +30,11 @@ def _canonical_runtime_files() -> list[Path]:
     ]
 
 
+def _canonical_files() -> list[Path]:
+    package_dir = Path(__file__).parents[3] / "src" / "libs" / "models" / "trendline"
+    return list(package_dir.rglob("*.py"))
+
+
 def _forbidden_imports(paths: list[Path], prefixes: tuple[str, ...]) -> list[str]:
     violations: list[str] = []
     for path in paths:
@@ -51,6 +56,10 @@ def test_canonical_runtime_has_no_old_or_support_resistance_imports() -> None:
 
 def test_canonical_runtime_does_not_depend_on_regime_v2() -> None:
     assert _forbidden_imports(_canonical_runtime_files(), _FORBIDDEN_CANONICAL_UPSTREAM_PREFIXES) == []
+
+
+def test_entire_canonical_package_has_no_regime_integration_imports() -> None:
+    assert _forbidden_imports(_canonical_files(), _FORBIDDEN_CANONICAL_UPSTREAM_PREFIXES) == []
 
 
 def test_yaml_reads_are_confined_to_config_loader() -> None:

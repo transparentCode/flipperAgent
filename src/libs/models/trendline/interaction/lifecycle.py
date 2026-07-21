@@ -20,7 +20,7 @@ from ..contracts import (
     TrendlineFamilyState,
     deterministic_id,
 )
-from ..events import (
+from .state import (
     PRESSURE_EVENT_STATES,
     TERMINAL_EVENT_STATES,
     is_contact,

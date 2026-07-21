@@ -13,7 +13,7 @@ from ..contracts import (
     TrendlineFamilyState,
     TrendlineFamilySnapshot,
 )
-from ..events import compatibility_label
+from .state import compatibility_label
 
 
 def build_interaction_features(
