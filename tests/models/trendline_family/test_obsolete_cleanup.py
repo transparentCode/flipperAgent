@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import ast
+from importlib.util import resolve_name
+from pathlib import Path
+
 from libs.integrations.trendline_regime_v2 import ablation, shadow
 from libs.models.trendline import api, config_loader, contracts, mtf, provider, repository, tracker
 from libs.models.trendline.configuration import loader as configuration_loader
@@ -10,6 +14,12 @@ from libs.models.trendline.storage import memory, repository as storage_reposito
 from libs.models.trendline.tracking import service
 from libs.models import trendline_family
 from libs.models.trendline_family import config_loader as family_config_loader
+
+
+_ROOT = Path(__file__).parents[3]
+_SRC = _ROOT / "src"
+_DOMAIN = _SRC / "libs" / "models" / "trendline" / "domain"
+_REMOVED_MODULE_NAMES = ("contracts", "entities")
 
 
 def test_migrated_imports_preserve_runtime_object_identity() -> None:
@@ -44,3 +54,38 @@ def test_public_compatibility_surfaces_retain_owner_identity() -> None:
     assert tracker.TrendlineFamilyTracker is service.TrendlineFamilyTracker
     assert mtf.MTFGeometrySnapshot is mtf_contracts.MTFGeometrySnapshot
     assert trendline_family.TrendlineFamilySnapshot is snapshots.TrendlineFamilySnapshot
+
+
+def test_removed_domain_scaffolds_are_absent_and_unreferenced_by_python_code() -> None:
+    removed_modules = {
+        ".".join(("libs", "models", "trendline", "domain", name))
+        for name in _REMOVED_MODULE_NAMES
+    }
+    assert all(not (_DOMAIN / f"{name}.py").exists() for name in _REMOVED_MODULE_NAMES)
+
+    violations: list[str] = []
+    python_paths = (*_SRC.rglob("*.py"), *(_ROOT / "tests").rglob("*.py"))
+    for path in python_paths:
+        source = path.read_text(encoding="utf-8")
+        tree = ast.parse(source, filename=str(path))
+        package: str | None = None
+        if path.is_relative_to(_SRC):
+            relative = path.relative_to(_SRC).with_suffix("")
+            package = ".".join(relative.parts[:-1])
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                violations.extend(
+                    f"{path}: {alias.name}" for alias in node.names if alias.name in removed_modules
+                )
+            elif isinstance(node, ast.ImportFrom):
+                imported = node.module
+                if node.level and package is not None:
+                    imported = resolve_name(f"{'.' * node.level}{node.module or ''}", package)
+                if imported in removed_modules:
+                    violations.append(f"{path}: {imported}")
+        violations.extend(
+            f"{path}: dynamic reference to {module}"
+            for module in removed_modules
+            if module in source
+        )
+    assert violations == []
