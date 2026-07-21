@@ -32,7 +32,7 @@ class OptimizationStage(str, Enum):
     CANDIDATE_GEOMETRY = "candidate_geometry"
     TRACKER = "tracker"
     INTERACTION = "interaction"
-    REGIME_ABLATION = "regime_ablation"
+    FEATURE_ABLATION = "regime_ablation"
 
 
 class TrialStatus(str, Enum):
@@ -282,32 +282,6 @@ class InteractionEvaluationSpec:
                 "frozen_source_snapshot_stream_id": _text(self.frozen_source_snapshot_stream_id, field_name="frozen_source_snapshot_stream_id"),
                 "outcome_policy": None if self.outcome_policy is None else freeze(self.outcome_policy, field_name="interaction outcome_policy"),
                 "tick_size": tick_size,
-            },
-            spec_version=self.spec_version,
-        )
-
-
-@dataclass(frozen=True)
-class RegimeAblationEvaluationSpec:
-    scorer_identity: str
-    scorer_state_hash: str
-    threshold: float
-    label_column: str
-    baseline_feature_hash: str
-    shadow_feature_hash: str
-    spec_version: str = "regime_ablation_evaluation_v1"
-
-    def to_stage_spec(self) -> StageEvaluationSpec:
-        return StageEvaluationSpec(
-            stage=OptimizationStage.REGIME_ABLATION,
-            spec_type="regime_ablation_evaluation",
-            semantic_inputs={
-                "scorer_identity": _text(self.scorer_identity, field_name="scorer_identity"),
-                "scorer_state_hash": _text(self.scorer_state_hash, field_name="scorer_state_hash"),
-                "threshold": _number(self.threshold, field_name="ablation threshold", minimum=0.0),
-                "label_column": _text(self.label_column, field_name="label_column"),
-                "baseline_feature_hash": _text(self.baseline_feature_hash, field_name="baseline_feature_hash"),
-                "shadow_feature_hash": _text(self.shadow_feature_hash, field_name="shadow_feature_hash"),
             },
             spec_version=self.spec_version,
         )
@@ -1126,7 +1100,6 @@ __all__ = [
     "CandidateEvaluationSpec",
     "TrackerEvaluationSpec",
     "InteractionEvaluationSpec",
-    "RegimeAblationEvaluationSpec",
     "canonical_json",
     "freeze",
     "primitive",

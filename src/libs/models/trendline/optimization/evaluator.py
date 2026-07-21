@@ -84,7 +84,7 @@ _OWNED_PARAMETERS: dict[OptimizationStage, frozenset[str]] = {
             "events.retest_confirmation_bars",
         }
     ),
-    OptimizationStage.REGIME_ABLATION: frozenset(),
+    OptimizationStage.FEATURE_ABLATION: frozenset(),
 }
 
 
@@ -127,8 +127,8 @@ def validate_stage_overrides(stage: OptimizationStage | str, overrides: Mapping[
         raise ContractValidationError(
             f"{stage_value.value} overrides cross-stage or unknown parameters: {sorted(unknown)}"
         )
-    if stage_value is OptimizationStage.REGIME_ABLATION and overrides:
-        raise ContractValidationError("regime ablation has typed feature groups, not runtime parameter overrides")
+    if stage_value is OptimizationStage.FEATURE_ABLATION and overrides:
+        raise ContractValidationError("feature ablation has typed feature groups, not runtime parameter overrides")
 
 
 def apply_stage_overrides(

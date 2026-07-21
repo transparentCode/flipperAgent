@@ -20,7 +20,6 @@ from libs.models.trendline.optimization.contracts import (
     OptimizationStage,
     ParameterEffectAudit,
     PromotionDecision,
-    RegimeAblationEvaluationSpec,
     StageEvaluationSpec,
     TrialConfig,
     TrialResult,
@@ -28,6 +27,7 @@ from libs.models.trendline.optimization.contracts import (
     WindowResult,
     semantic_id,
 )
+from libs.models.trendline.optimization.contracts import _number, _text
 from libs.models.trendline.optimization.evaluator import (
     HoldoutOpenRegistry,
     evaluate_holdout_once,
@@ -52,6 +52,32 @@ class FeatureGroupSpec:
         if len(fields) != len(set(fields)) or any(not isinstance(field, str) or not field for field in fields):
             raise ContractValidationError("feature group fields must be unique non-empty strings")
         object.__setattr__(self, "fields", tuple(sorted(fields)))
+
+
+@dataclass(frozen=True)
+class RegimeAblationEvaluationSpec:
+    scorer_identity: str
+    scorer_state_hash: str
+    threshold: float
+    label_column: str
+    baseline_feature_hash: str
+    shadow_feature_hash: str
+    spec_version: str = "regime_ablation_evaluation_v1"
+
+    def to_stage_spec(self) -> StageEvaluationSpec:
+        return StageEvaluationSpec(
+            stage=OptimizationStage.FEATURE_ABLATION,
+            spec_type="regime_ablation_evaluation",
+            semantic_inputs={
+                "scorer_identity": _text(self.scorer_identity, field_name="scorer_identity"),
+                "scorer_state_hash": _text(self.scorer_state_hash, field_name="scorer_state_hash"),
+                "threshold": _number(self.threshold, field_name="ablation threshold", minimum=0.0),
+                "label_column": _text(self.label_column, field_name="label_column"),
+                "baseline_feature_hash": _text(self.baseline_feature_hash, field_name="baseline_feature_hash"),
+                "shadow_feature_hash": _text(self.shadow_feature_hash, field_name="shadow_feature_hash"),
+            },
+            spec_version=self.spec_version,
+        )
 
 
 _BASE_GEOMETRY = (
@@ -255,7 +281,7 @@ class RegimeFeatureAblationEvaluator:
         window_kind: str,
     ) -> WindowResult:
         del config
-        if trial.stage is not OptimizationStage.REGIME_ABLATION:
+        if trial.stage is not OptimizationStage.FEATURE_ABLATION:
             raise ContractValidationError("ablation evaluator only accepts regime_ablation trials")
         context_group = trial.evaluation_context.get("feature_group")
         try:
@@ -333,7 +359,7 @@ def run_regime_feature_ablation(
     baseline: TrialResult | None = None
     for group in normalized:
         trial = TrialConfig(
-            stage=OptimizationStage.REGIME_ABLATION,
+            stage=OptimizationStage.FEATURE_ABLATION,
             asset=dataset.asset,
             timeframe=dataset.timeframe,
             parameter_overrides={},
@@ -385,7 +411,7 @@ def evaluate_regime_feature_group_holdout(
 ) -> TrialResult:
     """Open one frozen group on holdout without changing validation selection."""
 
-    if validation_result.trial.stage is not OptimizationStage.REGIME_ABLATION:
+    if validation_result.trial.stage is not OptimizationStage.FEATURE_ABLATION:
         raise ContractValidationError("holdout result must be regime_ablation")
     return evaluate_holdout_once(
         validation_finalist=validation_result,
@@ -405,7 +431,7 @@ def _attach_feature_group_audit(*, result: TrialResult, group: FeatureGroup, cou
     result_source = _result_diagnostic(result, "forbidden_output_fingerprint")
     audit = ParameterEffectAudit(
         parameter_name="feature_group",
-        owning_stage=OptimizationStage.REGIME_ABLATION,
+        owning_stage=OptimizationStage.FEATURE_ABLATION,
         baseline_value=FeatureGroup.BASELINE.value,
         trial_value=group.value,
         expected_affected_outputs=("stage_output_fingerprint",),

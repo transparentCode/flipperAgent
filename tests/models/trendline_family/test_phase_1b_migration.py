@@ -8,7 +8,7 @@ from libs.models.trendline.config import ResolvedTrendlineFamilyConfig as NewRes
 from libs.models.trendline.contracts import FamilyTransition as NewFamilyTransition
 from libs.models.trendline.optimization.candidate_optimizer import CandidateGeometryEvaluator as NewCandidateGeometryEvaluator
 from libs.models.trendline.optimization.contracts import CandidateEvaluationSpec as NewCandidateEvaluationSpec
-from libs.models.trendline.optimization.ablation import WeightedFeatureScorer, scorer_identity
+from libs.integrations.trendline_regime_v2.ablation import WeightedFeatureScorer, scorer_identity
 from libs.models.trendline.provider import NativeDeterministicLineProvider as NewNativeDeterministicLineProvider
 from libs.models.trendline.discovery.provider import NativeDeterministicLineProvider as DiscoveryNativeDeterministicLineProvider
 from libs.models.trendline.discovery.fitting.pathfinding import PathfindingLineFitter as DiscoveryPathfindingLineFitter
