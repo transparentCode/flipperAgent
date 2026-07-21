@@ -6,7 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from libs.models.trendline_v2.configuration import resolve_trendline_v2_config
+from libs.models.trendline_v2.configuration import (
+    BodyValidationPolicy,
+    ConfirmedExtremaPairConfig,
+    HistoryHorizon,
+    PairEnumerationOrder,
+    PlateauPolicy,
+    resolve_trendline_v2_config,
+)
 from libs.models.trendline_v2.discovery import (
     CandidateProvider,
     ProviderDiagnostics,
@@ -34,6 +41,28 @@ def _config():
     )
 
 
+def _provider_config(**changes):
+    values = {
+        "provider_name": "confirmed_extrema_pair",
+        "provider_version": "v1",
+        "plateau_policy": PlateauPolicy.LEFTMOST_STRICT_LEFT_NONSTRICT_RIGHT_V1,
+        "history_horizon": HistoryHorizon.LOOKBACK_DURATION_SECONDS_V1,
+        "lookback_duration_seconds": 86_400.0,
+        "left_confirmation_bars": 2,
+        "right_confirmation_bars": 2,
+        "min_extrema_per_role": 2,
+        "body_validation_policy": BodyValidationPolicy.EXACT_SIDE_V1,
+        "pair_enumeration_order": PairEnumerationOrder.CHRONOLOGICAL_V1,
+        "candidate_order_version": "candidate_order_v1",
+        "structural_validation_version": "exact_side_v1",
+        "max_hypotheses": 100,
+        "max_output_candidates": 20,
+        "provider_evidence_schema_version": "v1",
+    }
+    values.update(changes)
+    return ConfirmedExtremaPairConfig(**values)
+
+
 def _input(
     *,
     observed_at: datetime = datetime(2024, 1, 3, tzinfo=UTC),
@@ -58,12 +87,14 @@ def _input(
 
 
 def _request() -> ProviderRequest:
-    return ProviderRequest(input_data=_input(), config=_config())
+    return ProviderRequest(
+        input_data=_input(), config=_config(), provider_config=_provider_config()
+    )
 
 
 class FixtureProvider:
-    provider_name = "fixture"
-    provider_version = "1"
+    provider_name = "confirmed_extrema_pair"
+    provider_version = "v1"
 
     def generate(self, request: ProviderRequest) -> ProviderResult:
         assert request.input_data.close == (100.5, 101.5, 102.5)
@@ -86,8 +117,8 @@ def test_protocol_conformance_and_explicit_data_boundary() -> None:
     assert result.status is ProviderStatus.ABSTAINED
     assert result.reason is ProviderReason.NO_CANDIDATES
     assert result.provider_identity == ProviderResult(
-        provider_name="fixture",
-        provider_version="1",
+        provider_name="confirmed_extrema_pair",
+        provider_version="v1",
         request=_request(),
         status="abstained",
         candidates=(),
@@ -110,8 +141,9 @@ def test_provider_request_identity_is_derived_from_input_and_config() -> None:
             low=request.input_data.low,
             close=(100.6, 101.5, 102.5),
             volume=request.input_data.volume,
-        ),
+            ),
         config=request.config,
+        provider_config=request.provider_config,
     )
     assert changed_input.input_identity != request.input_identity
     assert changed_input.request_identity != request.request_identity
@@ -121,8 +153,8 @@ def test_provider_result_distinguishes_success_and_failure() -> None:
     request = _request()
     with pytest.raises(ContractValidationError):
         ProviderResult(
-            provider_name="fixture",
-            provider_version="1",
+            provider_name="confirmed_extrema_pair",
+            provider_version="v1",
             request=request,
             status=ProviderStatus.SUCCESS,
             candidates=(),
@@ -130,8 +162,8 @@ def test_provider_result_distinguishes_success_and_failure() -> None:
         )
     with pytest.raises(ContractValidationError):
         ProviderResult(
-            provider_name="fixture",
-            provider_version="1",
+            provider_name="confirmed_extrema_pair",
+            provider_version="v1",
             request=request,
             status=ProviderStatus.FAILED,
             candidates=(),
@@ -140,13 +172,26 @@ def test_provider_result_distinguishes_success_and_failure() -> None:
         )
     with pytest.raises(ContractValidationError):
         ProviderResult(
-            provider_name="fixture",
-            provider_version="1",
+            provider_name="confirmed_extrema_pair",
+            provider_version="v1",
             request=request,
             status=ProviderStatus.ABSTAINED,
             candidates=(),
             diagnostics=ProviderDiagnostics(0, 3),
             reason="free form reason",
+        )
+
+
+def test_provider_result_identity_must_match_typed_request_config() -> None:
+    with pytest.raises(ContractValidationError, match="identity"):
+        ProviderResult(
+            provider_name="other_provider",
+            provider_version="v1",
+            request=_request(),
+            status=ProviderStatus.ABSTAINED,
+            candidates=(),
+            diagnostics=ProviderDiagnostics(candidate_count=0, input_row_count=3),
+            reason=ProviderReason.NO_CANDIDATES,
         )
 
 
@@ -158,6 +203,7 @@ def test_request_rejects_invalid_time_boundary() -> None:
                 confirmed_through=datetime(2024, 1, 2, tzinfo=UTC),
             ),
             config=_config(),
+            provider_config=_provider_config(),
         )
 
 

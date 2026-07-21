@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, is_dataclass
 from enum import Enum
 from typing import Any, Protocol, runtime_checkable
 
 from ..configuration.contracts import ResolvedTrendlineV2Config
+from ..configuration.provider import ProviderConfig
 from ..domain.candidates import LineCandidate
 from ..domain.identity import deterministic_hash, provider_identity
 from ..domain.provider_input import ProviderInput
@@ -38,6 +39,7 @@ class ProviderRequest:
 
     input_data: ProviderInput
     config: ResolvedTrendlineV2Config
+    provider_config: ProviderConfig
 
     def __post_init__(self) -> None:
         if not isinstance(self.input_data, ProviderInput):
@@ -45,6 +47,18 @@ class ProviderRequest:
         if not isinstance(self.config, ResolvedTrendlineV2Config):
             raise ContractValidationError(
                 "provider_request.config must be ResolvedTrendlineV2Config"
+            )
+        provider_params = getattr(
+            self.provider_config, "__dataclass_params__", None
+        )
+        if (
+            not isinstance(self.provider_config, ProviderConfig)
+            or not is_dataclass(self.provider_config)
+            or provider_params is None
+            or not provider_params.frozen
+        ):
+            raise ContractValidationError(
+                "provider_request.provider_config must be an immutable typed ProviderConfig"
             )
 
     @property
@@ -69,7 +83,17 @@ class ProviderRequest:
 
     @property
     def config_identity(self) -> str:
-        return self.config.semantic_hash
+        return deterministic_hash(
+            "trendline_v2_combined_configuration",
+            {
+                "foundation_config_identity": self.config.semantic_hash,
+                "provider_config_identity": self.provider_config.semantic_hash,
+            },
+        )
+
+    @property
+    def provider_config_identity(self) -> str:
+        return self.provider_config.semantic_hash
 
     @property
     def request_identity(self) -> str:
@@ -84,6 +108,8 @@ class ProviderRequest:
             "config": self.config.to_dict(),
             "input_identity": self.input_identity,
             "config_identity": self.config_identity,
+            "provider_config": self.provider_config.to_dict(),
+            "provider_config_identity": self.provider_config_identity,
             "request_identity": self.request_identity,
         }
 
@@ -148,6 +174,13 @@ class ProviderResult:
             raise ContractValidationError("invalid provider status") from exc
         if not isinstance(self.diagnostics, ProviderDiagnostics):
             raise ContractValidationError("provider diagnostics must be ProviderDiagnostics")
+        if (
+            self.request.provider_config.provider_name != name
+            or self.request.provider_config.provider_version != version
+        ):
+            raise ContractValidationError(
+                "provider result identity must match request provider config"
+            )
         candidates = tuple(self.candidates)
         if any(not isinstance(candidate, LineCandidate) for candidate in candidates):
             raise ContractValidationError("provider candidates must be LineCandidate values")
@@ -195,11 +228,23 @@ class ProviderResult:
     def provider_identity(self) -> str:
         return provider_identity(self.provider_name, self.provider_version)
 
+    @property
+    def provider_contract_identity(self) -> str:
+        return deterministic_hash(
+            "trendline_v2_provider_result_contract",
+            {
+                "provider_identity": self.provider_identity,
+                "provider_config_identity": self.request.provider_config_identity,
+                "provider_evidence_schema_version": self.request.provider_config.provider_evidence_schema_version,
+            },
+        )
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "provider_name": self.provider_name,
             "provider_version": self.provider_version,
             "provider_identity": self.provider_identity,
+            "provider_contract_identity": self.provider_contract_identity,
             "request": self.request.to_dict(),
             "status": self.status.value,
             "candidates": [candidate.to_dict() for candidate in self.candidates],
