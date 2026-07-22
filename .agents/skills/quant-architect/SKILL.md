@@ -30,8 +30,10 @@ copy static counts or paths from memory.
 
 1. State the objective, constraints, unknowns, and explicit non-goals.
 2. Retrieve memory only when prior decisions materially affect the result.
-3. Inspect repository architecture and use codebase-memory for impacted symbols,
-   callers, callees, contracts, and execution paths.
+3. Inspect repository architecture and use the `mcp-tiered-code-intelligence`
+   skill. Start with `codebase-memory-mcp` for impacted symbols, callers, callees,
+   contracts, and execution paths; escalate to `gitnexus` only for whole-repo
+   structural queries or files outside cbm's indexed directories.
 4. When current external evidence matters, use primary sources and distinguish facts
    from inference. Record contradictions and evidence limits.
 5. Compare only meaningful alternatives; select the smallest design that satisfies

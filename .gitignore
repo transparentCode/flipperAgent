@@ -59,12 +59,21 @@ _charts/
 research/tmp_*
 research/tl*/
 
+# MCP runtime indexes and caches
+.mcp/
+.gitnexus/
+.codebase-memory/
+
+
 # Temporary files
 *.tmp
 *.swp
 *~
 .gitnexus
 .squad/
+.pytest_cache/
+.ruff_cache/
+
 
 # Conductor runtime state
 .conductor/

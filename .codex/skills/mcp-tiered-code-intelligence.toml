@@ -1,0 +1,28 @@
+name = "mcp-tiered-code-intelligence"
+description = "Choose between codebase-memory-mcp and gitnexus for code intelligence based on query scope, license, and repo coverage."
+
+[[tool_groups]]
+group = "code_intelligence"
+tools = [
+  "list_projects", "index_status", "index_repository", "search_graph", "search_code",
+  "trace_path", "get_code_snippet", "query_graph", "get_graph_schema", "get_architecture",
+  "detect_changes", "mcp_gitnexus_context", "mcp_gitnexus_impact", "mcp_gitnexus_trace_path"
+]
+
+developer_instructions = """
+Two MCP backends are exposed via http://localhost:9747/mcp/{backend}:
+
+- codebase-memory-mcp (MIT): primary semantic code intelligence.
+- gitnexus (PolyForm Noncommercial): full-repository structural graph.
+
+Use codebase-memory-mcp by default for code discovery, symbol lookup, semantic search,
+reading code snippets, and tracing paths inside src/, tests/, conductor/, scripts/, docs/,
+or plans/.
+
+Escalate to gitnexus only for whole-repo structural queries, cross-directory or
+cross-service flows, impact analysis, dead-code detection, route maps, cross-repo links,
+or when the relevant files sit in research/ or other directories not indexed by cbm.
+
+Keep indexes current with ./mcp/scripts/mcp-index.sh and check status with
+./mcp/scripts/mcp-status.sh before heavy analysis.
+"""

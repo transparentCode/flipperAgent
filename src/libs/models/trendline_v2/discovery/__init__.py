@@ -3,6 +3,7 @@
 from .contracts import (
     CandidateProvider,
     ProviderDiagnostics,
+    ProviderEvidence,
     ProviderInput,
     ProviderReason,
     ProviderRequest,
@@ -13,6 +14,7 @@ from .contracts import (
 __all__ = [
     "CandidateProvider",
     "ProviderDiagnostics",
+    "ProviderEvidence",
     "ProviderInput",
     "ProviderReason",
     "ProviderRequest",

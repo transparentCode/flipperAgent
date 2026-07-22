@@ -58,17 +58,33 @@ and expected output.
 
 ## Code Intelligence
 
-This repository is indexed as `Users-aloobhujia-flipperAgent` by
-`codebase-memory-mcp`.
+This repository is indexed by `codebase-memory-mcp` (MIT) and `gitnexus`
+(PolyForm Noncommercial) through a containerized `mcp-gateway`.
 
-- For code discovery, prefer `search_graph`, `trace_path`, `get_code_snippet`,
-  `query_graph`, then `get_architecture`.
-- Before editing an existing symbol, inspect callers, callees, and affected flows.
-- Use text search for config, docs, literals, generated files, or when graph results
-  are insufficient.
-- Before handoff, inspect the final diff and use change-impact analysis when shared
-  code or contracts changed.
-- Surface HIGH or CRITICAL impact before making a risky change.
+- Start the gateway before agent work that needs code intelligence:
+  `docker compose -f mcp-compose.yml up -d`
+- Stop it when done: `docker compose -f mcp-compose.yml down`
+- Check status: `./mcp/scripts/mcp-status.sh`
+- Re-index after meaningful changes: `./mcp/scripts/mcp-index.sh`
+
+### Tiered usage
+
+Follow `.agents/skills/mcp-tiered-code-intelligence/SKILL.md`.
+
+- Start with `codebase-memory-mcp` for code discovery, symbol lookup, semantic
+  search, and paths inside `src/`, `tests/`, `conductor/`, `scripts/`, `docs/`,
+  and `plans/`.
+- Escalate to `gitnexus` only for whole-repo structural queries, cross-directory
+  flows, impact analysis, or files outside cbm's indexed directories (e.g.
+  `research/`).
+- Prefer `codebase-memory-mcp` for commercial use because it is MIT-licensed.
+
+For code discovery, prefer `search_graph`, `trace_path`, `get_code_snippet`,
+`query_graph`, then `get_architecture`. Before editing an existing symbol, inspect
+callers, callees, and affected flows. Use text search for config, docs, literals,
+generated files, or when graph results are insufficient. Before handoff, inspect the
+final diff and use change-impact analysis when shared code or contracts changed.
+Surface HIGH or CRITICAL impact before making a risky change.
 
 ## Engineering and Quant Safety
 

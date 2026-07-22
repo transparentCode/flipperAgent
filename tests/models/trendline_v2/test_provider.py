@@ -1,21 +1,41 @@
 from __future__ import annotations
 
 import ast
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
-from libs.models.trendline_v2.configuration import resolve_trendline_v2_config
+from libs.models.trendline_v2.configuration import (
+    BodyValidationPolicy,
+    ConfirmedExtremaPairConfig,
+    HistoryHorizon,
+    PairEnumerationOrder,
+    PlateauPolicy,
+    resolve_trendline_v2_config,
+)
 from libs.models.trendline_v2.discovery import (
     CandidateProvider,
     ProviderDiagnostics,
+    ProviderEvidence,
     ProviderInput,
     ProviderReason,
     ProviderRequest,
     ProviderResult,
     ProviderStatus,
 )
+from libs.models.trendline_v2.discovery.provider_evidence import (
+    ConfirmedExtremaPairEvidence,
+    ExtremaKind,
+)
+from libs.models.trendline_v2.domain.candidates import (
+    AnchorRef,
+    CandidateEvidence,
+    LineCandidate,
+)
+from libs.models.trendline_v2.domain.enums import LineRole
+from libs.models.trendline_v2.domain.geometry import LineGeometry
 from libs.models.trendline_v2.domain.validation import ContractValidationError
 
 
@@ -32,6 +52,28 @@ def _config():
             }
         }
     )
+
+
+def _provider_config(**changes):
+    values = {
+        "provider_name": "confirmed_extrema_pair",
+        "provider_version": "v1",
+        "plateau_policy": PlateauPolicy.LEFTMOST_STRICT_LEFT_NONSTRICT_RIGHT_V1,
+        "history_horizon": HistoryHorizon.LOOKBACK_DURATION_SECONDS_V1,
+        "lookback_duration_seconds": 86_400.0,
+        "left_confirmation_bars": 2,
+        "right_confirmation_bars": 2,
+        "min_extrema_per_role": 2,
+        "body_validation_policy": BodyValidationPolicy.EXACT_SIDE_V1,
+        "pair_enumeration_order": PairEnumerationOrder.CHRONOLOGICAL_V1,
+        "candidate_order_version": "candidate_order_v1",
+        "structural_validation_version": "exact_side_v1",
+        "max_hypotheses": 100,
+        "max_output_candidates": 20,
+        "provider_evidence_schema_version": "v1",
+    }
+    values.update(changes)
+    return ConfirmedExtremaPairConfig(**values)
 
 
 def _input(
@@ -57,13 +99,97 @@ def _input(
     )
 
 
-def _request() -> ProviderRequest:
-    return ProviderRequest(input_data=_input(), config=_config())
+def _request(
+    *, input_data: ProviderInput | None = None, provider_config=None
+) -> ProviderRequest:
+    return ProviderRequest(
+        input_data=_input() if input_data is None else input_data,
+        config=_config(),
+        provider_config=_provider_config() if provider_config is None else provider_config,
+    )
+
+
+def _candidate(request: ProviderRequest, *, role: LineRole, offset: float) -> LineCandidate:
+    start = datetime(2024, 1, 1, tzinfo=UTC)
+    middle = datetime(2024, 1, 1, 1, tzinfo=UTC)
+    end = datetime(2024, 1, 1, 2, tzinfo=UTC)
+    anchors = (
+        AnchorRef(
+            anchor_id=f"{role.value}-anchor-0",
+            pivot_time=start,
+            confirmation_time=middle,
+            price=100.0 + offset,
+        ),
+        AnchorRef(
+            anchor_id=f"{role.value}-anchor-1",
+            pivot_time=middle,
+            confirmation_time=end,
+            price=101.0 + offset,
+        ),
+    )
+    return LineCandidate.create(
+        asset=request.asset,
+        timeframe=request.timeframe,
+        role=role,
+        geometry=LineGeometry(
+            start_time=start,
+            end_time=middle,
+            start_price=100.0 + offset,
+            end_price=101.0 + offset,
+        ),
+        anchors=anchors,
+        evidence=CandidateEvidence(
+            anchor_count=2,
+            distinct_anchor_timestamps=2,
+            anchor_span_seconds=3_600.0,
+        ),
+        observed_at=request.observed_at,
+        provider_name=request.provider_config.provider_name,
+        provider_version=request.provider_config.provider_version,
+    )
+
+
+def _provider_evidence(
+    candidate_id: str, *, extrema_kind: ExtremaKind = ExtremaKind.LOW, **changes
+) -> ConfirmedExtremaPairEvidence:
+    values = {
+        "candidate_id": candidate_id,
+        "extrema_kind": extrema_kind,
+        "anchor_source_positions": (0, 1),
+        "confirmation_positions": (1, 2),
+        "validated_intermediate_count": 1,
+        "body_violation_count": 0,
+        "coordinate_system_version": "elapsed_utc_seconds_v1",
+        "plateau_policy_version": "leftmost_strict_left_nonstrict_right_v1",
+        "schema_version": "v1",
+    }
+    values.update(changes)
+    return ConfirmedExtremaPairEvidence(**values)
+
+
+def _result(
+    request: ProviderRequest,
+    *,
+    candidates: tuple[LineCandidate, ...],
+    evidence=(),
+    status: ProviderStatus = ProviderStatus.SUCCESS,
+    reason: ProviderReason | None = None,
+) -> ProviderResult:
+    return ProviderResult(
+        provider_name=request.provider_config.provider_name,
+        provider_version=request.provider_config.provider_version,
+        request=request,
+        status=status,
+        candidates=candidates,
+        diagnostics=ProviderDiagnostics(len(candidates), request.input_data.row_count),
+        reason=reason,
+        evidence=evidence,
+    )
 
 
 class FixtureProvider:
-    provider_name = "fixture"
-    provider_version = "1"
+    provider_name = "confirmed_extrema_pair"
+    provider_version = "v1"
 
     def generate(self, request: ProviderRequest) -> ProviderResult:
         assert request.input_data.close == (100.5, 101.5, 102.5)
@@ -86,8 +212,8 @@ def test_protocol_conformance_and_explicit_data_boundary() -> None:
     assert result.status is ProviderStatus.ABSTAINED
     assert result.reason is ProviderReason.NO_CANDIDATES
     assert result.provider_identity == ProviderResult(
-        provider_name="fixture",
-        provider_version="1",
+        provider_name="confirmed_extrema_pair",
+        provider_version="v1",
         request=_request(),
         status="abstained",
         candidates=(),
@@ -110,8 +236,9 @@ def test_provider_request_identity_is_derived_from_input_and_config() -> None:
             low=request.input_data.low,
             close=(100.6, 101.5, 102.5),
             volume=request.input_data.volume,
-        ),
+            ),
         config=request.config,
+        provider_config=request.provider_config,
     )
     assert changed_input.input_identity != request.input_identity
     assert changed_input.request_identity != request.request_identity
@@ -121,8 +248,8 @@ def test_provider_result_distinguishes_success_and_failure() -> None:
     request = _request()
     with pytest.raises(ContractValidationError):
         ProviderResult(
-            provider_name="fixture",
-            provider_version="1",
+            provider_name="confirmed_extrema_pair",
+            provider_version="v1",
             request=request,
             status=ProviderStatus.SUCCESS,
             candidates=(),
@@ -130,8 +257,8 @@ def test_provider_result_distinguishes_success_and_failure() -> None:
         )
     with pytest.raises(ContractValidationError):
         ProviderResult(
-            provider_name="fixture",
-            provider_version="1",
+            provider_name="confirmed_extrema_pair",
+            provider_version="v1",
             request=request,
             status=ProviderStatus.FAILED,
             candidates=(),
@@ -140,13 +267,26 @@ def test_provider_result_distinguishes_success_and_failure() -> None:
         )
     with pytest.raises(ContractValidationError):
         ProviderResult(
-            provider_name="fixture",
-            provider_version="1",
+            provider_name="confirmed_extrema_pair",
+            provider_version="v1",
             request=request,
             status=ProviderStatus.ABSTAINED,
             candidates=(),
             diagnostics=ProviderDiagnostics(0, 3),
             reason="free form reason",
+        )
+
+
+def test_provider_result_identity_must_match_typed_request_config() -> None:
+    with pytest.raises(ContractValidationError, match="identity"):
+        ProviderResult(
+            provider_name="other_provider",
+            provider_version="v1",
+            request=_request(),
+            status=ProviderStatus.ABSTAINED,
+            candidates=(),
+            diagnostics=ProviderDiagnostics(candidate_count=0, input_row_count=3),
+            reason=ProviderReason.NO_CANDIDATES,
         )
 
 
@@ -158,6 +298,7 @@ def test_request_rejects_invalid_time_boundary() -> None:
                 confirmed_through=datetime(2024, 1, 2, tzinfo=UTC),
             ),
             config=_config(),
+            provider_config=_provider_config(),
         )
 
 

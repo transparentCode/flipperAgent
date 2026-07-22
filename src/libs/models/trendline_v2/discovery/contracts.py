@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, is_dataclass
 from enum import Enum
 from typing import Any, Protocol, runtime_checkable
 
 from ..configuration.contracts import ResolvedTrendlineV2Config
+from ..configuration.provider import ProviderConfig
 from ..domain.candidates import LineCandidate
-from ..domain.identity import deterministic_hash, provider_identity
+from ..domain.identity import deterministic_hash, provider_identity, require_hash
 from ..domain.provider_input import ProviderInput
 from ..domain.validation import (
     ContractValidationError,
@@ -25,11 +27,109 @@ class ProviderStatus(str, Enum):
 
 
 class ProviderReason(str, Enum):
+    """Closed provider outcomes with an explicit status for each reason."""
+
     INSUFFICIENT_INPUT = "insufficient_input"
     NO_CANDIDATES = "no_candidates"
     INVALID_INPUT = "invalid_input"
     CONFIGURATION_ERROR = "configuration_error"
     PROVIDER_FAILURE = "provider_failure"
+    HYPOTHESIS_LIMIT_EXCEEDED = "hypothesis_limit_exceeded"
+    OUTPUT_LIMIT_EXCEEDED = "output_limit_exceeded"
+
+
+_EXPECTED_STATUS_BY_REASON = {
+    ProviderReason.INSUFFICIENT_INPUT: ProviderStatus.ABSTAINED,
+    ProviderReason.NO_CANDIDATES: ProviderStatus.ABSTAINED,
+    ProviderReason.INVALID_INPUT: ProviderStatus.FAILED,
+    ProviderReason.CONFIGURATION_ERROR: ProviderStatus.ABSTAINED,
+    ProviderReason.PROVIDER_FAILURE: ProviderStatus.FAILED,
+    ProviderReason.HYPOTHESIS_LIMIT_EXCEEDED: ProviderStatus.ABSTAINED,
+    ProviderReason.OUTPUT_LIMIT_EXCEEDED: ProviderStatus.ABSTAINED,
+}
+
+
+@runtime_checkable
+class ProviderEvidence(Protocol):
+    """Immutable, provider-neutral evidence required by ``ProviderResult``."""
+
+    candidate_id: str
+    evidence_id: str
+    schema_version: str
+
+    def validate_against(self, input_data: ProviderInput) -> None: ...
+
+    def to_dict(self) -> dict[str, Any]: ...
+
+
+def _validate_provider_evidence(
+    value: Any, *, index: int, input_data: ProviderInput
+) -> ProviderEvidence:
+    if not isinstance(value, ProviderEvidence):
+        raise ContractValidationError(
+            f"provider result evidence[{index}] must implement ProviderEvidence"
+        )
+    try:
+        candidate_id = require_hash(
+            value.candidate_id, field_name=f"provider_result.evidence[{index}].candidate_id"
+        )
+        evidence_id = require_hash(
+            value.evidence_id, field_name=f"provider_result.evidence[{index}].evidence_id"
+        )
+        schema_version = require_string(
+            value.schema_version,
+            field_name=f"provider_result.evidence[{index}].schema_version",
+        )
+        serialized = value.to_dict()
+    except ContractValidationError:
+        raise
+    except Exception as exc:
+        raise ContractValidationError(
+            f"provider result evidence[{index}] is not serializable"
+        ) from exc
+    if not isinstance(serialized, Mapping):
+        raise ContractValidationError(
+            f"provider result evidence[{index}] serialization must be a mapping"
+        )
+    for field_name in ("candidate_id", "evidence_id", "schema_version"):
+        if field_name not in serialized:
+            raise ContractValidationError(
+                f"provider result evidence[{index}] serialization missing {field_name}"
+            )
+    if serialized["candidate_id"] != candidate_id:
+        raise ContractValidationError(
+            f"provider result evidence[{index}] candidate ID serialization mismatch"
+        )
+    if serialized["evidence_id"] != evidence_id:
+        raise ContractValidationError(
+            f"provider result evidence[{index}] evidence ID serialization mismatch"
+        )
+    if serialized["schema_version"] != schema_version:
+        raise ContractValidationError(
+            f"provider result evidence[{index}] schema serialization mismatch"
+        )
+    try:
+        expected_evidence_id = deterministic_hash(
+            "trendline_v2_provider_evidence",
+            {key: item for key, item in serialized.items() if key != "evidence_id"},
+        )
+    except Exception as exc:
+        raise ContractValidationError(
+            f"provider result evidence[{index}] has non-canonical content"
+        ) from exc
+    if evidence_id != expected_evidence_id:
+        raise ContractValidationError(
+            f"provider result evidence[{index}] ID does not match content"
+        )
+    try:
+        value.validate_against(input_data)
+    except ContractValidationError:
+        raise
+    except Exception as exc:
+        raise ContractValidationError(
+            f"provider result evidence[{index}] failed input validation"
+        ) from exc
+    return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,6 +138,7 @@ class ProviderRequest:
 
     input_data: ProviderInput
     config: ResolvedTrendlineV2Config
+    provider_config: ProviderConfig
 
     def __post_init__(self) -> None:
         if not isinstance(self.input_data, ProviderInput):
@@ -45,6 +146,18 @@ class ProviderRequest:
         if not isinstance(self.config, ResolvedTrendlineV2Config):
             raise ContractValidationError(
                 "provider_request.config must be ResolvedTrendlineV2Config"
+            )
+        provider_params = getattr(
+            self.provider_config, "__dataclass_params__", None
+        )
+        if (
+            not isinstance(self.provider_config, ProviderConfig)
+            or not is_dataclass(self.provider_config)
+            or provider_params is None
+            or not provider_params.frozen
+        ):
+            raise ContractValidationError(
+                "provider_request.provider_config must be an immutable typed ProviderConfig"
             )
 
     @property
@@ -69,7 +182,17 @@ class ProviderRequest:
 
     @property
     def config_identity(self) -> str:
-        return self.config.semantic_hash
+        return deterministic_hash(
+            "trendline_v2_combined_configuration",
+            {
+                "foundation_config_identity": self.config.semantic_hash,
+                "provider_config_identity": self.provider_config.semantic_hash,
+            },
+        )
+
+    @property
+    def provider_config_identity(self) -> str:
+        return self.provider_config.semantic_hash
 
     @property
     def request_identity(self) -> str:
@@ -84,6 +207,8 @@ class ProviderRequest:
             "config": self.config.to_dict(),
             "input_identity": self.input_identity,
             "config_identity": self.config_identity,
+            "provider_config": self.provider_config.to_dict(),
+            "provider_config_identity": self.provider_config_identity,
             "request_identity": self.request_identity,
         }
 
@@ -134,6 +259,7 @@ class ProviderResult:
     diagnostics: ProviderDiagnostics
     reason: ProviderReason | str | None = None
     detail: str | None = None
+    evidence: tuple[ProviderEvidence, ...] = ()
 
     def __post_init__(self) -> None:
         name = require_string(self.provider_name, field_name="provider_result.provider_name")
@@ -148,6 +274,13 @@ class ProviderResult:
             raise ContractValidationError("invalid provider status") from exc
         if not isinstance(self.diagnostics, ProviderDiagnostics):
             raise ContractValidationError("provider diagnostics must be ProviderDiagnostics")
+        if (
+            self.request.provider_config.provider_name != name
+            or self.request.provider_config.provider_version != version
+        ):
+            raise ContractValidationError(
+                "provider result identity must match request provider config"
+            )
         candidates = tuple(self.candidates)
         if any(not isinstance(candidate, LineCandidate) for candidate in candidates):
             raise ContractValidationError("provider candidates must be LineCandidate values")
@@ -162,6 +295,38 @@ class ProviderResult:
             for candidate in candidates
         ):
             raise ContractValidationError("candidate provenance or request identity mismatch")
+        try:
+            evidence_values = tuple(self.evidence)
+        except TypeError as exc:
+            raise ContractValidationError(
+                "provider result evidence must be an immutable sequence"
+            ) from exc
+        evidence = tuple(
+            _validate_provider_evidence(
+                value, index=index, input_data=self.request.input_data
+            )
+            for index, value in enumerate(evidence_values)
+        )
+        candidate_ids = tuple(candidate.candidate_id for candidate in candidates)
+        evidence_candidate_ids = tuple(item.candidate_id for item in evidence)
+        if len(set(evidence_candidate_ids)) != len(evidence_candidate_ids):
+            raise ContractValidationError("provider evidence candidate IDs must be unique")
+        if evidence_candidate_ids != candidate_ids:
+            if set(evidence_candidate_ids) != set(candidate_ids):
+                raise ContractValidationError(
+                    "provider evidence candidate IDs must match candidates"
+                )
+            raise ContractValidationError(
+                "provider evidence order must match candidate order"
+            )
+        expected_schema = require_string(
+            self.request.provider_config.provider_evidence_schema_version,
+            field_name="provider request evidence schema version",
+        )
+        if any(item.schema_version != expected_schema for item in evidence):
+            raise ContractValidationError(
+                "provider evidence schema version must match request configuration"
+            )
         reason = None
         if self.reason is not None:
             try:
@@ -176,9 +341,17 @@ class ProviderResult:
             raise ContractValidationError(
                 "successful provider result requires candidates and no reason"
             )
-        if status is not ProviderStatus.SUCCESS and (candidates or reason is None):
+        if status is ProviderStatus.SUCCESS and len(evidence) != len(candidates):
             raise ContractValidationError(
-                "non-success provider result requires reason and no candidates"
+                "successful provider result requires one evidence item per candidate"
+            )
+        if status is not ProviderStatus.SUCCESS and (candidates or evidence or reason is None):
+            raise ContractValidationError(
+                "non-success provider result requires reason, no candidates, and no evidence"
+            )
+        if reason is not None and _EXPECTED_STATUS_BY_REASON[reason] is not status:
+            raise ContractValidationError(
+                f"provider reason {reason.value} is incompatible with status {status.value}"
             )
         if self.diagnostics.candidate_count != len(candidates):
             raise ContractValidationError("provider candidate diagnostic count mismatch")
@@ -190,19 +363,33 @@ class ProviderResult:
         object.__setattr__(self, "candidates", candidates)
         object.__setattr__(self, "reason", reason)
         object.__setattr__(self, "detail", detail)
+        object.__setattr__(self, "evidence", evidence)
 
     @property
     def provider_identity(self) -> str:
         return provider_identity(self.provider_name, self.provider_version)
+
+    @property
+    def provider_contract_identity(self) -> str:
+        return deterministic_hash(
+            "trendline_v2_provider_result_contract",
+            {
+                "provider_identity": self.provider_identity,
+                "provider_config_identity": self.request.provider_config_identity,
+                "provider_evidence_schema_version": self.request.provider_config.provider_evidence_schema_version,
+            },
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "provider_name": self.provider_name,
             "provider_version": self.provider_version,
             "provider_identity": self.provider_identity,
+            "provider_contract_identity": self.provider_contract_identity,
             "request": self.request.to_dict(),
             "status": self.status.value,
             "candidates": [candidate.to_dict() for candidate in self.candidates],
+            "evidence": [item.to_dict() for item in self.evidence],
             "diagnostics": self.diagnostics.to_dict(),
             "reason": self.reason.value if self.reason is not None else None,
             "detail": self.detail,
@@ -225,6 +412,7 @@ class CandidateProvider(Protocol):
 __all__ = [
     "CandidateProvider",
     "ProviderDiagnostics",
+    "ProviderEvidence",
     "ProviderInput",
     "ProviderReason",
     "ProviderRequest",

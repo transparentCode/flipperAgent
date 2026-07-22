@@ -25,3 +25,6 @@ final approval, integration, and the user report.
   are directly supported by evidence.
 - Use memory only when prior decisions materially matter; never block on it.
 - Keep one writer per checkout and do not repeat completed work.
+- When reviewing or validating impact, follow `mcp-tiered-code-intelligence`: start
+  with `codebase-memory-mcp`, escalate to `gitnexus` only for whole-repo structural
+  queries or files outside cbm's indexed directories.
