@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # mcp-cleanup.sh
-# Emergency cleanup for MCP. The repo now uses only the containerized gateway,
+# Emergency cleanup for MCP. The repo now uses only the containerized mcp-proxy,
 # so the primary cleanup is `docker compose -f mcp-compose.yml down`. This script
 # also kills any legacy local stdio processes that may remain from old setups.
 
@@ -15,12 +15,12 @@ if [ -n "$PIDS" ]; then
     echo ""
 fi
 
-# Stop the containerized gateway if it is running.
+# Stop the containerized proxy if it is running.
 if docker compose -f mcp-compose.yml ps -q 2>/dev/null | grep -q .; then
-    echo "Stopping mcp-gateway container..."
+    echo "Stopping mcp-proxy container..."
     docker compose -f mcp-compose.yml down
 else
-    echo "No mcp-gateway container running."
+    echo "No mcp-proxy container running."
 fi
 
 echo "MCP cleanup complete."

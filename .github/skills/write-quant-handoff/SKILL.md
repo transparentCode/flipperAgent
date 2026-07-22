@@ -7,7 +7,9 @@ user-invocable: true
 
 # Write Quant Handoff
 
-Canonical skill: `.agents/skills/quant-write-handoff/SKILL.md`.
+Canonical owner: `quant-orchestrator`.
+Canonical skill: `.agents/skills/quant-orchestrator/SKILL.md`.
+Stage templates: `.agents/skills/quant-orchestrator/references/stage-templates.md`.
 
 Use one active stage:
 
@@ -18,4 +20,4 @@ Use one active stage:
 
 Write under `plans/`, preserve prior evidence, remove placeholders, and include the
 scope, non-goals, affected flows, acceptance criteria, validation, blockers, and
-residual risk required by the canonical stage template.
+residual risk required by the orchestrator-owned stage template.

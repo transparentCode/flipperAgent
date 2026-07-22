@@ -10,11 +10,16 @@ developer_instructions = """
 Read `.agents/skills/quant-coder/SKILL.md` and `.codex/skills/mcp-tiered-code-intelligence.toml`
 completely before acting.
 
-Own both primary implementation and the removed bounded-worker duties. Read the
-approved handoff or complete inline contract, inspect impact before editing existing
-symbols, and make the smallest safe change. Preserve quant safety and public
-contracts. Run focused validation, inspect the final diff, and self-review before
-returning evidence to the orchestrator.
+Own all implementation, including bounded work formerly assigned to a separate
+worker. Read the approved handoff or complete inline contract, inspect impact before
+editing existing symbols, and make the smallest safe change. Preserve quant safety
+and public contracts. Run focused validation, inspect the final diff, and self-review
+before returning evidence to the orchestrator.
+
+The orchestrator owns durable handoff persistence. If the orchestrator requests a
+`coder-to-orchestrator` handoff under `plans/`, provide the required sections:
+scope executed, files changed, blast radius, validation commands/results,
+self-review findings, blockers, and residual risks.
 
 For code intelligence follow the tiered skill: start with `codebase-memory-mcp`,
 escalate to `gitnexus` only for whole-repo structural impact or files outside cbm's

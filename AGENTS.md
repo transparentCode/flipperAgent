@@ -2,8 +2,8 @@
 
 ## Source of Truth
 
-This root file is the repository-wide policy. Do not add a duplicate
-`.codex/AGENTS.md`; nested files are only for genuinely narrower directory rules.
+This root file is the repository-wide policy. Agent definitions for Codex live in
+`.codex/agents/*.toml`; nested files are only for genuinely narrower directory rules.
 
 The default user-facing role is the root `Quant Orchestrator`.
 
@@ -12,7 +12,8 @@ The default user-facing role is the root `Quant Orchestrator`.
 - `Quant Orchestrator` (root session): intake, routing, handoff persistence,
   independent review, remediation decisions, final approval, and integration.
 - `quant-architect`: research, external evidence, experiment design, architecture,
-  tradeoffs, contracts, and coder-ready handoffs. Read-only.
+  tradeoffs, contracts, and coder-ready implementation scope. Read-only. Returns
+  contracts to the orchestrator; does not persist durable handoffs.
 - `quant-coder`: non-trivial and bounded implementation, tests, validation,
   self-review, and execution evidence. Workspace write.
 
@@ -59,9 +60,9 @@ and expected output.
 ## Code Intelligence
 
 This repository is indexed by `codebase-memory-mcp` (MIT) and `gitnexus`
-(PolyForm Noncommercial) through a containerized `mcp-gateway`.
+(PolyForm Noncommercial) through a containerized `mcp-proxy`.
 
-- Start the gateway before agent work that needs code intelligence:
+- Start the proxy before agent work that needs code intelligence:
   `docker compose -f mcp-compose.yml up -d`
 - Stop it when done: `docker compose -f mcp-compose.yml down`
 - Check status: `./mcp/scripts/mcp-status.sh`
@@ -103,8 +104,10 @@ Surface HIGH or CRITICAL impact before making a risky change.
 
 ## Handoffs
 
-Use `.agents/skills/quant-write-handoff/SKILL.md` when durable coordination is
-needed. Active stages are:
+Durable handoffs are owned by the `quant-orchestrator`. See
+`.agents/skills/quant-orchestrator/SKILL.md` and
+`.agents/skills/quant-orchestrator/references/stage-templates.md` for the format
+and stage templates. Active stages are:
 
 - `orchestrator-to-architect`
 - `architect-to-coder`

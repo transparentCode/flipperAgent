@@ -5,10 +5,11 @@ description: Choose between codebase-memory-mcp and gitnexus for code intelligen
 
 # MCP Tiered Code Intelligence
 
-Two MCP backends are available via `http://localhost:9747/mcp/{backend}`:
+Two MCP backends are exposed by the containerized `mcp-proxy` on
+`http://localhost:9748/servers/{backend}/sse`:
 
-- `codebase-memory-mcp` (MIT): primary semantic code intelligence.
-- `gitnexus` (PolyForm Noncommercial): full-repository structural graph.
+- `cbm` → `codebase-memory-mcp` (MIT): primary semantic code intelligence.
+- `gitnexus` → `gitnexus` (PolyForm Noncommercial): full-repository structural graph.
 
 ## When to use codebase-memory-mcp
 

@@ -6,7 +6,9 @@ user-invocable: true
 
 # Quant Handoff
 
-Canonical skill: `.agents/skills/quant-write-handoff/SKILL.md`.
+Canonical owner: `quant-orchestrator`.
+Canonical skill: `.agents/skills/quant-orchestrator/SKILL.md`.
+Stage templates: `.agents/skills/quant-orchestrator/references/stage-templates.md`.
 
 Active stages:
 
@@ -15,5 +17,6 @@ Active stages:
 - coder to orchestrator: changes, blast radius, exact validation, self-review, risks;
 - orchestrator decision: findings, evidence sufficiency, approval or remediation.
 
-Always state non-goals, what was not changed, blockers, and whether the next owner can
-act without guessing. Preserve historical handoffs that use retired stages.
+The orchestrator owns durable handoff persistence under `plans/`. Always state
+non-goals, what was not changed, blockers, and whether the next owner can act without
+guessing. Preserve historical handoffs that use retired stages.
