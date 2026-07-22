@@ -10,7 +10,9 @@ Canonical owner: `Quant Orchestrator`; canonical policy:
 `.agents/skills/quant-orchestrator/SKILL.md`.
 
 1. Read the request, approved contract, actual diff, and validation evidence.
-2. Use code intelligence to verify affected callers, contracts, and execution flows.
+2. Use code intelligence per `mcp-tiered-code-intelligence` to verify affected
+   callers, contracts, and execution flows. Start with `codebase-memory-mcp`;
+   escalate to `gitnexus` only for whole-repo structural impact.
 3. Check correctness, typing, compatibility, configuration drift, failure paths, and
    test quality.
 4. Check point-in-time correctness, leakage, survivorship, timing, costs, calendars,

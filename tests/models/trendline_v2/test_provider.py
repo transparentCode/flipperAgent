@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -17,12 +18,24 @@ from libs.models.trendline_v2.configuration import (
 from libs.models.trendline_v2.discovery import (
     CandidateProvider,
     ProviderDiagnostics,
+    ProviderEvidence,
     ProviderInput,
     ProviderReason,
     ProviderRequest,
     ProviderResult,
     ProviderStatus,
 )
+from libs.models.trendline_v2.discovery.provider_evidence import (
+    ConfirmedExtremaPairEvidence,
+    ExtremaKind,
+)
+from libs.models.trendline_v2.domain.candidates import (
+    AnchorRef,
+    CandidateEvidence,
+    LineCandidate,
+)
+from libs.models.trendline_v2.domain.enums import LineRole
+from libs.models.trendline_v2.domain.geometry import LineGeometry
 from libs.models.trendline_v2.domain.validation import ContractValidationError
 
 
@@ -86,9 +99,91 @@ def _input(
     )
 
 
-def _request() -> ProviderRequest:
+def _request(
+    *, input_data: ProviderInput | None = None, provider_config=None
+) -> ProviderRequest:
     return ProviderRequest(
-        input_data=_input(), config=_config(), provider_config=_provider_config()
+        input_data=_input() if input_data is None else input_data,
+        config=_config(),
+        provider_config=_provider_config() if provider_config is None else provider_config,
+    )
+
+
+def _candidate(request: ProviderRequest, *, role: LineRole, offset: float) -> LineCandidate:
+    start = datetime(2024, 1, 1, tzinfo=UTC)
+    middle = datetime(2024, 1, 1, 1, tzinfo=UTC)
+    end = datetime(2024, 1, 1, 2, tzinfo=UTC)
+    anchors = (
+        AnchorRef(
+            anchor_id=f"{role.value}-anchor-0",
+            pivot_time=start,
+            confirmation_time=middle,
+            price=100.0 + offset,
+        ),
+        AnchorRef(
+            anchor_id=f"{role.value}-anchor-1",
+            pivot_time=middle,
+            confirmation_time=end,
+            price=101.0 + offset,
+        ),
+    )
+    return LineCandidate.create(
+        asset=request.asset,
+        timeframe=request.timeframe,
+        role=role,
+        geometry=LineGeometry(
+            start_time=start,
+            end_time=middle,
+            start_price=100.0 + offset,
+            end_price=101.0 + offset,
+        ),
+        anchors=anchors,
+        evidence=CandidateEvidence(
+            anchor_count=2,
+            distinct_anchor_timestamps=2,
+            anchor_span_seconds=3_600.0,
+        ),
+        observed_at=request.observed_at,
+        provider_name=request.provider_config.provider_name,
+        provider_version=request.provider_config.provider_version,
+    )
+
+
+def _provider_evidence(
+    candidate_id: str, *, extrema_kind: ExtremaKind = ExtremaKind.LOW, **changes
+) -> ConfirmedExtremaPairEvidence:
+    values = {
+        "candidate_id": candidate_id,
+        "extrema_kind": extrema_kind,
+        "anchor_source_positions": (0, 1),
+        "confirmation_positions": (1, 2),
+        "validated_intermediate_count": 1,
+        "body_violation_count": 0,
+        "coordinate_system_version": "elapsed_utc_seconds_v1",
+        "plateau_policy_version": "leftmost_strict_left_nonstrict_right_v1",
+        "schema_version": "v1",
+    }
+    values.update(changes)
+    return ConfirmedExtremaPairEvidence(**values)
+
+
+def _result(
+    request: ProviderRequest,
+    *,
+    candidates: tuple[LineCandidate, ...],
+    evidence=(),
+    status: ProviderStatus = ProviderStatus.SUCCESS,
+    reason: ProviderReason | None = None,
+) -> ProviderResult:
+    return ProviderResult(
+        provider_name=request.provider_config.provider_name,
+        provider_version=request.provider_config.provider_version,
+        request=request,
+        status=status,
+        candidates=candidates,
+        diagnostics=ProviderDiagnostics(len(candidates), request.input_data.row_count),
+        reason=reason,
+        evidence=evidence,
     )
 
 

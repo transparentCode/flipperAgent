@@ -30,6 +30,9 @@ description: Coordinate flipperAgent work through one architect and one coder wh
 
 ## Token and Safety Rules
 
+- When validating impact or reviewing diffs, use the
+  `mcp-tiered-code-intelligence` skill: start with `codebase-memory-mcp`, escalate
+  to `gitnexus` only for whole-repo structural queries or unindexed directories.
 - Do not create reviewer, approval, research, or bounded-worker subagents.
 - Do not duplicate work already performed by a valid upstream artifact.
 - Keep one architect and one coder task at most for one outcome.

@@ -1,0 +1,44 @@
+# On-demand MCP gateway stack for flipperAgent.
+# Run with: docker compose -f mcp-compose.yml up -d
+# Stop with: docker compose -f mcp-compose.yml down
+
+services:
+  mcp-gateway:
+    build:
+      context: ./mcp/gateway
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:9747:9747"
+    volumes:
+      - cbm-cache:/data/cbm
+      - gitnexus-cache:/data/gitnexus
+      - ./mcp/gateway.yaml:/config/gateway.yaml:ro
+      # Read-write so GitNexus can write its .gitnexus/ index cache inside the repo.
+      # Use --index-only to prevent GitNexus from modifying AGENTS.md/CLAUDE.md.
+      - .:/workspace
+    environment:
+      - CBM_CACHE_DIR=/data/cbm
+      - HOME=/data/gitnexus
+    deploy:
+      resources:
+        limits:
+          # Large code-intelligence backends need memory for graph queries.
+          # Indexing benefits from more headroom; runtime queries run fine here.
+          memory: 2G
+          cpus: '1'
+    networks:
+      - mcp-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9747/health > /dev/null"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  cbm-cache:
+  gitnexus-cache:
+
+networks:
+  mcp-net:
+    driver: bridge

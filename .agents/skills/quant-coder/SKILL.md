@@ -24,8 +24,10 @@ Verify paths and symbols from the live checkout before acting.
 ## Workflow
 
 1. Inspect repository status and preserve unrelated user changes.
-2. Use codebase-memory to inspect callers, callees, and affected flows before
-   editing existing symbols. Surface HIGH or CRITICAL risk.
+2. Use the `mcp-tiered-code-intelligence` skill to inspect callers, callees, and
+   affected flows before editing existing symbols. Start with `codebase-memory-mcp`;
+   escalate to `gitnexus` only for whole-repo structural impact. Surface HIGH or
+   CRITICAL risk.
 3. Make the smallest safe change. This includes bounded tests, docs, config wiring,
    and local fixes formerly assigned to a separate worker.
 4. Preserve typing, contracts, determinism, point-in-time correctness, data identity,

@@ -5,9 +5,12 @@
       "url": "http://localhost:8889/mcp"
     },
     "codebase-memory-mcp": {
-      "type": "stdio",
-      "command": "codebase-memory-mcp",
-      "args": []
+      "type": "http",
+      "url": "http://localhost:9747/mcp/cbm"
+    },
+    "gitnexus": {
+      "type": "http",
+      "url": "http://localhost:9747/mcp/gitnexus"
     }
   }
 }

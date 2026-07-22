@@ -11,8 +11,8 @@ required = false
 default_tools_approval_mode = "writes"
 
 [mcp_servers.codebase-memory-mcp]
-command = "codebase-memory-mcp"
-args = []
+url = "http://localhost:9747/mcp/cbm"
+required = false
 default_tools_approval_mode = "auto"
 enabled_tools = [
   "list_projects",
@@ -26,6 +26,20 @@ enabled_tools = [
   "get_graph_schema",
   "get_architecture",
   "detect_changes",
+]
+
+[mcp_servers.gitnexus]
+url = "http://localhost:9747/mcp/gitnexus"
+required = false
+default_tools_approval_mode = "auto"
+enabled_tools = [
+  "mcp_gitnexus_context",
+  "mcp_gitnexus_impact",
+  "mcp_gitnexus_trace_path",
+  "mcp_gitnexus_cypher",
+  "mcp_gitnexus_detect_changes",
+  "mcp_gitnexus_group_list",
+  "mcp_gitnexus_list_repos",
 ]
 
 [sandbox_workspace_write]
