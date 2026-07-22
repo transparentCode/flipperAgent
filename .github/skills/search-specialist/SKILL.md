@@ -7,7 +7,8 @@ user-invocable: true
 
 # Search Specialist
 
-This capability belongs to Quant Architect; it is not a separate agent.
+This capability belongs to `quant-architect`; it is not a separate agent.
+Canonical skill: `.agents/skills/quant-architect/SKILL.md`.
 
 1. Define the decision the evidence must inform.
 2. Prefer primary, authoritative, and current sources.

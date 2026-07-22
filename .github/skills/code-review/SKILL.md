@@ -6,8 +6,8 @@ user-invocable: true
 
 # Code Review
 
-Canonical owner: `Quant Orchestrator`; canonical policy:
-`.agents/skills/quant-orchestrator/SKILL.md`.
+Canonical owner: `quant-orchestrator`.
+Canonical policy: `.agents/skills/quant-orchestrator/SKILL.md`.
 
 1. Read the request, approved contract, actual diff, and validation evidence.
 2. Use code intelligence per `mcp-tiered-code-intelligence` to verify affected

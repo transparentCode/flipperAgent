@@ -1,18 +1,18 @@
-# On-demand MCP gateway stack for flipperAgent.
+# On-demand MCP proxy stack for flipperAgent.
+# Exposes codebase-memory-mcp and gitnexus as standard MCP HTTP/SSE servers.
 # Run with: docker compose -f mcp-compose.yml up -d
 # Stop with: docker compose -f mcp-compose.yml down
 
 services:
-  mcp-gateway:
+  mcp-proxy:
     build:
-      context: ./mcp/gateway
+      context: ./mcp
       dockerfile: Dockerfile
     ports:
-      - "127.0.0.1:9747:9747"
+      - "127.0.0.1:9748:9748"
     volumes:
       - cbm-cache:/data/cbm
       - gitnexus-cache:/data/gitnexus
-      - ./mcp/gateway.yaml:/config/gateway.yaml:ro
       # Read-write so GitNexus can write its .gitnexus/ index cache inside the repo.
       # Use --index-only to prevent GitNexus from modifying AGENTS.md/CLAUDE.md.
       - .:/workspace
@@ -29,7 +29,7 @@ services:
     networks:
       - mcp-net
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:9747/health > /dev/null"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9748/status > /dev/null"]
       interval: 10s
       timeout: 5s
       start_period: 10s

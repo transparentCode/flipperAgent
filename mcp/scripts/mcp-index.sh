@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # mcp-index.sh
 # Re-index the flipperAgent repo for both containerized MCP backends.
-# Run while the mcp-gateway container is up:
+# Run while the mcp-proxy container is up:
 #   docker compose -f mcp-compose.yml up -d
 #   ./mcp/scripts/mcp-index.sh
 #
@@ -13,18 +13,14 @@
 
 set -euo pipefail
 
-GATEWAY_URL="${MCP_GATEWAY_URL:-http://127.0.0.1:9747}"
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 index_cbm_dir() {
   local path="$1"
   local name="$2"
   echo "=== codebase-memory-mcp: indexing ${path#/workspace/} as ${name} ==="
-  curl -fsS "${GATEWAY_URL}/mcp/cbm" -X POST \
-    -H "Content-Type: application/json" \
-    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"index_repository\",\"arguments\":{\"repo_path\":\"${path}\",\"name\":\"${name}\",\"mode\":\"fast\"}}}" \
-    | python3 -m json.tool
+  "${SCRIPT_DIR}/mcp-stdio-call.py" "codebase-memory-mcp" "index_repository" \
+    --args "{\"repo_path\":\"${path}\",\"name\":\"${name}\",\"mode\":\"fast\"}"
   echo ""
 }
 
@@ -36,7 +32,7 @@ index_cbm_dir "/workspace/docs"           "flipperAgent-docs"
 index_cbm_dir "/workspace/plans"         "flipperAgent-plans"
 
 echo "=== GitNexus: indexing whole repo ==="
-docker compose -f mcp-compose.yml exec mcp-gateway /bin/bash -c \
+docker compose -f mcp-compose.yml exec -T mcp-proxy /bin/bash -c \
   'cd /app/gitnexus && HOME=/data/gitnexus node dist/cli/index.js analyze --index-only /workspace' \
   | tail -20
 

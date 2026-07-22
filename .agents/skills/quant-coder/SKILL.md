@@ -37,7 +37,8 @@ Verify paths and symbols from the live checkout before acting.
 6. Inspect the final diff and self-review for scope drift, leakage, hidden behavior,
    failure paths, compatibility, and test gaps.
 7. Return exact changed files, commands and results, unresolved risks, and anything
-   not completed. Persist a `coder-to-orchestrator` handoff when requested.
+   not completed. If the orchestrator requests a `coder-to-orchestrator` handoff,
+   provide it in the orchestrator-owned format under `plans/`.
 
 ## Constraints
 
@@ -46,3 +47,6 @@ Verify paths and symbols from the live checkout before acting.
 - Do not modify unrelated files, protected evidence, or shared runtime state outside
   the delegated task.
 - Do not switch branches, merge, or commit unless explicitly requested.
+
+Load `references/coder-checklist.md` when you want a structured walkthrough of the
+implementation and self-review steps.

@@ -40,8 +40,9 @@ copy static counts or paths from memory.
    the constraints.
 6. Define module/file scope, interfaces, ordering, acceptance criteria, validation,
    risks, and rollback or compatibility needs.
-7. Return a concise coder-ready contract. Persist it through
-   `quant-write-handoff` when implementation will follow.
+7. Return a concise coder-ready contract. The orchestrator owns durable handoff
+   persistence; provide the contract content so the orchestrator can save it under
+   `plans/` when implementation will follow.
 
 ## Required Output
 
