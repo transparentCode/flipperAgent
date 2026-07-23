@@ -84,7 +84,8 @@ active-field effects, malformed input, and prohibited-import checks.
 
 1. `8654307 refactor(trendline-v2): collapse premature provider scaffolding`
 2. `0329402 feat(trendline-v2): implement confirmed extrema reference provider`
-3. Pending this handoff/test commit: `test(trendline-v2): validate extrema provider causality`
+3. `c49c6b8 test(trendline-v2): validate extrema provider causality`
+4. `070ed31 docs(trendline-v2): complete provider handoff evidence`
 
 ## Protected Scope
 
