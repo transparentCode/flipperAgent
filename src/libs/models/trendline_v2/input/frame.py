@@ -18,7 +18,7 @@ _OHLCV_COLUMNS = ("open", "high", "low", "close", "volume")
 
 @dataclass(frozen=True, slots=True)
 class ConfirmedOHLCVArrays:
-    """Read-only float64 arrays derived from one validated frame."""
+    """Read-only arrays; timestamps are epoch nanoseconds."""
 
     timestamps: np.ndarray
     open: np.ndarray
@@ -190,8 +190,17 @@ class ConfirmedOHLCVFrame:
         return self._frame.copy(deep=True)
 
     def arrays(self) -> ConfirmedOHLCVArrays:
+        # Pandas may retain microsecond-backed UTC indexes. ProviderInput uses
+        # epoch nanoseconds, so normalize the unit without changing timestamps.
+        timestamps = (
+            self._frame.index.tz_convert("UTC")
+            .tz_localize(None)
+            .astype("datetime64[ns]")
+            .view("int64")
+            .astype(np.int64, copy=True)
+        )
         return ConfirmedOHLCVArrays(
-            timestamps=self._frame.index.view("int64").astype(np.int64, copy=True),
+            timestamps=timestamps,
             open=self._frame["open"].to_numpy(dtype=np.float64, copy=True),
             high=self._frame["high"].to_numpy(dtype=np.float64, copy=True),
             low=self._frame["low"].to_numpy(dtype=np.float64, copy=True),

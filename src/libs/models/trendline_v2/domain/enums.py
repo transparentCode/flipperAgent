@@ -19,6 +19,8 @@ class AbstentionReason(str, Enum):
     NO_CANDIDATES = "no_candidates"
     INVALID_INPUT = "invalid_input"
     CONFIGURATION_ERROR = "configuration_error"
+    HYPOTHESIS_LIMIT_EXCEEDED = "hypothesis_limit_exceeded"
+    OUTPUT_LIMIT_EXCEEDED = "output_limit_exceeded"
     PROVIDER_FAILURE = "provider_failure"
 
 

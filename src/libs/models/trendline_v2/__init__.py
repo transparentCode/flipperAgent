@@ -1,3 +1,5 @@
 """Independent Trendline V2 foundation package."""
 
-__all__ = []
+from .api import discover_trendlines
+
+__all__ = ["discover_trendlines"]

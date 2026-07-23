@@ -11,6 +11,8 @@ from ..configuration.provider import ConfirmedExtremaPairConfig, ProviderConfig
 from ..domain.candidates import LineCandidate
 from ..domain.identity import deterministic_hash, provider_identity
 from ..domain.provider_input import ProviderInput
+from ..domain.snapshots import DiscoverySnapshot
+from ..domain.enums import AbstentionReason, DiscoveryStatus
 from ..domain.validation import (
     ContractValidationError,
     require_integer,
@@ -44,6 +46,39 @@ _EXPECTED_STATUS_BY_REASON = {
     ProviderReason.PROVIDER_FAILURE: ProviderStatus.FAILED,
     ProviderReason.HYPOTHESIS_LIMIT_EXCEEDED: ProviderStatus.ABSTAINED,
     ProviderReason.OUTPUT_LIMIT_EXCEEDED: ProviderStatus.ABSTAINED,
+}
+
+
+_SNAPSHOT_STATUS_BY_PROVIDER_OUTCOME = {
+    (ProviderStatus.SUCCESS, None): (DiscoveryStatus.VALID, None),
+    (
+        ProviderStatus.ABSTAINED,
+        ProviderReason.INSUFFICIENT_INPUT,
+    ): (DiscoveryStatus.ABSTAINED, AbstentionReason.INSUFFICIENT_DATA),
+    (
+        ProviderStatus.ABSTAINED,
+        ProviderReason.NO_CANDIDATES,
+    ): (DiscoveryStatus.ABSTAINED, AbstentionReason.NO_CANDIDATES),
+    (
+        ProviderStatus.ABSTAINED,
+        ProviderReason.INVALID_INPUT,
+    ): (DiscoveryStatus.ABSTAINED, AbstentionReason.INVALID_INPUT),
+    (
+        ProviderStatus.ABSTAINED,
+        ProviderReason.CONFIGURATION_ERROR,
+    ): (DiscoveryStatus.ABSTAINED, AbstentionReason.CONFIGURATION_ERROR),
+    (
+        ProviderStatus.ABSTAINED,
+        ProviderReason.HYPOTHESIS_LIMIT_EXCEEDED,
+    ): (DiscoveryStatus.ABSTAINED, AbstentionReason.HYPOTHESIS_LIMIT_EXCEEDED),
+    (
+        ProviderStatus.ABSTAINED,
+        ProviderReason.OUTPUT_LIMIT_EXCEEDED,
+    ): (DiscoveryStatus.ABSTAINED, AbstentionReason.OUTPUT_LIMIT_EXCEEDED),
+    (
+        ProviderStatus.FAILED,
+        ProviderReason.PROVIDER_FAILURE,
+    ): (DiscoveryStatus.FAILED, AbstentionReason.PROVIDER_FAILURE),
 }
 
 
@@ -300,6 +335,30 @@ class ProviderResult:
                 "provider_config_identity": self.request.provider_config_identity,
                 "provider_evidence_schema_version": self.request.provider_config.provider_evidence_schema_version,
             },
+        )
+
+    def to_snapshot(self) -> DiscoverySnapshot:
+        """Convert complete provider output into a provider-neutral summary."""
+
+        outcome = _SNAPSHOT_STATUS_BY_PROVIDER_OUTCOME.get((self.status, self.reason))
+        if outcome is None:
+            raise ContractValidationError(
+                "unsupported provider status/reason combination for snapshot"
+            )
+        status, reason = outcome
+        candidates = tuple(
+            sorted(self.candidates, key=lambda item: (item.role.value, item.candidate_id))
+        )
+        return DiscoverySnapshot(
+            asset=self.request.asset,
+            timeframe=self.request.timeframe,
+            observed_at=self.request.observed_at,
+            input_identity=self.request.input_identity,
+            config_identity=self.request.config_identity,
+            provider_identity=self.provider_identity,
+            status=status,
+            candidates=candidates,
+            reason=reason,
         )
 
     def to_dict(self) -> dict[str, Any]:
