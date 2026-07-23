@@ -1,16 +1,15 @@
-"""Small provider boundary with explicit data and failure semantics."""
+"""Small provider boundary with explicit data and deterministic outcomes."""
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass, is_dataclass
 from enum import Enum
 from typing import Any, Protocol, runtime_checkable
 
 from ..configuration.contracts import ResolvedTrendlineV2Config
-from ..configuration.provider import ProviderConfig
+from ..configuration.provider import ConfirmedExtremaPairConfig, ProviderConfig
 from ..domain.candidates import LineCandidate
-from ..domain.identity import deterministic_hash, provider_identity, require_hash
+from ..domain.identity import deterministic_hash, provider_identity
 from ..domain.provider_input import ProviderInput
 from ..domain.validation import (
     ContractValidationError,
@@ -18,6 +17,7 @@ from ..domain.validation import (
     require_number,
     require_string,
 )
+from .provider_evidence import ConfirmedExtremaPairEvidence
 
 
 class ProviderStatus(str, Enum):
@@ -27,8 +27,6 @@ class ProviderStatus(str, Enum):
 
 
 class ProviderReason(str, Enum):
-    """Closed provider outcomes with an explicit status for each reason."""
-
     INSUFFICIENT_INPUT = "insufficient_input"
     NO_CANDIDATES = "no_candidates"
     INVALID_INPUT = "invalid_input"
@@ -41,95 +39,12 @@ class ProviderReason(str, Enum):
 _EXPECTED_STATUS_BY_REASON = {
     ProviderReason.INSUFFICIENT_INPUT: ProviderStatus.ABSTAINED,
     ProviderReason.NO_CANDIDATES: ProviderStatus.ABSTAINED,
-    ProviderReason.INVALID_INPUT: ProviderStatus.FAILED,
+    ProviderReason.INVALID_INPUT: ProviderStatus.ABSTAINED,
     ProviderReason.CONFIGURATION_ERROR: ProviderStatus.ABSTAINED,
     ProviderReason.PROVIDER_FAILURE: ProviderStatus.FAILED,
     ProviderReason.HYPOTHESIS_LIMIT_EXCEEDED: ProviderStatus.ABSTAINED,
     ProviderReason.OUTPUT_LIMIT_EXCEEDED: ProviderStatus.ABSTAINED,
 }
-
-
-@runtime_checkable
-class ProviderEvidence(Protocol):
-    """Immutable, provider-neutral evidence required by ``ProviderResult``."""
-
-    candidate_id: str
-    evidence_id: str
-    schema_version: str
-
-    def validate_against(self, input_data: ProviderInput) -> None: ...
-
-    def to_dict(self) -> dict[str, Any]: ...
-
-
-def _validate_provider_evidence(
-    value: Any, *, index: int, input_data: ProviderInput
-) -> ProviderEvidence:
-    if not isinstance(value, ProviderEvidence):
-        raise ContractValidationError(
-            f"provider result evidence[{index}] must implement ProviderEvidence"
-        )
-    try:
-        candidate_id = require_hash(
-            value.candidate_id, field_name=f"provider_result.evidence[{index}].candidate_id"
-        )
-        evidence_id = require_hash(
-            value.evidence_id, field_name=f"provider_result.evidence[{index}].evidence_id"
-        )
-        schema_version = require_string(
-            value.schema_version,
-            field_name=f"provider_result.evidence[{index}].schema_version",
-        )
-        serialized = value.to_dict()
-    except ContractValidationError:
-        raise
-    except Exception as exc:
-        raise ContractValidationError(
-            f"provider result evidence[{index}] is not serializable"
-        ) from exc
-    if not isinstance(serialized, Mapping):
-        raise ContractValidationError(
-            f"provider result evidence[{index}] serialization must be a mapping"
-        )
-    for field_name in ("candidate_id", "evidence_id", "schema_version"):
-        if field_name not in serialized:
-            raise ContractValidationError(
-                f"provider result evidence[{index}] serialization missing {field_name}"
-            )
-    if serialized["candidate_id"] != candidate_id:
-        raise ContractValidationError(
-            f"provider result evidence[{index}] candidate ID serialization mismatch"
-        )
-    if serialized["evidence_id"] != evidence_id:
-        raise ContractValidationError(
-            f"provider result evidence[{index}] evidence ID serialization mismatch"
-        )
-    if serialized["schema_version"] != schema_version:
-        raise ContractValidationError(
-            f"provider result evidence[{index}] schema serialization mismatch"
-        )
-    try:
-        expected_evidence_id = deterministic_hash(
-            "trendline_v2_provider_evidence",
-            {key: item for key, item in serialized.items() if key != "evidence_id"},
-        )
-    except Exception as exc:
-        raise ContractValidationError(
-            f"provider result evidence[{index}] has non-canonical content"
-        ) from exc
-    if evidence_id != expected_evidence_id:
-        raise ContractValidationError(
-            f"provider result evidence[{index}] ID does not match content"
-        )
-    try:
-        value.validate_against(input_data)
-    except ContractValidationError:
-        raise
-    except Exception as exc:
-        raise ContractValidationError(
-            f"provider result evidence[{index}] failed input validation"
-        ) from exc
-    return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,9 +62,7 @@ class ProviderRequest:
             raise ContractValidationError(
                 "provider_request.config must be ResolvedTrendlineV2Config"
             )
-        provider_params = getattr(
-            self.provider_config, "__dataclass_params__", None
-        )
+        provider_params = getattr(self.provider_config, "__dataclass_params__", None)
         if (
             not isinstance(self.provider_config, ProviderConfig)
             or not is_dataclass(self.provider_config)
@@ -259,7 +172,7 @@ class ProviderResult:
     diagnostics: ProviderDiagnostics
     reason: ProviderReason | str | None = None
     detail: str | None = None
-    evidence: tuple[ProviderEvidence, ...] = ()
+    evidence: tuple[ConfirmedExtremaPairEvidence, ...] = ()
 
     def __post_init__(self) -> None:
         name = require_string(self.provider_name, field_name="provider_result.provider_name")
@@ -274,9 +187,18 @@ class ProviderResult:
             raise ContractValidationError("invalid provider status") from exc
         if not isinstance(self.diagnostics, ProviderDiagnostics):
             raise ContractValidationError("provider diagnostics must be ProviderDiagnostics")
+        reason = None
+        if self.reason is not None:
+            try:
+                reason = ProviderReason(self.reason)
+            except (TypeError, ValueError) as exc:
+                raise ContractValidationError("invalid provider reason") from exc
         if (
             self.request.provider_config.provider_name != name
             or self.request.provider_config.provider_version != version
+        ) and not (
+            status is ProviderStatus.ABSTAINED
+            and reason is ProviderReason.CONFIGURATION_ERROR
         ):
             raise ContractValidationError(
                 "provider result identity must match request provider config"
@@ -284,7 +206,8 @@ class ProviderResult:
         candidates = tuple(self.candidates)
         if any(not isinstance(candidate, LineCandidate) for candidate in candidates):
             raise ContractValidationError("provider candidates must be LineCandidate values")
-        if len({candidate.candidate_id for candidate in candidates}) != len(candidates):
+        candidate_ids = tuple(candidate.candidate_id for candidate in candidates)
+        if len(set(candidate_ids)) != len(candidate_ids):
             raise ContractValidationError("provider candidate IDs must be unique")
         if any(
             candidate.provider_name != name
@@ -296,47 +219,46 @@ class ProviderResult:
         ):
             raise ContractValidationError("candidate provenance or request identity mismatch")
         try:
-            evidence_values = tuple(self.evidence)
+            evidence = tuple(self.evidence)
         except TypeError as exc:
+            raise ContractValidationError("provider evidence must be a sequence") from exc
+        if any(not isinstance(item, ConfirmedExtremaPairEvidence) for item in evidence):
             raise ContractValidationError(
-                "provider result evidence must be an immutable sequence"
-            ) from exc
-        evidence = tuple(
-            _validate_provider_evidence(
-                value, index=index, input_data=self.request.input_data
+                "provider evidence must be ConfirmedExtremaPairEvidence values"
             )
-            for index, value in enumerate(evidence_values)
-        )
-        candidate_ids = tuple(candidate.candidate_id for candidate in candidates)
         evidence_candidate_ids = tuple(item.candidate_id for item in evidence)
         if len(set(evidence_candidate_ids)) != len(evidence_candidate_ids):
             raise ContractValidationError("provider evidence candidate IDs must be unique")
+        if len({item.evidence_id for item in evidence}) != len(evidence):
+            raise ContractValidationError("provider evidence IDs must be unique")
         if evidence_candidate_ids != candidate_ids:
             if set(evidence_candidate_ids) != set(candidate_ids):
                 raise ContractValidationError(
                     "provider evidence candidate IDs must match candidates"
                 )
-            raise ContractValidationError(
-                "provider evidence order must match candidate order"
-            )
-        expected_schema = require_string(
-            self.request.provider_config.provider_evidence_schema_version,
-            field_name="provider request evidence schema version",
-        )
+            raise ContractValidationError("provider evidence order must match candidate order")
+        expected_schema = self.request.provider_config.provider_evidence_schema_version
         if any(item.schema_version != expected_schema for item in evidence):
             raise ContractValidationError(
                 "provider evidence schema version must match request configuration"
             )
-        reason = None
-        if self.reason is not None:
-            try:
-                reason = ProviderReason(self.reason)
-            except (TypeError, ValueError) as exc:
-                raise ContractValidationError("invalid provider reason") from exc
-        if self.detail is not None:
-            detail = require_string(self.detail, field_name="provider_result.detail")
-        else:
-            detail = None
+        if evidence and not isinstance(
+            self.request.provider_config, ConfirmedExtremaPairConfig
+        ):
+            raise ContractValidationError(
+                "confirmed extrema evidence requires ConfirmedExtremaPairConfig"
+            )
+        for candidate, item in zip(candidates, evidence):
+            item.validate_candidate(
+                candidate,
+                self.request.input_data,
+                right_confirmation_bars=self.request.provider_config.right_confirmation_bars,
+            )
+        detail = (
+            require_string(self.detail, field_name="provider_result.detail")
+            if self.detail is not None
+            else None
+        )
         if status is ProviderStatus.SUCCESS and (not candidates or reason is not None):
             raise ContractValidationError(
                 "successful provider result requires candidates and no reason"
@@ -398,8 +320,6 @@ class ProviderResult:
 
 @runtime_checkable
 class CandidateProvider(Protocol):
-    """Technique-independent provider interface; no registry is implied."""
-
     @property
     def provider_name(self) -> str: ...
 
@@ -412,7 +332,6 @@ class CandidateProvider(Protocol):
 __all__ = [
     "CandidateProvider",
     "ProviderDiagnostics",
-    "ProviderEvidence",
     "ProviderInput",
     "ProviderReason",
     "ProviderRequest",

@@ -3,18 +3,18 @@
 from .contracts import (
     CandidateProvider,
     ProviderDiagnostics,
-    ProviderEvidence,
     ProviderInput,
     ProviderReason,
     ProviderRequest,
     ProviderResult,
     ProviderStatus,
 )
+from .extrema_pair import ConfirmedExtremaPairProvider
 
 __all__ = [
     "CandidateProvider",
+    "ConfirmedExtremaPairProvider",
     "ProviderDiagnostics",
-    "ProviderEvidence",
     "ProviderInput",
     "ProviderReason",
     "ProviderRequest",

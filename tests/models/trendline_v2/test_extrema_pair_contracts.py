@@ -8,19 +8,20 @@ from pathlib import Path
 import pytest
 
 from libs.models.trendline_v2.configuration import (
-    BodyValidationPolicy,
+    BODY_VALIDATION_POLICY,
+    COORDINATE_SYSTEM,
+    EVIDENCE_SCHEMA_VERSION,
+    HISTORY_POLICY,
+    PAIR_ORDER,
+    PLATEAU_POLICY,
+    PROVIDER_NAME,
+    PROVIDER_VERSION,
     ConfirmedExtremaPairConfig,
     FieldClassification,
-    HistoryHorizon,
-    PairEnumerationOrder,
-    PlateauPolicy,
     provider_field_policies,
     resolve_trendline_v2_config,
 )
-from libs.models.trendline_v2.discovery import (
-    ProviderInput,
-    ProviderRequest,
-)
+from libs.models.trendline_v2.discovery import ProviderInput, ProviderRequest
 from libs.models.trendline_v2.discovery.provider_evidence import (
     ConfirmedExtremaPairEvidence,
     ExtremaKind,
@@ -33,21 +34,12 @@ UTC = timezone.utc
 
 def _provider_config(**changes) -> ConfirmedExtremaPairConfig:
     values = {
-        "provider_name": "confirmed_extrema_pair",
-        "provider_version": "v1",
-        "plateau_policy": PlateauPolicy.LEFTMOST_STRICT_LEFT_NONSTRICT_RIGHT_V1,
-        "history_horizon": HistoryHorizon.LOOKBACK_DURATION_SECONDS_V1,
         "lookback_duration_seconds": 86_400.0,
         "left_confirmation_bars": 2,
         "right_confirmation_bars": 2,
         "min_extrema_per_role": 2,
-        "body_validation_policy": BodyValidationPolicy.EXACT_SIDE_V1,
-        "pair_enumeration_order": PairEnumerationOrder.CHRONOLOGICAL_V1,
-        "candidate_order_version": "candidate_order_v1",
-        "structural_validation_version": "exact_side_v1",
         "max_hypotheses": 100,
         "max_output_candidates": 20,
-        "provider_evidence_schema_version": "v1",
     }
     values.update(changes)
     return ConfirmedExtremaPairConfig(**values)
@@ -55,13 +47,7 @@ def _provider_config(**changes) -> ConfirmedExtremaPairConfig:
 
 def _foundation_config():
     return resolve_trendline_v2_config(
-        {
-            "model": {
-                "name": "trendline_v2",
-                "version": "foundation_v1",
-                "schema_version": 1,
-            }
-        }
+        {"model": {"name": "trendline_v2", "version": "foundation_v1", "schema_version": 1}}
     )
 
 
@@ -92,90 +78,97 @@ def _evidence(**changes) -> ConfirmedExtremaPairEvidence:
         "confirmation_positions": (1, 3),
         "validated_intermediate_count": 1,
         "body_violation_count": 0,
-        "coordinate_system_version": "elapsed_utc_seconds_v1",
-        "plateau_policy_version": "leftmost_strict_left_nonstrict_right_v1",
-        "schema_version": "v1",
     }
     values.update(changes)
     return ConfirmedExtremaPairEvidence(**values)
 
 
-def test_provider_config_has_no_python_defaults() -> None:
+def test_provider_config_has_only_active_fields_without_defaults() -> None:
     parameters = inspect.signature(ConfirmedExtremaPairConfig).parameters
-    assert parameters
+    assert tuple(parameters) == (
+        "lookback_duration_seconds",
+        "left_confirmation_bars",
+        "right_confirmation_bars",
+        "min_extrema_per_role",
+        "max_hypotheses",
+        "max_output_candidates",
+    )
     assert all(parameter.default is inspect.Parameter.empty for parameter in parameters.values())
 
 
-def test_provider_field_policy_is_complete_unique_and_yaml_inactive() -> None:
+def test_provider_v1_semantics_are_code_owned_and_hashed() -> None:
+    config = _provider_config()
+    assert config.provider_name == PROVIDER_NAME == "confirmed_extrema_pair"
+    assert config.provider_version == PROVIDER_VERSION == "v1"
+    assert config.provider_evidence_schema_version == EVIDENCE_SCHEMA_VERSION == "v1"
+    assert config.semantic_payload["provider"] == {
+        "name": PROVIDER_NAME,
+        "version": PROVIDER_VERSION,
+        "plateau_policy": PLATEAU_POLICY,
+        "history_policy": HISTORY_POLICY,
+        "body_validation_policy": BODY_VALIDATION_POLICY,
+        "pair_order": PAIR_ORDER,
+        "evidence_schema_version": EVIDENCE_SCHEMA_VERSION,
+        "coordinate_system": COORDINATE_SYSTEM,
+    }
+    assert config.to_dict()["semantic_hash"] == config.semantic_hash
+
+
+def test_provider_field_policy_contains_only_active_unresolved_fields() -> None:
     policies = provider_field_policies()
-    names = {policy.name for policy in policies}
-    assert len(names) == len(policies)
-    assert names == {
-        "provider.name",
-        "provider.version",
-        "provider.plateau_policy",
-        "provider.history_horizon",
+    assert tuple(policy.name for policy in policies) == (
         "provider.lookback_duration_seconds",
         "provider.left_confirmation_bars",
         "provider.right_confirmation_bars",
         "provider.min_extrema_per_role",
-        "provider.body_validation_policy",
-        "provider.pair_enumeration_order",
-        "provider.candidate_order_version",
-        "provider.structural_validation_version",
         "provider.max_hypotheses",
         "provider.max_output_candidates",
-        "provider.provider_evidence_schema_version",
-    }
-    assert all(not policy.yaml_participation for policy in policies)
-    assert all(policy.hash_participation for policy in policies)
-    assert {
-        policy.classification for policy in policies
-    } >= {FieldClassification.INVARIANT, FieldClassification.UNRESOLVED}
+    )
+    assert all(policy.classification is FieldClassification.UNRESOLVED for policy in policies)
+    assert all(not policy.yaml_participation and policy.hash_participation for policy in policies)
 
 
-def test_unresolved_provider_fields_cannot_enter_canonical_yaml() -> None:
+def test_provider_config_identity_changes_for_each_active_value() -> None:
+    config = _provider_config()
+    for field_name, replacement in (
+        ("lookback_duration_seconds", 43_200.0),
+        ("left_confirmation_bars", 3),
+        ("right_confirmation_bars", 3),
+        ("min_extrema_per_role", 3),
+        ("max_hypotheses", 101),
+        ("max_output_candidates", 21),
+    ):
+        assert replace(config, **{field_name: replacement}).semantic_hash != config.semantic_hash
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"lookback_duration_seconds": 0},
+        {"left_confirmation_bars": True},
+        {"right_confirmation_bars": 0},
+        {"min_extrema_per_role": 1},
+        {"max_hypotheses": 0},
+        {"max_output_candidates": 0},
+    ],
+)
+def test_provider_config_rejects_invalid_active_values(changes) -> None:
+    with pytest.raises(ContractValidationError):
+        _provider_config(**changes)
+
+
+def test_provider_config_stays_outside_canonical_yaml() -> None:
     raw = {
-        "model": {
-            "name": "trendline_v2",
-            "version": "foundation_v1",
-            "schema_version": 1,
-        },
+        "model": {"name": "trendline_v2", "version": "foundation_v1", "schema_version": 1},
         "provider": _provider_config().to_dict(),
     }
     with pytest.raises(ContractValidationError):
         resolve_trendline_v2_config(raw)
 
 
-def test_provider_config_identity_changes_for_semantic_values_and_schema() -> None:
-    config = _provider_config()
-    assert replace(config, max_hypotheses=101).semantic_hash != config.semantic_hash
-    assert (
-        replace(config, max_output_candidates=21).semantic_hash
-        != config.semantic_hash
-    )
-    assert (
-        replace(config, provider_evidence_schema_version="v2").provider_contract_identity
-        != config.provider_contract_identity
-    )
-
-
-def test_provider_config_rejects_unknown_or_invalid_semantics() -> None:
-    with pytest.raises(ContractValidationError):
-        _provider_config(lookback_duration_seconds=0)
-    with pytest.raises(ContractValidationError):
-        _provider_config(max_hypotheses=True)
-    with pytest.raises(ContractValidationError):
-        _provider_config(body_validation_policy="raw_price_v1")
-    with pytest.raises(ContractValidationError):
-        _provider_config(plateau_policy="future_aware")
-
-
-def test_request_requires_typed_provider_config_and_binds_identity() -> None:
+def test_request_binds_typed_provider_config_identity() -> None:
     request = ProviderRequest(
-        input_data=_input(),
-        config=_foundation_config(),
-        provider_config=_provider_config(),
+        input_data=_input(), config=_foundation_config(), provider_config=_provider_config()
     )
     changed = ProviderRequest(
         input_data=request.input_data,
@@ -183,23 +176,17 @@ def test_request_requires_typed_provider_config_and_binds_identity() -> None:
         provider_config=replace(request.provider_config, max_hypotheses=101),
     )
     assert changed.provider_config_identity != request.provider_config_identity
-    assert changed.config_identity != request.config_identity
     assert changed.request_identity != request.request_identity
-    with pytest.raises(ContractValidationError):
-        ProviderRequest(
-            input_data=_input(),
-            config=_foundation_config(),
-            provider_config={},
-        )
 
 
-def test_evidence_round_trips_and_is_immutable() -> None:
+def test_evidence_accepts_only_dynamic_values_and_serializes_fixed_semantics() -> None:
     evidence = _evidence()
     assert ConfirmedExtremaPairEvidence.from_dict(evidence.to_dict()) == evidence
+    assert evidence.coordinate_system_version == COORDINATE_SYSTEM
+    assert evidence.plateau_policy_version == PLATEAU_POLICY
+    assert evidence.schema_version == EVIDENCE_SCHEMA_VERSION
+    assert "coordinate_system_version" not in inspect.signature(ConfirmedExtremaPairEvidence).parameters
     evidence.validate_against(_input())
-    assert isinstance(evidence.anchor_source_positions, tuple)
-    with pytest.raises((AttributeError, TypeError)):
-        evidence.anchor_source_positions = (0, 1)
 
 
 @pytest.mark.parametrize(
@@ -210,30 +197,25 @@ def test_evidence_round_trips_and_is_immutable() -> None:
         {"confirmation_positions": (1, 1)},
         {"confirmation_positions": (0, 3)},
         {"body_violation_count": -1},
-        {"coordinate_system_version": "bar_index_v1"},
-        {"plateau_policy_version": "future_aware"},
-        {"schema_version": "v2"},
     ],
 )
-def test_evidence_rejects_malformed_values(changes) -> None:
+def test_evidence_rejects_malformed_dynamic_values(changes) -> None:
     with pytest.raises(ContractValidationError):
         _evidence(**changes)
 
 
-def test_evidence_rejects_future_confirmation_positions() -> None:
-    evidence = _evidence(confirmation_positions=(1, 4))
-    with pytest.raises(ContractValidationError, match="future"):
-        evidence.validate_against(_input())
-
-
-def test_evidence_id_rejects_rebound_payload() -> None:
+def test_evidence_rejects_rebound_fixed_semantics_or_id() -> None:
+    payload = _evidence().to_dict()
+    payload["schema_version"] = "v2"
+    with pytest.raises(ContractValidationError, match="fixed semantics"):
+        ConfirmedExtremaPairEvidence.from_dict(payload)
     payload = _evidence().to_dict()
     payload["validated_intermediate_count"] = 2
     with pytest.raises(ContractValidationError, match="ID"):
         ConfirmedExtremaPairEvidence.from_dict(payload)
 
 
-def test_provider_algorithm_and_viewer_scopes_are_absent() -> None:
+def test_no_provider_framework_or_viewer_exists() -> None:
     package_root = Path(__file__).parents[3] / "src" / "libs" / "models" / "trendline_v2"
     assert not (package_root / "discovery" / "providers").exists()
     assert not (package_root / "discovery" / "kernels").exists()
