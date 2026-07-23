@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import ast
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -26,10 +26,45 @@ from libs.models.trendline_v2.discovery import (
 from libs.models.trendline_v2.discovery.provider_evidence import ExtremaKind
 from libs.models.trendline_v2.domain.candidates import LineCandidate
 from libs.models.trendline_v2.domain.geometry import LineGeometry
+from libs.models.trendline_v2.domain.identity import deterministic_hash
 from libs.models.trendline_v2.domain.validation import ContractValidationError
 
 
 UTC = timezone.utc
+
+
+@dataclass(frozen=True, slots=True)
+class _OtherProviderConfig:
+    @property
+    def provider_name(self) -> str:
+        return "other_provider"
+
+    @property
+    def provider_version(self) -> str:
+        return "v9"
+
+    @property
+    def provider_evidence_schema_version(self) -> str:
+        return "v9"
+
+    @property
+    def semantic_payload(self) -> dict[str, str]:
+        return {"provider_name": self.provider_name, "provider_version": self.provider_version}
+
+    @property
+    def semantic_hash(self) -> str:
+        return deterministic_hash("test_other_provider_config", self.semantic_payload)
+
+    @property
+    def provider_contract_identity(self) -> str:
+        return deterministic_hash("test_other_provider_contract", self.semantic_payload)
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            **self.semantic_payload,
+            "semantic_hash": self.semantic_hash,
+            "provider_contract_identity": self.provider_contract_identity,
+        }
 
 
 def _config() -> ConfirmedExtremaPairConfig:
@@ -118,6 +153,21 @@ def test_provider_protocol_and_explicit_data_boundary() -> None:
     assert result.request.input_data.low[1] == 1.0
 
 
+def test_incompatible_provider_config_keeps_executing_provider_identity() -> None:
+    request = ProviderRequest(
+        input_data=_input(),
+        config=_foundation_config(),
+        provider_config=_OtherProviderConfig(),
+    )
+    result = ConfirmedExtremaPairProvider().generate(request)
+    assert result.status is ProviderStatus.ABSTAINED
+    assert result.reason is ProviderReason.CONFIGURATION_ERROR
+    assert result.provider_name == PROVIDER_NAME
+    assert result.provider_version == PROVIDER_VERSION
+    assert result.candidates == ()
+    assert result.evidence == ()
+
+
 def test_success_requires_one_ordered_evidence_item_per_candidate() -> None:
     result = _success()
     assert tuple(item.candidate_id for item in result.evidence) == tuple(
@@ -188,6 +238,19 @@ def test_success_rejects_evidence_when_candidate_anchor_price_is_not_source_pric
     )
     with pytest.raises(ContractValidationError, match="anchor 0 price"):
         _single_candidate_result(result, forged, replace(evidence, candidate_id=forged.candidate_id))
+
+
+def test_success_rejects_evidence_when_candidate_anchor_id_is_forged() -> None:
+    result = _success()
+    candidate, evidence = result.candidates[0], result.evidence[0]
+    first, second = candidate.anchors
+    forged = _candidate_like(candidate, anchors=(replace(first, anchor_id="a" * 64), second))
+    with pytest.raises(ContractValidationError, match="anchor 0 ID"):
+        _single_candidate_result(
+            result,
+            forged,
+            replace(evidence, candidate_id=forged.candidate_id),
+        )
 
 
 def test_success_rejects_evidence_when_geometry_is_not_source_endpoints() -> None:

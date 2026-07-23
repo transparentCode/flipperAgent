@@ -49,6 +49,12 @@
 - Provider v1 rejects non-microsecond-aligned epoch nanoseconds before discovery.
   No timestamp is silently truncated. Internal contract failures after this input
   gate produce `FAILED / PROVIDER_FAILURE`, not `INVALID_INPUT`.
+- Incompatible typed provider configuration now returns
+  `ABSTAINED / CONFIGURATION_ERROR` under `confirmed_extrema_pair / v1`, the
+  identity of provider that executed. Contract mismatch is permitted only for
+  that zero-output result.
+- Confirmed-extrema anchor IDs now use one shared helper during candidate build
+  and evidence audit. Forged anchor IDs fail semantic evidence validation.
 
 ## Provider Output Examples
 
@@ -67,7 +73,7 @@
 
 ```text
 PYTHONPATH=src .venv/bin/python -m pytest tests/models/trendline_v2 -q -ra
-83 passed
+85 passed
 
 PYTHONPATH=src .venv/bin/python -m pytest tests/models/trendline_family -q -ra
 399 passed
@@ -95,6 +101,7 @@ overflow-safe extreme finite lookback conversion.
 3. `c49c6b8 test(trendline-v2): validate extrema provider causality`
 4. `070ed31 docs(trendline-v2): complete provider handoff evidence`
 5. `fix(trendline-v2): harden provider evidence and timestamp boundaries`
+6. `fix(trendline-v2): enforce provider and anchor identities`
 
 ## Protected Scope
 

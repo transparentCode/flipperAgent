@@ -187,9 +187,18 @@ class ProviderResult:
             raise ContractValidationError("invalid provider status") from exc
         if not isinstance(self.diagnostics, ProviderDiagnostics):
             raise ContractValidationError("provider diagnostics must be ProviderDiagnostics")
+        reason = None
+        if self.reason is not None:
+            try:
+                reason = ProviderReason(self.reason)
+            except (TypeError, ValueError) as exc:
+                raise ContractValidationError("invalid provider reason") from exc
         if (
             self.request.provider_config.provider_name != name
             or self.request.provider_config.provider_version != version
+        ) and not (
+            status is ProviderStatus.ABSTAINED
+            and reason is ProviderReason.CONFIGURATION_ERROR
         ):
             raise ContractValidationError(
                 "provider result identity must match request provider config"
@@ -245,12 +254,6 @@ class ProviderResult:
                 self.request.input_data,
                 right_confirmation_bars=self.request.provider_config.right_confirmation_bars,
             )
-        reason = None
-        if self.reason is not None:
-            try:
-                reason = ProviderReason(self.reason)
-            except (TypeError, ValueError) as exc:
-                raise ContractValidationError("invalid provider reason") from exc
         detail = (
             require_string(self.detail, field_name="provider_result.detail")
             if self.detail is not None

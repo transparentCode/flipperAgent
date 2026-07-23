@@ -14,7 +14,6 @@ from ..configuration.provider import (
 from ..domain.candidates import AnchorRef, CandidateEvidence, LineCandidate
 from ..domain.enums import LineRole
 from ..domain.geometry import LineGeometry
-from ..domain.identity import deterministic_hash
 from ..domain.validation import ContractValidationError
 from .contracts import (
     ProviderDiagnostics,
@@ -23,7 +22,11 @@ from .contracts import (
     ProviderResult,
     ProviderStatus,
 )
-from .provider_evidence import ConfirmedExtremaPairEvidence, ExtremaKind
+from .provider_evidence import (
+    ConfirmedExtremaPairEvidence,
+    ExtremaKind,
+    confirmed_extrema_anchor_id,
+)
 
 
 _UTC = timezone.utc
@@ -57,22 +60,6 @@ def _confirmed_through_ns(request: ProviderRequest) -> int:
     )
 
 
-def _anchor_id(request: ProviderRequest, extremum: _ConfirmedExtremum) -> str:
-    return deterministic_hash(
-        "trendline_v2_confirmed_extrema_anchor",
-        {
-            "asset": request.asset,
-            "timeframe": request.timeframe,
-            "extrema_kind": extremum.kind.value,
-            "source_timestamp": extremum.timestamp,
-            "confirmation_timestamp": extremum.confirmation_time,
-            "source_price": extremum.price,
-            "provider_name": PROVIDER_NAME,
-            "provider_version": PROVIDER_VERSION,
-        },
-    )
-
-
 class ConfirmedExtremaPairProvider:
     """Small deterministic baseline for causal extrema-pair line discovery."""
 
@@ -87,6 +74,8 @@ class ConfirmedExtremaPairProvider:
                 request,
                 ProviderReason.CONFIGURATION_ERROR,
                 "confirmed_extrema_pair requires ConfirmedExtremaPairConfig",
+                provider_name=PROVIDER_NAME,
+                provider_version=PROVIDER_VERSION,
             )
         try:
             self._validate_supported_input(request)
@@ -270,13 +259,27 @@ class ConfirmedExtremaPairProvider:
 
         anchors = (
             AnchorRef(
-                anchor_id=_anchor_id(request, first),
+                anchor_id=confirmed_extrema_anchor_id(
+                    asset=request.asset,
+                    timeframe=request.timeframe,
+                    extrema_kind=first.kind,
+                    source_timestamp=first.timestamp,
+                    confirmation_timestamp=first.confirmation_time,
+                    source_price=first.price,
+                ),
                 pivot_time=first.timestamp,
                 confirmation_time=first.confirmation_time,
                 price=first.price,
             ),
             AnchorRef(
-                anchor_id=_anchor_id(request, second),
+                anchor_id=confirmed_extrema_anchor_id(
+                    asset=request.asset,
+                    timeframe=request.timeframe,
+                    extrema_kind=second.kind,
+                    source_timestamp=second.timestamp,
+                    confirmation_timestamp=second.confirmation_time,
+                    source_price=second.price,
+                ),
                 pivot_time=second.timestamp,
                 confirmation_time=second.confirmation_time,
                 price=second.price,
@@ -326,11 +329,16 @@ class ConfirmedExtremaPairProvider:
 
     @staticmethod
     def _abstain(
-        request: ProviderRequest, reason: ProviderReason, detail: str | None = None
+        request: ProviderRequest,
+        reason: ProviderReason,
+        detail: str | None = None,
+        *,
+        provider_name: str | None = None,
+        provider_version: str | None = None,
     ) -> ProviderResult:
         return ProviderResult(
-            provider_name=request.provider_config.provider_name,
-            provider_version=request.provider_config.provider_version,
+            provider_name=provider_name or request.provider_config.provider_name,
+            provider_version=provider_version or request.provider_config.provider_version,
             request=request,
             status=ProviderStatus.ABSTAINED,
             candidates=(),

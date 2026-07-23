@@ -11,6 +11,8 @@ from ..configuration.provider import (
     COORDINATE_SYSTEM,
     EVIDENCE_SCHEMA_VERSION,
     PLATEAU_POLICY,
+    PROVIDER_NAME,
+    PROVIDER_VERSION,
 )
 from ..domain.candidates import LineCandidate
 from ..domain.enums import LineRole
@@ -32,6 +34,32 @@ def _datetime_from_microsecond_ns(timestamp_ns: int) -> datetime:
     seconds, remainder_ns = divmod(timestamp_ns, 1_000_000_000)
     return datetime.fromtimestamp(seconds, tz=_UTC) + timedelta(
         microseconds=remainder_ns // _MICROSECOND_NS
+    )
+
+
+def confirmed_extrema_anchor_id(
+    *,
+    asset: str,
+    timeframe: str,
+    extrema_kind: ExtremaKind,
+    source_timestamp: datetime,
+    confirmation_timestamp: datetime,
+    source_price: float,
+) -> str:
+    """Canonical confirmed-extrema anchor identity shared by build and audit."""
+
+    return deterministic_hash(
+        "trendline_v2_confirmed_extrema_anchor",
+        {
+            "asset": asset,
+            "timeframe": timeframe,
+            "extrema_kind": extrema_kind.value,
+            "source_timestamp": source_timestamp,
+            "confirmation_timestamp": confirmation_timestamp,
+            "source_price": source_price,
+            "provider_name": PROVIDER_NAME,
+            "provider_version": PROVIDER_VERSION,
+        },
     )
 
 
@@ -212,6 +240,18 @@ class ConfirmedExtremaPairEvidence:
                 raise ContractValidationError(
                     f"evidence source position does not match anchor {index} price"
                 )
+            expected_anchor_id = confirmed_extrema_anchor_id(
+                asset=candidate.asset,
+                timeframe=candidate.timeframe,
+                extrema_kind=self.extrema_kind,
+                source_timestamp=expected_pivot,
+                confirmation_timestamp=expected_confirmation,
+                source_price=source_prices[source_position],
+            )
+            if anchor.anchor_id != expected_anchor_id:
+                raise ContractValidationError(
+                    f"evidence source position does not match anchor {index} ID"
+                )
 
         first, second = anchors
         if (
@@ -274,4 +314,8 @@ class ConfirmedExtremaPairEvidence:
         return result
 
 
-__all__ = ["ConfirmedExtremaPairEvidence", "ExtremaKind"]
+__all__ = [
+    "ConfirmedExtremaPairEvidence",
+    "ExtremaKind",
+    "confirmed_extrema_anchor_id",
+]
