@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Mapping
 
@@ -11,6 +12,8 @@ from ..configuration.provider import (
     EVIDENCE_SCHEMA_VERSION,
     PLATEAU_POLICY,
 )
+from ..domain.candidates import LineCandidate
+from ..domain.enums import LineRole
 from ..domain.identity import deterministic_hash, require_hash
 from ..domain.provider_input import ProviderInput
 from ..domain.validation import ContractValidationError, require_integer
@@ -19,6 +22,17 @@ from ..domain.validation import ContractValidationError, require_integer
 class ExtremaKind(str, Enum):
     HIGH = "high"
     LOW = "low"
+
+
+_UTC = timezone.utc
+_MICROSECOND_NS = 1_000
+
+
+def _datetime_from_microsecond_ns(timestamp_ns: int) -> datetime:
+    seconds, remainder_ns = divmod(timestamp_ns, 1_000_000_000)
+    return datetime.fromtimestamp(seconds, tz=_UTC) + timedelta(
+        microseconds=remainder_ns // _MICROSECOND_NS
+    )
 
 
 def _positions(value: Any, *, field_name: str) -> tuple[int, int]:
@@ -134,6 +148,88 @@ class ConfirmedExtremaPairEvidence:
                 raise ContractValidationError(
                     "evidence confirmation timestamp precedes source timestamp"
                 )
+
+    def validate_candidate(
+        self,
+        candidate: LineCandidate,
+        input_data: ProviderInput,
+        *,
+        right_confirmation_bars: int,
+    ) -> None:
+        """Bind provider-specific evidence to exact candidate and input facts."""
+
+        self.validate_against(input_data)
+        if not isinstance(candidate, LineCandidate):
+            raise ContractValidationError("evidence requires LineCandidate")
+        if self.candidate_id != candidate.candidate_id:
+            raise ContractValidationError("evidence candidate ID must match candidate")
+        if len(candidate.anchors) != 2:
+            raise ContractValidationError("confirmed extrema evidence requires two anchors")
+        expected_role = (
+            LineRole.SUPPORT if self.extrema_kind is ExtremaKind.LOW else LineRole.RESISTANCE
+        )
+        if candidate.role is not expected_role:
+            raise ContractValidationError("evidence extrema kind does not match candidate role")
+        if any(timestamp % _MICROSECOND_NS for timestamp in input_data.timestamps):
+            raise ContractValidationError(
+                "confirmed extrema evidence requires microsecond-aligned timestamps"
+            )
+        right = require_integer(
+            right_confirmation_bars,
+            field_name="evidence.right_confirmation_bars",
+            minimum=1,
+        )
+        if any(
+            confirmation != source + right
+            for source, confirmation in zip(
+                self.anchor_source_positions, self.confirmation_positions
+            )
+        ):
+            raise ContractValidationError(
+                "evidence confirmation positions do not match configured right window"
+            )
+
+        source_prices = (
+            input_data.low if self.extrema_kind is ExtremaKind.LOW else input_data.high
+        )
+        anchors = candidate.anchors
+        for index, (anchor, source_position, confirmation_position) in enumerate(
+            zip(anchors, self.anchor_source_positions, self.confirmation_positions)
+        ):
+            expected_pivot = _datetime_from_microsecond_ns(input_data.timestamps[source_position])
+            expected_confirmation = _datetime_from_microsecond_ns(
+                input_data.timestamps[confirmation_position]
+            )
+            if anchor.pivot_time != expected_pivot:
+                raise ContractValidationError(
+                    f"evidence source position does not match anchor {index} timestamp"
+                )
+            if anchor.confirmation_time != expected_confirmation:
+                raise ContractValidationError(
+                    f"evidence confirmation position does not match anchor {index} timestamp"
+                )
+            if anchor.price != source_prices[source_position]:
+                raise ContractValidationError(
+                    f"evidence source position does not match anchor {index} price"
+                )
+
+        first, second = anchors
+        if (
+            candidate.geometry.start_time != first.pivot_time
+            or candidate.geometry.end_time != second.pivot_time
+            or candidate.geometry.start_price != first.price
+            or candidate.geometry.end_price != second.price
+        ):
+            raise ContractValidationError(
+                "confirmed extrema geometry must equal source extrema endpoints"
+            )
+        expected_intermediate_count = (
+            self.anchor_source_positions[1] - self.anchor_source_positions[0] - 1
+        )
+        if self.validated_intermediate_count != expected_intermediate_count:
+            raise ContractValidationError("evidence intermediate count does not match anchors")
+        if self.body_violation_count != 0:
+            raise ContractValidationError("successful evidence cannot contain body violations")
 
     def to_dict(self) -> dict[str, Any]:
         return {**self._payload(), "evidence_id": self.evidence_id}

@@ -154,6 +154,29 @@ def test_timestamp_space_geometry_uses_irregular_elapsed_time() -> None:
     assert candidate.geometry.value_at(middle_time) == pytest.approx(1.6666666666666665)
 
 
+def test_sub_microsecond_timestamps_abstain_before_geometry() -> None:
+    data = _low_population()
+    base = data.timestamps[0]
+    nanosecond_input = ProviderInput(
+        asset=data.asset,
+        timeframe=data.timeframe,
+        observed_at=datetime(2024, 1, 1, 0, 0, 0, 1, tzinfo=UTC),
+        confirmed_through=datetime(2024, 1, 1, 0, 0, 0, 1, tzinfo=UTC),
+        timestamps=tuple(base + index * 100 for index in range(data.row_count)),
+        open=data.open,
+        high=data.high,
+        low=data.low,
+        close=data.close,
+        volume=data.volume,
+    )
+    result = ConfirmedExtremaPairProvider().generate(_request(nanosecond_input))
+    assert result.status is ProviderStatus.ABSTAINED
+    assert result.reason is ProviderReason.INVALID_INPUT
+    assert result.detail == (
+        "confirmed_extrema_pair v1 requires microsecond-aligned epoch nanoseconds"
+    )
+
+
 def test_support_and_resistance_body_validation_and_equality() -> None:
     provider = ConfirmedExtremaPairProvider()
     support_valid = _input(
@@ -240,3 +263,23 @@ def test_large_extrema_population_hits_hypothesis_guard() -> None:
     )
     assert result.status is ProviderStatus.ABSTAINED
     assert result.reason is ProviderReason.HYPOTHESIS_LIMIT_EXCEEDED
+
+
+def test_internal_contract_error_is_provider_failure(monkeypatch) -> None:
+    provider = ConfirmedExtremaPairProvider()
+
+    def raise_internal_contract_error(*_args, **_kwargs):
+        raise ContractValidationError("forced internal construction defect")
+
+    monkeypatch.setattr(provider, "_candidate_record", raise_internal_contract_error)
+    result = provider.generate(_request(_low_population()))
+    assert result.status is ProviderStatus.FAILED
+    assert result.reason is ProviderReason.PROVIDER_FAILURE
+    assert result.detail == "internal_contract_validation:forced internal construction defect"
+
+
+def test_extreme_finite_lookback_does_not_overflow_duration_conversion() -> None:
+    result = ConfirmedExtremaPairProvider().generate(
+        _request(_low_population(), lookback_duration_seconds=1e308)
+    )
+    assert result.status is ProviderStatus.SUCCESS

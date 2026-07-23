@@ -27,6 +27,7 @@ from .provider_evidence import ConfirmedExtremaPairEvidence, ExtremaKind
 
 
 _UTC = timezone.utc
+_MICROSECOND_NS = 1_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,9 +89,17 @@ class ConfirmedExtremaPairProvider:
                 "confirmed_extrema_pair requires ConfirmedExtremaPairConfig",
             )
         try:
-            return self._generate(request)
+            self._validate_supported_input(request)
         except ContractValidationError as exc:
             return self._abstain(request, ProviderReason.INVALID_INPUT, str(exc))
+        try:
+            return self._generate(request)
+        except ContractValidationError as exc:
+            return self._failed(
+                request,
+                ProviderReason.PROVIDER_FAILURE,
+                f"internal_contract_validation:{exc}",
+            )
         except Exception as exc:  # Unexpected provider defects remain explicit failures.
             return self._failed(request, ProviderReason.PROVIDER_FAILURE, type(exc).__name__)
 
@@ -162,12 +171,31 @@ class ConfirmedExtremaPairProvider:
         request: ProviderRequest, config: ConfirmedExtremaPairConfig
     ) -> tuple[int, ...]:
         confirmed_ns = _confirmed_through_ns(request)
-        duration_ns = int(config.lookback_duration_seconds * 1_000_000_000)
+        duration_ns = ConfirmedExtremaPairProvider._duration_ns(
+            config.lookback_duration_seconds
+        )
         window_start_ns = confirmed_ns - duration_ns
         return tuple(
             position
             for position, timestamp in enumerate(request.input_data.timestamps)
             if window_start_ns <= timestamp <= confirmed_ns
+        )
+
+    @staticmethod
+    def _validate_supported_input(request: ProviderRequest) -> None:
+        if any(timestamp % _MICROSECOND_NS for timestamp in request.input_data.timestamps):
+            raise ContractValidationError(
+                "confirmed_extrema_pair v1 requires microsecond-aligned epoch nanoseconds"
+            )
+
+    @staticmethod
+    def _duration_ns(duration_seconds: float) -> int:
+        """Convert finite float seconds without overflowing float multiplication."""
+
+        whole_seconds = int(duration_seconds)
+        fractional_seconds = duration_seconds - whole_seconds
+        return whole_seconds * 1_000_000_000 + int(
+            fractional_seconds * 1_000_000_000
         )
 
     @staticmethod

@@ -43,6 +43,12 @@
 - Geometry and structural validation share the same UTC timestamp representation.
 - Candidate and evidence IDs, ordering, and serialized result are stable for
   equivalent input sequences and repeated calls.
+- `ProviderResult` now verifies each evidence item against candidate role,
+  anchor timestamps/prices, confirmation positions, geometry endpoints,
+  intermediate count, and zero successful-body-violations.
+- Provider v1 rejects non-microsecond-aligned epoch nanoseconds before discovery.
+  No timestamp is silently truncated. Internal contract failures after this input
+  gate produce `FAILED / PROVIDER_FAILURE`, not `INVALID_INPUT`.
 
 ## Provider Output Examples
 
@@ -61,7 +67,7 @@
 
 ```text
 PYTHONPATH=src .venv/bin/python -m pytest tests/models/trendline_v2 -q -ra
-73 passed
+83 passed
 
 PYTHONPATH=src .venv/bin/python -m pytest tests/models/trendline_family -q -ra
 399 passed
@@ -78,7 +84,9 @@ Passed
 
 Coverage includes causal confirmation, plateau selection, irregular UTC geometry,
 exact-side validation, typed abstentions, workload guards, deterministic output,
-active-field effects, malformed input, and prohibited-import checks.
+active-field effects, malformed input, prohibited-import checks, forged evidence
+rejection, sub-microsecond rejection, internal-failure classification, and
+overflow-safe extreme finite lookback conversion.
 
 ## Commits
 
@@ -86,6 +94,7 @@ active-field effects, malformed input, and prohibited-import checks.
 2. `0329402 feat(trendline-v2): implement confirmed extrema reference provider`
 3. `c49c6b8 test(trendline-v2): validate extrema provider causality`
 4. `070ed31 docs(trendline-v2): complete provider handoff evidence`
+5. `fix(trendline-v2): harden provider evidence and timestamp boundaries`
 
 ## Protected Scope
 
@@ -97,12 +106,9 @@ active-field effects, malformed input, and prohibited-import checks.
 
 ## Graph Status
 
-- `./mcp/scripts/mcp-index.sh` rebuilt codebase-memory sub-indexes after the
-  final code commit: `flipperAgent-src` `22,465` nodes / `116,478` edges and
-  `flipperAgent-tests` `5,335` nodes / `22,350` edges, both `indexed`.
-- The wrapper's final GitNexus step could not run because optional service
-  `mcp-proxy` was not running. This did not affect the completed
-  codebase-memory indexes.
+- Branch-specific codebase-memory indexing was attempted for this worktree and
+  crashed in the indexing worker before graph creation. No branch-specific graph
+  evidence is claimed. Existing shared indexes may describe another worktree.
 
 ## Residual Risks
 
@@ -110,9 +116,8 @@ active-field effects, malformed input, and prohibited-import checks.
   required before any performance kernel decision.
 - Provider configuration scope remains unresolved and fixture-only. It is not
   canonical YAML or runtime configuration.
-- Python `datetime` preserves microsecond precision. The approved exchange-style
-  UTC input fixtures use millisecond-or-coarser timestamps; sub-microsecond source
-  timestamps need an explicit domain-contract decision before support is claimed.
+- Provider v1 intentionally supports epoch timestamps aligned to microseconds.
+  Exact sub-microsecond geometry needs a later domain-contract revision.
 
 ## Next Boundary
 

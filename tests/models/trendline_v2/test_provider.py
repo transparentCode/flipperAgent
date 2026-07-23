@@ -23,6 +23,9 @@ from libs.models.trendline_v2.discovery import (
     ProviderResult,
     ProviderStatus,
 )
+from libs.models.trendline_v2.discovery.provider_evidence import ExtremaKind
+from libs.models.trendline_v2.domain.candidates import LineCandidate
+from libs.models.trendline_v2.domain.geometry import LineGeometry
 from libs.models.trendline_v2.domain.validation import ContractValidationError
 
 
@@ -76,6 +79,36 @@ def _success() -> ProviderResult:
     return result
 
 
+def _single_candidate_result(
+    result: ProviderResult,
+    candidate,
+    evidence,
+) -> ProviderResult:
+    return ProviderResult(
+        provider_name=PROVIDER_NAME,
+        provider_version=PROVIDER_VERSION,
+        request=result.request,
+        status=ProviderStatus.SUCCESS,
+        candidates=(candidate,),
+        evidence=(evidence,),
+        diagnostics=ProviderDiagnostics(1, result.request.input_data.row_count),
+    )
+
+
+def _candidate_like(candidate, *, geometry=None, anchors=None) -> LineCandidate:
+    return LineCandidate.create(
+        asset=candidate.asset,
+        timeframe=candidate.timeframe,
+        role=candidate.role,
+        geometry=geometry or candidate.geometry,
+        anchors=anchors or candidate.anchors,
+        evidence=candidate.evidence,
+        observed_at=candidate.observed_at,
+        provider_name=candidate.provider_name,
+        provider_version=candidate.provider_version,
+    )
+
+
 def test_provider_protocol_and_explicit_data_boundary() -> None:
     provider = ConfirmedExtremaPairProvider()
     assert isinstance(provider, CandidateProvider)
@@ -100,6 +133,77 @@ def test_success_requires_one_ordered_evidence_item_per_candidate() -> None:
             evidence=result.evidence[:-1],
             diagnostics=ProviderDiagnostics(len(result.candidates), result.request.input_data.row_count),
         )
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        (
+            lambda evidence: replace(
+                evidence,
+                anchor_source_positions=(0, 2),
+                confirmation_positions=(1, 3),
+            ),
+            "anchor 0 timestamp",
+        ),
+        (
+            lambda evidence: replace(evidence, extrema_kind=ExtremaKind.HIGH),
+            "extrema kind",
+        ),
+        (
+            lambda evidence: replace(evidence, confirmation_positions=(2, 5)),
+            "right window",
+        ),
+        (
+            lambda evidence: replace(evidence, validated_intermediate_count=0),
+            "intermediate count",
+        ),
+        (
+            lambda evidence: replace(evidence, body_violation_count=1),
+            "body violations",
+        ),
+    ],
+)
+def test_success_rejects_forged_confirmed_extrema_evidence(change, message) -> None:
+    result = _success()
+    candidate, evidence = result.candidates[0], result.evidence[0]
+    with pytest.raises(ContractValidationError, match=message):
+        _single_candidate_result(result, candidate, change(evidence))
+
+
+def test_success_rejects_evidence_when_candidate_anchor_price_is_not_source_price() -> None:
+    result = _success()
+    candidate, evidence = result.candidates[0], result.evidence[0]
+    first, second = candidate.anchors
+    changed_first = replace(first, price=first.price + 0.5)
+    forged = _candidate_like(
+        candidate,
+        anchors=(changed_first, second),
+        geometry=LineGeometry(
+            start_time=candidate.geometry.start_time,
+            end_time=candidate.geometry.end_time,
+            start_price=changed_first.price,
+            end_price=candidate.geometry.end_price,
+        ),
+    )
+    with pytest.raises(ContractValidationError, match="anchor 0 price"):
+        _single_candidate_result(result, forged, replace(evidence, candidate_id=forged.candidate_id))
+
+
+def test_success_rejects_evidence_when_geometry_is_not_source_endpoints() -> None:
+    result = _success()
+    candidate, evidence = result.candidates[0], result.evidence[0]
+    forged = _candidate_like(
+        candidate,
+        geometry=LineGeometry(
+            start_time=candidate.geometry.start_time,
+            end_time=candidate.geometry.end_time,
+            start_price=candidate.geometry.start_price + 0.5,
+            end_price=candidate.geometry.end_price,
+        ),
+    )
+    with pytest.raises(ContractValidationError, match="geometry"):
+        _single_candidate_result(result, forged, replace(evidence, candidate_id=forged.candidate_id))
     with pytest.raises(ContractValidationError, match="order"):
         ProviderResult(
             provider_name=PROVIDER_NAME,

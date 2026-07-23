@@ -7,7 +7,7 @@ from enum import Enum
 from typing import Any, Protocol, runtime_checkable
 
 from ..configuration.contracts import ResolvedTrendlineV2Config
-from ..configuration.provider import ProviderConfig
+from ..configuration.provider import ConfirmedExtremaPairConfig, ProviderConfig
 from ..domain.candidates import LineCandidate
 from ..domain.identity import deterministic_hash, provider_identity
 from ..domain.provider_input import ProviderInput
@@ -233,8 +233,18 @@ class ProviderResult:
             raise ContractValidationError(
                 "provider evidence schema version must match request configuration"
             )
-        for item in evidence:
-            item.validate_against(self.request.input_data)
+        if evidence and not isinstance(
+            self.request.provider_config, ConfirmedExtremaPairConfig
+        ):
+            raise ContractValidationError(
+                "confirmed extrema evidence requires ConfirmedExtremaPairConfig"
+            )
+        for candidate, item in zip(candidates, evidence):
+            item.validate_candidate(
+                candidate,
+                self.request.input_data,
+                right_confirmation_bars=self.request.provider_config.right_confirmation_bars,
+            )
         reason = None
         if self.reason is not None:
             try:
