@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import replace
 import json
 from pathlib import Path
 
@@ -15,7 +14,6 @@ from libs.models.trendline_family.optimization.runner import run_phase_i_evaluat
 from libs.models.trendline_family.research_lab import (
     artifact_trial_rows,
     build_smoke_config,
-    build_validation_sensitivity_figure,
     build_smoke_ohlcv,
     dataset_summary,
     export_research_artifacts,
@@ -70,7 +68,7 @@ def _phase_i_run(tmp_path: Path):
     )
 
 
-def test_artifact_browser_verifies_before_display_and_sensitivity_is_validation_only(tmp_path: Path) -> None:
+def test_artifact_browser_verifies_validation_rows_before_display(tmp_path: Path) -> None:
     result = _phase_i_run(tmp_path)
     browser = load_verified_phase_i_artifacts(tmp_path / "phase_i")
     rows = artifact_trial_rows(browser.trials)
@@ -78,27 +76,16 @@ def test_artifact_browser_verifies_before_display_and_sensitivity_is_validation_
     assert rows and all(row.validation_only for row in rows)
     stage = OptimizationStage.CANDIDATE_GEOMETRY.value
     metric = "candidate_coverage_ratio"
-    figure = build_validation_sensitivity_figure(rows=rows, stage=stage, metric=metric)
-    trace_names = {trace.name for trace in figure.data}
-    assert any(name.endswith(":aggregate") for name in trace_names)
-    assert any(name.endswith(":worst") for name in trace_names)
-    assert any(":fold:" in name for name in trace_names)
-    assert any(trace.mode == "markers" for trace in figure.data)
-    with pytest.raises(ContractValidationError, match="explicit stage"):
-        build_validation_sensitivity_figure(rows=rows, stage="tracker", metric=metric)
-    with pytest.raises(ContractValidationError, match="explicit primary metric"):
-        build_validation_sensitivity_figure(rows=rows, stage=stage, metric="other_metric")
-    with pytest.raises(ContractValidationError, match="holdout evidence"):
-        build_validation_sensitivity_figure(
-            rows=(replace(rows[0], validation_only=False),), stage=stage, metric=metric
-        )
-    forged_windows = tuple({**window, "window_kind": "holdout"} for window in rows[0].per_window_metrics)
-    with pytest.raises(ContractValidationError, match="holdout evidence"):
-        build_validation_sensitivity_figure(
-            rows=(replace(rows[0], validation_only=True, per_window_metrics=forged_windows),),
-            stage=stage,
-            metric=metric,
-        )
+    assert browser.manifest.objective_specs[stage].primary_metric == metric
+    assert all(row.stage == stage and row.primary_metric_name == metric for row in rows)
+    assert all(
+        row.validation_only
+        and row.per_window_metrics
+        and all(window.get("window_kind") == "validation" for window in row.per_window_metrics)
+        for row in rows
+    )
+    assert all(row.primary_metric_value is not None for row in rows)
+    assert browser.recommendation.finalist_holdout_result_id is None
     result.artifact_paths["trial:" + result.trials[0].trial.trial_id].unlink()
     with pytest.raises(ContractValidationError, match="incomplete"):
         load_verified_phase_i_artifacts(tmp_path / "phase_i")

@@ -105,8 +105,8 @@ def test_notebook_is_clean_nbformat_v4_with_required_sections() -> None:
         "# Trendline Family Research Lab",
         "## 0. Scope, Safety, and Execution Mode",
         "## 3. Canonical Single-Timeframe Replay",
-        "## 8. Point-in-Time Replay Viewer",
-        "## 10. Multi-Timeframe Geometry Research",
+        "## 8. Point-in-Time Replay Evidence",
+        "## 10. Multi-Timeframe Geometry Evidence",
         "## 11. Phase-I Artifact Browser",
         "## 15. Export and Reproducibility",
     ):
@@ -132,6 +132,15 @@ def test_notebook_defaults_stay_offline_and_exclude_forbidden_work() -> None:
     assert "SECRET" not in text
     assert "render_replay_step" in text
     assert "verify_artifact_bundle" not in text  # Support loader owns verification.
+    for retired_visualization in (
+        "plot" + "ly",
+        "build_" + "price_figure",
+        "build_" + "mtf_projection_figure",
+        "build_" + "validation_sensitivity_figure",
+        "figure" + ".show(",
+        "." + "show()",
+    ):
+        assert retired_visualization not in text
     for dead_control in (
         "RUN_PHASE_I_EXPERIMENT",
         "SOURCE_TIMEFRAMES",
@@ -141,6 +150,34 @@ def test_notebook_defaults_stay_offline_and_exclude_forbidden_work() -> None:
         "INTERACTION_OUTCOME_POLICY",
     ):
         assert dead_control not in text
+
+
+def test_active_trendline_research_paths_have_no_legacy_visualization_launches() -> None:
+    roots = (
+        Path("src/libs/models/trendline/research_lab"),
+        Path("src/libs/models/trendline_family/research_lab"),
+        Path("research/trendline_family_research_lab.ipynb"),
+        Path("tests/models/trendline_family/research_lab"),
+    )
+    paths = tuple(
+        path for root in roots
+        for path in ((root,) if root.is_file() else root.glob("*.py"))
+    )
+    forbidden = (
+        "import " + "plotly",
+        "from " + "plotly",
+        "plot" + "ly.graph_objects",
+        "figure" + ".show(",
+        "webbrowser" + ".open",
+        "Play" + "wright",
+        "Selen" + "ium",
+        "Puppe" + "teer",
+    )
+    offenders = [
+        path for path in paths
+        if any(token in path.read_text(encoding="utf-8") for token in forbidden)
+    ]
+    assert offenders == []
 
 
 def test_default_notebook_cells_execute_and_event_transition_adapter_is_available() -> None:

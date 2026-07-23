@@ -35,11 +35,6 @@ from .contracts import (
     TransitionRow,
     record_to_dict,
 )
-from .plotting import (
-    build_mtf_projection_figure,
-    build_price_figure,
-    build_validation_sensitivity_figure,
-)
 from .replay import (
     ResearchReplay,
     build_smoke_config,
@@ -119,9 +114,6 @@ __all__ = [
     "artifact_trial_rows",
     "audit_cross_asset_comparability",
     "build_cross_asset_comparison",
-    "build_price_figure",
-    "build_mtf_projection_figure",
-    "build_validation_sensitivity_figure",
     "build_smoke_config",
     "build_smoke_ohlcv",
     "candidate_rows",

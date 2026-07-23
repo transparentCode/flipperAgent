@@ -14,8 +14,6 @@ from libs.models.trendline_family.research_lab import (
     CrossAssetComparabilityPolicy,
     audit_cross_asset_comparability,
     build_cross_asset_comparison,
-    build_price_figure,
-    build_mtf_projection_figure,
     build_smoke_config,
     build_smoke_ohlcv,
     candidate_rows,
@@ -157,7 +155,7 @@ def test_provider_audit_reads_canonical_metadata() -> None:
     assert audits[-1].fitted_path_count is not None
 
 
-def test_chart_rows_keep_exact_member_geometry_and_stable_ordering() -> None:
+def test_research_rows_keep_exact_member_geometry_and_stable_ordering() -> None:
     replay, _ = _replay()
     snapshot = replay.outputs[-1].snapshot
     rails = member_rail_rows(snapshot)
@@ -166,24 +164,21 @@ def test_chart_rows_keep_exact_member_geometry_and_stable_ordering() -> None:
         family = next(item for item in snapshot.active_families + snapshot.dormant_families if item.family_id == rail.family_id)
         member = next(item for item in family.members if item.member_id == rail.member_id)
         assert rail.projected_price == pytest.approx(member.geometry.value_at(snapshot.timestamp))
-    figure = build_price_figure(
-        frame=replay.dataset.to_frame().tail(24),
-        rails=rails,
-        corridors=corridor_rows(snapshot),
-        zones=interaction_zone_rows(snapshot),
-        events=event_rows(snapshot),
-        include_volume=True,
-    )
-    assert figure.data[0].type == "candlestick"
-    assert any("anchor" in str(trace.name) for trace in figure.data)
+        assert rail.anchor_ids == tuple(anchor.anchor_id for anchor in member.anchors)
+        assert rail.anchor_points == tuple(
+            (anchor.timestamp, anchor.price, anchor.pivot_kind) for anchor in member.anchors
+        )
     for corridor in corridor_rows(snapshot):
-        rendered = next(trace for trace in figure.data if trace.name == f"corridor {corridor.corridor_id}")
-        members = [rail for rail in rails if rail.member_id in corridor.ordered_member_ids]
-        if any(member.slope_per_second != 0.0 for member in members):
-            assert len(set(rendered.y)) > 1
+        assert corridor.ordered_member_ids == tuple(
+            rail.member_id for rail in rails if rail.member_id in corridor.ordered_member_ids
+        )
+        assert corridor.lower_price <= corridor.center_price <= corridor.upper_price
     for zone in interaction_zone_rows(snapshot):
-        rendered = next(trace for trace in figure.data if trace.name == f"zone {zone.observation_id}")
-        assert len(rendered.x) == 2
+        observation = next(item for item in snapshot.observations if item.observation_id == zone.observation_id)
+        assert zone.exact_line_price == pytest.approx(observation.exact_line_price)
+        assert zone.lower_price == pytest.approx(observation.zone.lower_price)
+        assert zone.upper_price == pytest.approx(observation.zone.upper_price)
+    assert {row.event_id for row in event_rows(snapshot)} == {item.event_id for item in snapshot.interaction_events}
 
 
 def test_multi_rail_rows_keep_distinct_exact_members_and_separate_corridor_zone() -> None:
@@ -311,9 +306,6 @@ def test_mtf_rows_only_adapt_approved_geometry_and_keep_missing_sources_visible(
         assert row.reference_price == pytest.approx(member.source_geometry.reference_price)
         assert row.slope_per_second == pytest.approx(member.source_geometry.slope_per_second)
         assert row.projected_price == pytest.approx(member.projected_price)
-    mtf_figure = build_mtf_projection_figure(members=projected_members)
-    assert len(mtf_figure.data) == len(projected_members)
-    assert all(trace.mode == "markers" for trace in mtf_figure.data)
     assert mtf_relation_rows(snapshot) == tuple(sorted(mtf_relation_rows(snapshot), key=lambda row: row.relation_id))
     assert mtf_cluster_rows(snapshot) == tuple(sorted(mtf_cluster_rows(snapshot), key=lambda row: row.cluster_id))
     stale_config = TrendlineFamilyConfigResolver(
