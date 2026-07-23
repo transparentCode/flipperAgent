@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Trendline V2 Audit Viewer</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script type="importmap">
+      {
+        "imports": {
+          "lightweight-charts": "/vendor/lightweight-charts.mjs"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="toolbar">
+        <div>
+          <p class="eyebrow">TRENDLINE V2 / LOCAL AUDIT</p>
+          <h1>Confirmed geometry, without hindsight</h1>
+          <p id="trial-summary">Loading verified chart payload...</p>
+        </div>
+        <div class="controls" aria-label="Viewer controls">
+          <label><input id="show-support" type="checkbox" checked> support</label>
+          <label><input id="show-resistance" type="checkbox" checked> resistance</label>
+          <label><input id="show-anchors" type="checkbox"> anchors</label>
+          <button id="fit-content" type="button">fit content</button>
+        </div>
+      </header>
+      <div id="status-banner" class="status-banner" role="status"></div>
+      <section id="chart" class="chart" aria-label="Trendline V2 chart"></section>
+      <aside id="hover-detail" class="hover-detail" aria-live="polite">
+        Hover a finite candidate segment for evidence.
+      </aside>
+      <footer class="attribution">
+        Charts powered by
+        <a href="https://www.tradingview.com/lightweight-charts/" target="_blank" rel="noreferrer">TradingView Lightweight Charts</a>.
+      </footer>
+    </main>
+    <script type="module" src="/dist/main.js"></script>
+  </body>
+</html>

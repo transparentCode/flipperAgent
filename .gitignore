@@ -37,6 +37,7 @@ yarn-debug.log*
 yarn-error.log*
 package-lock.json
 !src/libs/models/sr/tools/zone_viewer/package-lock.json
+!src/apps/trendline_v2_viewer/web/package-lock.json
 # If you use yarn, uncomment the line below and comment out package-lock.json
 # yarn.lock
 

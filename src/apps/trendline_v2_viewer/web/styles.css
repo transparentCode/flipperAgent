@@ -1,0 +1,65 @@
+:root {
+  color-scheme: dark;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  background: #101719;
+  color: #dbe8e3;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+.app-shell { min-height: 100vh; padding: 18px; }
+.toolbar {
+  align-items: end;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  margin: 0 auto 12px;
+  max-width: 1600px;
+}
+.eyebrow { color: #7bd9b2; font-size: .7rem; letter-spacing: .16em; margin: 0 0 6px; }
+h1 { color: #f3fbf7; font-size: clamp(1.15rem, 2.2vw, 1.8rem); font-weight: 600; margin: 0 0 5px; }
+p { color: #91aaa1; font-size: .84rem; margin: 0; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 14px; justify-content: end; }
+label { color: #c8d9d2; font-size: .83rem; }
+button {
+  background: #19372f;
+  border: 1px solid #3f806b;
+  border-radius: 4px;
+  color: #e9fff5;
+  cursor: pointer;
+  padding: 5px 10px;
+}
+.status-banner {
+  border-left: 3px solid #7bd9b2;
+  color: #b8cfc5;
+  margin: 0 auto 8px;
+  max-width: 1600px;
+  min-height: 1.2em;
+  padding: 5px 9px;
+}
+.status-banner[data-status="abstained"], .status-banner[data-status="failed"] { border-color: #e7a76c; }
+.chart {
+  background: #131e20;
+  border: 1px solid #253b37;
+  height: calc(100vh - 176px);
+  min-height: 420px;
+  margin: 0 auto;
+  max-width: 1600px;
+  width: 100%;
+}
+.hover-detail {
+  color: #c0d5cd;
+  font-size: .8rem;
+  line-height: 1.5;
+  margin: 8px auto 0;
+  max-width: 1600px;
+  min-height: 2.5em;
+}
+.hover-detail strong { color: #f3fbf7; }
+.attribution { color: #718c82; font-size: .72rem; margin: 8px auto 0; max-width: 1600px; }
+a { color: #7bd9b2; }
+@media (max-width: 720px) {
+  .toolbar { align-items: flex-start; flex-direction: column; }
+  .controls { justify-content: start; }
+  .chart { min-height: 360px; }
+}
