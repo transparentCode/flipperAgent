@@ -22,7 +22,7 @@ enabled_tools = [
 ]
 
 [mcp_servers.codebase-memory-mcp]
-url = "http://localhost:9748/servers/cbm/sse"
+url = "http://localhost:9748/servers/cbm/mcp"
 required = false
 default_tools_approval_mode = "auto"
 enabled_tools = [
@@ -43,7 +43,52 @@ enabled_tools = [
 ]
 
 [mcp_servers.gitnexus]
-url = "http://localhost:9748/servers/gitnexus/sse"
+url = "http://localhost:9748/servers/gitnexus/mcp"
+required = false
+default_tools_approval_mode = "auto"
+enabled_tools = [
+  "context",
+  "impact",
+  "trace",
+  "cypher",
+  "detect_changes",
+  "group_list",
+  "list_repos",
+  "query",
+  "check",
+  "rename",
+  "explain",
+  "pdg_query",
+  "route_map",
+  "tool_map",
+  "shape_check",
+  "api_impact",
+  "group_sync",
+]
+
+[mcp_servers.caveman-shrink]
+url = "http://localhost:9748/servers/caveman-shrink/mcp"
+required = false
+default_tools_approval_mode = "auto"
+enabled_tools = [
+  "list_projects",
+  "index_status",
+  "index_repository",
+  "search_graph",
+  "search_code",
+  "trace_path",
+  "get_code_snippet",
+  "query_graph",
+  "get_graph_schema",
+  "get_architecture",
+  "detect_changes",
+  "delete_project",
+  "manage_adr",
+  "ingest_traces",
+]
+
+[mcp_servers.gitnexus-shrink]
+url = "http://localhost:9748/servers/gitnexus-shrink/mcp"
 required = false
 default_tools_approval_mode = "auto"
 enabled_tools = [
@@ -67,7 +112,7 @@ enabled_tools = [
 ]
 
 [sandbox_workspace_write]
-network_access = false
+network_access = true
 
 [agents]
 max_threads = 3
