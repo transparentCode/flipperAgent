@@ -6,10 +6,13 @@ description: Choose between codebase-memory-mcp and gitnexus for code intelligen
 # MCP Tiered Code Intelligence
 
 Two MCP backends are exposed by the containerized `mcp-proxy` on
-`http://localhost:9748/servers/{backend}/sse`:
+`http://localhost:9748/servers/{backend}/mcp` (Streamable HTTP):
 
 - `cbm` → `codebase-memory-mcp` (MIT): primary semantic code intelligence.
 - `gitnexus` → `gitnexus` (PolyForm Noncommercial): full-repository structural graph.
+
+Legacy SSE endpoints (`/servers/{backend}/sse`) are also available but are not
+used by the Codex CLI or VS Code MCP clients. Both clients use Streamable HTTP.
 
 ## When to use codebase-memory-mcp
 

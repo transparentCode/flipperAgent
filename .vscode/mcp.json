@@ -6,11 +6,19 @@
     },
     "codebase-memory-mcp": {
       "type": "http",
-      "url": "http://localhost:9748/servers/cbm/sse"
+      "url": "http://localhost:9748/servers/cbm/mcp"
     },
     "gitnexus": {
       "type": "http",
-      "url": "http://localhost:9748/servers/gitnexus/sse"
+      "url": "http://localhost:9748/servers/gitnexus/mcp"
+    },
+    "caveman-shrink": {
+      "type": "http",
+      "url": "http://localhost:9748/servers/caveman-shrink/mcp"
+    },
+    "gitnexus-shrink": {
+      "type": "http",
+      "url": "http://localhost:9748/servers/gitnexus-shrink/mcp"
     }
   }
 }

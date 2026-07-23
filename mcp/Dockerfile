@@ -51,6 +51,10 @@ RUN ARCH=$(dpkg --print-architecture) \
     && rm -f /tmp/node.tar.gz \
     && node --version
 
+# Install caveman-shrink MCP middleware. It wraps another stdio MCP server and
+# compresses prose fields (tool descriptions, etc.) to reduce token usage.
+RUN npm install -g caveman-shrink@0.1.0 && command -v caveman-shrink
+
 # Install mcp-proxy.
 RUN pip3 install --break-system-packages mcp-proxy==${MCP_PROXY_VERSION}
 
@@ -103,4 +107,4 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -fsS http://localhost:9748/status > /dev/null || exit 1
 
 ENTRYPOINT ["mcp-proxy"]
-CMD ["--host", "0.0.0.0", "--port", "9748", "--pass-environment", "--named-server", "cbm", "codebase-memory-mcp", "--named-server", "gitnexus", "gitnexus mcp"]
+CMD ["--host", "0.0.0.0", "--port", "9748", "--pass-environment", "--named-server", "cbm", "codebase-memory-mcp", "--named-server", "gitnexus", "gitnexus mcp", "--named-server", "caveman-shrink", "caveman-shrink codebase-memory-mcp", "--named-server", "gitnexus-shrink", "caveman-shrink gitnexus mcp"]

@@ -19,6 +19,8 @@ SERVER_MAP = {
     "codebase-memory-mcp": "cbm",
     "gitnexus mcp": "gitnexus",
     "gitnexus": "gitnexus",
+    "caveman-shrink": "caveman-shrink",
+    "gitnexus-shrink": "gitnexus-shrink",
 }
 
 
@@ -27,7 +29,7 @@ def _backend(server_cmd: str) -> str:
     if server in SERVER_MAP:
         return SERVER_MAP[server]
     # Also accept already-mapped names.
-    if server in ("cbm", "gitnexus"):
+    if server in ("cbm", "gitnexus", "caveman-shrink", "gitnexus-shrink"):
         return server
     raise ValueError(f"Unknown server command: {server_cmd!r}")
 
