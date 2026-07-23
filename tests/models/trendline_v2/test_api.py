@@ -8,7 +8,12 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from libs.models.trendline_v2 import discover_trendlines
+from libs.models.trendline_v2 import (
+    LatestValidPredecessorPolicy,
+    discover_trendlines,
+    select_trendline_candidates,
+)
+import libs.models.trendline_v2 as trendline_v2
 from libs.models.trendline_v2.configuration import (
     ConfirmedExtremaPairConfig,
     resolve_trendline_v2_config,
@@ -147,6 +152,37 @@ def test_successful_discovery_preserves_candidates_and_evidence() -> None:
         item.candidate_id for item in result.candidates
     )
     assert result.request.config_identity == result.request.to_dict()["config_identity"]
+
+
+def test_public_selection_api_is_explicit_and_does_not_filter_discovery() -> None:
+    frame = _frame()
+    result = discover_trendlines(
+        frame,
+        config=_foundation_config(),
+        provider_config=_provider_config(),
+    )
+    source = result.to_snapshot()
+
+    selected = select_trendline_candidates(
+        source,
+        policy=LatestValidPredecessorPolicy(),
+    )
+
+    assert len(result.candidates) == len(source.candidates)
+    assert selected.diagnostics.source_candidate_count == len(result.candidates)
+    with pytest.raises(TypeError):
+        select_trendline_candidates(source)  # type: ignore[call-arg]
+    with pytest.raises(ContractValidationError):
+        select_trendline_candidates(object(), policy=LatestValidPredecessorPolicy())  # type: ignore[arg-type]
+
+
+def test_public_exports_are_exact() -> None:
+    assert trendline_v2.__all__ == [
+        "CandidateSelectionSnapshot",
+        "LatestValidPredecessorPolicy",
+        "discover_trendlines",
+        "select_trendline_candidates",
+    ]
 
 
 @pytest.mark.parametrize(

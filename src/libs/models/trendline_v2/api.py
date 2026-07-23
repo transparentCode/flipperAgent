@@ -9,6 +9,12 @@ from .configuration import (
 from .discovery import ConfirmedExtremaPairProvider, ProviderInput, ProviderRequest, ProviderResult
 from .domain.validation import ContractValidationError
 from .input import ConfirmedOHLCVFrame
+from .domain.snapshots import DiscoverySnapshot
+from .selection import (
+    CandidateSelectionSnapshot,
+    LatestValidPredecessorPolicy,
+    select_latest_valid_predecessors,
+)
 
 
 def discover_trendlines(
@@ -51,4 +57,14 @@ def discover_trendlines(
     return ConfirmedExtremaPairProvider().generate(request)
 
 
-__all__ = ["discover_trendlines"]
+def select_trendline_candidates(
+    snapshot: DiscoverySnapshot,
+    *,
+    policy: LatestValidPredecessorPolicy,
+) -> CandidateSelectionSnapshot:
+    """Select candidates using an explicitly supplied policy."""
+
+    return select_latest_valid_predecessors(snapshot, policy=policy)
+
+
+__all__ = ["discover_trendlines", "select_trendline_candidates"]

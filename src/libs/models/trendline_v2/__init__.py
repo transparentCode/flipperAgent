@@ -1,5 +1,11 @@
 """Independent Trendline V2 foundation package."""
 
-from .api import discover_trendlines
+from .api import discover_trendlines, select_trendline_candidates
+from .selection import CandidateSelectionSnapshot, LatestValidPredecessorPolicy
 
-__all__ = ["discover_trendlines"]
+__all__ = [
+    "CandidateSelectionSnapshot",
+    "LatestValidPredecessorPolicy",
+    "discover_trendlines",
+    "select_trendline_candidates",
+]
