@@ -44,6 +44,19 @@
 - Candidate and evidence IDs, ordering, and serialized result are stable for
   equivalent input sequences and repeated calls.
 
+## Provider Output Examples
+
+- The seven-bar confirmed-low fixture emits `SUCCESS` with three support pairs:
+  source positions `(1, 3)`, `(1, 5)`, and `(3, 5)`. Its ordered evidence has
+  the same candidate IDs and corresponding confirmation positions `(2, 4)`,
+  `(2, 6)`, and `(4, 6)`.
+- A physical lookback too short for the extrema windows returns
+  `ABSTAINED / INSUFFICIENT_INPUT`; flat and monotonic fixtures do the same.
+- A three-pair fixture with `max_hypotheses=2` returns
+  `ABSTAINED / HYPOTHESIS_LIMIT_EXCEEDED`. The identical candidate population
+  with `max_output_candidates=1` returns
+  `ABSTAINED / OUTPUT_LIMIT_EXCEEDED`. Neither result contains partial output.
+
 ## Validation
 
 ```text
@@ -80,6 +93,15 @@ active-field effects, malformed input, and prohibited-import checks.
   push was added.
 - Changed runtime code remains under `src/libs/models/trendline_v2`; tests remain
   under `tests/models/trendline_v2`; this handoff is the only plan artifact.
+
+## Graph Status
+
+- `./mcp/scripts/mcp-index.sh` rebuilt codebase-memory sub-indexes after the
+  final code commit: `flipperAgent-src` `22,465` nodes / `116,478` edges and
+  `flipperAgent-tests` `5,335` nodes / `22,350` edges, both `indexed`.
+- The wrapper's final GitNexus step could not run because optional service
+  `mcp-proxy` was not running. This did not affect the completed
+  codebase-memory indexes.
 
 ## Residual Risks
 
