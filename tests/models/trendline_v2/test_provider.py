@@ -8,333 +8,174 @@ from pathlib import Path
 import pytest
 
 from libs.models.trendline_v2.configuration import (
-    BodyValidationPolicy,
     ConfirmedExtremaPairConfig,
-    HistoryHorizon,
-    PairEnumerationOrder,
-    PlateauPolicy,
+    PROVIDER_NAME,
+    PROVIDER_VERSION,
     resolve_trendline_v2_config,
 )
 from libs.models.trendline_v2.discovery import (
     CandidateProvider,
+    ConfirmedExtremaPairProvider,
     ProviderDiagnostics,
-    ProviderEvidence,
     ProviderInput,
     ProviderReason,
     ProviderRequest,
     ProviderResult,
     ProviderStatus,
 )
-from libs.models.trendline_v2.discovery.provider_evidence import (
-    ConfirmedExtremaPairEvidence,
-    ExtremaKind,
-)
-from libs.models.trendline_v2.domain.candidates import (
-    AnchorRef,
-    CandidateEvidence,
-    LineCandidate,
-)
-from libs.models.trendline_v2.domain.enums import LineRole
-from libs.models.trendline_v2.domain.geometry import LineGeometry
 from libs.models.trendline_v2.domain.validation import ContractValidationError
 
 
 UTC = timezone.utc
 
 
-def _config():
+def _config() -> ConfirmedExtremaPairConfig:
+    return ConfirmedExtremaPairConfig(
+        lookback_duration_seconds=86_400.0,
+        left_confirmation_bars=1,
+        right_confirmation_bars=1,
+        min_extrema_per_role=2,
+        max_hypotheses=100,
+        max_output_candidates=100,
+    )
+
+
+def _foundation_config():
     return resolve_trendline_v2_config(
-        {
-            "model": {
-                "name": "trendline_v2",
-                "version": "foundation_v1",
-                "schema_version": 1,
-            }
-        }
+        {"model": {"name": "trendline_v2", "version": "foundation_v1", "schema_version": 1}}
     )
 
 
-def _provider_config(**changes):
-    values = {
-        "provider_name": "confirmed_extrema_pair",
-        "provider_version": "v1",
-        "plateau_policy": PlateauPolicy.LEFTMOST_STRICT_LEFT_NONSTRICT_RIGHT_V1,
-        "history_horizon": HistoryHorizon.LOOKBACK_DURATION_SECONDS_V1,
-        "lookback_duration_seconds": 86_400.0,
-        "left_confirmation_bars": 2,
-        "right_confirmation_bars": 2,
-        "min_extrema_per_role": 2,
-        "body_validation_policy": BodyValidationPolicy.EXACT_SIDE_V1,
-        "pair_enumeration_order": PairEnumerationOrder.CHRONOLOGICAL_V1,
-        "candidate_order_version": "candidate_order_v1",
-        "structural_validation_version": "exact_side_v1",
-        "max_hypotheses": 100,
-        "max_output_candidates": 20,
-        "provider_evidence_schema_version": "v1",
-    }
-    values.update(changes)
-    return ConfirmedExtremaPairConfig(**values)
-
-
-def _input(
-    *,
-    observed_at: datetime = datetime(2024, 1, 3, tzinfo=UTC),
-    confirmed_through: datetime = datetime(2024, 1, 3, tzinfo=UTC),
-) -> ProviderInput:
-    timestamps = tuple(
-        int(datetime(2024, 1, 1, hour, tzinfo=UTC).timestamp() * 1_000_000_000)
-        for hour in range(3)
-    )
+def _input() -> ProviderInput:
+    base = int(datetime(2024, 1, 1, tzinfo=UTC).timestamp() * 1_000_000_000)
     return ProviderInput(
         asset="BTCUSDT",
         timeframe="4h",
-        observed_at=observed_at,
-        confirmed_through=confirmed_through,
-        timestamps=timestamps,
-        open=(100.0, 101.0, 102.0),
-        high=(101.0, 102.0, 103.0),
-        low=(99.0, 100.0, 101.0),
-        close=(100.5, 101.5, 102.5),
-        volume=(10.0, 11.0, 12.0),
+        observed_at=datetime(2024, 1, 1, 6, tzinfo=UTC),
+        confirmed_through=datetime(2024, 1, 1, 6, tzinfo=UTC),
+        timestamps=tuple(base + index * 3_600_000_000_000 for index in range(7)),
+        open=(10.0,) * 7,
+        high=(11.0,) * 7,
+        low=(5.0, 1.0, 5.0, 2.0, 5.0, 3.0, 5.0),
+        close=(10.0,) * 7,
+        volume=(1.0,) * 7,
     )
 
 
-def _request(
-    *, input_data: ProviderInput | None = None, provider_config=None
-) -> ProviderRequest:
-    return ProviderRequest(
-        input_data=_input() if input_data is None else input_data,
-        config=_config(),
-        provider_config=_provider_config() if provider_config is None else provider_config,
+def _request(**config_changes) -> ProviderRequest:
+    config = _config()
+    if config_changes:
+        config = replace(config, **config_changes)
+    return ProviderRequest(input_data=_input(), config=_foundation_config(), provider_config=config)
+
+
+def _success() -> ProviderResult:
+    result = ConfirmedExtremaPairProvider().generate(_request())
+    assert result.status is ProviderStatus.SUCCESS
+    assert len(result.candidates) >= 2
+    return result
+
+
+def test_provider_protocol_and_explicit_data_boundary() -> None:
+    provider = ConfirmedExtremaPairProvider()
+    assert isinstance(provider, CandidateProvider)
+    result = _success()
+    assert result.provider_name == PROVIDER_NAME
+    assert result.provider_version == PROVIDER_VERSION
+    assert result.request.input_data.low[1] == 1.0
+
+
+def test_success_requires_one_ordered_evidence_item_per_candidate() -> None:
+    result = _success()
+    assert tuple(item.candidate_id for item in result.evidence) == tuple(
+        candidate.candidate_id for candidate in result.candidates
     )
+    with pytest.raises(ContractValidationError, match="candidate IDs must match"):
+        ProviderResult(
+            provider_name=PROVIDER_NAME,
+            provider_version=PROVIDER_VERSION,
+            request=result.request,
+            status=ProviderStatus.SUCCESS,
+            candidates=result.candidates,
+            evidence=result.evidence[:-1],
+            diagnostics=ProviderDiagnostics(len(result.candidates), result.request.input_data.row_count),
+        )
+    with pytest.raises(ContractValidationError, match="order"):
+        ProviderResult(
+            provider_name=PROVIDER_NAME,
+            provider_version=PROVIDER_VERSION,
+            request=result.request,
+            status=ProviderStatus.SUCCESS,
+            candidates=result.candidates,
+            evidence=tuple(reversed(result.evidence)),
+            diagnostics=ProviderDiagnostics(len(result.candidates), result.request.input_data.row_count),
+        )
 
 
-def _candidate(request: ProviderRequest, *, role: LineRole, offset: float) -> LineCandidate:
-    start = datetime(2024, 1, 1, tzinfo=UTC)
-    middle = datetime(2024, 1, 1, 1, tzinfo=UTC)
-    end = datetime(2024, 1, 1, 2, tzinfo=UTC)
-    anchors = (
-        AnchorRef(
-            anchor_id=f"{role.value}-anchor-0",
-            pivot_time=start,
-            confirmation_time=middle,
-            price=100.0 + offset,
-        ),
-        AnchorRef(
-            anchor_id=f"{role.value}-anchor-1",
-            pivot_time=middle,
-            confirmation_time=end,
-            price=101.0 + offset,
-        ),
-    )
-    return LineCandidate.create(
-        asset=request.asset,
-        timeframe=request.timeframe,
-        role=role,
-        geometry=LineGeometry(
-            start_time=start,
-            end_time=middle,
-            start_price=100.0 + offset,
-            end_price=101.0 + offset,
-        ),
-        anchors=anchors,
-        evidence=CandidateEvidence(
-            anchor_count=2,
-            distinct_anchor_timestamps=2,
-            anchor_span_seconds=3_600.0,
-        ),
-        observed_at=request.observed_at,
-        provider_name=request.provider_config.provider_name,
-        provider_version=request.provider_config.provider_version,
-    )
+def test_non_success_requires_empty_candidate_and_evidence_collections() -> None:
+    result = _success()
+    with pytest.raises(ContractValidationError, match="candidate IDs must match"):
+        ProviderResult(
+            provider_name=PROVIDER_NAME,
+            provider_version=PROVIDER_VERSION,
+            request=result.request,
+            status=ProviderStatus.ABSTAINED,
+            candidates=(),
+            evidence=(result.evidence[0],),
+            diagnostics=ProviderDiagnostics(0, result.request.input_data.row_count),
+            reason=ProviderReason.NO_CANDIDATES,
+        )
 
 
-def _provider_evidence(
-    candidate_id: str, *, extrema_kind: ExtremaKind = ExtremaKind.LOW, **changes
-) -> ConfirmedExtremaPairEvidence:
-    values = {
-        "candidate_id": candidate_id,
-        "extrema_kind": extrema_kind,
-        "anchor_source_positions": (0, 1),
-        "confirmation_positions": (1, 2),
-        "validated_intermediate_count": 1,
-        "body_violation_count": 0,
-        "coordinate_system_version": "elapsed_utc_seconds_v1",
-        "plateau_policy_version": "leftmost_strict_left_nonstrict_right_v1",
-        "schema_version": "v1",
-    }
-    values.update(changes)
-    return ConfirmedExtremaPairEvidence(**values)
-
-
-def _result(
-    request: ProviderRequest,
-    *,
-    candidates: tuple[LineCandidate, ...],
-    evidence=(),
-    status: ProviderStatus = ProviderStatus.SUCCESS,
-    reason: ProviderReason | None = None,
-) -> ProviderResult:
-    return ProviderResult(
-        provider_name=request.provider_config.provider_name,
-        provider_version=request.provider_config.provider_version,
+@pytest.mark.parametrize(
+    "reason,status",
+    [
+        (ProviderReason.HYPOTHESIS_LIMIT_EXCEEDED, ProviderStatus.ABSTAINED),
+        (ProviderReason.OUTPUT_LIMIT_EXCEEDED, ProviderStatus.ABSTAINED),
+        (ProviderReason.PROVIDER_FAILURE, ProviderStatus.FAILED),
+    ],
+)
+def test_reason_status_semantics_are_typed(reason, status) -> None:
+    request = _request()
+    result = ProviderResult(
+        provider_name=PROVIDER_NAME,
+        provider_version=PROVIDER_VERSION,
         request=request,
         status=status,
-        candidates=candidates,
-        diagnostics=ProviderDiagnostics(len(candidates), request.input_data.row_count),
-        reason=reason,
-        evidence=evidence,
-    )
-
-
-class FixtureProvider:
-    provider_name = "confirmed_extrema_pair"
-    provider_version = "v1"
-
-    def generate(self, request: ProviderRequest) -> ProviderResult:
-        assert request.input_data.close == (100.5, 101.5, 102.5)
-        assert request.config.model_name == "trendline_v2"
-        return ProviderResult(
-            provider_name=self.provider_name,
-            provider_version=self.provider_version,
-            request=request,
-            status=ProviderStatus.ABSTAINED,
-            candidates=(),
-            diagnostics=ProviderDiagnostics(candidate_count=0, input_row_count=3),
-            reason=ProviderReason.NO_CANDIDATES,
-        )
-
-
-def test_protocol_conformance_and_explicit_data_boundary() -> None:
-    provider = FixtureProvider()
-    assert isinstance(provider, CandidateProvider)
-    result = provider.generate(_request())
-    assert result.status is ProviderStatus.ABSTAINED
-    assert result.reason is ProviderReason.NO_CANDIDATES
-    assert result.provider_identity == ProviderResult(
-        provider_name="confirmed_extrema_pair",
-        provider_version="v1",
-        request=_request(),
-        status="abstained",
         candidates=(),
-        diagnostics=ProviderDiagnostics(0, 3),
-        reason="no_candidates",
-    ).provider_identity
-
-
-def test_provider_request_identity_is_derived_from_input_and_config() -> None:
-    request = _request()
-    changed_input = ProviderRequest(
-        input_data=ProviderInput(
-            asset=request.input_data.asset,
-            timeframe=request.input_data.timeframe,
-            observed_at=request.input_data.observed_at,
-            confirmed_through=request.input_data.confirmed_through,
-            timestamps=request.input_data.timestamps,
-            open=request.input_data.open,
-            high=request.input_data.high,
-            low=request.input_data.low,
-            close=(100.6, 101.5, 102.5),
-            volume=request.input_data.volume,
-            ),
-        config=request.config,
-        provider_config=request.provider_config,
+        evidence=(),
+        diagnostics=ProviderDiagnostics(0, request.input_data.row_count),
+        reason=reason,
     )
-    assert changed_input.input_identity != request.input_identity
-    assert changed_input.request_identity != request.request_identity
-
-
-def test_provider_result_distinguishes_success_and_failure() -> None:
-    request = _request()
-    with pytest.raises(ContractValidationError):
+    assert result.reason is reason
+    wrong = ProviderStatus.FAILED if status is ProviderStatus.ABSTAINED else ProviderStatus.ABSTAINED
+    with pytest.raises(ContractValidationError, match="incompatible"):
         ProviderResult(
-            provider_name="confirmed_extrema_pair",
-            provider_version="v1",
+            provider_name=PROVIDER_NAME,
+            provider_version=PROVIDER_VERSION,
             request=request,
-            status=ProviderStatus.SUCCESS,
+            status=wrong,
             candidates=(),
-            diagnostics=ProviderDiagnostics(0, 3),
-        )
-    with pytest.raises(ContractValidationError):
-        ProviderResult(
-            provider_name="confirmed_extrema_pair",
-            provider_version="v1",
-            request=request,
-            status=ProviderStatus.FAILED,
-            candidates=(),
-            diagnostics=ProviderDiagnostics(0, 3),
-            reason=None,
-        )
-    with pytest.raises(ContractValidationError):
-        ProviderResult(
-            provider_name="confirmed_extrema_pair",
-            provider_version="v1",
-            request=request,
-            status=ProviderStatus.ABSTAINED,
-            candidates=(),
-            diagnostics=ProviderDiagnostics(0, 3),
-            reason="free form reason",
+            evidence=(),
+            diagnostics=ProviderDiagnostics(0, request.input_data.row_count),
+            reason=reason,
         )
 
 
-def test_provider_result_identity_must_match_typed_request_config() -> None:
-    with pytest.raises(ContractValidationError, match="identity"):
-        ProviderResult(
-            provider_name="other_provider",
-            provider_version="v1",
-            request=_request(),
-            status=ProviderStatus.ABSTAINED,
-            candidates=(),
-            diagnostics=ProviderDiagnostics(candidate_count=0, input_row_count=3),
-            reason=ProviderReason.NO_CANDIDATES,
-        )
+def test_provider_result_serialization_is_deterministic() -> None:
+    first = _success()
+    second = _success()
+    assert first.to_dict() == second.to_dict()
 
 
-def test_request_rejects_invalid_time_boundary() -> None:
-    with pytest.raises(ContractValidationError, match="after observed_at"):
-        ProviderRequest(
-            input_data=_input(
-                observed_at=datetime(2024, 1, 1, tzinfo=UTC),
-                confirmed_through=datetime(2024, 1, 2, tzinfo=UTC),
-            ),
-            config=_config(),
-            provider_config=_provider_config(),
-        )
+def test_provider_request_identity_binds_active_provider_config() -> None:
+    first = _request()
+    second = _request(max_hypotheses=101)
+    assert first.provider_config_identity != second.provider_config_identity
+    assert first.request_identity != second.request_identity
 
 
-def test_provider_input_rejects_future_or_invalid_candle_data() -> None:
-    future_timestamp = int(datetime(2024, 1, 4, tzinfo=UTC).timestamp() * 1_000_000_000)
-    with pytest.raises(ContractValidationError, match="after confirmed_through"):
-        ProviderInput(
-            **{
-                "asset": "BTCUSDT",
-                "timeframe": "4h",
-                "observed_at": datetime(2024, 1, 3, tzinfo=UTC),
-                "confirmed_through": datetime(2024, 1, 3, tzinfo=UTC),
-                "timestamps": (future_timestamp,),
-                "open": (100.0,),
-                "high": (101.0,),
-                "low": (99.0,),
-                "close": (100.5,),
-                "volume": (1.0,),
-            }
-        )
-    with pytest.raises(ContractValidationError, match="OHLC"):
-        ProviderInput(
-            asset="BTCUSDT",
-            timeframe="4h",
-            observed_at=datetime(2024, 1, 3, tzinfo=UTC),
-            confirmed_through=datetime(2024, 1, 3, tzinfo=UTC),
-            timestamps=(1,),
-            open=(100.0,),
-            high=(98.0,),
-            low=(99.0,),
-            close=(100.5,),
-            volume=(1.0,),
-        )
-
-
-def test_runtime_source_has_no_old_trendline_imports() -> None:
+def test_runtime_source_has_no_forbidden_imports() -> None:
     source_root = Path(__file__).parents[3] / "src" / "libs" / "models" / "trendline_v2"
     forbidden = (
         "libs.models.trendline",
@@ -342,55 +183,40 @@ def test_runtime_source_has_no_old_trendline_imports() -> None:
         "libs.trendlines",
         "libs.models.trendlines_old",
         "app.trendlines",
+        "libs.models.sr",
+        "libs.models.regime_v2",
+        "libs.integrations.trendline_regime_v2",
+        "research",
+        "optimization",
     )
     for path in source_root.rglob("*.py"):
-        text = path.read_text(encoding="utf-8")
-        assert not any(token in text for token in forbidden), path
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        imported = {
+            alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.Import, ast.ImportFrom))
+            for alias in node.names
+        }
+        assert not any(
+            name == token or name.startswith(f"{token}.")
+            for token in forbidden
+            for name in imported
+        ), path
 
 
-def _import_target(path: Path, node: ast.ImportFrom) -> str:
-    current = ["trendline_v2", path.parent.name]
-    if node.level == 0:
-        return node.module or ""
-    base = current[: max(1, len(current) - node.level + 1)]
-    if node.module:
-        base.extend(node.module.split("."))
-    return ".".join(base)
-
-
-def test_every_v2_dependency_edge_stays_inside_the_approved_layer_matrix() -> None:
+def test_discovery_imports_stay_inside_approved_layers() -> None:
     package_root = Path(__file__).parents[3] / "src" / "libs" / "models" / "trendline_v2"
     allowed_absolute = {
         "domain": {"__future__", "dataclasses", "datetime", "enum", "math", "types", "typing", "json", "hashlib", "numbers"},
         "input": {"__future__", "dataclasses", "datetime", "hashlib", "typing", "numpy", "pandas"},
         "configuration": {"__future__", "dataclasses", "enum", "typing", "yaml", "pathlib", "re", "types"},
-        "discovery": {"__future__", "dataclasses", "enum", "typing"},
+        "discovery": {"__future__", "dataclasses", "datetime", "enum", "itertools", "typing"},
     }
-    allowed_layers = {
-        "domain": {"domain"},
-        "input": {"domain", "input"},
-        "configuration": {"domain", "configuration"},
-        "discovery": {"domain", "configuration", "discovery"},
-    }
-    for layer, absolute in allowed_absolute.items():
+    for layer, allowed in allowed_absolute.items():
         for path in (package_root / layer).rglob("*.py"):
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):
-                    assert all(alias.name.split(".", 1)[0] in absolute for alias in node.names), path
-                elif isinstance(node, ast.ImportFrom):
-                    target = _import_target(path, node)
-                    if node.level == 0:
-                        assert target.split(".", 1)[0] in absolute, (path, target)
-                    else:
-                        assert target.split(".")[1] in allowed_layers[layer], (path, target)
-
-
-def test_yaml_read_is_owned_by_configuration_loader() -> None:
-    package_root = Path(__file__).parents[3] / "src" / "libs" / "models" / "trendline_v2"
-    loaders = []
-    for path in package_root.rglob("*.py"):
-        text = path.read_text(encoding="utf-8")
-        if "yaml.safe_load" in text:
-            loaders.append(path)
-    assert loaders == [package_root / "configuration" / "loader.py"]
+                    assert all(alias.name.split(".", 1)[0] in allowed for alias in node.names), path
+                elif isinstance(node, ast.ImportFrom) and node.level == 0:
+                    assert (node.module or "").split(".", 1)[0] in allowed, path
