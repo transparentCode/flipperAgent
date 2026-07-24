@@ -181,11 +181,20 @@ def test_public_selection_api_is_explicit_and_does_not_filter_discovery() -> Non
 def test_public_exports_are_exact() -> None:
     assert trendline_v2.__all__ == [
         "CandidateSelectionSnapshot",
+        "CandleDirection",
+        "ConfirmedInteractionBar",
         "ExactSelectedStructureTrackingPolicy",
+        "ExactLineBarObservation",
+        "ExactLineObservationPolicy",
+        "InteractionObservationDiagnostics",
         "LatestValidPredecessorPolicy",
+        "LinePriceRelation",
         "TrackedTrendlineFamily",
         "TrendlineTrackingSnapshot",
+        "TrendlineInteractionSnapshot",
+        "build_trendline_interaction_bar",
         "discover_trendlines",
+        "observe_trendline_family_interactions",
         "select_trendline_candidates",
         "track_trendline_families",
     ]

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from .configuration import (
     ConfirmedExtremaPairConfig,
     ResolvedTrendlineV2Config,
@@ -9,6 +11,13 @@ from .configuration import (
 from .discovery import ConfirmedExtremaPairProvider, ProviderInput, ProviderRequest, ProviderResult
 from .domain.validation import ContractValidationError
 from .input import ConfirmedOHLCVFrame
+from .interaction import (
+    ConfirmedInteractionBar,
+    ExactLineObservationPolicy,
+    TrendlineInteractionSnapshot,
+    interaction_bar_from_frame,
+    observe_exact_line_interactions,
+)
 from .domain.snapshots import DiscoverySnapshot
 from .selection import (
     CandidateSelectionSnapshot,
@@ -84,11 +93,34 @@ def track_trendline_families(
     return track_selected_trendlines(selection, previous=previous, policy=policy)
 
 
+def build_trendline_interaction_bar(
+    frame: ConfirmedOHLCVFrame,
+    *,
+    timestamp: datetime,
+) -> ConfirmedInteractionBar:
+    """Build one exact confirmed interaction bar from an owned frame."""
+
+    return interaction_bar_from_frame(frame, timestamp=timestamp)
+
+
+def observe_trendline_family_interactions(
+    tracking: TrendlineTrackingSnapshot,
+    bar: ConfirmedInteractionBar,
+    *,
+    policy: ExactLineObservationPolicy,
+) -> TrendlineInteractionSnapshot:
+    """Observe frozen tracked families on one later confirmed bar."""
+
+    return observe_exact_line_interactions(tracking, bar, policy=policy)
+
+
 __all__ = [
     "ExactSelectedStructureTrackingPolicy",
     "TrackedTrendlineFamily",
     "TrendlineTrackingSnapshot",
+    "build_trendline_interaction_bar",
     "discover_trendlines",
+    "observe_trendline_family_interactions",
     "select_trendline_candidates",
     "track_trendline_families",
 ]
