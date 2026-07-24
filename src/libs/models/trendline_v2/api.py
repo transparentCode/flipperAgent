@@ -15,6 +15,12 @@ from .selection import (
     LatestValidPredecessorPolicy,
     select_latest_valid_predecessors,
 )
+from .tracking import (
+    ExactSelectedStructureTrackingPolicy,
+    TrackedTrendlineFamily,
+    TrendlineTrackingSnapshot,
+    track_selected_trendlines,
+)
 
 
 def discover_trendlines(
@@ -67,4 +73,22 @@ def select_trendline_candidates(
     return select_latest_valid_predecessors(snapshot, policy=policy)
 
 
-__all__ = ["discover_trendlines", "select_trendline_candidates"]
+def track_trendline_families(
+    selection: CandidateSelectionSnapshot,
+    *,
+    previous: TrendlineTrackingSnapshot | None,
+    policy: ExactSelectedStructureTrackingPolicy,
+) -> TrendlineTrackingSnapshot:
+    """Track one explicitly selected source snapshot through exact identity."""
+
+    return track_selected_trendlines(selection, previous=previous, policy=policy)
+
+
+__all__ = [
+    "ExactSelectedStructureTrackingPolicy",
+    "TrackedTrendlineFamily",
+    "TrendlineTrackingSnapshot",
+    "discover_trendlines",
+    "select_trendline_candidates",
+    "track_trendline_families",
+]

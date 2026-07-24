@@ -9,9 +9,11 @@ import pandas as pd
 import pytest
 
 from libs.models.trendline_v2 import (
+    ExactSelectedStructureTrackingPolicy,
     LatestValidPredecessorPolicy,
     discover_trendlines,
     select_trendline_candidates,
+    track_trendline_families,
 )
 import libs.models.trendline_v2 as trendline_v2
 from libs.models.trendline_v2.configuration import (
@@ -179,10 +181,63 @@ def test_public_selection_api_is_explicit_and_does_not_filter_discovery() -> Non
 def test_public_exports_are_exact() -> None:
     assert trendline_v2.__all__ == [
         "CandidateSelectionSnapshot",
+        "ExactSelectedStructureTrackingPolicy",
         "LatestValidPredecessorPolicy",
+        "TrackedTrendlineFamily",
+        "TrendlineTrackingSnapshot",
         "discover_trendlines",
         "select_trendline_candidates",
+        "track_trendline_families",
     ]
+
+
+def test_public_tracking_api_requires_explicit_previous_and_policy() -> None:
+    result = discover_trendlines(
+        _frame(),
+        config=_foundation_config(),
+        provider_config=_provider_config(),
+    )
+    selection = select_trendline_candidates(
+        result.to_snapshot(),
+        policy=LatestValidPredecessorPolicy(),
+    )
+    tracking = track_trendline_families(
+        selection,
+        previous=None,
+        policy=ExactSelectedStructureTrackingPolicy(),
+    )
+    assert tracking.active_families
+    with pytest.raises(TypeError):
+        track_trendline_families(selection, policy=ExactSelectedStructureTrackingPolicy())  # type: ignore[call-arg]
+    with pytest.raises(TypeError):
+        track_trendline_families(selection, previous=None)  # type: ignore[call-arg]
+
+
+def test_tracking_runtime_dependency_boundary_is_one_way() -> None:
+    tracking_root = Path(__file__).parents[3] / "src" / "libs" / "models" / "trendline_v2" / "tracking"
+    forbidden = (
+        "trendline_v2.discovery",
+        "trendline_v2.configuration",
+        "scripts",
+        "trendline_v2_viewer",
+        "trendline_family",
+        "storage",
+        "interactions",
+        "regime",
+        "yaml",
+    )
+    for path in tracking_root.glob("*.py"):
+        tree = ast.parse(path.read_text(), filename=str(path))
+        imported: list[str] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported.extend(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported.append(node.module)
+        assert not any(
+            any(name == module or name.startswith(f"{module}.") for module in forbidden)
+            for name in imported
+        ), path
 
 
 @pytest.mark.parametrize(
