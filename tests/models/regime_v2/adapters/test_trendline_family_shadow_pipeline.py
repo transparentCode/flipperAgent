@@ -140,6 +140,59 @@ def test_disabled_shadow_factory_does_not_import_optional_adapter(monkeypatch) -
     assert pipeline.trendline_family_shadow is None
 
 
+def test_optional_pipeline_does_not_construct_enabled_shadow(monkeypatch) -> None:
+    orchestrator = object()
+    classifier = object()
+    regime_v2 = object()
+    resolver = _ConfigResolver({"enabled": True})
+
+    def create_classifier(_asset, _timeframe, *, config_resolver):
+        assert config_resolver is resolver
+        return classifier
+
+    def create_regime_v2(_asset, _timeframe, *, config_resolver):
+        assert config_resolver is resolver
+        return regime_v2
+
+    monkeypatch.setattr(
+        regime_module,
+        "_create_regime_orchestrator",
+        lambda _asset, _timeframe: orchestrator,
+    )
+    monkeypatch.setattr(
+        regime_module,
+        "_create_regime_classifier",
+        create_classifier,
+    )
+    monkeypatch.setattr(
+        regime_module,
+        "_create_regime_v2",
+        create_regime_v2,
+    )
+
+    def unexpected_shadow_creation(*args, **kwargs):
+        del args, kwargs
+        raise AssertionError("automatic shadow construction must be retired")
+
+    monkeypatch.setattr(
+        regime_module,
+        "_create_trendline_family_shadow",
+        unexpected_shadow_creation,
+    )
+
+    assert resolver.resolve("BTCUSDT", "1h", "TrendlineFamilyShadow") == {"enabled": True}
+    pipeline = RegimeFeaturePipeline.create_optional(
+        "BTCUSDT",
+        "1h",
+        config_resolver=resolver,
+    )
+
+    assert pipeline.orchestrator is orchestrator
+    assert pipeline.classifier is classifier
+    assert pipeline.regime_v2 is regime_v2
+    assert pipeline.trendline_family_shadow is None
+
+
 @pytest.mark.parametrize(
     "payload, reason",
     (

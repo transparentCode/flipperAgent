@@ -144,11 +144,6 @@ class RegimeFeaturePipeline:
             timeframe,
             config_resolver=resolver,
         )
-        trendline_family_shadow = _create_trendline_family_shadow(
-            asset,
-            timeframe,
-            config_resolver=resolver,
-        )
         return cls(
             asset,
             timeframe,
@@ -156,7 +151,6 @@ class RegimeFeaturePipeline:
             orchestrator=orchestrator,
             classifier=classifier,
             regime_v2=regime_v2,
-            trendline_family_shadow=trendline_family_shadow,
         )
 
     @property
