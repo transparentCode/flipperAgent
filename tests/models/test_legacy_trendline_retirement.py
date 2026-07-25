@@ -201,3 +201,14 @@ def test_no_executable_consumer_imports_retired_trendline_namespaces() -> None:
 def test_earlier_retirement_boundaries_remain_absent() -> None:
     for module_name in _REMOVED_MODULES:
         assert _module_is_absent(module_name), module_name
+
+
+def test_final_trendline_model_layout_is_exact() -> None:
+    model_root = _REPOSITORY_ROOT / "src" / "libs" / "models"
+    actual = {
+        path.name
+        for path in model_root.iterdir()
+        if path.is_dir() and path.name.startswith("trendline")
+    }
+
+    assert actual == {"trendlines", "trendline_v2"}
