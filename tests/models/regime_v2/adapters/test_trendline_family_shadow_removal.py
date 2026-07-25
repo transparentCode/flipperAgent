@@ -16,8 +16,15 @@ removed = (
     ".".join(("libs", "models", "regime_v2", "adapters", "trendline_family_feature_producer")),
     ".".join(("libs", "integrations", "trendline_regime_v2", "shadow")),
 )
+
+def module_is_absent(module_name):
+    try:
+        return importlib.util.find_spec(module_name) is None
+    except ModuleNotFoundError:
+        return True
+
 for module_name in removed:
-    assert importlib.util.find_spec(module_name) is None, module_name
+    assert module_is_absent(module_name), module_name
 
 from libs.models.regime_v2.adapters import RegimeV2FeatureProducer, TrendlineFeatureProducer
 
