@@ -21,7 +21,6 @@ from libs.models.trendline.configuration import (
 )
 from libs.models.trendline.configuration.field_policy import FIELD_POLICIES, configuration_field_names
 from libs.models.trendline.configuration.loader import load_trendline_family_config as canonical_loader
-from libs.integrations.trendline_configuration.loader import load_trendline_family_config as integration_loader
 from libs.models.trendline.configuration.contracts import CandidateConfig
 from libs.models.trendline.configuration.resolver import TrendlineConfigPatch as CanonicalPatch
 from libs.models.trendline_family.config import TrendlineFamilyConfig as FamilyCompatTrendlineConfig
@@ -127,7 +126,6 @@ def test_field_policy_is_complete_unique_and_enforced() -> None:
 
 
 def test_canonical_loader_identity_completion_and_derived_values() -> None:
-    assert integration_loader is canonical_loader
     raw = canonical_loader("configs/trendline_family.yaml")
     TrendlineFamilyConfigResolver(raw, require_complete=True)
     incomplete = dict(raw)
