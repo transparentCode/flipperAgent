@@ -10,6 +10,11 @@ import pandas as pd
 from numpy.lib.stride_tricks import sliding_window_view
 
 from libs.models.trendlines.pivots.base import register_extractor
+from libs.models.trendlines.pivots.capabilities import (
+    ExtractorCapabilities,
+    PivotFinality,
+    TrendlineExecutionMode,
+)
 from libs.models.trendlines.contracts import PivotSet
 from libs.models.trendlines.config import GridSearchConfig
 
@@ -18,6 +23,12 @@ _cfg = GridSearchConfig().fractal
 
 @register_extractor(
     "fractal",
+    capabilities=ExtractorCapabilities(
+        supported_modes=frozenset(
+            {TrendlineExecutionMode.RUNTIME, TrendlineExecutionMode.RESEARCH}
+        ),
+        finality=PivotFinality.CONFIRMED_APPEND_ONLY,
+    ),
     search_grid=[
         {"extractor": {"name": "fractal", "params": {"window_left": wl, "window_right": wr}}}
         for wl, wr in itertools.product(_cfg.left_windows, _cfg.right_windows)

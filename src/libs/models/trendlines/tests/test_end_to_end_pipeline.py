@@ -10,6 +10,7 @@ from libs.models.trendlines import run_trendline_pipeline
 from libs.models.trendlines.boundary.adapters import build_boundary_result_from_trendline_result
 from libs.models.trendlines.boundary.contracts import BoundaryResult, Ray
 from libs.models.trendlines.signals.orchestrator import TrendlineSignalOrchestrator
+from libs.models.trendlines.pivots.capabilities import TrendlineExecutionMode
 
 
 def _make_ohlcv_frame(n_bars: int = 60) -> pd.DataFrame:
@@ -129,6 +130,11 @@ def test_full_pipeline_with_all_extractors():
             df,
             extractor=extractor_name,
             fitter="pathfinding",
+            execution_mode=(
+                TrendlineExecutionMode.RESEARCH
+                if extractor_name == "rdp_zigzag"
+                else TrendlineExecutionMode.RUNTIME
+            ),
         )
 
         assert isinstance(result.is_valid, bool), f"{extractor_name}: is_valid not bool"

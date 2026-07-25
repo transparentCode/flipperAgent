@@ -141,19 +141,29 @@ for sig in output.signal_output["signals"]:
 
 Use these when you want to control extractor/fitter directly without the facade.
 
-### `run_trendline_pipeline(df, extractor, fitter, extractor_kwargs, fitter_kwargs) -> TrendlineFitResult`
+### `run_trendline_pipeline(df, extractor, fitter, extractor_kwargs, fitter_kwargs, execution_mode) -> TrendlineFitResult`
 
 Builds extractor and fitter from the registry, runs extract → fit.
+`execution_mode` defaults to `TrendlineExecutionMode.RUNTIME`. Runtime is fail-closed:
+retrospective or prefix-revising extractors cannot run unless caller explicitly declares
+`TrendlineExecutionMode.RESEARCH`.
 
 ```python
-from libs.models.trendlines import run_trendline_pipeline
+from libs.models.trendlines import TrendlineExecutionMode, run_trendline_pipeline
 
 result = run_trendline_pipeline(
     df,
-    extractor="rdp_zigzag",
+    extractor="fractal",
     fitter="ransac",
     extractor_kwargs={"epsilon_atr": 0.3},
     fitter_kwargs={"max_trials": 100},
+)
+
+research_result = run_trendline_pipeline(
+    df,
+    extractor="rdp_zigzag",
+    fitter="ransac",
+    execution_mode=TrendlineExecutionMode.RESEARCH,
 )
 ```
 
@@ -182,7 +192,7 @@ from libs.models.trendlines.config import TrendlinesConfig, OptimizableDefaults
 
 cfg = replace(
     TrendlinesConfig(),
-    extractor="rdp_zigzag",
+    extractor="fractal",
     defaults=replace(OptimizableDefaults(), squeeze_threshold=2.0),
 )
 ```
@@ -211,6 +221,9 @@ pipeline/orchestrator.py:
   metadata["pipeline"]["fitter_name"]         = "pathfinding"
   metadata["pipeline"]["n_high_pivots"]       = 12
   metadata["pipeline"]["n_low_pivots"]        = 11
+  metadata["pipeline"]["execution_mode"]      = "runtime"
+  metadata["pipeline"]["extractor_finality"]   = "confirmed_append_only"
+  metadata["pipeline"]["extractor_supported_modes"] = ["research", "runtime"]
 
 api.py (after resolve):
   metadata["asset_profile"]                   = {tf_minutes, mean_atr, mean_price, n_bars, ...}
@@ -246,3 +259,9 @@ result.apply_to_config("trendlines.yaml")  # Write to per-asset/TF YAML
 ```
 
 **Facade:** `optimize_trendlines(df, asset, timeframe, config)` in `api.py`.
+
+Optimisation and walk-forward evaluation are offline research callers. Their internal
+pipeline and extractor construction explicitly use `TrendlineExecutionMode.RESEARCH`.
+YAML may select `rdp_zigzag`, but YAML cannot override execution policy: a runtime call
+fails closed and a research call must declare research mode. Custom extractors likewise
+need immutable typed `ExtractorCapabilities`; unclassified extractors are rejected.

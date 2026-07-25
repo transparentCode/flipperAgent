@@ -29,6 +29,8 @@ from libs.models.trendlines.workflows.pipeline.support import (
 from libs.models.trendlines.workflows.pipeline import data_fetch
 from libs.models.trendlines.workflows.pipeline.config_apply import build_yaml_snippet
 from libs.models.trendlines.workflows.pipeline.reporting import print_results, print_pipeline_yaml_snippet
+from libs.models.trendlines.pivots.capabilities import TrendlineExecutionMode
+from libs.models.trendlines.registry import list_extractors_for_mode
 
 
 __all__ = [
@@ -66,7 +68,13 @@ Examples:
     parser.add_argument("--train-bars", type=int, default=None, help="Training window size in bars")
     parser.add_argument("--test-bars", type=int, default=None, help="Test window size in bars")
     parser.add_argument("--step-bars", type=int, default=None, help="Step size between windows")
-    parser.add_argument("--extractor", type=str, default="fractal", choices=["fractal", "rdp_zigzag"], help="Extractor to sweep")
+    parser.add_argument(
+        "--extractor",
+        type=str,
+        default="fractal",
+        choices=list_extractors_for_mode(TrendlineExecutionMode.RESEARCH),
+        help="Extractor to sweep",
+    )
     parser.add_argument("--output", type=str, default=None, help="Optional output path for result JSON")
     parser.add_argument("--quiet", action="store_true", help="Suppress progress output")
     return parser.parse_args()

@@ -3,6 +3,11 @@ import pandas as pd
 
 from libs.models.trendlines import TrendlinePipelineConfig, execute_trendline_pipeline, run_trendline_pipeline, run_trendline_pipeline_from_config
 from libs.models.trendlines.contracts import PivotSet, TrendlineFitResult
+from libs.models.trendlines.pivots.capabilities import (
+    ExtractorCapabilities,
+    PivotFinality,
+    TrendlineExecutionMode,
+)
 
 
 def _make_pipeline_frame() -> pd.DataFrame:
@@ -34,6 +39,13 @@ def test_run_trendline_pipeline_with_registered_components():
 
 def test_run_trendline_pipeline_accepts_custom_components():
     class StubExtractor:
+        CAPABILITIES = ExtractorCapabilities(
+            supported_modes=frozenset(
+                {TrendlineExecutionMode.RUNTIME, TrendlineExecutionMode.RESEARCH}
+            ),
+            finality=PivotFinality.CONFIRMED_APPEND_ONLY,
+        )
+
         def extract(self, df: pd.DataFrame) -> PivotSet:
             return PivotSet(
                 high_indices=np.array([1, 3]),
@@ -105,6 +117,7 @@ def test_run_trendline_pipeline_with_rdp_zigzag_extractor():
         extractor="rdp_zigzag",
         fitter="least_squares",
         extractor_kwargs={"epsilon_atr": 0.1, "min_segment_bars": 1},
+        execution_mode=TrendlineExecutionMode.RESEARCH,
     )
 
     assert result.is_valid is True

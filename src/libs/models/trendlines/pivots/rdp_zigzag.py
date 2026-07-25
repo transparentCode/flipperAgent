@@ -9,6 +9,11 @@ import numpy as np
 import pandas as pd
 
 from libs.models.trendlines.pivots.base import register_extractor
+from libs.models.trendlines.pivots.capabilities import (
+    ExtractorCapabilities,
+    PivotFinality,
+    TrendlineExecutionMode,
+)
 from libs.models.trendlines.contracts import PivotSet
 
 
@@ -18,6 +23,10 @@ _cfg = GridSearchConfig().rdp_zigzag
 
 @register_extractor(
     "rdp_zigzag",
+    capabilities=ExtractorCapabilities(
+        supported_modes=frozenset({TrendlineExecutionMode.RESEARCH}),
+        finality=PivotFinality.RETROSPECTIVE_PREFIX_REVISING,
+    ),
     search_grid=[
         {
             "extractor": {

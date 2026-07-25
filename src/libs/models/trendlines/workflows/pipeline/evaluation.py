@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 
-from libs.models.trendlines import TrendlineFitResult, TrendlinePipelineConfig, build_extractor, run_trendline_pipeline_from_config
+from libs.models.trendlines import (
+    TrendlineExecutionMode,
+    TrendlineFitResult,
+    TrendlinePipelineConfig,
+    build_extractor,
+    run_trendline_pipeline_from_config,
+)
 from libs.models.trendlines.contracts import Trendline
 from libs.models.trendlines.registry import get_extractor_search_grid, get_fitter_search_grid
 from libs.models.trendlines.data import TemporalSplitManifest
@@ -41,7 +47,11 @@ def run_pipeline_with_params(
     del asset, timeframe
     fit_df = _resolve_fit_frame(df, params)
     config = resolve_trendlines_workflow_config(params) or TrendlinePipelineConfig()
-    return run_trendline_pipeline_from_config(fit_df, config)
+    return run_trendline_pipeline_from_config(
+        fit_df,
+        config,
+        execution_mode=TrendlineExecutionMode.RESEARCH,
+    )
 
 
 def _fit_window_bars(train_df: pd.DataFrame, params: Dict[str, Any]) -> int:
@@ -203,7 +213,11 @@ def evaluate_pivot_count(
     for train_s, train_e, _, _ in windows:
         train_df = _resolve_fit_frame(df.iloc[train_s:train_e], params)
         config = resolve_trendlines_workflow_config(params) or TrendlinePipelineConfig()
-        extractor = build_extractor(config.extractor, **config.extractor_params)
+        extractor = build_extractor(
+            config.extractor,
+            execution_mode=TrendlineExecutionMode.RESEARCH,
+            **config.extractor_params,
+        )
         pivots = extractor.extract(train_df)
         pivot_counts.append(pivots.n_highs + pivots.n_lows)
 

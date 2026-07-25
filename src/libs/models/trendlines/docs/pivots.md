@@ -6,11 +6,21 @@ swing low bar indices that fitters use as anchor points.
 ## Registry
 
 ```python
-from libs.models.trendlines import build_extractor, list_extractors
+from libs.models.trendlines import (
+    TrendlineExecutionMode,
+    build_extractor,
+    list_extractors_for_mode,
+)
 
-list_extractors()   # ("fractal", "rdp_zigzag")
+list_extractors_for_mode(TrendlineExecutionMode.RUNTIME)   # ("fractal",)
+list_extractors_for_mode(TrendlineExecutionMode.RESEARCH)  # ("fractal", "rdp_zigzag")
 
-extractor = build_extractor("fractal", window_left=5, window_right=5)
+extractor = build_extractor(
+    "fractal",
+    execution_mode=TrendlineExecutionMode.RUNTIME,
+    window_left=5,
+    window_right=5,
+)
 pivot_set = extractor.extract(df)
 ```
 
@@ -20,10 +30,19 @@ pivot_set = extractor.extract(df)
 2. Implement and decorate:
    ```python
    from libs.models.trendlines.pivots.base import register_extractor
+   from libs.models.trendlines.pivots.capabilities import (
+       ExtractorCapabilities,
+       PivotFinality,
+       TrendlineExecutionMode,
+   )
    from libs.models.trendlines.contracts import PivotSet
 
    @register_extractor(
        name="my_extractor",
+       capabilities=ExtractorCapabilities(
+           supported_modes=frozenset({TrendlineExecutionMode.RESEARCH}),
+           finality=PivotFinality.RETROSPECTIVE_PREFIX_REVISING,
+       ),
        search_grid=[
            {"extractor": {"name": "my_extractor", "params": {"param": v}}}
            for v in (1, 2, 3)
@@ -37,7 +56,8 @@ pivot_set = extractor.extract(df)
            ...
    ```
 3. Import the module somewhere in `pivots/__init__.py` to trigger registration
-4. Declare search grid in the decorator; the registry surfaces it to the workflow engine
+4. Declare immutable execution capabilities; registration has no implicit default
+5. Declare search grid in the decorator; the registry surfaces it to the workflow engine
 
 ## Extractor 1 — Fractal (`pivots/fractal.py`)
 
@@ -103,13 +123,32 @@ From `config/search_grid_config.py` → `FractalSearchGrid`. Exposed by `get_ext
 ### Example
 
 ```python
-extractor = build_extractor("fractal", window_left=5, window_right=3)
+extractor = build_extractor(
+    "fractal",
+    execution_mode=TrendlineExecutionMode.RUNTIME,
+    window_left=5,
+    window_right=3,
+)
 pivots = extractor.extract(df)
 print(pivots.n_highs, pivots.n_lows)   # e.g. 8, 9
 print(pivots.is_valid())               # True if >= 2 total pivots
 ```
 
 ## Extractor 2 — RDP Zigzag (`pivots/rdp_zigzag.py`)
+
+RDP ZigZag is research-only. It is retrospective and prefix-revising because
+whole-frame endpoint selection and mean-ATR scaling can change earlier pivots when
+later bars arrive. Runtime pipeline calls reject it before extraction. Use explicit
+research mode for historical analysis, walk-forward evaluation, and optimisation:
+
+```python
+from libs.models.trendlines import TrendlineExecutionMode, build_extractor
+
+extractor = build_extractor(
+    "rdp_zigzag",
+    execution_mode=TrendlineExecutionMode.RESEARCH,
+)
+```
 
 ### Algorithm
 

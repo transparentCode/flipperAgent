@@ -8,14 +8,37 @@ import pandas as pd
 
 from libs.models.trendlines.config import TrendlinePipelineConfig
 from libs.models.trendlines.contracts import TrendlineFitResult
-from libs.models.trendlines.registry import build_extractor, build_fitter
+from libs.models.trendlines.pivots.base import PivotExtractor
+from libs.models.trendlines.pivots.capabilities import (
+    ExtractorCapabilities,
+    TrendlineExecutionMode,
+    capabilities_to_metadata,
+    normalize_execution_mode,
+    validate_extractor_capabilities,
+)
+from libs.models.trendlines.registry import (
+    build_extractor,
+    build_fitter,
+    canonical_extractor_name,
+    get_registered_extractor_capabilities,
+)
 
 
-def _resolve_extractor(extractor: object, extractor_kwargs: dict[str, Any]) -> tuple[object, str]:
+def _resolve_extractor(
+    extractor: object,
+    extractor_kwargs: dict[str, Any],
+    execution_mode: TrendlineExecutionMode,
+) -> tuple[PivotExtractor, str, ExtractorCapabilities]:
     if isinstance(extractor, str):
-        normalized = extractor.strip().lower()
-        return build_extractor(normalized, **extractor_kwargs), normalized
-    return extractor, extractor.__class__.__name__
+        canonical = canonical_extractor_name(extractor)
+        resolved = build_extractor(
+            extractor,
+            execution_mode=execution_mode,
+            **extractor_kwargs,
+        )
+        return resolved, canonical, get_registered_extractor_capabilities(canonical)
+    capabilities = validate_extractor_capabilities(extractor, execution_mode)
+    return extractor, extractor.__class__.__name__, capabilities
 
 
 def _resolve_fitter(fitter: object, fitter_kwargs: dict[str, Any]) -> tuple[object, str]:
@@ -32,10 +55,16 @@ def run_trendline_pipeline(
     fitter: object = "pathfinding",
     extractor_kwargs: dict[str, Any] | None = None,
     fitter_kwargs: dict[str, Any] | None = None,
+    execution_mode: TrendlineExecutionMode | str = TrendlineExecutionMode.RUNTIME,
 ) -> TrendlineFitResult:
     """Run the registered trendline pipeline using one extractor and one fitter."""
 
-    resolved_extractor, extractor_name = _resolve_extractor(extractor, dict(extractor_kwargs or {}))
+    mode = normalize_execution_mode(execution_mode)
+    resolved_extractor, extractor_name, capabilities = _resolve_extractor(
+        extractor,
+        dict(extractor_kwargs or {}),
+        mode,
+    )
     resolved_fitter, fitter_name = _resolve_fitter(fitter, dict(fitter_kwargs or {}))
 
     pivots = resolved_extractor.extract(df)
@@ -47,6 +76,8 @@ def run_trendline_pipeline(
         "fitter": fitter_name,
         "n_high_pivots": pivots.n_highs,
         "n_low_pivots": pivots.n_lows,
+        "execution_mode": mode.value,
+        **capabilities_to_metadata(capabilities),
     }
     result.metadata = metadata
     return result
@@ -55,6 +86,8 @@ def run_trendline_pipeline(
 def run_trendline_pipeline_from_config(
     df: pd.DataFrame,
     config: TrendlinePipelineConfig,
+    *,
+    execution_mode: TrendlineExecutionMode | str = TrendlineExecutionMode.RUNTIME,
 ) -> TrendlineFitResult:
     """Run the trendline pipeline from a typed config contract."""
 
@@ -64,6 +97,7 @@ def run_trendline_pipeline_from_config(
         fitter=config.fitter,
         extractor_kwargs=config.extractor_params,
         fitter_kwargs=config.fitter_params,
+        execution_mode=execution_mode,
     )
 
 
@@ -75,6 +109,7 @@ def execute_trendline_pipeline(
     fitter: object = "pathfinding",
     extractor_kwargs: dict[str, Any] | None = None,
     fitter_kwargs: dict[str, Any] | None = None,
+    execution_mode: TrendlineExecutionMode | str = TrendlineExecutionMode.RUNTIME,
 ) -> tuple[TrendlineFitResult, TrendlinePipelineConfig | None]:
     """Run the trendline pipeline from either a config contract or direct components."""
 
@@ -85,7 +120,14 @@ def execute_trendline_pipeline(
             if isinstance(config, TrendlinePipelineConfig)
             else TrendlinePipelineConfig.from_dict(dict(config))
         )
-        return run_trendline_pipeline_from_config(df, resolved_config), resolved_config
+        return (
+            run_trendline_pipeline_from_config(
+                df,
+                resolved_config,
+                execution_mode=execution_mode,
+            ),
+            resolved_config,
+        )
 
     return run_trendline_pipeline(
         df,
@@ -93,6 +135,7 @@ def execute_trendline_pipeline(
         fitter=fitter,
         extractor_kwargs=extractor_kwargs,
         fitter_kwargs=fitter_kwargs,
+        execution_mode=execution_mode,
     ), None
 
 

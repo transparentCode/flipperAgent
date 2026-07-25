@@ -7,9 +7,21 @@ boundary adaptation, and native signal extraction.
 # --- Contracts ---
 from libs.models.trendlines.contracts import PivotSet, Trendline, TrendlineFitResult
 from libs.models.trendlines.config import TrendlinePipelineConfig
+from libs.models.trendlines.pivots.capabilities import (
+    ExtractorCapabilities,
+    ExtractorExecutionPolicyError,
+    PivotFinality,
+    TrendlineExecutionMode,
+)
 
 # --- Registry ---
-from libs.models.trendlines.registry import build_extractor, build_fitter, list_extractors, list_fitters
+from libs.models.trendlines.registry import (
+    build_extractor,
+    build_fitter,
+    list_extractors,
+    list_extractors_for_mode,
+    list_fitters,
+)
 
 # --- Pipeline orchestration ---
 from libs.models.trendlines.pipeline import (
@@ -34,10 +46,15 @@ __all__ = [
     "Trendline",
     "TrendlineFitResult",
     "TrendlinePipelineConfig",
+    "ExtractorCapabilities",
+    "ExtractorExecutionPolicyError",
+    "PivotFinality",
+    "TrendlineExecutionMode",
     # Registry
     "build_extractor",
     "build_fitter",
     "list_extractors",
+    "list_extractors_for_mode",
     "list_fitters",
     # Pipeline
     "execute_trendline_pipeline",

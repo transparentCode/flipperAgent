@@ -5,6 +5,7 @@ from libs.models.trendlines.fitting.least_squares import LeastSquaresFitter
 from libs.models.trendlines.fitting.pathfinding import PathfindingFitter
 from libs.models.trendlines.fitting.ransac import RansacFitter
 from libs.models.trendlines.pivots.rdp_zigzag import RDPZigZagPivotExtractor
+from libs.models.trendlines.pivots.capabilities import TrendlineExecutionMode
 
 
 def test_build_fitter_returns_registered_fitter():
@@ -49,12 +50,22 @@ def test_build_extractor_supports_deprecated_alias(caplog):
 
 
 def test_build_extractor_returns_rdp_zigzag_extractor():
-    extractor = build_extractor("rdp_zigzag", epsilon_atr=0.1, min_segment_bars=1)
+    extractor = build_extractor(
+        "rdp_zigzag",
+        execution_mode=TrendlineExecutionMode.RESEARCH,
+        epsilon_atr=0.1,
+        min_segment_bars=1,
+    )
     assert isinstance(extractor, RDPZigZagPivotExtractor)
 
 
 def test_build_extractor_supports_hyphenated_rdp_alias(caplog):
-    extractor = build_extractor("rdp-zigzag", epsilon_atr=0.1, min_segment_bars=1)
+    extractor = build_extractor(
+        "rdp-zigzag",
+        execution_mode=TrendlineExecutionMode.RESEARCH,
+        epsilon_atr=0.1,
+        min_segment_bars=1,
+    )
     assert isinstance(extractor, RDPZigZagPivotExtractor)
     assert "deprecated" in caplog.text.lower()
 

@@ -14,21 +14,26 @@ Resolution flow (for fit_and_signal):
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional
 
 import pandas as pd
 
 from libs.models.trendlines.boundary.adapters import build_boundary_result_from_trendline_result
 from libs.models.trendlines.boundary.contracts import BoundaryResult
 from libs.models.trendlines.config import TrendlinePipelineConfig, TrendlinesConfig, load_trendlines_config
-from libs.models.trendlines.config.resolve import ResolvedConfig, resolve_asset_config
+from libs.models.trendlines.config.resolve import resolve_asset_config
 from libs.models.trendlines.contracts import TrendlineFitResult
 from libs.models.trendlines.pipeline import (
     execute_trendline_pipeline,
-    run_trendline_pipeline,
-    run_trendline_pipeline_from_config,
 )
+from libs.models.trendlines.pivots.capabilities import TrendlineExecutionMode
 from libs.models.trendlines.signals.orchestrator import TrendlineSignalOrchestrator
+
+if TYPE_CHECKING:
+    from libs.models.trendlines.optimization import (
+        TrendlinesOptimizationConfig,
+        TrendlinesOptimizationResult,
+    )
 
 
 @dataclass
@@ -81,6 +86,7 @@ def fit_trendlines(
     fitter: str = "pathfinding",
     extractor_kwargs: dict[str, Any] | None = None,
     fitter_kwargs: dict[str, Any] | None = None,
+    execution_mode: TrendlineExecutionMode | str = TrendlineExecutionMode.RUNTIME,
 ) -> TrendlineOutput:
     """Run the core extract → fit pipeline and return a unified output.
 
@@ -95,6 +101,7 @@ def fit_trendlines(
         fitter=fitter,
         extractor_kwargs=extractor_kwargs,
         fitter_kwargs=fitter_kwargs,
+        execution_mode=execution_mode,
     )
     return TrendlineOutput(
         fit_result=fit_result,
@@ -115,6 +122,7 @@ def fit_trendlines_to_boundary(
     fitter_kwargs: dict[str, Any] | None = None,
     trendline_config: TrendlinePipelineConfig | None = None,
     trendlines_config: TrendlinesConfig | None = None,
+    execution_mode: TrendlineExecutionMode | str = TrendlineExecutionMode.RUNTIME,
 ) -> TrendlineOutput:
     """Run extract → fit → boundary adaptation and return a unified output.
 
@@ -133,6 +141,7 @@ def fit_trendlines_to_boundary(
         fitter=fitter,
         extractor_kwargs=extractor_kwargs,
         fitter_kwargs=fitter_kwargs,
+        execution_mode=execution_mode,
     )
 
     # Resolve boundary params from asset/TF config if available
@@ -174,6 +183,7 @@ def fit_oscillator_to_boundary(
     timeframe: str,
     oscillator_type: str,
     trendlines_config: TrendlinesConfig | None = None,
+    execution_mode: TrendlineExecutionMode | str = TrendlineExecutionMode.RUNTIME,
 ) -> TrendlineOutput:
     """Run extract → fit → boundary for oscillator-space synthetic OHLCV.
 
@@ -204,6 +214,7 @@ def fit_oscillator_to_boundary(
     fit_result, runtime_config = execute_trendline_pipeline(
         df,
         config=osc_pipeline_config,
+        execution_mode=execution_mode,
     )
 
     boundary = build_boundary_result_from_trendline_result(
@@ -244,6 +255,7 @@ def fit_and_signal(
     trendlines_config: TrendlinesConfig | None = None,
     history: List[BoundaryResult] | None = None,
     context: Dict[str, Any] | None = None,
+    execution_mode: TrendlineExecutionMode | str = TrendlineExecutionMode.RUNTIME,
 ) -> TrendlineOutput:
     """Run the full extract → fit → boundary → signal pipeline.
 
@@ -267,6 +279,7 @@ def fit_and_signal(
         fitter=fitter,
         extractor_kwargs=extractor_kwargs,
         fitter_kwargs=fitter_kwargs,
+        execution_mode=execution_mode,
     )
 
     # ── Stage 3: Resolve config from asset profile ──
@@ -329,7 +342,6 @@ def optimize_trendlines(
     """Run trendlines Bayesian optimization and return best run output."""
     from libs.models.trendlines.optimization import (
         TrendlinesOptimizationConfig,
-        TrendlinesOptimizationResult,
         TrendlinesOptimizer,
     )
 

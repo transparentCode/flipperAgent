@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from typing import Any, Callable, Dict, Optional
+from typing import Optional
 
 import pandas as pd
 
@@ -38,7 +38,11 @@ def _oscillator_pipeline_factory(
     timeframe: str,
 ):
     """Pipeline factory for oscillator trendlines optimization."""
-    from libs.models.trendlines import TrendlinePipelineConfig, build_extractor
+    from libs.models.trendlines import (
+        TrendlineExecutionMode,
+        TrendlinePipelineConfig,
+        build_extractor,
+    )
     from libs.models.trendlines.pipeline import run_trendline_pipeline_from_config
 
     def run(train_df: pd.DataFrame):
@@ -53,9 +57,17 @@ def _oscillator_pipeline_factory(
             extractor_params={"window_left": left_w, "window_right": right_w},
             fitter_params={"pivot_window": pivot_w},
         )
-        fit_result = run_trendline_pipeline_from_config(train_df, config)
+        fit_result = run_trendline_pipeline_from_config(
+            train_df,
+            config,
+            execution_mode=TrendlineExecutionMode.RESEARCH,
+        )
 
-        extractor = build_extractor(config.extractor, **config.extractor_params)
+        extractor = build_extractor(
+            config.extractor,
+            execution_mode=TrendlineExecutionMode.RESEARCH,
+            **config.extractor_params,
+        )
         pivots = extractor.extract(train_df)
         n_pivots = pivots.n_highs + pivots.n_lows
 

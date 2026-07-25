@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Callable, Dict, List, Optional
+from typing import Callable, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -56,7 +56,7 @@ def _default_pipeline_factory(
     from libs.models.trendlines.workflows.pipeline.evaluation import (
         run_pipeline_with_params,
     )
-    from libs.models.trendlines import build_extractor
+    from libs.models.trendlines import TrendlineExecutionMode, build_extractor
     from libs.models.trendlines.workflows.pipeline.temporal_spec import resolve_trendlines_workflow_config
     from libs.models.trendlines import TrendlinePipelineConfig
 
@@ -65,7 +65,11 @@ def _default_pipeline_factory(
 
         # Extract pivot count
         config = resolve_trendlines_workflow_config(params) or TrendlinePipelineConfig()
-        extractor = build_extractor(config.extractor, **config.extractor_params)
+        extractor = build_extractor(
+            config.extractor,
+            execution_mode=TrendlineExecutionMode.RESEARCH,
+            **config.extractor_params,
+        )
         lookback_bars = params.get("lookback_bars")
         if lookback_bars is not None:
             pivot_df = train_df.tail(max(int(lookback_bars), 1))
