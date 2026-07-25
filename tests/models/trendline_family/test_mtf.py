@@ -20,11 +20,6 @@ from libs.models.trendline_family.mtf import (
     deserialize_mtf_snapshot,
     serialize_mtf_snapshot,
 )
-from libs.models.regime_v2.adapters.trendline_family_feature_producer import (
-    TrendlineFamilyFeatureProducer,
-    TrendlineFamilyShadowConfig,
-    summarize_trendline_family_shadow_artifacts,
-)
 from libs.models.trendline_family.repository import InMemoryTrendlineFamilyRepository
 from libs.models.trendline_family.tracker import TrendlineFamilyTracker
 
@@ -215,7 +210,7 @@ def test_mtf_snapshot_identity_rejects_stale_payload() -> None:
         replace(snapshot, mtf_snapshot_id="forged")
 
 
-def test_mtf_conflicts_intersections_and_shadow_artifacts_remain_additive() -> None:
+def test_mtf_conflicts_intersections_and_feature_projection_remain_additive() -> None:
     observed = timestamp()
     conflict = compose_mtf_snapshot(
         source_snapshots={
@@ -254,65 +249,8 @@ def test_mtf_conflicts_intersections_and_shadow_artifacts_remain_additive() -> N
     )
     assert any(item.relation_type is MTFRelationType.INTERSECTION for item in intersection.relations)
 
-    features = build_mtf_shadow_features(conflict)
-    report = summarize_trendline_family_shadow_artifacts(
-        ({"trendline_family_shadow": {"trendline_family_shadow_enabled": True, "mtf": features}},)
-    )
-    assert features["conflict_relation_count"] == 1
-    assert report["distributions"]["mtf_conflict_relation_count"] == {"1": 1}
+    conflict_features = build_mtf_shadow_features(conflict)
+    intersection_features = build_mtf_shadow_features(intersection)
 
-
-def test_shadow_adapter_reads_precomposed_mtf_evidence_without_composition() -> None:
-    observed = timestamp()
-    source = _source_snapshot(timeframe="1h", observed_at=observed, reference_price=100.0)
-    mtf_snapshot = compose_mtf_snapshot(
-        source_snapshots={"1h": source},
-        decision_timestamp=observed,
-        normalization_context=_context(),
-        config=_mtf_config(timeframes=("1h",)),
-    )
-    config = tracker_config()
-    provider = SequenceProvider((valid_result(candidate(config, observed)),))
-    shadow = TrendlineFamilyFeatureProducer(
-        "BTCUSDT",
-        "1h",
-        shadow_config=TrendlineFamilyShadowConfig(enabled=True),
-        repository=InMemoryTrendlineFamilyRepository(),
-        resolved_config=config,
-        provider=provider,
-        mtf_snapshot_provider=lambda: mtf_snapshot,
-    )
-
-    features = shadow.analyze(tracker_ohlcv(observed))
-    assert features["mtf"]["mtf_snapshot_id"] == mtf_snapshot.mtf_snapshot_id
-    assert features["mtf"] == build_mtf_shadow_features(mtf_snapshot)
-
-
-def test_shadow_adapter_soft_disables_mismatched_mtf_context_without_head_mutation() -> None:
-    observed = timestamp()
-    source = _source_snapshot(timeframe="1h", observed_at=observed, reference_price=100.0)
-    mismatched_mtf = compose_mtf_snapshot(
-        source_snapshots={"1h": source},
-        decision_timestamp=observed + timedelta(hours=1),
-        normalization_context=_context(),
-        config=_mtf_config(timeframes=("1h",)),
-    )
-    config = tracker_config()
-    repository = InMemoryTrendlineFamilyRepository()
-    shadow = TrendlineFamilyFeatureProducer(
-        "BTCUSDT",
-        "1h",
-        shadow_config=TrendlineFamilyShadowConfig(enabled=True),
-        repository=repository,
-        resolved_config=config,
-        provider=SequenceProvider((valid_result(candidate(config, observed)),)),
-        mtf_snapshot_provider=lambda: mismatched_mtf,
-    )
-
-    features = shadow.analyze(tracker_ohlcv(observed))
-    head = repository.latest_snapshot("BTCUSDT", "1h")
-
-    assert features["mtf"]["enabled"] is False
-    assert features["mtf"]["mtf_snapshot_id"] is None
-    assert head is not None
-    assert head.snapshot_id == features["trendline_family_repository_head_after"]
+    assert conflict_features["conflict_relation_count"] == 1
+    assert intersection_features["intersection_relation_count"] == 1

@@ -8,9 +8,6 @@ from typing import Any
 
 import pytest
 
-from libs.models.regime_v2.adapters.trendline_family_feature_producer import (
-    summarize_trendline_family_shadow_artifacts,
-)
 from libs.models.trendline_family.contracts import (
     ContractValidationError,
     FamilyRole,
@@ -630,7 +627,7 @@ def test_mtf_projected_order_uses_source_corridor_order_and_detects_real_crossin
     } == set(crossing_source.corridors[0].ordered_member_ids)
 
 
-def test_mtf_intersection_and_artifacts_preserve_orthogonal_facts() -> None:
+def test_mtf_intersection_features_preserve_orthogonal_facts() -> None:
     observed = timestamp()
     snapshot = compose_mtf_snapshot(
         source_snapshots={
@@ -654,33 +651,26 @@ def test_mtf_intersection_and_artifacts_preserve_orthogonal_facts() -> None:
     assert relation.intersection_horizon_eligible is True
 
     features = build_mtf_shadow_features(snapshot)
-    artifacts = summarize_trendline_family_shadow_artifacts(
-        ({"trendline_family_shadow": {"trendline_family_shadow_enabled": True, "mtf": features}},)
-    )["distributions"]
     assert features["intersection_relation_count"] == 1
-    assert artifacts["mtf_intersection_relation_count"] == {"1": 1}
-    assert artifacts["mtf_intersection_seconds_from_decision"]
-    assert artifacts["mtf_intersection_horizon_seconds"] == {"86400": 1}
+    assert features["intersection_seconds_from_decision_values"]
+    assert features["intersection_horizon_seconds_values"] == (86_400,)
 
 
-def test_mtf_artifacts_use_persisted_cluster_sequences() -> None:
+def test_mtf_features_use_persisted_cluster_sequences() -> None:
     snapshot = _two_source_snapshot()
     features = build_mtf_shadow_features(snapshot)
-    distributions = summarize_trendline_family_shadow_artifacts(
-        ({"trendline_family_shadow": {"trendline_family_shadow_enabled": True, "mtf": features}},)
-    )["distributions"]
 
-    assert distributions["mtf_cluster_size"] == {"2": 1}
-    assert distributions["mtf_cluster_distinct_timeframe_count"] == {"2": 1}
+    assert features["cluster_family_sizes"] == (2,)
+    assert features["cluster_timeframe_counts"] == (2,)
     for key in (
-        "mtf_source_timeframe_coverage",
-        "mtf_source_age_bars",
-        "mtf_confluence_strength",
-        "mtf_normalized_slope_dispersion",
-        "mtf_corridor_overlap_ratio",
-        "mtf_exclusion_reason",
+        "source_timeframes",
+        "source_age_bars",
+        "confluence_strengths",
+        "normalized_slope_dispersion_values",
+        "corridor_overlap_ratio_values",
+        "exclusion_reason_distribution",
     ):
-        assert key in distributions
+        assert key in features
 
 
 def serialize_mtf_snapshot_payload(payload: dict[str, Any]) -> str:

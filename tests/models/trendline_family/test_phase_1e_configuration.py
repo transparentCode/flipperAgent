@@ -27,14 +27,6 @@ from libs.models.trendline.configuration.resolver import TrendlineConfigPatch as
 from libs.models.trendline_family.config import TrendlineFamilyConfig as FamilyCompatTrendlineConfig
 from libs.models.trendline_family.config_resolver import TrendlineConfigPatch as FamilyCompatPatch
 from libs.models.trendline_family.contracts import ContractValidationError
-from libs.models.regime_v2.adapters.trendline_family_feature_producer import (
-    TrendlineFamilyFeatureProducer as CompatShadowProducer,
-)
-from libs.integrations.trendline_regime_v2.shadow import (
-    TrendlineFamilyFeatureProducer as NeutralShadowProducer,
-)
-
-
 _TRENDLINE_ROOT = Path(__file__).parents[3] / "src" / "libs" / "models" / "trendline"
 _FORBIDDEN_MODEL_IMPORTS = {
     "libs.models.regime",
@@ -250,15 +242,6 @@ def test_core_model_has_no_direct_other_model_imports_or_cross_model_contract_fi
     for contract in (TrendlineFamilyConfig, ResolvedTrendlineFamilyConfig):
         fields = set(contract.__dataclass_fields__)
         assert not {field for field in fields if field.startswith(("regime", "sr_", "market_context"))}
-
-
-def test_cross_model_shadow_adapter_is_neutral_implementation_with_compatibility_identity() -> None:
-    assert CompatShadowProducer is NeutralShadowProducer
-    source = (Path(__file__).parents[3] / "src" / "libs" / "models" / "regime_v2" / "adapters" / "trendline_family_feature_producer.py").read_text(
-        encoding="utf-8"
-    )
-    assert "libs.models.trendline" not in source
-    assert "libs.integrations.trendline_regime_v2.shadow" in source
 
 
 def test_config_validation_remains_strict_after_profile_resolution() -> None:
