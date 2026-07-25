@@ -4,7 +4,6 @@ import ast
 from importlib.util import resolve_name
 from pathlib import Path
 
-from libs.integrations.trendline_regime_v2 import ablation
 from libs.models.trendline import api, config_loader, contracts, mtf, provider, repository, tracker
 from libs.models.trendline.configuration import loader as configuration_loader
 from libs.models.trendline.discovery import contracts as discovery_contracts
@@ -33,9 +32,6 @@ def test_migrated_imports_preserve_runtime_object_identity() -> None:
     assert api.compose_mtf_snapshot is composition.compose_mtf_snapshot
     assert config_loader.load_trendline_family_config is configuration_loader.load_trendline_family_config
     assert family_config_loader.load_trendline_family_config is configuration_loader.load_trendline_family_config
-
-    assert ablation.ContractValidationError is validation.ContractValidationError
-
 
 def test_public_compatibility_surfaces_retain_owner_identity() -> None:
     assert contracts.ContractValidationError is validation.ContractValidationError

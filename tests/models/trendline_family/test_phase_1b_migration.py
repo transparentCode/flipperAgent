@@ -8,7 +8,6 @@ from libs.models.trendline.config import ResolvedTrendlineFamilyConfig as NewRes
 from libs.models.trendline.contracts import FamilyTransition as NewFamilyTransition
 from libs.models.trendline.optimization.candidate_optimizer import CandidateGeometryEvaluator as NewCandidateGeometryEvaluator
 from libs.models.trendline.optimization.contracts import CandidateEvaluationSpec as NewCandidateEvaluationSpec
-from libs.integrations.trendline_regime_v2.ablation import WeightedFeatureScorer, scorer_identity
 from libs.models.trendline.provider import NativeDeterministicLineProvider as NewNativeDeterministicLineProvider
 from libs.models.trendline.provider import CandidateGenerationResult as NewCandidateGenerationResult
 from libs.models.trendline.provider import CandidateGenerationStatus as NewCandidateGenerationStatus
@@ -140,6 +139,3 @@ def test_candidate_config_and_optimization_semantics_keep_historical_identity() 
         outcome_policy=None,
     )
     assert old_spec.to_stage_spec().to_dict() == new_spec.to_stage_spec().to_dict()
-    assert scorer_identity(WeightedFeatureScorer(weights={"trendline_family_valid": 1.0})) == (
-        "libs.models.trendline_family.optimization.ablation.WeightedFeatureScorer"
-    )

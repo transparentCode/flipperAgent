@@ -41,14 +41,6 @@ _TRANSITIONAL_FACADES = frozenset(
         "libs.models.trendline.tracker",
     }
 )
-_REGIME_COMPATIBILITY_FILES = frozenset(
-    {
-        ("optimization", "__init__.py"),
-        ("optimization", "ablation.py"),
-    }
-)
-
-
 def _runtime_files() -> list[Path]:
     package_dir = Path(__file__).parents[3] / "src" / "libs" / "models" / "trendline_family"
     return [path for path in package_dir.rglob("*.py") if "tests" not in path.parts]
@@ -82,7 +74,6 @@ def _direct_owner_implementation_files() -> list[Path]:
     return [
         root / "src" / "libs" / "models" / "trendline" / "api.py",
         root / "src" / "libs" / "models" / "trendline" / "config_loader.py",
-        root / "src" / "libs" / "integrations" / "trendline_regime_v2" / "ablation.py",
     ]
 
 
@@ -122,14 +113,8 @@ def test_canonical_runtime_does_not_depend_on_regime_v2() -> None:
     assert _forbidden_imports(_canonical_runtime_files(), _FORBIDDEN_CANONICAL_UPSTREAM_PREFIXES) == []
 
 
-def test_only_deprecated_ablation_facades_may_reference_regime_integration() -> None:
-    package_dir = Path(__file__).parents[3] / "src" / "libs" / "models" / "trendline"
-    core_files = [
-        path
-        for path in _canonical_files()
-        if path.relative_to(package_dir).parts not in _REGIME_COMPATIBILITY_FILES
-    ]
-    assert _forbidden_imports(core_files, _FORBIDDEN_CANONICAL_UPSTREAM_PREFIXES) == []
+def test_canonical_package_does_not_depend_on_regime_integrations() -> None:
+    assert _forbidden_imports(_canonical_files(), _FORBIDDEN_CANONICAL_UPSTREAM_PREFIXES) == []
 
 
 def test_owner_packages_do_not_depend_on_transitional_facades() -> None:
@@ -150,7 +135,7 @@ def test_owner_packages_do_not_depend_on_transitional_facades() -> None:
     assert violations == []
 
 
-def test_api_and_integration_implementations_use_direct_owners() -> None:
+def test_api_and_config_loader_implementations_use_direct_owners() -> None:
     violations: list[str] = []
     for path in _direct_owner_implementation_files():
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))

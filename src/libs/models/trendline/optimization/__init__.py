@@ -1,6 +1,5 @@
-"""Offline-only Trendline optimization APIs with lazy compatibility exports."""
+"""Offline-only Trendline optimisation APIs."""
 
-from importlib import import_module
 from .artifacts import (
     ArtifactEnvelope,
     CompletionArtifactIndex,
@@ -53,7 +52,6 @@ from .runner import PhaseIEvaluationResult, run_phase_i_evaluation
 from .tracker_optimizer import FrozenCandidateStream, TrackerEvaluator, build_frozen_candidate_stream, run_tracker_optimization
 
 __all__ = [
-    "FEATURE_GROUP_SPECS",
     "CandidateGeometryEvaluator",
     "CandidateOutcomePolicy",
     "FailureCode",
@@ -76,7 +74,6 @@ __all__ = [
     "PhaseIEvaluationResult",
     "PromotionDecision",
     "PromotionRecommendation",
-    "RegimeFeatureAblationEvaluator",
     "RunManifest",
     "ArtifactEnvelope",
     "CompletionArtifactIndex",
@@ -86,7 +83,6 @@ __all__ = [
     "TrialResult",
     "TrialStatus",
     "WalkForwardFold",
-    "WeightedFeatureScorer",
     "WindowResult",
     "atomic_write_json",
     "build_frozen_candidate_stream",
@@ -96,14 +92,12 @@ __all__ = [
     "build_promotion_recommendation",
     "build_walk_forward_fold_plan",
     "evaluate_holdout_once",
-    "evaluate_regime_feature_group_holdout",
     "freeze_validation_finalist",
     "hash_historical_frame",
     "load_artifact_envelope",
     "run_candidate_geometry_optimization",
     "run_interaction_optimization",
     "run_phase_i_evaluation",
-    "run_regime_feature_ablation",
     "run_stage_grid",
     "run_tracker_optimization",
     "select_validation_finalist",
@@ -112,22 +106,3 @@ __all__ = [
     "verify_parameter_effect_audits",
     "verify_persisted_trial_result",
 ]
-
-_DEPRECATED_ABLATION_EXPORTS = frozenset(
-    {
-        "FEATURE_GROUP_SPECS",
-        "RegimeFeatureAblationEvaluator",
-        "WeightedFeatureScorer",
-        "evaluate_regime_feature_group_holdout",
-        "run_regime_feature_ablation",
-    }
-)
-
-
-def __getattr__(name: str):
-    """Resolve historical RegimeV2 ablation exports without runtime coupling."""
-
-    if name in _DEPRECATED_ABLATION_EXPORTS:
-        module = import_module("libs.integrations.trendline_regime_v2.ablation")
-        return getattr(module, name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
