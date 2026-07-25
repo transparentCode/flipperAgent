@@ -1,15 +1,15 @@
-from app.trendlines.data import TrendlineArtifactRef, TrendlineDataRequest, resolve_trendline_auto_split_spec
-from app.trendlines.workflows import PipelineOptimizationSpec as RootPipelineOptimizationSpec, decide_pipeline_promotion
-from app.trendlines.workflows.common import PipelineOptimizationSpec, WorkflowStudyStatus
-from app.trendlines.workflows.common.contracts import (
+from libs.models.trendlines.data import TrendlineArtifactRef, TrendlineDataRequest, resolve_trendline_auto_split_spec
+from libs.models.trendlines.workflows import PipelineOptimizationSpec as RootPipelineOptimizationSpec, decide_pipeline_promotion
+from libs.models.trendlines.workflows.common import PipelineOptimizationSpec, WorkflowStudyStatus
+from libs.models.trendlines.workflows.common.contracts import (
     PIPELINE_WORKFLOW_SEMANTICS_VERSION,
     WorkflowPromotionDecision,
     WorkflowPromotionSpec,
     default_study_status,
     normalize_study_status,
 )
-from app.trendlines.workflows.common.promotion import TRENDLINE_PIPELINE_PROMOTION_FITNESS_THRESHOLD
-from app.trendlines.workflows.pipeline import __all__ as pipeline_all
+from libs.models.trendlines.workflows.common.promotion import TRENDLINE_PIPELINE_PROMOTION_FITNESS_THRESHOLD
+from libs.models.trendlines.workflows.pipeline import __all__ as pipeline_all
 
 
 def test_workflow_root_exports_match_common_contracts():

@@ -6,8 +6,8 @@ from datetime import datetime, timezone
 import pandas as pd
 import pytest
 
-from app.trendlines.boundary import BoundaryResult, QualityMetrics, Ray
-from app.trendlines.signals import (
+from libs.models.trendlines.boundary import BoundaryResult, QualityMetrics, Ray
+from libs.models.trendlines.signals import (
     AlphaSignal,
     BaseAlphaExtractor,
     FakeoutAlphaExtractor,
@@ -81,12 +81,12 @@ def _make_boundary_result(
             timeframe="1h",
         )
 
-        assert AlphaSignal.__module__ == "app.trendlines.signals.base"
-        assert BaseAlphaExtractor.__module__ == "app.trendlines.signals.base"
-        assert StructuralAlphaExtractor.__module__ == "app.trendlines.signals.structural"
-        assert TemporalAlphaExtractor.__module__ == "app.trendlines.signals.temporal"
-        assert PatternAlphaExtractor.__module__ == "app.trendlines.signals.patterns"
-        assert FakeoutAlphaExtractor.__module__ == "app.trendlines.signals.fakeout"
+        assert AlphaSignal.__module__ == "libs.models.trendlines.signals.base"
+        assert BaseAlphaExtractor.__module__ == "libs.models.trendlines.signals.base"
+        assert StructuralAlphaExtractor.__module__ == "libs.models.trendlines.signals.structural"
+        assert TemporalAlphaExtractor.__module__ == "libs.models.trendlines.signals.temporal"
+        assert PatternAlphaExtractor.__module__ == "libs.models.trendlines.signals.patterns"
+        assert FakeoutAlphaExtractor.__module__ == "libs.models.trendlines.signals.fakeout"
         assert TrendlineSignalOrchestrator.__name__ == "TrendlineSignalOrchestrator"
         assert signal.to_dict()["strength"] == 0.4
 
@@ -184,7 +184,7 @@ def test_temporal_extractor_emits_transition_and_convergence_signals():
         hull_width_atr=1.3,
     )
 
-    from app.trendlines.config.state_transitions import build_state_transition_table
+    from libs.models.trendlines.config.state_transitions import build_state_transition_table
     signals = TemporalAlphaExtractor(state_transitions=build_state_transition_table()).extract(current, history=history)
     names = {signal.name for signal in signals}
 

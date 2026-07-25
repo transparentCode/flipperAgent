@@ -9,7 +9,7 @@ from typing import Any, List, Mapping, Sequence
 
 import numpy as np
 
-from app.trendlines.boundary import BoundaryResult, Ray
+from libs.models.trendlines.boundary import BoundaryResult, Ray
 
 
 # --- Context helpers ---

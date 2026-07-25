@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from app.trendlines.optimization.benchmarks import (
+from libs.models.trendlines.optimization.benchmarks import (
     fold_stability,
     longevity,
     penetration_gate,

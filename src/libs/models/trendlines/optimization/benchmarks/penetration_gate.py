@@ -10,7 +10,7 @@ from typing import Dict, List
 
 import numpy as np
 
-from app.trendlines.contracts import Trendline
+from libs.models.trendlines.contracts import Trendline
 
 
 def compute(
@@ -30,7 +30,7 @@ def compute(
     dict with keys: ``mean_pen_rate``, ``passed_gate``.
     """
     import pandas as pd
-    from app.trendlines.optimization.benchmarks._tolerance import compute_tolerance
+    from libs.models.trendlines.optimization.benchmarks._tolerance import compute_tolerance
 
     if not lines or test_df.empty:
         return {"mean_pen_rate": 1.0, "passed_gate": False}

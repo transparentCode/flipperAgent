@@ -6,9 +6,9 @@ from typing import Any, Mapping
 
 import pandas as pd
 
-from app.trendlines.config import TrendlinePipelineConfig
-from app.trendlines.contracts import TrendlineFitResult
-from app.trendlines.registry import build_extractor, build_fitter
+from libs.models.trendlines.config import TrendlinePipelineConfig
+from libs.models.trendlines.contracts import TrendlineFitResult
+from libs.models.trendlines.registry import build_extractor, build_fitter
 
 
 def _resolve_extractor(extractor: object, extractor_kwargs: dict[str, Any]) -> tuple[object, str]:

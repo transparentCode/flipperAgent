@@ -10,25 +10,25 @@ from typing import Any, Dict, Optional
 
 import pandas as pd
 
-from app.trendlines.workflows.common import WorkflowStudyStatus, decide_pipeline_promotion
-from app.trendlines.workflows.pipeline.evaluation import (
+from libs.models.trendlines.workflows.common import WorkflowStudyStatus, decide_pipeline_promotion
+from libs.models.trendlines.workflows.pipeline.evaluation import (
     run_pipeline_with_params,
     search_pipeline_parameters,
     walk_forward_evaluate,
 )
-from app.trendlines.workflows.pipeline.temporal_spec import (
+from libs.models.trendlines.workflows.pipeline.temporal_spec import (
     build_pipeline_optimization_spec,
     resolve_pipeline_temporal_plan,
 )
-from app.trendlines.workflows.pipeline.support import (
+from libs.models.trendlines.workflows.pipeline.support import (
     _index_to_date_str,
     build_pipeline_artifact_ref,
     build_pipeline_data_request,
     build_pipeline_split_manifest_ref,
 )
-from app.trendlines.workflows.pipeline import data_fetch
-from app.trendlines.workflows.pipeline.config_apply import build_yaml_snippet
-from app.trendlines.workflows.pipeline.reporting import print_results, print_pipeline_yaml_snippet
+from libs.models.trendlines.workflows.pipeline import data_fetch
+from libs.models.trendlines.workflows.pipeline.config_apply import build_yaml_snippet
+from libs.models.trendlines.workflows.pipeline.reporting import print_results, print_pipeline_yaml_snippet
 
 
 __all__ = [
@@ -52,9 +52,9 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    python -m app.trendlines.cli pipeline-opt -a BTCUSDT -t 1h,4h -l 120
-    python -m app.trendlines.cli pipeline-opt -a SOLUSDT -t 15m,1h --start-date 2025-01-01
-    python -m app.trendlines.cli pipeline-opt -a ETHUSDT -t 4h --train-bars 400 --test-bars 100
+    python -m libs.models.trendlines.cli pipeline-opt -a BTCUSDT -t 1h,4h -l 120
+    python -m libs.models.trendlines.cli pipeline-opt -a SOLUSDT -t 15m,1h --start-date 2025-01-01
+    python -m libs.models.trendlines.cli pipeline-opt -a ETHUSDT -t 4h --train-bars 400 --test-bars 100
         """,
     )
 
@@ -176,7 +176,7 @@ def _run_pipeline_cli(args) -> int:
         start_date=args.start_date,
         end_date=args.end_date,
         source="binance",
-        metadata={"command": "pipeline-opt", "module": "app.trendlines.cli"},
+        metadata={"command": "pipeline-opt", "module": "libs.models.trendlines.cli"},
     )
     frames, dataset_manifest = data_fetch.fetch_pipeline_workflow_data(request, quiet=args.quiet)
 

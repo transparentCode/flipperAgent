@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, Optional
 
-from app.trendlines.boundary import BoundaryResult
+from libs.models.trendlines.boundary import BoundaryResult
 
 from .base import AlphaSignal, BaseAlphaExtractor
 from .constants import BREAKOUT_STATES

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Iterable, Sequence
 
-from app.trendlines.boundary.policy import TouchDeclusterConfig, TouchDiagnostics
+from libs.models.trendlines.boundary.policy import TouchDeclusterConfig, TouchDiagnostics
 
 
 def decluster_touch_indices(

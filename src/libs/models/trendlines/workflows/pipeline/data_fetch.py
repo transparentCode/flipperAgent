@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 
 import pandas as pd
 
-from app.trendlines.data import TrendlineDataRequest, TrendlineDatasetManifest, load_dataset
+from libs.models.trendlines.data import TrendlineDataRequest, TrendlineDatasetManifest, load_dataset
 
 
 def _build_default_connector() -> Any:

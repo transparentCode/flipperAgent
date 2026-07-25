@@ -1,4 +1,4 @@
-from app.trendlines import TrendlinePipelineConfig
+from libs.models.trendlines import TrendlinePipelineConfig
 
 
 def test_trendline_pipeline_config_round_trips():

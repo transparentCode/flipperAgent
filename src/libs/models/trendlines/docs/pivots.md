@@ -6,7 +6,7 @@ swing low bar indices that fitters use as anchor points.
 ## Registry
 
 ```python
-from app.trendlines import build_extractor, list_extractors
+from libs.models.trendlines import build_extractor, list_extractors
 
 list_extractors()   # ("fractal", "rdp_zigzag")
 
@@ -19,8 +19,8 @@ pivot_set = extractor.extract(df)
 1. Create `app/trendlines/pivots/my_extractor.py`
 2. Implement and decorate:
    ```python
-   from app.trendlines.pivots.base import register_extractor
-   from app.trendlines.contracts import PivotSet
+   from libs.models.trendlines.pivots.base import register_extractor
+   from libs.models.trendlines.contracts import PivotSet
 
    @register_extractor(
        name="my_extractor",

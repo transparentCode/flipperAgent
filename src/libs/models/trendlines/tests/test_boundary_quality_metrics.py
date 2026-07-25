@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.trendlines.boundary import QualityMetrics, Ray
+from libs.models.trendlines.boundary import QualityMetrics, Ray
 
 
 def _ray(level: float, *, is_support: bool) -> Ray:

@@ -4,9 +4,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from app.trendlines import run_trendline_pipeline
-from app.trendlines.boundary import Ray, build_boundary_result_from_trendline_result
-from app.trendlines.boundary.adapters import _detect_boundary_interaction
+from libs.models.trendlines import run_trendline_pipeline
+from libs.models.trendlines.boundary import Ray, build_boundary_result_from_trendline_result
+from libs.models.trendlines.boundary.adapters import _detect_boundary_interaction
 
 
 def _make_ray(level: float, *, is_support: bool, score: float) -> Ray:

@@ -10,8 +10,8 @@ from typing import Sequence
 
 
 COMMAND_MODULES = {
-    "drift-monitor": "app.trendlines.workflows.monitoring.drift_monitor",
-    "pipeline-opt": "app.trendlines.workflows.pipeline.workflow",
+    "drift-monitor": "libs.models.trendlines.workflows.monitoring.drift_monitor",
+    "pipeline-opt": "libs.models.trendlines.workflows.pipeline.workflow",
 }
 
 

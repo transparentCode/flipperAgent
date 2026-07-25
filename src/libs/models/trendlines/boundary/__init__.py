@@ -2,26 +2,26 @@
 
 This bounded subpackage owns richer downstream-facing result, policy, and
 adapter contracts built on top of the narrow core fitter contracts in
-``app.trendlines.models``.
+``libs.models.trendlines.models``.
 """
 
-from app.trendlines.boundary.adapters import (
+from libs.models.trendlines.boundary.adapters import (
     build_boundary_result_from_trendline_result,
     trendline_to_boundary_ray,
 )
-from app.trendlines.boundary.contracts import (
+from libs.models.trendlines.boundary.contracts import (
     BOUNDARY_INTERACTION_DIRECTION,
     BoundaryResult,
     QualityMetrics,
     Ray,
     boundary_interaction_direction,
 )
-from app.trendlines.boundary.history import (
+from libs.models.trendlines.boundary.history import (
     SnapshotKey,
     TrendlineSnapshot,
     TrendlineSnapshotHistory,
 )
-from app.trendlines.boundary.policy import (
+from libs.models.trendlines.boundary.policy import (
     ConfluenceGateConfig,
     ConfluenceQualitySnapshot,
     RayTrackerConfig,
@@ -29,7 +29,7 @@ from app.trendlines.boundary.policy import (
     TouchDiagnostics,
     TrackedRayState,
 )
-from app.trendlines.boundary.touches import decluster_touch_indices
+from libs.models.trendlines.boundary.touches import decluster_touch_indices
 
 INTERACTION_DIRECTION = BOUNDARY_INTERACTION_DIRECTION
 interaction_direction = boundary_interaction_direction

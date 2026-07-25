@@ -1,8 +1,8 @@
 """Pivot extraction algorithms and base contracts."""
 
-from app.trendlines.pivots.base import EXTRACTOR_REGISTRY, PivotExtractor, register_extractor
-from app.trendlines.pivots.fractal import FractalPivotExtractor
-from app.trendlines.pivots.rdp_zigzag import RDPZigZagPivotExtractor
+from libs.models.trendlines.pivots.base import EXTRACTOR_REGISTRY, PivotExtractor, register_extractor
+from libs.models.trendlines.pivots.fractal import FractalPivotExtractor
+from libs.models.trendlines.pivots.rdp_zigzag import RDPZigZagPivotExtractor
 
 __all__ = [
     "EXTRACTOR_REGISTRY",

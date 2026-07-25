@@ -5,9 +5,9 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 
-from app.trendlines.boundary import BoundaryResult, Ray
-from app.trendlines.boundary.adapters import build_boundary_result_from_trendline_result
-from app.trendlines.contracts import Trendline, TrendlineFitResult
+from libs.models.trendlines.boundary import BoundaryResult, Ray
+from libs.models.trendlines.boundary.adapters import build_boundary_result_from_trendline_result
+from libs.models.trendlines.contracts import Trendline, TrendlineFitResult
 
 
 def _line(*, is_support: bool = True) -> Trendline:

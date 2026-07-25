@@ -176,7 +176,7 @@ Greedy declustering: sorts indices, then greedily keeps only those where
 `index - last_kept ≥ min_bars_between_touches`. Returns `TouchDiagnostics`.
 
 ```python
-from app.trendlines.boundary import TouchDeclusterConfig, decluster_touch_indices
+from libs.models.trendlines.boundary import TouchDeclusterConfig, decluster_touch_indices
 
 diag = decluster_touch_indices(
     indices=[0, 1, 2, 10, 11, 20],

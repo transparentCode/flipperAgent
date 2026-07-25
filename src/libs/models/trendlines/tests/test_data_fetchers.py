@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from app.trendlines.data import (
+from libs.models.trendlines.data import (
     TrendlineArtifactRef,
     TrendlineDataRequest,
     artifact_path,
@@ -15,7 +15,7 @@ from app.trendlines.data import (
     write_dataset_manifest,
     write_temporal_split_manifest,
 )
-from app.trendlines.data.temporal import build_temporal_split_manifest
+from libs.models.trendlines.data.temporal import build_temporal_split_manifest
 
 
 def _demo_frames() -> dict[str, pd.DataFrame]:

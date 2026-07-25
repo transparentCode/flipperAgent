@@ -8,18 +8,18 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from app.trendlines import TrendlineFitResult, TrendlinePipelineConfig, build_extractor, run_trendline_pipeline_from_config
-from app.trendlines.contracts import Trendline
-from app.trendlines.registry import get_extractor_search_grid, get_fitter_search_grid
-from app.trendlines.data import TemporalSplitManifest
-from app.trendlines.config import EvaluationConfig
-from app.trendlines.workflows.pipeline.temporal_spec import (
+from libs.models.trendlines import TrendlineFitResult, TrendlinePipelineConfig, build_extractor, run_trendline_pipeline_from_config
+from libs.models.trendlines.contracts import Trendline
+from libs.models.trendlines.registry import get_extractor_search_grid, get_fitter_search_grid
+from libs.models.trendlines.data import TemporalSplitManifest
+from libs.models.trendlines.config import EvaluationConfig
+from libs.models.trendlines.workflows.pipeline.temporal_spec import (
     _manifest_windows,
     _trendline_lookback_grid,
     generate_windows,
     resolve_trendlines_workflow_config,
 )
-from app.trendlines.workflows.pipeline.support import _merge_param_dicts
+from libs.models.trendlines.workflows.pipeline.support import _merge_param_dicts
 
 _cfg = EvaluationConfig().fitness
 _TOUCH_ACCURACY_FLOOR = 0.01
@@ -79,7 +79,7 @@ def evaluate_trendlines_on_forward(
 
     for line in lines:
         projected = line.slope * test_x + line.intercept
-        from app.trendlines.optimization.benchmarks._tolerance import compute_tolerance
+        from libs.models.trendlines.optimization.benchmarks._tolerance import compute_tolerance
         tolerance = compute_tolerance(
             line.slope, test_df,
             slope_tolerance=_cfg.slope_tolerance,

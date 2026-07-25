@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.trendlines.config.state_transitions import (
+from libs.models.trendlines.config.state_transitions import (
     build_state_transition_table,
     _INTERACTION_DIRECTION,
     _STATE_PAIRS,

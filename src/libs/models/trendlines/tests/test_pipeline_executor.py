@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from app.trendlines import TrendlinePipelineConfig, execute_trendline_pipeline, run_trendline_pipeline, run_trendline_pipeline_from_config
-from app.trendlines.contracts import PivotSet, TrendlineFitResult
+from libs.models.trendlines import TrendlinePipelineConfig, execute_trendline_pipeline, run_trendline_pipeline, run_trendline_pipeline_from_config
+from libs.models.trendlines.contracts import PivotSet, TrendlineFitResult
 
 
 def _make_pipeline_frame() -> pd.DataFrame:

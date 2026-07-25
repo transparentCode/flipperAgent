@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Dict, FrozenSet, Tuple
 
-from app.trendlines.boundary import INTERACTION_DIRECTION, interaction_direction
+from libs.models.trendlines.boundary import INTERACTION_DIRECTION, interaction_direction
 
 BULLISH_INTERACTIONS: FrozenSet[str] = frozenset(
     {

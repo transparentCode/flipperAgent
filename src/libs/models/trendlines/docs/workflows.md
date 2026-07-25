@@ -226,7 +226,7 @@ For each metric:
 `threshold=0.15` (15% degradation) by default. Overridable via `DriftMonitorConfig`.
 
 ```python
-from app.trendlines.workflows.monitoring.drift_monitor import compare
+from libs.models.trendlines.workflows.monitoring.drift_monitor import compare
 
 report = compare(
     current_metrics={"fitness": 0.42, "longevity": 0.70},
@@ -242,7 +242,7 @@ Default baseline file: `"trendlines_boundary_baseline.json"` (written by the opt
 ## CLI (`cli.py`)
 
 ```
-python -m app.trendlines.cli --help
+python -m libs.models.trendlines.cli --help
 
 Subcommands:
   pipeline-opt    Run full optimization sweep for an asset/timeframe
@@ -252,7 +252,7 @@ Subcommands:
 ### `pipeline-opt`
 
 ```
-python -m app.trendlines.cli pipeline-opt \
+python -m libs.models.trendlines.cli pipeline-opt \
     --asset BTCUSDT \
     --timeframes 1h \
     --lookback-days 120 \
@@ -266,7 +266,7 @@ to the artifact directory.
 ### `drift-monitor`
 
 ```
-python -m app.trendlines.cli drift-monitor \
+python -m libs.models.trendlines.cli drift-monitor \
     --asset BTCUSDT \
     --timeframe 1h \
     --baseline trendlines_boundary_baseline.json \

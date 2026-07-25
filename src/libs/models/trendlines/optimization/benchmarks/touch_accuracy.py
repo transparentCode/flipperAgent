@@ -10,7 +10,7 @@ from typing import Dict, List
 
 import numpy as np
 
-from app.trendlines.contracts import Trendline
+from libs.models.trendlines.contracts import Trendline
 
 
 def compute(
@@ -33,7 +33,7 @@ def compute(
     if not lines or test_df.empty:
         return {"touch_accuracy": 0.0, "total_touches": 0, "total_hits": 0}
 
-    from app.trendlines.optimization.benchmarks._tolerance import compute_tolerance
+    from libs.models.trendlines.optimization.benchmarks._tolerance import compute_tolerance
 
     closes = test_df["close"].to_numpy(dtype=float)
     highs = test_df["high"].to_numpy(dtype=float)

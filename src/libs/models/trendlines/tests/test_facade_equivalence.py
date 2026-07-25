@@ -8,12 +8,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from app.trendlines import (
+from libs.models.trendlines import (
     TrendlinePipelineConfig,
     execute_trendline_pipeline,
     fit_trendlines_to_boundary,
 )
-from app.trendlines.boundary import build_boundary_result_from_trendline_result
+from libs.models.trendlines.boundary import build_boundary_result_from_trendline_result
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────
@@ -205,7 +205,7 @@ class TestFacadeWithTrendlinesConfig:
     (which triggers resolve_asset_config internally)."""
 
     def test_facade_with_config_resolution(self):
-        from app.trendlines.config import load_trendlines_config
+        from libs.models.trendlines.config import load_trendlines_config
 
         df = _make_test_df()
         tl_config = load_trendlines_config()

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
-from app.trendlines.boundary import BoundaryResult, ConfluenceGateConfig
+from libs.models.trendlines.boundary import BoundaryResult, ConfluenceGateConfig
 
 # ── Hardcoded constants (architecture tier) ──
 _PRICE_BLEND_W = 0.5

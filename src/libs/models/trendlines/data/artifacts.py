@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from app.trendlines.data.contracts import TrendlineArtifactRef, TrendlineDatasetManifest
-from app.trendlines.data.temporal import TemporalSplitManifest
+from libs.models.trendlines.data.contracts import TrendlineArtifactRef, TrendlineDatasetManifest
+from libs.models.trendlines.data.temporal import TemporalSplitManifest
 
 
 def artifact_path(artifact: TrendlineArtifactRef) -> Path:

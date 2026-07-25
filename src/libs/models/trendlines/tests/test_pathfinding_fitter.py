@@ -2,8 +2,8 @@ import pandas as pd
 import pytest
 import numpy as np
 
-from app.trendlines.fitting.pathfinding import PathfindingFitter
-from app.trendlines.contracts import PivotSet
+from libs.models.trendlines.fitting.pathfinding import PathfindingFitter
+from libs.models.trendlines.contracts import PivotSet
 
 
 def _make_pathfinding_frame() -> pd.DataFrame:

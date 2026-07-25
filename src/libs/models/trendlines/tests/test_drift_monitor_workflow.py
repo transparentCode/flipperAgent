@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 import pandas as pd
 
-from app.trendlines.boundary import BoundaryResult, QualityMetrics, Ray
-from app.trendlines.workflows.monitoring.drift_monitor import build_monitor_snapshot, compare, run_monitor
+from libs.models.trendlines.boundary import BoundaryResult, QualityMetrics, Ray
+from libs.models.trendlines.workflows.monitoring.drift_monitor import build_monitor_snapshot, compare, run_monitor
 
 
 def _make_ray(*, is_support: bool, score: float, r_squared: float, metadata: dict) -> Ray:
@@ -124,11 +124,11 @@ def test_run_monitor_uses_trendlines_boundary_pipeline(monkeypatch, tmp_path):
         return _make_boundary_result()
 
     monkeypatch.setattr(
-        "app.trendlines.workflows.monitoring.drift_monitor.execute_trendline_pipeline",
+        "libs.models.trendlines.workflows.monitoring.drift_monitor.execute_trendline_pipeline",
         fake_execute,
     )
     monkeypatch.setattr(
-        "app.trendlines.workflows.monitoring.drift_monitor.build_boundary_result_from_trendline_result",
+        "libs.models.trendlines.workflows.monitoring.drift_monitor.build_boundary_result_from_trendline_result",
         fake_boundary,
     )
 

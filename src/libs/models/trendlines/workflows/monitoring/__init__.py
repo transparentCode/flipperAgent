@@ -1,6 +1,6 @@
 """Trendlines-first monitoring bounded context."""
 
-from app.trendlines.workflows.monitoring.drift_monitor import (
+from libs.models.trendlines.workflows.monitoring.drift_monitor import (
 	build_monitor_snapshot,
 	compare,
 	load_baseline,

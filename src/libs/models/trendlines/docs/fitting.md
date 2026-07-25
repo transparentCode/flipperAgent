@@ -6,7 +6,7 @@ Trendline fitters take a `PivotSet` (and the raw OHLC DataFrame) and return a
 ## Registry
 
 ```python
-from app.trendlines import build_fitter, list_fitters
+from libs.models.trendlines import build_fitter, list_fitters
 
 list_fitters()   # ("pathfinding", "least_squares", "ransac")
 
@@ -36,7 +36,7 @@ with `pivot_window`. Pass pre-computed pivots to decouple extraction from fittin
 1. Create `app/trendlines/fitting/my_fitter.py`
 2. Implement and decorate:
    ```python
-   from app.trendlines.fitting.base import register_fitter
+   from libs.models.trendlines.fitting.base import register_fitter
 
    @register_fitter(
        name="my_fitter",

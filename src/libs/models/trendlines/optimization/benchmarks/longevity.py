@@ -11,7 +11,7 @@ from typing import Dict, List
 
 import numpy as np
 
-from app.trendlines.contracts import Trendline
+from libs.models.trendlines.contracts import Trendline
 
 
 def compute(
@@ -30,7 +30,7 @@ def compute(
     dict with keys: ``mean_longevity``, ``n_lines``.
     """
     import pandas as pd
-    from app.trendlines.optimization.benchmarks._tolerance import compute_tolerance
+    from libs.models.trendlines.optimization.benchmarks._tolerance import compute_tolerance
 
     if not lines or test_df.empty:
         return {"mean_longevity": 0.0, "n_lines": 0}

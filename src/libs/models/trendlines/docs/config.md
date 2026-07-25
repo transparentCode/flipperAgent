@@ -25,7 +25,7 @@ flowchart LR
 ```
 
 ```python
-from app.trendlines.config import load_trendlines_config, TrendlinesConfig
+from libs.models.trendlines.config import load_trendlines_config, TrendlinesConfig
 
 cfg = load_trendlines_config()       # Load from default YAML
 cfg = load_trendlines_config("/path/to/custom.yaml")
@@ -53,7 +53,7 @@ flowchart TD
 ```
 
 ```python
-from app.trendlines.config import load_trendlines_config, resolve_asset_config
+from libs.models.trendlines.config import load_trendlines_config, resolve_asset_config
 
 cfg = load_trendlines_config()
 resolved = resolve_asset_config(cfg, asset="BTCUSDT", timeframe="1h", df=df, fit_result=fit_result)
@@ -318,7 +318,7 @@ Signal params (asymmetry, convergence, wick, squeeze) are fixed at defaults — 
 
 ```python
 from dataclasses import replace
-from app.trendlines.config import TrendlinesConfig, OptimizableDefaults
+from libs.models.trendlines.config import TrendlinesConfig, OptimizableDefaults
 
 cfg = replace(
     TrendlinesConfig(),

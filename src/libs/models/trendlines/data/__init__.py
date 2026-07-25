@@ -1,24 +1,24 @@
 """Trendlines-owned data selection and manifest contracts."""
 
-from app.trendlines.data.contracts import (
+from libs.models.trendlines.data.contracts import (
     TrendlineArtifactRef,
     TrendlineDataRequest,
     TrendlineDatasetManifest,
     normalize_timeframes,
 )
-from app.trendlines.data.fetchers import (
+from libs.models.trendlines.data.fetchers import (
     TrendlineDatasetLoader,
     build_dataset_manifest,
     load_dataset,
 )
-from app.trendlines.data.artifacts import (
+from libs.models.trendlines.data.artifacts import (
     artifact_path,
     read_dataset_manifest,
     read_temporal_split_manifest,
     write_dataset_manifest,
     write_temporal_split_manifest,
 )
-from app.trendlines.data.temporal import (
+from libs.models.trendlines.data.temporal import (
     TRENDLINE_AUTO_SPLIT_POLICY,
     TRENDLINE_AUTO_SPLIT_POLICY_VERSION,
     TemporalSplitManifest,

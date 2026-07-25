@@ -5,9 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from app.trendlines.boundary.contracts import BoundaryResult, QualityMetrics, Ray
-from app.trendlines.config import BoundaryAdapterConfig, TrendlinePipelineConfig
-from app.trendlines.contracts import Trendline, TrendlineFitResult
+from libs.models.trendlines.boundary.contracts import BoundaryResult, QualityMetrics, Ray
+from libs.models.trendlines.config import BoundaryAdapterConfig, TrendlinePipelineConfig
+from libs.models.trendlines.contracts import Trendline, TrendlineFitResult
 
 
 _CHANNEL_COMPRESSION_WIDTH_ATR = 3.0

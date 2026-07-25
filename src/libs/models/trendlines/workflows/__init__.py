@@ -1,6 +1,6 @@
 """Trendlines-first workflow/application contracts and bounded contexts."""
 
-from app.trendlines.workflows.common import (
+from libs.models.trendlines.workflows.common import (
     PIPELINE_WORKFLOW_SEMANTICS_VERSION,
     PipelineOptimizationSpec,
     WorkflowExperimentSpec,

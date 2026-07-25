@@ -1,6 +1,6 @@
 import pytest
 
-from app.trendlines.data import TrendlineArtifactRef, TrendlineDataRequest, TrendlineDatasetManifest
+from libs.models.trendlines.data import TrendlineArtifactRef, TrendlineDataRequest, TrendlineDatasetManifest
 
 
 def test_trendline_data_request_round_trip_normalizes_fields():

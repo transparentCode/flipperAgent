@@ -9,11 +9,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from app.trendlines.optimization.models import (
+from libs.models.trendlines.optimization.models import (
     TrendlinesOptimizationConfig,
     TrendlinesOptimizationResult,
 )
-from app.trendlines.optimization.optimizer import TrendlinesOptimizer, OPTUNA_AVAILABLE
+from libs.models.trendlines.optimization.optimizer import TrendlinesOptimizer, OPTUNA_AVAILABLE
 
 pytestmark = pytest.mark.skipif(not OPTUNA_AVAILABLE, reason="optuna not installed")
 

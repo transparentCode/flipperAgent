@@ -41,9 +41,9 @@ Runs all extractors and aggregates results into a composite signal.
 ### Construction
 
 ```python
-from app.trendlines.signals import TrendlineSignalOrchestrator
-from app.trendlines.config import TrendlinesConfig
-from app.trendlines.config.resolve import resolve_asset_config
+from libs.models.trendlines.signals import TrendlineSignalOrchestrator
+from libs.models.trendlines.config import TrendlinesConfig
+from libs.models.trendlines.config.resolve import resolve_asset_config
 
 # Preferred: from ResolvedConfig (per-asset/TF resolved params)
 resolved = resolve_asset_config(TrendlinesConfig(), "BTCUSDT", "1h", df)

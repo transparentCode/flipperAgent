@@ -5,9 +5,9 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
-from app.trendlines.boundary import BoundaryResult
-from app.trendlines.config import TrendlinesConfig
-from app.trendlines.config.resolve import ResolvedConfig, ResolvedSignalConfig
+from libs.models.trendlines.boundary import BoundaryResult
+from libs.models.trendlines.config import TrendlinesConfig
+from libs.models.trendlines.config.resolve import ResolvedConfig, ResolvedSignalConfig
 
 from .base import AlphaSignal, BaseAlphaExtractor
 from .fakeout import FakeoutAlphaExtractor
@@ -15,7 +15,7 @@ from .patterns import PatternAlphaExtractor
 from .structural import StructuralAlphaExtractor
 from .temporal import TemporalAlphaExtractor
 
-logger = logging.getLogger("app.trendlines.signals.orchestrator")
+logger = logging.getLogger("libs.models.trendlines.signals.orchestrator")
 
 
 def _build_extractors_from_resolved(sig: ResolvedSignalConfig) -> list[BaseAlphaExtractor]:
@@ -69,7 +69,7 @@ class TrendlineSignalOrchestrator:
             self._extractors = _build_extractors_from_resolved(resolved_config.signals)
         elif trendlines_config is not None:
             # Legacy path: use TrendlinesConfig backward-compat shim
-            from app.trendlines.config.state_transitions import build_state_transition_table
+            from libs.models.trendlines.config.state_transitions import build_state_transition_table
 
             self._extractors = [
                 StructuralAlphaExtractor(

@@ -9,7 +9,7 @@ from typing import Any, Dict, Iterator, List, Tuple
 
 import pandas as pd
 
-from app.trendlines.config import EvaluationConfig
+from libs.models.trendlines.config import EvaluationConfig
 _eval_cfg = EvaluationConfig()
 
 TRENDLINE_AUTO_SPLIT_POLICY = "trendlines_pipeline_auto"

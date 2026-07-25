@@ -1,9 +1,9 @@
 import pandas as pd
 
-from app.trendlines.contracts import TrendlineFitResult
-from app.trendlines.workflows.pipeline import temporal_spec
-from app.trendlines.workflows.pipeline import evaluation
-from app.trendlines.workflows.pipeline import workflow as pipeline_workflow
+from libs.models.trendlines.contracts import TrendlineFitResult
+from libs.models.trendlines.workflows.pipeline import temporal_spec
+from libs.models.trendlines.workflows.pipeline import evaluation
+from libs.models.trendlines.workflows.pipeline import workflow as pipeline_workflow
 
 
 def _make_pipeline_frame() -> pd.DataFrame:

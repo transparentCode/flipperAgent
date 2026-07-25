@@ -4,7 +4,7 @@ Each module provides a ``compute()`` function returning a dict of metrics,
 plus optional gate/constraint penalty functions.
 """
 
-from app.trendlines.optimization.benchmarks import (
+from libs.models.trendlines.optimization.benchmarks import (
     fold_stability,
     longevity,
     penetration_gate,

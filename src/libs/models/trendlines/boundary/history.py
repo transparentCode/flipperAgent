@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Deque, Dict, Iterable, List, Tuple
 
-from app.trendlines.boundary.contracts import BoundaryResult
+from libs.models.trendlines.boundary.contracts import BoundaryResult
 
 SnapshotKey = Tuple[str, str]
 

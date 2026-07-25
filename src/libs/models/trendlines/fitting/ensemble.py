@@ -14,12 +14,12 @@ from typing import Any, Dict, List
 import numpy as np
 import pandas as pd
 
-from app.trendlines.contracts import PivotSet, Trendline, TrendlineFitResult
-from app.trendlines.fitting.base import register_fitter
-from app.trendlines.fitting.least_squares import LeastSquaresFitter
-from app.trendlines.fitting.pathfinding import PathfindingFitter
-from app.trendlines.fitting.ransac import RansacFitter
-from app.trendlines.pivots import FractalPivotExtractor, PivotExtractor
+from libs.models.trendlines.contracts import PivotSet, Trendline, TrendlineFitResult
+from libs.models.trendlines.fitting.base import register_fitter
+from libs.models.trendlines.fitting.least_squares import LeastSquaresFitter
+from libs.models.trendlines.fitting.pathfinding import PathfindingFitter
+from libs.models.trendlines.fitting.ransac import RansacFitter
+from libs.models.trendlines.pivots import FractalPivotExtractor, PivotExtractor
 
 logger = logging.getLogger(__name__)
 

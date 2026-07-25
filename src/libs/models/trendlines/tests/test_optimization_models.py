@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from app.trendlines.optimization.models import (
+from libs.models.trendlines.optimization.models import (
     TrendlinesBenchmarkResults,
     TrendlinesOptimizationConfig,
     TrendlinesOptimizationResult,

@@ -5,12 +5,12 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List
 
-from app.trendlines.pivots.base import EXTRACTOR_REGISTRY, PivotExtractor
-from app.trendlines.fitting.base import FITTER_REGISTRY, TrendlineFitter
+from libs.models.trendlines.pivots.base import EXTRACTOR_REGISTRY, PivotExtractor
+from libs.models.trendlines.fitting.base import FITTER_REGISTRY, TrendlineFitter
 
 # Trigger decorator-based registration of all implementations.
-import app.trendlines.pivots  # noqa: F401
-import app.trendlines.fitting  # noqa: F401
+import libs.models.trendlines.pivots  # noqa: F401
+import libs.models.trendlines.fitting  # noqa: F401
 
 
 logger = logging.getLogger(__name__)

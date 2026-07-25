@@ -18,17 +18,17 @@ from typing import Any, Dict, List, Mapping, Optional
 
 import pandas as pd
 
-from app.trendlines.boundary.adapters import build_boundary_result_from_trendline_result
-from app.trendlines.boundary.contracts import BoundaryResult
-from app.trendlines.config import TrendlinePipelineConfig, TrendlinesConfig, load_trendlines_config
-from app.trendlines.config.resolve import ResolvedConfig, resolve_asset_config
-from app.trendlines.contracts import TrendlineFitResult
-from app.trendlines.pipeline import (
+from libs.models.trendlines.boundary.adapters import build_boundary_result_from_trendline_result
+from libs.models.trendlines.boundary.contracts import BoundaryResult
+from libs.models.trendlines.config import TrendlinePipelineConfig, TrendlinesConfig, load_trendlines_config
+from libs.models.trendlines.config.resolve import ResolvedConfig, resolve_asset_config
+from libs.models.trendlines.contracts import TrendlineFitResult
+from libs.models.trendlines.pipeline import (
     execute_trendline_pipeline,
     run_trendline_pipeline,
     run_trendline_pipeline_from_config,
 )
-from app.trendlines.signals.orchestrator import TrendlineSignalOrchestrator
+from libs.models.trendlines.signals.orchestrator import TrendlineSignalOrchestrator
 
 
 @dataclass
@@ -184,7 +184,7 @@ def fit_oscillator_to_boundary(
     The ``df`` must already be synthetic OHLCV (from ``prepare_oscillator_df()``).
     Signal extraction is NOT performed — oscillator signals are a future concern.
     """
-    from app.trendlines.config.resolve import resolve_oscillator_config
+    from libs.models.trendlines.config.resolve import resolve_oscillator_config
 
     root_config = trendlines_config or load_trendlines_config()
     resolved = resolve_oscillator_config(root_config, oscillator_type, timeframe, df)
@@ -327,7 +327,7 @@ def optimize_trendlines(
     pipeline_factory: Optional[Any] = None,
 ) -> "TrendlinesOptimizationResult":
     """Run trendlines Bayesian optimization and return best run output."""
-    from app.trendlines.optimization import (
+    from libs.models.trendlines.optimization import (
         TrendlinesOptimizationConfig,
         TrendlinesOptimizationResult,
         TrendlinesOptimizer,

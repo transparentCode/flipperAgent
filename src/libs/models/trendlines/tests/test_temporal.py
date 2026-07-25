@@ -1,6 +1,6 @@
 import pandas as pd
 
-from app.trendlines.data import (
+from libs.models.trendlines.data import (
     TRENDLINE_AUTO_SPLIT_POLICY,
     TemporalSplitManifest,
     TemporalSplitSpec,

@@ -13,7 +13,7 @@ is accurate as of the current codebase. The legacy `app/geometry/` module has be
   `app/trendlines/signals/`.
 - All tunable hyperparameters live in `app/trendlines/config/` — not scattered in source files.
 - Bayesian hyperparameter optimization lives in `app/trendlines/optimization/`.
-- Reusable trendline callers should import from `app.trendlines` and `app.trendlines.boundary`
+- Reusable trendline callers should import from `libs.models.trendlines` and `libs.models.trendlines.boundary`
   directly.
 
 ---

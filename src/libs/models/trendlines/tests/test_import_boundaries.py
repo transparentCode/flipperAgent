@@ -51,13 +51,13 @@ def _app_notebook_files() -> list[Path]:
     return sorted(path for path in notebook_root.rglob("*.ipynb") if "__pycache__" not in path.parts)
 
 
-def _app_imports(path: Path) -> list[str]:
+def _absolute_imports(path: Path) -> list[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     imports: list[str] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            imports.extend(alias.name for alias in node.names if alias.name.startswith("app."))
-        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module and node.module.startswith("app."):
+            imports.extend(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
             imports.append(node.module)
     return imports
 
@@ -110,7 +110,7 @@ def _violations(
 ) -> list[str]:
     violations: list[str] = []
     for path in paths:
-        for imported in _app_imports(path):
+        for imported in _absolute_imports(path):
             if any(imported == prefix or imported.startswith(prefix + ".") for prefix in banned_prefixes):
                 violations.append(f"{path.relative_to(relative_to)} -> {imported}")
     return violations
@@ -131,13 +131,13 @@ def _text_violations(
     return violations
 
 
-def test_trendlines_package_has_no_cross_module_app_dependencies():
+def test_trendlines_package_has_no_app_namespace_dependencies():
     package_files = _package_files()
 
     violations = []
     for path in package_files:
-        for imported in _app_imports(path):
-            if not (imported == "app.trendlines" or imported.startswith("app.trendlines.")):
+        for imported in _absolute_imports(path):
+            if imported == "app" or imported.startswith("app."):
                 violations.append(f"{path.relative_to(TRENDLINES_ROOT)} -> {imported}")
 
     assert violations == []
@@ -147,12 +147,12 @@ def test_contracts_do_not_import_pivots_fitting_registry_or_pipeline():
     violations = _violations(
         _package_files("contracts"),
         (
-            "app.trendlines.boundary",
-            "app.trendlines.pivots",
-            "app.trendlines.fitting",
-            "app.trendlines.registry",
-            "app.trendlines.pipeline",
-            "app.trendlines.signals",
+            "libs.models.trendlines.boundary",
+            "libs.models.trendlines.pivots",
+            "libs.models.trendlines.fitting",
+            "libs.models.trendlines.registry",
+            "libs.models.trendlines.pipeline",
+            "libs.models.trendlines.signals",
         ),
     )
 
@@ -163,11 +163,11 @@ def test_pivots_do_not_import_fitting_registry_or_pipeline():
     violations = _violations(
         _package_files("pivots"),
         (
-            "app.trendlines.boundary",
-            "app.trendlines.fitting",
-            "app.trendlines.registry",
-            "app.trendlines.pipeline",
-            "app.trendlines.signals",
+            "libs.models.trendlines.boundary",
+            "libs.models.trendlines.fitting",
+            "libs.models.trendlines.registry",
+            "libs.models.trendlines.pipeline",
+            "libs.models.trendlines.signals",
         ),
     )
 
@@ -178,10 +178,10 @@ def test_fitting_do_not_import_registry_or_pipeline():
     violations = _violations(
         _package_files("fitting"),
         (
-            "app.trendlines.boundary",
-            "app.trendlines.registry",
-            "app.trendlines.pipeline",
-            "app.trendlines.signals",
+            "libs.models.trendlines.boundary",
+            "libs.models.trendlines.registry",
+            "libs.models.trendlines.pipeline",
+            "libs.models.trendlines.signals",
         ),
     )
 
@@ -192,12 +192,12 @@ def test_data_do_not_import_pivots_fitting_registry_or_pipeline():
     violations = _violations(
         _package_files("data"),
         (
-            "app.trendlines.boundary",
-            "app.trendlines.pivots",
-            "app.trendlines.fitting",
-            "app.trendlines.registry",
-            "app.trendlines.pipeline",
-            "app.trendlines.signals",
+            "libs.models.trendlines.boundary",
+            "libs.models.trendlines.pivots",
+            "libs.models.trendlines.fitting",
+            "libs.models.trendlines.registry",
+            "libs.models.trendlines.pipeline",
+            "libs.models.trendlines.signals",
         ),
     )
 
@@ -207,7 +207,7 @@ def test_data_do_not_import_pivots_fitting_registry_or_pipeline():
 def test_registry_does_not_import_pipeline_boundary_or_signals():
     violations = _violations(
         _package_files("registry"),
-        ("app.trendlines.pipeline", "app.trendlines.boundary", "app.trendlines.signals"),
+        ("libs.models.trendlines.pipeline", "libs.models.trendlines.boundary", "libs.models.trendlines.signals"),
     )
 
     assert violations == []
@@ -216,7 +216,7 @@ def test_registry_does_not_import_pipeline_boundary_or_signals():
 def test_pipeline_does_not_import_boundary_or_signals():
     violations = _violations(
         _package_files("pipeline"),
-        ("app.trendlines.boundary", "app.trendlines.signals"),
+        ("libs.models.trendlines.boundary", "libs.models.trendlines.signals"),
     )
 
     assert violations == []
@@ -227,11 +227,11 @@ def test_boundary_does_not_import_geometry_registry_pipeline_workflows_or_signal
         _package_files("boundary"),
         (
             "app.geometry",
-            "app.trendlines.data",
-            "app.trendlines.registry",
-            "app.trendlines.pipeline",
-            "app.trendlines.signals",
-            "app.trendlines.workflows",
+            "libs.models.trendlines.data",
+            "libs.models.trendlines.registry",
+            "libs.models.trendlines.pipeline",
+            "libs.models.trendlines.signals",
+            "libs.models.trendlines.workflows",
         ),
     )
 
@@ -242,11 +242,11 @@ def test_workflows_common_do_not_import_pivots_fitting_registry_or_pipeline():
     violations = _violations(
         _package_files("workflows", "common"),
         (
-            "app.trendlines.pivots",
-            "app.trendlines.fitting",
-            "app.trendlines.registry",
-            "app.trendlines.pipeline",
-            "app.trendlines.signals",
+            "libs.models.trendlines.pivots",
+            "libs.models.trendlines.fitting",
+            "libs.models.trendlines.registry",
+            "libs.models.trendlines.pipeline",
+            "libs.models.trendlines.signals",
         ),
     )
 
@@ -263,13 +263,13 @@ def test_signals_do_not_import_data_pivots_fitting_contracts_registry_pipeline_o
     violations = _violations(
         _package_files("signals"),
         (
-            "app.trendlines.data",
-            "app.trendlines.pivots",
-            "app.trendlines.fitting",
-            "app.trendlines.contracts",
-            "app.trendlines.registry",
-            "app.trendlines.pipeline",
-            "app.trendlines.workflows",
+            "libs.models.trendlines.data",
+            "libs.models.trendlines.pivots",
+            "libs.models.trendlines.fitting",
+            "libs.models.trendlines.contracts",
+            "libs.models.trendlines.registry",
+            "libs.models.trendlines.pipeline",
+            "libs.models.trendlines.workflows",
         ),
     )
 

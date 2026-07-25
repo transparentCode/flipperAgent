@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from app.trendlines.api import fit_and_signal, fit_trendlines_to_boundary, TrendlineOutput
-from app.trendlines.config import TrendlinesConfig, load_trendlines_config, TrendlinePipelineConfig
+from libs.models.trendlines.api import fit_and_signal, fit_trendlines_to_boundary, TrendlineOutput
+from libs.models.trendlines.config import TrendlinesConfig, load_trendlines_config, TrendlinePipelineConfig
 
 
 def _make_trending_ohlcv(n_bars: int = 500) -> pd.DataFrame:
@@ -150,7 +150,7 @@ class TestBackwardCompat:
 
     def test_trendlines_config_dataclass_replace(self):
         from dataclasses import replace
-        from app.trendlines.config import OptimizableDefaults
+        from libs.models.trendlines.config import OptimizableDefaults
         cfg = TrendlinesConfig()
         cfg2 = replace(cfg, extractor="rdp_zigzag")
         assert cfg2.extractor == "rdp_zigzag"

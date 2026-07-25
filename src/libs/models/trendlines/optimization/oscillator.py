@@ -23,13 +23,13 @@ from typing import Any, Callable, Dict, Optional
 
 import pandas as pd
 
-from app.trendlines.optimization.models import (
+from libs.models.trendlines.optimization.models import (
     TrendlinesOptimizationConfig,
     TrendlinesOptimizationResult,
 )
-from app.trendlines.optimization.optimizer import TrendlinesOptimizer
+from libs.models.trendlines.optimization.optimizer import TrendlinesOptimizer
 
-logger = logging.getLogger("app.trendlines.optimization")
+logger = logging.getLogger("libs.models.trendlines.optimization")
 
 
 def _oscillator_pipeline_factory(
@@ -38,8 +38,8 @@ def _oscillator_pipeline_factory(
     timeframe: str,
 ):
     """Pipeline factory for oscillator trendlines optimization."""
-    from app.trendlines import TrendlinePipelineConfig, build_extractor
-    from app.trendlines.pipeline import run_trendline_pipeline_from_config
+    from libs.models.trendlines import TrendlinePipelineConfig, build_extractor
+    from libs.models.trendlines.pipeline import run_trendline_pipeline_from_config
 
     def run(train_df: pd.DataFrame):
         left_w = params.get("left_window", 5)

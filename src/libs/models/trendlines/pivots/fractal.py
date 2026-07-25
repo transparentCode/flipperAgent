@@ -9,9 +9,9 @@ import numpy as np
 import pandas as pd
 from numpy.lib.stride_tricks import sliding_window_view
 
-from app.trendlines.pivots.base import register_extractor
-from app.trendlines.contracts import PivotSet
-from app.trendlines.config import GridSearchConfig
+from libs.models.trendlines.pivots.base import register_extractor
+from libs.models.trendlines.contracts import PivotSet
+from libs.models.trendlines.config import GridSearchConfig
 
 
 _cfg = GridSearchConfig().fractal

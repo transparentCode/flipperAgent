@@ -8,10 +8,10 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from app.trendlines.pivots import FractalPivotExtractor, PivotExtractor
-from app.trendlines.fitting.base import register_fitter
-from app.trendlines.contracts import PivotSet, Trendline, TrendlineFitResult
-from app.trendlines.config import GridSearchConfig
+from libs.models.trendlines.pivots import FractalPivotExtractor, PivotExtractor
+from libs.models.trendlines.fitting.base import register_fitter
+from libs.models.trendlines.contracts import PivotSet, Trendline, TrendlineFitResult
+from libs.models.trendlines.config import GridSearchConfig
 
 
 _cfg = GridSearchConfig().ransac

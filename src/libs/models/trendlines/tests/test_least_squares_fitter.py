@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from app.trendlines.fitting.least_squares import LeastSquaresFitter
+from libs.models.trendlines.fitting.least_squares import LeastSquaresFitter
 
 
 def _make_least_squares_frame() -> pd.DataFrame:

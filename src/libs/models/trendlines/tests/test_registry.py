@@ -1,10 +1,10 @@
 import pytest
 
-from app.trendlines import build_extractor, build_fitter, list_extractors, list_fitters
-from app.trendlines.fitting.least_squares import LeastSquaresFitter
-from app.trendlines.fitting.pathfinding import PathfindingFitter
-from app.trendlines.fitting.ransac import RansacFitter
-from app.trendlines.pivots.rdp_zigzag import RDPZigZagPivotExtractor
+from libs.models.trendlines import build_extractor, build_fitter, list_extractors, list_fitters
+from libs.models.trendlines.fitting.least_squares import LeastSquaresFitter
+from libs.models.trendlines.fitting.pathfinding import PathfindingFitter
+from libs.models.trendlines.fitting.ransac import RansacFitter
+from libs.models.trendlines.pivots.rdp_zigzag import RDPZigZagPivotExtractor
 
 
 def test_build_fitter_returns_registered_fitter():

@@ -67,18 +67,18 @@ if str(_ROOT) not in sys.path:
 import pandas as pd
 import yaml
 
-from app.trendlines.optimization import (
+from libs.models.trendlines.optimization import (
     TrendlinesOptimizationConfig,
     TrendlinesOptimizer,
 )
-from app.trendlines.optimization.models import TrendlinesOptimizationResult
-from app.trendlines.optimization.oscillator import (
+from libs.models.trendlines.optimization.models import TrendlinesOptimizationResult
+from libs.models.trendlines.optimization.oscillator import (
     OscillatorOptimizationConfig,
     apply_oscillator_result,
     optimize_oscillator_trendlines,
 )
 
-logger = logging.getLogger("app.trendlines.optimization")
+logger = logging.getLogger("libs.models.trendlines.optimization")
 
 
 # ---------------------------------------------------------------------------
@@ -578,7 +578,7 @@ def run_oscillator(
     )
 
     # --- Compute oscillator series from price OHLCV ---
-    from app.trendlines.config.oscillator_profile import OscillatorProfile
+    from libs.models.trendlines.config.oscillator_profile import OscillatorProfile
 
     osc_series = _compute_oscillator_series(df, oscillator_type)
     osc_df = _prepare_oscillator_df(osc_series, df.index)

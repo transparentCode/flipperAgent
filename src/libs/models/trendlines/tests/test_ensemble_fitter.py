@@ -3,9 +3,9 @@
 import pandas as pd
 import pytest
 
-from app.trendlines.fitting.ensemble import EnsembleFitter, _deduplicate
-from app.trendlines.contracts import Trendline
-from app.trendlines.registry import build_fitter, list_fitters
+from libs.models.trendlines.fitting.ensemble import EnsembleFitter, _deduplicate
+from libs.models.trendlines.contracts import Trendline
+from libs.models.trendlines.registry import build_fitter, list_fitters
 
 
 def _make_ohlc_frame() -> pd.DataFrame:

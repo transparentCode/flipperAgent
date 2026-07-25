@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from app.trendlines.pivots import FractalPivotExtractor, RDPZigZagPivotExtractor
-from app.trendlines import build_extractor, list_extractors
+from libs.models.trendlines.pivots import FractalPivotExtractor, RDPZigZagPivotExtractor
+from libs.models.trendlines import build_extractor, list_extractors
 
 
 def _make_fractal_frame() -> pd.DataFrame:

@@ -2,11 +2,18 @@ from pathlib import Path
 
 import numpy as np
 
-import app.trendlines as compatibility
 import libs.models.trendlines as canonical
 
-from app.trendlines import PivotSet, Trendline, TrendlineFitResult, run_trendline_pipeline
-from app.trendlines.pivots.rdp_zigzag import RDPZigZagPivotExtractor
+from libs.models.trendlines import (
+    PivotSet,
+    Trendline,
+    TrendlineFitResult,
+    TrendlinePipelineConfig,
+    fit_trendlines,
+    fit_trendlines_to_boundary,
+    run_trendline_pipeline,
+)
+from libs.models.trendlines.pivots.rdp_zigzag import RDPZigZagPivotExtractor
 
 
 def test_public_contract_exports_are_stable():
@@ -35,18 +42,21 @@ def test_public_contract_exports_are_stable():
     assert line.project(3) == line.value_at(7)
     assert RDPZigZagPivotExtractor.__name__ == "RDPZigZagPivotExtractor"
     assert callable(run_trendline_pipeline)
-    new_root = Path(canonical.__file__).resolve().parent
+    package_root = Path(__file__).resolve().parents[1]
 
-    assert new_root.name == "trendlines"
-    assert new_root.parent.name == "models"
+    assert Path(canonical.__file__).resolve().is_relative_to(package_root)
 
-    for name in (
-        "TrendlinePipelineConfig",
-        "PivotSet",
-        "Trendline",
-        "TrendlineFitResult",
-        "run_trendline_pipeline",
-        "fit_trendlines",
-        "fit_trendlines_to_boundary",
+    for value in (
+        TrendlinePipelineConfig,
+        PivotSet,
+        Trendline,
+        TrendlineFitResult,
+        RDPZigZagPivotExtractor,
+        run_trendline_pipeline,
+        fit_trendlines,
+        fit_trendlines_to_boundary,
     ):
-        assert getattr(canonical, name) is getattr(compatibility, name)
+        module_name = value.__module__
+        assert module_name == "libs.models.trendlines" or module_name.startswith(
+            "libs.models.trendlines."
+        ), (value, module_name)

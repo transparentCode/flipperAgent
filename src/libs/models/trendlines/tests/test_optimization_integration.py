@@ -7,16 +7,16 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from app.trendlines.optimization.optimizer import OPTUNA_AVAILABLE
+from libs.models.trendlines.optimization.optimizer import OPTUNA_AVAILABLE
 
 pytestmark = pytest.mark.skipif(not OPTUNA_AVAILABLE, reason="optuna not installed")
 
-from app.trendlines.api import optimize_trendlines
-from app.trendlines.optimization.models import (
+from libs.models.trendlines.api import optimize_trendlines
+from libs.models.trendlines.optimization.models import (
     TrendlinesOptimizationConfig,
     TrendlinesOptimizationResult,
 )
-from app.trendlines.optimization.walk_forward import WalkForwardSplit, WalkForwardValidator
+from libs.models.trendlines.optimization.walk_forward import WalkForwardSplit, WalkForwardValidator
 
 
 # ---------------------------------------------------------------------------
@@ -36,7 +36,7 @@ def _make_ohlcv(n: int = 4000, base: float = 100.0) -> pd.DataFrame:
 
 
 # Reuse mock from test_optimizer
-from app.trendlines.tests.test_optimizer import _mock_pipeline_factory
+from libs.models.trendlines.tests.test_optimizer import _mock_pipeline_factory
 
 
 # ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import pandas as pd
 import pytest
 
-from app.trendlines.boundary import (
+from libs.models.trendlines.boundary import (
     BoundaryResult,
     QualityMetrics,
     Ray,

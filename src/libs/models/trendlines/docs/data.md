@@ -73,7 +73,7 @@ A single fold.
 Generates the sequence of splits for a dataset of length `n_bars`.
 
 ```python
-from app.trendlines.data.temporal import WalkForwardValidator
+from libs.models.trendlines.data.temporal import WalkForwardValidator
 
 validator = WalkForwardValidator(
     train_bars=2160,    # ~90 days at 1h
@@ -153,7 +153,7 @@ A `TemporalSplitManifest` is an immutable, hashable description of the full walk
 used for a given optimization run.
 
 ```python
-from app.trendlines.data.temporal import build_temporal_split_manifest
+from libs.models.trendlines.data.temporal import build_temporal_split_manifest
 
 manifest = build_temporal_split_manifest(spec=split_spec, n_bars=len(df))
 # manifest.spec_hash — deterministic SHA-256 of (spec_params, n_bars)
@@ -172,7 +172,7 @@ identical train/test indices.
 All persistence is JSON-based. Manifests round-trip cleanly via `to_dict()` / `from_dict()`.
 
 ```python
-from app.trendlines.data.artifacts import write_temporal_split_manifest, read_dataset_manifest
+from libs.models.trendlines.data.artifacts import write_temporal_split_manifest, read_dataset_manifest
 
 write_temporal_split_manifest(manifest, "/tmp/my_splits.json")
 # Later:

@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Protocol, Type
 
 import pandas as pd
 
-from app.trendlines.contracts import PivotSet, TrendlineFitResult
+from libs.models.trendlines.contracts import PivotSet, TrendlineFitResult
 
 
 class TrendlineFitter(Protocol):

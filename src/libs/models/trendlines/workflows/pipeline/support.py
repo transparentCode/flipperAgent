@@ -7,9 +7,9 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-from app.trendlines.data import TrendlineArtifactRef, TrendlineDataRequest, TemporalSplitManifest, TemporalSplitSpec, normalize_timeframes
-from app.trendlines.workflows.common.contracts import PIPELINE_WORKFLOW_SEMANTICS_VERSION
-from app.trendlines.workflows.common.promotion import TRENDLINE_PIPELINE_PROMOTION_FITNESS_THRESHOLD
+from libs.models.trendlines.data import TrendlineArtifactRef, TrendlineDataRequest, TemporalSplitManifest, TemporalSplitSpec, normalize_timeframes
+from libs.models.trendlines.workflows.common.contracts import PIPELINE_WORKFLOW_SEMANTICS_VERSION
+from libs.models.trendlines.workflows.common.promotion import TRENDLINE_PIPELINE_PROMOTION_FITNESS_THRESHOLD
 
 PIPELINE_PROMOTION_FITNESS_THRESHOLD = TRENDLINE_PIPELINE_PROMOTION_FITNESS_THRESHOLD
 

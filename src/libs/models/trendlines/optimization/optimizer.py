@@ -19,20 +19,20 @@ from typing import Callable, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from app.trendlines.optimization.benchmarks import (
+from libs.models.trendlines.optimization.benchmarks import (
     fold_stability,
     longevity,
     penetration_gate,
     pivot_density,
     touch_accuracy,
 )
-from app.trendlines.optimization.models import (
+from libs.models.trendlines.optimization.models import (
     TrendlinesBenchmarkResults,
     TrendlinesOptimizationConfig,
     TrendlinesOptimizationResult,
     TrendlinesTrialResult,
 )
-from app.trendlines.optimization.walk_forward import WalkForwardValidator
+from libs.models.trendlines.optimization.walk_forward import WalkForwardValidator
 
 try:
     import optuna
@@ -44,7 +44,7 @@ try:
 except ImportError:
     OPTUNA_AVAILABLE = False
 
-logger = logging.getLogger("app.trendlines.optimization")
+logger = logging.getLogger("libs.models.trendlines.optimization")
 
 
 def _default_pipeline_factory(
@@ -53,12 +53,12 @@ def _default_pipeline_factory(
     timeframe: str,
 ):
     """Run trendline pipeline with the given trial params and return fit result + pivots."""
-    from app.trendlines.workflows.pipeline.evaluation import (
+    from libs.models.trendlines.workflows.pipeline.evaluation import (
         run_pipeline_with_params,
     )
-    from app.trendlines import build_extractor
-    from app.trendlines.workflows.pipeline.temporal_spec import resolve_trendlines_workflow_config
-    from app.trendlines import TrendlinePipelineConfig
+    from libs.models.trendlines import build_extractor
+    from libs.models.trendlines.workflows.pipeline.temporal_spec import resolve_trendlines_workflow_config
+    from libs.models.trendlines import TrendlinePipelineConfig
 
     def run(train_df: pd.DataFrame):
         fit_result = run_pipeline_with_params(train_df, asset, timeframe, params)

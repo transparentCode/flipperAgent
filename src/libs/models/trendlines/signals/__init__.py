@@ -1,11 +1,11 @@
 """Trendlines-native signal contracts, extractors, and orchestration."""
 
-from app.trendlines.signals.base import AlphaSignal, BaseAlphaExtractor
-from app.trendlines.signals.fakeout import FakeoutAlphaExtractor
-from app.trendlines.signals.orchestrator import TrendlineSignalOrchestrator
-from app.trendlines.signals.patterns import PatternAlphaExtractor
-from app.trendlines.signals.structural import StructuralAlphaExtractor
-from app.trendlines.signals.temporal import TemporalAlphaExtractor
+from libs.models.trendlines.signals.base import AlphaSignal, BaseAlphaExtractor
+from libs.models.trendlines.signals.fakeout import FakeoutAlphaExtractor
+from libs.models.trendlines.signals.orchestrator import TrendlineSignalOrchestrator
+from libs.models.trendlines.signals.patterns import PatternAlphaExtractor
+from libs.models.trendlines.signals.structural import StructuralAlphaExtractor
+from libs.models.trendlines.signals.temporal import TemporalAlphaExtractor
 
 __all__ = [
     "AlphaSignal",

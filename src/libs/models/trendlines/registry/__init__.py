@@ -1,6 +1,6 @@
 """Canonical registry seam for trendline extractors and fitters."""
 
-from app.trendlines.registry.registry import (
+from libs.models.trendlines.registry.registry import (
     DEPRECATED_EXTRACTOR_ALIASES,
     DEPRECATED_FITTER_ALIASES,
     EXTRACTOR_REGISTRY,

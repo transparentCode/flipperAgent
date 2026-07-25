@@ -1,6 +1,6 @@
 """Core pipeline orchestration for trendline extraction and fitting."""
 
-from app.trendlines.pipeline.orchestrator import (
+from libs.models.trendlines.pipeline.orchestrator import (
     execute_trendline_pipeline,
     run_trendline_pipeline,
     run_trendline_pipeline_from_config,

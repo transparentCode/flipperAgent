@@ -4,11 +4,11 @@ from types import SimpleNamespace
 
 import pandas as pd
 
-from app.trendlines import cli as trendlines_cli
-from app.trendlines.data import TrendlineDataRequest, build_dataset_manifest
-from app.trendlines.workflows.pipeline import workflow as pipeline_workflow
-from app.trendlines.workflows.pipeline import data_fetch
-from app.trendlines.workflows.pipeline import config_apply
+from libs.models.trendlines import cli as trendlines_cli
+from libs.models.trendlines.data import TrendlineDataRequest, build_dataset_manifest
+from libs.models.trendlines.workflows.pipeline import workflow as pipeline_workflow
+from libs.models.trendlines.workflows.pipeline import data_fetch
+from libs.models.trendlines.workflows.pipeline import config_apply
 
 
 def _demo_frame() -> pd.DataFrame:

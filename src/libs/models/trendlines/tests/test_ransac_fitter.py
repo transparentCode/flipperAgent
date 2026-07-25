@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from app.trendlines.fitting.ransac import RansacFitter
+from libs.models.trendlines.fitting.ransac import RansacFitter
 
 
 def _make_ransac_frame() -> pd.DataFrame:

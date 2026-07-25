@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from app.trendlines.config.asset_profile import AssetProfile, _MIN_BARS_FOR_PROFILE
-from app.trendlines.config.derive import (
+from libs.models.trendlines.config.asset_profile import AssetProfile, _MIN_BARS_FOR_PROFILE
+from libs.models.trendlines.config.derive import (
     compute_all_derived,
     derive_atr_window,
     derive_consecutive_penetration_bars,

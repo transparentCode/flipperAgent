@@ -6,7 +6,7 @@ from typing import Mapping, Protocol
 
 import pandas as pd
 
-from app.trendlines.data.contracts import TrendlineArtifactRef, TrendlineDataRequest, TrendlineDatasetManifest
+from libs.models.trendlines.data.contracts import TrendlineArtifactRef, TrendlineDataRequest, TrendlineDatasetManifest
 
 
 class TrendlineDatasetLoader(Protocol):

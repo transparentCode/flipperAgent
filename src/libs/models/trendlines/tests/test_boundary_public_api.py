@@ -5,15 +5,15 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 
-from app.trendlines import TrendlinePipelineConfig
-from app.trendlines.boundary import (
+from libs.models.trendlines import TrendlinePipelineConfig
+from libs.models.trendlines.boundary import (
     BoundaryResult,
     TouchDeclusterConfig,
     build_boundary_result_from_trendline_result,
     decluster_touch_indices,
     trendline_to_boundary_ray,
 )
-from app.trendlines.contracts import Trendline, TrendlineFitResult
+from libs.models.trendlines.contracts import Trendline, TrendlineFitResult
 
 
 def _make_boundary_frame() -> pd.DataFrame:

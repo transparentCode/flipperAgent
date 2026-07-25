@@ -6,10 +6,10 @@ Covers: Extract -> Fit -> Orchestrate -> Adapt -> Signal in a single chain.
 import numpy as np
 import pandas as pd
 
-from app.trendlines import run_trendline_pipeline
-from app.trendlines.boundary.adapters import build_boundary_result_from_trendline_result
-from app.trendlines.boundary.contracts import BoundaryResult, Ray
-from app.trendlines.signals.orchestrator import TrendlineSignalOrchestrator
+from libs.models.trendlines import run_trendline_pipeline
+from libs.models.trendlines.boundary.adapters import build_boundary_result_from_trendline_result
+from libs.models.trendlines.boundary.contracts import BoundaryResult, Ray
+from libs.models.trendlines.signals.orchestrator import TrendlineSignalOrchestrator
 
 
 def _make_ohlcv_frame(n_bars: int = 60) -> pd.DataFrame:

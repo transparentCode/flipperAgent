@@ -11,7 +11,7 @@ from typing import Iterator, List, Optional, Tuple
 
 import pandas as pd
 
-from app.trendlines.data import TemporalSplitSpec, build_temporal_split_manifest
+from libs.models.trendlines.data import TemporalSplitSpec, build_temporal_split_manifest
 
 
 @dataclass

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from app.trendlines import TrendlinePipelineConfig
-from app.trendlines.registry import get_extractor_search_grid, get_fitter_search_grid
-from app.trendlines.workflows.common.contracts import PipelineOptimizationSpec, WorkflowPromotionSpec
-from app.trendlines.workflows.common.promotion import TRENDLINE_PIPELINE_PROMOTION_FITNESS_THRESHOLD
-from app.trendlines.data import TemporalSplitManifest, TemporalSplitSpec, build_temporal_split_manifest, resolve_trendline_auto_split_spec
-from app.trendlines.config import EvaluationConfig
+from libs.models.trendlines import TrendlinePipelineConfig
+from libs.models.trendlines.registry import get_extractor_search_grid, get_fitter_search_grid
+from libs.models.trendlines.workflows.common.contracts import PipelineOptimizationSpec, WorkflowPromotionSpec
+from libs.models.trendlines.workflows.common.promotion import TRENDLINE_PIPELINE_PROMOTION_FITNESS_THRESHOLD
+from libs.models.trendlines.data import TemporalSplitManifest, TemporalSplitSpec, build_temporal_split_manifest, resolve_trendline_auto_split_spec
+from libs.models.trendlines.config import EvaluationConfig
 
 _eval_cfg = EvaluationConfig()
 

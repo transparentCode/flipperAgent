@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict
 
-from app.trendlines.data import TrendlineArtifactRef, TrendlineDataRequest, TemporalSplitSpec
+from libs.models.trendlines.data import TrendlineArtifactRef, TrendlineDataRequest, TemporalSplitSpec
 
 
 PIPELINE_WORKFLOW_SEMANTICS_VERSION = "2026-04-08-v1"

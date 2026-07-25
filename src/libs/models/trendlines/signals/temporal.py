@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from app.trendlines.boundary import BoundaryResult
+from libs.models.trendlines.boundary import BoundaryResult
 
 from .base import AlphaSignal, BaseAlphaExtractor
 from .utils import series_acceleration, count_persistent_rays

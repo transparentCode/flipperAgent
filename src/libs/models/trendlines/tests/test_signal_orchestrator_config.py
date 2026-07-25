@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from app.trendlines.config import TrendlinesConfig
-from app.trendlines.boundary import BoundaryResult
-from app.trendlines.signals import AlphaSignal, TrendlineSignalOrchestrator
+from libs.models.trendlines.config import TrendlinesConfig
+from libs.models.trendlines.boundary import BoundaryResult
+from libs.models.trendlines.signals import AlphaSignal, TrendlineSignalOrchestrator
 
 
 class _StubExtractor:

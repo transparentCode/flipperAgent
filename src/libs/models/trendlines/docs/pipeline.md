@@ -83,7 +83,7 @@ Runs **Stage 1 + Stage 2** only (extract → fit). Returns `TrendlineOutput` wit
 `boundary_result=None` and `signal_output=None`.
 
 ```python
-from app.trendlines import fit_trendlines
+from libs.models.trendlines import fit_trendlines
 
 output = fit_trendlines(
     df,                          # pd.DataFrame with open/high/low/close, DatetimeIndex
@@ -101,7 +101,7 @@ Runs **Stages 1 + 2 + 3** (extract → fit → boundary adaptation). Returns `Tr
 with `boundary_result` populated. `signal_output` is still `None`.
 
 ```python
-from app.trendlines import fit_trendlines_to_boundary
+from libs.models.trendlines import fit_trendlines_to_boundary
 
 output = fit_trendlines_to_boundary(
     df, asset="BTCUSDT", timeframe="1h",
@@ -121,7 +121,7 @@ After the fit stage, the function resolves the full config for this `(asset, tim
 params, resolves optimizable overrides, and produces a frozen `ResolvedConfig`.
 
 ```python
-from app.trendlines import fit_and_signal
+from libs.models.trendlines import fit_and_signal
 
 output = fit_and_signal(
     df, asset="BTCUSDT", timeframe="1h",
@@ -146,7 +146,7 @@ Use these when you want to control extractor/fitter directly without the facade.
 Builds extractor and fitter from the registry, runs extract → fit.
 
 ```python
-from app.trendlines import run_trendline_pipeline
+from libs.models.trendlines import run_trendline_pipeline
 
 result = run_trendline_pipeline(
     df,
@@ -168,7 +168,7 @@ The pipeline reads defaults from the config hierarchy. All stages respect the sa
 `TrendlinesConfig` root:
 
 ```python
-from app.trendlines.config import load_trendlines_config
+from libs.models.trendlines.config import load_trendlines_config
 
 cfg = load_trendlines_config()           # Loads trendlines.yaml (falls back to defaults.py)
 output = fit_and_signal(df, "BTCUSDT", "1h", trendlines_config=cfg)
@@ -178,7 +178,7 @@ To override specific optimizable parameters:
 
 ```python
 from dataclasses import replace
-from app.trendlines.config import TrendlinesConfig, OptimizableDefaults
+from libs.models.trendlines.config import TrendlinesConfig, OptimizableDefaults
 
 cfg = replace(
     TrendlinesConfig(),

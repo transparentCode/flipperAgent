@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from app.trendlines.workflows.common.contracts import WorkflowPromotionDecision
+from libs.models.trendlines.workflows.common.contracts import WorkflowPromotionDecision
 
 
 TRENDLINE_PIPELINE_PROMOTION_FITNESS_THRESHOLD = 0.05

@@ -17,9 +17,9 @@ from typing import Any, Dict, Optional
 import pandas as pd
 from binance.um_futures import UMFutures
 
-from app.trendlines import execute_trendline_pipeline
-from app.trendlines.boundary import build_boundary_result_from_trendline_result
-from app.trendlines.config import EvaluationConfig
+from libs.models.trendlines import execute_trendline_pipeline
+from libs.models.trendlines.boundary import build_boundary_result_from_trendline_result
+from libs.models.trendlines.config import EvaluationConfig
 
 _eval_cfg = EvaluationConfig()
 

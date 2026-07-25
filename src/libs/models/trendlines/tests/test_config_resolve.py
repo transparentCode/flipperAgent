@@ -6,14 +6,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from app.trendlines.config import (
+from libs.models.trendlines.config import (
     TrendlinesConfig,
     OptimizableDefaults,
     AssetConfig,
     AssetTimeframeConfig,
     load_trendlines_config,
 )
-from app.trendlines.config.resolve import ResolvedConfig, ResolvedSignalConfig, resolve_asset_config
+from libs.models.trendlines.config.resolve import ResolvedConfig, ResolvedSignalConfig, resolve_asset_config
 
 
 def _make_ohlcv(n_bars: int = 200) -> pd.DataFrame:
