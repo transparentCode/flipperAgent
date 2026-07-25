@@ -20,10 +20,14 @@ _RETIRED_PACKAGE_PATHS = (
     _REPOSITORY_ROOT / "src" / "libs" / "models" / "trendline_family",
     _REPOSITORY_ROOT / "src" / "libs" / "models" / "trendlines_old",
     _REPOSITORY_ROOT / "src" / "libs" / "trendlines",
+    _REPOSITORY_ROOT / "src" / "app" / "trendlines",
 )
-_SINGULAR_PREFIXES = (
+_RETIRED_IMPORT_PREFIXES = (
+    "app.trendlines",
+    "libs.trendlines",
     "libs.models.trendline",
     "libs.models.trendline_family",
+    "libs.models.trendlines_old",
 )
 _SCAN_ROOTS = ("src", "tests", "scripts", "conductor")
 _REMOVED_MODULES = (
@@ -36,13 +40,14 @@ _REMOVED_MODULES = (
     "libs.models.trendline_family",
     "libs.models.trendlines_old",
     "libs.trendlines",
+    "app.trendlines",
 )
 
 
-def _is_singular_import(module: str) -> bool:
+def _is_retired_import(module: str) -> bool:
     return any(
         module == prefix or module.startswith(f"{prefix}.")
-        for prefix in _SINGULAR_PREFIXES
+        for prefix in _RETIRED_IMPORT_PREFIXES
     )
 
 
@@ -125,19 +130,19 @@ def test_canonical_plural_trendlines_package_is_relocated() -> None:
     assert not old_path.exists()
     assert importlib.util.find_spec("libs.models.trendlines") is not None
     assert _module_is_absent("libs.trendlines")
+    assert not (_REPOSITORY_ROOT / "src" / "app" / "trendlines").exists()
+    assert _module_is_absent("app.trendlines")
 
-    import app.trendlines
     import libs.models.trendlines
 
     assert Path(libs.models.trendlines.__file__).resolve().is_relative_to(new_path)
-    assert Path(app.trendlines.__path__[0]).resolve() == new_path
 
 
-def test_no_external_executable_consumer_imports_singular_models() -> None:
+def test_no_executable_consumer_imports_retired_trendline_namespaces() -> None:
     violations = []
     for path in _iter_scanned_python_files():
         for module in _iter_imports(path):
-            if _is_singular_import(module):
+            if _is_retired_import(module):
                 violations.append(f"{path}: {module}")
 
     assert not violations, "\n".join(violations)
