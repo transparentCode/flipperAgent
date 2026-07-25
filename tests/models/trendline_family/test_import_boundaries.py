@@ -83,7 +83,6 @@ def _direct_owner_implementation_files() -> list[Path]:
         root / "src" / "libs" / "models" / "trendline" / "api.py",
         root / "src" / "libs" / "models" / "trendline" / "config_loader.py",
         root / "src" / "libs" / "integrations" / "trendline_regime_v2" / "ablation.py",
-        root / "src" / "libs" / "integrations" / "trendline_regime_v2" / "shadow.py",
     ]
 
 
