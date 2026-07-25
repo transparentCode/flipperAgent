@@ -33,7 +33,6 @@ from libs.models.trendline_family.provider import CandidateGenerationResult as O
 from libs.models.trendline_family.provider import CandidateGenerationStatus as OldCandidateGenerationStatus
 from libs.models.trendline_family.provider import LineCandidateProvider as OldLineCandidateProvider
 from libs.models.trendline_family.repository import serialize_snapshot as old_serialize_snapshot
-from libs.models.trendlines_old import __name__ as legacy_copy_name
 from libs.trendlines import __name__ as legacy_name
 
 from .support import candidate_ohlcv, resolved_config
@@ -79,9 +78,8 @@ def test_canonical_package_has_one_way_import_direction_and_runtime_research_bou
     assert not {value for value in runtime_imports if value.startswith("libs.models.trendline.research_lab")}
 
 
-def test_legacy_trendline_packages_remain_distinct_from_canonical_family_model() -> None:
+def test_legacy_trendlines_package_remains_distinct_from_canonical_family_model() -> None:
     assert legacy_name == "libs.trendlines"
-    assert legacy_copy_name == "libs.models.trendlines_old"
     assert not {value for value in _imports_under(_LEGACY_ROOT) if value.startswith("libs.models.trendline")}
 
 
