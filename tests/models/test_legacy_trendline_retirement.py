@@ -19,6 +19,7 @@ _RETIRED_PACKAGE_PATHS = (
     _REPOSITORY_ROOT / "src" / "libs" / "models" / "trendline",
     _REPOSITORY_ROOT / "src" / "libs" / "models" / "trendline_family",
     _REPOSITORY_ROOT / "src" / "libs" / "models" / "trendlines_old",
+    _REPOSITORY_ROOT / "src" / "libs" / "trendlines",
 )
 _SINGULAR_PREFIXES = (
     "libs.models.trendline",
@@ -34,6 +35,7 @@ _REMOVED_MODULES = (
     "libs.models.trendline",
     "libs.models.trendline_family",
     "libs.models.trendlines_old",
+    "libs.trendlines",
 )
 
 
@@ -113,6 +115,22 @@ def test_retired_singular_model_packages_are_absent() -> None:
         "libs.models.trendlines_old",
     ):
         assert _module_is_absent(module_name), module_name
+
+
+def test_canonical_plural_trendlines_package_is_relocated() -> None:
+    old_path = _REPOSITORY_ROOT / "src" / "libs" / "trendlines"
+    new_path = _REPOSITORY_ROOT / "src" / "libs" / "models" / "trendlines"
+
+    assert new_path.is_dir()
+    assert not old_path.exists()
+    assert importlib.util.find_spec("libs.models.trendlines") is not None
+    assert _module_is_absent("libs.trendlines")
+
+    import app.trendlines
+    import libs.models.trendlines
+
+    assert Path(libs.models.trendlines.__file__).resolve().is_relative_to(new_path)
+    assert Path(app.trendlines.__path__[0]).resolve() == new_path
 
 
 def test_no_external_executable_consumer_imports_singular_models() -> None:

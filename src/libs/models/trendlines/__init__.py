@@ -1,8 +1,8 @@
 """Trendlines — plug-and-play module for trendline detection, fitting,
 boundary adaptation, and native signal extraction.
 
-Canonical public surface. Consumers should prefer these imports or the
-facade functions in ``app.trendlines.api``.
+Canonical library namespace: ``libs.models.trendlines``. Compatibility imports
+remain available through ``app.trendlines``.
 """
 
 # --- Contracts ---

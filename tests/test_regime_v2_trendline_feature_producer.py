@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from libs.trendlines.boundary import TrendlineSnapshotHistory
+from libs.models.trendlines.boundary import TrendlineSnapshotHistory
 from libs.models.regime_v2.adapters import (
     TrendlineFeatureConfig,
     TrendlineFeatureProducer,

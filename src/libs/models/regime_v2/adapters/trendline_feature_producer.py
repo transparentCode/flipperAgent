@@ -15,9 +15,9 @@ import numpy as np
 import pandas as pd
 
 from libs.models.regime_v2.features.utils import true_range
-from libs.trendlines import fit_and_signal, fit_trendlines_to_boundary
-from libs.trendlines.boundary import TrendlineSnapshotHistory
-from libs.trendlines.signals.utils import count_persistent_rays, series_acceleration
+from libs.models.trendlines import fit_and_signal, fit_trendlines_to_boundary
+from libs.models.trendlines.boundary import TrendlineSnapshotHistory
+from libs.models.trendlines.signals.utils import count_persistent_rays, series_acceleration
 
 _REQUIRED_OHLCV = ("open", "high", "low", "close")
 _INTERACTION_DIRECTION = {

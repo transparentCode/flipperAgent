@@ -40,7 +40,7 @@ from libs.selection.regime_v2_shadow_report import (
     run_regime_v2_shadow_report,
 )
 from libs.selection.selection_layer import SelectionLayer
-from libs.trendlines.boundary import TrendlineSnapshotHistory
+from libs.models.trendlines.boundary import TrendlineSnapshotHistory
 
 _DEFAULT_PAIRS = (
     ("BTCUSDT", "4h"),
