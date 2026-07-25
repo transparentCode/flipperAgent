@@ -15,21 +15,25 @@ _RETIRED_CONFIG_PATHS = (
     _REPOSITORY_ROOT / "configs" / "trendline",
     _REPOSITORY_ROOT / "configs" / "trendline" / "README.md",
 )
+_RETIRED_PACKAGE_PATHS = (
+    _REPOSITORY_ROOT / "src" / "libs" / "models" / "trendline",
+    _REPOSITORY_ROOT / "src" / "libs" / "models" / "trendline_family",
+    _REPOSITORY_ROOT / "src" / "libs" / "models" / "trendlines_old",
+)
 _SINGULAR_PREFIXES = (
     "libs.models.trendline",
     "libs.models.trendline_family",
 )
 _SCAN_ROOTS = ("src", "tests", "scripts", "conductor")
-_EXCLUDED_PACKAGE_ROOTS = (
-    _REPOSITORY_ROOT / "src" / "libs" / "models" / "trendline",
-    _REPOSITORY_ROOT / "src" / "libs" / "models" / "trendline_family",
-)
 _REMOVED_MODULES = (
     "libs.integrations.trendline_regime_v2",
     "libs.integrations.trendline_configuration",
     "libs.models.regime_v2.adapters.trendline_family_feature_producer",
     "libs.models.trendline.optimization.ablation",
     "libs.models.trendline_family.optimization.ablation",
+    "libs.models.trendline",
+    "libs.models.trendline_family",
+    "libs.models.trendlines_old",
 )
 
 
@@ -37,13 +41,6 @@ def _is_singular_import(module: str) -> bool:
     return any(
         module == prefix or module.startswith(f"{prefix}.")
         for prefix in _SINGULAR_PREFIXES
-    )
-
-
-def _is_excluded_package_path(path: Path) -> bool:
-    return any(
-        path == package_root or package_root in path.parents
-        for package_root in _EXCLUDED_PACKAGE_ROOTS
     )
 
 
@@ -85,8 +82,7 @@ def _iter_scanned_python_files():
         if not root.exists():
             continue
         for path in sorted(root.rglob("*.py")):
-            if not _is_excluded_package_path(path):
-                yield path
+            yield path
 
 
 def _module_is_absent(module_name: str) -> bool:
@@ -105,6 +101,18 @@ def test_retired_test_tree_and_fixtures_are_absent() -> None:
 def test_retired_configuration_contract_is_absent() -> None:
     for path in _RETIRED_CONFIG_PATHS:
         assert not path.exists(), path
+
+
+def test_retired_singular_model_packages_are_absent() -> None:
+    for path in _RETIRED_PACKAGE_PATHS:
+        assert not path.exists(), path
+
+    for module_name in (
+        "libs.models.trendline",
+        "libs.models.trendline_family",
+        "libs.models.trendlines_old",
+    ):
+        assert _module_is_absent(module_name), module_name
 
 
 def test_no_external_executable_consumer_imports_singular_models() -> None:
