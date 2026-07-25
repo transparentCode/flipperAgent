@@ -186,6 +186,9 @@ def test_custom_extractor_modes_are_enforced():
             del df
             return _pivot_set()
 
+        def trendline_identity_payload(self):
+            return {"fixture": "classified-runtime-extractor"}
+
     class ResearchOnlyExtractor:
         CAPABILITIES = ExtractorCapabilities(
             supported_modes=frozenset({TrendlineExecutionMode.RESEARCH}),
@@ -195,6 +198,9 @@ def test_custom_extractor_modes_are_enforced():
         def extract(self, df: pd.DataFrame):
             del df
             return _pivot_set()
+
+        def trendline_identity_payload(self):
+            return {"fixture": "research-only-extractor"}
 
     runtime_result = run_trendline_pipeline(
         _make_frame(),

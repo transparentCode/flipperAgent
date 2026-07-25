@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Any, Deque, Dict, Iterable, List, Tuple
 
 from libs.models.trendlines.boundary.contracts import BoundaryResult
+from libs.models.trendlines.contracts.identity import TrendlineSnapshotIdentity
 
 SnapshotKey = Tuple[str, str]
 
@@ -26,6 +27,7 @@ class TrendlineSnapshot:
     timestamp: datetime
     boundary: BoundaryResult
     metadata: Dict[str, Any] = field(default_factory=dict)
+    snapshot_identity: TrendlineSnapshotIdentity | None = None
 
     @classmethod
     def from_boundary(
@@ -40,6 +42,7 @@ class TrendlineSnapshot:
             timestamp=boundary.timestamp,
             boundary=boundary,
             metadata=dict(metadata or {}),
+            snapshot_identity=boundary.snapshot_identity,
         )
 
     @property
@@ -53,6 +56,9 @@ class TrendlineSnapshot:
             "timestamp": str(self.timestamp),
             "boundary": self.boundary.to_dict(),
             "metadata": dict(self.metadata),
+            "snapshot_identity": (
+                self.snapshot_identity.to_dict() if self.snapshot_identity else None
+            ),
         }
 
 

@@ -23,6 +23,13 @@ from libs.models.trendlines.boundary.contracts import BoundaryResult
 from libs.models.trendlines.config import TrendlinePipelineConfig, TrendlinesConfig, load_trendlines_config
 from libs.models.trendlines.config.resolve import resolve_asset_config
 from libs.models.trendlines.contracts import TrendlineFitResult
+from libs.models.trendlines.contracts.identity import (
+    TrendlineCheckpoint,
+    TrendlineSnapshotIdentity,
+    TrendlineSnapshotStage,
+    TrendlineSourceRef,
+    build_snapshot_identity,
+)
 from libs.models.trendlines.pipeline import (
     execute_trendline_pipeline,
 )
@@ -50,6 +57,8 @@ class TrendlineOutput:
     signal_output: Optional[Dict[str, Any]] = None
     config: Optional[TrendlinePipelineConfig] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+    checkpoint: TrendlineCheckpoint | None = None
+    snapshot_identity: TrendlineSnapshotIdentity | None = None
 
     @property
     def is_valid(self) -> bool:
@@ -75,18 +84,45 @@ class TrendlineOutput:
             "config": self.config.to_dict() if self.config else None,
             "is_valid": self.is_valid,
             "metadata": dict(self.metadata),
+            "checkpoint": self.checkpoint.to_dict() if self.checkpoint else None,
+            "snapshot_identity": (
+                self.snapshot_identity.to_dict() if self.snapshot_identity else None
+            ),
         }
+
+
+def _validate_scope(asset: str | None, timeframe: str | None) -> None:
+    if (asset is None) != (timeframe is None):
+        raise ValueError("asset and timeframe must be supplied together")
+
+
+def _identity_metadata(
+    checkpoint: TrendlineCheckpoint,
+    snapshot_identity: TrendlineSnapshotIdentity,
+) -> dict[str, Any]:
+    return {
+        "source_ref": checkpoint.source.to_dict(),
+        "checkpoint_id": checkpoint.checkpoint_id,
+        "snapshot_id": snapshot_identity.snapshot_id,
+        "revision_id": snapshot_identity.revision_id,
+        "snapshot_stage": snapshot_identity.stage.value,
+        "snapshot_finality": snapshot_identity.finality.value,
+    }
 
 
 def fit_trendlines(
     df: pd.DataFrame,
     *,
+    asset: str | None = None,
+    timeframe: str | None = None,
     config: TrendlinePipelineConfig | Mapping[str, Any] | None = None,
     extractor: str = "fractal",
     fitter: str = "pathfinding",
     extractor_kwargs: dict[str, Any] | None = None,
     fitter_kwargs: dict[str, Any] | None = None,
     execution_mode: TrendlineExecutionMode | str = TrendlineExecutionMode.RUNTIME,
+    as_of: Any | None = None,
+    source_ref: TrendlineSourceRef | None = None,
 ) -> TrendlineOutput:
     """Run the core extract → fit pipeline and return a unified output.
 
@@ -94,6 +130,7 @@ def fit_trendlines(
     trendline fit result without boundary adaptation or signals.
     """
 
+    _validate_scope(asset, timeframe)
     fit_result, resolved_config = execute_trendline_pipeline(
         df,
         config=config,
@@ -102,11 +139,22 @@ def fit_trendlines(
         extractor_kwargs=extractor_kwargs,
         fitter_kwargs=fitter_kwargs,
         execution_mode=execution_mode,
+        asset=asset,
+        timeframe=timeframe,
+        as_of=as_of,
+        source_ref=source_ref,
     )
+    if fit_result.checkpoint is None or fit_result.snapshot_identity is None:
+        raise RuntimeError("trendline pipeline did not produce fit snapshot identity")
     return TrendlineOutput(
         fit_result=fit_result,
         config=resolved_config,
-        metadata={"stages_completed": ["extract", "fit"]},
+        metadata={
+            "stages_completed": ["extract", "fit"],
+            **_identity_metadata(fit_result.checkpoint, fit_result.snapshot_identity),
+        },
+        checkpoint=fit_result.checkpoint,
+        snapshot_identity=fit_result.snapshot_identity,
     )
 
 
@@ -123,6 +171,8 @@ def fit_trendlines_to_boundary(
     trendline_config: TrendlinePipelineConfig | None = None,
     trendlines_config: TrendlinesConfig | None = None,
     execution_mode: TrendlineExecutionMode | str = TrendlineExecutionMode.RUNTIME,
+    as_of: Any | None = None,
+    source_ref: TrendlineSourceRef | None = None,
 ) -> TrendlineOutput:
     """Run extract → fit → boundary adaptation and return a unified output.
 
@@ -142,6 +192,10 @@ def fit_trendlines_to_boundary(
         extractor_kwargs=extractor_kwargs,
         fitter_kwargs=fitter_kwargs,
         execution_mode=execution_mode,
+        asset=asset,
+        timeframe=timeframe,
+        as_of=as_of,
+        source_ref=source_ref,
     )
 
     # Resolve boundary params from asset/TF config if available
@@ -165,6 +219,25 @@ def fit_trendlines_to_boundary(
         **boundary_kwargs,
     )
 
+    if fit_result.checkpoint is None:
+        raise RuntimeError("trendline pipeline did not produce checkpoint identity")
+    boundary_identity = build_snapshot_identity(
+        checkpoint=fit_result.checkpoint,
+        stage=TrendlineSnapshotStage.BOUNDARY,
+        content_payload={
+            "boundary": boundary.to_dict(include_identity=False),
+            "boundary_config": {
+                "adapter": boundary.metadata.get("trendlines", {}).get("adapter", {}),
+                "pipeline_config": trendline_config or resolved_config,
+                "resolved_asset_profile": asset_profile_dict,
+            },
+        },
+        asset=asset,
+        timeframe=timeframe,
+    )
+    boundary.snapshot_identity = boundary_identity
+    boundary.__post_init__()
+
     return TrendlineOutput(
         fit_result=fit_result,
         boundary_result=boundary,
@@ -172,7 +245,10 @@ def fit_trendlines_to_boundary(
         metadata={
             "stages_completed": ["extract", "fit", "boundary"],
             "asset_profile": asset_profile_dict,
+            **_identity_metadata(fit_result.checkpoint, boundary_identity),
         },
+        checkpoint=fit_result.checkpoint,
+        snapshot_identity=boundary_identity,
     )
 
 
@@ -184,6 +260,8 @@ def fit_oscillator_to_boundary(
     oscillator_type: str,
     trendlines_config: TrendlinesConfig | None = None,
     execution_mode: TrendlineExecutionMode | str = TrendlineExecutionMode.RUNTIME,
+    as_of: Any | None = None,
+    source_ref: TrendlineSourceRef | None = None,
 ) -> TrendlineOutput:
     """Run extract → fit → boundary for oscillator-space synthetic OHLCV.
 
@@ -215,6 +293,10 @@ def fit_oscillator_to_boundary(
         df,
         config=osc_pipeline_config,
         execution_mode=execution_mode,
+        asset=asset,
+        timeframe=timeframe,
+        as_of=as_of,
+        source_ref=source_ref,
     )
 
     boundary = build_boundary_result_from_trendline_result(
@@ -227,6 +309,21 @@ def fit_oscillator_to_boundary(
         atr_window=resolved.atr_window,
     )
 
+    if fit_result.checkpoint is None:
+        raise RuntimeError("trendline pipeline did not produce checkpoint identity")
+    boundary_identity = build_snapshot_identity(
+        checkpoint=fit_result.checkpoint,
+        stage=TrendlineSnapshotStage.BOUNDARY,
+        content_payload={
+            "boundary": boundary.to_dict(include_identity=False),
+            "oscillator_config": resolved,
+        },
+        asset=asset,
+        timeframe=timeframe,
+    )
+    boundary.snapshot_identity = boundary_identity
+    boundary.__post_init__()
+
     return TrendlineOutput(
         fit_result=fit_result,
         boundary_result=boundary,
@@ -237,7 +334,10 @@ def fit_oscillator_to_boundary(
             "is_bounded": resolved.is_bounded,
             "value_range": resolved.value_range,
             "lookback_bars": resolved.lookback_bars,
+            **_identity_metadata(fit_result.checkpoint, boundary_identity),
         },
+        checkpoint=fit_result.checkpoint,
+        snapshot_identity=boundary_identity,
     )
 
 
@@ -256,6 +356,8 @@ def fit_and_signal(
     history: List[BoundaryResult] | None = None,
     context: Dict[str, Any] | None = None,
     execution_mode: TrendlineExecutionMode | str = TrendlineExecutionMode.RUNTIME,
+    as_of: Any | None = None,
+    source_ref: TrendlineSourceRef | None = None,
 ) -> TrendlineOutput:
     """Run the full extract → fit → boundary → signal pipeline.
 
@@ -280,6 +382,10 @@ def fit_and_signal(
         extractor_kwargs=extractor_kwargs,
         fitter_kwargs=fitter_kwargs,
         execution_mode=execution_mode,
+        asset=asset,
+        timeframe=timeframe,
+        as_of=as_of,
+        source_ref=source_ref,
     )
 
     # ── Stage 3: Resolve config from asset profile ──
@@ -299,6 +405,21 @@ def fit_and_signal(
         atr_window=resolved.boundary.atr_window,
     )
 
+    if fit_result.checkpoint is None:
+        raise RuntimeError("trendline pipeline did not produce checkpoint identity")
+    boundary_identity = build_snapshot_identity(
+        checkpoint=fit_result.checkpoint,
+        stage=TrendlineSnapshotStage.BOUNDARY,
+        content_payload={
+            "boundary": boundary.to_dict(include_identity=False),
+            "resolved_config": resolved,
+        },
+        asset=asset,
+        timeframe=timeframe,
+    )
+    boundary.snapshot_identity = boundary_identity
+    boundary.__post_init__()
+
     # ── Stage 5: Signal extraction with resolved params ──
     if boundary is not None and boundary.is_valid:
         orchestrator = TrendlineSignalOrchestrator(resolved_config=resolved)
@@ -312,8 +433,20 @@ def fit_and_signal(
             "signals": [],
             "composite_direction": 0.0,
             "composite_confidence": 0.0,
-            "signal_count": 0,
+        "signal_count": 0,
         }
+
+    signal_identity = build_snapshot_identity(
+        checkpoint=fit_result.checkpoint,
+        stage=TrendlineSnapshotStage.SIGNAL,
+        content_payload={
+            "boundary": boundary.to_dict(include_identity=False),
+            "signal_output": signal_output,
+            "resolved_config": resolved,
+        },
+        asset=asset,
+        timeframe=timeframe,
+    )
 
     return TrendlineOutput(
         fit_result=fit_result,
@@ -325,7 +458,10 @@ def fit_and_signal(
             "asset_profile": resolved.profile.to_dict() if resolved.profile else None,
             "resolved_asset": asset,
             "resolved_timeframe": timeframe,
+            **_identity_metadata(fit_result.checkpoint, signal_identity),
         },
+        checkpoint=fit_result.checkpoint,
+        snapshot_identity=signal_identity,
     )
 
 

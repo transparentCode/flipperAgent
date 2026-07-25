@@ -87,6 +87,11 @@ The primary output of the boundary layer.
 | `is_valid` | `bool` | True when both support and resistance rays exist |
 | `quality_metrics` | `QualityMetrics \| None` | Aggregate quality snapshot |
 | `metadata` | `dict` | Source, adapter config, trendline method |
+| `snapshot_identity` | `TrendlineSnapshotIdentity \| None` | Boundary-stage source checkpoint and revision identity |
+
+When identity is present, `snapshot_identity.stage` is `BOUNDARY`, its asset/timeframe match
+the result, and its checkpoint source `as_of` matches `timestamp`. Manually constructed legacy
+fixtures may leave identity as `None`; strict history insertion policy belongs to L1-B2.
 
 Properties:
 - `best_support` → `Ray` with max score from `active_support_rays`, or `None`

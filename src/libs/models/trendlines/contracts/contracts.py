@@ -12,6 +12,11 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
+from libs.models.trendlines.contracts.identity import (
+    TrendlineCheckpoint,
+    TrendlineSnapshotIdentity,
+)
+
 
 @dataclass
 class PivotSet:
@@ -84,6 +89,8 @@ class TrendlineFitResult:
     resistance_lines: List[Trendline] = field(default_factory=list)
     is_valid: bool = False
     metadata: Dict[str, Any] = field(default_factory=dict)
+    checkpoint: TrendlineCheckpoint | None = None
+    snapshot_identity: TrendlineSnapshotIdentity | None = None
 
     def __post_init__(self) -> None:
         self.metadata.setdefault("structure", self.structure_summary())
@@ -142,8 +149,8 @@ class TrendlineFitResult:
             return None
         return max(self.resistance_lines, key=lambda line: line.score)
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
+    def to_dict(self, *, include_identity: bool = True) -> Dict[str, Any]:
+        payload = {
             "support_lines": [line.to_dict() for line in self.support_lines],
             "resistance_lines": [line.to_dict() for line in self.resistance_lines],
             "is_valid": self.is_valid,
@@ -155,6 +162,12 @@ class TrendlineFitResult:
             "structure_state": self.structure_state,
             "metadata": dict(self.metadata),
         }
+        if include_identity:
+            payload["checkpoint"] = self.checkpoint.to_dict() if self.checkpoint else None
+            payload["snapshot_identity"] = (
+                self.snapshot_identity.to_dict() if self.snapshot_identity else None
+            )
+        return payload
 
 
 __all__ = ["PivotSet", "Trendline", "TrendlineFitResult"]

@@ -9,6 +9,12 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from libs.models.trendlines.contracts.identity import (
+    TrendlineSnapshotIdentity,
+    TrendlineSnapshotStage,
+    canonical_point_text,
+)
+
 
 BOUNDARY_INTERACTION_DIRECTION: Dict[str, float] = {
     "GEOMETRIC_BOUNCE_SUPPORT": 1.0,
@@ -158,6 +164,22 @@ class BoundaryResult:
     is_valid: bool = False
     quality_metrics: Optional[QualityMetrics] = None
     metadata: dict = field(default_factory=dict)
+    snapshot_identity: TrendlineSnapshotIdentity | None = None
+
+    def __post_init__(self) -> None:
+        if self.snapshot_identity is None:
+            return
+        if self.snapshot_identity.stage is not TrendlineSnapshotStage.BOUNDARY:
+            raise ValueError("BoundaryResult requires a boundary-stage snapshot identity")
+        if self.snapshot_identity.asset != self.asset:
+            raise ValueError("BoundaryResult asset does not match snapshot identity")
+        if self.snapshot_identity.timeframe != self.timeframe:
+            raise ValueError("BoundaryResult timeframe does not match snapshot identity")
+        if (
+            canonical_point_text(self.timestamp)
+            != self.snapshot_identity.checkpoint.source.as_of
+        ):
+            raise ValueError("BoundaryResult timestamp does not match source as_of")
 
     @property
     def has_support(self) -> bool:
@@ -284,8 +306,8 @@ class BoundaryResult:
             return None
         return max(self.active_resistance_rays, key=lambda ray: ray.score)
 
-    def to_dict(self) -> dict:
-        return {
+    def to_dict(self, *, include_identity: bool = True) -> dict:
+        payload = {
             "asset": self.asset,
             "timeframe": self.timeframe,
             "timestamp": str(self.timestamp),
@@ -319,6 +341,11 @@ class BoundaryResult:
             "quality_metrics": asdict(self.quality_metrics) if self.quality_metrics is not None else None,
             "metadata": dict(self.metadata),
         }
+        if include_identity:
+            payload["snapshot_identity"] = (
+                self.snapshot_identity.to_dict() if self.snapshot_identity else None
+            )
+        return payload
 
 
 __all__ = [

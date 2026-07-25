@@ -54,6 +54,9 @@ def test_run_trendline_pipeline_accepts_custom_components():
                 low_values=np.array([8.2, 9.0]),
             )
 
+        def trendline_identity_payload(self):
+            return {"fixture": "pipeline-stub-extractor"}
+
     class RecordingFitter:
         def __init__(self):
             self.seen_pivots = None
@@ -61,6 +64,9 @@ def test_run_trendline_pipeline_accepts_custom_components():
         def fit(self, df: pd.DataFrame, pivots: PivotSet | None = None) -> TrendlineFitResult:
             self.seen_pivots = pivots
             return TrendlineFitResult(is_valid=pivots is not None, metadata={"source": "recording"})
+
+        def trendline_identity_payload(self):
+            return {"fixture": "pipeline-recording-fitter"}
 
     fitter = RecordingFitter()
     result = run_trendline_pipeline(

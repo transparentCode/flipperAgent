@@ -24,6 +24,23 @@
 └─────────────────────────────────────────────────────┘
 ```
 
+## Point-in-Time Identity
+
+`contracts/identity.py` is the shared identity seam. It canonicalises source values, computes
+source/config/checkpoint/content/revision SHA-256 IDs, and maps extractor finality to snapshot
+finality. Pipeline and facade stages depend on this seam; boundary and history only carry typed
+identity contracts. No stage re-hashes the source frame.
+
+Component identity uses canonical registry names and resolved parameters for named components,
+constructor state for built-in dataclass components, and the explicit
+`trendline_identity_payload()` protocol for custom components. Unsupported values fail closed;
+identity never falls back to `repr()`, `str()` of arbitrary objects, process hashes, or memory
+addresses.
+
+Source identity is either `COMPUTED` from model-visible frame content or `PROVIDED` by an upstream
+manifest after horizon/column validation. `as_of` is always the last supplied frame row. History
+ordering and revision replacement are intentionally deferred to L1-B2.
+
 ## Dependency Graph
 
 ```mermaid

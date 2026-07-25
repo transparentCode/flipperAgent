@@ -58,6 +58,8 @@ Container for the full set of fitted lines.
 | `resistance_lines` | `List[Trendline]` | Fitted resistance lines |
 | `is_valid` | `bool` | True if at least one line on each side |
 | `metadata` | `dict` | Extractor/fitter names, pivot counts, timing |
+| `checkpoint` | `TrendlineCheckpoint \| None` | Source horizon, source identity, config and execution identity |
+| `snapshot_identity` | `TrendlineSnapshotIdentity \| None` | Fit-stage logical snapshot and content revision |
 
 Properties: `best_support`, `best_resistance` (max score from each list).
 
@@ -72,6 +74,8 @@ Wrapper returned by all facade functions.
 | `signal_output` | `dict \| None` | Orchestrator output |
 | `config` | `TrendlinePipelineConfig \| None` | Config used |
 | `metadata` | `dict` | Timing, component names |
+| `checkpoint` | `TrendlineCheckpoint \| None` | Shared source/config checkpoint for all completed stages |
+| `snapshot_identity` | `TrendlineSnapshotIdentity \| None` | Identity for the latest completed facade stage |
 
 Properties: `is_valid`, `composite_direction`, `composite_confidence`.
 
@@ -136,6 +140,35 @@ print(output.metadata["asset_profile"])  # dict with tf_minutes, mean_atr, etc.
 for sig in output.signal_output["signals"]:
     print(sig["name"], sig["direction"], sig["confidence"])
 ```
+
+## Point-in-Time Identity
+
+Every pipeline call validates a non-empty, unique, monotonic source frame. `as_of` always
+equals the final supplied frame index. To compute an earlier point-in-time result, pass that
+frame prefix; an earlier or future `as_of` is rejected rather than silently truncating data.
+
+`TrendlineSourceRef` records source start, `as_of`, row count, model-visible columns and a
+computed or upstream-provided source identity. A provided source reference is validated once
+without hashing the complete frame again.
+
+`checkpoint_id` identifies source, effective fit configuration, execution mode and extractor
+finality. `snapshot_id` identifies the logical asset/timeframe/as-of/stage point. `revision_id`
+identifies exact content at that logical point. Identical source/config/output produces identical
+IDs; changed source, configuration or output produces a new revision.
+
+Configuration identity includes deterministic extractor and fitter component state. Registered
+components use canonical registry names plus resolved parameters. Direct built-in dataclass
+instances use constructor fields, including recursively resolved nested components. Direct custom
+extractors and fitters must implement `trendline_identity_payload()` with a non-empty mapping of
+behaviour-affecting state. Unsupported identity values fail closed; no process-dependent string or
+memory-address fallback is used.
+
+Runtime Fractal snapshots use `confirmed_as_of`. Explicit research RDP snapshots use
+`retrospective_revising`; confirmed-as-of does not mean later snapshots are identical. Fit,
+boundary and signal stages receive separate stage identities while sharing one checkpoint.
+
+Identity semantics and SHA-256 canonicalisation live in `contracts/identity.py`. History ordering,
+replacement and future-snapshot validation remain L1-B2 contracts.
 
 ## Low-Level Pipeline API (`pipeline/orchestrator.py`)
 

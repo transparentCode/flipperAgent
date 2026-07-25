@@ -5,13 +5,25 @@ boundary adaptation, and native signal extraction.
 """
 
 # --- Contracts ---
-from libs.models.trendlines.contracts import PivotSet, Trendline, TrendlineFitResult
+from libs.models.trendlines.contracts import (
+    PivotFinality,
+    PivotSet,
+    SourceIdentityKind,
+    Trendline,
+    TrendlineCheckpoint,
+    TrendlineExecutionMode,
+    TrendlineFitResult,
+    TrendlineIdentityProvider,
+    TrendlineSnapshotFinality,
+    TrendlineSnapshotIdentity,
+    TrendlineSnapshotStage,
+    TrendlineSourceRef,
+    UnsupportedIdentityValueError,
+)
 from libs.models.trendlines.config import TrendlinePipelineConfig
 from libs.models.trendlines.pivots.capabilities import (
     ExtractorCapabilities,
     ExtractorExecutionPolicyError,
-    PivotFinality,
-    TrendlineExecutionMode,
 )
 
 # --- Registry ---
@@ -44,8 +56,17 @@ __all__ = [
     # Contracts
     "PivotSet",
     "Trendline",
+    "TrendlineCheckpoint",
+    "TrendlineExecutionMode",
     "TrendlineFitResult",
+    "TrendlineIdentityProvider",
     "TrendlinePipelineConfig",
+    "TrendlineSnapshotFinality",
+    "TrendlineSnapshotIdentity",
+    "TrendlineSnapshotStage",
+    "TrendlineSourceRef",
+    "UnsupportedIdentityValueError",
+    "SourceIdentityKind",
     "ExtractorCapabilities",
     "ExtractorExecutionPolicyError",
     "PivotFinality",

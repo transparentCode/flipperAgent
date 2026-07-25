@@ -3,22 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
 from typing import Any
 
-
-class TrendlineExecutionMode(str, Enum):
-    """Caller intent for trendline extraction."""
-
-    RUNTIME = "runtime"
-    RESEARCH = "research"
-
-
-class PivotFinality(str, Enum):
-    """Temporal finality contract exposed by a pivot extractor."""
-
-    CONFIRMED_APPEND_ONLY = "confirmed_append_only"
-    RETROSPECTIVE_PREFIX_REVISING = "retrospective_prefix_revising"
+from libs.models.trendlines.contracts.identity import (
+    PivotFinality,
+    TrendlineExecutionMode,
+)
 
 
 @dataclass(frozen=True)
