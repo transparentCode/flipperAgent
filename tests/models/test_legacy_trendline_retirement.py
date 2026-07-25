@@ -1,0 +1,112 @@
+import ast
+import importlib.util
+from pathlib import Path
+
+
+_REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+_RETIRED_TEST_TREE = _REPOSITORY_ROOT / "tests" / "models" / "trendline_family"
+_RETIRED_PATHS = (
+    _RETIRED_TEST_TREE,
+    _RETIRED_TEST_TREE / "fixtures" / "native_pathfinding_reference.json",
+    _RETIRED_TEST_TREE / "fixtures" / "pre_phase_1b_family_role.pickle",
+)
+_SINGULAR_PREFIXES = (
+    "libs.models.trendline",
+    "libs.models.trendline_family",
+)
+_SCAN_ROOTS = ("src", "tests", "scripts", "conductor")
+_EXCLUDED_PACKAGE_ROOTS = (
+    _REPOSITORY_ROOT / "src" / "libs" / "models" / "trendline",
+    _REPOSITORY_ROOT / "src" / "libs" / "models" / "trendline_family",
+)
+_REMOVED_MODULES = (
+    "libs.integrations.trendline_regime_v2",
+    "libs.integrations.trendline_configuration",
+    "libs.models.regime_v2.adapters.trendline_family_feature_producer",
+    "libs.models.trendline.optimization.ablation",
+    "libs.models.trendline_family.optimization.ablation",
+)
+
+
+def _is_singular_import(module: str) -> bool:
+    return any(
+        module == prefix or module.startswith(f"{prefix}.")
+        for prefix in _SINGULAR_PREFIXES
+    )
+
+
+def _is_excluded_package_path(path: Path) -> bool:
+    return any(
+        path == package_root or package_root in path.parents
+        for package_root in _EXCLUDED_PACKAGE_ROOTS
+    )
+
+
+def _literal_import_name(call: ast.Call) -> str | None:
+    function = call.func
+    function_name = (
+        function.id
+        if isinstance(function, ast.Name)
+        else function.attr
+        if isinstance(function, ast.Attribute)
+        else None
+    )
+    if function_name not in {"import_module", "__import__"} or not call.args:
+        return None
+
+    argument = call.args[0]
+    if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
+        return argument.value
+    return None
+
+
+def _iter_imports(path: Path):
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                yield alias.name
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            yield node.module
+        elif isinstance(node, ast.Call):
+            module = _literal_import_name(node)
+            if module is not None:
+                yield module
+
+
+def _iter_scanned_python_files():
+    for root_name in _SCAN_ROOTS:
+        root = _REPOSITORY_ROOT / root_name
+        if not root.exists():
+            continue
+        for path in sorted(root.rglob("*.py")):
+            if not _is_excluded_package_path(path):
+                yield path
+
+
+def _module_is_absent(module_name: str) -> bool:
+    try:
+        return importlib.util.find_spec(module_name) is None
+    except ModuleNotFoundError:
+        return True
+
+
+def test_retired_test_tree_and_fixtures_are_absent() -> None:
+    assert not _RETIRED_TEST_TREE.exists()
+    for path in _RETIRED_PATHS:
+        assert not path.exists(), path
+
+
+def test_no_external_executable_consumer_imports_singular_models() -> None:
+    violations = []
+    for path in _iter_scanned_python_files():
+        for module in _iter_imports(path):
+            if _is_singular_import(module):
+                violations.append(f"{path}: {module}")
+
+    assert not violations, "\n".join(violations)
+
+
+def test_earlier_retirement_boundaries_remain_absent() -> None:
+    for module_name in _REMOVED_MODULES:
+        assert _module_is_absent(module_name), module_name
