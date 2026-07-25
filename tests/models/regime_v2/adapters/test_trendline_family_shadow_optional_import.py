@@ -43,6 +43,7 @@ def test_optional_pipeline_does_not_import_family_shadow_adapter() -> None:
     source_root = Path(__file__).resolve().parents[4] / "src"
     script = """
 import builtins
+import inspect
 import sys
 
 original_import = builtins.__import__
@@ -56,22 +57,15 @@ builtins.__import__ = blocked_import
 
 from apps.signal_app.pipeline.regime import RegimeFeaturePipeline
 
-
-class Resolver:
-    def resolve(self, asset, timeframe, producer_name):
-        del asset, timeframe
-        if producer_name == "TrendlineFamilyShadow":
-            return {"enabled": True}
-        return None
-
-
 pipeline = RegimeFeaturePipeline.create_optional(
     "BTCUSDT",
     "1h",
-    config_resolver=Resolver(),
 )
 assert "libs.models.regime_v2.adapters.trendline_family_feature_producer" not in sys.modules
-assert pipeline.trendline_family_shadow is None
+assert "trendline_family_shadow" not in inspect.signature(RegimeFeaturePipeline).parameters
+assert "timestamp" not in inspect.signature(RegimeFeaturePipeline.append_bar).parameters
+assert not hasattr(pipeline, "trendline_family_shadow")
+assert not hasattr(pipeline, "refresh_trendline_family_shadow")
 """
     environment = {**os.environ, "PYTHONPATH": str(source_root)}
     result = subprocess.run(

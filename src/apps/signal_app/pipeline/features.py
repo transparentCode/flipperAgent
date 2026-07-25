@@ -117,7 +117,7 @@ class FeaturePipeline:
         if derivatives_data:
             features.update(derivatives_data)
         if self.regime_features is not None and append_current_bar:
-            self.regime_features.append_bar(bar_data, timestamp=candle.timestamp)
+            self.regime_features.append_bar(bar_data)
         return features
 
     def build_payloads(

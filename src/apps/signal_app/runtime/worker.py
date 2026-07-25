@@ -495,7 +495,7 @@ class SignalRuntimeWorker(BaseStreamConsumer):
             features = await self.pipeline.regime_features.enrich(features)
             if projected.closed:
                 # Active RegimeV2 is already evaluated for this vector. Advance the
-                # confirmed family history now so its snapshot belongs to this close.
+                # confirmed regime history now so subsequent projected decisions see this close.
                 self.pipeline.regime_features.append_bar(
                     {
                         "open": projected_candle.open,
@@ -504,10 +504,8 @@ class SignalRuntimeWorker(BaseStreamConsumer):
                         "close": projected_candle.close,
                         "volume": projected_candle.volume,
                         "taker_buy_base": projected_candle.taker_buy_base,
-                    },
-                    timestamp=projected_candle.timestamp,
+                    }
                 )
-                features = self.pipeline.regime_features.refresh_trendline_family_shadow(features)
         feature_vector, price_update = self.pipeline.build_payloads(
             asset=self.asset,
             timeframe=self.timeframe,
