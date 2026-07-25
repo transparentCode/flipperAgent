@@ -1,5 +1,6 @@
 import ast
 import importlib.util
+import re
 from pathlib import Path
 
 
@@ -22,6 +23,10 @@ _RETIRED_PACKAGE_PATHS = (
     _REPOSITORY_ROOT / "src" / "libs" / "trendlines",
     _REPOSITORY_ROOT / "src" / "app" / "trendlines",
 )
+_RETIRED_NONSTANDARD_SURFACES = (
+    _REPOSITORY_ROOT / "benchmarks" / "trendline_numba_atr.py",
+    _REPOSITORY_ROOT / "research" / "trendline_family_research_lab.ipynb",
+)
 _RETIRED_IMPORT_PREFIXES = (
     "app.trendlines",
     "libs.trendlines",
@@ -29,7 +34,17 @@ _RETIRED_IMPORT_PREFIXES = (
     "libs.models.trendline_family",
     "libs.models.trendlines_old",
 )
-_SCAN_ROOTS = ("src", "tests", "scripts", "conductor")
+_SCAN_ROOTS = ("src", "tests", "scripts", "conductor", "benchmarks", "research")
+_NONSTANDARD_TEXT_ROOTS = ("benchmarks", "research")
+_NONSTANDARD_TEXT_SUFFIXES = (".py", ".ipynb", ".md")
+_RETIRED_NAMESPACE_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9_])(?:"
+    + "|".join(
+        re.escape(prefix)
+        for prefix in sorted(_RETIRED_IMPORT_PREFIXES, key=len, reverse=True)
+    )
+    + r")(?![A-Za-z0-9_])"
+)
 _REMOVED_MODULES = (
     "libs.integrations.trendline_regime_v2",
     "libs.integrations.trendline_configuration",
@@ -92,6 +107,30 @@ def _iter_scanned_python_files():
             yield path
 
 
+def _iter_nonstandard_text_files():
+    for root_name in _NONSTANDARD_TEXT_ROOTS:
+        root = _REPOSITORY_ROOT / root_name
+        if not root.exists():
+            continue
+        for file_path in sorted(root.rglob("*")):
+            if (
+                file_path.is_file()
+                and file_path.suffix in _NONSTANDARD_TEXT_SUFFIXES
+                and "__pycache__" not in file_path.parts
+                and ".ipynb_checkpoints" not in file_path.parts
+            ):
+                yield file_path
+
+
+def _nonstandard_retired_namespace_violations() -> list[str]:
+    violations = []
+    for file_path in _iter_nonstandard_text_files():
+        text = file_path.read_text(encoding="utf-8")
+        for match in _RETIRED_NAMESPACE_PATTERN.finditer(text):
+            violations.append(f"{file_path}: {match.group()}")
+    return violations
+
+
 def _module_is_absent(module_name: str) -> bool:
     try:
         return importlib.util.find_spec(module_name) is None
@@ -120,6 +159,17 @@ def test_retired_singular_model_packages_are_absent() -> None:
         "libs.models.trendlines_old",
     ):
         assert _module_is_absent(module_name), module_name
+
+
+def test_retired_nonstandard_trendline_surfaces_are_absent() -> None:
+    for path in _RETIRED_NONSTANDARD_SURFACES:
+        assert not path.exists(), path
+
+
+def test_nonstandard_active_roots_do_not_reference_retired_trendline_namespaces() -> None:
+    violations = _nonstandard_retired_namespace_violations()
+
+    assert not violations, "\n".join(violations)
 
 
 def test_canonical_plural_trendlines_package_is_relocated() -> None:
