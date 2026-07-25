@@ -16,7 +16,7 @@ pivot_set = extractor.extract(df)
 
 ## Adding a New Extractor
 
-1. Create `app/trendlines/pivots/my_extractor.py`
+1. Create `src/libs/models/trendlines/pivots/my_extractor.py`
 2. Implement and decorate:
    ```python
    from libs.models.trendlines.pivots.base import register_extractor
@@ -69,7 +69,8 @@ flowchart TD
 3. **Swing high**: bar `i` is a high pivot if `high[i] == max(high[i-L : i+R+1])`.
 4. **Swing low**: bar `i` is a low pivot if `low[i] == min(low[i-L : i+R+1])`.
 5. **Deduplication**: consecutive bars sharing the same extreme value are collapsed to their
-   midpoint index (avoids flat-top / flat-bottom duplicates).
+   midpoint index (avoids flat-top / flat-bottom duplicates). An equal-price run is emitted
+   only after the run closes and its final member satisfies `window_right` confirmation.
 6. Return `PivotSet` with separated high and low index arrays.
 
 ### Parameters
@@ -80,6 +81,14 @@ flowchart TD
 | `window_right` | `3` | Bars to the right of the candidate bar |
 
 Larger windows → fewer, more significant pivots. Smaller windows → more pivots, noisier lines.
+
+### Finality and confirmation
+
+An ordinary fractal pivot becomes available after `window_right` bars close to its right.
+An equal-price plateau has an additional closure delay: the equal run must end first, then
+the final plateau bar must satisfy the same `window_right` confirmation. Once emitted, fractal
+pivots are append-only under future bar arrival. Completed plateaus retain the existing
+midpoint representation, using the upper middle member for an even-sized group.
 
 ### Search Grid
 

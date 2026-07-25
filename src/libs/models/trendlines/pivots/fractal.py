@@ -57,8 +57,8 @@ class FractalPivotExtractor:
         high_mask[core_slice] = is_high_core
         low_mask[core_slice] = is_low_core
 
-        high_indices = self._deduplicate_equal_pivots(np.flatnonzero(high_mask), highs)
-        low_indices = self._deduplicate_equal_pivots(np.flatnonzero(low_mask), lows)
+        high_indices = self._select_closed_plateau_midpoints(np.flatnonzero(high_mask), highs)
+        low_indices = self._select_closed_plateau_midpoints(np.flatnonzero(low_mask), lows)
 
         return PivotSet(
             high_indices=high_indices,
@@ -78,8 +78,20 @@ class FractalPivotExtractor:
             raise ValueError("window_left and window_right must be >= 0")
 
     @staticmethod
-    def _deduplicate_equal_pivots(indices: np.ndarray, values: np.ndarray) -> np.ndarray:
+    def _select_closed_plateau_midpoints(indices: np.ndarray, values: np.ndarray) -> np.ndarray:
+        """Select midpoints only from equal-price runs closed in the frame.
+
+        A terminal or still-continuing equal-price run can gain candidates when
+        later bars arrive. Suppressing it until the next raw value differs keeps
+        emitted plateau midpoints append-only. ``window_right=0`` therefore has
+        an effective one-bar plateau-closure delay.
+        """
         if len(indices) <= 1:
+            if len(indices) == 0:
+                return indices
+            last_index = int(indices[0])
+            if last_index >= len(values) - 1 or values[last_index + 1] == values[last_index]:
+                return np.array([], dtype=int)
             return indices
 
         groups: list[list[int]] = []
@@ -92,7 +104,15 @@ class FractalPivotExtractor:
                 groups.append(current_group)
                 current_group = [candidate]
         groups.append(current_group)
-        return np.array([group[len(group) // 2] for group in groups], dtype=int)
+
+        selected: list[int] = []
+        for group in groups:
+            last_index = group[-1]
+            plateau_value = values[group[0]]
+            if last_index >= len(values) - 1 or values[last_index + 1] == plateau_value:
+                continue
+            selected.append(group[len(group) // 2])
+        return np.array(selected, dtype=int)
 
 
 __all__ = ["FractalPivotExtractor"]
