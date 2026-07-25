@@ -10,6 +10,11 @@ _RETIRED_PATHS = (
     _RETIRED_TEST_TREE / "fixtures" / "native_pathfinding_reference.json",
     _RETIRED_TEST_TREE / "fixtures" / "pre_phase_1b_family_role.pickle",
 )
+_RETIRED_CONFIG_PATHS = (
+    _REPOSITORY_ROOT / "configs" / "trendline_family.yaml",
+    _REPOSITORY_ROOT / "configs" / "trendline",
+    _REPOSITORY_ROOT / "configs" / "trendline" / "README.md",
+)
 _SINGULAR_PREFIXES = (
     "libs.models.trendline",
     "libs.models.trendline_family",
@@ -94,6 +99,11 @@ def _module_is_absent(module_name: str) -> bool:
 def test_retired_test_tree_and_fixtures_are_absent() -> None:
     assert not _RETIRED_TEST_TREE.exists()
     for path in _RETIRED_PATHS:
+        assert not path.exists(), path
+
+
+def test_retired_configuration_contract_is_absent() -> None:
+    for path in _RETIRED_CONFIG_PATHS:
         assert not path.exists(), path
 
 
