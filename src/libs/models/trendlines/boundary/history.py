@@ -359,6 +359,28 @@ class TrendlineSnapshotHistory:
         limit: int | None = None,
         known_at: datetime | None = None,
     ) -> list[BoundaryResult]:
+        return [
+            snapshot.boundary
+            for snapshot in self.snapshots_before(
+                asset,
+                timeframe,
+                timestamp,
+                limit=limit,
+                known_at=known_at,
+            )
+        ]
+
+    def snapshots_before(
+        self,
+        asset: str,
+        timeframe: str,
+        timestamp: datetime,
+        *,
+        limit: int | None = None,
+        known_at: datetime | None = None,
+    ) -> list[TrendlineSnapshot]:
+        """Return causally selected revisions before an event timestamp."""
+
         bucket = self._buckets.get(self._key(asset, timeframe))
         if not bucket:
             return []
@@ -370,8 +392,7 @@ class TrendlineSnapshotHistory:
             snapshot = self._select_revision(logical, query_known_at)
             if snapshot is not None:
                 selected.append(snapshot)
-        selected = self._apply_limit(selected, limit)
-        return [snapshot.boundary for snapshot in selected]
+        return self._apply_limit(selected, limit)
 
     def temporal_history(
         self,

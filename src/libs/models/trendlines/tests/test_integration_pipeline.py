@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from libs.models.trendlines.api import fit_and_signal, fit_trendlines_to_boundary, TrendlineOutput
 from libs.models.trendlines.config import TrendlinesConfig, load_trendlines_config, TrendlinePipelineConfig
+from libs.models.trendlines.signals import TrendlineSignalContext, TrendlineSignalInputs
 
 
 def _make_trending_ohlcv(n_bars: int = 500) -> pd.DataFrame:
@@ -22,10 +22,19 @@ def _make_trending_ohlcv(n_bars: int = 500) -> pd.DataFrame:
     low = close - rng.uniform(0.5, 2.0, n_bars)
     opn = close + rng.normal(0, 0.5, n_bars)
     volume = rng.uniform(100, 1000, n_bars)
-    idx = pd.date_range("2025-01-01", periods=n_bars, freq="1h")
+    idx = pd.date_range("2025-01-01", periods=n_bars, freq="1h", tz="UTC")
     return pd.DataFrame(
         {"open": opn, "high": high, "low": low, "close": close, "volume": volume},
         index=idx,
+    )
+
+
+def _signal_inputs(df: pd.DataFrame) -> TrendlineSignalInputs:
+    return TrendlineSignalInputs(
+        context=TrendlineSignalContext.from_close_time_index(
+            df.index,
+            volume_is_trustworthy="volume" in df.columns,
+        )
     )
 
 
@@ -36,7 +45,11 @@ class TestFitAndSignalIntegration:
         df = _make_trending_ohlcv()
         cfg = TrendlinesConfig()
         output = fit_and_signal(
-            df, asset="BTCUSDT", timeframe="1h", trendlines_config=cfg
+            df,
+            asset="BTCUSDT",
+            timeframe="1h",
+            trendlines_config=cfg,
+            signal_inputs=_signal_inputs(df),
         )
 
         assert isinstance(output, TrendlineOutput)
@@ -48,7 +61,11 @@ class TestFitAndSignalIntegration:
     def test_signal_output_structure(self):
         df = _make_trending_ohlcv()
         output = fit_and_signal(
-            df, asset="BTCUSDT", timeframe="1h", trendlines_config=TrendlinesConfig()
+            df,
+            asset="BTCUSDT",
+            timeframe="1h",
+            trendlines_config=TrendlinesConfig(),
+            signal_inputs=_signal_inputs(df),
         )
 
         so = output.signal_output
@@ -62,7 +79,11 @@ class TestFitAndSignalIntegration:
     def test_asset_profile_in_metadata(self):
         df = _make_trending_ohlcv()
         output = fit_and_signal(
-            df, asset="BTCUSDT", timeframe="1h", trendlines_config=TrendlinesConfig()
+            df,
+            asset="BTCUSDT",
+            timeframe="1h",
+            trendlines_config=TrendlinesConfig(),
+            signal_inputs=_signal_inputs(df),
         )
 
         ap = output.metadata.get("asset_profile")
@@ -75,20 +96,33 @@ class TestFitAndSignalIntegration:
         df = _make_trending_ohlcv()
         cfg = load_trendlines_config()
         output = fit_and_signal(
-            df, asset="BTCUSDT", timeframe="1h", trendlines_config=cfg
+            df,
+            asset="BTCUSDT",
+            timeframe="1h",
+            trendlines_config=cfg,
+            signal_inputs=_signal_inputs(df),
         )
         assert output.is_valid
 
     def test_without_trendlines_config(self):
         """fit_and_signal loads default config automatically."""
         df = _make_trending_ohlcv()
-        output = fit_and_signal(df, asset="BTCUSDT", timeframe="1h")
+        output = fit_and_signal(
+            df,
+            asset="BTCUSDT",
+            timeframe="1h",
+            signal_inputs=_signal_inputs(df),
+        )
         assert output.is_valid
 
     def test_different_timeframe(self):
         df = _make_trending_ohlcv()
         output = fit_and_signal(
-            df, asset="BTCUSDT", timeframe="4h", trendlines_config=TrendlinesConfig()
+            df,
+            asset="BTCUSDT",
+            timeframe="4h",
+            trendlines_config=TrendlinesConfig(),
+            signal_inputs=_signal_inputs(df),
         )
         assert output.is_valid
         ap = output.metadata.get("asset_profile")
@@ -97,7 +131,11 @@ class TestFitAndSignalIntegration:
     def test_to_dict(self):
         df = _make_trending_ohlcv()
         output = fit_and_signal(
-            df, asset="BTCUSDT", timeframe="1h", trendlines_config=TrendlinesConfig()
+            df,
+            asset="BTCUSDT",
+            timeframe="1h",
+            trendlines_config=TrendlinesConfig(),
+            signal_inputs=_signal_inputs(df),
         )
         d = output.to_dict()
         assert "fit_result" in d
@@ -150,7 +188,6 @@ class TestBackwardCompat:
 
     def test_trendlines_config_dataclass_replace(self):
         from dataclasses import replace
-        from libs.models.trendlines.config import OptimizableDefaults
         cfg = TrendlinesConfig()
         cfg2 = replace(cfg, extractor="rdp_zigzag")
         assert cfg2.extractor == "rdp_zigzag"

@@ -19,9 +19,14 @@ It is owned entirely by `app/trendlines/signals/` and has no dependency on `app/
 Properties: `is_long`, `is_short`, `strength` (= `abs(direction) × confidence`).
 Serialized via `.to_dict()` (rounds floats to 4 decimals, includes computed `strength`).
 
-### BaseAlphaExtractor
+### BaseAlphaExtractor (internal extractor seam)
 
-Abstract base class. All extractors implement:
+Abstract base class. The public signal API passes one validated
+`TrendlineSignalInputs` envelope. The orchestrator unwraps its causal history and
+exact fit frame into this internal extractor seam; callers do not pass raw history
+or context dictionaries.
+
+All extractors implement:
 
 ```python
 def extract(
@@ -62,7 +67,15 @@ orch = TrendlineSignalOrchestrator(
 Default extractors (in order): `StructuralAlphaExtractor`, `TemporalAlphaExtractor`,
 `PatternAlphaExtractor`, `FakeoutAlphaExtractor`.
 
-### `.run(result, history, context) -> dict`
+### `.run(result, signal_inputs, frame) -> dict`
+
+`signal_inputs` is required and contains a timezone-aware `TrendlineSignalContext`
+plus revision-aware `TrendlineSnapshot` history. `frame` is the exact OHLCV frame
+used to construct the current boundary and is mandatory. The current
+`BoundaryResult` must carry a boundary-stage snapshot identity whose checkpoint
+binds source start, final `as_of`, row count, and model-visible columns to that
+frame. Validation runs once before any extractor; precomputed validation cannot
+be reused for another boundary, checkpoint, or source.
 
 | Output key | Type | Description |
 |-|-|-|
@@ -71,6 +84,16 @@ Default extractors (in order): `StructuralAlphaExtractor`, `TemporalAlphaExtract
 | `composite_confidence` | `float` | Weighted aggregate confidence |
 | `signal_count` | `int` | Total signals emitted |
 | `by_source` | `dict[str, List[dict]]` | Signals grouped by extractor source name |
+| `signal_input_id` | `str` | Deterministic identity of current availability and selected history revisions |
+
+`TrendlineSignalContext` distinguishes candle event timestamps from completed-data
+availability. For Binance open-time frames, every `bar_available_at` value must be
+strictly later than its event timestamp and all values must be no later than
+`known_at`. Close-time-index data uses equal event and availability timestamps.
+
+Signal history must contain strictly increasing, same-scope `TrendlineSnapshot`
+revisions. Future events, future-known revisions, duplicate logical snapshots and
+raw `BoundaryResult` history are rejected before extraction.
 
 ### Composite Aggregation
 

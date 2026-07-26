@@ -46,3 +46,43 @@ async def test_binance_native_adapter_queue_overflow_keeps_latest_message():
     assert state["dropped"] == 1
     assert queue.qsize() == 1
     assert await queue.get() == "second"
+
+
+@pytest.mark.asyncio
+async def test_binance_native_adapter_default_columns_stay_unchanged():
+    adapter = BinanceNativeAdapter()
+    mock_klines_data = [
+        [1609459200000, "29000.0", "29100.0", "28900.0", "29050.0", "1500.0", 1609459259999, "43500000.0", 500, "700.0", "20300000.0", "0"]
+    ]
+
+    with patch.object(adapter.client, "klines", return_value=mock_klines_data):
+        frame = await adapter.get_historical_ohlcv(DEFAULT_BINANCE_ASSET, BASE_GAP_FILL_TIMEFRAME)
+
+    assert list(frame.columns) == [
+        "timestamp",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "taker_buy_base",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_binance_native_adapter_opt_in_returns_numeric_close_time():
+    adapter = BinanceNativeAdapter()
+    close_time = 1609459259999
+    mock_klines_data = [
+        [1609459200000, "29000.0", "29100.0", "28900.0", "29050.0", "1500.0", close_time, "43500000.0", 500, "700.0", "20300000.0", "0"]
+    ]
+
+    with patch.object(adapter.client, "klines", return_value=mock_klines_data):
+        frame = await adapter.get_historical_ohlcv(
+            DEFAULT_BINANCE_ASSET,
+            BASE_GAP_FILL_TIMEFRAME,
+            include_close_time=True,
+        )
+
+    assert "close_time" in frame.columns
+    assert frame.iloc[0]["close_time"] == close_time

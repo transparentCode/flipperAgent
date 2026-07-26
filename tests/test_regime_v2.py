@@ -325,9 +325,16 @@ class TestRegimeV2BinanceNativeScript:
             }
         )
 
-        normalized = normalize_binance_native_ohlcv(raw)
+        normalized = normalize_binance_native_ohlcv(raw, timeframe="1h")
 
-        assert list(normalized.columns) == ["open", "high", "low", "close", "volume"]
+        assert list(normalized.columns) == [
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "bar_available_at",
+        ]
         assert str(normalized.index.tz) == "UTC"
         assert normalized.iloc[0]["close"] == 101.0
 
@@ -388,10 +395,19 @@ class TestRegimeV2BinanceNativeScript:
         )
 
         class FakeAdapter:
-            async def get_historical_ohlcv(self, symbol, timeframe, since=None, until=None, limit=None):
+            async def get_historical_ohlcv(
+                self,
+                symbol,
+                timeframe,
+                since=None,
+                until=None,
+                limit=None,
+                **kwargs,
+            ):
                 assert symbol == "BTCUSDT"
                 assert timeframe == "1h"
                 assert limit == 1
+                assert kwargs["include_close_time"] is True
                 return raw
 
         import libs.models.regime_v2.scripts.compare_binance_native as script
@@ -401,6 +417,43 @@ class TestRegimeV2BinanceNativeScript:
 
         assert normalized.iloc[0]["open"] == 100.0
         assert normalized.iloc[0]["close"] == 101.0
+
+    def test_normalize_binance_native_ohlcv_uses_exchange_close_time(self):
+        raw = pd.DataFrame(
+            {
+                "timestamp": [1_700_000_000_000],
+                "open": ["100"],
+                "high": ["102"],
+                "low": ["99"],
+                "close": ["101"],
+                "volume": ["1000"],
+                "close_time": [1_700_000_003_599],
+            }
+        )
+
+        normalized = normalize_binance_native_ohlcv(raw, timeframe="1h")
+
+        assert normalized.attrs["bar_availability_source"] == "exchange_close_time"
+        assert normalized.iloc[0]["bar_available_at"] == pd.Timestamp(
+            "2023-11-14T22:13:23.599Z"
+        )
+
+    def test_normalize_binance_native_ohlcv_derives_strict_fixed_interval(self):
+        raw = pd.DataFrame(
+            {
+                "timestamp": [1_700_000_000_000],
+                "open": ["100"],
+                "high": ["102"],
+                "low": ["99"],
+                "close": ["101"],
+                "volume": ["1000"],
+            }
+        )
+
+        normalized = normalize_binance_native_ohlcv(raw, timeframe="1h")
+
+        assert normalized.attrs["bar_availability_source"] == "fixed_interval_derived"
+        assert normalized.iloc[0]["bar_available_at"] == normalized.index[0] + pd.Timedelta(hours=1)
 
 
 class TestRegimeV2ComparisonHarness:

@@ -9,7 +9,12 @@ import pandas as pd
 from libs.models.trendlines import run_trendline_pipeline
 from libs.models.trendlines.boundary.adapters import build_boundary_result_from_trendline_result
 from libs.models.trendlines.boundary.contracts import BoundaryResult, Ray
+from libs.models.trendlines.contracts.identity import (
+    TrendlineSnapshotStage,
+    build_snapshot_identity,
+)
 from libs.models.trendlines.signals.orchestrator import TrendlineSignalOrchestrator
+from libs.models.trendlines.signals import TrendlineSignalContext, TrendlineSignalInputs
 from libs.models.trendlines.pivots.capabilities import TrendlineExecutionMode
 
 
@@ -23,11 +28,24 @@ def _make_ohlcv_frame(n_bars: int = 60) -> pd.DataFrame:
     opens = base + rng.uniform(-0.5, 0.5, n_bars)
     closes = base + rng.uniform(-0.5, 0.5, n_bars)
 
-    index = pd.date_range("2025-01-01", periods=n_bars, freq="1h")
+    index = pd.date_range("2025-01-01", periods=n_bars, freq="1h", tz="UTC")
     return pd.DataFrame(
         {"open": opens, "high": highs, "low": lows, "close": closes},
         index=index,
     )
+
+
+def _bind_boundary_identity(boundary: BoundaryResult, result) -> BoundaryResult:
+    assert result.checkpoint is not None
+    boundary.snapshot_identity = build_snapshot_identity(
+        checkpoint=result.checkpoint,
+        stage=TrendlineSnapshotStage.BOUNDARY,
+        content_payload=boundary.to_dict(include_identity=False),
+        asset=boundary.asset,
+        timeframe=boundary.timeframe,
+    )
+    boundary.__post_init__()
+    return boundary
 
 
 def test_full_pipeline_extract_to_signals():
@@ -51,11 +69,14 @@ def test_full_pipeline_extract_to_signals():
     assert len(result.support_lines) + len(result.resistance_lines) > 0
 
     # Stage 4: Adapt -> BoundaryResult
-    boundary = build_boundary_result_from_trendline_result(
-        df,
-        asset="TEST",
-        timeframe="1h",
-        trendline_result=result,
+    boundary = _bind_boundary_identity(
+        build_boundary_result_from_trendline_result(
+            df,
+            asset="TEST",
+            timeframe="1h",
+            trendline_result=result,
+        ),
+        result,
     )
 
     assert isinstance(boundary, BoundaryResult)
@@ -81,7 +102,16 @@ def test_full_pipeline_extract_to_signals():
 
     # Stage 5: Signal extraction
     orchestrator = TrendlineSignalOrchestrator()
-    output = orchestrator.run(boundary)
+    output = orchestrator.run(
+        boundary,
+        signal_inputs=TrendlineSignalInputs(
+            context=TrendlineSignalContext.from_close_time_index(
+                df.index,
+                volume_is_trustworthy="volume" in df.columns,
+            )
+        ),
+        frame=df,
+    )
 
     assert "signals" in output
     assert "composite_direction" in output
@@ -113,10 +143,22 @@ def test_full_pipeline_with_all_fitters():
         if not result.is_valid:
             continue
 
-        boundary = build_boundary_result_from_trendline_result(
-            df, asset="TEST", timeframe="1h", trendline_result=result,
+        boundary = _bind_boundary_identity(
+            build_boundary_result_from_trendline_result(
+                df, asset="TEST", timeframe="1h", trendline_result=result,
+            ),
+            result,
         )
-        output = TrendlineSignalOrchestrator().run(boundary)
+        output = TrendlineSignalOrchestrator().run(
+            boundary,
+            signal_inputs=TrendlineSignalInputs(
+                context=TrendlineSignalContext.from_close_time_index(
+                    df.index,
+                    volume_is_trustworthy="volume" in df.columns,
+                )
+            ),
+            frame=df,
+        )
         assert isinstance(output["signal_count"], int), f"{fitter_name}: bad signal_count"
 
 
@@ -143,10 +185,22 @@ def test_full_pipeline_with_all_extractors():
         if not result.is_valid:
             continue
 
-        boundary = build_boundary_result_from_trendline_result(
-            df, asset="TEST", timeframe="1h", trendline_result=result,
+        boundary = _bind_boundary_identity(
+            build_boundary_result_from_trendline_result(
+                df, asset="TEST", timeframe="1h", trendline_result=result,
+            ),
+            result,
         )
-        output = TrendlineSignalOrchestrator().run(boundary)
+        output = TrendlineSignalOrchestrator().run(
+            boundary,
+            signal_inputs=TrendlineSignalInputs(
+                context=TrendlineSignalContext.from_close_time_index(
+                    df.index,
+                    volume_is_trustworthy="volume" in df.columns,
+                )
+            ),
+            frame=df,
+        )
         assert isinstance(output["signal_count"], int), f"{extractor_name}: bad signal_count"
 
 

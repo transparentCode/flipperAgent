@@ -7,6 +7,15 @@ import pandas as pd
 import pytest
 
 from libs.models.trendlines.boundary import BoundaryResult, QualityMetrics, Ray
+from libs.models.trendlines.contracts.identity import (
+    PivotFinality,
+    SourceIdentityKind,
+    TrendlineCheckpoint,
+    TrendlineExecutionMode,
+    TrendlineSnapshotStage,
+    TrendlineSourceRef,
+    build_snapshot_identity,
+)
 from libs.models.trendlines.signals import (
     AlphaSignal,
     BaseAlphaExtractor,
@@ -14,6 +23,8 @@ from libs.models.trendlines.signals import (
     PatternAlphaExtractor,
     StructuralAlphaExtractor,
     TemporalAlphaExtractor,
+    TrendlineSignalContext,
+    TrendlineSignalInputs,
     TrendlineSignalOrchestrator,
 )
 
@@ -50,11 +61,13 @@ def _make_boundary_result(
     hull_width_atr: float = 2.0,
     hull_floor: float = 99.0,
     hull_ceiling: float = 101.0,
+    identity_bearing: bool = False,
 ) -> BoundaryResult:
-    return BoundaryResult(
+    timestamp = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    result = BoundaryResult(
         asset="BTCUSDT",
         timeframe="1h",
-        timestamp=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        timestamp=timestamp,
         active_support_rays=support_rays,
         active_resistance_rays=resistance_rays,
         convex_hull_floor=hull_floor,
@@ -70,6 +83,31 @@ def _make_boundary_result(
             hull_width_atr=hull_width_atr,
         ),
     )
+    if identity_bearing:
+        source = TrendlineSourceRef(
+            source_id="test-source",
+            source_start=timestamp.isoformat(),
+            as_of=timestamp.isoformat(),
+            row_count=1,
+            columns=("close",),
+            identity_kind=SourceIdentityKind.COMPUTED,
+        )
+        checkpoint = TrendlineCheckpoint(
+            checkpoint_id="test-checkpoint",
+            source=source,
+            config_id="test-config",
+            execution_mode=TrendlineExecutionMode.RUNTIME,
+            extractor_finality=PivotFinality.CONFIRMED_APPEND_ONLY,
+        )
+        result.snapshot_identity = build_snapshot_identity(
+            checkpoint=checkpoint,
+            stage=TrendlineSnapshotStage.BOUNDARY,
+            content_payload={"test": "signals"},
+            asset=result.asset,
+            timeframe=result.timeframe,
+        )
+        result.__post_init__()
+    return result
 
 
     def test_signal_contracts_are_canonical_in_trendlines():
@@ -120,11 +158,11 @@ def _make_boundary_result(
 
 
     def test_geometry_alpha_orchestrator_remains_downstream_convenience_wrapper():
-        orchestrator = GeometryAlphaOrchestrator()
+        orchestrator = GeometryAlphaOrchestrator()  # noqa: F821
 
-        assert GeometryAlphaOrchestrator.DEFAULT_EXTRACTORS == [
+        assert GeometryAlphaOrchestrator.DEFAULT_EXTRACTORS == [  # noqa: F821
             *TrendlineSignalOrchestrator.DEFAULT_EXTRACTORS,
-            ConfluenceAlphaExtractor,
+            ConfluenceAlphaExtractor,  # noqa: F821
         ]
         assert orchestrator.extractor_names == [
             "structural",
@@ -261,50 +299,26 @@ def test_fakeout_extractor_detects_low_volume_breakout_and_retest_confirmation()
 def test_trendline_signal_orchestrator_runs_native_extractors_only():
     support = _make_ray(is_support=True, slope=0.08, intercept=99.0, score=0.9, touch_count=4)
     resistance = _make_ray(is_support=False, slope=0.0, intercept=101.0, score=0.75, touch_count=3)
-    history = [
-        _make_boundary_result(
-            support_rays=[support],
-            resistance_rays=[resistance],
-            interaction="NONE",
-            hull_width_atr=2.0,
-        ),
-        _make_boundary_result(
-            support_rays=[support],
-            resistance_rays=[resistance],
-            interaction="NONE",
-            hull_width_atr=1.8,
-        ),
-        _make_boundary_result(
-            support_rays=[support],
-            resistance_rays=[resistance],
-            interaction="NONE",
-            hull_width_atr=1.5,
-        ),
-    ]
     current = _make_boundary_result(
         support_rays=[support],
         resistance_rays=[resistance],
         interaction="STRUCTURAL_BREAKOUT",
         hull_width_atr=1.1,
+        identity_bearing=True,
     )
-    ohlcv = pd.DataFrame(
-        {
-            "open": [100.0] * 21,
-            "high": [100.4] * 21,
-            "low": [99.6] * 21,
-            "close": [100.1] * 21,
-            "volume": [100.0] * 20 + [10.0],
-        }
+    frame = pd.DataFrame(
+        {"close": [100.0]},
+        index=pd.DatetimeIndex([pd.Timestamp("2026-01-01T00:00:00Z")]),
     )
-
     output = TrendlineSignalOrchestrator().run(
         current,
-        history=history,
-        context={
-            "ohlcv": ohlcv,
-            "atr": 2.0,
-            "volume_is_trustworthy": True,
-        },
+        signal_inputs=TrendlineSignalInputs(
+            context=TrendlineSignalContext.from_close_time_index(
+                frame.index,
+                volume_is_trustworthy=True,
+            )
+        ),
+        frame=frame,
     )
 
     assert set(output["by_source"]) == {"structural", "temporal", "pattern", "fakeout"}

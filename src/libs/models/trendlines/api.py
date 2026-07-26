@@ -34,6 +34,10 @@ from libs.models.trendlines.pipeline import (
     execute_trendline_pipeline,
 )
 from libs.models.trendlines.pivots.capabilities import TrendlineExecutionMode
+from libs.models.trendlines.signals.context import (
+    TrendlineSignalInputs,
+    validate_signal_inputs,
+)
 from libs.models.trendlines.signals.orchestrator import TrendlineSignalOrchestrator
 
 if TYPE_CHECKING:
@@ -353,8 +357,7 @@ def fit_and_signal(
     fitter_kwargs: dict[str, Any] | None = None,
     trendline_config: TrendlinePipelineConfig | None = None,
     trendlines_config: TrendlinesConfig | None = None,
-    history: List[BoundaryResult] | None = None,
-    context: Dict[str, Any] | None = None,
+    signal_inputs: TrendlineSignalInputs,
     execution_mode: TrendlineExecutionMode | str = TrendlineExecutionMode.RUNTIME,
     as_of: Any | None = None,
     source_ref: TrendlineSourceRef | None = None,
@@ -421,19 +424,22 @@ def fit_and_signal(
     boundary.__post_init__()
 
     # ── Stage 5: Signal extraction with resolved params ──
+    validation = validate_signal_inputs(df, boundary, signal_inputs)
     if boundary is not None and boundary.is_valid:
         orchestrator = TrendlineSignalOrchestrator(resolved_config=resolved)
         signal_output = orchestrator.run(
             boundary,
-            history=history,
-            context=context,
+            signal_inputs=signal_inputs,
+            frame=df,
+            validation=validation,
         )
     else:
         signal_output = {
             "signals": [],
             "composite_direction": 0.0,
             "composite_confidence": 0.0,
-        "signal_count": 0,
+            "signal_count": 0,
+            **validation.metadata(),
         }
 
     signal_identity = build_snapshot_identity(
@@ -459,6 +465,7 @@ def fit_and_signal(
             "resolved_asset": asset,
             "resolved_timeframe": timeframe,
             **_identity_metadata(fit_result.checkpoint, signal_identity),
+            **validation.metadata(),
         },
         checkpoint=fit_result.checkpoint,
         snapshot_identity=signal_identity,

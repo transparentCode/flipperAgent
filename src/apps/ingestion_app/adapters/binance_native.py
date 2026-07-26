@@ -25,15 +25,26 @@ class BinanceNativeAdapter(BaseExchangeAdapter):
     def __init__(self, key: str = None, secret: str = None, **kwargs):
         self.client = UMFutures(key=key, secret=secret, **kwargs)
 
-    def _fetch_and_parse_klines_sync(self, symbol: str, timeframe: str, **params) -> pd.DataFrame:
+    def _fetch_and_parse_klines_sync(
+        self,
+        symbol: str,
+        timeframe: str,
+        *,
+        include_close_time: bool = False,
+        **params,
+    ) -> pd.DataFrame:
         lines = self.client.klines(symbol, timeframe, **params)
-        
+
         df = pd.DataFrame(lines)
         if df.empty:
-            return pd.DataFrame(columns=OHLCV_COLUMNS)
+            columns = [*OHLCV_COLUMNS, "close_time"] if include_close_time else OHLCV_COLUMNS
+            return pd.DataFrame(columns=columns)
 
         df.columns = BINANCE_RAW_KLINE_COLUMNS
-        df = df[OHLCV_TAKER_COLUMNS].copy()
+        selected_columns = list(OHLCV_TAKER_COLUMNS)
+        if include_close_time:
+            selected_columns.append("close_time")
+        df = df[selected_columns].copy()
         df.rename(columns={'taker_buy_base_asset_volume': 'taker_buy_base'}, inplace=True)
         
         for col in df.columns:
@@ -41,7 +52,16 @@ class BinanceNativeAdapter(BaseExchangeAdapter):
 
         return df
 
-    async def get_historical_ohlcv(self, symbol: str, timeframe: str, since: int = None, until: int = None, limit: int = None) -> pd.DataFrame:
+    async def get_historical_ohlcv(
+        self,
+        symbol: str,
+        timeframe: str,
+        since: int = None,
+        until: int = None,
+        limit: int = None,
+        *,
+        include_close_time: bool = False,
+    ) -> pd.DataFrame:
         """
         Fetch historical OHLCV data using binance-futures-connector.
         """
@@ -54,7 +74,13 @@ class BinanceNativeAdapter(BaseExchangeAdapter):
             params['limit'] = limit
 
         try:
-            return await asyncio.to_thread(self._fetch_and_parse_klines_sync, symbol, timeframe, **params)
+            return await asyncio.to_thread(
+                self._fetch_and_parse_klines_sync,
+                symbol,
+                timeframe,
+                include_close_time=include_close_time,
+                **params,
+            )
         except Exception as e:
             raise DataIngestionError(f"Binance API failed to fetch OHLCV for {symbol}: {e}") from e
 

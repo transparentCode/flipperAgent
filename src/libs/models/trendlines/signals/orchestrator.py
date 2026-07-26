@@ -5,11 +5,23 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
+import pandas as pd
+
 from libs.models.trendlines.boundary import BoundaryResult
 from libs.models.trendlines.config import TrendlinesConfig
 from libs.models.trendlines.config.resolve import ResolvedConfig, ResolvedSignalConfig
+from libs.models.trendlines.contracts.identity import (
+    TrendlineSnapshotStage,
+    canonical_point_text,
+)
 
 from .base import AlphaSignal, BaseAlphaExtractor
+from .context import (
+    SignalContextContractError,
+    TrendlineSignalInputs,
+    ValidatedTrendlineSignalInputs,
+    validate_signal_inputs,
+)
 from .fakeout import FakeoutAlphaExtractor
 from .patterns import PatternAlphaExtractor
 from .structural import StructuralAlphaExtractor
@@ -107,9 +119,64 @@ class TrendlineSignalOrchestrator:
     def run(
         self,
         result: BoundaryResult,
-        history: Optional[List[BoundaryResult]] = None,
-        context: Optional[Dict[str, Any]] = None,
+        *,
+        signal_inputs: TrendlineSignalInputs,
+        frame: pd.DataFrame,
+        validation: ValidatedTrendlineSignalInputs | None = None,
     ) -> Dict[str, Any]:
+        if not isinstance(frame, pd.DataFrame):
+            raise SignalContextContractError("frame must be a pandas DataFrame")
+        if validation is None:
+            validated = validate_signal_inputs(frame, result, signal_inputs)
+        else:
+            if not isinstance(validation, ValidatedTrendlineSignalInputs):
+                raise SignalContextContractError(
+                    "validation must be ValidatedTrendlineSignalInputs"
+                )
+            identity = result.snapshot_identity
+            if validation.inputs is not signal_inputs:
+                raise SignalContextContractError(
+                    "signal validation does not match supplied signal_inputs"
+                )
+            if identity is None:
+                raise SignalContextContractError(
+                    "validated signal inputs require an identity-bearing boundary"
+                )
+            if identity.stage is not TrendlineSnapshotStage.BOUNDARY:
+                raise SignalContextContractError(
+                    "validated signal inputs require a boundary-stage identity"
+                )
+            if identity.asset != result.asset or identity.timeframe != result.timeframe:
+                raise SignalContextContractError(
+                    "validated signal inputs do not match boundary scope"
+                )
+            if identity.checkpoint.source.as_of != canonical_point_text(result.timestamp):
+                raise SignalContextContractError(
+                    "validated signal inputs do not match boundary horizon"
+                )
+            expected_binding = (
+                identity.snapshot_id,
+                identity.checkpoint.checkpoint_id,
+                identity.checkpoint.source.source_id,
+            )
+            actual_binding = (
+                validation.boundary_snapshot_id,
+                validation.checkpoint_id,
+                validation.source_id,
+            )
+            if actual_binding != expected_binding:
+                raise SignalContextContractError(
+                    "validated signal inputs do not belong to supplied boundary"
+                )
+            validated = validation
+
+        history = list(validated.history_boundaries)
+        context: Dict[str, Any] = {
+            "atr": result.boundary_context.get("latest_atr"),
+            "volume_is_trustworthy": validated.context.volume_is_trustworthy,
+        }
+        context["ohlcv"] = frame
+
         all_signals: List[AlphaSignal] = []
         by_source: Dict[str, List[AlphaSignal]] = {}
 
@@ -134,6 +201,7 @@ class TrendlineSignalOrchestrator:
             "composite_confidence": composite_conf,
             "signal_count": len(all_signals),
             "by_source": by_source,
+            **validated.metadata(),
         }
 
     def _compute_composite(self, signals: List[AlphaSignal]) -> tuple[float, float]:
@@ -160,15 +228,17 @@ class TrendlineSignalOrchestrator:
     def to_dict(
         self,
         result: BoundaryResult,
-        history: Optional[List[BoundaryResult]] = None,
-        context: Optional[Dict[str, Any]] = None,
+        *,
+        signal_inputs: TrendlineSignalInputs,
+        frame: pd.DataFrame,
     ) -> Dict[str, Any]:
-        output = self.run(result, history=history, context=context)
+        output = self.run(result, signal_inputs=signal_inputs, frame=frame)
         return {
             "composite_direction": output["composite_direction"],
             "composite_confidence": output["composite_confidence"],
             "signal_count": output["signal_count"],
             "signals": [signal.to_dict() for signal in output["signals"]],
+            "signal_input_id": output["signal_input_id"],
         }
 
 

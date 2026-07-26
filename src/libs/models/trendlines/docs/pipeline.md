@@ -11,7 +11,7 @@ sequential stages. Each stage is independently swappable via the registry.
 | FIT | `pd.DataFrame`, `PivotSet` | `TrendlineFitResult` | `fitting/` |
 | RESOLVE | `TrendlinesConfig`, df, fit_result | `ResolvedConfig` | `config/resolve.py` |
 | ADAPT | `TrendlineFitResult`, df, resolved boundary | `BoundaryResult` | `boundary/` |
-| SIGNAL | `BoundaryResult`, history, context, resolved signals | `{signals[], composite}` | `signals/` |
+| SIGNAL | `BoundaryResult`, typed `TrendlineSignalInputs`, resolved signals | `{signals[], composite, signal_input_id}` | `signals/` |
 
 ## Contracts
 
@@ -126,12 +126,24 @@ params, resolves optimizable overrides, and produces a frozen `ResolvedConfig`.
 
 ```python
 from libs.models.trendlines import fit_and_signal
+from libs.models.trendlines.signals import (
+    BarTimestampSemantics,
+    TrendlineSignalContext,
+    TrendlineSignalInputs,
+)
 
 output = fit_and_signal(
     df, asset="BTCUSDT", timeframe="1h",
     trendlines_config=my_config,           # TrendlinesConfig — with per-asset/TF overrides
-    history=[prev_boundary_result],        # Optional List[BoundaryResult] for temporal signals
-    context={"ohlcv": df, "atr": 250.0},  # Optional context for fakeout signals
+    signal_inputs=TrendlineSignalInputs(
+        context=TrendlineSignalContext(
+            known_at=bar_available_at[-1],
+            bar_available_at=bar_available_at,
+            timestamp_semantics=BarTimestampSemantics.OPEN_TIME,
+            volume_is_trustworthy="volume" in df.columns,
+        ),
+        history=tuple(previous_boundary_snapshots),
+    ),
 )
 
 print(output.composite_direction)    # float in [-1.0, 1.0]
@@ -140,6 +152,17 @@ print(output.metadata["asset_profile"])  # dict with tf_minutes, mean_atr, etc.
 for sig in output.signal_output["signals"]:
     print(sig["name"], sig["direction"], sig["confidence"])
 ```
+
+`bar_available_at` must be supplied by the caller for open-time data. A BTCUSDT
+1h candle labelled 10:00 by open time does not make final high/low/close/volume
+available at 10:00; signal eligibility begins at its declared availability time.
+Use `TrendlineSignalContext.from_close_time_index(...)` only for data whose index
+already labels completed-candle availability.
+
+The signal stage records `signal_input_id`, `signal_query_known_at`,
+`signal_available_at`, selected history snapshot/revision IDs and timestamp
+semantics. Delaying execution without changing selected inputs keeps this identity
+stable; changing a visible history revision changes signal identity.
 
 ## Point-in-Time Identity
 

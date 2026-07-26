@@ -51,6 +51,16 @@ from libs.models.trendlines.api import (
     fit_trendlines_to_boundary,
     optimize_trendlines,
 )
+from libs.models.trendlines.signals.context import (
+    BarAvailabilitySource,
+    BarTimestampSemantics,
+    SignalAvailabilityError,
+    SignalContextContractError,
+    SignalHistoryContractError,
+    TrendlineSignalContext,
+    TrendlineSignalInputs,
+    ValidatedTrendlineSignalInputs,
+)
 
 __all__ = [
     # Contracts
@@ -71,6 +81,14 @@ __all__ = [
     "ExtractorExecutionPolicyError",
     "PivotFinality",
     "TrendlineExecutionMode",
+    "BarAvailabilitySource",
+    "BarTimestampSemantics",
+    "SignalAvailabilityError",
+    "SignalContextContractError",
+    "SignalHistoryContractError",
+    "TrendlineSignalContext",
+    "TrendlineSignalInputs",
+    "ValidatedTrendlineSignalInputs",
     # Registry
     "build_extractor",
     "build_fitter",

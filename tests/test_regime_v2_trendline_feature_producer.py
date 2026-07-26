@@ -6,12 +6,17 @@ import pytest
 
 from libs.models.trendlines.boundary import TrendlineSnapshotHistory
 from libs.models.trendlines.config import SnapshotHistoryPolicies, SnapshotHistoryPolicy
+from libs.models.trendlines import fit_trendlines_to_boundary
 from libs.models.regime_v2.adapters import (
     TrendlineFeatureConfig,
     TrendlineFeatureProducer,
     compute_trendline_context_features,
 )
-from libs.models.regime_v2.adapters.trendline_feature_producer import _signal_history
+from libs.models.regime_v2.adapters.trendline_feature_producer import (
+    _resolve_bar_availability,
+    _signal_history,
+)
+from libs.models.trendlines.signals.context import BarTimestampSemantics
 
 
 def _make_frame(n: int = 120, *, datetime_index: bool = True) -> pd.DataFrame:
@@ -190,6 +195,105 @@ def test_trendline_context_features_records_and_reads_snapshot_history():
     assert snapshot_history.count("BTCUSDT", "1h") == 2
 
 
+def test_regime_v2_records_snapshot_known_at_using_bar_availability():
+    snapshot_history = TrendlineSnapshotHistory(
+        SnapshotHistoryPolicies(SnapshotHistoryPolicy(10, 8, 3), {})
+    )
+    frame = _make_frame(80)
+
+    features = compute_trendline_context_features(
+        frame,
+        asset="BTCUSDT",
+        timeframe="1h",
+        config=TrendlineFeatureConfig(
+            fitter="ensemble",
+            min_bars=30,
+            record_snapshot=True,
+        ),
+        snapshot_history=snapshot_history,
+    )
+
+    assert features["trendline_valid"] == 1.0
+    snapshot = snapshot_history.snapshots("BTCUSDT", "1h")[0]
+    expected = pd.Timestamp(frame.index[-1], tz="UTC") + pd.Timedelta(hours=1)
+    assert snapshot.known_at == expected.to_pydatetime()
+    assert snapshot.known_at != pd.Timestamp(frame.index[-1], tz="UTC").to_pydatetime()
+
+
+def test_regime_v2_native_signals_exclude_revision_unknown_at_bar_availability(
+    monkeypatch,
+):
+    from libs.models.regime_v2.adapters import trendline_feature_producer as producer_module
+
+    historical_frame = _make_frame(80)
+    revised_frame = historical_frame.copy()
+    revised_frame.iloc[10, revised_frame.columns.get_loc("close")] += 0.25
+    current_frame = _make_frame(100)
+
+    original = fit_trendlines_to_boundary(
+        historical_frame,
+        asset="BTCUSDT",
+        timeframe="1h",
+        fitter="ensemble",
+    ).boundary_result
+    revised = fit_trendlines_to_boundary(
+        revised_frame,
+        asset="BTCUSDT",
+        timeframe="1h",
+        fitter="ensemble",
+    ).boundary_result
+    assert original is not None
+    assert revised is not None
+    assert original.snapshot_identity is not None
+    assert revised.snapshot_identity is not None
+    assert original.snapshot_identity.snapshot_id == revised.snapshot_identity.snapshot_id
+    assert original.snapshot_identity.revision_id != revised.snapshot_identity.revision_id
+
+    history = TrendlineSnapshotHistory(
+        SnapshotHistoryPolicies(SnapshotHistoryPolicy(10, 8, 3), {})
+    )
+    event = pd.Timestamp(historical_frame.index[-1], tz="UTC")
+    history.add(original, known_at=(event + pd.Timedelta(minutes=30)).to_pydatetime())
+    history.add(
+        revised,
+        known_at=(pd.Timestamp(current_frame.index[-1], tz="UTC") + pd.Timedelta(hours=2)).to_pydatetime(),
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_fit_and_signal(frame, *, signal_inputs, **kwargs):
+        captured["signal_inputs"] = signal_inputs
+        return fit_trendlines_to_boundary(
+            frame,
+            asset=kwargs["asset"],
+            timeframe=kwargs["timeframe"],
+            extractor=kwargs["extractor"],
+            fitter=kwargs["fitter"],
+            fitter_kwargs=kwargs.get("fitter_kwargs"),
+        )
+
+    monkeypatch.setattr(producer_module, "fit_and_signal", fake_fit_and_signal)
+    features = compute_trendline_context_features(
+        current_frame,
+        asset="BTCUSDT",
+        timeframe="1h",
+        config=TrendlineFeatureConfig(
+            fitter="ensemble",
+            min_bars=30,
+            include_native_signals=True,
+        ),
+        snapshot_history=history,
+    )
+
+    assert features["trendline_valid"] == 1.0
+    signal_inputs = captured["signal_inputs"]
+    assert len(signal_inputs.history) == 1
+    assert (
+        signal_inputs.history[0].snapshot_identity.revision_id
+        == original.snapshot_identity.revision_id
+    )
+
+
 def _history_for_limit_tests() -> TrendlineSnapshotHistory:
     history = TrendlineSnapshotHistory(
         SnapshotHistoryPolicies(SnapshotHistoryPolicy(10, 8, 2), {})
@@ -247,6 +351,31 @@ def test_zero_history_limit_is_rejected_by_config():
 def test_negative_history_limit_is_rejected_by_config():
     with pytest.raises(ValueError, match="history_limit"):
         TrendlineFeatureConfig(history_limit=-1)
+
+
+def test_bar_available_at_without_provenance_is_rejected():
+    frame = _make_frame(40)
+    frame["bar_available_at"] = frame.index + pd.Timedelta(hours=1)
+
+    with pytest.raises(ValueError, match="provenance"):
+        _resolve_bar_availability(
+            frame,
+            timeframe="1h",
+            timestamp_semantics=BarTimestampSemantics.OPEN_TIME,
+        )
+
+
+def test_unknown_bar_availability_provenance_is_rejected():
+    frame = _make_frame(40)
+    frame["bar_available_at"] = frame.index + pd.Timedelta(hours=1)
+    frame.attrs["bar_availability_source"] = "invented_source"
+
+    with pytest.raises(ValueError, match="unknown"):
+        _resolve_bar_availability(
+            frame,
+            timeframe="1h",
+            timestamp_semantics=BarTimestampSemantics.OPEN_TIME,
+        )
 
 
 def test_trendline_temporal_fields_are_neutral_without_snapshot_history():

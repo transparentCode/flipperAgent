@@ -25,10 +25,11 @@ from libs.models.trendlines.contracts.identity import (
     resolve_source_ref,
 )
 from libs.models.trendlines.pipeline import orchestrator as pipeline_orchestrator
+from libs.models.trendlines.signals import TrendlineSignalContext, TrendlineSignalInputs
 
 
 def _frame(rows: int = 96) -> pd.DataFrame:
-    index = pd.date_range("2024-01-01", periods=rows, freq="h")
+    index = pd.date_range("2024-01-01", periods=rows, freq="h", tz="UTC")
     x = np.linspace(0.0, 12.0, rows)
     close = 100.0 + 0.08 * np.arange(rows) + 2.0 * np.sin(x)
     return pd.DataFrame(
@@ -40,6 +41,15 @@ def _frame(rows: int = 96) -> pd.DataFrame:
             "volume": np.linspace(1.0, 2.0, rows),
         },
         index=index,
+    )
+
+
+def _signal_inputs(frame: pd.DataFrame) -> TrendlineSignalInputs:
+    return TrendlineSignalInputs(
+        context=TrendlineSignalContext.from_close_time_index(
+            frame.index,
+            volume_is_trustworthy="volume" in frame.columns,
+        )
     )
 
 
@@ -201,7 +211,13 @@ def test_boundary_facade_attaches_boundary_stage_identity() -> None:
 
 
 def test_signal_facade_attaches_signal_stage_and_retains_boundary_stage() -> None:
-    output = fit_and_signal(_frame(), asset="BTCUSDT", timeframe="1h")
+    frame = _frame()
+    output = fit_and_signal(
+        frame,
+        asset="BTCUSDT",
+        timeframe="1h",
+        signal_inputs=_signal_inputs(frame),
+    )
     assert output.snapshot_identity is not None
     assert output.boundary_result is not None
     assert output.snapshot_identity.stage is TrendlineSnapshotStage.SIGNAL
@@ -211,7 +227,13 @@ def test_signal_facade_attaches_signal_stage_and_retains_boundary_stage() -> Non
 
 
 def test_to_dict_serializes_identity_fields_deterministically() -> None:
-    output = fit_and_signal(_frame(), asset="BTCUSDT", timeframe="1h")
+    frame = _frame()
+    output = fit_and_signal(
+        frame,
+        asset="BTCUSDT",
+        timeframe="1h",
+        signal_inputs=_signal_inputs(frame),
+    )
     first = output.to_dict()
     second = output.to_dict()
     assert first["checkpoint"] is not None
@@ -229,6 +251,11 @@ def test_full_facade_resolves_source_reference_exactly_once() -> None:
         "resolve_source_ref",
         wraps=resolve,
     ) as resolver:
-        output = fit_and_signal(frame, asset="BTCUSDT", timeframe="1h")
+        output = fit_and_signal(
+            frame,
+            asset="BTCUSDT",
+            timeframe="1h",
+            signal_inputs=_signal_inputs(frame),
+        )
     assert resolver.call_count == 1
     assert output.checkpoint is not None

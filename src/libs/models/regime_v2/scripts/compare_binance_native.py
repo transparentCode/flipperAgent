@@ -13,7 +13,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-import time
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +20,8 @@ import pandas as pd
 
 from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
 from libs.models.regime_v2.evaluation import RegimeComparisonConfig, run_regime_comparison
+from libs.common.timeframes import timeframe_to_seconds
+from libs.models.trendlines.signals.context import BarAvailabilitySource
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -73,11 +74,16 @@ async def fetch_binance_native_ohlcv(
         since=since,
         until=until,
         limit=limit,
+        include_close_time=True,
     )
-    return normalize_binance_native_ohlcv(raw)
+    return normalize_binance_native_ohlcv(raw, timeframe=timeframe)
 
 
-def normalize_binance_native_ohlcv(raw: pd.DataFrame) -> pd.DataFrame:
+def normalize_binance_native_ohlcv(
+    raw: pd.DataFrame,
+    *,
+    timeframe: str | None = None,
+) -> pd.DataFrame:
     """Normalize BinanceNativeAdapter output for RegimeV2.
 
     Adapter output keeps ``timestamp`` in milliseconds.  The comparison harness
@@ -88,14 +94,37 @@ def normalize_binance_native_ohlcv(raw: pd.DataFrame) -> pd.DataFrame:
     if missing:
         raise ValueError(f"BinanceNativeAdapter output missing columns: {missing}")
 
-    df = raw.loc[:, required].copy()
+    has_close_time = "close_time" in raw.columns
+    selected = [*required, "close_time"] if has_close_time else required
+    df = raw.loc[:, selected].copy()
     for col in ["open", "high", "low", "close", "volume"]:
         df[col] = pd.to_numeric(df[col], errors="coerce")
     df["timestamp"] = pd.to_numeric(df["timestamp"], errors="coerce")
-    df = df.dropna(subset=required)
+    if has_close_time:
+        df["close_time"] = pd.to_numeric(df["close_time"], errors="coerce")
+    df = df.dropna(subset=[*required, "close_time"] if has_close_time else required)
     df["open_time"] = pd.to_datetime(df["timestamp"].astype("int64"), unit="ms", utc=True)
     df = df.set_index("open_time").sort_index()
-    return df[["open", "high", "low", "close", "volume"]]
+    if has_close_time:
+        df["bar_available_at"] = pd.to_datetime(
+            df["close_time"].astype("int64"), unit="ms", utc=True
+        )
+        source = BarAvailabilitySource.EXCHANGE_CLOSE_TIME
+    else:
+        if timeframe is None:
+            raise ValueError(
+                "timeframe is required to derive bar availability without close_time"
+            )
+        interval_seconds = timeframe_to_seconds(timeframe, default=0)
+        if interval_seconds < 1:
+            raise ValueError(f"invalid timeframe for bar availability: {timeframe!r}")
+        df["bar_available_at"] = df.index + pd.to_timedelta(
+            interval_seconds, unit="s"
+        )
+        source = BarAvailabilitySource.FIXED_INTERVAL_DERIVED
+    result = df[["open", "high", "low", "close", "volume", "bar_available_at"]]
+    result.attrs["bar_availability_source"] = source.value
+    return result
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:

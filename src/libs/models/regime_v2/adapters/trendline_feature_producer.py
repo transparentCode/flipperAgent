@@ -18,6 +18,13 @@ from libs.models.regime_v2.features.utils import true_range
 from libs.models.trendlines import fit_and_signal, fit_trendlines_to_boundary
 from libs.models.trendlines.boundary import TrendlineSnapshotHistory
 from libs.models.trendlines.signals.utils import count_persistent_rays, series_acceleration
+from libs.models.trendlines.signals.context import (
+    BarAvailabilitySource,
+    BarTimestampSemantics,
+    TrendlineSignalContext,
+    TrendlineSignalInputs,
+)
+from libs.common.timeframes import timeframe_to_seconds
 
 _REQUIRED_OHLCV = ("open", "high", "low", "close")
 _INTERACTION_DIRECTION = {
@@ -40,9 +47,14 @@ class TrendlineFeatureConfig:
     include_native_signals: bool = False
     history_limit: int | None = None
     record_snapshot: bool = False
+    bar_timestamp_semantics: BarTimestampSemantics = BarTimestampSemantics.OPEN_TIME
 
     def __post_init__(self) -> None:
         _validate_history_limit(self.history_limit)
+        if not isinstance(self.bar_timestamp_semantics, BarTimestampSemantics):
+            raise ValueError(
+                "bar_timestamp_semantics must be a BarTimestampSemantics"
+            )
 
 
 class TrendlineFeatureProducer:
@@ -107,13 +119,20 @@ def compute_trendline_context_features(
     prepared = _prepare_ohlcv_index(df, timeframe)
     try:
         fitter_kwargs = _build_fitter_kwargs(cfg)
-        signal_history = _signal_history(
+        bar_available_at, availability_source = _resolve_bar_availability(
+            prepared,
+            timeframe=timeframe,
+            timestamp_semantics=cfg.bar_timestamp_semantics,
+        )
+        signal_snapshots = _signal_snapshots(
             snapshot_history,
             asset=asset,
             timeframe=timeframe,
             timestamp=prepared.index[-1].to_pydatetime(),
             limit=cfg.history_limit,
+            known_at=bar_available_at[-1].to_pydatetime(),
         )
+        signal_history = [snapshot.boundary for snapshot in signal_snapshots]
         output = (
             fit_and_signal(
                 prepared,
@@ -122,12 +141,16 @@ def compute_trendline_context_features(
                 extractor=cfg.extractor,
                 fitter=cfg.fitter,
                 fitter_kwargs=fitter_kwargs,
-                history=signal_history,
-                context={
-                    "ohlcv": prepared,
-                    "atr": _latest_atr(prepared, cfg.atr_window),
-                    "volume_is_trustworthy": "volume" in prepared.columns,
-                },
+                signal_inputs=TrendlineSignalInputs(
+                    context=TrendlineSignalContext(
+                        known_at=bar_available_at[-1].to_pydatetime(),
+                        bar_available_at=bar_available_at,
+                        timestamp_semantics=cfg.bar_timestamp_semantics,
+                        volume_is_trustworthy="volume" in prepared.columns,
+                        availability_source=availability_source,
+                    ),
+                    history=tuple(signal_snapshots),
+                ),
             )
             if cfg.include_native_signals
             else fit_trendlines_to_boundary(
@@ -149,7 +172,7 @@ def compute_trendline_context_features(
         snapshot_history.add(
             boundary,
             metadata={"source": "regime_v2_trendline_adapter"},
-            known_at=_utc_datetime(prepared.index[-1]),
+            known_at=bar_available_at[-1].to_pydatetime(),
         )
 
     close = float(prepared["close"].iloc[-1])
@@ -614,6 +637,28 @@ def _signal_history(
     timestamp: Any,
     limit: int | None,
 ) -> list[Any]:
+    return [
+        snapshot.boundary
+        for snapshot in _signal_snapshots(
+            snapshot_history,
+            asset=asset,
+            timeframe=timeframe,
+            timestamp=timestamp,
+            limit=limit,
+            known_at=_utc_datetime(timestamp),
+        )
+    ]
+
+
+def _signal_snapshots(
+    snapshot_history: TrendlineSnapshotHistory | None,
+    *,
+    asset: str,
+    timeframe: str,
+    timestamp: Any,
+    limit: int | None,
+    known_at: Any,
+) -> list[Any]:
     validated_limit = _validate_history_limit(limit)
     if snapshot_history is None:
         return []
@@ -622,12 +667,12 @@ def _signal_history(
         if validated_limit is None
         else validated_limit
     )
-    return snapshot_history.history_before(
+    return snapshot_history.snapshots_before(
         asset,
         timeframe,
         timestamp,
         limit=resolved_limit,
-        known_at=_utc_datetime(timestamp),
+        known_at=_utc_datetime(known_at),
     )
 
 
@@ -658,15 +703,77 @@ def _build_fitter_kwargs(config: TrendlineFeatureConfig) -> dict[str, Any]:
 
 def _prepare_ohlcv_index(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
     out = df.copy()
+    availability_source = df.attrs.get("bar_availability_source")
     if isinstance(out.index, pd.DatetimeIndex):
-        return out.sort_index()
+        if out.index.tz is None:
+            out.index = out.index.tz_localize("UTC")
+        else:
+            out.index = out.index.tz_convert("UTC")
+        if "bar_available_at" in out.columns:
+            out["bar_available_at"] = pd.to_datetime(
+                out["bar_available_at"], utc=True, errors="coerce"
+            )
+        return _preserve_availability_source(out.sort_index(), availability_source)
     if "timestamp" in out.columns:
         out.index = pd.to_datetime(out["timestamp"], utc=True, errors="coerce")
         out = out[~out.index.isna()]
         if not out.empty:
-            return out.sort_index()
-    out.index = pd.date_range("1970-01-01", periods=len(out), freq=_timeframe_to_freq(timeframe))
-    return out
+            return _preserve_availability_source(out.sort_index(), availability_source)
+    out.index = pd.date_range(
+        "1970-01-01", periods=len(out), freq=_timeframe_to_freq(timeframe), tz="UTC"
+    )
+    return _preserve_availability_source(out, availability_source)
+
+
+def _preserve_availability_source(
+    frame: pd.DataFrame,
+    source: object,
+) -> pd.DataFrame:
+    """Preserve explicit availability provenance across frame preparation."""
+
+    if "bar_available_at" in frame.columns and source is not None:
+        frame.attrs["bar_availability_source"] = source
+    return frame
+
+
+def _resolve_bar_availability(
+    frame: pd.DataFrame,
+    *,
+    timeframe: str,
+    timestamp_semantics: BarTimestampSemantics,
+) -> tuple[pd.DatetimeIndex, BarAvailabilitySource]:
+    if "bar_available_at" in frame.columns:
+        available = pd.to_datetime(frame["bar_available_at"], utc=True, errors="coerce")
+        if available.isna().any():
+            raise ValueError("bar_available_at contains invalid timestamps")
+        source_value = frame.attrs.get("bar_availability_source")
+        if source_value is None:
+            raise ValueError(
+                "bar_available_at requires bar_availability_source provenance"
+            )
+        try:
+            source = BarAvailabilitySource(source_value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"unknown bar_availability_source: {source_value!r}"
+            ) from exc
+        if (
+            source is BarAvailabilitySource.CLOSE_TIME_INDEX
+            and timestamp_semantics is not BarTimestampSemantics.CLOSE_TIME
+        ):
+            raise ValueError(
+                "close_time_index provenance requires CLOSE_TIME semantics"
+            )
+        return pd.DatetimeIndex(available), source
+
+    if timestamp_semantics is BarTimestampSemantics.CLOSE_TIME:
+        return pd.DatetimeIndex(frame.index), BarAvailabilitySource.CLOSE_TIME_INDEX
+
+    seconds = timeframe_to_seconds(timeframe, default=0)
+    if seconds < 1:
+        raise ValueError(f"cannot derive bar availability for timeframe {timeframe!r}")
+    available = frame.index + pd.to_timedelta(seconds, unit="s")
+    return pd.DatetimeIndex(available), BarAvailabilitySource.FIXED_INTERVAL_DERIVED
 
 
 def _timeframe_to_freq(timeframe: str) -> str:

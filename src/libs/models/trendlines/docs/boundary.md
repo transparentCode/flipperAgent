@@ -215,6 +215,22 @@ Retention and temporal-context limits are resolved from `config/trendlines.yaml`
 The current implementation is bounded in-memory only; persistent storage and broader history
 replacement policy remain separate concerns.
 
+## Signal Context and Candle Availability
+
+Signal extraction consumes typed `TrendlineSignalInputs`, not caller-supplied raw
+history or context dictionaries. `TrendlineSignalContext` binds the exact fit frame
+to its event timestamps, per-bar `bar_available_at` values, query `known_at`,
+timestamp semantics and volume-trust declaration.
+
+For open-time exchange data, the candle event index remains `open_time`, while
+completed OHLCV is unavailable until declared close/availability time. Validation
+rejects incomplete bars, future-known revisions, mismatched horizons, unordered
+history and scope mismatches before signal extractors run.
+
+`signal_input_id` binds current checkpoint/source identity, availability semantics,
+query knowledge time and selected history revision IDs. A changed selected revision
+therefore produces a new signal-stage revision even if signal values happen to match.
+
 ## Confluence Gate (`boundary/policy.py`)
 
 ### ConfluenceGateConfig

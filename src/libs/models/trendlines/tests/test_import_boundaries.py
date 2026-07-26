@@ -107,11 +107,18 @@ def _violations(
     banned_prefixes: tuple[str, ...],
     *,
     relative_to: Path = TRENDLINES_ROOT,
+    allowed_prefixes: tuple[str, ...] = (),
 ) -> list[str]:
     violations: list[str] = []
     for path in paths:
         for imported in _absolute_imports(path):
-            if any(imported == prefix or imported.startswith(prefix + ".") for prefix in banned_prefixes):
+            if any(
+                imported == prefix or imported.startswith(prefix + ".")
+                for prefix in banned_prefixes
+            ) and not any(
+                imported == prefix or imported.startswith(prefix + ".")
+                for prefix in allowed_prefixes
+            ):
                 violations.append(f"{path.relative_to(relative_to)} -> {imported}")
     return violations
 
@@ -271,6 +278,7 @@ def test_signals_do_not_import_data_pivots_fitting_contracts_registry_pipeline_o
             "libs.models.trendlines.pipeline",
             "libs.models.trendlines.workflows",
         ),
+        allowed_prefixes=("libs.models.trendlines.contracts.identity",),
     )
 
     assert violations == []

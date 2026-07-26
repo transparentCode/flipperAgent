@@ -141,7 +141,7 @@ sequenceDiagram
     participant B as boundary/adapters
     participant S as signals/orchestrator
 
-    C->>A: fit_and_signal(df, asset, tf, trendlines_config)
+    C->>A: fit_and_signal(df, asset, tf, signal_inputs)
     A->>P: run_trendline_pipeline(df, extractor, fitter)
     P->>R: build_extractor("fractal")
     R-->>P: FractalPivotExtractor
@@ -162,7 +162,7 @@ sequenceDiagram
     A->>B: build_boundary_result(df, asset, tf, result, resolved.boundary)
     B-->>A: BoundaryResult
 
-    A->>S: TrendlineSignalOrchestrator(resolved_config=resolved).run(result, history, ctx)
+    A->>S: TrendlineSignalOrchestrator(resolved_config=resolved).run(result, signal_inputs, df)
     S-->>A: {signals, composite_direction, composite_confidence}
 
     A-->>C: TrendlineOutput (+ asset_profile in metadata)
@@ -191,8 +191,8 @@ flowchart LR
 flowchart TD
     RC["ResolvedConfig\n(from resolve_asset_config)"]
     BR["BoundaryResult\n(current)"]
-    HI["List[BoundaryResult]\n(history)"]
-    CTX["context dict\n{ohlcv, atr}"]
+    HI["TrendlineSnapshot tuple\n(ordered revisions)"]
+    CTX["TrendlineSignalContext\n(event + availability + known_at)"]
 
     BUILD["_build_extractors_from_resolved()\nslim kwargs per extractor"]
 
@@ -265,8 +265,8 @@ These are the stable integration points. Prefer these over importing internals.
 | Run from config | `execute_trendline_pipeline(df, config)` |
 | **Resolve config** | `resolve_asset_config(root, asset, tf, df, fit_result)` → `ResolvedConfig` |
 | Adapt to boundary | `build_boundary_result_from_trendline_result(df, asset, tf, result, config)` |
-| Run native signals | `TrendlineSignalOrchestrator(resolved_config=...).run(result, history, ctx)` |
-| Full facade | `fit_and_signal(df, asset, tf, trendlines_config=...)` → `TrendlineOutput` |
+| Run native signals | `TrendlineSignalOrchestrator(resolved_config=...).run(result, signal_inputs, frame=df)` |
+| Full facade | `fit_and_signal(df, asset, tf, signal_inputs=...)` → `TrendlineOutput` |
 | Resolve auto-split | `resolve_trendline_auto_split_spec(timeframe, asset_class, ...)` |
 | Build temporal manifest | `build_temporal_split_manifest(spec, n_bars)` |
 | Promote optimization result | `apply_pipeline_optimization_to_config(result, base_config)` |
