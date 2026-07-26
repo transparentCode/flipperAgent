@@ -80,6 +80,13 @@ from libs.models.trendlines.workflows.research.evidence import (
     write_research_evidence_bundle,
     validate_evidence_bundle,
 )
+from libs.models.trendlines.workflows.research.frame_artifact import (
+    FRAME_ARTIFACT_SCHEMA_VERSION,
+    FRAME_ARTIFACT_SEMANTICS_VERSION,
+    TrendlineFrameArtifactError,
+    read_research_frame_artifact,
+    write_research_frame_artifact,
+)
 
 __all__ = [
     "BarAvailabilitySource",
@@ -150,4 +157,9 @@ __all__ = [
     "read_research_evidence_bundle",
     "write_research_evidence_bundle",
     "validate_evidence_bundle",
+    "FRAME_ARTIFACT_SCHEMA_VERSION",
+    "FRAME_ARTIFACT_SEMANTICS_VERSION",
+    "TrendlineFrameArtifactError",
+    "read_research_frame_artifact",
+    "write_research_frame_artifact",
 ]
