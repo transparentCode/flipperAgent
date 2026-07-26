@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from apps.trendline_v2_viewer.payload import write_viewer_bundle
+from libs.models.trendline_v2.tools.viewer.payload import write_viewer_bundle
 from libs.models.trendline_v2.configuration import (
     ConfirmedExtremaPairConfig,
     ResolvedTrendlineV2Config,

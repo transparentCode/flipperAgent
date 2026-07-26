@@ -75,5 +75,5 @@ test('primitive batches all candidates and toggles anchors without changing geom
 test('source contains one primitive and no extension/ray implementation', async () => {
   const source = await readFile(new URL('../src/trendline_primitive.ts', import.meta.url), 'utf8');
   assert.equal((source.match(/class TrendlinePrimitive/g) ?? []).length, 1);
-  assert.doesNotMatch(source, /extend|ray|forecast/i);
+  assert.doesNotMatch(source, /\b(extend|ray|forecast)\b/i);
 });

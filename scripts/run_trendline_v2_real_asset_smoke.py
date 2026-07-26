@@ -18,8 +18,8 @@ from typing import Any, Callable
 import pandas as pd
 
 from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
-from apps.trendline_v2_viewer import write_viewer_bundle
-from apps.trendline_v2_viewer.server import make_server, validate_bundle
+from libs.models.trendline_v2.tools.viewer import write_viewer_bundle
+from libs.models.trendline_v2.tools.viewer.server import make_server, validate_bundle
 from libs.models.trendline_v2 import discover_trendlines
 from libs.models.trendline_v2.configuration import (
     ConfirmedExtremaPairConfig,
@@ -500,11 +500,11 @@ async def run_smoke(
     _atomic_write_json(output / "run_report.json", report)
     print(
         "Manual serve:\n"
-        "cd /Users/aloobhujia/flipperAgent/src/apps/trendline_v2_viewer/web\n"
+        "cd /Users/aloobhujia/flipperAgent/src/libs/models/trendline_v2/tools/viewer/web\n"
         "npm ci\n"
         "npm run build\n\n"
         "cd /Users/aloobhujia/flipperAgent\n"
-        "PYTHONPATH=src .venv/bin/python -m apps.trendline_v2_viewer.server "
+        "PYTHONPATH=src .venv/bin/python -m libs.models.trendline_v2.tools.viewer.server "
         f"--bundle {viewer_path} --port 8765\n\n"
         "Open manually:\nhttp://127.0.0.1:8765"
     )
