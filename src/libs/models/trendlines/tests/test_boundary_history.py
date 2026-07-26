@@ -12,6 +12,17 @@ from libs.models.trendlines.boundary import (
     TrendlineSnapshot,
     TrendlineSnapshotHistory,
 )
+from libs.models.trendlines.config import SnapshotHistoryPolicies, SnapshotHistoryPolicy
+from libs.models.trendlines.contracts.identity import (
+    PivotFinality,
+    SourceIdentityKind,
+    TrendlineCheckpoint,
+    TrendlineExecutionMode,
+    TrendlineSnapshotFinality,
+    TrendlineSnapshotStage,
+    TrendlineSnapshotIdentity,
+    TrendlineSourceRef,
+)
 
 
 def _ray(level: float, *, is_support: bool) -> Ray:
@@ -36,10 +47,36 @@ def _boundary(
     interaction: str = "NONE",
     hull_width_atr: float = 2.0,
 ) -> BoundaryResult:
+    timestamp = datetime(2026, 1, 1, hour, tzinfo=timezone.utc)
+    source = TrendlineSourceRef(
+        source_id=f"source-{asset}-{timeframe}-{hour}",
+        source_start=timestamp.isoformat(),
+        as_of=timestamp.isoformat(),
+        row_count=1,
+        columns=("close",),
+        identity_kind=SourceIdentityKind.COMPUTED,
+    )
+    checkpoint = TrendlineCheckpoint(
+        checkpoint_id=f"checkpoint-{asset}-{timeframe}-{hour}",
+        source=source,
+        config_id=f"config-{interaction}-{hull_width_atr}",
+        execution_mode=TrendlineExecutionMode.RUNTIME,
+        extractor_finality=PivotFinality.CONFIRMED_APPEND_ONLY,
+    )
+    identity = TrendlineSnapshotIdentity(
+        snapshot_id=f"snapshot-{asset}-{timeframe}-{hour}",
+        revision_id=f"revision-{asset}-{timeframe}-{hour}-{interaction}-{hull_width_atr}",
+        checkpoint=checkpoint,
+        stage=TrendlineSnapshotStage.BOUNDARY,
+        finality=TrendlineSnapshotFinality.CONFIRMED_AS_OF,
+        content_id=f"content-{interaction}-{hull_width_atr}",
+        asset=asset,
+        timeframe=timeframe,
+    )
     return BoundaryResult(
         asset=asset,
         timeframe=timeframe,
-        timestamp=datetime(2026, 1, 1, hour, tzinfo=timezone.utc),
+        timestamp=timestamp,
         active_support_rays=[_ray(100.0, is_support=True)],
         active_resistance_rays=[_ray(110.0, is_support=False)],
         convex_hull_floor=100.0,
@@ -57,6 +94,16 @@ def _boundary(
             mean_r_squared=0.9,
             hull_width_atr=hull_width_atr,
         ),
+        snapshot_identity=identity,
+    )
+
+
+def _history(*, logical: int = 256, revisions: int = 8, context: int = 5) -> TrendlineSnapshotHistory:
+    return TrendlineSnapshotHistory(
+        SnapshotHistoryPolicies(
+            SnapshotHistoryPolicy(logical, revisions, context),
+            {},
+        )
     )
 
 
@@ -73,7 +120,7 @@ def test_snapshot_serializes_boundary_payload():
 
 
 def test_history_prunes_per_asset_timeframe_bucket():
-    history = TrendlineSnapshotHistory(maxlen=3)
+    history = _history(logical=3)
     for hour in range(5):
         history.add(_boundary(hour))
 
@@ -85,7 +132,7 @@ def test_history_prunes_per_asset_timeframe_bucket():
 
 
 def test_history_keeps_asset_timeframes_isolated():
-    history = TrendlineSnapshotHistory(maxlen=5)
+    history = _history(logical=5)
     history.add(_boundary(1, asset="BTCUSDT", timeframe="1h"))
     history.add(_boundary(2, asset="BTCUSDT", timeframe="4h"))
     history.add(_boundary(3, asset="ETHUSDT", timeframe="1h"))
@@ -96,7 +143,7 @@ def test_history_keeps_asset_timeframes_isolated():
 
 
 def test_temporal_history_returns_snapshots_before_current_timestamp():
-    history = TrendlineSnapshotHistory(maxlen=10)
+    history = _history(logical=10)
     for hour in range(5):
         history.add(_boundary(hour, hull_width_atr=5.0 - hour))
 
@@ -108,7 +155,7 @@ def test_temporal_history_returns_snapshots_before_current_timestamp():
 
 
 def test_history_before_filters_by_timestamp_even_with_later_snapshots():
-    history = TrendlineSnapshotHistory(maxlen=10)
+    history = _history(logical=10)
     for hour in range(6):
         history.add(_boundary(hour))
 
@@ -118,7 +165,7 @@ def test_history_before_filters_by_timestamp_even_with_later_snapshots():
 
 
 def test_temporal_history_excludes_current_if_already_added():
-    history = TrendlineSnapshotHistory(maxlen=10)
+    history = _history(logical=10)
     for hour in range(4):
         history.add(_boundary(hour))
     current = _boundary(4)
@@ -129,11 +176,11 @@ def test_temporal_history_excludes_current_if_already_added():
     assert [item.timestamp.hour for item in temporal] == [0, 1, 2, 3]
 
 
-def test_history_rejects_bad_maxlen_and_partial_keys():
-    with pytest.raises(ValueError, match="maxlen"):
-        TrendlineSnapshotHistory(maxlen=0)
+def test_history_rejects_bad_policy_and_partial_keys():
+    with pytest.raises(ValueError, match=">= 1"):
+        SnapshotHistoryPolicy(0, 1, 1)
 
-    history = TrendlineSnapshotHistory(maxlen=2)
+    history = _history(logical=2)
     with pytest.raises(ValueError, match="asset and timeframe"):
         history.count(asset="BTCUSDT")
     with pytest.raises(ValueError, match="asset and timeframe"):

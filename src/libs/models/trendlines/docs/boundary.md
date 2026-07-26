@@ -91,7 +91,7 @@ The primary output of the boundary layer.
 
 When identity is present, `snapshot_identity.stage` is `BOUNDARY`, its asset/timeframe match
 the result, and its checkpoint source `as_of` matches `timestamp`. Manually constructed legacy
-fixtures may leave identity as `None`; strict history insertion policy belongs to L1-B2.
+fixtures may leave identity as `None`; strict snapshot-history insertion rejects those fixtures.
 
 Properties:
 - `best_support` → `Ray` with max score from `active_support_rays`, or `None`
@@ -192,6 +192,28 @@ diag = decluster_touch_indices(
 ```
 
 Used by `app/indicators/fractal_channel.py` to deduplicate touch points before line scoring.
+
+## Point-in-Time Snapshot History
+
+`TrendlineSnapshotHistory` stores event snapshots by `(asset, timeframe)` and orders logical
+snapshots by market `as_of`. Each logical snapshot can retain several content revisions ordered
+by `known_at`. `known_at` is when a revision became available; it is not part of `revision_id`.
+`revision_id` identifies content, while `known_at` controls causal visibility.
+
+Insertion requires a boundary-stage `snapshot_identity`. First revisions default `known_at` to
+their event time. Corrections require an explicit timezone-aware UTC `known_at`; duplicate
+revisions are idempotent only when their knowledge time also matches. Different revisions cannot
+share one knowledge time.
+
+Use `get_exact_at(asset, timeframe, as_of, known_at=...)` for one event snapshot and
+`get_state_at(...)` for the latest event state known at a causal knowledge time. Omitting
+`known_at` uses requested `as_of`, preventing later corrections from leaking into historical
+queries. `history_before` and `temporal_history` use the same causal default.
+
+Retention and temporal-context limits are resolved from `config/trendlines.yaml` through
+`SnapshotHistoryPolicy`, with asset/timeframe overrides taking precedence over the global policy.
+The current implementation is bounded in-memory only; persistent storage and broader history
+replacement policy remain separate concerns.
 
 ## Confluence Gate (`boundary/policy.py`)
 

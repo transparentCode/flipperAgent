@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from libs.models.regime_v2.scripts.collect_shadow_binance import (
     _feature_vector_from_row,
@@ -162,3 +163,10 @@ def test_collect_shadow_binance_cli_parse_args():
     assert args.include_trendline_context is True
     assert args.trendline_min_bars == 40
     assert args.trendline_history_limit == 3
+    assert _parse_args([]).trendline_history_limit is None
+
+
+def test_collect_shadow_binance_cli_rejects_non_positive_history_limit():
+    for value in ("0", "-1"):
+        with pytest.raises(SystemExit):
+            _parse_args(["--trendline-history-limit", value])

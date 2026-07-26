@@ -38,8 +38,11 @@ class TrendlineFeatureConfig:
     atr_window: int = 14
     pathfinding_line_fit_mode: str = "endpoint"
     include_native_signals: bool = False
-    history_limit: int = 5
+    history_limit: int | None = None
     record_snapshot: bool = False
+
+    def __post_init__(self) -> None:
+        _validate_history_limit(self.history_limit)
 
 
 class TrendlineFeatureProducer:
@@ -143,7 +146,11 @@ def compute_trendline_context_features(
     if boundary is None or not boundary.is_valid:
         return {**base, "trendline_error": "invalid_boundary"}
     if snapshot_history is not None and cfg.record_snapshot:
-        snapshot_history.add(boundary, metadata={"source": "regime_v2_trendline_adapter"})
+        snapshot_history.add(
+            boundary,
+            metadata={"source": "regime_v2_trendline_adapter"},
+            known_at=_utc_datetime(prepared.index[-1]),
+        )
 
     close = float(prepared["close"].iloc[-1])
     atr = _latest_atr(prepared, cfg.atr_window)
@@ -605,11 +612,40 @@ def _signal_history(
     asset: str,
     timeframe: str,
     timestamp: Any,
-    limit: int,
+    limit: int | None,
 ) -> list[Any]:
+    validated_limit = _validate_history_limit(limit)
     if snapshot_history is None:
         return []
-    return snapshot_history.history_before(asset, timeframe, timestamp, limit=max(int(limit), 1))
+    resolved_limit = (
+        snapshot_history.context_limit(asset, timeframe)
+        if validated_limit is None
+        else validated_limit
+    )
+    return snapshot_history.history_before(
+        asset,
+        timeframe,
+        timestamp,
+        limit=resolved_limit,
+        known_at=_utc_datetime(timestamp),
+    )
+
+
+def _validate_history_limit(value: int | None) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ValueError("history_limit must be None or a positive integer")
+    return value
+
+
+def _utc_datetime(value: Any) -> Any:
+    timestamp = pd.Timestamp(value)
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.tz_localize("UTC")
+    else:
+        timestamp = timestamp.tz_convert("UTC")
+    return timestamp.to_pydatetime()
 
 
 def _build_fitter_kwargs(config: TrendlineFeatureConfig) -> dict[str, Any]:

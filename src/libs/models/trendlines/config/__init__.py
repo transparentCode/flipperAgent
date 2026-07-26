@@ -22,6 +22,14 @@ from .evaluation_config import (
     WalkForwardDefaults,
 )
 from .loader import load_trendlines_config
+from .history_config import (
+    SnapshotHistoryConfigError,
+    SnapshotHistoryOverride,
+    SnapshotHistoryPolicies,
+    SnapshotHistoryPolicy,
+    resolve_snapshot_history_policies,
+    resolve_snapshot_history_policy,
+)
 from .resolve import (
     ResolvedConfig,
     ResolvedOscillatorConfig,
@@ -75,6 +83,10 @@ __all__ = [
     "ResolvedOscillatorConfig",
     "ResolvedSignalConfig",
     "SignalConfig",
+    "SnapshotHistoryConfigError",
+    "SnapshotHistoryOverride",
+    "SnapshotHistoryPolicies",
+    "SnapshotHistoryPolicy",
     "StateTransitionEntry",
     "StateTransitionsConfig",
     "StructuralSignalConfig",
@@ -89,4 +101,6 @@ __all__ = [
     "load_trendlines_config",
     "resolve_asset_config",
     "resolve_oscillator_config",
+    "resolve_snapshot_history_policies",
+    "resolve_snapshot_history_policy",
 ]

@@ -38,8 +38,25 @@ identity never falls back to `repr()`, `str()` of arbitrary objects, process has
 addresses.
 
 Source identity is either `COMPUTED` from model-visible frame content or `PROVIDED` by an upstream
-manifest after horizon/column validation. `as_of` is always the last supplied frame row. History
-ordering and revision replacement are intentionally deferred to L1-B2.
+manifest after horizon/column validation. `as_of` is always the last supplied frame row.
+`TrendlineSnapshotHistory` orders logical boundary snapshots by event time and revisions by
+knowledge time. `get_state_at` filters revisions by `known_at` before selecting the latest event,
+so late corrections cannot leak into earlier point-in-time queries. Retention and context limits
+come from typed YAML-resolved history policy, not adapter literals.
+
+## Revision-Aware History
+
+`boundary/history.py` is an in-memory causal store. Its per-key structure keeps logical snapshots
+ordered by event `as_of`, with each logical snapshot retaining revisions ordered by `known_at`.
+Normal chronological insertion appends; out-of-order event and revision insertion uses bounded
+binary-search placement. `get_exact_at`, `get_state_at`, `history_before`, and `latest` select
+only revisions known by the requested knowledge time. `known_at` is not part of `revision_id`:
+`revision_id` identifies content, while `known_at` identifies availability.
+
+`SnapshotHistoryPolicy` comes from canonical YAML. Global policy applies first, followed by an
+optional asset/timeframe override. Logical retention prunes complete oldest groups; revision
+retention fails closed instead of discarding earlier causal evidence. Persistent storage is not
+part of this layer.
 
 ## Dependency Graph
 

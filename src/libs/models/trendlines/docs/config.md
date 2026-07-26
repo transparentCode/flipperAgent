@@ -9,6 +9,7 @@ for trendlines. Parameters are organized into four tiers:
 | **Derived** | Computed at runtime from `AssetProfile` | Never | `hold_bars`, `atr_window`, `parallel_tol` |
 | **Optimizable** | `trendlines.yaml` under `defaults:` and `assets:` | Per-asset/TF | `interaction_tolerance_atr` |
 | **Protocol** | `trendlines.yaml` under `protocol:` | Never | `walk_forward`, `fitness` |
+| **Operational history** | `trendlines.yaml` under `history:` | Never | retention and context limits |
 
 ## Loading
 
@@ -59,6 +60,40 @@ cfg = load_trendlines_config()
 resolved = resolve_asset_config(cfg, asset="BTCUSDT", timeframe="1h", df=df, fit_result=fit_result)
 # resolved.signals, resolved.boundary, resolved.profile are all populated
 ```
+
+## Snapshot History Policy
+
+History policy is operational configuration, separate from trendline model parameters:
+
+```yaml
+history:
+  max_logical_snapshots_per_key: 256
+  max_revisions_per_snapshot: 8
+  context_limit: 5
+```
+
+`resolve_snapshot_history_policy(config, asset, timeframe)` applies the global policy first,
+then an optional `assets.{asset}.timeframes.{timeframe}.history` override. The history store
+receives the resolved typed policy and never embeds numeric retention defaults. Missing global
+history configuration fails closed when constructing production history.
+
+`max_logical_snapshots_per_key` prunes complete oldest event groups. A full key rejects an older
+event rather than inserting and silently dropping it. `max_revisions_per_snapshot` rejects a new
+revision when capacity is reached; it never prunes earlier revisions. `context_limit` supplies
+the default temporal-history query limit, while an explicit caller limit remains a query-context
+override only.
+
+## Event Time and Knowledge Time
+
+Boundary `timestamp`/`as_of` identifies market event time. Snapshot `known_at` identifies when
+that exact content revision became available and is normalized to timezone-aware UTC. It is not
+part of `revision_id`; `revision_id` identifies content. First revisions default `known_at` to
+`as_of`, while corrections require explicit `known_at`.
+
+`get_exact_at` and `get_state_at` select only revisions with `known_at <=` query knowledge time.
+Omitting query knowledge time uses requested `as_of`, so later corrections remain invisible to
+earlier historical queries. Current history is in-memory and bounded; persistence and broader
+revision replacement policy are not implied by this configuration.
 
 ## Full Config Hierarchy
 

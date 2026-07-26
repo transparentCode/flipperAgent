@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from libs.models.trendlines.boundary import TrendlineSnapshotHistory
+from libs.models.trendlines.config import SnapshotHistoryPolicies, SnapshotHistoryPolicy
 from libs.models.regime_v2.adapters import (
     TrendlineFeatureConfig,
     TrendlineFeatureProducer,
     compute_trendline_context_features,
 )
+from libs.models.regime_v2.adapters.trendline_feature_producer import _signal_history
 
 
 def _make_frame(n: int = 120, *, datetime_index: bool = True) -> pd.DataFrame:
@@ -136,7 +139,9 @@ def test_trendline_context_features_can_opt_into_pathfinding_refit_mode():
 
 
 def test_trendline_context_features_records_and_reads_snapshot_history():
-    snapshot_history = TrendlineSnapshotHistory(maxlen=5)
+    snapshot_history = TrendlineSnapshotHistory(
+        SnapshotHistoryPolicies(SnapshotHistoryPolicy(5, 8, 3), {})
+    )
     config = TrendlineFeatureConfig(
         fitter="ensemble",
         min_bars=30,
@@ -183,6 +188,65 @@ def test_trendline_context_features_records_and_reads_snapshot_history():
     assert -1.0 <= second["trendline_ray_persistence_bias"] <= 1.0
     assert isinstance(second["trendline_slope_acceleration"], float)
     assert snapshot_history.count("BTCUSDT", "1h") == 2
+
+
+def _history_for_limit_tests() -> TrendlineSnapshotHistory:
+    history = TrendlineSnapshotHistory(
+        SnapshotHistoryPolicies(SnapshotHistoryPolicy(10, 8, 2), {})
+    )
+    config = TrendlineFeatureConfig(
+        fitter="ensemble",
+        min_bars=30,
+        record_snapshot=True,
+    )
+    for size in (80, 100):
+        features = compute_trendline_context_features(
+            _make_frame(size),
+            asset="BTCUSDT",
+            timeframe="1h",
+            config=config,
+            snapshot_history=history,
+        )
+        assert features["trendline_valid"] == 1.0
+    return history
+
+
+def test_history_limit_none_uses_history_policy_context_limit():
+    history = _history_for_limit_tests()
+
+    selected = _signal_history(
+        history,
+        asset="BTCUSDT",
+        timeframe="1h",
+        timestamp=pd.Timestamp("2026-01-10", tz="UTC"),
+        limit=None,
+    )
+
+    assert len(selected) == 2
+
+
+def test_positive_history_limit_overrides_query_length():
+    history = _history_for_limit_tests()
+
+    selected = _signal_history(
+        history,
+        asset="BTCUSDT",
+        timeframe="1h",
+        timestamp=pd.Timestamp("2026-01-10", tz="UTC"),
+        limit=1,
+    )
+
+    assert len(selected) == 1
+
+
+def test_zero_history_limit_is_rejected_by_config():
+    with pytest.raises(ValueError, match="history_limit"):
+        TrendlineFeatureConfig(history_limit=0)
+
+
+def test_negative_history_limit_is_rejected_by_config():
+    with pytest.raises(ValueError, match="history_limit"):
+        TrendlineFeatureConfig(history_limit=-1)
 
 
 def test_trendline_temporal_fields_are_neutral_without_snapshot_history():

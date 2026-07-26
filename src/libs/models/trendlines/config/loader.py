@@ -12,6 +12,8 @@ from .base_config import (
     OptimizableDefaults,
     OscillatorDefaults,
     OscillatorOverride,
+    SnapshotHistoryOverride,
+    SnapshotHistoryPolicy,
     TrendlinesConfig,
 )
 from .defaults import get_default_config_dict
@@ -50,6 +52,11 @@ def _parse_asset_tf_config(raw: Dict[str, Any]) -> AssetTimeframeConfig:
         convergence_rate_threshold=raw.get("convergence_rate_threshold"),
         wick_rejection_ratio=raw.get("wick_rejection_ratio"),
         squeeze_threshold=raw.get("squeeze_threshold"),
+        history=(
+            SnapshotHistoryOverride.from_mapping(raw["history"])
+            if "history" in raw
+            else None
+        ),
     )
 
 
@@ -119,6 +126,12 @@ def load_trendlines_config(path: str | None = None) -> TrendlinesConfig:
 
     # ── Pipeline ──
     pipe_raw = raw.get("pipeline", {})
+
+    history = (
+        SnapshotHistoryPolicy.from_mapping(raw["history"])
+        if "history" in raw
+        else None
+    )
 
     # ── Optimizable defaults ──
     def_raw = raw.get("defaults", {})
@@ -203,13 +216,5 @@ def load_trendlines_config(path: str | None = None) -> TrendlinesConfig:
         search_grids=search_grids,
         signal_default_weight=signal_default_weight,
         signal_weights=signal_weights,
-    )
-
-    return TrendlinesConfig(
-        signals=signals,
-        boundary=boundary,
-        evaluation=evaluation,
-        search_grids=search_grids,
-        extractor=pipe_raw.get("extractor", "fractal"),
-        fitter=pipe_raw.get("fitter", "pathfinding"),
+        history=history,
     )

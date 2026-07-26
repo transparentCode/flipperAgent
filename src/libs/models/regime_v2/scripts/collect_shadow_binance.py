@@ -41,6 +41,7 @@ from libs.selection.regime_v2_shadow_report import (
 )
 from libs.selection.selection_layer import SelectionLayer
 from libs.models.trendlines.boundary import TrendlineSnapshotHistory
+from libs.models.trendlines.config import load_trendlines_config
 
 _DEFAULT_PAIRS = (
     ("BTCUSDT", "4h"),
@@ -106,7 +107,7 @@ async def _run(args: argparse.Namespace) -> dict[str, Any]:
                 models=models,
                 include_trendline_context=bool(args.include_trendline_context),
                 trendline_min_bars=int(args.trendline_min_bars),
-                trendline_history_limit=int(args.trendline_history_limit),
+                trendline_history_limit=args.trendline_history_limit,
                 shadow_log_path=str(log_path),
             )
         except Exception as exc:
@@ -146,7 +147,7 @@ async def collect_pair_shadow_logs(
     models: tuple[str, ...],
     include_trendline_context: bool = False,
     trendline_min_bars: int = 80,
-    trendline_history_limit: int = 5,
+    trendline_history_limit: int | None = None,
     shadow_log_path: str | None = None,
 ) -> dict[str, Any]:
     ohlcv = await fetch_binance_native_ohlcv(
@@ -196,13 +197,13 @@ async def collect_pair_shadow_logs(
     layer = SelectionLayer(asset, timeframe)
     if shadow_log_path:
         _force_shadow_persistence(layer, shadow_log_path)
-    trendline_history = TrendlineSnapshotHistory(maxlen=max(int(trendline_history_limit) + 2, 3))
+    trendline_history = TrendlineSnapshotHistory.from_config(load_trendlines_config())
     trendline_config = TrendlineFeatureConfig(
         fitter="ensemble",
         min_bars=max(int(trendline_min_bars), 2),
         include_native_signals=True,
         record_snapshot=True,
-        history_limit=max(int(trendline_history_limit), 1),
+        history_limit=trendline_history_limit,
     )
     attempted = 0
     selected_total = 0
@@ -403,6 +404,16 @@ def _string_value(value: Any, default: str) -> str:
     return text if text else default
 
 
+def _positive_history_limit(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("history limit must be an integer") from exc
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("history limit must be >= 1")
+    return parsed
+
+
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Collect RegimeV2 shadow logs from on-demand Binance candles.")
     parser.add_argument("--pair", action="append", default=None, help="SYMBOL:TIMEFRAME pair. Repeatable. Defaults to Phase 5D rollout pairs.")
@@ -420,7 +431,12 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--report-md", default=None, help="Optional Phase 5C report Markdown after collection.")
     parser.add_argument("--include-trendline-context", action="store_true", help="Attach read-only trendline_* context to shadow FeatureVectors/logs.")
     parser.add_argument("--trendline-min-bars", type=int, default=80, help="Minimum lookback bars before trendline context becomes valid.")
-    parser.add_argument("--trendline-history-limit", type=int, default=5, help="Rolling trendline snapshot history passed to temporal context.")
+    parser.add_argument(
+        "--trendline-history-limit",
+        type=_positive_history_limit,
+        default=None,
+        help="Optional trendline temporal-context limit; storage policy comes from canonical YAML.",
+    )
     return parser.parse_args(argv)
 
 

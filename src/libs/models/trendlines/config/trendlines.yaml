@@ -1,6 +1,10 @@
 pipeline:
   extractor: fractal
   fitter: pathfinding
+history:
+  max_logical_snapshots_per_key: 256
+  max_revisions_per_snapshot: 8
+  context_limit: 5
 defaults:
   interaction_tolerance_atr: 0.25
   asymmetry_threshold: 0.3

@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 
 from .boundary_config import BoundaryAdapterConfig
 from .evaluation_config import EvaluationConfig
+from .history_config import SnapshotHistoryOverride, SnapshotHistoryPolicy
 from .search_grid_config import GridSearchConfig
 from .signal_config import SignalConfig
 
@@ -28,6 +29,7 @@ class AssetTimeframeConfig:
     convergence_rate_threshold: Optional[float] = None
     wick_rejection_ratio: Optional[float] = None
     squeeze_threshold: Optional[float] = None
+    history: SnapshotHistoryOverride | None = None
 
 
 @dataclass(frozen=True)
@@ -123,6 +125,7 @@ class TrendlinesConfig:
     search_grids: GridSearchConfig = field(default_factory=GridSearchConfig)
     signal_default_weight: float = 1.0
     signal_weights: Dict[str, float] = field(default_factory=dict)
+    history: SnapshotHistoryPolicy | None = None
 
     # ── Backward-compat shims ──
     # These properties let old code that accessed config.signals.*, config.boundary.*,
@@ -202,6 +205,8 @@ __all__ = [
     "OptimizableDefaults",
     "OscillatorDefaults",
     "OscillatorOverride",
+    "SnapshotHistoryOverride",
+    "SnapshotHistoryPolicy",
     "TrendlinePipelineConfig",
     "TrendlinesConfig",
 ]

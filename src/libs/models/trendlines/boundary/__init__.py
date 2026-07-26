@@ -17,6 +17,10 @@ from libs.models.trendlines.boundary.contracts import (
     boundary_interaction_direction,
 )
 from libs.models.trendlines.boundary.history import (
+    SnapshotHistoryContractError,
+    SnapshotIdentityConflictError,
+    SnapshotRevisionCapacityError,
+    SnapshotRetentionError,
     SnapshotKey,
     TrendlineSnapshot,
     TrendlineSnapshotHistory,
@@ -44,6 +48,10 @@ __all__ = [
     "Ray",
     "RayTrackerConfig",
     "SnapshotKey",
+    "SnapshotHistoryContractError",
+    "SnapshotIdentityConflictError",
+    "SnapshotRevisionCapacityError",
+    "SnapshotRetentionError",
     "TouchDeclusterConfig",
     "TouchDiagnostics",
     "TrackedRayState",
