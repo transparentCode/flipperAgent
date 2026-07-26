@@ -2,12 +2,14 @@ import type {
   CanvasRenderingTarget2D,
 } from 'fancy-canvas';
 import type {
+  AutoscaleInfo,
   Coordinate,
   IChartApiBase,
   IPrimitivePaneRenderer,
   IPrimitivePaneView,
   ISeriesApi,
   ISeriesPrimitive,
+  Logical,
   PrimitiveHoveredItem,
   SeriesAttachedParameter,
   SeriesType,
@@ -18,9 +20,21 @@ import type { CandidateRole, ViewerCandidate, ViewerPayload } from './contracts.
 
 export type Visibility = { support: boolean; resistance: boolean; anchors: boolean };
 export type SegmentCoordinates = { x1: number; y1: number; x2: number; y2: number };
+export type DiagnosticSide = 'contender' | 'control';
+export type RenderCandidate = ViewerCandidate & { diagnosticSide?: DiagnosticSide };
 
-export function candidateIsVisible(candidate: ViewerCandidate, visibility: Visibility): boolean {
+export function candidateIsVisible(candidate: RenderCandidate, visibility: Visibility): boolean {
   return candidate.role === 'support' ? visibility.support : visibility.resistance;
+}
+
+export function candidateStrokeStyle(candidate: RenderCandidate): string {
+  if (candidate.diagnosticSide === 'contender') return '#f2b86b';
+  if (candidate.diagnosticSide === 'control') return '#66c7ff';
+  return candidate.role === 'support' ? '#65d6a5' : '#e8a36f';
+}
+
+export function candidateLineDash(candidate: RenderCandidate): number[] {
+  return candidate.diagnosticSide === 'control' ? [7, 5] : [];
 }
 
 export function finiteSegmentCoordinates(
@@ -46,7 +60,7 @@ function distanceToSegment(x: number, y: number, segment: SegmentCoordinates): n
 }
 
 export function hitTestCandidates(
-  candidates: readonly ViewerCandidate[],
+  candidates: readonly RenderCandidate[],
   x: number,
   y: number,
   timeToCoordinate: (time: Time) => Coordinate | null,
@@ -109,7 +123,8 @@ class TrendlineRenderer implements IPrimitivePaneRenderer {
         if (segment === null) continue;
         if ((segment.x1 < 0 && segment.x2 < 0) || (segment.x1 > mediaSize.width && segment.x2 > mediaSize.width)) continue;
         const selected = candidate.candidate_id === this.source.selectedCandidateId;
-        context.strokeStyle = candidate.role === 'support' ? '#65d6a5' : '#e8a36f';
+        context.strokeStyle = candidateStrokeStyle(candidate);
+        context.setLineDash(candidateLineDash(candidate));
         context.lineWidth = selected ? 3 : 1.5;
         context.globalAlpha = selected ? 1 : 0.8;
         context.beginPath();
@@ -146,11 +161,11 @@ export class TrendlinePrimitive implements ISeriesPrimitive<Time> {
   public visibility: Visibility = { support: true, resistance: true, anchors: false };
   private requestUpdate: (() => void) | null = null;
 
-  private readonly candidates: readonly ViewerCandidate[];
+  private readonly candidates: readonly RenderCandidate[];
 
   public constructor(payload: ViewerPayload | readonly ViewerCandidate[]) {
     if (Array.isArray(payload)) {
-      this.candidates = payload as readonly ViewerCandidate[];
+      this.candidates = payload as readonly RenderCandidate[];
     } else {
       this.candidates = (payload as ViewerPayload).candidates;
     }
@@ -170,8 +185,23 @@ export class TrendlinePrimitive implements ISeriesPrimitive<Time> {
 
   public paneViews(): readonly IPrimitivePaneView[] { return [new TrendlinePaneView(this)]; }
 
-  public visibleCandidates(): ViewerCandidate[] {
+  public visibleCandidates(): RenderCandidate[] {
     return this.candidates.filter((candidate) => candidateIsVisible(candidate, this.visibility));
+  }
+
+  public autoscaleInfo(_startTimePoint: Logical, _endTimePoint: Logical): AutoscaleInfo | null {
+    const prices = this.visibleCandidates().flatMap((candidate) => [
+      candidate.start_price,
+      candidate.end_price,
+      ...candidate.anchors.map((anchor) => anchor.price),
+    ]).filter(Number.isFinite);
+    if (prices.length === 0) return null;
+    return {
+      priceRange: {
+        minValue: Math.min(...prices),
+        maxValue: Math.max(...prices),
+      },
+    };
   }
 
   public setVisibility(visibility: Visibility): void {

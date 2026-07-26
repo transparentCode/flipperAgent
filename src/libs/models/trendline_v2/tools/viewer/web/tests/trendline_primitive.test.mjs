@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
   candidateIsVisible,
+  candidateLineDash,
+  candidateStrokeStyle,
   finiteSegmentCoordinates,
   hitTestCandidates,
   TrendlinePrimitive,
@@ -40,6 +42,8 @@ const support = candidate('support');
 const resistance = candidate('resistance');
 const timeToCoordinate = (time) => time;
 const priceToCoordinate = (price) => price * 2;
+const diagnosticContender = { ...support, candidate_id: '6'.repeat(64), end_price: 51564.8676, diagnosticSide: 'contender' };
+const diagnosticControl = { ...support, candidate_id: '7'.repeat(64), end_price: 56659, diagnosticSide: 'control' };
 
 test('finite geometry uses exactly the two anchor endpoints', () => {
   assert.deepEqual(
@@ -76,4 +80,37 @@ test('source contains one primitive and no extension/ray implementation', async 
   const source = await readFile(new URL('../src/trendline_primitive.ts', import.meta.url), 'utf8');
   assert.equal((source.match(/class TrendlinePrimitive/g) ?? []).length, 1);
   assert.doesNotMatch(source, /\b(extend|ray|forecast)\b/i);
+});
+
+test('diagnostic contender and control remain drawable with distinct styles', () => {
+  assert.notEqual(candidateStrokeStyle(diagnosticContender), candidateStrokeStyle(diagnosticControl));
+  assert.notDeepEqual(candidateLineDash(diagnosticContender), candidateLineDash(diagnosticControl));
+  assert.notEqual(
+    finiteSegmentCoordinates(diagnosticContender, timeToCoordinate, priceToCoordinate),
+    null,
+  );
+  assert.notEqual(
+    finiteSegmentCoordinates(diagnosticControl, timeToCoordinate, priceToCoordinate),
+    null,
+  );
+});
+
+test('diagnostic support visibility hides both lines and autoscale includes projections', () => {
+  const primitive = new TrendlinePrimitive({ candidates: [diagnosticContender, diagnosticControl] });
+  const autoscale = primitive.autoscaleInfo(0, 100);
+  assert.ok(autoscale !== null);
+  assert.ok(autoscale.priceRange !== null);
+  assert.ok(autoscale.priceRange.minValue <= 51564.8676);
+  assert.ok(autoscale.priceRange.maxValue >= 51564.8676);
+  assert.equal(primitive.visibleCandidates().length, 2);
+  primitive.setVisibility({ support: false, resistance: true, anchors: false });
+  assert.deepEqual(primitive.visibleCandidates(), []);
+  assert.equal(primitive.autoscaleInfo(0, 100), null);
+});
+
+test('non-diagnostic provider styles retain role defaults', () => {
+  assert.equal(candidateStrokeStyle(support), '#65d6a5');
+  assert.equal(candidateStrokeStyle(resistance), '#e8a36f');
+  assert.deepEqual(candidateLineDash(support), []);
+  assert.deepEqual(candidateLineDash(resistance), []);
 });

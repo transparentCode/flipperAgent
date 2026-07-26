@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateDiagnosticPayload } from '../dist/contracts.js';
+import { diagnosticCandidates, diagnosticSeriesData } from '../dist/main.js';
+import { finiteSegmentCoordinates } from '../dist/trendline_primitive.js';
 
 const HASH = 'a'.repeat(64);
 const R4 = 'f4a95e118d52eec9ae60b447f08ca11a756908d7861772978b8f0393b0bbd2e2';
@@ -100,4 +102,38 @@ test('rejects wrong source identity, cell, lineage and post-checkpoint candle', 
   const future = payload();
   future.candles.push({ time: 1780963200, open: 63000, high: 63500, low: 62500, close: 63200, volume: 1 });
   assert.throws(() => validateDiagnosticPayload(future), /after checkpoint/);
+});
+
+test('extends diagnostic timeline with causal whitespace through projections', () => {
+  const source = payload();
+  const series = diagnosticSeriesData(source);
+  const realCandles = series.filter((item) => 'open' in item);
+  const whitespace = series.filter((item) => !('open' in item));
+  const projectionTime = source.lines[0].projection_time;
+  const checkpointTime = Date.parse(source.checkpoint_observed_at) / 1000;
+
+  assert.equal(realCandles.length, 3);
+  assert.equal(whitespace.length, 25);
+  assert.ok(realCandles.every((item) => item.time < checkpointTime));
+  assert.ok(whitespace.every((item) => Object.keys(item).sort().join(',') === 'time'));
+  assert.equal(whitespace.at(-1).time, projectionTime);
+  assert.ok(whitespace.some((item) => item.time > checkpointTime));
+  assert.deepEqual(diagnosticCandidates(source).map((item) => item.diagnosticSide), ['contender', 'control']);
+});
+
+test('diagnostic projection coordinates and both finite segments are available', () => {
+  const source = payload();
+  const series = diagnosticSeriesData(source);
+  const times = new Set(series.map((item) => item.time));
+  const candidates = diagnosticCandidates(source);
+  const drawableTimes = new Set([
+    ...times,
+    ...candidates.flatMap((candidate) => candidate.anchors.map((anchor) => anchor.pivot_time)),
+  ]);
+  const timeToCoordinate = (time) => drawableTimes.has(time) ? time : null;
+  const priceToCoordinate = (price) => price;
+
+  assert.equal(timeToCoordinate(source.lines[0].projection_time), source.lines[0].projection_time);
+  assert.equal(candidates.length, 2);
+  assert.ok(candidates.every((candidate) => finiteSegmentCoordinates(candidate, timeToCoordinate, priceToCoordinate) !== null));
 });

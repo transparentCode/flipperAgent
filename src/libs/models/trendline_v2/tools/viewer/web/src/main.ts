@@ -1,17 +1,19 @@
 import {
   CandlestickSeries,
   createChart,
+  type CandlestickData,
   type UTCTimestamp,
+  type WhitespaceData,
 } from 'lightweight-charts';
 import {
   PAYLOAD_SCHEMA_VERSION,
   isDiagnosticPayload,
   type DiagnosticLine,
   type DiagnosticViewerPayload,
-  type ViewerCandidate,
+  type ViewerCandle,
 } from './contracts.js';
 import { loadPayload } from './payload.js';
-import { candidateDetail, TrendlinePrimitive } from './trendline_primitive.js';
+import { candidateDetail, TrendlinePrimitive, type RenderCandidate } from './trendline_primitive.js';
 
 function element<T extends HTMLElement>(selector: string): T {
   const value = document.querySelector<T>(selector);
@@ -19,19 +21,11 @@ function element<T extends HTMLElement>(selector: string): T {
   return value;
 }
 
-const container = element<HTMLElement>('#chart');
-const summary = element<HTMLElement>('#trial-summary');
-const statusBanner = element<HTMLElement>('#status-banner');
-const detail = element<HTMLElement>('#hover-detail');
-const supportToggle = element<HTMLInputElement>('#show-support');
-const resistanceToggle = element<HTMLInputElement>('#show-resistance');
-const anchorsToggle = element<HTMLInputElement>('#show-anchors');
-const fitButton = element<HTMLButtonElement>('#fit-content');
-
-function diagnosticCandidates(payload: DiagnosticViewerPayload): ViewerCandidate[] {
+export function diagnosticCandidates(payload: DiagnosticViewerPayload): RenderCandidate[] {
   return payload.lines.map((line) => ({
     candidate_id: line.selection_id,
     role: 'support',
+    diagnosticSide: line.side,
     start_time: line.anchors[0].time,
     end_time: line.projection_time,
     start_price: line.anchors[0].price,
@@ -65,9 +59,39 @@ function diagnosticCandidates(payload: DiagnosticViewerPayload): ViewerCandidate
   }));
 }
 
+function candleData(candle: ViewerCandle): CandlestickData<UTCTimestamp> {
+  return {
+    time: candle.time as UTCTimestamp,
+    open: candle.open,
+    high: candle.high,
+    low: candle.low,
+    close: candle.close,
+  };
+}
+
+export function diagnosticSeriesData(
+  payload: DiagnosticViewerPayload,
+): Array<CandlestickData<UTCTimestamp> | WhitespaceData<UTCTimestamp>> {
+  if (payload.candles.length < 2) throw new Error('diagnostic payload needs two candles for interval inference');
+  const realCandles = payload.candles.map(candleData);
+  const previous = payload.candles[payload.candles.length - 2].time;
+  const last = payload.candles[payload.candles.length - 1].time;
+  const interval = last - previous;
+  if (!Number.isSafeInteger(interval) || interval <= 0) throw new Error('diagnostic candle interval is invalid');
+  const maxProjectionTime = Math.max(...payload.lines.map((line) => line.projection_time));
+  const whitespace: WhitespaceData<UTCTimestamp>[] = [];
+  for (let time = last + interval; time <= maxProjectionTime; time += interval) {
+    whitespace.push({ time: time as UTCTimestamp });
+  }
+  return [...realCandles, ...whitespace];
+}
+
 function diagnosticLineDetail(line: DiagnosticLine): string {
+  const side = line.side === 'contender' ? 'Contender' : 'Control';
+  const reachability = line.reachable_at_96h ? 'reachable' : 'not reachable';
   return [
-    `${line.side} · ${line.role} · ${line.lineage_id}`,
+    `${side} — ${reachability} — ${line.geometry_projected_distance_atr_96h.toFixed(3)} ATR`,
+    `${line.role} · ${line.lineage_id}`,
     `selection ${line.selection_id}`,
     `anchors ${line.anchors[0].time} @ ${line.anchors[0].price} → ${line.anchors[1].time} @ ${line.anchors[1].price}`,
     `projection ${line.projection_time} @ ${line.projection_price}`,
@@ -78,6 +102,14 @@ function diagnosticLineDetail(line: DiagnosticLine): string {
 }
 
 async function bootstrap(): Promise<void> {
+  const container = element<HTMLElement>('#chart');
+  const summary = element<HTMLElement>('#trial-summary');
+  const statusBanner = element<HTMLElement>('#status-banner');
+  const detail = element<HTMLElement>('#hover-detail');
+  const supportToggle = element<HTMLInputElement>('#show-support');
+  const resistanceToggle = element<HTMLInputElement>('#show-resistance');
+  const anchorsToggle = element<HTMLInputElement>('#show-anchors');
+  const fitButton = element<HTMLButtonElement>('#fit-content');
   const payload = await loadPayload();
   const diagnostic = isDiagnosticPayload(payload) ? payload : null;
   const providerPayload = payload.schema_version === PAYLOAD_SCHEMA_VERSION ? payload : null;
@@ -111,13 +143,7 @@ async function bootstrap(): Promise<void> {
   wickUpColor: '#65d6a5',
   wickDownColor: '#e8a36f',
   });
-  series.setData(payload.candles.map((candle) => ({
-  time: candle.time as UTCTimestamp,
-  open: candle.open,
-  high: candle.high,
-  low: candle.low,
-  close: candle.close,
-  })));
+  series.setData(diagnostic === null ? payload.candles.map(candleData) : diagnosticSeriesData(diagnostic));
 
   const primitive = new TrendlinePrimitive(renderCandidates);
   series.attachPrimitive(primitive);
@@ -163,7 +189,11 @@ async function bootstrap(): Promise<void> {
   });
 }
 
-void bootstrap().catch((error: unknown) => {
-  statusBanner.dataset.status = 'failed';
-  statusBanner.textContent = `viewer failed closed: ${error instanceof Error ? error.message : String(error)}`;
-});
+if (typeof document !== 'undefined') {
+  void bootstrap().catch((error: unknown) => {
+    const statusBanner = document.querySelector<HTMLElement>('#status-banner');
+    if (statusBanner === null) return;
+    statusBanner.dataset.status = 'failed';
+    statusBanner.textContent = `viewer failed closed: ${error instanceof Error ? error.message : String(error)}`;
+  });
+}
