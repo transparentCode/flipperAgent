@@ -19,6 +19,29 @@ It does not run pivots, fitters, signals, replay, optimization, holdout evaluati
 Synthetic smoke mode is network-free. Binance research requires explicit event and knowledge
 bounds and uses the current native ingestion adapter through an application-side bridge.
 
+### Causal Replay and Evidence (L2-A2)
+
+Canonical research replay consumes prepared data/configuration only. It slices exact prefixes,
+uses each prefix's final availability as query knowledge time, and calls only public boundary or
+signal facades in explicit `RESEARCH` mode. `record_every` controls evidence density, never
+execution: skipped positions still update boundary revision history and influence later signals.
+
+Replay diagnostics expose snapshot, authoritative pivot-count, fitted-line, active-ray, and native
+signal rows with stable IDs. Selected pivot inspection is separate, explicit, and limited to one
+recorded position. Future-row invariance compares compatible causal scope and shared source,
+checkpoint, stage identities, serialized content, and replay-point identity; independently
+truncated preparations may have different parent dataset and preparation IDs. Replay-point content
+digests detect post-identity mutation.
+
+Evidence bundles are deterministic sorted JSON and content-addressed. Snapshot rows bind exact
+replay coordinates to point/content IDs. Every pivot-count, line, ray, and signal row binds that
+same coordinate and has a recomputed row evidence ID. Read validation checks row reassignment,
+stale geometry IDs, duplicate IDs, per-coordinate counts/ordinals, replay-spec coordinate
+coverage, and summary execution counts. Bundles are written only by an explicit persistence
+call and reject stale hashes plus semantically contradictory selection, diagnostic rows,
+summaries, and bounds on read. L2-A2 does not fetch data, optimize parameters, access holdouts,
+persist SQLite, create notebooks, or render TVLC/Plotly views.
+
 ## Pipeline Optimization Workflow
 
 ### Overview

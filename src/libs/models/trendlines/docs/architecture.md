@@ -67,6 +67,34 @@ signals, replay history, optimize parameters, or promote configuration. Concrete
 is kept in `apps.ingestion_app.adapters.trendlines_research`, which injects the current native
 adapter into canonical research contracts. Smoke mode never makes network calls.
 
+## Research Replay Boundary
+
+`workflows/research/replay.py` is the execution seam after preparation. It owns explicit replay
+windows, exact prefix slicing, prepared source/config propagation, revision-aware signal history,
+replay identities, and structured replay errors. It does not fetch data or load mutable root
+configuration inside prefix loops; prepared root configuration is passed to canonical facades.
+
+`workflows/research/diagnostics.py` derives deterministic typed rows from retained replay outputs.
+Table builders do not execute models. Selected pivot inspection is the sole explicit diagnostic
+re-extraction seam and is bound to one recorded replay point and its prepared extractor config.
+
+`workflows/research/evidence.py` builds content-addressed, sorted-JSON evidence bundles. Bundle
+selection accepts only `(timeframe, position)` and derives all checkpoint, source, stage, revision,
+and replay-point IDs from that point. Full frames and wall-clock state never enter evidence.
+
+Future-row invariance compares compatible causal scope and shared prefix content; independently
+truncated preparations may have different parent dataset and preparation identities. Replay-point
+content digests detect mutation of nested output or boundary objects after ID creation. Evidence
+snapshot rows form an exact coordinate-to-point/content map; every diagnostic row binds that map
+and carries a recomputed row evidence ID. Readers validate row coordinates, source/checkpoint/
+stage identities, per-coordinate counts and ordinals, replay-spec coverage, summary execution
+counts, totals/distributions, and global multi-timeframe bounds after verifying bundle content
+address.
+
+Replay executes every prefix position, even when recording stride omits it. Availability-confirmed
+prefixes drive both geometry and signal history. RDP outputs retain retrospective finality, while
+multi-timeframe runs remain independent and do not compose signals or geometry.
+
 ## Dependency Graph
 
 ```mermaid

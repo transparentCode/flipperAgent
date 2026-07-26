@@ -399,6 +399,121 @@ class PreparedTrendlineResearchRun:
             raise ValueError("preparation_id must be non-empty")
 
 
+class TrendlineReplayContractError(ValueError):
+    """Raised when replay controls or replay bindings are invalid."""
+
+
+@dataclass(frozen=True)
+class TrendlineReplayWindow:
+    """Inclusive prefix execution and recording window for one timeframe."""
+
+    warmup_start_position: int
+    record_start_position: int
+    end_position: int
+    record_every: int
+
+    def __post_init__(self) -> None:
+        values = (
+            self.warmup_start_position,
+            self.record_start_position,
+            self.end_position,
+            self.record_every,
+        )
+        if any(isinstance(value, bool) or not isinstance(value, int) for value in values):
+            raise TrendlineReplayContractError(
+                "replay window positions and record_every must be integers"
+            )
+        if self.warmup_start_position < 0:
+            raise TrendlineReplayContractError("warmup_start_position must be >= 0")
+        if self.warmup_start_position > self.record_start_position:
+            raise TrendlineReplayContractError(
+                "warmup_start_position must be <= record_start_position"
+            )
+        if self.record_start_position > self.end_position:
+            raise TrendlineReplayContractError(
+                "record_start_position must be <= end_position"
+            )
+        if self.record_every < 1:
+            raise TrendlineReplayContractError("record_every must be >= 1")
+
+    def validate_for(self, row_count: int, *, timeframe: str) -> None:
+        if self.end_position >= row_count:
+            raise TrendlineReplayContractError(
+                f"replay window for {timeframe} exceeds prepared row count"
+            )
+
+    def to_dict(self) -> dict[str, int]:
+        return {
+            "warmup_start_position": self.warmup_start_position,
+            "record_start_position": self.record_start_position,
+            "end_position": self.end_position,
+            "record_every": self.record_every,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "TrendlineReplayWindow":
+        return cls(
+            warmup_start_position=payload["warmup_start_position"],
+            record_start_position=payload["record_start_position"],
+            end_position=payload["end_position"],
+            record_every=payload["record_every"],
+        )
+
+
+@dataclass(frozen=True)
+class TrendlineResearchReplaySpec:
+    """Explicit replay controls. Model parameters are intentionally absent."""
+
+    windows: Mapping[str, TrendlineReplayWindow]
+    include_signals: bool
+
+    def __post_init__(self) -> None:
+        windows = dict(self.windows)
+        if not windows:
+            raise TrendlineReplayContractError("replay windows must be non-empty")
+        if any(not str(key).strip() for key in windows):
+            raise TrendlineReplayContractError("replay timeframe names must be non-empty")
+        if not all(isinstance(value, TrendlineReplayWindow) for value in windows.values()):
+            raise TrendlineReplayContractError(
+                "replay windows must contain TrendlineReplayWindow values"
+            )
+        if not isinstance(self.include_signals, bool):
+            raise TrendlineReplayContractError("include_signals must be a bool")
+        object.__setattr__(self, "windows", windows)
+
+    def validate_for(self, prepared: PreparedTrendlineResearchRun) -> None:
+        expected = tuple(prepared.spec.timeframes)
+        actual = tuple(self.windows)
+        if actual != expected:
+            raise TrendlineReplayContractError(
+                "replay windows must cover prepared timeframes in exact order"
+            )
+        for timeframe in expected:
+            self.windows[timeframe].validate_for(
+                len(prepared.dataset.frames[timeframe]),
+                timeframe=timeframe,
+            )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "windows": {
+                timeframe: self.windows[timeframe].to_dict()
+                for timeframe in self.windows
+            },
+            "include_signals": self.include_signals,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "TrendlineResearchReplaySpec":
+        return cls(
+            windows={
+                str(timeframe): TrendlineReplayWindow.from_dict(window)
+                for timeframe, window in dict(payload["windows"]).items()
+            },
+            include_signals=payload["include_signals"],
+        )
+
+
 __all__ = [
     "BarAvailabilitySource",
     "BarTimestampSemantics",
@@ -415,5 +530,8 @@ __all__ = [
     "TrendlineResearchDatasetIdentity",
     "TrendlineResearchPurpose",
     "TrendlineResearchSpec",
+    "TrendlineReplayContractError",
+    "TrendlineReplayWindow",
+    "TrendlineResearchReplaySpec",
     "build_research_availability_id",
 ]
