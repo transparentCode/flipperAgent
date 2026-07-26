@@ -1,7 +1,9 @@
 import json
 from pathlib import Path
 
+import IPython.display as ipython_display
 from IPython.core.interactiveshell import InteractiveShell
+from IPython.display import IFrame
 
 
 NOTEBOOK = Path(__file__).resolve().parents[6] / "research" / "trendlines_research_lab.ipynb"
@@ -25,8 +27,14 @@ def test_notebook_outputs_are_cleared() -> None:
             assert cell["outputs"] == []
 
 
-def test_notebook_executes_top_to_bottom() -> None:
+def test_notebook_executes_top_to_bottom(monkeypatch) -> None:
     shell = InteractiveShell()
+    display_calls = []
+
+    def record_display(*objects, **kwargs):
+        display_calls.extend(objects)
+
+    monkeypatch.setattr(ipython_display, "display", record_display)
     try:
         for cell in _notebook()["cells"]:
             if cell["cell_type"] != "code":
@@ -37,6 +45,10 @@ def test_notebook_executes_top_to_bottom() -> None:
         session = shell.user_ns.get("session_result")
         if session is not None:
             session.close()
+        final_status = shell.user_ns.get("final_status")
+        assert final_status["viewer_servers_closed"] is True
+        assert final_status["temporary_bundles_removed"] is True
+    assert sum(isinstance(value, IFrame) for value in display_calls) >= 3
 
 
 def test_notebook_has_no_model_or_provider_implementation() -> None:

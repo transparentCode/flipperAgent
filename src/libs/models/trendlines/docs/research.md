@@ -123,3 +123,48 @@ explicit and canonical; no permanent export or YAML mutation occurs by default.
 Finality is textual: Fractal is `CONFIRMED / APPEND-ONLY`; RDP is
 `RETROSPECTIVE / RESEARCH ONLY`. The viewer presents selected lines, rays, pivots,
 signals, summary, timeline, and identity audit without extrapolating geometry.
+
+## Full Research Lab (L2-B3)
+
+`libs.models.trendlines.research_lab` is the notebook workbench layer. It composes
+the tested preparation, replay, evidence, and viewer APIs; it does not contain
+extractors, fitters, signal loops, data fetching, YAML resolution, or chart
+JavaScript. It is explicitly imported by the notebook and is not exported from
+the root trendlines package.
+
+Lab controls are immutable and bind purpose, data mode, asset, ordered timeframes,
+explicit data specification, replay windows, signal inclusion, viewer policy, and
+provider authorization. Synthetic smoke controls perform no provider call.
+Injected frames require an explicit mapping or loader. Binance controls require
+research purpose, explicit bounds, an explicit loader, and authorization before
+the loader can run.
+
+Every timeframe is prepared and replayed independently in requested order. The
+default selection chooses the latest valid point with both support/resistance
+lines and rays, then any valid geometry, then the final recorded point. Explicit
+recorded-position navigation rebuilds selected evidence and viewer payload only;
+it never reruns replay.
+
+Notebook tables retain full source, availability, checkpoint, snapshot, revision,
+content, and replay-point identities. Signal-history tables expose selected
+history snapshot/revision pairs, query knowledge time, signal availability time,
+and signal input identity. Viewer servers and temporary bundles belong to the
+session and are closed by `session.close()`.
+
+Permanent evidence, viewer, and lab-manifest export is explicit opt-in. The lab
+does not mutate YAML. Longevity, churn, null comparisons, sensitivity,
+robustness, cross-asset adequacy, and predictive outcomes remain L2-D studies;
+RSI/MACD and price/oscillator confluence remain separate work.
+
+Research-lab provider accounting is resolved after preparation. Binance loaders
+must expose a non-negative integer `provider_calls`; explicit compatibility
+wrappers may expose `calls`. Synthetic and injected runs report zero. Malformed
+or unavailable Binance accounting fails closed.
+
+Session close is terminal for selection and viewer creation. Inline notebook
+viewers are emitted with one explicit `display(IFrame(...))` call per timeframe;
+navigator selection calls `open_viewer()` so old temporary bundles and servers
+are replaced without replay execution. Table construction timing is accumulated
+outside research identities. Explicit exports expose deterministic per-file
+byte lengths and SHA-256 inventory rows for evidence, viewer, and lab-manifest
+artifacts. Cleanup reports actual server and temporary-root state.
