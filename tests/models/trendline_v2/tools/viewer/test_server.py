@@ -4,12 +4,17 @@ import ast
 import http.client
 import json
 from pathlib import Path
+import subprocess
 import threading
 
 import pytest
 
-from apps.trendline_v2_viewer import write_viewer_bundle
-from apps.trendline_v2_viewer.server import make_server, validate_bundle
+from libs.models.trendline_v2.tools.viewer import write_viewer_bundle
+from libs.models.trendline_v2.tools.viewer.server import make_server, validate_bundle
+from libs.models.trendline_v2.tools.viewer.diagnostic_export import (
+    build_verified_diagnostic_payload,
+)
+from libs.models.trendline_v2.tools.viewer.diagnostic_payload import write_diagnostic_bundle
 
 from .test_payload import _result
 
@@ -155,7 +160,7 @@ def test_server_rejects_symlink_bundle_members(tmp_path: Path) -> None:
 
 def test_viewer_import_boundaries_are_one_way() -> None:
     repository = Path(__file__).parents[3]
-    viewer_root = repository / "src" / "apps" / "trendline_v2_viewer"
+    viewer_root = repository / "src" / "libs" / "models" / "trendline_v2" / "tools" / "viewer"
     forbidden = (
         "libs.models.sr",
         "libs.models.regime_v2",
@@ -185,3 +190,45 @@ def test_viewer_import_boundaries_are_one_way() -> None:
     for path in (viewer_root / "web" / "src").rglob("*.ts"):
         source = path.read_text(encoding="utf-8")
         assert not any(token in source for token in ("react", "vue", "svelte", "websocket"))
+
+
+def test_server_serves_verified_diagnostic_payload_and_dom_contract(tmp_path: Path) -> None:
+    payload = build_verified_diagnostic_payload()
+    bundle = write_diagnostic_bundle(payload, tmp_path / "diagnostic")
+    server = make_server(bundle, port=0, web_root=_web_root(tmp_path))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        response, body = _request(server, "GET", "/bundle/chart_payload.json")
+        assert response.status == 200
+        assert json.loads(body)["schema_version"] == "trendline_v2_r5_diagnostic_viewer_payload_v1"
+        for path in ("/", "/styles.css", "/dist/main.js"):
+            response, body = _request(server, "GET", path)
+            assert response.status == 200
+            assert body
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_web_entrypoint_contains_candle_and_two_line_rendering_contract() -> None:
+    repository = Path(__file__).parents[5]
+    source = (repository / "src" / "libs" / "models" / "trendline_v2" / "tools" / "viewer" / "web" / "src" / "main.ts").read_text(encoding="utf-8")
+    assert "CandlestickSeries" in source
+    assert "new TrendlinePrimitive" in source
+    assert "diagnostic.lines.length" in source
+
+
+def test_viewer_is_model_local_and_does_not_track_node_modules() -> None:
+    repository = Path(__file__).parents[5]
+    assert not (repository / "src" / "apps" / "trendline_v2_viewer").exists()
+    assert not (repository / "tests" / "apps" / "trendline_v2_viewer").exists()
+    tracked = subprocess.run(
+        ["git", "ls-files", "node_modules", "src/libs/models/trendline_v2/tools/viewer/**/node_modules"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert tracked.stdout == ""

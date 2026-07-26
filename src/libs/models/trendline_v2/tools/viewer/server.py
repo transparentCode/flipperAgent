@@ -17,6 +17,12 @@ from .payload import (
     _sha256,
     _validate_payload,
 )
+from .diagnostic_payload import (
+    DIAGNOSTIC_BUNDLE_SCHEMA_VERSION,
+    DIAGNOSTIC_PAYLOAD_SCHEMA_VERSION,
+    _bundle_identity as _diagnostic_bundle_identity,
+    validate_diagnostic_payload,
+)
 
 
 _BUNDLE_MEMBERS = frozenset({"manifest.json", "chart_payload.json"})
@@ -103,7 +109,8 @@ def validate_bundle(bundle_path: str | Path) -> dict[str, object]:
         raise ValueError("chart payload bytes are not canonical")
     if set(manifest) != {"schema_version", "bundle_id", "payload_id", "members"}:
         raise ValueError("manifest keys mismatch")
-    if manifest["schema_version"] != BUNDLE_SCHEMA_VERSION:
+    bundle_schema = manifest["schema_version"]
+    if bundle_schema not in {BUNDLE_SCHEMA_VERSION, DIAGNOSTIC_BUNDLE_SCHEMA_VERSION}:
         raise ValueError("unsupported bundle schema")
     bundle_id = manifest["bundle_id"]
     payload_id = manifest["payload_id"]
@@ -122,9 +129,16 @@ def validate_bundle(bundle_path: str | Path) -> dict[str, object]:
         raise ValueError("manifest member byte length is invalid")
     if member["byte_length"] != len(payload_bytes) or member["sha256"] != _sha256(payload_bytes):
         raise ValueError("chart payload hash or length mismatch")
-    validated_payload = _validate_payload(payload)
-    if validated_payload["schema_version"] != PAYLOAD_SCHEMA_VERSION:
-        raise ValueError("unsupported chart payload schema")
+    if bundle_schema == BUNDLE_SCHEMA_VERSION:
+        validated_payload = _validate_payload(payload)
+        if validated_payload["schema_version"] != PAYLOAD_SCHEMA_VERSION:
+            raise ValueError("unsupported chart payload schema")
+        bundle_identity = _bundle_identity
+    else:
+        validated_payload = validate_diagnostic_payload(payload)
+        if validated_payload["schema_version"] != DIAGNOSTIC_PAYLOAD_SCHEMA_VERSION:
+            raise ValueError("unsupported diagnostic payload schema")
+        bundle_identity = _diagnostic_bundle_identity
     if validated_payload["payload_id"] != payload_id:
         raise ValueError("manifest payload_id does not match chart payload")
     manifest_semantics = {
@@ -132,7 +146,7 @@ def validate_bundle(bundle_path: str | Path) -> dict[str, object]:
         "payload_id": payload_id,
         "members": manifest["members"],
     }
-    if _bundle_identity(manifest_semantics) != bundle_id:
+    if bundle_identity(manifest_semantics) != bundle_id:
         raise ValueError("bundle_id does not match manifest semantic content")
     return manifest
 

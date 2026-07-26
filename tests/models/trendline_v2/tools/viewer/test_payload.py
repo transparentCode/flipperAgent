@@ -9,8 +9,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from apps.trendline_v2_viewer import build_chart_payload, write_viewer_bundle
-from apps.trendline_v2_viewer.payload import (
+from libs.models.trendline_v2.tools.viewer import build_chart_payload, write_viewer_bundle
+from libs.models.trendline_v2.tools.viewer.payload import (
     BUNDLE_SCHEMA_VERSION,
     PAYLOAD_SCHEMA_VERSION,
     _bundle_identity,
@@ -18,7 +18,7 @@ from apps.trendline_v2_viewer.payload import (
     _payload_identity,
     _sha256,
 )
-from apps.trendline_v2_viewer.server import validate_bundle
+from libs.models.trendline_v2.tools.viewer.server import validate_bundle
 from libs.models.trendline_v2 import discover_trendlines
 from libs.models.trendline_v2.configuration import (
     ConfirmedExtremaPairConfig,

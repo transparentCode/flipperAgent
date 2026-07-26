@@ -23,7 +23,7 @@ from typing import Any, Mapping, Sequence
 
 import pandas as pd
 
-from apps.trendline_v2_viewer.server import validate_bundle
+from libs.models.trendline_v2.tools.viewer.server import validate_bundle
 from libs.models.trendline_v2.api import discover_trendlines
 from libs.models.trendline_v2.configuration import (
     ConfirmedExtremaPairConfig,
