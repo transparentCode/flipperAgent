@@ -42,6 +42,21 @@ call and reject stale hashes plus semantically contradictory selection, diagnost
 summaries, and bounds on read. L2-A2 does not fetch data, optimize parameters, access holdouts,
 persist SQLite, create notebooks, or render TVLC/Plotly views.
 
+### Package-local L2-B viewer
+
+The first presentation layer lives under
+`libs.models.trendlines.research_viewer`, not under `src/apps`. The notebook imports
+that package explicitly and consumes only one validated evidence bundle. The viewer
+does not duplicate replay, model, history, data-fetch, configuration, or diagnostic
+logic. Its strict payload keeps model `source_id`/prefix identities separate from
+`display_window_id`, which identifies only candles shown on the chart.
+
+The loopback server validates the exact two-file bundle before binding, rejects
+non-loopback hosts, traversal, symlinked files, unknown paths, non-canonical JSON,
+and cached responses. The notebook synthetic smoke path makes zero provider calls.
+Explicit Binance use remains research-only and requires an authorized injected
+loader. L2-B itself does not use real Binance data.
+
 ## Pipeline Optimization Workflow
 
 ### Overview

@@ -101,3 +101,25 @@ derive from those windows.
 RDP remains research-only and every RDP replay point retains `retrospective_revising` finality.
 Multi-timeframe replay is independent per timeframe; no confluence, interpolation, resampling, or
 cross-timeframe signal composition occurs.
+
+## Package-local notebook and viewer (L2-B)
+
+`libs.models.trendlines.research_viewer` is a presentation-only leaf. It consumes
+validated prepared runs, replay points, and evidence bundles; it does not execute
+models, fetch data, resolve YAML, construct history, or rebuild diagnostics. Core
+trendlines and `workflows.research` do not import it.
+
+`research/trendlines_research_lab.ipynb` defaults to bounded `SMOKE` + `SYNTHETIC`
+data for BTCUSDT on 1h and 4h. It prepares, replays, validates evidence, builds one
+selected payload, and serves a temporary read-only loopback bundle. Binance mode is
+guarded by explicit `RESEARCH` purpose, provider authorization, and an injected
+loader; no real provider call is part of L2-B validation.
+
+The viewer payload binds selected replay point, content, checkpoint, source,
+fit/boundary/signal revisions, and a separate display-window identity. The display
+window is a bounded chart view and is not the model prefix source. Bundle writes are
+explicit and canonical; no permanent export or YAML mutation occurs by default.
+
+Finality is textual: Fractal is `CONFIRMED / APPEND-ONLY`; RDP is
+`RETROSPECTIVE / RESEARCH ONLY`. The viewer presents selected lines, rays, pivots,
+signals, summary, timeline, and identity audit without extrapolating geometry.

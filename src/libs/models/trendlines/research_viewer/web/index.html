@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mature Trendlines Research Viewer</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "lightweight-charts": "/vendor/lightweight-charts.mjs"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">MATURE TRENDLINES · CAUSAL RESEARCH</p>
+        <h1 id="title">Research evidence</h1>
+        <p id="finality-warning" class="warning"></p>
+      </div>
+      <div id="identity-audit" class="identity-audit"></div>
+    </header>
+    <main>
+      <section class="toolbar" aria-label="chart controls">
+        <label><input id="show-support" type="checkbox" checked /> support</label>
+        <label><input id="show-resistance" type="checkbox" checked /> resistance</label>
+        <label><input id="show-lines" type="checkbox" checked /> fitted lines</label>
+        <label><input id="show-rays" type="checkbox" checked /> boundary rays</label>
+        <label><input id="show-pivots" type="checkbox" checked /> pivots</label>
+        <label><input id="show-signals" type="checkbox" checked /> signals</label>
+        <button id="fit-content" type="button">fit content</button>
+      </section>
+      <section class="chart-shell">
+        <div id="chart" aria-label="trendline chart"></div>
+      </section>
+      <section class="grid">
+        <article class="panel"><h2>Selected point</h2><pre id="selected-summary"></pre></article>
+        <article class="panel"><h2>Geometry details</h2><pre id="geometry-details"></pre></article>
+        <article class="panel"><h2>Replay timeline</h2><div id="replay-timeline"></div></article>
+      </section>
+    </main>
+    <script type="module" src="/dist/main.js"></script>
+  </body>
+</html>

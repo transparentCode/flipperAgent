@@ -146,6 +146,22 @@ def test_trendlines_package_has_no_app_namespace_dependencies():
         for imported in _absolute_imports(path):
             if imported == "app" or imported.startswith("app."):
                 violations.append(f"{path.relative_to(TRENDLINES_ROOT)} -> {imported}")
+            if "research_viewer" not in path.parts and (
+                imported == "libs.models.trendlines.research_viewer"
+                or imported.startswith("libs.models.trendlines.research_viewer.")
+            ):
+                violations.append(f"core -> viewer: {path.relative_to(TRENDLINES_ROOT)} -> {imported}")
+            if "research_viewer" in path.parts and (
+                imported == "apps"
+                or imported.startswith("apps.")
+                or imported == "app"
+                or imported.startswith("app.")
+                or imported.startswith("IPython")
+                or imported.startswith("jupyter")
+                or imported.startswith("plotly")
+                or imported.startswith("matplotlib")
+            ):
+                violations.append(f"viewer dependency: {path.relative_to(TRENDLINES_ROOT)} -> {imported}")
 
     assert violations == []
 
