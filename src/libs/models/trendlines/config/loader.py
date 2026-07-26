@@ -52,6 +52,10 @@ def _parse_asset_tf_config(raw: Dict[str, Any]) -> AssetTimeframeConfig:
         convergence_rate_threshold=raw.get("convergence_rate_threshold"),
         wick_rejection_ratio=raw.get("wick_rejection_ratio"),
         squeeze_threshold=raw.get("squeeze_threshold"),
+        extractor=str(raw["extractor"]) if "extractor" in raw else None,
+        fitter=str(raw["fitter"]) if "fitter" in raw else None,
+        extractor_params=(dict(raw["extractor_params"]) if "extractor_params" in raw else None),
+        fitter_params=(dict(raw["fitter_params"]) if "fitter_params" in raw else None),
         history=(
             SnapshotHistoryOverride.from_mapping(raw["history"])
             if "history" in raw
@@ -208,6 +212,8 @@ def load_trendlines_config(path: str | None = None) -> TrendlinesConfig:
     return TrendlinesConfig(
         extractor=str(pipe_raw.get("extractor", "fractal")),
         fitter=str(pipe_raw.get("fitter", "pathfinding")),
+        extractor_params=dict(pipe_raw.get("extractor_params", {})),
+        fitter_params=dict(pipe_raw.get("fitter_params", {})),
         defaults=defaults,
         assets=assets,
         oscillator_defaults=osc_defaults,

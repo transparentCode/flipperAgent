@@ -10,6 +10,14 @@ def get_default_config_dict() -> Dict[str, Any]:
         "pipeline": {
             "extractor": "fractal",
             "fitter": "pathfinding",
+            "extractor_params": {
+                "window_left": 3,
+                "window_right": 3,
+            },
+            "fitter_params": {
+                "pivot_window": 3,
+                "line_fit_mode": "endpoint",
+            },
         },
         "defaults": {
             "interaction_tolerance_atr": 0.25,

@@ -15,7 +15,7 @@ Resolution order:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 
 import pandas as pd
 
@@ -25,6 +25,9 @@ from .derive import compute_all_derived
 from .evaluation_config import EvaluationConfig
 from .search_grid_config import GridSearchConfig
 from .state_transitions import build_state_transition_table
+
+if TYPE_CHECKING:
+    from .base_config import TrendlinesConfig
 
 
 @dataclass(frozen=True)
@@ -89,6 +92,79 @@ class ResolvedConfig:
     asset_metadata: Dict[str, Any] = field(default_factory=dict)
 
 
+def resolve_pipeline_config(
+    config: "TrendlinesConfig",
+    asset: str,
+    timeframe: str,
+    *,
+    execution_mode: Any,
+):
+    """Resolve one fully explicit extractor/fitter pipeline configuration.
+
+    Research preparation uses this seam so component defaults cannot silently
+    become part of a study. The registry validates names and execution policy
+    before the typed config is returned.
+    """
+
+    from .base_config import TrendlinePipelineConfig, TrendlinesConfig
+    from libs.models.trendlines.pivots.capabilities import normalize_execution_mode
+    from libs.models.trendlines.registry import (
+        DEPRECATED_FITTER_ALIASES,
+        build_extractor,
+        build_fitter,
+        canonical_extractor_name,
+    )
+
+    if not isinstance(config, TrendlinesConfig):
+        raise TypeError("config must be a TrendlinesConfig")
+    asset_name = str(asset).strip().upper()
+    timeframe_name = str(timeframe).strip()
+    if not asset_name or not timeframe_name:
+        raise ValueError("asset and timeframe are required")
+    mode = normalize_execution_mode(execution_mode)
+
+    extractor = canonical_extractor_name(config.extractor)
+    fitter_raw = str(config.fitter).strip().lower()
+    fitter = DEPRECATED_FITTER_ALIASES.get(fitter_raw, fitter_raw)
+    extractor_params = dict(config.extractor_params)
+    fitter_params = dict(config.fitter_params)
+
+    asset_cfg = config.assets.get(asset_name) or config.assets.get(str(asset).strip())
+    tf_cfg = asset_cfg.timeframes.get(timeframe_name) if asset_cfg else None
+    if tf_cfg is not None:
+        if tf_cfg.extractor is not None:
+            overridden_extractor = canonical_extractor_name(tf_cfg.extractor)
+            if overridden_extractor != extractor:
+                extractor_params = {}
+            extractor = overridden_extractor
+        if tf_cfg.fitter is not None:
+            fitter_raw = str(tf_cfg.fitter).strip().lower()
+            overridden_fitter = DEPRECATED_FITTER_ALIASES.get(fitter_raw, fitter_raw)
+            if overridden_fitter != fitter:
+                fitter_params = {}
+            fitter = overridden_fitter
+        if tf_cfg.extractor_params is not None:
+            extractor_params.update(dict(tf_cfg.extractor_params))
+        if tf_cfg.fitter_params is not None:
+            fitter_params.update(dict(tf_cfg.fitter_params))
+
+    if not extractor_params:
+        raise ValueError(f"No explicit extractor parameters resolved for '{extractor}'")
+    if not fitter_params:
+        raise ValueError(f"No explicit fitter parameters resolved for '{fitter}'")
+
+    # Construction is validation only; research preparation never executes a model.
+    build_extractor(extractor, execution_mode=mode, **extractor_params)
+    build_fitter(fitter, **fitter_params)
+    return TrendlinePipelineConfig(
+        extractor=extractor,
+        fitter=fitter,
+        extractor_params=extractor_params,
+        fitter_params=fitter_params,
+        trendlines_config=config,
+    )
+
+
 def resolve_asset_config(
     root: "TrendlinesConfig",
     asset: str,
@@ -107,8 +183,6 @@ def resolve_asset_config(
     5. Builds state transition table
     6. Returns a frozen ResolvedConfig
     """
-    from .base_config import TrendlinesConfig  # deferred to avoid circular
-
     # ── 1. Optimizable defaults ──
     opt = root.defaults
     params: Dict[str, Any] = {
@@ -222,7 +296,6 @@ def resolve_oscillator_config(
     3. Compute TF-derived params (hold_bars, atr_window) — safe for oscillator space
     4. Return frozen ResolvedOscillatorConfig
     """
-    from .base_config import TrendlinesConfig  # deferred to avoid circular
     from .derive import compute_oscillator_derived
     from .oscillator_profile import OscillatorProfile
 
@@ -288,5 +361,6 @@ __all__ = [
     "ResolvedOscillatorConfig",
     "ResolvedSignalConfig",
     "resolve_asset_config",
+    "resolve_pipeline_config",
     "resolve_oscillator_config",
 ]

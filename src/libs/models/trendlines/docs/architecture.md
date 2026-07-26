@@ -58,6 +58,15 @@ optional asset/timeframe override. Logical retention prunes complete oldest grou
 retention fails closed instead of discarding earlier causal evidence. Persistent storage is not
 part of this layer.
 
+## Research Preparation Boundary
+
+`workflows/research/` is source-agnostic preparation only. It validates explicit synthetic,
+injected, or bounded-provider data, computes one source identity per timeframe, builds a dataset
+manifest, and resolves YAML pipeline parameters. It does not extract pivots, fit lines, produce
+signals, replay history, optimize parameters, or promote configuration. Concrete Binance access
+is kept in `apps.ingestion_app.adapters.trendlines_research`, which injects the current native
+adapter into canonical research contracts. Smoke mode never makes network calls.
+
 ## Dependency Graph
 
 ```mermaid
@@ -107,6 +116,8 @@ flowchart TD
 
 **Key rule:** Arrows point in the direction of import. No arrow may reverse direction. The
 `contracts/` and `config/` layers sit at the bottom; nothing in them imports from layers above.
+The research preparation package may depend on canonical config/data/identity contracts, but never
+on application connectors, notebooks, viewers, RegimeV2, or Trendline V2.
 
 ## Dependency Rules (Enforcement)
 

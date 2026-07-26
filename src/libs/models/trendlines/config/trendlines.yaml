@@ -1,6 +1,12 @@
 pipeline:
   extractor: fractal
   fitter: pathfinding
+  extractor_params:
+    window_left: 3
+    window_right: 3
+  fitter_params:
+    pivot_window: 3
+    line_fit_mode: endpoint
 history:
   max_logical_snapshots_per_key: 256
   max_revisions_per_snapshot: 8

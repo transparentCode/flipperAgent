@@ -1,8 +1,20 @@
 # Data
 
-The data layer (`app/trendlines/data/`) owns source-agnostic dataset contracts, walk-forward
+The data layer (`libs.models.trendlines.data/`) owns source-agnostic dataset contracts, walk-forward
 temporal split policies, and deterministic artifact persistence. It has no knowledge of specific
 data sources, fitting algorithms, or signals.
+
+L2-A1 research preparation lives in `workflows/research/`. It adds strict availability-aware
+validation and per-timeframe source identities without changing this legacy manifest API. The
+research path accepts synthetic frames, injected mappings/loaders, or an explicit bounded Binance
+bridge. It never fetches implicitly and never runs model code during preparation.
+
+Research source identity separates two contracts: `source_id` covers event timestamps and
+model-visible OHLCV, while `availability_id` covers the exact UTC `bar_available_at` schedule,
+timestamp semantics, and availability provenance. Dataset identity binds both. Timestamp semantics
+are mandatory: open-time bars require availability strictly after event time; close-time bars require
+availability equal to event time. Mode-incompatible source fields fail closed rather than becoming
+ignored identity payload.
 
 ## Design Principles
 
@@ -182,7 +194,9 @@ loaded = read_dataset_manifest("/tmp/my_dataset_manifest.json")
 ## Data Fetchers (`data/fetchers.py`)
 
 Injected loader contracts. These are **protocol definitions**, not concrete implementations.
-Concrete loaders live in connector-specific packages outside `app/trendlines/`.
+Concrete loaders live in connector-specific application packages outside the canonical model data
+layer. The L2-A1 Binance bridge uses `BinanceNativeAdapter` and retains open-time event indexes
+plus exchange close-time availability.
 
 ```python
 class TrendlineDataLoader(Protocol):

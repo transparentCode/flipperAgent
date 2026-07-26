@@ -61,6 +61,19 @@ from libs.models.trendlines.signals.context import (
     TrendlineSignalInputs,
     ValidatedTrendlineSignalInputs,
 )
+from libs.models.trendlines.workflows.research import (
+    PreparedTrendlineResearchConfig,
+    PreparedTrendlineResearchDataset,
+    PreparedTrendlineResearchRun,
+    TrendlineResearchDataMode,
+    TrendlineResearchDataSpec,
+    TrendlineResearchDatasetIdentity,
+    TrendlineResearchPurpose,
+    TrendlineResearchSpec,
+    prepare_research_dataset,
+    prepare_trendline_research,
+    resolve_research_config,
+)
 
 __all__ = [
     # Contracts
@@ -89,6 +102,17 @@ __all__ = [
     "TrendlineSignalContext",
     "TrendlineSignalInputs",
     "ValidatedTrendlineSignalInputs",
+    "PreparedTrendlineResearchConfig",
+    "PreparedTrendlineResearchDataset",
+    "PreparedTrendlineResearchRun",
+    "TrendlineResearchDataMode",
+    "TrendlineResearchDataSpec",
+    "TrendlineResearchDatasetIdentity",
+    "TrendlineResearchPurpose",
+    "TrendlineResearchSpec",
+    "prepare_research_dataset",
+    "prepare_trendline_research",
+    "resolve_research_config",
     # Registry
     "build_extractor",
     "build_fitter",

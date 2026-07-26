@@ -35,6 +35,28 @@ cfg = load_trendlines_config("/path/to/custom.yaml")
 cfg = TrendlinesConfig()
 ```
 
+## Explicit Pipeline Parameters
+
+The canonical YAML records constructor values used by the mature baseline:
+
+```yaml
+pipeline:
+  extractor: fractal
+  fitter: pathfinding
+  extractor_params:
+    window_left: 3
+    window_right: 3
+  fitter_params:
+    pivot_window: 3
+    line_fit_mode: endpoint
+```
+
+`resolve_pipeline_config(config, asset, timeframe, execution_mode=...)` canonicalises component
+names, overlays partial asset/timeframe parameters, validates execution policy, and returns a fully
+explicit `TrendlinePipelineConfig`. A component-name override starts a fresh parameter map; its
+parameters must be explicit and compatible. Research preparation uses explicit `RESEARCH` mode,
+while runtime resolution still rejects retrospective RDP.
+
 ## Config Resolution Flow
 
 For a given `(asset, timeframe)` pipeline execution, params are resolved in order:
@@ -134,6 +156,9 @@ flowchart TD
 | `search_grids` | `GridSearchConfig` | `GridSearchConfig()` | Component sweep grids |
 | `signal_default_weight` | `float` | `1.0` | Default signal aggregation weight |
 | `signal_weights` | `Dict[str, float]` | `{}` | Per-extractor weight overrides |
+
+`extractor_params` and `fitter_params` are resolved pipeline component state. They are not hidden
+constructor defaults and participate in deterministic research configuration identity.
 
 ## OptimizableDefaults
 

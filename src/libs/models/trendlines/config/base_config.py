@@ -29,6 +29,10 @@ class AssetTimeframeConfig:
     convergence_rate_threshold: Optional[float] = None
     wick_rejection_ratio: Optional[float] = None
     squeeze_threshold: Optional[float] = None
+    extractor: Optional[str] = None
+    fitter: Optional[str] = None
+    extractor_params: Optional[Dict[str, Any]] = None
+    fitter_params: Optional[Dict[str, Any]] = None
     history: SnapshotHistoryOverride | None = None
 
 
@@ -117,6 +121,12 @@ class TrendlinesConfig:
 
     extractor: str = "fractal"
     fitter: str = "pathfinding"
+    extractor_params: Dict[str, Any] = field(
+        default_factory=lambda: {"window_left": 3, "window_right": 3}
+    )
+    fitter_params: Dict[str, Any] = field(
+        default_factory=lambda: {"pivot_window": 3, "line_fit_mode": "endpoint"}
+    )
     defaults: OptimizableDefaults = field(default_factory=OptimizableDefaults)
     assets: Dict[str, AssetConfig] = field(default_factory=dict)
     oscillator_defaults: OscillatorDefaults = field(default_factory=OscillatorDefaults)
@@ -195,6 +205,8 @@ class TrendlinePipelineConfig:
         return cls(
             extractor=cfg.extractor,
             fitter=cfg.fitter,
+            extractor_params=dict(cfg.extractor_params),
+            fitter_params=dict(cfg.fitter_params),
             trendlines_config=cfg,
         )
 

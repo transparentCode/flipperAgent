@@ -35,6 +35,7 @@ from .resolve import (
     ResolvedOscillatorConfig,
     ResolvedSignalConfig,
     resolve_asset_config,
+    resolve_pipeline_config,
     resolve_oscillator_config,
 )
 from .search_grid_config import (
@@ -100,6 +101,7 @@ __all__ = [
     "get_default_config_dict",
     "load_trendlines_config",
     "resolve_asset_config",
+    "resolve_pipeline_config",
     "resolve_oscillator_config",
     "resolve_snapshot_history_policies",
     "resolve_snapshot_history_policy",

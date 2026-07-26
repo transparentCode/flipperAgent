@@ -4,6 +4,21 @@ The workflows layer (`app/trendlines/workflows/`) owns optimization, promotion, 
 for the trendlines pipeline. It consumes data contracts, the pipeline, and the registry — but
 does not depend on the signal or boundary layers directly.
 
+## Research Foundation Roadmap
+
+The canonical research path is deliberately separate from optimization and promotion:
+
+```text
+L2-A1  data and YAML-resolved configuration preparation
+L2-A2  causal replay, diagnostics, and evidence APIs
+L2-B   thin notebook and TVLC presentation
+```
+
+L2-A1 returns validated frames, source/dataset identities, and fully explicit pipeline configs.
+It does not run pivots, fitters, signals, replay, optimization, holdout evaluation, or promotion.
+Synthetic smoke mode is network-free. Binance research requires explicit event and knowledge
+bounds and uses the current native ingestion adapter through an application-side bridge.
+
 ## Pipeline Optimization Workflow
 
 ### Overview
