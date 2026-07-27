@@ -76,6 +76,28 @@ test('primitive batches all candidates and toggles anchors without changing geom
   assert.equal(primitive.selectedCandidateId, resistance.candidate_id);
 });
 
+test('setCandidates replaces display set, clears filtered selection and requests one redraw', () => {
+  const primitive = new TrendlinePrimitive({ candidates: [support, resistance] });
+  let updates = 0;
+  primitive.attached({ chart: {}, series: {}, requestUpdate: () => { updates += 1; } });
+  primitive.select(support.candidate_id);
+  updates = 0;
+  primitive.setCandidates([resistance]);
+  assert.equal(updates, 1);
+  assert.equal(primitive.selectedCandidateId, null);
+  assert.deepEqual(primitive.visibleCandidates(), [resistance]);
+});
+
+test('autoscale and visible candidate collection use selected display set', () => {
+  const primitive = new TrendlinePrimitive({ candidates: [support, resistance] });
+  primitive.setCandidates([resistance]);
+  assert.deepEqual(primitive.visibleCandidates(), [resistance]);
+  const autoscale = primitive.autoscaleInfo(0, 100);
+  assert.ok(autoscale !== null);
+  assert.equal(autoscale.priceRange?.minValue, 10);
+  assert.equal(autoscale.priceRange?.maxValue, 20);
+});
+
 test('source contains one primitive and no extension/ray implementation', async () => {
   const source = await readFile(new URL('../src/trendline_primitive.ts', import.meta.url), 'utf8');
   assert.equal((source.match(/class TrendlinePrimitive/g) ?? []).length, 1);
