@@ -368,3 +368,17 @@ preparation. Frame values/dtypes/attributes plus source, availability,
 dataset, configuration, and preparation identities must match exactly.
 L2-D5A executes no model or replay code and selects no robustness outcome;
 D5B remains responsible for applying the frozen D2-D4B protocol offline.
+
+## Offline robustness replication (L2-D5B)
+
+`robustness_replication` applies unchanged D2-D4B semantics to four fresh D5A
+frames through injected preparation. It binds exact replay scope,
+member-specific configuration identities, D2-D4B bundle identities, and
+resolved signal hold-bars. Three 1h members use hold-bars 3; BTCUSDT 4h uses
+hold-bars 1. D5B has no provider path, parameter tuning, sensitivity study, or
+adequacy disposition.
+
+Each member persists complete structural, interaction, deterministic-baseline,
+and stochastic-null bundles plus compact count/identity evidence. Aggregate
+evidence preserves frozen D5A order and rejects missing, duplicate, swapped, or
+mismatched member results. D5C sensitivity and D5D synthesis remain deferred.

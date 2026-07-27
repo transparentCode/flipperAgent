@@ -541,3 +541,18 @@ re-preparation identity equality. YAML is hashed before and after and is
 never written. D5A records source evidence only: model and replay execution,
 D2-D4B measurement, sensitivity, and adequacy disposition belong to later
 phases.
+
+## L2-D5B offline replication
+
+The D5B script reloads only committed D5A frame artifacts and runs four
+injected causal replays in frozen order: temporal BTCUSDT 1h, ETHUSDT 1h,
+SOLUSDT 1h, and BTCUSDT 4h. Each uses warm-up 19, recording 64 through 311,
+stride 1, signals enabled, and 293 executed/248 recorded positions. It calls
+no provider and publishes no partial aggregate when a member fails.
+
+Member validation composes existing D2, D3, D4A, and D4B validators. It checks
+source/configuration/preparation identities, member-specific hold-bars,
+protocol IDs, count inventories, and exact four-member aggregate order. Full
+per-member bundles are retained; paths, durations, tests, and outcomes do not
+enter canonical identities. D5B is descriptive evidence only; D5C sensitivity
+and D5D final synthesis are not part of this workflow.
