@@ -38,6 +38,7 @@ _ALLOWED_PATHS = frozenset(
         "/",
         "/styles.css",
         "/dist/main.js",
+        "/dist/candidate_filter.js",
         "/dist/contracts.js",
         "/dist/payload.js",
         "/dist/trendline_primitive.js",

@@ -26,7 +26,7 @@ def _web_root(tmp_path: Path) -> Path:
     vendor.mkdir(parents=True, exist_ok=True)
     (root / "index.html").write_text("<!doctype html>", encoding="utf-8")
     (root / "styles.css").write_text("body { color: red; }", encoding="utf-8")
-    for name in ("main.js", "contracts.js", "payload.js", "trendline_primitive.js"):
+    for name in ("main.js", "candidate_filter.js", "contracts.js", "payload.js", "trendline_primitive.js"):
         (root / "dist" / name).write_text(f"export const file = '{name}';", encoding="utf-8")
     (vendor / "lightweight-charts.standalone.production.mjs").write_text(
         "export const tvlc = true;", encoding="utf-8"
@@ -58,6 +58,7 @@ def test_server_serves_only_allowlisted_assets_and_supports_head(tmp_path: Path)
             "/",
             "/styles.css",
             "/dist/main.js",
+            "/dist/candidate_filter.js",
             "/dist/contracts.js",
             "/dist/payload.js",
             "/dist/trendline_primitive.js",
@@ -67,6 +68,8 @@ def test_server_serves_only_allowlisted_assets_and_supports_head(tmp_path: Path)
             response, body = _request(server, "GET", path)
             assert response.status == 200, path
             assert body
+        response, _ = _request(server, "GET", "/dist/candidate_filter.js")
+        assert response.getheader("Content-Type") == "text/javascript; charset=utf-8"
         response, body = _request(server, "HEAD", "/bundle/chart_payload.json")
         assert response.status == 200
         assert body == b""

@@ -50,3 +50,30 @@ Phase 11V.3 output root remains read-only:
 `/tmp/trendline_v2_phase11v3_binance_viewer_acceptance/20260726/`
 
 No commit, merge or push is authorized by this phase.
+
+## Server-route remediation
+
+Post-commit live smoke found the newly compiled `candidate_filter.js` missing from the strict static allowlist. Narrow remediation is limited to:
+
+- explicit `/dist/candidate_filter.js` allowlist entry;
+- matching test fixture and JavaScript content-type assertion;
+- no generic `/dist/*` serving;
+- no payload, runner, bundle, Binance or provider changes.
+
+Required route result: `GET /dist/candidate_filter.js` returns `200` with `text/javascript; charset=utf-8`. Traversal and non-allowlisted routes remain `404`.
+
+Remediation smoke passed against frozen BTCUSDT 4h output:
+
+```text
+200 /
+200 /styles.css
+200 /dist/main.js
+200 /dist/candidate_filter.js
+200 /dist/contracts.js
+200 /dist/payload.js
+200 /dist/trendline_primitive.js
+200 /bundle/chart_payload.json
+404 /manifest.json
+```
+
+Server stopped after smoke. No Binance, provider or bundle execution occurred.
