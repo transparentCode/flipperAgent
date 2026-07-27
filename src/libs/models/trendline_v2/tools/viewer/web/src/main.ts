@@ -16,8 +16,10 @@ import { loadPayload } from './payload.js';
 import { candidateDetail, TrendlinePrimitive, type RenderCandidate } from './trendline_primitive.js';
 import {
   DEFAULT_FOCUS_SETTINGS,
+  DEFAULT_NEAREST_SETTINGS,
   displayCounts,
   selectDisplayCandidates,
+  type DisplayMode,
   type FocusSettings,
 } from './candidate_filter.js';
 
@@ -116,6 +118,8 @@ async function bootstrap(): Promise<void> {
   const detail = element<HTMLElement>('#hover-detail');
   const densityControls = element<HTMLElement>('#density-controls');
   const displayMode = element<HTMLSelectElement>('#display-mode');
+  const nearestBudgetControl = element<HTMLElement>('#nearest-budget-control');
+  const nearestBudget = element<HTMLSelectElement>('#nearest-budget');
   const recentAge = element<HTMLSelectElement>('#recent-age');
   const minimumSpan = element<HTMLSelectElement>('#min-span');
   const maximumPerRole = element<HTMLSelectElement>('#max-role');
@@ -125,6 +129,7 @@ async function bootstrap(): Promise<void> {
   const resistanceToggle = element<HTMLInputElement>('#show-resistance');
   const anchorsToggle = element<HTMLInputElement>('#show-anchors');
   const fitButton = element<HTMLButtonElement>('#fit-content');
+  nearestBudget.value = `${DEFAULT_NEAREST_SETTINGS.maxPerRole}`;
   const payload = await loadPayload();
   const diagnostic = isDiagnosticPayload(payload) ? payload : null;
   const providerPayload = payload.schema_version === PAYLOAD_SCHEMA_VERSION ? payload : null;
@@ -135,7 +140,6 @@ async function bootstrap(): Promise<void> {
   summary.textContent = diagnostic
     ? `${diagnostic.asset} · ${diagnostic.timeframe} · checkpoint ${diagnostic.checkpoint_index} · ${diagnostic.lines.length} selected lines`
     : `${payload.asset} · ${payload.timeframe} · ${providerPayload!.candles.length} bars · ${providerPayload!.candidates.length} candidates`;
-  displayDisclaimer.textContent = 'Display-only filtering — provider output unchanged';
   densityControls.hidden = diagnostic !== null;
   statusBanner.dataset.status = diagnostic ? 'diagnostic' : providerPayload!.status;
   statusBanner.textContent = diagnostic
@@ -179,14 +183,58 @@ async function bootstrap(): Promise<void> {
     };
   }
 
+  function readNearestSettings(): { maxPerRole: 5 | 10 } {
+    const maxPerRole = Number(nearestBudget.value);
+    if (maxPerRole !== 5 && maxPerRole !== 10) throw new Error('nearest budget is invalid');
+    return { maxPerRole };
+  }
+
+  function setFormControlState(
+    control: HTMLInputElement | HTMLSelectElement | HTMLButtonElement,
+    enabled: boolean,
+  ): void {
+    control.disabled = !enabled;
+    const container = control instanceof HTMLButtonElement ? control : control.parentElement;
+    if (container !== null) container.hidden = !enabled;
+  }
+
+  function updateControlState(): void {
+    const mode = displayMode.value as DisplayMode;
+    const nearest = diagnostic === null && mode === 'nearest';
+    const focus = diagnostic === null && mode === 'focus';
+    nearestBudget.disabled = !nearest;
+    nearestBudgetControl.hidden = !nearest;
+    setFormControlState(recentAge, focus);
+    setFormControlState(minimumSpan, focus);
+    setFormControlState(maximumPerRole, focus);
+    setFormControlState(uniqueAnchor, focus);
+    setFormControlState(resetFocus, focus);
+  }
+
+  function updateDisclaimer(): void {
+    if (diagnostic !== null) {
+      displayDisclaimer.textContent = 'Diagnostic view — provider lines shown without density filtering';
+      return;
+    }
+    const mode = displayMode.value as DisplayMode;
+    displayDisclaimer.textContent = mode === 'nearest'
+      ? 'Display-only proximity view — not a quality or prediction signal; provider output unchanged'
+      : mode === 'focus'
+        ? 'Display-only filtering — provider output unchanged'
+        : 'Raw provider output — no display filtering';
+  }
+
   function displayedCandidates(): readonly RenderCandidate[] {
     if (diagnostic !== null) return rawCandidates;
-    return selectDisplayCandidates(
-      displayMode.value === 'all' ? 'all' : 'focus',
-      rawCandidates,
-      payload.candles.length - 1,
-      readFocusSettings(),
-    );
+    const mode = displayMode.value as DisplayMode;
+    return selectDisplayCandidates({
+      mode,
+      candidates: rawCandidates,
+      lastCandle: providerPayload!.candles[providerPayload!.candles.length - 1],
+      lastCandlePosition: providerPayload!.candles.length - 1,
+      focusSettings: readFocusSettings(),
+      nearestSettings: readNearestSettings(),
+    });
   }
 
   function updateDisplaySummary(candidates: readonly RenderCandidate[]): void {
@@ -204,6 +252,16 @@ async function bootstrap(): Promise<void> {
       ].join(' · ');
       return;
     }
+    if (displayMode.value === 'nearest') {
+      const settings = readNearestSettings();
+      displaySummary.textContent = [
+        `Showing ${counts.total} of ${rawCounts.total} candidates`,
+        `Support ${counts.support} of ${rawCounts.support}`,
+        `Resistance ${counts.resistance} of ${rawCounts.resistance}`,
+        `Nearest now: latest completed candle range · one per second anchor · max ${settings.maxPerRole}/role`,
+      ].join(' · ');
+      return;
+    }
     const settings = readFocusSettings();
     const recentText = settings.recentBars === null ? 'all' : `${settings.recentBars}`;
     const roleCapText = settings.maxPerRole === null ? 'all' : `${settings.maxPerRole}`;
@@ -218,9 +276,11 @@ async function bootstrap(): Promise<void> {
   function updateDisplay(): void {
     const candidates = displayedCandidates();
     primitive.setCandidates(candidates);
+    updateDisclaimer();
     updateDisplaySummary(candidates);
   }
 
+  updateControlState();
   updateDisplay();
   chart.timeScale().fitContent();
 
@@ -232,7 +292,12 @@ async function bootstrap(): Promise<void> {
     });
   }
 
-  for (const control of [displayMode, recentAge, minimumSpan, maximumPerRole, uniqueAnchor]) {
+  displayMode.addEventListener('change', () => {
+    updateControlState();
+    updateDisplay();
+  });
+  nearestBudget.addEventListener('change', updateDisplay);
+  for (const control of [recentAge, minimumSpan, maximumPerRole, uniqueAnchor]) {
     control.addEventListener('change', updateDisplay);
   }
   resetFocus.addEventListener('click', () => {
@@ -241,6 +306,7 @@ async function bootstrap(): Promise<void> {
     minimumSpan.value = `${DEFAULT_FOCUS_SETTINGS.minAnchorSpan}`;
     maximumPerRole.value = `${DEFAULT_FOCUS_SETTINGS.maxPerRole}`;
     uniqueAnchor.checked = DEFAULT_FOCUS_SETTINGS.onePerSecondAnchor;
+    updateControlState();
     updateDisplay();
   });
 

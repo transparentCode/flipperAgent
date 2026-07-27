@@ -26,8 +26,15 @@
             <legend>display density</legend>
             <label for="display-mode">mode
               <select id="display-mode" aria-label="Display mode">
-                <option value="focus" selected>Focus</option>
+                <option value="nearest" selected>Nearest now</option>
+                <option value="focus">Focus</option>
                 <option value="all">All raw</option>
+              </select>
+            </label>
+            <label id="nearest-budget-control" for="nearest-budget">maximum per role
+              <select id="nearest-budget" aria-label="Nearest maximum candidates per role">
+                <option value="5" selected>5</option>
+                <option value="10">10</option>
               </select>
             </label>
             <label for="recent-age">recent availability
