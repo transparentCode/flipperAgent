@@ -288,3 +288,28 @@ and recomputes every stored outcome from the frozen event and replay OHLC
 frame. Rehashed payloads with arbitrary dataset/replay IDs, missing or extra
 events, duplicate coordinates, or altered touch/break/excursion values fail
 closed.
+
+## Paired deterministic naive baselines (L2-D4A)
+
+L2-D4A compares `BOUNDARY_RAY` geometry against the two frozen baseline kinds
+in the adequacy study configuration: `RECENT_EXTREMA` and
+`HORIZONTAL_SUPPORT_RESISTANCE`. Baseline attempts use exactly the committed
+L2-D3 event positions, roles, selection-time ATR, horizons, and break
+confirmation policy. This is conditional geometry comparison; it does not
+compare event-timing decisions.
+
+At each model event, confirmed append-only pivots are inspected through
+`inspect_replay_pivots()` at the exact selection prefix. Support uses low
+pivots and resistance uses high pivots. Recent-extrema uses the latest two
+same-role pivots; horizontal support/resistance uses the latest one. Missing
+pivots produce explicit abstentions and no baseline outcomes. Frozen baseline
+geometry is evaluated with the same causal touch, break, penetration, and
+excursion functions as D3.
+
+The comparison bundle retains model and baseline counts, denominators,
+abstentions, support/resistance and horizon coordinates, and model-minus-
+baseline deltas without selecting a winner or composite score. Its validator
+binds the supplied prepared replay, D2 bundle, D3 bundle, exact event-by-
+baseline selection coverage, pivot provenance, future OHLC outcomes, summaries,
+and bundle identity. Random, shuffled, density-matched, and Monte Carlo nulls
+remain deferred to D4B; no D4A adequacy outcome is selected.

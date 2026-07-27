@@ -440,6 +440,29 @@ birth set, checks event/horizon Cartesian coverage, and compares stored
 outcomes with `measure_interaction_outcomes()` over the replay frame. This
 keeps content addressing separate from causal evidence validation.
 
+## L2-D4A deterministic baseline comparison
+
+`libs.models.trendlines.workflows.research.adequacy.baseline_comparison`
+performs a paired, deterministic comparison at the exact L2-D3 boundary-ray
+birth events. It accepts only the ordered frozen `RECENT_EXTREMA` and
+`HORIZONTAL_SUPPORT_RESISTANCE` baseline specifications from the study config.
+Confirmed append-only pivot rows are selected from each event's causal replay
+prefix; no later pivots, model interaction labels, fitting, or provider access
+are used.
+
+Each event receives one attempt per baseline. A baseline with insufficient
+same-role pivots is an explicit abstention. Available baselines freeze their
+birth geometry and reuse the D3 outcome and summary formulas. Results remain
+separate by baseline, timeframe, role, and horizon, preserving matched event
+denominators and optional statistics as `None` when undefined. No composite
+winner or adequacy disposition is produced.
+
+Comparison validation receives the prepared replay plus typed D2 and D3
+bundles. It validates every D2 state against its replay point, recomputes pivot
+selections, outcomes, matched summaries, deltas, and the content-addressed
+comparison bundle. D4B random or density-matched nulls and any adequacy
+decision remain deferred.
+
 Research-lab lifecycle is terminal after `TrendlineResearchLabSession.close()`:
 selection and viewer-opening operations fail closed, repeated close is safe, and
 owned viewer servers plus temporary bundle roots are removed. Provider-call

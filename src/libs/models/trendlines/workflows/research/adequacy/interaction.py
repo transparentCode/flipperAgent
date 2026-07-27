@@ -838,7 +838,11 @@ def _row_value(row: Any, column: str, position: int) -> float:
 
 
 def _project(event: TrendlineInteractionEvent, position: int) -> float:
-    return event.frozen_slope * position + event.frozen_intercept
+    return _project_values(event.frozen_slope, event.frozen_intercept, position)
+
+
+def _project_values(slope: float, intercept: float, position: int) -> float:
+    return slope * position + intercept
 
 
 def _is_adverse(role: str, close: float, level: float) -> bool:
@@ -871,7 +875,9 @@ def _excursion(role: str, low: float, high: float, level: float, atr: float) -> 
 
 
 def _break_status(
-    event: TrendlineInteractionEvent,
+    role: str,
+    slope: float,
+    intercept: float,
     frame: pd.DataFrame,
     candidate: int | None,
     horizon_end: int,
@@ -885,7 +891,7 @@ def _break_status(
     for position in range(candidate + 1, horizon_end + 1):
         row = frame.iloc[position]
         close = _row_value(row, "close", position)
-        if _is_adverse(event.role, close, _project(event, position)):
+        if _is_adverse(role, close, _project_values(slope, intercept, position)):
             consecutive += 1
             if consecutive >= confirmation_bars:
                 return "confirmed"
@@ -894,37 +900,52 @@ def _break_status(
     return "unresolved"
 
 
-def measure_interaction_outcomes(
-    event: TrendlineInteractionEvent,
+def measure_frozen_geometry_outcomes(
+    *,
+    interaction_event_id: str,
+    role: str,
+    selection_position: int,
+    selection_available_at: str,
+    selection_atr: float,
+    frozen_slope: float,
+    frozen_intercept: float,
     frame: pd.DataFrame,
     interaction_spec: TrendlineInteractionUtilitySpec,
-    *,
     final_position: int | None = None,
 ) -> tuple[TrendlineInteractionOutcome, ...]:
-    """Measure future OHLC outcomes without executing model code."""
+    """Measure future OHLC outcomes for one frozen causal geometry."""
 
-    if not isinstance(event, TrendlineInteractionEvent):
-        raise TrendlineInteractionUtilityError("event must be typed")
+    _sha256(interaction_event_id, name="interaction_event_id")
+    if role not in INTERACTION_ROLES:
+        raise TrendlineInteractionUtilityError("role must be support or resistance")
+    _strict_int(selection_position, name="selection_position")
+    _finite(selection_atr, name="selection_atr")
+    if selection_atr <= 0:
+        raise TrendlineInteractionUtilityError("selection_atr must be positive")
+    _finite(frozen_slope, name="frozen_slope")
+    _finite(frozen_intercept, name="frozen_intercept")
     if not isinstance(interaction_spec, TrendlineInteractionUtilitySpec):
         raise TrendlineInteractionUtilityError("interaction_spec must be typed")
-    if event.interaction_spec_id != interaction_spec.interaction_spec_id:
-        raise TrendlineInteractionUtilityError("event spec does not match interaction spec")
     if not isinstance(frame, pd.DataFrame):
         raise TrendlineInteractionUtilityError("frame must be a DataFrame")
     if "bar_available_at" not in frame.columns:
         raise TrendlineInteractionUtilityError("frame lacks bar_available_at")
     last_position = len(frame) - 1 if final_position is None else final_position
-    _strict_int(last_position, name="final_position", minimum=event.selection_position)
+    _strict_int(last_position, name="final_position", minimum=selection_position)
     if last_position >= len(frame):
         raise TrendlineInteractionUtilityError("final_position exceeds frame")
-    selection_available = pd.Timestamp(event.selection_available_at)
+    selection_available = pd.Timestamp(selection_available_at)
+    if selection_available.tzinfo is None or selection_available.utcoffset() is None:
+        raise TrendlineInteractionUtilityError(
+            "selection_available_at must be timezone-aware"
+        )
     results: list[TrendlineInteractionOutcome] = []
     for horizon in interaction_spec.evaluation_horizons_bars:
-        horizon_end = event.selection_position + horizon
+        horizon_end = selection_position + horizon
         if horizon_end > last_position:
             results.append(
                 TrendlineInteractionOutcome(
-                    interaction_event_id=event.event_id,
+                    interaction_event_id=interaction_event_id,
                     horizon_bars=horizon,
                     horizon_end_position=horizon_end,
                     right_censored=True,
@@ -947,7 +968,7 @@ def measure_interaction_outcomes(
         defended: bool | None = None
         wick: bool | None = None
         first_adverse: int | None = None
-        for position in range(event.selection_position + 1, horizon_end + 1):
+        for position in range(selection_position + 1, horizon_end + 1):
             available = pd.Timestamp(frame["bar_available_at"].iloc[position])
             if available.tzinfo is None or available.utcoffset() is None:
                 raise TrendlineInteractionUtilityError(
@@ -961,23 +982,25 @@ def measure_interaction_outcomes(
             low = _row_value(row, "low", position)
             high = _row_value(row, "high", position)
             close = _row_value(row, "close", position)
-            level = _project(event, position)
+            level = _project_values(frozen_slope, frozen_intercept, position)
             if first_touch is None and low <= level <= high:
                 first_touch = position
                 first_touch_level = level
                 first_touch_penetration = _penetration(
-                    event.role,
+                    role,
                     low,
                     high,
                     level,
-                    event.selection_atr,
+                    selection_atr,
                 )
-                defended = _is_defended(event.role, close, level)
-                wick = _is_wick_rejection(event.role, low, high, close, level)
-            if first_adverse is None and _is_adverse(event.role, close, level):
+                defended = _is_defended(role, close, level)
+                wick = _is_wick_rejection(role, low, high, close, level)
+            if first_adverse is None and _is_adverse(role, close, level):
                 first_adverse = position
         break_status = _break_status(
-            event,
+            role,
+            frozen_slope,
+            frozen_intercept,
             frame,
             first_adverse,
             horizon_end,
@@ -992,13 +1015,13 @@ def measure_interaction_outcomes(
                 row = frame.iloc[position]
                 low = _row_value(row, "low", position)
                 high = _row_value(row, "high", position)
-                levels = _project(event, position)
+                levels = _project_values(frozen_slope, frozen_intercept, position)
                 current_favourable, current_adverse = _excursion(
-                    event.role,
+                    role,
                     low,
                     high,
                     levels,
-                    event.selection_atr,
+                    selection_atr,
                 )
                 favourable_values.append(current_favourable)
                 adverse_values.append(current_adverse)
@@ -1006,13 +1029,13 @@ def measure_interaction_outcomes(
             adverse = max(adverse_values)
         results.append(
             TrendlineInteractionOutcome(
-                interaction_event_id=event.event_id,
+                interaction_event_id=interaction_event_id,
                 horizon_bars=horizon,
                 horizon_end_position=horizon_end,
                 right_censored=False,
                 first_touch_position=first_touch,
                 first_touch_latency_bars=(
-                    first_touch - event.selection_position
+                    first_touch - selection_position
                     if first_touch is not None
                     else None
                 ),
@@ -1027,6 +1050,33 @@ def measure_interaction_outcomes(
             )
         )
     return tuple(results)
+
+
+def measure_interaction_outcomes(
+    event: TrendlineInteractionEvent,
+    frame: pd.DataFrame,
+    interaction_spec: TrendlineInteractionUtilitySpec,
+    *,
+    final_position: int | None = None,
+) -> tuple[TrendlineInteractionOutcome, ...]:
+    """Measure future OHLC outcomes without executing model code."""
+
+    if not isinstance(event, TrendlineInteractionEvent):
+        raise TrendlineInteractionUtilityError("event must be typed")
+    if event.interaction_spec_id != interaction_spec.interaction_spec_id:
+        raise TrendlineInteractionUtilityError("event spec does not match interaction spec")
+    return measure_frozen_geometry_outcomes(
+        interaction_event_id=event.event_id,
+        role=event.role,
+        selection_position=event.selection_position,
+        selection_available_at=event.selection_available_at,
+        selection_atr=event.selection_atr,
+        frozen_slope=event.frozen_slope,
+        frozen_intercept=event.frozen_intercept,
+        frame=frame,
+        interaction_spec=interaction_spec,
+        final_position=final_position,
+    )
 
 
 def _stats(values: Sequence[float]) -> tuple[float | None, float | None]:
@@ -1092,24 +1142,54 @@ def _build_summary(
     )
 
 
-def _expected_summaries(
-    events: Sequence[TrendlineInteractionEvent],
+def build_interaction_summaries(
+    event_bindings: Mapping[str, tuple[str, str]],
     outcomes: Sequence[TrendlineInteractionOutcome],
     timeframes: Sequence[str],
     spec: TrendlineInteractionUtilitySpec,
 ) -> tuple[TrendlineInteractionSummary, ...]:
-    by_event = {event.event_id: event for event in events}
+    bindings = dict(event_bindings)
+    if len(bindings) != len(event_bindings):
+        raise TrendlineInteractionUtilityError("duplicate interaction event bindings")
+    for event_id, binding in bindings.items():
+        _sha256(event_id, name="event binding ID")
+        if not isinstance(binding, tuple) or len(binding) != 2:
+            raise TrendlineInteractionUtilityError("event binding must be timeframe/role")
+        if binding[1] not in INTERACTION_ROLES:
+            raise TrendlineInteractionUtilityError("event binding role is invalid")
+    if any(outcome.interaction_event_id not in bindings for outcome in outcomes):
+        raise TrendlineInteractionUtilityError("outcome references unknown event binding")
+    expected_coordinates = {
+        (event_id, horizon)
+        for event_id in bindings
+        for horizon in spec.evaluation_horizons_bars
+    }
+    actual_coordinates = [
+        (outcome.interaction_event_id, outcome.horizon_bars)
+        for outcome in outcomes
+    ]
+    if len(set(actual_coordinates)) != len(actual_coordinates):
+        raise TrendlineInteractionUtilityError(
+            "outcome coordinates must be unique"
+        )
+    if set(actual_coordinates) != expected_coordinates:
+        raise TrendlineInteractionUtilityError(
+            "outcome coordinates do not match exact event/horizon coverage"
+        )
     result: list[TrendlineInteractionSummary] = []
     for timeframe in timeframes:
         for role in INTERACTION_ROLES:
-            role_events = [event for event in events if event.timeframe == timeframe and event.role == role]
+            role_events = [
+                event_id
+                for event_id, (event_timeframe, event_role) in bindings.items()
+                if event_timeframe == timeframe and event_role == role
+            ]
             for horizon in spec.evaluation_horizons_bars:
                 role_outcomes = [
                     outcome
                     for outcome in outcomes
                     if outcome.horizon_bars == horizon
-                    and by_event[outcome.interaction_event_id].timeframe == timeframe
-                    and by_event[outcome.interaction_event_id].role == role
+                    and outcome.interaction_event_id in role_events
                 ]
                 if len(role_outcomes) != len(role_events):
                     raise TrendlineInteractionUtilityError(
@@ -1117,6 +1197,23 @@ def _expected_summaries(
                     )
                 result.append(_build_summary(timeframe, role, horizon, role_outcomes))
     return tuple(result)
+
+
+def _expected_summaries(
+    events: Sequence[TrendlineInteractionEvent],
+    outcomes: Sequence[TrendlineInteractionOutcome],
+    timeframes: Sequence[str],
+    spec: TrendlineInteractionUtilitySpec,
+) -> tuple[TrendlineInteractionSummary, ...]:
+    return build_interaction_summaries(
+        {
+            event.event_id: (event.timeframe, event.role)
+            for event in events
+        },
+        outcomes,
+        timeframes,
+        spec,
+    )
 
 
 def _validate_outcome_coordinates(
@@ -1374,7 +1471,9 @@ __all__ = [
     "TrendlineInteractionUtilityError",
     "TrendlineInteractionUtilitySpec",
     "build_interaction_events",
+    "build_interaction_summaries",
     "build_interaction_utility_bundle",
+    "measure_frozen_geometry_outcomes",
     "measure_interaction_outcomes",
     "validate_interaction_utility_bundle",
 ]
