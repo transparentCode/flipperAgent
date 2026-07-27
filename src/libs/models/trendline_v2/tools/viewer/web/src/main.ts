@@ -14,6 +14,12 @@ import {
 } from './contracts.js';
 import { loadPayload } from './payload.js';
 import { candidateDetail, TrendlinePrimitive, type RenderCandidate } from './trendline_primitive.js';
+import {
+  DEFAULT_FOCUS_SETTINGS,
+  displayCounts,
+  selectDisplayCandidates,
+  type FocusSettings,
+} from './candidate_filter.js';
 
 function element<T extends HTMLElement>(selector: string): T {
   const value = document.querySelector<T>(selector);
@@ -105,7 +111,16 @@ async function bootstrap(): Promise<void> {
   const container = element<HTMLElement>('#chart');
   const summary = element<HTMLElement>('#trial-summary');
   const statusBanner = element<HTMLElement>('#status-banner');
+  const displayDisclaimer = element<HTMLElement>('#display-disclaimer');
+  const displaySummary = element<HTMLElement>('#display-summary');
   const detail = element<HTMLElement>('#hover-detail');
+  const densityControls = element<HTMLElement>('#density-controls');
+  const displayMode = element<HTMLSelectElement>('#display-mode');
+  const recentAge = element<HTMLSelectElement>('#recent-age');
+  const minimumSpan = element<HTMLSelectElement>('#min-span');
+  const maximumPerRole = element<HTMLSelectElement>('#max-role');
+  const uniqueAnchor = element<HTMLInputElement>('#unique-anchor');
+  const resetFocus = element<HTMLButtonElement>('#reset-focus');
   const supportToggle = element<HTMLInputElement>('#show-support');
   const resistanceToggle = element<HTMLInputElement>('#show-resistance');
   const anchorsToggle = element<HTMLInputElement>('#show-anchors');
@@ -113,10 +128,15 @@ async function bootstrap(): Promise<void> {
   const payload = await loadPayload();
   const diagnostic = isDiagnosticPayload(payload) ? payload : null;
   const providerPayload = payload.schema_version === PAYLOAD_SCHEMA_VERSION ? payload : null;
-  const renderCandidates = diagnostic !== null ? diagnosticCandidates(diagnostic) : providerPayload!.candidates;
+  const rawCandidates: RenderCandidate[] = diagnostic !== null
+    ? diagnosticCandidates(diagnostic)
+    : providerPayload!.candidates;
+  const rawCounts = displayCounts(rawCandidates);
   summary.textContent = diagnostic
     ? `${diagnostic.asset} · ${diagnostic.timeframe} · checkpoint ${diagnostic.checkpoint_index} · ${diagnostic.lines.length} selected lines`
     : `${payload.asset} · ${payload.timeframe} · ${providerPayload!.candles.length} bars · ${providerPayload!.candidates.length} candidates`;
+  displayDisclaimer.textContent = 'Display-only filtering — provider output unchanged';
+  densityControls.hidden = diagnostic !== null;
   statusBanner.dataset.status = diagnostic ? 'diagnostic' : providerPayload!.status;
   statusBanner.textContent = diagnostic
     ? 'Diagnostic view — not a promoted production selector'
@@ -145,8 +165,63 @@ async function bootstrap(): Promise<void> {
   });
   series.setData(diagnostic === null ? payload.candles.map(candleData) : diagnosticSeriesData(diagnostic));
 
-  const primitive = new TrendlinePrimitive(renderCandidates);
+  const primitive = new TrendlinePrimitive(rawCandidates);
   series.attachPrimitive(primitive);
+
+  function readFocusSettings(): FocusSettings {
+    const recentBars = recentAge.value === 'all' ? null : Number(recentAge.value);
+    const maxPerRole = maximumPerRole.value === 'all' ? null : Number(maximumPerRole.value);
+    return {
+      recentBars,
+      minAnchorSpan: Number(minimumSpan.value),
+      onePerSecondAnchor: uniqueAnchor.checked,
+      maxPerRole,
+    };
+  }
+
+  function displayedCandidates(): readonly RenderCandidate[] {
+    if (diagnostic !== null) return rawCandidates;
+    return selectDisplayCandidates(
+      displayMode.value === 'all' ? 'all' : 'focus',
+      rawCandidates,
+      payload.candles.length - 1,
+      readFocusSettings(),
+    );
+  }
+
+  function updateDisplaySummary(candidates: readonly RenderCandidate[]): void {
+    const counts = displayCounts(candidates);
+    if (diagnostic !== null) {
+      displaySummary.textContent = `Showing ${counts.total} of ${rawCounts.total} diagnostic lines — density controls unavailable`;
+      return;
+    }
+    if (displayMode.value === 'all') {
+      displaySummary.textContent = [
+        `Showing all ${rawCounts.total} raw provider candidates`,
+        'High visual density expected',
+        `Support ${counts.support} of ${rawCounts.support}`,
+        `Resistance ${counts.resistance} of ${rawCounts.resistance}`,
+      ].join(' · ');
+      return;
+    }
+    const settings = readFocusSettings();
+    const recentText = settings.recentBars === null ? 'all' : `${settings.recentBars}`;
+    const roleCapText = settings.maxPerRole === null ? 'all' : `${settings.maxPerRole}`;
+    displaySummary.textContent = [
+      `Showing ${counts.total} of ${rawCounts.total} candidates`,
+      `Support ${counts.support} of ${rawCounts.support}`,
+      `Resistance ${counts.resistance} of ${rawCounts.resistance}`,
+      `Focus: confirmation age ≤${recentText} bars · span ≥${settings.minAnchorSpan} bars · ${settings.onePerSecondAnchor ? 'unique second anchor' : 'all second anchors'} · max ${roleCapText}/role`,
+    ].join(' · ');
+  }
+
+  function updateDisplay(): void {
+    const candidates = displayedCandidates();
+    primitive.setCandidates(candidates);
+    updateDisplaySummary(candidates);
+  }
+
+  updateDisplay();
   chart.timeScale().fitContent();
 
   function updateVisibility(): void {
@@ -157,13 +232,25 @@ async function bootstrap(): Promise<void> {
     });
   }
 
+  for (const control of [displayMode, recentAge, minimumSpan, maximumPerRole, uniqueAnchor]) {
+    control.addEventListener('change', updateDisplay);
+  }
+  resetFocus.addEventListener('click', () => {
+    displayMode.value = 'focus';
+    recentAge.value = `${DEFAULT_FOCUS_SETTINGS.recentBars}`;
+    minimumSpan.value = `${DEFAULT_FOCUS_SETTINGS.minAnchorSpan}`;
+    maximumPerRole.value = `${DEFAULT_FOCUS_SETTINGS.maxPerRole}`;
+    uniqueAnchor.checked = DEFAULT_FOCUS_SETTINGS.onePerSecondAnchor;
+    updateDisplay();
+  });
+
   function selectedFromEvent(param: { point?: { x: number; y: number } | null }): void {
     if (param.point == null) {
       detail.textContent = 'Hover a finite candidate segment for evidence.';
       return;
     }
     const hit = primitive.hitTest(param.point.x, param.point.y);
-    const candidate = hit === null ? null : renderCandidates.find((item) => item.candidate_id === hit.externalId) ?? null;
+    const candidate = hit === null ? null : rawCandidates.find((item) => item.candidate_id === hit.externalId) ?? null;
     if (candidate === null) {
       detail.textContent = 'Hover a finite candidate segment for evidence.';
       return;

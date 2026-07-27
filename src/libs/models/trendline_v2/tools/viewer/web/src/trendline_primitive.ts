@@ -161,7 +161,7 @@ export class TrendlinePrimitive implements ISeriesPrimitive<Time> {
   public visibility: Visibility = { support: true, resistance: true, anchors: false };
   private requestUpdate: (() => void) | null = null;
 
-  private readonly candidates: readonly RenderCandidate[];
+  private candidates: readonly RenderCandidate[];
 
   public constructor(payload: ViewerPayload | readonly ViewerCandidate[]) {
     if (Array.isArray(payload)) {
@@ -184,6 +184,17 @@ export class TrendlinePrimitive implements ISeriesPrimitive<Time> {
   }
 
   public paneViews(): readonly IPrimitivePaneView[] { return [new TrendlinePaneView(this)]; }
+
+  public setCandidates(candidates: readonly RenderCandidate[]): void {
+    this.candidates = candidates;
+    if (
+      this.selectedCandidateId !== null
+      && !candidates.some((candidate) => candidate.candidate_id === this.selectedCandidateId)
+    ) {
+      this.selectedCandidateId = null;
+    }
+    this.requestUpdate?.();
+  }
 
   public visibleCandidates(): RenderCandidate[] {
     return this.candidates.filter((candidate) => candidateIsVisible(candidate, this.visibility));
