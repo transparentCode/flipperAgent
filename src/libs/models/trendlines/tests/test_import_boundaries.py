@@ -143,15 +143,22 @@ def test_trendlines_package_has_no_app_namespace_dependencies():
 
     violations = []
     for path in package_files:
+        is_viewer = "research_viewer" in path.parts
+        is_research_lab = "research_lab" in path.parts
         for imported in _absolute_imports(path):
             if imported == "app" or imported.startswith("app."):
                 violations.append(f"{path.relative_to(TRENDLINES_ROOT)} -> {imported}")
-            if "research_viewer" not in path.parts and (
+            if not is_viewer and not is_research_lab and (
                 imported == "libs.models.trendlines.research_viewer"
                 or imported.startswith("libs.models.trendlines.research_viewer.")
             ):
                 violations.append(f"core -> viewer: {path.relative_to(TRENDLINES_ROOT)} -> {imported}")
-            if "research_viewer" in path.parts and (
+            if not is_research_lab and (
+                imported == "libs.models.trendlines.research_lab"
+                or imported.startswith("libs.models.trendlines.research_lab.")
+            ):
+                violations.append(f"core -> research_lab: {path.relative_to(TRENDLINES_ROOT)} -> {imported}")
+            if is_research_lab and (
                 imported == "apps"
                 or imported.startswith("apps.")
                 or imported == "app"
@@ -160,8 +167,17 @@ def test_trendlines_package_has_no_app_namespace_dependencies():
                 or imported.startswith("jupyter")
                 or imported.startswith("plotly")
                 or imported.startswith("matplotlib")
+                or imported.startswith("seaborn")
+                or imported.startswith("RegimeV2")
+                or imported == "libs.models.trendline"
+                or imported.startswith("libs.models.trendline.")
             ):
-                violations.append(f"viewer dependency: {path.relative_to(TRENDLINES_ROOT)} -> {imported}")
+                violations.append(f"research_lab dependency: {path.relative_to(TRENDLINES_ROOT)} -> {imported}")
+            if is_viewer and (
+                imported == "libs.models.trendlines.research_lab"
+                or imported.startswith("libs.models.trendlines.research_lab.")
+            ):
+                violations.append(f"viewer -> research_lab: {path.relative_to(TRENDLINES_ROOT)} -> {imported}")
 
     assert violations == []
 

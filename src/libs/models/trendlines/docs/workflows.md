@@ -328,6 +328,36 @@ python -m libs.models.trendlines.cli drift-monitor \
 
 Loads the baseline, fetches current data, runs the pipeline, and reports any drifted metrics.
 
+## Research Lab Workbench
+
+The full notebook workbench lives in `research/trendlines_research_lab.ipynb` and
+uses the explicit package-local `libs.models.trendlines.research_lab` layer. It
+supports synthetic smoke, injected/local frames, and explicitly authorized
+Binance research requests through the existing source-agnostic preparation APIs.
+
+The workbench runs multi-timeframe causal replay, builds per-timeframe evidence,
+opens package-local TVLC viewers, and exposes deterministic Pandas tables for
+sources, resolved YAML configuration, replay points, pivots, lines, rays, native
+signals, knowledge-time history, comparisons, timings, and explicit exports.
+Navigation selects an already recorded position and does not execute replay again.
+Viewer/server lifecycle is owned by the lab session; the final notebook cell
+closes all viewers and removes temporary bundles.
+
+The notebook is read-only with respect to YAML and has no Plotly, RegimeV2,
+retired connector, notebook-owned model loop, or notebook-owned chart JavaScript.
+Adequacy metrics and oscillator trendlines are intentionally deferred.
+
+Research-lab lifecycle is terminal after `TrendlineResearchLabSession.close()`:
+selection and viewer-opening operations fail closed, repeated close is safe, and
+owned viewer servers plus temporary bundle roots are removed. Provider-call
+counts are resolved from `provider_calls` after preparation, with `calls` only
+as an explicit compatibility seam; Binance runs without truthful accounting are
+rejected. Notebook viewers use explicit per-timeframe IFrame display calls, and
+navigation replaces the selected viewer without replay. Presentation timing is
+kept outside research identity. Explicit export tables expand viewer directories
+into manifest/payload files and report byte lengths plus lowercase SHA-256
+digests.
+
 ## Workflow File Map
 
 ```
