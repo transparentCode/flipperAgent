@@ -382,3 +382,24 @@ Each member persists complete structural, interaction, deterministic-baseline,
 and stochastic-null bundles plus compact count/identity evidence. Aggregate
 evidence preserves frozen D5A order and rejects missing, duplicate, swapped, or
 mismatched member results. D5C sensitivity and D5D synthesis remain deferred.
+
+## Symmetric geometry sensitivity (L2-D5C)
+
+L2-D5C evaluates only the predeclared local geometry-width envelope: dense
+fractal/pathfinding widths 2/2/2 and sparse widths 4/4/4 around canonical
+3/3/3. Extractor, fitter, endpoint mode, signal settings, interaction
+tolerance, null seeds, repetitions, and all other YAML-resolved fields remain
+fixed. This is a descriptive symmetric envelope, not optimisation,
+one-at-a-time attribution, ranking, or a configuration search.
+
+All five D5A members run canonical-chain validation plus dense and sparse
+chains in frozen order. Each full D2-D4B chain is validated in memory with
+zero provider calls. Published capsules retain D2/D3/D4A/D4B summaries,
+event-population overlap, variant-minus-canonical deltas, count inventories,
+and canonical full-chain SHA-256/byte-length digests. Raw structural states,
+interaction outcomes, and stochastic-null rows are intentionally not copied
+into D5C output. Aggregate evidence stores ordered capsule IDs only and binds
+each ID to its D5A member and committed baseline result; complete capsule
+payloads remain in ten per-variant files. Event-population differences make
+cross-configuration rate deltas descriptive rather than paired causal effects.
+D5D synthesis and final adequacy disposition remain deferred.

@@ -556,3 +556,23 @@ protocol IDs, count inventories, and exact four-member aggregate order. Full
 per-member bundles are retained; paths, durations, tests, and outcomes do not
 enter canonical identities. D5B is descriptive evidence only; D5C sensitivity
 and D5D final synthesis are not part of this workflow.
+
+## L2-D5C geometry sensitivity
+
+The sensitivity workflow loads only committed D5A frames and validates the
+committed D5B protocol and baseline chains. It then executes exactly two fresh
+profiles per member: `dense-geometry-v1` (fractal 2/2, pathfinding pivot
+window 2) and `sparse-geometry-v1` (fractal 4/4, pivot window 4). Canonical
+3/3/3 remains the comparison configuration. Components, endpoint fitting,
+signals, interaction rules, baseline definitions, stochastic seeds,
+repetitions, quantiles, replay scope, and member order remain frozen.
+
+Full chains are validated sequentially and staged before publication. Compact
+capsules contain typed D2/D3/D4A/D4B summary rows, stage digests, event overlap,
+descriptive deltas, and count inventories; raw D2 states and D3/D4 outcomes are
+not persisted. Aggregate canonical payload binds ordered capsule IDs only; its
+validator resolves each ID against typed D5A member/evidence and committed
+baseline-result bindings. The capsule and aggregate validators reject changed
+root configuration fields, wrong member/variant order, missing stages, altered
+digests, and incomplete delta coordinates. D5C makes no provider calls and
+selects no sensitivity or adequacy outcome. D5D remains unstarted.
