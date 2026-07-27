@@ -313,3 +313,33 @@ binds the supplied prepared replay, D2 bundle, D3 bundle, exact event-by-
 baseline selection coverage, pivot provenance, future OHLC outcomes, summaries,
 and bundle identity. Random, shuffled, density-matched, and Monte Carlo nulls
 remain deferred to D4B; no D4A adequacy outcome is selected.
+
+## Seeded stochastic nulls (L2-D4B)
+
+L2-D4B keeps the exact L2-D3 model event opportunities, roles, selection
+availability, selection-time ATR, horizons, and break-confirmation semantics.
+It executes only two explicit phase-local baselines: seeded
+`RANDOM_VALID_PIVOT_PAIR` and causal `DENSITY_MATCHED_NULL`. The original D2
+study configuration is not mutated, so D2 and D3 identities remain unchanged.
+
+Each draw derives its seed from the baseline identity, explicit seed,
+repetition, model event identity, and draw semantics version. Random pairs use
+only confirmed append-only same-role pivots in the event prefix. Density-matched
+geometry draws only strictly earlier same-timeframe, same-role model events and
+transports donor slope and role-signed distance through donor and current ATR.
+Abstentions are explicit; no fallback geometry is created.
+
+Available null selections freeze geometry and reuse the D3 future-OHLC outcome
+and summary functions. Model and null summaries use the same matched event
+subset, with support/resistance and horizons kept separate. Per-repetition
+model-minus-null deltas are summarized with deterministic mean, median, extrema,
+and 0.05/0.95 interpolated quantiles. No p-values, significance threshold,
+composite winner, or adequacy outcome is produced. Time-shifted and
+role-shuffled nulls remain out of scope.
+
+The D4B bundle validator receives prepared replay plus typed D2, D3, and D4A
+evidence. It recomputes draw identities, candidate/donor pools, transported
+geometry, exact selection-by-horizon outcomes, paired summaries, distribution
+statistics, and bundle identity. The bounded study reloads only committed
+artifacts, makes zero provider calls, and records attempts, availability,
+abstentions, repetitions, distributions, identities, and checksums.

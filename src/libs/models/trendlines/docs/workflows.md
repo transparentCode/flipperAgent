@@ -463,6 +463,34 @@ selections, outcomes, matched summaries, deltas, and the content-addressed
 comparison bundle. D4B random or density-matched nulls and any adequacy
 decision remain deferred.
 
+## L2-D4B seeded stochastic null comparison
+
+`libs.models.trendlines.workflows.research.adequacy.stochastic_null_comparison`
+executes the two explicit stochastic baselines authorized after D4A:
+`RANDOM_VALID_PIVOT_PAIR` and `DENSITY_MATCHED_NULL`. Event timing remains
+fixed to committed D3 boundary-ray births. Random-pair candidates are sorted
+confirmed same-role pivot pairs from the exact causal prefix. Density-matched
+donors are sorted strictly prior same-timeframe, same-role model events; their
+ATR-normalized slope and role-signed distance are transported to the current
+selection bar. Every draw has a deterministic content-derived seed, and no
+process-global RNG state is used.
+
+Null geometry is frozen at selection and evaluated through the existing D3
+future-OHLC outcome and summary functions. Missing candidate or donor pools are
+recorded as explicit abstentions. Per-repetition comparisons match model and
+null event denominators, keep roles and horizons separate, and expose raw
+model-minus-null deltas. Distribution rows report defined/undefined repetitions,
+sign counts, deterministic mean/median/extrema, and linearly interpolated 0.05
+and 0.95 quantiles. No formal p-value, significance threshold, composite score,
+winner, or adequacy disposition is selected.
+
+The canonical validator receives prepared replay and typed D2, D3, and D4A
+bundles. It recomputes source bindings, stochastic specifications, draw IDs,
+candidate/donor choices, transported geometry, exact selection-horizon outcome
+coverage, paired summaries, distribution statistics, and final bundle identity.
+The bounded script reloads committed L2-C through D4A artifacts only, writes
+canonical D4B evidence and checksums, and makes zero provider calls.
+
 Research-lab lifecycle is terminal after `TrendlineResearchLabSession.close()`:
 selection and viewer-opening operations fail closed, repeated close is safe, and
 owned viewer servers plus temporary bundle roots are removed. Provider-call
