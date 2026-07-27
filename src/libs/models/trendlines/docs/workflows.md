@@ -519,3 +519,25 @@ workflows/
 └── monitoring/
     └── drift_monitor.py   # Metric drift comparison and reporting
 ```
+
+## L2-D5A source acquisition boundary
+
+Robustness source acquisition is separate from trendline preparation, replay,
+and adequacy measurement. The D5A source matrix contains five ordered
+members: the frozen BTCUSDT 1h reference and four fresh 312-bar members for
+BTCUSDT 1h, ETHUSDT 1h, SOLUSDT 1h, and BTCUSDT 4h. The 4h request uses equal
+bar count, not equal calendar duration, so later replay scopes remain
+comparable by sample size.
+
+The acquisition script uses the native Binance adapter through the research
+loader with page limit 1,000. Fresh members are acquired in fixed order with
+one call/page each and no retries. It stops on first failure and refuses to
+overwrite an existing official output root. The existing reference artifact
+is bound by checksum and identity; it is never copied or fetched again.
+
+Every fresh frame passes exact event-grid and exchange-close availability
+checks, strict frame-artifact write/read validation, and injected
+re-preparation identity equality. YAML is hashed before and after and is
+never written. D5A records source evidence only: model and replay execution,
+D2-D4B measurement, sensitivity, and adequacy disposition belong to later
+phases.

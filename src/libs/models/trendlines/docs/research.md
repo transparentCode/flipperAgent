@@ -343,3 +343,28 @@ geometry, exact selection-by-horizon outcomes, paired summaries, distribution
 statistics, and bundle identity. The bounded study reloads only committed
 artifacts, makes zero provider calls, and records attempts, availability,
 abstentions, repetitions, distributions, identities, and checksums.
+
+## Frozen robustness source matrix (L2-D5A)
+
+L2-D5A acquires source evidence only for later robustness replication. Its
+ordered matrix binds one existing BTCUSDT 1h reference artifact plus fresh
+BTCUSDT 1h temporal, ETHUSDT 1h, SOLUSDT 1h, and BTCUSDT 4h members. Every
+member has an explicit 312-bar event/knowledge window, open-time timestamps,
+exchange-close availability, canonical YAML coverage, and content-addressed
+specification/evidence identities. The 4h member preserves bar count rather
+than calendar duration.
+
+Fresh acquisition uses one page of at most 1,000 rows per member, a fresh
+native Binance loader, fixed order, exactly one provider call per member, and
+zero application retries. Any failure stops acquisition before publication;
+the official output root is never overwritten. The existing reference is
+bound by path, checksum, source/availability/dataset/preparation identities,
+and the completed D2-D4B chain without refetching it.
+
+Each fresh frame is validated for exact cadence, complete bars, temporal
+bounds, finite OHLCV, and availability semantics. It is written as the
+strict research frame artifact, reloaded, and injected into a second
+preparation. Frame values/dtypes/attributes plus source, availability,
+dataset, configuration, and preparation identities must match exactly.
+L2-D5A executes no model or replay code and selects no robustness outcome;
+D5B remains responsible for applying the frozen D2-D4B protocol offline.
