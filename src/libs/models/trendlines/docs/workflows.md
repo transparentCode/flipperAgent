@@ -418,6 +418,28 @@ The notebook is read-only with respect to YAML and has no Plotly, RegimeV2,
 retired connector, notebook-owned model loop, or notebook-owned chart JavaScript.
 Adequacy metrics and oscillator trendlines are intentionally deferred.
 
+## L2-D3 interaction study
+
+`libs.models.trendlines.workflows.research.adequacy.interaction` consumes the
+validated L2-D2 structural bundle and prepared replay frame. It does not run
+model execution or fetch data. The offline bounded study reloads the committed
+L2-C frame artifact and verifies exact source, availability, dataset,
+preparation, replay, cohort, study, stability, and D2 bundle identities before
+measuring outcomes.
+
+The thin D3 analysis script only reconstructs those inputs, resolves the
+prepared `signals.hold_bars` value, calls the interaction APIs, and writes
+canonical bundle/manifest/review/checksum artifacts. It contains no touch,
+break, excursion, summary, or identity algorithm. Provider calls remain zero;
+interaction utility, null comparisons, tuning, retests, and adequacy decisions
+remain separate research phases.
+
+Before returning or persisting a bundle, the interaction workflow validates its
+typed D2 bundle and prepared replay, derives the exact non-left-censored ray
+birth set, checks event/horizon Cartesian coverage, and compares stored
+outcomes with `measure_interaction_outcomes()` over the replay frame. This
+keeps content addressing separate from causal evidence validation.
+
 Research-lab lifecycle is terminal after `TrendlineResearchLabSession.close()`:
 selection and viewer-opening operations fail closed, repeated close is safe, and
 owned viewer servers plus temporary bundle roots are removed. Provider-call

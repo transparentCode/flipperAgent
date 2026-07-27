@@ -255,3 +255,36 @@ zero provider calls, and writes canonical bundle, manifest, review, and
 checksum artifacts. Measurements are descriptive only: L2-D2 selects no
 adequacy outcome and does not run interaction utility, null baselines,
 parameter tuning, or robustness studies.
+
+## Causal interaction utility (L2-D3)
+
+L2-D3 evaluates only `BOUNDARY_RAY` geometry. Its event unit is each
+non-left-censored boundary-ray episode birth from the validated L2-D2 bundle.
+The birth role, slope, intercept, replay point, availability time, and
+selection-time ATR are frozen; later replay prefixes cannot alter event
+geometry.
+
+Future evaluation starts strictly after the birth position and requires every
+used bar availability time to be later than selection availability. Touches
+use inclusive exact OHLC range crossing. Defended touches and wick rejection
+use independent support/resistance close rules. Breaks classify only the first
+adverse-close attempt as confirmed, false, or unresolved using the explicitly
+resolved `signals.hold_bars` confirmation count. Horizon results beyond the
+available frame are right-censored and excluded from eligible rate
+denominators.
+
+Penetration and favourable/adverse excursion are normalised by the
+selection-time ATR. No future ATR, later geometry, model interaction label,
+signal label, return, P&L, retest lifecycle, role reversal, null baseline, or
+parameter tuning enters D3. Support and resistance summaries remain separate.
+The interaction bundle binds source, replay, cohort, study, D2 bundle, spec,
+events, outcomes, and summaries with deterministic identities. Its outcome is
+descriptive evidence only; no adequacy disposition is selected.
+
+Canonical bundle validation receives both the typed D2 structural bundle and
+the typed prepared replay. It recomputes the qualifying ray-birth event set,
+requires exact event-by-horizon coverage, enforces event-relative coordinates,
+and recomputes every stored outcome from the frozen event and replay OHLC
+frame. Rehashed payloads with arbitrary dataset/replay IDs, missing or extra
+events, duplicate coordinates, or altered touch/break/excursion values fail
+closed.
