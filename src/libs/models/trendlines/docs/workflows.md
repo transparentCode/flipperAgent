@@ -91,6 +91,43 @@ descriptive counts only, retaining invalid points while excluding them from
 geometry eligibility counts. No adequacy outcome, promotion status, parameter
 tuning, provider call, or model change is part of L2-D1.
 
+## Causal structural stability measurements (L2-D2)
+
+L2-D2 is a pure measurement layer over completed causal replay. It reuses
+`collect_adequacy_observations()`, `replay_line_rows()`, `replay_ray_rows()`,
+`validate_replay_point_integrity()`, and canonical identity hashing. The thin
+offline analysis script reloads the committed frame artifact and composes
+these APIs; structural algorithms do not live in the script and no provider
+request is allowed.
+
+The structural key is exact and roleless: fitted lines use timeframe, method,
+start position, and end position; rays use timeframe, exact start timestamp,
+and exact end timestamp. Ordinals, evidence IDs, revisions, fuzzy geometry,
+rounding, and tolerances are excluded. Role changes are attached state, not
+new anchors. Duplicate roleless anchors at one coordinate fail closed.
+
+Transitions compare adjacent eligible recorded observations, not necessarily
+adjacent bars. They report active counts, births, disappearances, persistence,
+exact shape revisions, role switches, position gaps, and rates. Rates are
+computed from summed numerators and denominators for aggregate summaries and
+are `None` when their denominator is zero. Lines and rays never share a blended
+rate.
+
+Consecutive-presence episodes break across any missing eligible observation.
+Exact-horizon survival uses explicit positive horizons and exact recorded target
+positions. It separates survived, failed, right-censored, and unavailable
+targets; it never interpolates across recording gaps. Shape and quality drift
+are descriptive deltas only and do not create adequacy labels.
+
+The content-addressed structural-stability bundle binds all eligible point
+identities and ordered state, transition, drift, episode, survival, and summary
+content. Changing horizons, geometry, or eligible coordinates changes its ID.
+The bounded BTCUSDT 1h run records source, availability, dataset, preparation,
+and replay identity equality with L2-C, provider calls `0`, and outcome `null`.
+No structural adequacy conclusion is selected; interaction utility, null
+baselines, parameter sensitivity, cross-asset robustness, and promotion remain
+later phases.
+
 ## Pipeline Optimization Workflow
 
 ### Overview

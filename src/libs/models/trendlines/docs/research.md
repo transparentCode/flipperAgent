@@ -209,3 +209,49 @@ such as `ADEQUATE_FOR_FURTHER_RESEARCH` is selected. Structural stability,
 interaction utility, null execution, and robustness remain separate L2-D2
 through L2-D5 studies. All adequacy fixtures are synthetic/offline; no provider
 call is part of this foundation.
+
+## Structural stability measurements (L2-D2)
+
+`TrendlineStructuralStabilitySpec` requires an explicit ordered tuple of
+positive survival horizons. Its `stability_spec_id` participates in every
+structural state and in the content-addressed stability bundle. The bounded
+offline study uses horizons `(1, 3, 6, 12)`; package code supplies no hidden
+horizon default.
+
+L2-D2 consumes eligible L2-D1 observations and authoritative replay line and
+ray diagnostic rows. It first validates every replay point through
+`validate_replay_point_integrity()` and performs no model execution or provider
+call while measuring. Invalid and excluded observations contribute no geometry
+state. Fitted lines and boundary rays remain separate observation units.
+
+Structural identity uses exact, roleless anchors. A fitted-line key is
+`(timeframe, method, start_position, end_position)`; a boundary-ray key is
+`(timeframe, start_time, end_time)`. Ordinals, evidence IDs, revisions, fuzzy
+matching, rounded geometry, and tolerances are not used. Duplicate roleless
+anchors at one coordinate fail closed. Role is attached state, so a role change
+is measured separately from birth or disappearance.
+
+Transitions compare adjacent eligible recorded positions in replay order and
+preserve their bar gap. Birth, disappearance, persistence, exact shape
+revision, role switch, and denominator-aware rates are reported separately for
+lines and rays. A zero denominator is represented by `None`, not a fabricated
+zero. Shape tuples contain line `(start_value, end_value, slope, intercept)` or
+ray `(start_price, end_price, slope, intercept)`; touch count, score, quality,
+and R-squared changes are descriptive drift rows and do not define shape
+revisions.
+
+Episodes require consecutive eligible observations. Disappearance followed by
+reappearance creates a new episode. Survival evaluates only observed births at
+exact recorded target positions; recording gaps are unavailable, targets beyond
+the scoped end are right-censored, and no interpolation is performed. Rates
+use eligible target denominators and are `None` when no target is eligible.
+
+The stability bundle binds cohort, study, stability-spec, eligible observation
+identities, state IDs, transition content, drift content, episode content, and
+survival content. Timing, paths, and wall-clock values are excluded. The
+offline L2-D2 script reloads only the committed L2-C frame artifact, requires
+exact source/availability/dataset/preparation/replay identity equality, makes
+zero provider calls, and writes canonical bundle, manifest, review, and
+checksum artifacts. Measurements are descriptive only: L2-D2 selects no
+adequacy outcome and does not run interaction utility, null baselines,
+parameter tuning, or robustness studies.
