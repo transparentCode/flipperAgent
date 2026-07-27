@@ -168,3 +168,44 @@ are replaced without replay execution. Table construction timing is accumulated
 outside research identities. Explicit exports expose deterministic per-file
 byte lengths and SHA-256 inventory rows for evidence, viewer, and lab-manifest
 artifacts. Cleanup reports actual server and temporary-root state.
+
+## Adequacy foundation (L2-D1)
+
+`libs.models.trendlines.workflows.research.adequacy` defines measurement scope
+on top of prepared runs and completed causal replays. It does not execute model
+code, fetch data, tune parameters, compare outcomes, or select an adequacy
+decision.
+
+`TrendlineAdequacyStudyConfig` freezes ordered per-timeframe evaluation windows,
+recorded-position eligibility, minimum warm-up and prior-executed-prefix
+requirements, line and
+ray observation units, invalid-point treatment, the causal-prefix-only
+availability policy, selected metric names, explicit finite decision rules, and
+named naive/null baseline definitions. Its identity contains no frames, provider
+state, wall-clock time, or model-parameter mapping.
+
+Adequacy windows must start at or after replay recording scope and contain at
+least one position selected by replay `record_every`. Warm-up is validated at
+study scope. `prior_executed_prefix_count` means executed causal prefixes before
+the current point from replay warm-up; it is not retained snapshot history or
+signal-history depth. Decision rules are an ordered subset of selected metrics;
+descriptive counts need no invented thresholds. Metric directions are assigned
+only where higher/lower utility is unambiguous; ambiguous density and event
+counts remain descriptive.
+
+Each `TrendlineAdequacyCohort` binds study, preparation, dataset, resolved
+configuration, replay, source, availability, timestamp-semantics, and
+availability-provenance identities. Its replay scope is stored as immutable
+ordered tuples and its cohort ID is recomputed from those contents.
+`collect_adequacy_observations()` first reuses canonical replay-point integrity
+validation, then validates event time, bar availability, checkpoint source
+horizon, boundary knowledge time, and signal knowledge metadata before emitting
+compact observations.
+Only recorded replay points inside frozen windows can be eligible. Invalid model
+outputs remain retained and reported, but do not contribute geometry counts.
+
+L2-D1 summaries are descriptive coverage/accounting outputs only. No outcome
+such as `ADEQUATE_FOR_FURTHER_RESEARCH` is selected. Structural stability,
+interaction utility, null execution, and robustness remain separate L2-D2
+through L2-D5 studies. All adequacy fixtures are synthetic/offline; no provider
+call is part of this foundation.

@@ -12,6 +12,11 @@ The canonical research path is deliberately separate from optimization and promo
 L2-A1  data and YAML-resolved configuration preparation
 L2-A2  causal replay, diagnostics, and evidence APIs
 L2-B   thin notebook and TVLC presentation
+L2-D1  causal adequacy scope, identities, metrics, and null definitions
+L2-D2  structural stability measurements
+L2-D3  causal interaction utility measurements
+L2-D4  frozen naive/null comparison
+L2-D5  multi-window, multi-asset, and sensitivity robustness
 ```
 
 L2-A1 returns validated frames, source/dataset identities, and fully explicit pipeline configs.
@@ -56,6 +61,35 @@ non-loopback hosts, traversal, symlinked files, unknown paths, non-canonical JSO
 and cached responses. The notebook synthetic smoke path makes zero provider calls.
 Explicit Binance use remains research-only and requires an authorized injected
 loader. L2-B itself does not use real Binance data.
+
+## Causal adequacy foundation (L2-D1)
+
+The package-local adequacy foundation freezes evaluation windows and recorded
+coordinates before any quality study runs. It requires causal-prefix-only
+availability, binds event and availability timestamps to replay identities,
+records study-level minimum warm-up and prior-executed-prefix requirements, and
+uses explicit treatment for invalid outputs. Fitted lines and boundary rays
+remain separate observation units. Windows must intersect replay-recorded
+positions; no points are synthesized.
+
+Metric definitions declare phase, unit, direction, description, and whether
+future rows are required. Unambiguous utility directions are explicit; raw
+geometry/event counts remain descriptive. Decision thresholds are finite,
+explicit study inputs covering an ordered subset of selected metrics, with
+minimum observation floors; L2-D1 never evaluates them. Baseline contracts
+name naive/null geometry families, seeds and repetitions where needed, preserved
+attributes, and reject any future-data policy. Baselines are defined only here;
+they are not generated or executed.
+
+`TrendlineAdequacyCohort` content-addresses prepared dataset/source and
+availability identities together with configuration, replay specification, and
+study scope. Replay scope is immutable and self-checked against cohort ID.
+Observation collection first invokes canonical replay-point integrity validation,
+then validates point event time, complete-bar availability, checkpoint source
+horizon, boundary known-at, and signal knowledge metadata. It emits compact
+descriptive counts only, retaining invalid points while excluding them from
+geometry eligibility counts. No adequacy outcome, promotion status, parameter
+tuning, provider call, or model change is part of L2-D1.
 
 ## Pipeline Optimization Workflow
 
