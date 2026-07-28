@@ -12,6 +12,11 @@ The canonical research path is deliberately separate from optimization and promo
 L2-A1  data and YAML-resolved configuration preparation
 L2-A2  causal replay, diagnostics, and evidence APIs
 L2-B   thin notebook and TVLC presentation
+L2-D1  causal adequacy scope, identities, metrics, and null definitions
+L2-D2  structural stability measurements
+L2-D3  causal interaction utility measurements
+L2-D4  frozen naive/null comparison
+L2-D5  multi-window, multi-asset, and sensitivity robustness
 ```
 
 L2-A1 returns validated frames, source/dataset identities, and fully explicit pipeline configs.
@@ -56,6 +61,82 @@ non-loopback hosts, traversal, symlinked files, unknown paths, non-canonical JSO
 and cached responses. The notebook synthetic smoke path makes zero provider calls.
 Explicit Binance use remains research-only and requires an authorized injected
 loader. L2-B itself does not use real Binance data.
+
+The final generic TVLC runner is a separate explicit composition seam. It requires
+the `TRENDLINES_ALLOW_RESEARCH_VIEWER_FETCH=1` guard before loader construction or
+staging, resolves one requested asset/timeframe through canonical YAML, uses
+`BinanceTrendlineResearchLoader` without adding retries, and keeps exchange-close
+availability semantics. Its replay executes from warm-up position `19` through the
+last prepared row while recording only that final position for the chart. Output is
+published through a sibling staging directory and verified as exactly
+`viewer_bundle/{chart_payload.json,manifest.json}` plus `run_report.json`; the
+report binds preparation, dataset, replay, evidence, payload, and bundle identities.
+
+## Causal adequacy foundation (L2-D1)
+
+The package-local adequacy foundation freezes evaluation windows and recorded
+coordinates before any quality study runs. It requires causal-prefix-only
+availability, binds event and availability timestamps to replay identities,
+records study-level minimum warm-up and prior-executed-prefix requirements, and
+uses explicit treatment for invalid outputs. Fitted lines and boundary rays
+remain separate observation units. Windows must intersect replay-recorded
+positions; no points are synthesized.
+
+Metric definitions declare phase, unit, direction, description, and whether
+future rows are required. Unambiguous utility directions are explicit; raw
+geometry/event counts remain descriptive. Decision thresholds are finite,
+explicit study inputs covering an ordered subset of selected metrics, with
+minimum observation floors; L2-D1 never evaluates them. Baseline contracts
+name naive/null geometry families, seeds and repetitions where needed, preserved
+attributes, and reject any future-data policy. Baselines are defined only here;
+they are not generated or executed.
+
+`TrendlineAdequacyCohort` content-addresses prepared dataset/source and
+availability identities together with configuration, replay specification, and
+study scope. Replay scope is immutable and self-checked against cohort ID.
+Observation collection first invokes canonical replay-point integrity validation,
+then validates point event time, complete-bar availability, checkpoint source
+horizon, boundary known-at, and signal knowledge metadata. It emits compact
+descriptive counts only, retaining invalid points while excluding them from
+geometry eligibility counts. No adequacy outcome, promotion status, parameter
+tuning, provider call, or model change is part of L2-D1.
+
+## Causal structural stability measurements (L2-D2)
+
+L2-D2 is a pure measurement layer over completed causal replay. It reuses
+`collect_adequacy_observations()`, `replay_line_rows()`, `replay_ray_rows()`,
+`validate_replay_point_integrity()`, and canonical identity hashing. The thin
+offline analysis script reloads the committed frame artifact and composes
+these APIs; structural algorithms do not live in the script and no provider
+request is allowed.
+
+The structural key is exact and roleless: fitted lines use timeframe, method,
+start position, and end position; rays use timeframe, exact start timestamp,
+and exact end timestamp. Ordinals, evidence IDs, revisions, fuzzy geometry,
+rounding, and tolerances are excluded. Role changes are attached state, not
+new anchors. Duplicate roleless anchors at one coordinate fail closed.
+
+Transitions compare adjacent eligible recorded observations, not necessarily
+adjacent bars. They report active counts, births, disappearances, persistence,
+exact shape revisions, role switches, position gaps, and rates. Rates are
+computed from summed numerators and denominators for aggregate summaries and
+are `None` when their denominator is zero. Lines and rays never share a blended
+rate.
+
+Consecutive-presence episodes break across any missing eligible observation.
+Exact-horizon survival uses explicit positive horizons and exact recorded target
+positions. It separates survived, failed, right-censored, and unavailable
+targets; it never interpolates across recording gaps. Shape and quality drift
+are descriptive deltas only and do not create adequacy labels.
+
+The content-addressed structural-stability bundle binds all eligible point
+identities and ordered state, transition, drift, episode, survival, and summary
+content. Changing horizons, geometry, or eligible coordinates changes its ID.
+The bounded BTCUSDT 1h run records source, availability, dataset, preparation,
+and replay identity equality with L2-C, provider calls `0`, and outcome `null`.
+No structural adequacy conclusion is selected; interaction utility, null
+baselines, parameter sensitivity, cross-asset robustness, and promotion remain
+later phases.
 
 ## Pipeline Optimization Workflow
 
@@ -347,6 +428,79 @@ The notebook is read-only with respect to YAML and has no Plotly, RegimeV2,
 retired connector, notebook-owned model loop, or notebook-owned chart JavaScript.
 Adequacy metrics and oscillator trendlines are intentionally deferred.
 
+## L2-D3 interaction study
+
+`libs.models.trendlines.workflows.research.adequacy.interaction` consumes the
+validated L2-D2 structural bundle and prepared replay frame. It does not run
+model execution or fetch data. The offline bounded study reloads the committed
+L2-C frame artifact and verifies exact source, availability, dataset,
+preparation, replay, cohort, study, stability, and D2 bundle identities before
+measuring outcomes.
+
+The thin D3 analysis script only reconstructs those inputs, resolves the
+prepared `signals.hold_bars` value, calls the interaction APIs, and writes
+canonical bundle/manifest/review/checksum artifacts. It contains no touch,
+break, excursion, summary, or identity algorithm. Provider calls remain zero;
+interaction utility, null comparisons, tuning, retests, and adequacy decisions
+remain separate research phases.
+
+Before returning or persisting a bundle, the interaction workflow validates its
+typed D2 bundle and prepared replay, derives the exact non-left-censored ray
+birth set, checks event/horizon Cartesian coverage, and compares stored
+outcomes with `measure_interaction_outcomes()` over the replay frame. This
+keeps content addressing separate from causal evidence validation.
+
+## L2-D4A deterministic baseline comparison
+
+`libs.models.trendlines.workflows.research.adequacy.baseline_comparison`
+performs a paired, deterministic comparison at the exact L2-D3 boundary-ray
+birth events. It accepts only the ordered frozen `RECENT_EXTREMA` and
+`HORIZONTAL_SUPPORT_RESISTANCE` baseline specifications from the study config.
+Confirmed append-only pivot rows are selected from each event's causal replay
+prefix; no later pivots, model interaction labels, fitting, or provider access
+are used.
+
+Each event receives one attempt per baseline. A baseline with insufficient
+same-role pivots is an explicit abstention. Available baselines freeze their
+birth geometry and reuse the D3 outcome and summary formulas. Results remain
+separate by baseline, timeframe, role, and horizon, preserving matched event
+denominators and optional statistics as `None` when undefined. No composite
+winner or adequacy disposition is produced.
+
+Comparison validation receives the prepared replay plus typed D2 and D3
+bundles. It validates every D2 state against its replay point, recomputes pivot
+selections, outcomes, matched summaries, deltas, and the content-addressed
+comparison bundle. D4B random or density-matched nulls and any adequacy
+decision remain deferred.
+
+## L2-D4B seeded stochastic null comparison
+
+`libs.models.trendlines.workflows.research.adequacy.stochastic_null_comparison`
+executes the two explicit stochastic baselines authorized after D4A:
+`RANDOM_VALID_PIVOT_PAIR` and `DENSITY_MATCHED_NULL`. Event timing remains
+fixed to committed D3 boundary-ray births. Random-pair candidates are sorted
+confirmed same-role pivot pairs from the exact causal prefix. Density-matched
+donors are sorted strictly prior same-timeframe, same-role model events; their
+ATR-normalized slope and role-signed distance are transported to the current
+selection bar. Every draw has a deterministic content-derived seed, and no
+process-global RNG state is used.
+
+Null geometry is frozen at selection and evaluated through the existing D3
+future-OHLC outcome and summary functions. Missing candidate or donor pools are
+recorded as explicit abstentions. Per-repetition comparisons match model and
+null event denominators, keep roles and horizons separate, and expose raw
+model-minus-null deltas. Distribution rows report defined/undefined repetitions,
+sign counts, deterministic mean/median/extrema, and linearly interpolated 0.05
+and 0.95 quantiles. No formal p-value, significance threshold, composite score,
+winner, or adequacy disposition is selected.
+
+The canonical validator receives prepared replay and typed D2, D3, and D4A
+bundles. It recomputes source bindings, stochastic specifications, draw IDs,
+candidate/donor choices, transported geometry, exact selection-horizon outcome
+coverage, paired summaries, distribution statistics, and final bundle identity.
+The bounded script reloads committed L2-C through D4A artifacts only, writes
+canonical D4B evidence and checksums, and makes zero provider calls.
+
 Research-lab lifecycle is terminal after `TrendlineResearchLabSession.close()`:
 selection and viewer-opening operations fail closed, repeated close is safe, and
 owned viewer servers plus temporary bundle roots are removed. Provider-call
@@ -375,3 +529,74 @@ workflows/
 └── monitoring/
     └── drift_monitor.py   # Metric drift comparison and reporting
 ```
+
+## L2-D5A source acquisition boundary
+
+Robustness source acquisition is separate from trendline preparation, replay,
+and adequacy measurement. The D5A source matrix contains five ordered
+members: the frozen BTCUSDT 1h reference and four fresh 312-bar members for
+BTCUSDT 1h, ETHUSDT 1h, SOLUSDT 1h, and BTCUSDT 4h. The 4h request uses equal
+bar count, not equal calendar duration, so later replay scopes remain
+comparable by sample size.
+
+The acquisition script uses the native Binance adapter through the research
+loader with page limit 1,000. Fresh members are acquired in fixed order with
+one call/page each and no retries. It stops on first failure and refuses to
+overwrite an existing official output root. The existing reference artifact
+is bound by checksum and identity; it is never copied or fetched again.
+
+Every fresh frame passes exact event-grid and exchange-close availability
+checks, strict frame-artifact write/read validation, and injected
+re-preparation identity equality. YAML is hashed before and after and is
+never written. D5A records source evidence only: model and replay execution,
+D2-D4B measurement, sensitivity, and adequacy disposition belong to later
+phases.
+
+## L2-D5B offline replication
+
+The D5B script reloads only committed D5A frame artifacts and runs four
+injected causal replays in frozen order: temporal BTCUSDT 1h, ETHUSDT 1h,
+SOLUSDT 1h, and BTCUSDT 4h. Each uses warm-up 19, recording 64 through 311,
+stride 1, signals enabled, and 293 executed/248 recorded positions. It calls
+no provider and publishes no partial aggregate when a member fails.
+
+Member validation composes existing D2, D3, D4A, and D4B validators. It checks
+source/configuration/preparation identities, member-specific hold-bars,
+protocol IDs, count inventories, and exact four-member aggregate order. Full
+per-member bundles are retained; paths, durations, tests, and outcomes do not
+enter canonical identities. D5B is descriptive evidence only; D5C sensitivity
+and D5D final synthesis are not part of this workflow.
+
+## L2-D5C geometry sensitivity
+
+The sensitivity workflow loads only committed D5A frames and validates the
+committed D5B protocol and baseline chains. It then executes exactly two fresh
+profiles per member: `dense-geometry-v1` (fractal 2/2, pathfinding pivot
+window 2) and `sparse-geometry-v1` (fractal 4/4, pivot window 4). Canonical
+3/3/3 remains the comparison configuration. Components, endpoint fitting,
+signals, interaction rules, baseline definitions, stochastic seeds,
+repetitions, quantiles, replay scope, and member order remain frozen.
+
+Full chains are validated sequentially and staged before publication. Compact
+capsules contain typed D2/D3/D4A/D4B summary rows, stage digests, event overlap,
+descriptive deltas, and count inventories; raw D2 states and D3/D4 outcomes are
+not persisted. Aggregate canonical payload binds ordered capsule IDs only; its
+validator resolves each ID against typed D5A member/evidence and committed
+baseline-result bindings. The capsule and aggregate validators reject changed
+root configuration fields, wrong member/variant order, missing stages, altered
+digests, and incomplete delta coordinates. D5C makes no provider calls and
+selects no sensitivity or adequacy outcome. D5D remains unstarted.
+
+## L2-D5D final disposition
+
+`final_disposition.py` consumes only committed D5A-D5C artifacts. Its public
+contracts bind the frozen five-member scope, support/resistance and 1/3/6/12
+bar coordinates, null-cell classifications, sensitivity classifications,
+cohort evidence IDs, final outcome, and recommended non-production action.
+
+The synthesis script has no provider, model, or replay boundary. It verifies
+prior checksum inventories and content-addressed IDs before writing exactly
+six terminal files: final bundle, cohort evidence, reviewable decision
+matrix, manifest, review, and checksums. Outcome and action are recomputed by
+the frozen hierarchy; manual overrides fail validation. D5D is the terminal
+mature-trendlines research phase.
