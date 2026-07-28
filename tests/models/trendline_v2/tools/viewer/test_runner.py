@@ -23,11 +23,12 @@ def _raw_frame(
     *,
     count: int = ROW_COUNT,
     start: datetime = BASE_START,
+    step: timedelta = timedelta(hours=1),
     epoch: bool = False,
 ) -> pd.DataFrame:
     rows = []
     for index in range(count):
-        timestamp = start + timedelta(hours=index)
+        timestamp = start + step * index
         base = 100.0 + (20.0 if index % 12 in {3, 4} else 0.0)
         if index % 12 in {8, 9}:
             base -= 20.0
@@ -51,9 +52,17 @@ def _write_csv(path: Path, frame: pd.DataFrame) -> Path:
     return path
 
 
-def _binance_frame(*, count: int = ROW_COUNT) -> pd.DataFrame:
-    frame = _raw_frame(count=count, epoch=True)
-    frame["close_time"] = frame["timestamp"] + 3_600_000 - 1
+def _binance_frame(
+    *,
+    count: int = ROW_COUNT,
+    interval_seconds: int = 3_600,
+) -> pd.DataFrame:
+    frame = _raw_frame(
+        count=count,
+        step=timedelta(seconds=interval_seconds),
+        epoch=True,
+    )
+    frame["close_time"] = frame["timestamp"] + interval_seconds * 1_000 - 1
     return frame
 
 
@@ -91,16 +100,83 @@ def _rebind_source_binding(output: Path, binding: dict) -> None:
 
 
 def test_asset_and_timeframe_rules_are_strict() -> None:
-    for value in ("ethusdt", "ETH/USDT", "", " ETHUSDT", "ETHUSDT "):
+    for value in (
+        "ethusdt",
+        "ETH/USDT",
+        "",
+        "A",
+        "1234",
+        " ETHUSDT",
+        "ETHUSDT ",
+        "_BTCUSDT",
+        "BTCUSDT_",
+        "BTC__USDT",
+        "BTC-USDT",
+        "A" * 41,
+    ):
         with pytest.raises(runner.ViewerRunnerError):
             runner.validate_asset(value)
-    assert runner.validate_asset("ETHUSDT") == "ETHUSDT"
-    assert runner.timeframe_interval_seconds("30m") == 1_800
-    assert runner.timeframe_interval_seconds("2h") == 7_200
-    assert runner.timeframe_interval_seconds("1d") == 86_400
-    for value in ("1M", "monthly", "60", "1hour", "0h", "1.5h", "-1h"):
+    for value in ("ETHUSDT", "BNBUSDT", "1000PEPEUSDT", "BTCUSDT_250926"):
+        assert runner.validate_asset(value) == value
+
+    expected_intervals = {
+        "1m": 60,
+        "3m": 180,
+        "5m": 300,
+        "15m": 900,
+        "30m": 1_800,
+        "1h": 3_600,
+        "2h": 7_200,
+        "4h": 14_400,
+        "6h": 21_600,
+        "8h": 28_800,
+        "12h": 43_200,
+        "1d": 86_400,
+        "3d": 259_200,
+        "1w": 604_800,
+    }
+    assert runner.TIMEFRAME_INTERVAL_SECONDS == expected_intervals
+    for timeframe, seconds in expected_intervals.items():
+        assert runner.timeframe_interval_seconds(timeframe) == seconds
+    for value in ("1M", "7m", "2d", "monthly", "60", "1hour", "0h", "1.5h", "-1h"):
         with pytest.raises(runner.ViewerRunnerError):
             runner.timeframe_interval_seconds(value)
+
+
+def test_arbitrary_canonical_asset_publishes_and_verifies(tmp_path: Path) -> None:
+    csv_path = _write_csv(tmp_path / "pepe.csv", _raw_frame())
+    output = tmp_path / "output"
+    report = asyncio.run(
+        runner.run_viewer(
+            asset="1000PEPEUSDT",
+            timeframe="1h",
+            input_csv=csv_path,
+            as_of=AS_OF,
+            output=output,
+        )
+    )
+    assert report["asset"] == "1000PEPEUSDT"
+    assert runner.verify_output(output)["asset"] == "1000PEPEUSDT"
+
+
+def test_weekly_timeframe_publishes_and_verifies(tmp_path: Path) -> None:
+    csv_path = _write_csv(
+        tmp_path / "weekly.csv",
+        _raw_frame(step=timedelta(weeks=1)),
+    )
+    output = tmp_path / "output"
+    as_of = BASE_START + timedelta(weeks=ROW_COUNT)
+    report = asyncio.run(
+        runner.run_viewer(
+            asset="BNBUSDT",
+            timeframe="1w",
+            input_csv=csv_path,
+            as_of=as_of,
+            output=output,
+        )
+    )
+    assert report["timeframe"] == "1w"
+    assert runner.verify_output(output)["timeframe"] == "1w"
 
 
 def test_valid_iso_csv_publishes_and_verifies(tmp_path: Path) -> None:
@@ -334,7 +410,7 @@ def test_binance_pagination_is_deterministic_and_bounded(tmp_path: Path, monkeyp
     adapter = FakeAdapter()
     report = asyncio.run(
         runner.run_viewer(
-            asset="ETHUSDT",
+            asset="1000PEPEUSDT",
             timeframe="1h",
             source="binance",
             start=BASE_START,
@@ -344,10 +420,42 @@ def test_binance_pagination_is_deterministic_and_bounded(tmp_path: Path, monkeyp
         )
     )
     assert len(adapter.calls) == 2
+    assert all(call[0] == "1000PEPEUSDT" for call in adapter.calls)
+    assert all(call[1] == "1h" for call in adapter.calls)
     assert all(call[2]["limit"] == runner.BINANCE_PAGE_LIMIT for call in adapter.calls)
     assert all(call[2]["include_close_time"] is True for call in adapter.calls)
     assert report["page_count"] == 2
     runner.verify_output(tmp_path / "binance")
+
+
+def test_binance_weekly_alignment_publishes_and_verifies(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(runner.FETCH_ENVIRONMENT_VARIABLE, "1")
+    interval_seconds = runner.TIMEFRAME_INTERVAL_SECONDS["1w"]
+    rows = _binance_frame(count=12, interval_seconds=interval_seconds)
+
+    class FakeAdapter:
+        async def get_historical_ohlcv(self, symbol, timeframe, **kwargs):
+            assert symbol == "BNBUSDT"
+            assert timeframe == "1w"
+            return rows[rows["timestamp"] >= kwargs["since"]].copy()
+
+    output = tmp_path / "weekly-binance"
+    report = asyncio.run(
+        runner.run_viewer(
+            asset="BNBUSDT",
+            timeframe="1w",
+            source="binance",
+            start=BASE_START,
+            as_of=BASE_START + timedelta(weeks=12),
+            output=output,
+            adapter_factory=FakeAdapter,
+        )
+    )
+    assert report["timeframe"] == "1w"
+    assert runner.verify_output(output)["timeframe"] == "1w"
 
 
 def test_binance_rebound_second_page_since_is_rejected(

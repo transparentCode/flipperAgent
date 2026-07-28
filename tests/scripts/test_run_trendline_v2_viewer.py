@@ -14,6 +14,25 @@ def test_help_exposes_csv_binance_serve_and_verify_modes() -> None:
     assert "--verify-output" in help_text
     assert "--serve" in help_text
     assert "--port" in help_text
+    assert "--end" in help_text
+    assert "1000PEPEUSDT" in help_text
+    assert "1w" in help_text
+
+
+def test_end_alias_populates_causal_as_of_boundary(tmp_path: Path) -> None:
+    args = runner.build_parser().parse_args(
+        [
+            "--asset",
+            "BNBUSDT",
+            "--timeframe",
+            "4h",
+            "--end",
+            "2026-07-25T00:00:00Z",
+            "--output",
+            str(tmp_path / "output"),
+        ]
+    )
+    assert args.as_of == "2026-07-25T00:00:00Z"
 
 
 def test_script_entry_point_preserves_runner_main(monkeypatch) -> None:

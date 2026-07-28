@@ -59,8 +59,26 @@ BINANCE_PAGE_LIMIT = 1_000
 MAX_BINANCE_PAGES = 100
 FETCH_ENVIRONMENT_VARIABLE = "TRENDLINE_V2_ALLOW_VIEWER_FETCH"
 _TIMESTAMP_INTEGER = re.compile(r"^[+-]?\d+$")
-_TIMEFRAME = re.compile(r"^(0|[1-9]\d*)([mhd])$")
-_ALLOWED_ASSETS = frozenset({"BTCUSDT", "ETHUSDT", "SUIUSDT", "SOLUSDT"})
+_ASSET = re.compile(r"^[A-Z0-9_]+$")
+TIMEFRAME_INTERVAL_SECONDS = {
+    "1m": 60,
+    "3m": 180,
+    "5m": 300,
+    "15m": 900,
+    "30m": 1_800,
+    "1h": 3_600,
+    "2h": 7_200,
+    "4h": 14_400,
+    "6h": 21_600,
+    "8h": 28_800,
+    "12h": 43_200,
+    "1d": 86_400,
+    "3d": 259_200,
+    "1w": 604_800,
+}
+TIMEFRAME_ALIGNMENT_OFFSET_SECONDS = {
+    "1w": 4 * 86_400,
+}
 _OUTPUT_MEMBERS = frozenset(
     {"source_binding.json", "provider_result.json", "run_report.json", "viewer_bundle"}
 )
@@ -150,24 +168,29 @@ def _parse_datetime(value: datetime | str, *, field_name: str) -> datetime:
 
 
 def validate_asset(asset: str) -> str:
-    if not isinstance(asset, str) or asset not in _ALLOWED_ASSETS:
+    if (
+        not isinstance(asset, str)
+        or not 2 <= len(asset) <= 40
+        or _ASSET.fullmatch(asset) is None
+        or not any("A" <= character <= "Z" for character in asset)
+        or asset.startswith("_")
+        or asset.endswith("_")
+        or "__" in asset
+    ):
         raise ViewerRunnerError(
-            "asset must be one of BTCUSDT, ETHUSDT, SUIUSDT or SOLUSDT in canonical uppercase"
+            "asset must be a 2-40 character canonical uppercase Binance symbol "
+            "using A-Z, 0-9 and single underscores"
         )
     return asset
 
 
 def timeframe_interval_seconds(timeframe: str) -> int:
-    if not isinstance(timeframe, str):
-        raise ViewerRunnerError("timeframe must use <number>m, <number>h or <number>d")
-    match = _TIMEFRAME.fullmatch(timeframe)
-    if match is None:
-        raise ViewerRunnerError("timeframe must use <number>m, <number>h or <number>d")
-    quantity = int(match.group(1))
-    if quantity <= 0:
-        raise ViewerRunnerError("timeframe quantity must be positive")
-    multiplier = {"m": 60, "h": 3_600, "d": 86_400}[match.group(2)]
-    return quantity * multiplier
+    if not isinstance(timeframe, str) or timeframe not in TIMEFRAME_INTERVAL_SECONDS:
+        supported = ", ".join(TIMEFRAME_INTERVAL_SECONDS)
+        raise ViewerRunnerError(
+            f"timeframe must be a supported fixed-duration Binance interval: {supported}"
+        )
+    return TIMEFRAME_INTERVAL_SECONDS[timeframe]
 
 
 def foundation_config() -> ResolvedTrendlineV2Config:
@@ -232,6 +255,7 @@ def _validate_cadence(
     timestamps: pd.DatetimeIndex,
     *,
     interval_seconds: int,
+    alignment_offset_seconds: int = 0,
 ) -> None:
     if timestamps.empty:
         raise ViewerRunnerError("no complete candles remain at as-of boundary")
@@ -243,7 +267,10 @@ def _validate_cadence(
         .view("int64")
     )
     epoch_seconds = epoch_nanoseconds // 1_000_000_000
-    if any(int(value) % interval_seconds for value in epoch_seconds):
+    if any(
+        (int(value) - alignment_offset_seconds) % interval_seconds
+        for value in epoch_seconds
+    ):
         raise ViewerRunnerError("candle timestamps are not aligned to declared timeframe")
     if not timestamps.is_monotonic_increasing:
         raise ViewerRunnerError("candle timestamps are not strictly increasing")
@@ -300,7 +327,11 @@ def _causal_frame_from_raw(
     if not complete.any():
         raise ViewerRunnerError("no complete candles remain at requested boundaries")
     selected_timestamps = timestamps[complete]
-    _validate_cadence(selected_timestamps, interval_seconds=interval_seconds)
+    _validate_cadence(
+        selected_timestamps,
+        interval_seconds=interval_seconds,
+        alignment_offset_seconds=TIMEFRAME_ALIGNMENT_OFFSET_SECONDS.get(timeframe, 0),
+    )
     selected = raw.loc[complete, list(MODEL_COLUMNS)].copy()
     normalized = _validate_ohlcv(selected)
     normalized.index = selected_timestamps
@@ -392,6 +423,7 @@ async def _load_binance(
 ) -> tuple[ConfirmedOHLCVFrame, dict[str, Any]]:
     adapter = adapter_factory()
     interval_ms = interval_seconds * 1_000
+    alignment_offset_ms = TIMEFRAME_ALIGNMENT_OFFSET_SECONDS.get(timeframe, 0) * 1_000
     current_start_ms = int(start.timestamp() * 1_000)
     as_of_ms = int(as_of.timestamp() * 1_000)
     pages: list[pd.DataFrame] = []
@@ -432,7 +464,10 @@ async def _load_binance(
         page_timestamps = pd.to_datetime(opens, unit="ms", utc=True, errors="raise")
         if not page_timestamps.is_monotonic_increasing or not page_timestamps.is_unique:
             raise ViewerRunnerError("Binance page timestamps are not strictly increasing")
-        if any(int(open_time) % interval_ms for open_time in opens):
+        if any(
+            (int(open_time) - alignment_offset_ms) % interval_ms
+            for open_time in opens
+        ):
             raise ViewerRunnerError("Binance page timestamps are not timeframe aligned")
         if len(opens) > 1 and any(
             int(next_open) - int(open_time) != interval_ms
@@ -1018,6 +1053,9 @@ def _validate_source_binding(
             raise ViewerRunnerError("Binance row count does not match page count")
         start_ms = int(start.timestamp() * 1_000)
         interval_ms = interval_seconds * 1_000
+        alignment_offset_ms = (
+            TIMEFRAME_ALIGNMENT_OFFSET_SECONDS.get(result.request.timeframe, 0) * 1_000
+        )
         until_ms = int(binding_as_of.timestamp() * 1_000)
         for page_index, page in enumerate(pages):
             if not isinstance(page, Mapping):
@@ -1034,7 +1072,7 @@ def _validate_source_binding(
                 raise ViewerRunnerError("Binance request page sequence mismatch")
             if page["since"] > until_ms:
                 raise ViewerRunnerError("Binance request page starts after until")
-            if page["since"] % interval_ms:
+            if (page["since"] - alignment_offset_ms) % interval_ms:
                 raise ViewerRunnerError("Binance request page alignment mismatch")
         if pages[0]["since"] != int(start.timestamp() * 1_000):
             raise ViewerRunnerError("Binance request start mismatch")
@@ -1397,12 +1435,24 @@ def serve_viewer(output: str | Path, *, port: int = 8765) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run a generic Trendline V2 viewer")
-    parser.add_argument("--asset")
-    parser.add_argument("--timeframe")
+    parser.add_argument(
+        "--asset",
+        help="canonical uppercase Binance symbol, for example BNBUSDT or 1000PEPEUSDT",
+    )
+    parser.add_argument(
+        "--timeframe",
+        choices=tuple(TIMEFRAME_INTERVAL_SECONDS),
+        help="fixed-duration Binance candle interval",
+    )
     parser.add_argument("--input-csv", type=Path)
     parser.add_argument("--source", choices=("csv", "binance"), default=None)
-    parser.add_argument("--start")
-    parser.add_argument("--as-of")
+    parser.add_argument("--start", help="inclusive ISO-8601 UTC start boundary")
+    parser.add_argument(
+        "--as-of",
+        "--end",
+        dest="as_of",
+        help="exclusive ISO-8601 UTC end/causal boundary",
+    )
     parser.add_argument("--output", type=Path)
     parser.add_argument("--serve", action="store_true")
     parser.add_argument("--port", type=int, default=None)
@@ -1455,6 +1505,8 @@ __all__ = [
     "MAX_BINANCE_PAGES",
     "PROVIDER_PROFILE_NAME",
     "SOURCE_BINDING_SCHEMA_VERSION",
+    "TIMEFRAME_ALIGNMENT_OFFSET_SECONDS",
+    "TIMEFRAME_INTERVAL_SECONDS",
     "VIEWER_PROVIDER_CONFIG_VALUES",
     "ViewerRunnerError",
     "build_parser",

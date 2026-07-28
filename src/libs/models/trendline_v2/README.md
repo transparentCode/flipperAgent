@@ -36,13 +36,43 @@ PYTHONPATH=src .venv/bin/python \
   --bundle <viewer_bundle>
 ```
 
-Use generic asset/timeframe runner with:
+Use the generic runner with any canonical uppercase Binance USD-M symbol and
+any supported fixed-duration Binance interval:
+
+```text
+1m 3m 5m 15m 30m 1h 2h 4h 6h 8h 12h 1d 3d 1w
+```
+
+CSV example:
 
 ```bash
 PYTHONPATH=src .venv/bin/python \
   scripts/run_trendline_v2_viewer.py \
   --asset <ASSET> \
   --timeframe <TIMEFRAME> \
+  --source csv \
   --input-csv <CSV_PATH> \
+  --start <START_ISO_UTC> \
+  --end <END_EXCLUSIVE_ISO_UTC> \
+  --output <OUTPUT_DIRECTORY> \
   --serve
 ```
+
+Binance example:
+
+```bash
+TRENDLINE_V2_ALLOW_VIEWER_FETCH=1 \
+PYTHONPATH=src .venv/bin/python \
+  scripts/run_trendline_v2_viewer.py \
+  --asset <ASSET> \
+  --timeframe <TIMEFRAME> \
+  --source binance \
+  --start <START_ISO_UTC> \
+  --end <END_EXCLUSIVE_ISO_UTC> \
+  --output <OUTPUT_DIRECTORY> \
+  --serve
+```
+
+The exchange validates that the requested symbol exists and is listed. Monthly
+`1M` candles remain excluded because the viewer's causal source contract requires
+a fixed interval duration.
