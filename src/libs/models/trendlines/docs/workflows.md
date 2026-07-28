@@ -62,6 +62,16 @@ and cached responses. The notebook synthetic smoke path makes zero provider call
 Explicit Binance use remains research-only and requires an authorized injected
 loader. L2-B itself does not use real Binance data.
 
+The final generic TVLC runner is a separate explicit composition seam. It requires
+the `TRENDLINES_ALLOW_RESEARCH_VIEWER_FETCH=1` guard before loader construction or
+staging, resolves one requested asset/timeframe through canonical YAML, uses
+`BinanceTrendlineResearchLoader` without adding retries, and keeps exchange-close
+availability semantics. Its replay executes from warm-up position `19` through the
+last prepared row while recording only that final position for the chart. Output is
+published through a sibling staging directory and verified as exactly
+`viewer_bundle/{chart_payload.json,manifest.json}` plus `run_report.json`; the
+report binds preparation, dataset, replay, evidence, payload, and bundle identities.
+
 ## Causal adequacy foundation (L2-D1)
 
 The package-local adequacy foundation freezes evaluation windows and recorded

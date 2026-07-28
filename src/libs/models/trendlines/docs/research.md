@@ -115,6 +115,16 @@ selected payload, and serves a temporary read-only loopback bundle. Binance mode
 guarded by explicit `RESEARCH` purpose, provider authorization, and an injected
 loader; no real provider call is part of L2-B validation.
 
+The generic mature-model TVLC runner is `scripts/run_trendlines_research_viewer.py`.
+It accepts arbitrary canonical Binance USD-M symbols, fixed intervals from `1m`
+through `1w`, and explicit UTC event/knowledge boundaries. Binance acquisition is
+guarded by `TRENDLINES_ALLOW_RESEARCH_VIEWER_FETCH=1`; the runner uses the existing
+research loader, executes one causal replay through the final prepared position,
+records only that final point, and publishes an atomically staged viewer bundle and
+identity-bound `run_report.json`. `--verify-output` performs source-independent
+bundle/report readback without provider, model, or replay execution. Monthly `1M`
+candles and arbitrary unsupported intervals remain rejected.
+
 The viewer payload binds selected replay point, content, checkpoint, source,
 fit/boundary/signal revisions, and a separate display-window identity. The display
 window is a bounded chart view and is not the model prefix source. Bundle writes are

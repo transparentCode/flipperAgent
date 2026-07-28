@@ -29,6 +29,7 @@ _TF_MINUTES: Dict[str, int] = {
     "8h": 480,
     "12h": 720,
     "1d": 1440,
+    "1w": 10080,
 }
 
 _MIN_BARS_FOR_PROFILE = 20
