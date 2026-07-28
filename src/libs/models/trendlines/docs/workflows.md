@@ -576,3 +576,17 @@ baseline-result bindings. The capsule and aggregate validators reject changed
 root configuration fields, wrong member/variant order, missing stages, altered
 digests, and incomplete delta coordinates. D5C makes no provider calls and
 selects no sensitivity or adequacy outcome. D5D remains unstarted.
+
+## L2-D5D final disposition
+
+`final_disposition.py` consumes only committed D5A-D5C artifacts. Its public
+contracts bind the frozen five-member scope, support/resistance and 1/3/6/12
+bar coordinates, null-cell classifications, sensitivity classifications,
+cohort evidence IDs, final outcome, and recommended non-production action.
+
+The synthesis script has no provider, model, or replay boundary. It verifies
+prior checksum inventories and content-addressed IDs before writing exactly
+six terminal files: final bundle, cohort evidence, reviewable decision
+matrix, manifest, review, and checksums. Outcome and action are recomputed by
+the frozen hierarchy; manual overrides fail validation. D5D is the terminal
+mature-trendlines research phase.

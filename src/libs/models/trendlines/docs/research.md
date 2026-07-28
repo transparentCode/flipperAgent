@@ -403,3 +403,23 @@ each ID to its D5A member and committed baseline result; complete capsule
 payloads remain in ten per-variant files. Event-population differences make
 cross-configuration rate deltas descriptive rather than paired causal effects.
 D5D synthesis and final adequacy disposition remain deferred.
+
+## Final adequacy disposition (L2-D5D)
+
+L2-D5D is an artifact-only terminal synthesis. It verifies committed D5A,
+D5B, and D5C checksum inventories and content identities, reconstructs the
+five canonical cohort rows, and includes both dense and sparse sensitivity
+capsules for every cohort. No provider, model, replay, parameter trial, or
+favourable-subset selection occurs.
+
+The frozen decision axes are evidence completeness, structural non-triviality,
+null-relative interaction utility, and geometry sensitivity. Random-pair and
+causal density-matched nulls remain separate; the latter is decisive when
+testing current-prefix geometry assignment. Sensitivity comparisons remain
+descriptive because variants can have different event populations.
+
+The final bundle selects exactly one existing adequacy outcome and one
+non-production recommended action through the ordered coverage, utility,
+stability, churn, and residual-ambiguity rules. Final evidence closes mature
+trendlines research; later redesign, cleanup, integration, or promotion is a
+new programme.
