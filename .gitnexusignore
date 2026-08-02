@@ -1,0 +1,3 @@
+# Skip large, non-source directories for GitNexus indexing
+/data/
+/research/

@@ -56,7 +56,7 @@ RUN ARCH=$(dpkg --print-architecture) \
 RUN npm install -g caveman-shrink@0.1.0 && command -v caveman-shrink
 
 # Install mcp-proxy.
-RUN pip3 install --break-system-packages mcp==1.17.0 mcp-proxy==${MCP_PROXY_VERSION}
+RUN pip3 install --break-system-packages mcp==1.29.0 mcp-proxy==${MCP_PROXY_VERSION}
 
 # Patch mcp-proxy so tools/list pagination (cursor) is forwarded to the stdio
 # backend. Without this, only the first page of tools is ever returned.

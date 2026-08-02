@@ -23,9 +23,9 @@ services:
       resources:
         limits:
           # Large code-intelligence backends need memory for graph queries.
-          # Indexing benefits from more headroom; runtime queries run fine here.
-          memory: 2G
-          cpus: '1'
+          # Full-repo indexing needs more headroom than sub-project indexing.
+          memory: 8G
+          cpus: '4'
     networks:
       - mcp-net
     healthcheck:
