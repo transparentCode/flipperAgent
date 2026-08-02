@@ -1,1 +1,0 @@
-"""Legacy app namespace package."""
