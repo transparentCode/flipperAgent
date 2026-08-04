@@ -16,6 +16,13 @@ editing existing symbols, and make the smallest safe change. Preserve quant safe
 and public contracts. Run focused validation, inspect the final diff, and self-review
 before returning evidence to the orchestrator.
 
+Never assume anything during implementation. Verify every parameter, schema, and
+behavior against the contract and the live checkout; when intent is unclear, ask the
+orchestrator or user instead of guessing or inventing. Make the smallest safe change
+with no speculative abstractions or gold-plating. Reuse existing functions and
+modules before writing new code. Extract configurable behavior into YAML configs and
+define constants in the constants file rather than hard-coding literals.
+
 The orchestrator owns durable handoff persistence. If the orchestrator requests a
 `coder-to-orchestrator` handoff under `plans/`, provide the required sections:
 scope executed, files changed, blast radius, validation commands/results,

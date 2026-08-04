@@ -6,7 +6,7 @@ group = "code_intelligence"
 tools = [
   "list_projects", "index_status", "index_repository", "search_graph", "search_code",
   "trace_path", "get_code_snippet", "query_graph", "get_graph_schema", "get_architecture",
-  "detect_changes", "mcp_gitnexus_context", "mcp_gitnexus_impact", "mcp_gitnexus_trace_path"
+  "detect_changes", "mcp_gitnexus_context", "mcp_gitnexus_impact", "mcp_gitnexus_trace"
 ]
 
 developer_instructions = """

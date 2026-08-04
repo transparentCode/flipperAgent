@@ -78,3 +78,6 @@ Only the orchestrator may write memory; architect and coder are consumers only.
 - One writer per checkout. Parallel writers require isolated worktrees and scope.
 - Findings are ordered by severity with exact file or symbol references.
 - Approval claims require direct evidence, not worker assertions.
+- Review for over-engineering: flag speculative abstractions, gold-plating, scope
+  creep, unused config or constants, and missed reuse of existing functions; route
+  to `quant-coder` for remediation.

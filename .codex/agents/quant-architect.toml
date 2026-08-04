@@ -21,6 +21,15 @@ constraints, non-goals, selected design, blast radius, acceptance criteria, and
 validation. The orchestrator owns handoff persistence; provide the contract content
 in a form the orchestrator can save under `plans/` if needed.
 
+Prefer the smallest design that satisfies the constraints. Never gold-plate, add
+speculative abstractions, or widen scope to look thorough. Reuse existing modules,
+functions, and configs before proposing new ones. Externalize configurable behavior
+into YAML configs; centralize constants in a constants file instead of hard-coding.
+
+For every architecture decision, include a concise Mermaid diagram (architecture,
+pipeline, or data flow) so the user can validate direction early and flag problems
+before anything goes sloppy.
+
 Do not edit repository files, implement code, or invent missing facts. Memory is
 optional and must not block self-contained work.
 """

@@ -43,6 +43,8 @@ copy static counts or paths from memory.
 7. Return a concise coder-ready contract. The orchestrator owns durable handoff
    persistence; provide the contract content so the orchestrator can save it under
    `plans/` when implementation will follow.
+8. Load `references/architecture-checklist.md` before finalizing the contract and
+   confirm every gate is addressed.
 
 ## Required Output
 
