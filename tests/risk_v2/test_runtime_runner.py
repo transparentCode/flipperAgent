@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from libs.common.asset_manifest import AssetLifecycleEvent, AssetLifecycleEventType
 from apps.risk_app.runtime.runner import RiskRuntimeRunner
+from libs.common.asset_manifest import AssetLifecycleEvent, AssetLifecycleEventType
 from libs.risk.account_state import AccountState
 from libs.risk.position_tracker import PositionTracker
 
@@ -28,7 +28,9 @@ async def test_runtime_runner_spawns_workers_and_fill_listeners() -> None:
     persistence_started = asyncio.Event()
     workers_started = asyncio.Event()
 
-    async def fake_supervisor(label: str, build_consumer, redis_client: Any, restart_delay_seconds: int) -> None:
+    async def fake_supervisor(
+        label: str, build_consumer, redis_client: Any, restart_delay_seconds: int
+    ) -> None:
         labels.append(label)
         consumer = build_consumer()
         spawned.append((label, consumer))
@@ -36,7 +38,9 @@ async def test_runtime_runner_spawns_workers_and_fill_listeners() -> None:
             workers_started.set()
         await asyncio.sleep(3600)
 
-    async def fake_persistence(account: AccountState, positions: PositionTracker, interval_seconds: int) -> None:
+    async def fake_persistence(
+        account: AccountState, positions: PositionTracker, interval_seconds: int
+    ) -> None:
         persistence_calls.append(interval_seconds)
         persistence_started.set()
         await asyncio.sleep(3600)
@@ -103,7 +107,10 @@ def test_v2_runtime_components_keep_stream_contracts() -> None:
     )
 
     assert worker.signal_stream_keys == ["signals:BTCUSDT:1h", "signals:BTCUSDT:4h"]
-    assert worker.price_stream_keys == ["price_update:BTCUSDT:1h", "price_update:BTCUSDT:4h"]
+    assert worker.price_stream_keys == [
+        "price_update:BTCUSDT:1h",
+        "price_update:BTCUSDT:4h",
+    ]
     assert worker.order_stream_key == "orders:BTCUSDT"
     assert listener.stream_key == "fills:BTCUSDT"
 
@@ -112,7 +119,9 @@ def test_v2_runtime_components_keep_stream_contracts() -> None:
 async def test_lifecycle_pause_stops_risk_worker_but_keeps_fill_listener() -> None:
     cancelled: list[str] = []
 
-    async def fake_supervisor(label: str, build_consumer, redis_client: Any, restart_delay_seconds: int) -> None:
+    async def fake_supervisor(
+        label: str, build_consumer, redis_client: Any, restart_delay_seconds: int
+    ) -> None:
         try:
             await asyncio.sleep(3600)
         except asyncio.CancelledError:
@@ -160,12 +169,16 @@ async def test_lifecycle_pause_stops_risk_worker_but_keeps_fill_listener() -> No
 
 
 @pytest.mark.asyncio
-async def test_lifecycle_live_restarts_worker_on_timeframe_change() -> None:
+async def test_lifecycle_live_restores_configured_worker_timeframes() -> None:
     started: list[tuple[str, list[str]]] = []
 
-    async def fake_supervisor(label: str, build_consumer, redis_client: Any, restart_delay_seconds: int) -> None:
+    async def fake_supervisor(
+        label: str, build_consumer, redis_client: Any, restart_delay_seconds: int
+    ) -> None:
         consumer = build_consumer()
-        started.append((label, consumer[1]["timeframes"] if consumer[0] == "risk_worker" else []))
+        started.append(
+            (label, consumer[1]["timeframes"] if consumer[0] == "risk_worker" else [])
+        )
         await asyncio.sleep(3600)
 
     runner = RiskRuntimeRunner(
@@ -200,19 +213,22 @@ async def test_lifecycle_live_restarts_worker_on_timeframe_change() -> None:
     )
     await asyncio.sleep(0)
 
-    assert runner._worker_timeframes["BTCUSDT"] == ["1h", "4h"]
+    assert runner._worker_timeframes["BTCUSDT"] == ["1h"]
     assert ("RiskWorker[BTCUSDT]", ["1h"]) in started
-    assert ("RiskWorker[BTCUSDT]", ["1h", "4h"]) in started
 
     await runner._stop_risk_worker("BTCUSDT")
     await runner._stop_fill_listener("BTCUSDT")
 
 
 @pytest.mark.asyncio
-async def test_lifecycle_removing_stops_fill_listener_only_without_open_exposure() -> None:
+async def test_lifecycle_removing_stops_fill_listener_only_without_open_exposure() -> (
+    None
+):
     cancelled: list[str] = []
 
-    async def fake_supervisor(label: str, build_consumer, redis_client: Any, restart_delay_seconds: int) -> None:
+    async def fake_supervisor(
+        label: str, build_consumer, redis_client: Any, restart_delay_seconds: int
+    ) -> None:
         try:
             await asyncio.sleep(3600)
         except asyncio.CancelledError:

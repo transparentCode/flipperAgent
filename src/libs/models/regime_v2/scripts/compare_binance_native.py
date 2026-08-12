@@ -18,7 +18,7 @@ from typing import Any
 
 import pandas as pd
 
-from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
+from libs.market_data.binance_native import BinanceNativeAdapter
 from libs.models.regime_v2.evaluation import RegimeComparisonConfig, run_regime_comparison
 from libs.common.timeframes import timeframe_to_seconds
 from libs.models.trendlines.signals.context import BarAvailabilitySource

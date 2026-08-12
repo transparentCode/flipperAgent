@@ -6,27 +6,28 @@ title: {
 }
 
 inputs: {
-  label: "Inputs"
+  label: "Inputs / Control"
   style.fill: "#E8F1FF"
 
+  config: {
+    label: "configs/ingestion\nglobal + per-asset YAML"
+    shape: document
+    link: "../../../configs/ingestion/global.yaml"
+  }
+
   api_client: {
-    label: "api_app / operator / internal caller"
-    link: "../../../src/apps/api_app/routers/ingestion.py"
+    label: "operator / api_app"
+    link: "../../../src/apps/ingestion_app/api/routes.py"
   }
 
   binance_ws: {
-    label: "Binance WS"
-    link: "../../../src/apps/ingestion_app/adapters/binance_native.py"
+    label: "Binance Futures WS"
+    link: "../../../src/apps/ingestion_app/runtime/websocket.py"
   }
 
-  binance_rest: {
-    label: "Binance REST / CCXT"
-    link: "../../../src/apps/ingestion_app/adapters/crypto_ccxt.py"
-  }
-
-  scraper_app: {
-    label: "scraper_app"
-    link: "../../../src/apps/scraper_app/api/app.py"
+  historical: {
+    label: "Binance REST + CCXT"
+    link: "../../../src/apps/ingestion_app/providers/base.py"
   }
 }
 
@@ -35,123 +36,119 @@ ingestion_app: {
   style.fill: "#EEF7EA"
   link: "./README.md"
 
-  runtime_process: {
-    label: "runtime_process"
+  main: {
+    label: "main / FastAPI bootstrap"
     link: "../../../src/apps/ingestion_app/main.py"
   }
 
-  runtime_app: {
-    label: "runtime_app"
-    link: "../../../src/apps/ingestion_app/runtime/app.py"
+  settings: {
+    label: "typed settings"
+    link: "../../../src/apps/ingestion_app/settings.py"
   }
 
-  ingress_routes: {
-    label: "ingestion_router"
-    link: "../../../src/apps/api_app/routers/ingestion.py"
+  api: {
+    label: "control API"
+    link: "../../../src/apps/ingestion_app/api/routes.py"
   }
 
-  control_plane: {
-    label: "control_plane"
-    link: "../../../src/apps/ingestion_app/control_plane/service.py"
+  config_service: {
+    label: "AssetConfigService"
+    link: "../../../src/apps/ingestion_app/services/config_reconciliation.py"
   }
 
-  runtime_reconciler: {
-    label: "runtime_reconciler"
-    link: "../../../src/apps/ingestion_app/runtime/reconciler.py"
+  controller: {
+    label: "RuntimeController"
+    link: "../../../src/apps/ingestion_app/runtime/controller.py"
   }
 
-  websocket_pipeline: {
-    label: "websocket_pipeline"
+  supervisor: {
+    label: "RuntimeSupervisor"
+    link: "../../../src/apps/ingestion_app/runtime/supervisor.py"
+  }
+
+  websocket: {
+    label: "BinanceWebSocketManager"
     link: "../../../src/apps/ingestion_app/runtime/websocket.py"
   }
 
-  queue_worker: {
-    label: "queue_jobs"
-    link: "../../../src/apps/ingestion_app/worker.py"
+  recovery: {
+    label: "RecoveryEngine"
+    link: "../../../src/apps/ingestion_app/services/recovery.py"
   }
 
-  scraper_bridge: {
-    label: "scraper_bridge"
-    link: "../../../src/apps/api_app/clients/scraper_service.py"
+  ingestion_service: {
+    label: "CandleIngestionService"
+    link: "../../../src/apps/ingestion_app/services/candle_ingestion.py"
+  }
+
+  htf: {
+    label: "HTFAggregationService"
+    link: "../../../src/apps/ingestion_app/services/htf_aggregation.py"
+  }
+
+  repository: {
+    label: "CandleRepository"
+    link: "../../../src/apps/ingestion_app/storage/repository.py"
+  }
+
+  publisher: {
+    label: "OutboxPublisher"
+    link: "../../../src/apps/ingestion_app/publication/publisher.py"
+  }
+
+  lifecycle: {
+    label: "AssetLifecycleReconciler"
+    link: "../../../src/apps/ingestion_app/services/asset_lifecycle.py"
+  }
+
+  retention: {
+    label: "RetentionJanitor"
+    link: "../../../src/apps/ingestion_app/services/retention.py"
+  }
+
+  observability: {
+    label: "observability"
+    link: "../../../src/apps/ingestion_app/observability.py"
+  }
+}
+
+timescale: {
+  label: "TimescaleDB — historical authority"
+  style.fill: "#F4EAFE"
+
+  candles: {
+    label: "ingestion.candles\ncanonical OHLCV hypertable"
+    shape: cylinder
+    link: "../../../src/apps/ingestion_app/storage/schema.sql"
+  }
+
+  outbox: {
+    label: "ingestion.outbox\ndurable publication intents"
+    shape: cylinder
+    link: "../../../src/apps/ingestion_app/storage/schema.sql"
   }
 }
 
 valkey: {
-  label: "Valkey"
+  label: "Valkey — bounded transport / runtime projection"
   style.fill: "#FFF2D8"
 
-  manifest_asset: {
-    label: "asset:{symbol}\nprojection"
-    link: "../../../src/libs/common/asset_manifest.py"
-  }
-
-  manifest_tf: {
-    label: "asset:{symbol}:tf:{tf}\nprojection"
-    link: "../../../src/libs/common/asset_manifest.py"
-  }
-
-  lifecycle: {
-    label: "asset:lifecycle"
-    link: "../../../src/libs/common/asset_manifest.py"
-  }
-
-  control_stream: {
-    label: "stream:control:ingestion"
-    link: "../../../src/apps/ingestion_app/control_plane/publisher.py"
-  }
-
-  events_stream: {
-    label: "stream:events:ingestion"
-    link: "../../../src/apps/ingestion_app/control_plane/publisher.py"
-  }
-
-  asset_status_stream: {
-    label: "asset:status"
-    link: "../../../src/libs/common/asset_status.py"
-  }
-
-  dlq_stream: {
-    label: "stream:dlq:ingestion (target)"
-  }
-
-  ohlcv_stream: {
-    label: "stream:ohlcv:{symbol}:{tf}"
-    link: "../../../src/apps/ingestion_app/runtime/websocket.py"
-  }
-
-  runtime_state: {
-    label: "ingestion:state:{symbol}:{tf}\ninternal coordination state"
-    link: "../../../src/apps/ingestion_app/coordination.py"
-  }
-
-  runtime_status: {
-    label: "ingestion:runtime_status:{symbol}:{tf}\nstatus projection"
-    link: "../../../src/libs/common/asset_status.py"
-  }
-
-  arq_jobs: {
-    label: "ARQ jobs"
-    link: "../../../src/apps/ingestion_app/worker.py"
-  }
-}
-
-timescaledb: {
-  label: "TimescaleDB"
-  style.fill: "#F4EAFE"
-
-  ingestion_assets: {
-    label: "ingestion_assets\ncanonical registry"
-    link: "../../../src/apps/ingestion_app/storage/schema.sql"
-  }
-
   ohlcv: {
-    label: "ohlcv"
-    link: "../../../src/apps/ingestion_app/storage/schema.sql"
+    label: "stream:ohlcv:ingestion:{venue}:{instrument_id}:{tf}"
+    shape: queue
+    link: "../../../src/apps/ingestion_app/publication/stream_keys.py"
   }
 
-  l2_depth_features: {
-    label: "l2_depth_features"
-    link: "../../../src/apps/ingestion_app/storage/schema.sql"
+  asset_manifest: {
+    label: "asset:{symbol}\nasset:{symbol}:tf:{tf}"
+    shape: stored_data
+    link: "../../../src/libs/common/asset_manifest.py"
+  }
+
+  lifecycle_stream: {
+    label: "asset:lifecycle"
+    shape: queue
+    link: "../../../src/libs/common/asset_manifest.py"
   }
 }
 
@@ -164,135 +161,61 @@ downstream: {
     link: "../signal_app/README.md"
   }
 
-  strategy_app: {
-    label: "strategy_app"
-    link: "../strategy_app/README.md"
-  }
-
-  risk_app: {
-    label: "risk_app (target chain)"
-    link: "../risk_app/README.md"
-  }
-
-  execution_app: {
-    label: "execution_app (target chain)"
-    link: "../execution_app/README.md"
-  }
-
   alert_app: {
-    label: "alert_app"
+    label: "alert_app lifecycle consumer"
     link: "../alert_app/README.md"
   }
 }
 
-quality: {
-  label: "Quality / Safety"
-  style.fill: "#EAF7F0"
-
-  validator: {
-    label: "candle_validator"
-    link: "../../../src/apps/ingestion_app/runtime/websocket.py"
-  }
-}
-
-observability: {
-  label: "Observability"
+ops: {
+  label: "Operations"
   style.fill: "#F8F1E8"
 
-  metrics: {
-    label: "Prometheus metrics"
-  }
-
-  dashboards: {
-    label: "Grafana dashboards"
-  }
-
-  logs: {
-    label: "Loki / structured logs"
-  }
-
-  alerts: {
-    label: "alert_app / operator alerts"
-  }
+  metrics: { label: "OTEL / Prometheus" }
+  grafana: { label: "Grafana ingestion" }
+  logs: { label: "structured logs / Loki" }
 }
 
-contracts: {
-  label: "Explicit Contracts"
-  style.fill: "#F3FAEF"
+inputs.config -> ingestion_app.settings: "validate"
+inputs.api_client -> ingestion_app.api: "HTTP control"
+inputs.binance_ws -> ingestion_app.websocket: "finalized 1m candles"
+inputs.historical -> ingestion_app.recovery: "bounded historical pages"
 
-  truth: {
-    label: "canonical truth\nTimescaleDB `ingestion_assets` = only durable owner\nValkey = runtime projection + streams\nnever dual-write independent truth"
-  }
+ingestion_app.main -> ingestion_app.settings: "load"
+ingestion_app.main -> ingestion_app.controller: "compose/start"
+ingestion_app.main -> ingestion_app.publisher: "background task"
+ingestion_app.main -> ingestion_app.lifecycle: "broker-bound projection"
+ingestion_app.main -> ingestion_app.retention: "background janitor"
+ingestion_app.api -> ingestion_app.config_service: "create / patch asset"
+ingestion_app.api -> ingestion_app.controller: "pause / resume / reconnect / recover"
+ingestion_app.config_service -> ingestion_app.settings: "reload candidate"
+ingestion_app.config_service -> ingestion_app.controller: "replace settings"
+ingestion_app.config_service -> ingestion_app.lifecycle: "mark asset dirty"
+ingestion_app.controller -> ingestion_app.supervisor: "fresh supervisor"
+ingestion_app.supervisor -> ingestion_app.recovery: "startup / interruption recovery"
+ingestion_app.supervisor -> ingestion_app.websocket: "live stream"
+ingestion_app.websocket -> ingestion_app.supervisor: "CandleObservation"
+ingestion_app.supervisor -> ingestion_app.ingestion_service: "commit base candle"
+ingestion_app.supervisor -> ingestion_app.htf: "derive / reconcile HTFs"
+ingestion_app.recovery -> ingestion_app.ingestion_service: "recovered base candles"
+ingestion_app.recovery -> ingestion_app.htf: "affected HTF closure"
+ingestion_app.ingestion_service -> ingestion_app.repository: "canonical commit"
+ingestion_app.htf -> ingestion_app.repository: "read constituents"
+ingestion_app.htf -> ingestion_app.ingestion_service: "commit derived candle"
+ingestion_app.publisher -> ingestion_app.repository: "read pending / mark published"
+ingestion_app.retention -> ingestion_app.repository: "published outbox cleanup / drop chunks"
 
-  idempotency: {
-    label: "lifecycle idempotency\nrequest_id\ncommand_id\nasset_version\ntimeframe_version\nreplay must converge to one runtime + one backfill"
-  }
+ingestion_app.repository -> timescale.candles: "read / write"
+ingestion_app.repository -> timescale.outbox: "atomic outbox write"
+timescale.outbox -> ingestion_app.publisher: "pending rows"
+ingestion_app.publisher -> valkey.ohlcv: "XADD at least once"
+ingestion_app.lifecycle -> valkey.asset_manifest: "project config state"
+ingestion_app.lifecycle -> valkey.lifecycle_stream: "publish transition"
+valkey.ohlcv -> downstream.signal_app: "consume"
+valkey.lifecycle_stream -> downstream.signal_app: "consume"
+valkey.lifecycle_stream -> downstream.alert_app: "consume"
+timescale.candles -> downstream.signal_app: "history priming / recovery"
 
-  recovery: {
-    label: "recovery rules\nWS disconnect/restart -> WARMING\nrecover from last persisted closed candle + overlap\ndedupe duplicate candle\npromote LIVE only after parity restored"
-  }
-
-  candle_contract: {
-    label: "candle finality\nclosed = default downstream trigger\nforming/provisional stays internal or opt-in\ncorrected_closed = explicit repair signal"
-  }
-
-  parity: {
-    label: "backtest/live parity\nsame stored OHLCV semantics\nsame close timestamp convention\nsame finality + correction policy\nsource precedence is explicit"
-  }
-}
-
-inputs.api_client -> ingestion_app.ingress_routes: "HTTP"
-ingestion_app.runtime_process -> ingestion_app.runtime_app: "boot"
-inputs.binance_ws -> ingestion_app.websocket_pipeline: "live candles"
-inputs.binance_rest -> ingestion_app.queue_worker: "backfill / depth"
-inputs.api_client -> ingestion_app.scraper_bridge: "on-demand scraper routes"
-ingestion_app.scraper_bridge -> inputs.scraper_app: "internal HTTP"
-
-ingestion_app.ingress_routes -> ingestion_app.control_plane: "asset lifecycle"
-ingestion_app.control_plane -> timescaledb.ingestion_assets: "persist desired state"
-ingestion_app.control_plane -> valkey.manifest_asset: "sync canonical asset"
-ingestion_app.control_plane -> valkey.manifest_tf: "sync canonical asset/timeframe"
-ingestion_app.control_plane -> valkey.lifecycle: "publish lifecycle"
-ingestion_app.control_plane -> valkey.control_stream: "publish runtime commands"
-ingestion_app.control_plane -> valkey.events_stream: "publish accepted events"
-ingestion_app.control_plane -> contracts.truth: "owns durable registry rule"
-ingestion_app.control_plane -> contracts.idempotency: "must converge repeated requests"
-
-ingestion_app.runtime_app -> ingestion_app.runtime_reconciler: "lifespan / reconcile loop"
-timescaledb.ingestion_assets -> ingestion_app.runtime_reconciler: "effective catalog"
-valkey.control_stream -> ingestion_app.runtime_reconciler: "change trigger"
-ingestion_app.runtime_reconciler -> ingestion_app.websocket_pipeline: "start / stop runtimes"
-ingestion_app.runtime_reconciler -> valkey.runtime_state: "warming / live / cold state"
-ingestion_app.runtime_reconciler -> valkey.runtime_status: "publish status"
-ingestion_app.runtime_reconciler -> valkey.asset_status_stream: "append status"
-ingestion_app.runtime_reconciler -> valkey.arq_jobs: "purge / backfill jobs"
-ingestion_app.runtime_reconciler -> contracts.recovery: "enforces bootstrap/resume rules"
-
-ingestion_app.websocket_pipeline -> quality.validator: "validate candle semantics"
-quality.validator -> timescaledb.ohlcv: "persist canonical candle"
-quality.validator -> valkey.ohlcv_stream: "publish closed candles only"
-ingestion_app.websocket_pipeline -> valkey.runtime_state: "state / liveness"
-ingestion_app.websocket_pipeline -> valkey.runtime_status: "publish status"
-ingestion_app.websocket_pipeline -> valkey.asset_status_stream: "append status"
-quality.validator -> contracts.candle_contract: "enforces finality contract"
-quality.validator -> contracts.parity: "keeps live semantics aligned"
-
-ingestion_app.queue_worker -> timescaledb.ohlcv: "gap-fill / top-up writes"
-ingestion_app.queue_worker -> timescaledb.l2_depth_features: "depth writes"
-ingestion_app.queue_worker -> valkey.events_stream: "purge / failure events"
-ingestion_app.queue_worker -> valkey.dlq_stream: "non-recoverable failures (target)"
-ingestion_app.queue_worker -> contracts.recovery: "repairs gaps before LIVE"
-
-ingestion_app.websocket_pipeline -> observability.metrics: "lag / latency / restart metrics"
-ingestion_app.queue_worker -> observability.logs: "job outcomes"
-valkey.events_stream -> observability.alerts: "alerts / operator routing"
-valkey.dlq_stream -> observability.alerts: "terminal failure signal"
-
-valkey.lifecycle -> downstream.signal_app: "subscribe"
-valkey.lifecycle -> downstream.strategy_app: "subscribe"
-valkey.ohlcv_stream -> downstream.signal_app: "consume"
-valkey.events_stream -> downstream.alert_app: "consume runtime/control outcomes"
-valkey.runtime_status -> downstream.alert_app: "scan runtime status"
-downstream.signal_app -> downstream.strategy_app: "features / triggers"
-downstream.strategy_app -> downstream.risk_app: "proposed trades"
-downstream.risk_app -> downstream.execution_app: "approved orders"
+ingestion_app.observability -> ops.metrics: "measure"
+ops.metrics -> ops.grafana: "visualize"
+ingestion_app.main -> ops.logs: "structured logs"

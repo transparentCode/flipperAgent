@@ -1,230 +1,213 @@
 direction: down
 
 title: {
-  label: "ingestion_app lifecycle sequences"
+  label: "ingestion_app runtime and recovery sequences"
   near: top-center
 }
 
 classes: {
   actor: { style.fill: "#E8F1FF" }
   component: { style.fill: "#EEF7EA" }
-  contract: { style.fill: "#FFF2D8" }
   storage: { style.fill: "#F4EAFE" }
-  consumer: { style.fill: "#FCE8E8" }
+  transport: { style.fill: "#FFF2D8" }
   state: { style.fill: "#F3FAEF" }
+  consumer: { style.fill: "#FCE8E8" }
 }
 
 actors: {
-  label: "Actors"
-
-  caller: {
-    class: actor
-    label: "api_app / operator"
-    link: "../../../src/apps/api_app/routers/ingestion.py"
-  }
-
-  signal_app: {
-    class: consumer
-    label: "signal_app"
-    link: "../signal_app/README.md"
-  }
-
-  strategy_app: {
-    class: consumer
-    label: "strategy_app"
-    link: "../strategy_app/README.md"
-  }
+  operator: { class: actor; label: "operator / API client" }
+  exchange: { class: actor; label: "Binance Futures" }
+  signal: { class: consumer; label: "signal_app" }
 }
 
-ingestion: {
+app: {
   label: "ingestion_app"
 
-  control_plane: {
+  api: {
     class: component
-    label: "control_plane"
-    link: "../../../src/apps/ingestion_app/control_plane/service.py"
+    label: "control API"
+    link: "../../../src/apps/ingestion_app/api/routes.py"
   }
-
-  runtime_reconciler: {
+  config_service: {
     class: component
-    label: "runtime_reconciler"
-    link: "../../../src/apps/ingestion_app/runtime/reconciler.py"
+    label: "AssetConfigService"
+    link: "../../../src/apps/ingestion_app/services/config_reconciliation.py"
   }
-
-  runtime_bootstrap: {
+  controller: {
     class: component
-    label: "runtime_bootstrap"
-    link: "../../../src/apps/ingestion_app/runtime/bootstrap.py"
+    label: "RuntimeController"
+    link: "../../../src/apps/ingestion_app/runtime/controller.py"
   }
-
-  websocket_pipeline: {
+  supervisor: {
     class: component
-    label: "websocket_pipeline"
+    label: "RuntimeSupervisor"
+    link: "../../../src/apps/ingestion_app/runtime/supervisor.py"
+  }
+  recovery: {
+    class: component
+    label: "RecoveryEngine"
+    link: "../../../src/apps/ingestion_app/services/recovery.py"
+  }
+  websocket: {
+    class: component
+    label: "BinanceWebSocketManager"
     link: "../../../src/apps/ingestion_app/runtime/websocket.py"
   }
-
-  queue_worker: {
+  htf: {
     class: component
-    label: "queue_worker"
-    link: "../../../src/apps/ingestion_app/worker.py"
+    label: "HTFAggregationService"
+    link: "../../../src/apps/ingestion_app/services/htf_aggregation.py"
   }
-}
-
-contracts: {
-  label: "Contracts / State"
-
-  registry: {
-    class: storage
-    label: "TimescaleDB\ningestion_assets"
-    shape: cylinder
-    link: "../../../src/apps/ingestion_app/storage/schema.sql"
+  repository: {
+    class: component
+    label: "CandleRepository"
+    link: "../../../src/apps/ingestion_app/storage/repository.py"
   }
-
-  manifest: {
-    class: contract
-    label: "asset:{symbol}\nasset:{symbol}:tf:{tf}"
-    shape: stored_data
-    link: "../../../src/libs/common/asset_manifest.py"
+  publisher: {
+    class: component
+    label: "OutboxPublisher"
+    link: "../../../src/apps/ingestion_app/publication/publisher.py"
   }
-
   lifecycle: {
-    class: contract
-    label: "asset:lifecycle"
-    shape: queue
-    link: "../../../src/libs/common/asset_manifest.py"
-  }
-
-  control_stream: {
-    class: contract
-    label: "stream:control:ingestion"
-    shape: queue
-    link: "../../../src/apps/ingestion_app/control_plane/publisher.py"
-  }
-
-  runtime_state: {
-    class: state
-    label: "ingestion:state:{symbol}:{tf}\nCOLD / BACKFILLING / WARMING / LIVE / ERROR"
-    shape: stored_data
-    link: "../../../src/apps/ingestion_app/coordination.py"
-  }
-
-  ohlcv_stream: {
-    class: contract
-    label: "stream:ohlcv:{symbol}:{tf}"
-    shape: queue
-    link: "../../../src/apps/ingestion_app/runtime/websocket.py"
-  }
-
-  gap_fill_job: {
-    class: contract
-    label: "run_rest_gap_fill"
-    shape: queue
-  }
-
-  purge_job: {
-    class: contract
-    label: "purge_removed_asset"
-    shape: queue
+    class: component
+    label: "AssetLifecycleReconciler"
+    link: "../../../src/apps/ingestion_app/services/asset_lifecycle.py"
   }
 }
 
-add_resume: {
-  label: "Sequence A — add / resume to live"
-
-  a1: { class: state; label: "1. request add/resume" }
-  a2: { class: state; label: "2. persist durable desired state" }
-  a3: { class: state; label: "3. project manifest + publish lifecycle/control" }
-  a4: { class: state; label: "4. reconciler converges runtime set" }
-  a5: { class: state; label: "5. bootstrap checks freshness / resume gap" }
-  a6: { class: state; label: "6. enqueue gap-fill if stale or resuming" }
-  a7: { class: state; label: "7. runtime enters BACKFILLING or WARMING" }
-  a8: { class: state; label: "8. queue worker repairs history" }
-  a9: { class: state; label: "9. websocket launches after warmup" }
-  a10: { class: state; label: "10. first valid live close promotes LIVE (or ERROR on failed warmup)" }
-  a11: { class: state; label: "11. closed candles publish downstream" }
+persistence: {
+  candles: { class: storage; label: "Timescale\ningestion.candles"; shape: cylinder }
+  outbox: { class: storage; label: "Timescale\ningestion.outbox"; shape: cylinder }
+  streams: { class: transport; label: "Valkey\nstream:ohlcv:ingestion:*"; shape: queue }
+  manifests: { class: transport; label: "Valkey\nasset:* + asset:lifecycle"; shape: stored_data }
 }
 
-pause_stop: {
-  label: "Sequence B — pause / stop"
-
-  b1: { class: state; label: "1. request pause/stop" }
-  b2: { class: state; label: "2. persist registry state" }
-  b3: { class: state; label: "3. project manifest + publish lifecycle/control" }
-  b4: { class: state; label: "4. reconciler stops runtime tasks" }
-  b5: { class: state; label: "5. runtime state demotes to COLD" }
-  b6: { class: state; label: "6. downstream sees lifecycle change" }
+startup: {
+  label: "Sequence A — startup / resume to LIVE"
+  s1: { class: state; label: "1. load canonical ingestion config" }
+  s2: { class: state; label: "2. controller creates supervisor for enabled lanes" }
+  s3: { class: state; label: "3. find current closed base boundary" }
+  s4: { class: state; label: "4. bounded catch-up missing base history" }
+  s5: { class: state; label: "5. reconcile latest closed HTF buckets" }
+  s6: { class: state; label: "6. open websocket after recovery closure" }
+  s7: { class: state; label: "7. first valid finalized base candle -> LIVE" }
 }
 
-remove_flow: {
-  label: "Sequence C — remove"
+startup.s1 -> app.controller
+app.controller -> startup.s2
+startup.s2 -> app.supervisor
+app.supervisor -> startup.s3
+startup.s3 -> persistence.candles: "latest read"
+persistence.candles -> startup.s4
+startup.s4 -> app.recovery
+app.recovery -> persistence.candles: "repair"
+app.recovery -> startup.s5
+startup.s5 -> app.htf
+app.htf -> persistence.candles: "derive complete buckets"
+persistence.candles -> startup.s6
+startup.s6 -> app.websocket
+actors.exchange -> app.websocket: "finalized klines"
+app.websocket -> startup.s7
+startup.s7 -> app.supervisor: "state=LIVE"
 
-  c1: { class: state; label: "1. request remove" }
-  c2: { class: state; label: "2. persist REMOVING in registry" }
-  c3: { class: state; label: "3. publish manifest/lifecycle/control change" }
-  c4: { class: state; label: "4. reconciler stops runtime" }
-  c5: { class: state; label: "5. enqueue purge job" }
-  c6: { class: state; label: "6. queue worker clears owned runtime/storage state" }
-  c7: { class: state; label: "7. publish operator outcome event" }
+live: {
+  label: "Sequence B — live candle commit / publish"
+  l1: { class: state; label: "1. validate finalized base observation" }
+  l2: { class: state; label: "2. canonicalize + transaction" }
+  l3: { class: state; label: "3. INSERTED / DUPLICATE / CONFLICT" }
+  l4: { class: state; label: "4. derive/reconcile affected HTFs" }
+  l5: { class: state; label: "5. publisher drains pending outbox" }
+  l6: { class: state; label: "6. XADD then mark published_at" }
+  l7: { class: state; label: "7. signal consumer processes stream" }
 }
 
-actors.caller -> add_resume.a1
-add_resume.a1 -> ingestion.control_plane
-ingestion.control_plane -> add_resume.a2
-add_resume.a2 -> contracts.registry: "write"
-contracts.registry -> add_resume.a3
-add_resume.a3 -> contracts.manifest: "sync"
-add_resume.a3 -> contracts.lifecycle: "publish"
-add_resume.a3 -> contracts.control_stream: "publish"
-contracts.lifecycle -> actors.signal_app: "fan-out"
-contracts.lifecycle -> actors.strategy_app: "fan-out"
-contracts.control_stream -> ingestion.runtime_reconciler
-ingestion.runtime_reconciler -> add_resume.a4
-add_resume.a4 -> ingestion.runtime_bootstrap
-ingestion.runtime_bootstrap -> add_resume.a5
-add_resume.a5 -> add_resume.a6
-add_resume.a6 -> contracts.gap_fill_job: "optional"
-contracts.gap_fill_job -> ingestion.queue_worker
-ingestion.runtime_bootstrap -> add_resume.a7
-add_resume.a7 -> contracts.runtime_state: "WARMING"
-ingestion.queue_worker -> add_resume.a8
-add_resume.a8 -> ingestion.websocket_pipeline
-ingestion.websocket_pipeline -> add_resume.a9
-add_resume.a9 -> add_resume.a10
-add_resume.a10 -> contracts.runtime_state: "LIVE"
-ingestion.websocket_pipeline -> contracts.ohlcv_stream: "closed only"
-contracts.ohlcv_stream -> add_resume.a11
-add_resume.a11 -> actors.signal_app
+app.websocket -> live.l1
+live.l1 -> live.l2
+live.l2 -> app.repository
+app.repository -> persistence.candles: "candle"
+app.repository -> persistence.outbox: "same transaction for new row"
+persistence.candles -> live.l3
+live.l3 -> live.l4: "INSERTED / DUPLICATE"
+live.l3 -> app.supervisor: "CONFLICT -> ERROR"
+live.l4 -> app.htf
+app.htf -> app.repository: "derived canonical commits"
+persistence.outbox -> live.l5
+live.l5 -> app.publisher
+app.publisher -> live.l6
+live.l6 -> persistence.streams: "at least once"
+persistence.streams -> live.l7
+live.l7 -> actors.signal
 
-actors.caller -> pause_stop.b1
-pause_stop.b1 -> ingestion.control_plane
-ingestion.control_plane -> pause_stop.b2
-pause_stop.b2 -> contracts.registry: "write"
-contracts.registry -> pause_stop.b3
-pause_stop.b3 -> contracts.manifest: "sync"
-pause_stop.b3 -> contracts.lifecycle: "publish"
-pause_stop.b3 -> contracts.control_stream: "publish"
-contracts.control_stream -> ingestion.runtime_reconciler
-ingestion.runtime_reconciler -> pause_stop.b4
-pause_stop.b4 -> pause_stop.b5
-pause_stop.b5 -> contracts.runtime_state: "COLD"
-contracts.lifecycle -> pause_stop.b6
-pause_stop.b6 -> actors.signal_app
-pause_stop.b6 -> actors.strategy_app
+interruption: {
+  label: "Sequence C — websocket interruption / recovery"
+  r1: { class: state; label: "1. provider reports interruption + missing windows" }
+  r2: { class: state; label: "2. supervisor -> RECOVERING" }
+  r3: { class: state; label: "3. bounded provider paging/fallback" }
+  r4: { class: state; label: "4. commit repaired base rows" }
+  r5: { class: state; label: "5. reconcile affected HTFs" }
+  r6: { class: state; label: "6. reconnect backoff" }
+  r7: { class: state; label: "7. fresh startup/catch-up then websocket" }
+}
 
-actors.caller -> remove_flow.c1
-remove_flow.c1 -> ingestion.control_plane
-ingestion.control_plane -> remove_flow.c2
-remove_flow.c2 -> contracts.registry: "write"
-contracts.registry -> remove_flow.c3
-remove_flow.c3 -> contracts.manifest: "sync"
-remove_flow.c3 -> contracts.lifecycle: "publish"
-remove_flow.c3 -> contracts.control_stream: "publish"
-contracts.control_stream -> ingestion.runtime_reconciler
-ingestion.runtime_reconciler -> remove_flow.c4
-remove_flow.c4 -> remove_flow.c5
-remove_flow.c5 -> contracts.purge_job: "enqueue"
-contracts.purge_job -> ingestion.queue_worker
-ingestion.queue_worker -> remove_flow.c6
-remove_flow.c6 -> contracts.runtime_state: "clear owned keys"
-remove_flow.c6 -> contracts.registry: "final durable cleanup policy"
-ingestion.queue_worker -> remove_flow.c7
+app.websocket -> interruption.r1
+interruption.r1 -> interruption.r2
+interruption.r2 -> app.supervisor
+app.supervisor -> interruption.r3
+interruption.r3 -> app.recovery
+app.recovery -> interruption.r4
+interruption.r4 -> persistence.candles
+interruption.r4 -> interruption.r5
+interruption.r5 -> app.htf
+app.htf -> interruption.r6
+interruption.r6 -> interruption.r7
+interruption.r7 -> app.supervisor
+
+mutation: {
+  label: "Sequence D — asset config mutation"
+  m1: { class: state; label: "1. POST/PATCH asset" }
+  m2: { class: state; label: "2. validate candidate + runtime compatibility" }
+  m3: { class: state; label: "3. write registered asset YAML" }
+  m4: { class: state; label: "4. reload and compare exact candidate" }
+  m5: { class: state; label: "5. replace supervisor settings" }
+  m6: { class: state; label: "6. mark lifecycle asset dirty" }
+  m7: { class: state; label: "7. sync manifests + publish lifecycle transition" }
+  m8: { class: state; label: "failure/cancellation -> rollback disk + runtime" }
+}
+
+actors.operator -> mutation.m1
+mutation.m1 -> app.api
+app.api -> mutation.m2
+mutation.m2 -> app.config_service
+app.config_service -> mutation.m3
+mutation.m3 -> mutation.m4
+mutation.m4 -> mutation.m5
+mutation.m5 -> app.controller
+app.controller -> mutation.m6
+mutation.m6 -> app.lifecycle
+app.lifecycle -> mutation.m7
+mutation.m7 -> persistence.manifests
+mutation.m2 -> mutation.m8: "invalid"
+mutation.m3 -> mutation.m8: "write/reload/replace failure"
+mutation.m5 -> mutation.m8: "cancelled / runtime failure"
+
+shutdown: {
+  label: "Sequence E — controlled pause/drain used by certification"
+  q1: { class: state; label: "1. stop signal consumer" }
+  q2: { class: state; label: "2. POST runtime/pause" }
+  q3: { class: state; label: "3. wait desired=paused, state=stopped" }
+  q4: { class: state; label: "4. keep broker + publisher alive until pending=0" }
+  q5: { class: state; label: "5. stop ingestion process" }
+  q6: { class: state; label: "6. stop broker" }
+}
+
+actors.signal -> shutdown.q1
+shutdown.q1 -> shutdown.q2
+shutdown.q2 -> app.api
+app.api -> shutdown.q3
+shutdown.q3 -> app.controller
+app.controller -> shutdown.q4
+persistence.outbox -> shutdown.q4: "pending check"
+app.publisher -> shutdown.q4: "drain"
+shutdown.q4 -> persistence.streams
+shutdown.q4 -> shutdown.q5
+shutdown.q5 -> shutdown.q6

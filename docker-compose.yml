@@ -48,47 +48,13 @@ services:
     networks:
       - flipper-net
 
-  worker-queue:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: arq apps.ingestion_app.worker.WorkerSettings
-    volumes:
-      - ./data:/app/data
-      - ./configs:/app/configs:ro
-      - flipper-logs:/app/logs
-    tmpfs:
-      - /tmp
-    environment:
-      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
-      VALKEY_URI: redis://broker:6379/0
-      LOG_FILE: /app/logs/worker_queue.log
-      LOG_FORMAT: ${LOG_FORMAT:-json}
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
-      OTEL_SERVICE_NAME: worker_queue
-    depends_on:
-      db:
-        condition: service_healthy
-      broker:
-        condition: service_healthy
-    read_only: true
-    security_opt:
-      - no-new-privileges:true
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '0.5'
-    networks:
-      - flipper-net
-
-  worker-streams:
+  ingestion:
     build:
       context: .
       dockerfile: Dockerfile
     command: python -m apps.ingestion_app.main
     ports:
-      - "8002:8001"
+      - "127.0.0.1:8003:8003"
     volumes:
       - ./data:/app/data
       - ./configs:/app/configs:ro
@@ -101,12 +67,24 @@ services:
       LOG_FILE: /app/logs/ingestion.log
       LOG_FORMAT: ${LOG_FORMAT:-json}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
-      OTEL_SERVICE_NAME: ingestion_app
+      OTEL_SERVICE_NAME: ingestion
+      OTEL_RESOURCE_ATTRIBUTES: >-
+        service.instance.id=${INGESTION_OTEL_INSTANCE_ID:-ingestion-local}
     depends_on:
       db:
         condition: service_healthy
-      broker:
-        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8003/health/ready', timeout=2)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
     read_only: true
     security_opt:
       - no-new-privileges:true

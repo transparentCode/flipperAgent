@@ -1,5 +1,7 @@
 import os
+import tempfile
 import threading
+from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TypeVar
 
@@ -8,19 +10,51 @@ from pydantic import BaseModel, ValidationError
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
-from libs.common.logging.logger_utils import bind_logger
-from libs.common.enums import SystemComponent
 from libs.common.constants import (
-    DEFAULT_ENV,
-    DEFAULT_CONFIG_DIR_NAME,
     CONFIG_BASE_FILENAME,
-    CONFIG_LOCAL_FILENAME,
     CONFIG_DEBOUNCE_DELAY_SEC,
+    CONFIG_LOCAL_FILENAME,
+    DEFAULT_CONFIG_DIR_NAME,
+    DEFAULT_ENV,
 )
+from libs.common.enums import SystemComponent
+from libs.common.logging.logger_utils import bind_logger
 
 logger = bind_logger(__name__, system_component=SystemComponent.CORE_INFRASTRUCTURE)
 
 T = TypeVar("T", bound=BaseModel)
+
+
+class _ConfigFileEventHandler(FileSystemEventHandler):
+    def __init__(self, manager: "ConfigManager"):
+        self.manager = manager
+
+    @staticmethod
+    def _is_config_file(path: str) -> bool:
+        return Path(path).suffix.lower() in {".yaml", ".yml"}
+
+    def _reload_for_event(self, event: Any) -> None:
+        if event.is_directory:
+            return
+        paths = [event.src_path]
+        destination = getattr(event, "dest_path", None)
+        if destination:
+            paths.append(destination)
+        if any(self._is_config_file(path) for path in paths):
+            self.manager._trigger_reload()
+
+    def on_modified(self, event: Any) -> None:
+        self._reload_for_event(event)
+
+    def on_created(self, event: Any) -> None:
+        self._reload_for_event(event)
+
+    def on_deleted(self, event: Any) -> None:
+        self._reload_for_event(event)
+
+    def on_moved(self, event: Any) -> None:
+        self._reload_for_event(event)
+
 
 class ConfigManager:
     _instance = None
@@ -43,7 +77,9 @@ class ConfigManager:
             self._state: Dict[str, Any] = {}
             self._file_states: Dict[str, Dict[str, Any]] = {}
             self._file_paths: Dict[str, str] = {}
+            self._file_names: dict[str, str] = {}
             self._registered_files: set[Path] = set()
+            self._registered_directories: list[tuple[Path, str, str]] = []
             self._watched_dirs = set()
             self._watched_dirs.add(self._config_dir)
             self._subscribers: Dict[str, list[Callable[[Any], None]]] = {}
@@ -85,6 +121,7 @@ class ConfigManager:
             new_state = {}
             new_file_states: Dict[str, Dict[str, Any]] = {}
             new_file_paths: Dict[str, str] = {}
+            new_file_names: dict[str, str] = {}
 
             # Load base first
             base_file = self._config_dir / CONFIG_BASE_FILENAME
@@ -92,6 +129,7 @@ class ConfigManager:
                 base_data = self._read_yaml(base_file)
                 new_file_states[base_file.stem] = base_data
                 new_file_paths[base_file.stem] = str(base_file)
+                new_file_names[base_file.stem] = base_file.stem
                 new_state = self._merge_dicts(new_state, base_data)
 
             env_file = self._config_dir / f"{self._env}.yaml"
@@ -103,24 +141,67 @@ class ConfigManager:
                     file_data = self._read_yaml(registered_file)
                     new_file_states[registered_file.stem] = file_data
                     new_file_paths[registered_file.stem] = str(registered_file)
+                    new_file_names[registered_file.stem] = registered_file.stem
                     new_state = self._merge_dicts(new_state, file_data)
+
+            # Load registered directories as independent namespace entries.
+            # Files within one directory are never merged into one another.
+            directory_keys: set[str] = set()
+            for directory, namespace, pattern in sorted(
+                self._registered_directories,
+                key=lambda item: (str(item[0]), item[1], item[2]),
+            ):
+                namespace_parts = namespace.split(".")
+                for directory_file in self._directory_files(directory, pattern):
+                    logical_key = f"{namespace}.{directory_file.stem}"
+                    if logical_key in directory_keys:
+                        raise ValueError(f"Duplicate logical config key: {logical_key}")
+                    directory_keys.add(logical_key)
+
+                    file_data = self._read_yaml(directory_file)
+                    if not isinstance(file_data, dict):
+                        raise ValueError(  # noqa: TRY004
+                            f"Config file must contain a mapping: {directory_file}"
+                        )
+
+                    namespace_state = new_state
+                    for namespace_part in namespace_parts:
+                        existing = namespace_state.get(namespace_part)
+                        if existing is None:
+                            existing = {}
+                            namespace_state[namespace_part] = existing
+                        elif not isinstance(existing, dict):
+                            raise ValueError(
+                                f"Config namespace is not a mapping: {namespace_part}"
+                            )
+                        namespace_state = existing
+                    if directory_file.stem in namespace_state:
+                        raise ValueError(f"Duplicate logical config key: {logical_key}")
+                    namespace_state[directory_file.stem] = file_data
+
+                    new_file_states[logical_key] = file_data
+                    new_file_paths[logical_key] = str(directory_file)
+                    new_file_names[logical_key] = directory_file.stem
 
             # Load env and local last for overrides
             if env_file.exists():
                 env_data = self._read_yaml(env_file)
                 new_file_states[env_file.stem] = env_data
                 new_file_paths[env_file.stem] = str(env_file)
+                new_file_names[env_file.stem] = env_file.stem
                 new_state = self._merge_dicts(new_state, env_data)
             if local_file.exists():
                 local_data = self._read_yaml(local_file)
                 new_file_states[local_file.stem] = local_data
                 new_file_paths[local_file.stem] = str(local_file)
+                new_file_names[local_file.stem] = local_file.stem
                 new_state = self._merge_dicts(new_state, local_data)
 
             old_state = self._state
             self._state = new_state  # Atomic pointer swap for thread safety
             self._file_states = new_file_states
             self._file_paths = new_file_paths
+            self._file_names = new_file_names
 
             if trigger_callbacks:
                 self._notify_subscribers(old_state, new_state)
@@ -304,25 +385,29 @@ class ConfigManager:
             self._debounce_timer = threading.Timer(self._debounce_delay, self._load_configs)
             self._debounce_timer.start()
 
+    @staticmethod
+    def _directory_files(directory: Path, pattern: str) -> list[Path]:
+        return sorted(
+            (path for path in directory.glob(pattern) if path.is_file()),
+            key=lambda path: path.name,
+        )
+
+    def _schedule_watch(self, directory: Path) -> None:
+        if self._observer and directory.exists():
+            self._observer.schedule(
+                _ConfigFileEventHandler(self),
+                str(directory),
+                recursive=False,
+            )
+
     def _start_watchdog(self) -> None:
         if not self._config_dir.exists():
             self._config_dir.mkdir(parents=True, exist_ok=True)
             
-        class ConfigHandler(FileSystemEventHandler):
-            def __init__(self, manager: 'ConfigManager'):
-                self.manager = manager
-                
-            def on_modified(self, event: Any) -> None:
-                if event.is_directory:
-                    return
-                if event.src_path.endswith('.yaml') or event.src_path.endswith('.yml'):
-                    self.manager._trigger_reload()
-                    
         try:
             self._observer = Observer()
-            for d in self._watched_dirs:
-                if d.exists():
-                    self._observer.schedule(ConfigHandler(self), str(d), recursive=False)
+            for directory in sorted(self._watched_dirs, key=str):
+                self._schedule_watch(directory)
             self._observer.daemon = True
             self._observer.start()
         except Exception:
@@ -338,16 +423,56 @@ class ConfigManager:
             parent_dir = resolved.parent
             if parent_dir not in self._watched_dirs:
                 self._watched_dirs.add(parent_dir)
-                if self._observer and parent_dir.exists():
-                    # We use a localized handler for the new directory
-                    class LocalConfigHandler(FileSystemEventHandler):
-                        def __init__(self, manager):
-                            self.manager = manager
-                        def on_modified(self, event):
-                            if not event.is_directory and (event.src_path.endswith('.yaml') or event.src_path.endswith('.yml')):
-                                self.manager._trigger_reload()
-                    self._observer.schedule(LocalConfigHandler(self), str(parent_dir), recursive=False)
+                self._schedule_watch(parent_dir)
         # trigger a reload to bring the new file in
+        self._load_configs(trigger_callbacks=True)
+
+    def register_directory(
+        self,
+        path: str | Path,
+        *,
+        namespace: str,
+        pattern: str = "*.yaml",
+    ) -> None:
+        """Register a directory of YAML files under independent namespace keys."""
+        resolved = Path(path).resolve()
+        namespace_parts = tuple(part.strip() for part in str(namespace).split("."))
+        if not namespace_parts or any(not part for part in namespace_parts):
+            raise ValueError("namespace must contain non-empty dot-separated parts")
+        pattern = str(pattern).strip()
+        if not pattern:
+            raise ValueError("pattern must be non-empty")
+        normalized_namespace = ".".join(namespace_parts)
+        registration = (resolved, normalized_namespace, pattern)
+
+        with self._subscription_lock:
+            if registration in self._registered_directories:
+                return
+
+            candidate_keys = [
+                f"{normalized_namespace}.{directory_file.stem}"
+                for directory_file in self._directory_files(resolved, pattern)
+            ]
+            if len(candidate_keys) != len(set(candidate_keys)):
+                raise ValueError("Duplicate logical config key in registered directory")
+
+            registered_keys = {
+                f"{registered_namespace}.{directory_file.stem}"
+                for registered_directory, registered_namespace, registered_pattern in self._registered_directories
+                for directory_file in self._directory_files(
+                    registered_directory,
+                    registered_pattern,
+                )
+            }
+            duplicate_keys = registered_keys.intersection(candidate_keys)
+            if duplicate_keys:
+                raise ValueError(f"Duplicate logical config key: {min(duplicate_keys)}")
+
+            self._registered_directories.append(registration)
+            if resolved not in self._watched_dirs:
+                self._watched_dirs.add(resolved)
+                self._schedule_watch(resolved)
+
         self._load_configs(trigger_callbacks=True)
 
     def get_all_file_states(self) -> list[Dict[str, Any]]:
@@ -358,11 +483,11 @@ class ConfigManager:
         """
         return [
             {
-                "fileName": stem,
-                "filePath": self._file_paths.get(stem, ""),
+                "fileName": self._file_names.get(source_key, source_key),
+                "filePath": self._file_paths.get(source_key, ""),
                 "contents": data,
             }
-            for stem, data in self._file_states.items()
+            for source_key, data in self._file_states.items()
         ]
 
     def update_yaml_file(self, filename: str, updates: Dict[str, Any]) -> None:
@@ -407,6 +532,195 @@ class ConfigManager:
             raise
 
         logger.info(f"Config file updated on disk: {candidate.name} — watchdog reload will follow.")
+
+    @staticmethod
+    def _validate_registered_yaml_stem(filename: str) -> str:
+        if not isinstance(filename, str):
+            raise TypeError("filename must be a string")
+        stem = filename.strip()
+        if not stem or stem in {".", ".."}:
+            raise ValueError("filename must be a non-empty YAML stem")
+        if stem != filename or "\x00" in stem:
+            raise ValueError("filename must be a clean YAML stem")
+        if "/" in stem or "\\" in stem or Path(stem).name != stem:
+            raise ValueError("filename must not contain path separators")
+        if stem.casefold().endswith((".yaml", ".yml")):
+            raise ValueError("filename must be a stem without a YAML suffix")
+        return stem
+
+    def _registered_directory_for_namespace(
+        self,
+        namespace: str,
+    ) -> tuple[Path, str, str]:
+        namespace_parts = tuple(part.strip() for part in str(namespace).split("."))
+        if not namespace_parts or any(not part for part in namespace_parts):
+            raise ValueError("namespace must contain non-empty dot-separated parts")
+        normalized_namespace = ".".join(namespace_parts)
+        with self._subscription_lock:
+            matches = [
+                registration
+                for registration in self._registered_directories
+                if registration[1] == normalized_namespace
+            ]
+        if not matches:
+            raise ValueError(
+                f"registered directory namespace not found: {normalized_namespace}"
+            )
+        if len(matches) > 1:
+            raise ValueError(
+                f"registered directory namespace is ambiguous: {normalized_namespace}"
+            )
+        return matches[0]
+
+    def _registered_directory_target(
+        self,
+        *,
+        namespace: str,
+        filename: str,
+    ) -> tuple[Path, str, str]:
+        stem = self._validate_registered_yaml_stem(filename)
+        directory, normalized_namespace, pattern = (
+            self._registered_directory_for_namespace(namespace)
+        )
+        target = directory / f"{stem}.yaml"
+        if not fnmatchcase(target.name, pattern):
+            raise ValueError(
+                f"filename '{stem}' is outside the registered directory pattern"
+            )
+        if target.parent != directory:
+            raise ValueError("registered YAML target escaped its directory")
+        return target, normalized_namespace, pattern
+
+    def write_registered_directory_yaml(
+        self,
+        *,
+        namespace: str,
+        filename: str,
+        contents: dict[str, Any],
+        create_only: bool,
+    ) -> None:
+        """Atomically replace one file in an already registered YAML directory."""
+        if not isinstance(contents, dict):
+            raise TypeError("contents must be a mapping")
+        if not isinstance(create_only, bool):
+            raise TypeError("create_only must be a bool")
+
+        target, normalized_namespace, _ = self._registered_directory_target(
+            namespace=namespace,
+            filename=filename,
+        )
+        if not target.parent.exists():
+            raise FileNotFoundError(
+                f"registered config directory does not exist: {target.parent}"
+            )
+        if create_only and target.exists():
+            raise FileExistsError(f"registered config file already exists: {target}")
+        if not create_only and not target.exists():
+            raise FileNotFoundError(f"registered config file does not exist: {target}")
+
+        previous_exists = target.exists()
+        previous_bytes = target.read_bytes() if previous_exists else None
+        logical_key = f"{normalized_namespace}.{target.stem}"
+        temp_path: Path | None = None
+
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                prefix=f".{target.name}.",
+                suffix=".tmp",
+                dir=target.parent,
+                delete=False,
+            ) as temporary:
+                yaml.safe_dump(contents, temporary, sort_keys=False)
+                temporary.flush()
+                os.fsync(temporary.fileno())
+                temp_path = Path(temporary.name)
+            os.replace(temp_path, target)
+            temp_path = None
+
+            self._load_configs(trigger_callbacks=True)
+            loaded_contents = self._file_states.get(logical_key)
+            loaded_path = self._file_paths.get(logical_key)
+            if loaded_contents != contents or loaded_path is None:
+                raise RuntimeError(
+                    f"ConfigManager reload did not observe {logical_key}"
+                )
+            if Path(loaded_path).resolve() != target.resolve():
+                raise RuntimeError(
+                    f"ConfigManager reload observed the wrong file for {logical_key}"
+                )
+        except Exception:
+            if temp_path is not None:
+                temp_path.unlink(missing_ok=True)
+            try:
+                if previous_exists and previous_bytes is not None:
+                    rollback_path: Path | None = None
+                    with tempfile.NamedTemporaryFile(
+                        mode="wb",
+                        prefix=f".{target.name}.rollback.",
+                        suffix=".tmp",
+                        dir=target.parent,
+                        delete=False,
+                    ) as rollback_file:
+                        rollback_file.write(previous_bytes)
+                        rollback_file.flush()
+                        os.fsync(rollback_file.fileno())
+                        rollback_path = Path(rollback_file.name)
+                    os.replace(rollback_path, target)
+                else:
+                    target.unlink(missing_ok=True)
+                self._load_configs(trigger_callbacks=True)
+            except Exception as rollback_exc:
+                raise RuntimeError(
+                    f"failed to roll back registered config file {target}"
+                ) from rollback_exc
+            raise
+
+        logger.info("Registered config file updated: %s", target)
+
+    def _remove_registered_directory_yaml_for_rollback(
+        self,
+        *,
+        namespace: str,
+        filename: str,
+    ) -> None:
+        """Remove a newly-created registered file during mutation rollback."""
+        target, normalized_namespace, _ = self._registered_directory_target(
+            namespace=namespace,
+            filename=filename,
+        )
+        if not target.exists():
+            return
+        previous_bytes = target.read_bytes()
+        try:
+            target.unlink()
+            self._load_configs(trigger_callbacks=True)
+            if f"{normalized_namespace}.{target.stem}" in self._file_states:
+                raise RuntimeError(
+                    f"ConfigManager reload retained removed file {target}"
+                )
+        except Exception:
+            try:
+                rollback_path: Path | None = None
+                with tempfile.NamedTemporaryFile(
+                    mode="wb",
+                    prefix=f".{target.name}.rollback.",
+                    suffix=".tmp",
+                    dir=target.parent,
+                    delete=False,
+                ) as rollback_file:
+                    rollback_file.write(previous_bytes)
+                    rollback_file.flush()
+                    os.fsync(rollback_file.fileno())
+                    rollback_path = Path(rollback_file.name)
+                os.replace(rollback_path, target)
+                self._load_configs(trigger_callbacks=True)
+            except Exception as rollback_exc:
+                raise RuntimeError(
+                    f"failed to roll back removal of registered config file {target}"
+                ) from rollback_exc
+            raise
 
     def shutdown(self) -> None:
         """Clean shutdown of watchdog and timers."""

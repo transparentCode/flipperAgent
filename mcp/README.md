@@ -87,7 +87,6 @@ Codex expect.
 **Mitigation:** `mcp/scripts/mcp-index.sh` indexes code directories separately:
 - `flipperAgent-src`
 - `flipperAgent-tests`
-- `flipperAgent-conductor`
 - `flipperAgent-scripts`
 - `flipperAgent-docs`
 - `flipperAgent-plans`

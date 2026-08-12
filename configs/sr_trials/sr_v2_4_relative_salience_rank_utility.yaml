@@ -11,7 +11,7 @@ history:
   v2_3_source_bundle_id: 041618553c8ce85cfcbc81e6415e2cccf3711e73f66bcd3651b526124a5b473e
 
 provider:
-  adapter: apps.ingestion_app.adapters.binance_native.BinanceNativeAdapter
+  adapter: libs.market_data.binance_native.BinanceNativeAdapter
   start: "2026-01-01T00:00:00Z"
   end: "2026-07-01T00:00:00Z"
   limit: 1000

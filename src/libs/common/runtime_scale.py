@@ -15,9 +15,6 @@ class StreamCaps:
     fill_stream_maxlen: int
     failure_stream_maxlen: int
     lifecycle_maxlen: int
-    control_maxlen: int
-    events_maxlen: int
-    runtime_status_maxlen: int
 
 
 @dataclass(frozen=True)
@@ -73,9 +70,6 @@ def estimate_runtime_scale(inputs: RuntimeScaleInputs) -> RuntimeScaleReport:
     }
     shared_stream_upper_bounds = {
         "lifecycle": caps.lifecycle_maxlen,
-        "control": caps.control_maxlen,
-        "events": caps.events_maxlen,
-        "runtime_status": caps.runtime_status_maxlen,
     }
 
     return RuntimeScaleReport(
@@ -88,7 +82,11 @@ def estimate_runtime_scale(inputs: RuntimeScaleInputs) -> RuntimeScaleReport:
         strategy_worker_count=strategy_pairs,
         risk_worker_count=asset_count,
         execution_worker_count=asset_count,
-        total_worker_count=asset_count + signal_pairs + strategy_pairs + asset_count + asset_count,
+        total_worker_count=asset_count
+        + signal_pairs
+        + strategy_pairs
+        + asset_count
+        + asset_count,
         ohlcv_stream_count=runtime_timeframes,
         feature_stream_count=signal_pairs,
         price_update_stream_count=signal_pairs,
@@ -105,4 +103,3 @@ def _scaled_count(asset_count: int, per_asset: float) -> int:
     if asset_count <= 0 or per_asset <= 0:
         return 0
     return ceil(asset_count * per_asset)
-

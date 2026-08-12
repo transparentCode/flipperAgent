@@ -20,7 +20,7 @@ Legacy SSE endpoints (/servers/{backend}/sse) are also available but are not
 used by the Codex CLI or VS Code MCP clients. Both clients use Streamable HTTP.
 
 Use codebase-memory-mcp by default for code discovery, symbol lookup, semantic search,
-reading code snippets, and tracing paths inside src/, tests/, conductor/, scripts/, docs/,
+reading code snippets, and tracing paths inside src/, tests/, scripts/, docs/,
 or plans/.
 
 Escalate to gitnexus only for whole-repo structural queries, cross-directory or

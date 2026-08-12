@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import math
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from libs.models.sr.domain import ContractValidationError
 from libs.models.sr.domain.identity import deterministic_hash
 from libs.models.sr.research.cohort.artifacts import load_source_bundle
+
 from .config import AdaptiveContextCalibrationConfig
 from .contracts import (
     CANONICAL_COHORTS,
@@ -205,7 +207,7 @@ async def fetch_12h_asset(
     if asset not in config.assets:
         raise ContractValidationError("provider asset is outside V2.3 scope")
     if adapter_factory is None:
-        from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
+        from libs.market_data.binance_native import BinanceNativeAdapter
 
         adapter_factory = BinanceNativeAdapter
     adapter = adapter_factory()

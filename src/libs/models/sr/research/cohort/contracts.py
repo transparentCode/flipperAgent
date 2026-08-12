@@ -8,12 +8,12 @@ accounting.
 
 from __future__ import annotations
 
+import math
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from hashlib import sha256
-import math
-import re
 from typing import Any
 
 from libs.models.sr.domain import ContractValidationError, SREventType
@@ -23,6 +23,10 @@ from libs.models.sr.domain.identity import (
     require_utc,
     utc_isoformat,
 )
+from libs.models.sr.research.metrics.first_touch import FirstTouchOutcome
+from libs.models.sr.research.metrics.first_touch_windows import CandidateMetrics
+from libs.models.sr.research.replay.candidates import CandidateReplay
+from libs.models.sr.research.source.capsules import SourceCapsule
 from libs.models.sr.research.source.contracts import SourceBar
 from libs.models.sr.research.source.frozen import (
     source_bar_payload,
@@ -30,11 +34,6 @@ from libs.models.sr.research.source.frozen import (
     source_grid_sha256,
 )
 from libs.models.sr.research.windows.folds import CohortFold
-from libs.models.sr.research.metrics.first_touch import FirstTouchOutcome
-from libs.models.sr.research.metrics.first_touch_windows import CandidateMetrics
-from libs.models.sr.research.replay.candidates import CandidateReplay
-from libs.models.sr.research.source.capsules import SourceCapsule
-
 
 SCHEMA_VERSION = "1.0"
 APPROVED_ASSETS = ("TAOUSDT", "BTCUSDT", "ETHUSDT", "SOLUSDT")
@@ -54,7 +53,7 @@ FROZEN_INPUT_HASH = "5ece92803341696df06efa0dba5d7a44ee0f5451aa3ce6555d3a4ef6c59
 ATR_IMPLEMENTATION = "libs.features.indicators.volatility.atr.ATR"
 ATR_IMPLEMENTATION_CONTRACT = "true_range_sma_seed_then_wilder_recursion_v1"
 WINDOW_POLICY = "half_open_utc_daily"
-ADAPTER_IDENTITY = "apps.ingestion_app.adapters.binance_native.BinanceNativeAdapter"
+ADAPTER_IDENTITY = "libs.market_data.binance_native.BinanceNativeAdapter"
 ADAPTER_LIMIT = 1000
 SR_FIELD_PROVENANCE_PATHS = (
     "association.merge_distance_atr",

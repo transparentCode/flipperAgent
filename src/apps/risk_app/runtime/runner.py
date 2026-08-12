@@ -8,7 +8,11 @@ from typing import Any
 
 from valkey.exceptions import TimeoutError as ValkeyTimeoutError
 
-from libs.common.asset_manifest import ASSET_LIFECYCLE_STREAM, AssetLifecycleEvent
+from libs.common.asset_manifest import (
+    ASSET_LIFECYCLE_STREAM,
+    AssetLifecycleEvent,
+    AssetManifestStore,
+)
 from libs.common.enums import SystemComponent
 from libs.common.lifecycle_dedup import mark_lifecycle_event_processed
 from libs.common.logging.logger_utils import bind_logger
@@ -93,6 +97,7 @@ class RiskRuntimeRunner:
         fill_listener_factory: Callable[..., Any],
         restart_delay_seconds: int,
         fill_listener_assets: set[str] | None = None,
+        configured_timeframes: dict[str, list[str]] | None = None,
         persistence_interval_seconds: int = 60,
         enable_lifecycle: bool = True,
         supervise_consumer_fn: SuperviseConsumerFn = supervise_consumer,
@@ -115,13 +120,22 @@ class RiskRuntimeRunner:
         self._worker_timeframes: dict[str, list[str]] = {
             asset: list(timeframes) for asset, timeframes in asset_map.items()
         }
-        self._fill_listener_assets: set[str] = set(fill_listener_assets or set(asset_map))
+        self._configured_timeframes: dict[str, list[str]] = {
+            asset: list(timeframes)
+            for asset, timeframes in (configured_timeframes or asset_map).items()
+        }
+        self._fill_listener_assets: set[str] = set(
+            fill_listener_assets or set(asset_map)
+        )
         self._risk_worker_tasks: dict[str, asyncio.Task[Any]] = {}
         self._fill_listener_tasks: dict[str, asyncio.Task[Any]] = {}
         self._persistence_task: asyncio.Task[Any] | None = None
         self._lifecycle_task: asyncio.Task[Any] | None = None
         self._supervisor_task: asyncio.Task[Any] | None = None
-        self.lifecycle_group_name = str(risk_config.get("lifecycle_group_name", "risk_app_group"))
+        self._manifest_store = AssetManifestStore(redis_client)
+        self.lifecycle_group_name = str(
+            risk_config.get("lifecycle_group_name", "risk_app_group")
+        )
         self.lifecycle_consumer_name = str(
             risk_config.get("lifecycle_consumer_name", "risk_app_lifecycle"),
         )
@@ -174,7 +188,9 @@ class RiskRuntimeRunner:
                 await asyncio.gather(*managed_tasks, return_exceptions=True)
             raise
 
-    async def _ensure_risk_worker_started(self, asset: str, timeframes: list[str]) -> None:
+    async def _ensure_risk_worker_started(
+        self, asset: str, timeframes: list[str]
+    ) -> None:
         existing = self._worker_timeframes.get(asset)
         if asset in self._risk_worker_tasks and existing == list(timeframes):
             return
@@ -184,14 +200,16 @@ class RiskRuntimeRunner:
         self._risk_worker_tasks[asset] = asyncio.create_task(
             self.supervise_consumer_fn(
                 label=f"RiskWorker[{asset}]",
-                build_consumer=lambda asset=asset, timeframes=list(timeframes): self.risk_worker_factory(
-                    asset=asset,
-                    timeframes=timeframes,
-                    risk_engine=self.risk_engine,
-                    signal_aggregator=self.signal_aggregator,
-                    account=self.account,
-                    positions=self.positions,
-                    risk_config=self.risk_config,
+                build_consumer=lambda asset=asset, timeframes=list(timeframes): (
+                    self.risk_worker_factory(
+                        asset=asset,
+                        timeframes=timeframes,
+                        risk_engine=self.risk_engine,
+                        signal_aggregator=self.signal_aggregator,
+                        account=self.account,
+                        positions=self.positions,
+                        risk_config=self.risk_config,
+                    )
                 ),
                 redis_client=self.redis_client,
                 restart_delay_seconds=self.restart_delay_seconds,
@@ -272,17 +290,23 @@ class RiskRuntimeRunner:
                 await asyncio.sleep(1)
 
     async def _apply_lifecycle_event(self, event: AssetLifecycleEvent) -> None:
-        timeframes = self._event_timeframes(event)
+        if not await self._is_authoritative_event(event):
+            return
         asset = event.symbol
 
         if event.desired_state == "LIVE" and event.enabled:
-            await self._ensure_fill_listener_started(asset)
-            await self._ensure_risk_worker_started(asset, timeframes)
+            configured_timeframes = self._configured_timeframes.get(asset)
+            if configured_timeframes is not None:
+                await self._ensure_fill_listener_started(asset)
+                await self._ensure_risk_worker_started(asset, configured_timeframes)
             return
 
         await self._stop_risk_worker(asset)
 
-        if event.desired_state == "REMOVING" and self.positions.get_asset_exposure(asset) <= 0:
+        if (
+            event.desired_state == "REMOVING"
+            and self.positions.get_asset_exposure(asset) <= 0
+        ):
             await self._stop_fill_listener(asset)
 
     async def _supervise(self) -> None:
@@ -314,18 +338,21 @@ class RiskRuntimeRunner:
                     error = task.exception()
                     if error is not None:
                         raise error
-                    raise RuntimeError(f"Risk {task_map_name} for {asset} exited unexpectedly")
+                    raise RuntimeError(
+                        f"Risk {task_map_name} for {asset} exited unexpectedly"
+                    )
             await asyncio.sleep(0.1)
 
-    def _managed_tasks(self, initial_tasks: list[asyncio.Task[Any]]) -> list[asyncio.Task[Any]]:
+    def _managed_tasks(
+        self, initial_tasks: list[asyncio.Task[Any]]
+    ) -> list[asyncio.Task[Any]]:
         tasks = list(initial_tasks)
         tasks.extend(self._risk_worker_tasks.values())
         tasks.extend(self._fill_listener_tasks.values())
         return list(dict.fromkeys(task for task in tasks if task is not None))
 
-    @staticmethod
-    def _event_timeframes(event: AssetLifecycleEvent) -> list[str]:
-        timeframes = list(event.publish_timeframes or [])
-        if not timeframes:
-            timeframes = [event.base_timeframe]
-        return [timeframe for timeframe in timeframes if timeframe]
+    async def _is_authoritative_event(self, event: AssetLifecycleEvent) -> bool:
+        if not callable(getattr(self.redis_client, "hgetall", None)):
+            return True
+        manifest = await self._manifest_store.read_asset(event.symbol)
+        return manifest is None or manifest.source == event.source

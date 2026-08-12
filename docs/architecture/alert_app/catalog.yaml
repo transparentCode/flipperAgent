@@ -20,12 +20,10 @@ entrypoints:
 features:
   - key: lifecycle_event_alerting
     summary: Consumes canonical asset lifecycle events and opens informational/warning incidents
-  - key: ingestion_runtime_alerting
-    summary: Consumes ingestion runtime events and normalizes operational failures
   - key: execution_failure_alerting
     summary: Watches execution failure streams and raises critical incidents
   - key: freshness_reconciliation
-    summary: Detects ingestion warming timeouts and signal/strategy freshness breaches
+    summary: Detects signal/strategy freshness breaches
   - key: scraper_job_alerting
     summary: Detects failed scraper jobs and resolves incidents when jobs recover
   - key: health_probe_alerting
@@ -65,7 +63,6 @@ internal_components:
       - src/apps/alert_app/runtime/normalizers.py
     responsibilities:
       - Consume lifecycle stream
-      - Consume ingestion runtime stream
       - Discover and consume execution failure streams
       - Normalize raw source payloads into alert events
       - Resolve policy routes for normalized events before notification dispatch
@@ -74,7 +71,7 @@ internal_components:
     paths:
       - src/apps/alert_app/runtime/reconciler.py
     responsibilities:
-      - Scan ingestion/signal/strategy runtime status keys
+      - Scan signal/strategy runtime status keys
       - Scan scraper job state keys
       - Probe configured health endpoints
       - Respect per-check startup grace before opening new health-breach incidents
@@ -130,13 +127,9 @@ tech_stack:
 valkey:
   consumes:
     - name: asset:lifecycle
-      producer: ingestion_app
-    - name: stream:events:ingestion
-      producer: ingestion_app
+      producer: ingestion
     - name: execution:failures:{asset}
       producer: execution_app
-    - name: ingestion:runtime_status:{asset}:{tf}
-      producer: ingestion_app
     - name: signal:status:{asset}:{tf}
       producer: signal_app
     - name: strategy:status:{asset}:{tf}

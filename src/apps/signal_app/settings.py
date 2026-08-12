@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from apps.signal_app.ohlcv_source import (
+    OhlcvSourceBinding,
+    parse_ohlcv_source_bindings,
+)
 from libs.common.config import ConfigManager
 from libs.common.constants import CONFIG_FILE_TRADINGVIEW
 
@@ -35,12 +39,13 @@ class SignalWorkerSettings:
     regime_min_bars: int = 200
     regime_max_history: int = 2000
     regime_reeval_interval: int = 10
+    ohlcv_sources: tuple[OhlcvSourceBinding, ...] = ()
 
     @classmethod
     def from_config(
         cls,
         config_manager: ConfigManager | None = None,
-    ) -> "SignalWorkerSettings":
+    ) -> SignalWorkerSettings:
         config_manager = config_manager or ConfigManager()
         config_manager.register_file(CONFIG_FILE_TRADINGVIEW)
         return cls(
@@ -56,7 +61,9 @@ class SignalWorkerSettings:
                     cls.consumer_name_prefix,
                 )
             ),
-            batch_size=int(config_manager.get("signal.runtime.batch_size", cls.batch_size)),
+            batch_size=int(
+                config_manager.get("signal.runtime.batch_size", cls.batch_size)
+            ),
             block_ms=int(config_manager.get("signal.runtime.block_ms", cls.block_ms)),
             feature_stream_maxlen=int(
                 config_manager.get(
@@ -101,7 +108,9 @@ class SignalWorkerSettings:
                 )
             ),
             enrichment_index_keys=_normalize_index_keys(
-                config_manager.get("tradingview.indices", list(DEFAULT_SIGNAL_TV_INDICES))
+                config_manager.get(
+                    "tradingview.indices", list(DEFAULT_SIGNAL_TV_INDICES)
+                )
             ),
             regime_min_bars=int(
                 config_manager.get("signal.regime.min_bars", cls.regime_min_bars)
@@ -115,4 +124,17 @@ class SignalWorkerSettings:
                     cls.regime_reeval_interval,
                 )
             ),
+            ohlcv_sources=parse_ohlcv_source_bindings(
+                config_manager.get("signal.runtime.ohlcv_sources", {})
+            ),
+        )
+
+    def source_binding(self, asset: str) -> OhlcvSourceBinding:
+        """Return the explicit ingestion binding for an asset or fail closed."""
+        normalized_asset = str(asset).strip().upper()
+        for binding in self.ohlcv_sources:
+            if binding.asset == normalized_asset:
+                return binding
+        raise ValueError(
+            f"no explicit ingestion OHLCV source binding configured for {normalized_asset}"
         )

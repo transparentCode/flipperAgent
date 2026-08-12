@@ -44,7 +44,7 @@ def create_stream_lag_callback(redis_client, stream_key: str, group_name: str):
                     {"stream": stream_key, "group": group_name},
                 )
             ]
-        except Exception:
+        except Exception:  # noqa: BLE001 - telemetry callbacks must never raise
             return []
 
     return _observe

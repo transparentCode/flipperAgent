@@ -22,7 +22,7 @@ class AlertIncidentState(str, Enum):
 
 
 class AlertSourceApp(str, Enum):
-    INGESTION = "ingestion_app"
+    INGESTION = "ingestion"
     SIGNAL = "signal_app"
     STRATEGY = "strategy_app"
     RISK = "risk_app"
@@ -171,4 +171,3 @@ class AlertSummary(BaseModel):
 
 def make_incident_id(dedupe_key: str) -> str:
     return hashlib.sha256(dedupe_key.encode("utf-8")).hexdigest()[:24]
-

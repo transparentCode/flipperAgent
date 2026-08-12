@@ -3,17 +3,21 @@
 from __future__ import annotations
 
 import asyncio
+import math
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
-import math
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from libs.models.sr.domain import ContractValidationError
-from libs.models.sr.research.artifacts.path_safety import reject_symlink_components, require_regular_file
+from libs.models.sr.research.artifacts.path_safety import (
+    reject_symlink_components,
+    require_regular_file,
+)
 from libs.models.sr.research.artifacts.validator import load_strict_json
 
-from .config import COHORTS, END, RelativeSalienceRankConfig, START
+from .config import COHORTS, END, START, RelativeSalienceRankConfig
 from .contracts import IntervalBar, SourceBundle, SourceMember, bars_sha256, grid_sha256
 
 
@@ -181,7 +185,7 @@ async def fetch_fresh_member(
     """Make precisely one authorized provider request for an approved cohort."""
 
     if adapter_factory is None:
-        from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
+        from libs.market_data.binance_native import BinanceNativeAdapter
         adapter_factory = BinanceNativeAdapter
     adapter = adapter_factory()
     try:

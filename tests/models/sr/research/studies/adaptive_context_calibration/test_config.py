@@ -9,7 +9,7 @@ from libs.models.sr.research.studies.adaptive_context_calibration.config import 
 
 
 def test_exact_immutable_config(config) -> None:
-    assert config.config_hash == "061ccbf306d2bc384340db70cbb9f6eb4181d931b3627015612b47a7c3270b50"
+    assert config.config_hash == "effeb6112945a655f3fccc4a7f9bc6be8af0ebfe0e202871c73c0819319acfdb"
     assert config.assets == ("TAOUSDT", "ETHUSDT", "SOLUSDT")
     assert config.timeframes == ("1d", "12h")
     assert config.provider_12h.expected_rows == 1000

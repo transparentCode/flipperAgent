@@ -2,30 +2,32 @@
 
 from __future__ import annotations
 
-from hashlib import sha256
 import json
 import os
-from pathlib import Path
 import shutil
 import tempfile
+from hashlib import sha256
+from pathlib import Path
 from typing import Any
 
-from libs.models.sr.domain.identity import canonical_json, deterministic_hash, utc_isoformat
-
-from libs.models.sr.research.studies.baseline_trial.contracts import (
-    BundleMember,
-    BundlePublication,
-    EvidenceManifest,
-    BASELINE_WINDOW_POLICY,
-    SR_BASELINE_TRIAL_SCHEMA_VERSION,
-    TrialResult,
-    effective_provider_request_bounds,
+from libs.models.sr.domain.identity import (
+    canonical_json,
+    deterministic_hash,
+    utc_isoformat,
 )
 from libs.models.sr.research.studies.baseline_trial.chart_payload import (
     build_chart_payload,
     chart_payload_identity,
 )
-
+from libs.models.sr.research.studies.baseline_trial.contracts import (
+    BASELINE_WINDOW_POLICY,
+    SR_BASELINE_TRIAL_SCHEMA_VERSION,
+    BundleMember,
+    BundlePublication,
+    EvidenceManifest,
+    TrialResult,
+    effective_provider_request_bounds,
+)
 
 _MEMBER_NAMES = (
     "source_bars.json",
@@ -280,7 +282,7 @@ def _manifest_semantic_payload(
         "schema_version": SR_BASELINE_TRIAL_SCHEMA_VERSION,
         "trial_name": result.trial.trial_name,
         "trial": result.trial.to_payload(),
-        "provider_adapter": "apps.ingestion_app.adapters.binance_native.BinanceNativeAdapter",
+        "provider_adapter": "libs.market_data.binance_native.BinanceNativeAdapter",
         "requested_since": utc_isoformat(dataset.requested_since),
         "requested_until": utc_isoformat(dataset.requested_until),
         "actual_since": utc_isoformat(dataset.actual_since),
@@ -534,7 +536,7 @@ def publish_bundle(
     manifest = EvidenceManifest(
         schema_version=SR_BASELINE_TRIAL_SCHEMA_VERSION,
         trial=result.trial,
-        provider_adapter="apps.ingestion_app.adapters.binance_native.BinanceNativeAdapter",
+        provider_adapter="libs.market_data.binance_native.BinanceNativeAdapter",
         dataset=result.dataset,
         resolved_sr_config=result.resolved_sr_config,
         resolved_input=result.resolved_input,

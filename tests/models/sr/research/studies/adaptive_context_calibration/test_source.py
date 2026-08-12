@@ -27,7 +27,9 @@ class _CountingAdapter:
 
 def test_frozen_daily_members_are_shared_source_bars_and_12h_is_local(config) -> None:
     from libs.models.sr.research.source.contracts import SourceBar
-    from libs.models.sr.research.studies.adaptive_context_calibration.source import _frozen_members
+    from libs.models.sr.research.studies.adaptive_context_calibration.source import (
+        _frozen_members,
+    )
 
     members = _frozen_members(config, repo_root=".")
     assert all(type(member.bars[0]) is SourceBar for member in members)
@@ -111,7 +113,7 @@ def test_provider_boundary_rejects_order_duplicates_and_nonfinite(config, synthe
 
 
 def test_real_adapter_parser_schema_is_accepted_and_taker_is_not_hashed(config, synthetic_frame) -> None:
-    from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
+    from libs.market_data.binance_native import BinanceNativeAdapter
 
     class _Client:
         def klines(self, *_args, **_kwargs):

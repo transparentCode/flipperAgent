@@ -4,25 +4,46 @@ from __future__ import annotations
 
 import json
 
-import pandas as pd
-
 from apps.scraper_app import cli
+from apps.scraper_app.core.models import ScrapeResult
+
+
+def _ohlcv_result(request):
+    return ScrapeResult(
+        provider=request.provider,
+        dataset=request.dataset,
+        intent=request.intent,
+        source="live",
+        symbol=request.symbol,
+        timeframe=request.timeframe,
+        data=[
+            {
+                "timestamp": 1700000000000,
+                "open": 1.0,
+                "high": 2.0,
+                "low": 0.5,
+                "close": 1.5,
+                "volume": 10.0,
+            }
+        ],
+    )
 
 
 def test_coinglass_cli_writes_json(tmp_path, monkeypatch):
     output_path = tmp_path / "heatmap.json"
 
-    class FakeInterceptor:
-        def __init__(self, cookies_path=None):
-            self.cookies_path = cookies_path
+    class FakeService:
+        async def fetch(self, request):
+            return ScrapeResult(
+                provider=request.provider,
+                dataset=request.dataset,
+                intent=request.intent,
+                source="live",
+                symbol=request.symbol,
+                data={"coin": request.coin, "shape": "runtime_helper", "payload": {"liq": []}},
+            )
 
-        async def fetch_heatmap(self, **kwargs):
-            return {"coin": kwargs["coin"], "shape": "runtime_helper", "payload": {"liq": []}}
-
-        async def close(self):
-            return None
-
-    monkeypatch.setattr(cli, "CoinGlassHeatmapInterceptor", FakeInterceptor)
+    monkeypatch.setattr(cli, "ScraperFetchService", FakeService)
 
     exit_code = cli.main(
         ["coinglass", "--coin", "SOL", "--cookies-path", "cookies.json", "--output-path", str(output_path)]
@@ -35,29 +56,12 @@ def test_coinglass_cli_writes_json(tmp_path, monkeypatch):
 def test_tradingview_cli_writes_csv(tmp_path, monkeypatch):
     output_path = tmp_path / "ohlcv.csv"
 
-    class FakeInterceptor:
-        def __init__(self, cookies_path=None):
-            self.cookies_path = cookies_path
+    class FakeService:
+        async def fetch(self, request):
+            assert request.limit is None
+            return _ohlcv_result(request)
 
-        async def get_historical_ohlcv(self, symbol, timeframe, limit=None):
-            assert limit is None
-            return pd.DataFrame(
-                [
-                    {
-                        "timestamp": 1700000000000,
-                        "open": 1.0,
-                        "high": 2.0,
-                        "low": 0.5,
-                        "close": 1.5,
-                        "volume": 10.0,
-                    }
-                ]
-            )
-
-        async def close(self):
-            return None
-
-    monkeypatch.setattr(cli, "TradingViewInterceptor", FakeInterceptor)
+    monkeypatch.setattr(cli, "ScraperFetchService", FakeService)
 
     exit_code = cli.main(
         [
@@ -79,31 +83,14 @@ def test_tradingview_cli_writes_csv(tmp_path, monkeypatch):
 def test_tradingview_cli_passes_limit(tmp_path, monkeypatch):
     output_path = tmp_path / "ohlcv.json"
 
-    class FakeInterceptor:
-        def __init__(self, cookies_path=None):
-            self.cookies_path = cookies_path
+    class FakeService:
+        async def fetch(self, request):
+            assert request.symbol == "CRYPTOCAP:TOTAL2"
+            assert request.timeframe == "1h"
+            assert request.limit == 8760
+            return _ohlcv_result(request)
 
-        async def get_historical_ohlcv(self, symbol, timeframe, limit=None):
-            assert symbol == "CRYPTOCAP:TOTAL2"
-            assert timeframe == "1h"
-            assert limit == 8760
-            return pd.DataFrame(
-                [
-                    {
-                        "timestamp": 1700000000000,
-                        "open": 1.0,
-                        "high": 2.0,
-                        "low": 0.5,
-                        "close": 1.5,
-                        "volume": 10.0,
-                    }
-                ]
-            )
-
-        async def close(self):
-            return None
-
-    monkeypatch.setattr(cli, "TradingViewInterceptor", FakeInterceptor)
+    monkeypatch.setattr(cli, "ScraperFetchService", FakeService)
 
     exit_code = cli.main(
         [

@@ -1,20 +1,20 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+import asyncio
 import math
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any
 
 import pandas as pd
 
+from apps.signal_app.pipeline.raw_indicators import BarTuple
+from apps.signal_app.settings import SignalWorkerSettings
 from libs.common.config import ConfigManager
 from libs.common.constants import CONFIG_FILE_MODELS
 from libs.common.db.pool_manager import DBPoolManager
 from libs.common.db.timescale_reader import TimescaleReader
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
-
-from apps.signal_app.pipeline.raw_indicators import BarTuple
-from apps.signal_app.settings import SignalWorkerSettings
 
 logger = bind_logger(__name__, system_component=SystemComponent.SIGNAL_APP)
 
@@ -26,6 +26,10 @@ PriceBar = dict[str, float]
 L2FeatureReader = Callable[[str], Awaitable[dict[str, Any] | None]]
 
 
+def _batch_evaluate_classifier(classifier: Any, history: list[PriceBar]) -> Any:
+    return classifier.batch_evaluate(pd.DataFrame(history))
+
+
 class FeatureProducerConfigResolver:
     """Resolve feature producer config using the current models.yaml fallback chain."""
 
@@ -33,7 +37,9 @@ class FeatureProducerConfigResolver:
         self.config_manager = config_manager or ConfigManager()
         self.config_manager.register_file(CONFIG_FILE_MODELS)
 
-    def resolve(self, asset: str, timeframe: str, producer_name: str) -> dict[str, Any] | None:
+    def resolve(
+        self, asset: str, timeframe: str, producer_name: str
+    ) -> dict[str, Any] | None:
         fp_config = self.config_manager.get("feature_producers", {})
         assets_config = fp_config.get("assets", {})
 
@@ -75,8 +81,12 @@ class RegimeFeaturePipeline:
         self.asset = asset.upper()
         self.timeframe = timeframe
         base_min_bars = settings.regime_min_bars if min_bars is None else min_bars
-        self.orchestrator_min_bars = _component_min_bars(orchestrator, fallback=base_min_bars)
-        self.classifier_min_bars = _component_min_bars(classifier, fallback=base_min_bars)
+        self.orchestrator_min_bars = _component_min_bars(
+            orchestrator, fallback=base_min_bars
+        )
+        self.classifier_min_bars = _component_min_bars(
+            classifier, fallback=base_min_bars
+        )
         self.regime_v2_min_bars = _component_min_bars(regime_v2, fallback=base_min_bars)
         self.min_bars = max(
             self.orchestrator_min_bars,
@@ -87,7 +97,9 @@ class RegimeFeaturePipeline:
             settings.regime_max_history if max_history is None else max_history
         )
         self.reeval_interval = (
-            settings.regime_reeval_interval if reeval_interval is None else reeval_interval
+            settings.regime_reeval_interval
+            if reeval_interval is None
+            else reeval_interval
         )
         self.orchestrator = orchestrator
         self.classifier = classifier
@@ -105,7 +117,7 @@ class RegimeFeaturePipeline:
         *,
         config_resolver: FeatureProducerConfigResolver | None = None,
         settings: SignalWorkerSettings | None = None,
-    ) -> "RegimeFeaturePipeline":
+    ) -> RegimeFeaturePipeline:
         settings = settings or SignalWorkerSettings()
         resolver = config_resolver or FeatureProducerConfigResolver()
         orchestrator = _create_regime_orchestrator(asset, timeframe)
@@ -147,13 +159,16 @@ class RegimeFeaturePipeline:
 
     async def enrich(self, features: dict[str, Any]) -> dict[str, Any]:
         enriched = dict(features)
-        self._attach_regime_snapshot(enriched)
+        await asyncio.to_thread(self._attach_regime_snapshot, enriched)
         await self._attach_regime_classification(enriched)
-        self._attach_regime_v2(enriched)
+        await asyncio.to_thread(self._attach_regime_v2, enriched)
         return enriched
 
     def _attach_regime_snapshot(self, features: dict[str, Any]) -> None:
-        if self.orchestrator is None or len(self._price_history) < self.orchestrator_min_bars:
+        if (
+            self.orchestrator is None
+            or len(self._price_history) < self.orchestrator_min_bars
+        ):
             return
 
         try:
@@ -163,10 +178,15 @@ class RegimeFeaturePipeline:
             logger.warning("Regime analysis failed for current bar", exc_info=True)
 
     async def _attach_regime_classification(self, features: dict[str, Any]) -> None:
-        if self.classifier is None or len(self._price_history) < self.classifier_min_bars:
+        if (
+            self.classifier is None
+            or len(self._price_history) < self.classifier_min_bars
+        ):
             return
 
-        bars_since_cache = len(self._price_history) - self._classification_cache_bar_count
+        bars_since_cache = (
+            len(self._price_history) - self._classification_cache_bar_count
+        )
         need_reeval = (
             self._classification_cache is None
             or bars_since_cache >= self.reeval_interval
@@ -174,11 +194,17 @@ class RegimeFeaturePipeline:
 
         if need_reeval:
             try:
-                regime_output = self.classifier.batch_evaluate(pd.DataFrame(self._price_history))
+                regime_output = await asyncio.to_thread(
+                    _batch_evaluate_classifier,
+                    self.classifier,
+                    list(self._price_history),
+                )
                 self._classification_cache = dict(regime_output.iloc[-1])
                 self._classification_cache_bar_count = len(self._price_history)
             except Exception:
-                logger.warning("RegimeClassification batch_evaluate failed", exc_info=True)
+                logger.warning(
+                    "RegimeClassification batch_evaluate failed", exc_info=True
+                )
 
         if self._classification_cache is None:
             return
@@ -286,7 +312,9 @@ def _create_regime_v2(
     if not regime_config or not regime_config.get("enabled", False):
         return None
     try:
-        from libs.models.regime_v2.adapters.feature_producer import RegimeV2FeatureProducer
+        from libs.models.regime_v2.adapters.feature_producer import (
+            RegimeV2FeatureProducer,
+        )
 
         return RegimeV2FeatureProducer(
             asset,

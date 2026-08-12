@@ -21,7 +21,7 @@ from typing import Any
 
 import pandas as pd
 
-from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
+from libs.market_data.binance_native import BinanceNativeAdapter
 from libs.models.trendline_v2 import discover_trendlines
 from libs.models.trendline_v2.configuration import (
     ConfirmedExtremaPairConfig,

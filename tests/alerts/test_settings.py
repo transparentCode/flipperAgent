@@ -2,15 +2,27 @@ from pathlib import Path
 
 import yaml
 
-from apps.alert_app.settings import AlertAppSettings, create_alert_config_manager, route_configs_from_config
+from apps.alert_app.settings import (
+    AlertAppSettings,
+    create_alert_config_manager,
+    route_configs_from_config,
+)
 from libs.common.config import ConfigManager
+
+
+def test_ingestion_health_config_uses_ready_status() -> None:
+    config_path = Path(__file__).parents[2] / "configs" / "alerts.yaml"
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+
+    assert config["alerts"]["health_checks"]["ingestion_runtime"][
+        "healthy_statuses"
+    ] == ["ready"]
 
 
 def test_alert_settings_load_from_config() -> None:
     settings = AlertAppSettings.from_config()
     assert settings.consumer_group == "alert_app_group"
     assert settings.lifecycle_stream == "asset:lifecycle"
-    assert settings.ingestion_events_stream == "stream:events:ingestion"
     assert settings.execution_failure_prefix == "execution:failures:"
 
 

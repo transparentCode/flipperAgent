@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from typing import ClassVar
 
 import pytest
 
@@ -18,13 +19,24 @@ class _FakeLifecycleRedis:
         self.deleted: list[str] = []
         self._queue: asyncio.Queue[tuple[str, dict[str, str]]] = asyncio.Queue()
 
-    async def xgroup_create(self, stream_key: str, group_name: str, id: str = "0", mkstream: bool = True):
+    async def xgroup_create(
+        self, stream_key: str, group_name: str, id: str = "0", mkstream: bool = True
+    ):
         self.groups.append((stream_key, group_name, id, mkstream))
 
-    async def xreadgroup(self, group_name: str, consumer_name: str, streams, count: int = 1, block: int = 1000):
+    async def xreadgroup(
+        self,
+        group_name: str,
+        consumer_name: str,
+        streams,
+        count: int = 1,
+        block: int = 1000,
+    ):
         try:
-            message = await asyncio.wait_for(self._queue.get(), timeout=max(block / 1000, 0.05))
-        except asyncio.TimeoutError:
+            message = await asyncio.wait_for(
+                self._queue.get(), timeout=max(block / 1000, 0.05)
+            )
+        except TimeoutError:
             return []
         return [(ASSET_LIFECYCLE_STREAM, [message])]
 
@@ -44,7 +56,9 @@ class _FakeLifecycleRedis:
         self.hashes.pop(key, None)
         return 1
 
-    async def set(self, key: str, value: str, *, ex: int | None = None, nx: bool = False):
+    async def set(
+        self, key: str, value: str, *, ex: int | None = None, nx: bool = False
+    ):
         if nx and key in self.hashes:
             return False
         self.hashes[key] = {"value": value, "ex": str(ex) if ex is not None else ""}
@@ -55,7 +69,7 @@ class _FakeLifecycleRedis:
 
 
 class _StubWorker:
-    created: list["_StubWorker"] = []
+    created: ClassVar[list[_StubWorker]] = []
 
     def __init__(
         self,
@@ -93,13 +107,17 @@ class _StubWorker:
 
 
 @pytest.mark.asyncio
-async def test_strategy_runtime_runner_reacts_to_pause_and_resume_lifecycle_events() -> None:
+async def test_strategy_runtime_runner_reacts_to_pause_and_resume_lifecycle_events() -> (
+    None
+):
     _StubWorker.created = []
     redis = _FakeLifecycleRedis()
     runner = StrategyRuntimeRunner(
         [StrategyPair(asset="BTCUSDT", timeframe="1h")],
         worker_factory=_StubWorker,
-        worker_settings=StrategyWorkerSettings(consumer_group="strategy_lifecycle_test"),
+        worker_settings=StrategyWorkerSettings(
+            consumer_group="strategy_lifecycle_test"
+        ),
     )
 
     await runner.connect(redis)
@@ -142,6 +160,7 @@ async def test_strategy_runtime_runner_reacts_to_pause_and_resume_lifecycle_even
             "emitted_at": "2",
         },
     )
+
     async def _second_worker_started() -> None:
         while len(_StubWorker.created) < 2:
             await asyncio.sleep(0.01)
@@ -160,13 +179,17 @@ async def test_strategy_runtime_runner_reacts_to_pause_and_resume_lifecycle_even
 
 
 @pytest.mark.asyncio
-async def test_strategy_runtime_runner_deduplicates_replayed_lifecycle_event_ids() -> None:
+async def test_strategy_runtime_runner_deduplicates_replayed_lifecycle_event_ids() -> (
+    None
+):
     _StubWorker.created = []
     redis = _FakeLifecycleRedis()
     runner = StrategyRuntimeRunner(
         [StrategyPair(asset="BTCUSDT", timeframe="1h")],
         worker_factory=_StubWorker,
-        worker_settings=StrategyWorkerSettings(consumer_group="strategy_lifecycle_dedup_test"),
+        worker_settings=StrategyWorkerSettings(
+            consumer_group="strategy_lifecycle_dedup_test"
+        ),
     )
 
     await runner.connect(redis)
@@ -213,7 +236,9 @@ async def test_strategy_runtime_runner_passes_trigger_lane_metadata_to_worker() 
     runner = StrategyRuntimeRunner(
         [pair],
         worker_factory=_StubWorker,
-        worker_settings=StrategyWorkerSettings(consumer_group="strategy_trigger_lane_test"),
+        worker_settings=StrategyWorkerSettings(
+            consumer_group="strategy_trigger_lane_test"
+        ),
     )
 
     workers = await runner.connect(redis)
@@ -225,9 +250,15 @@ async def test_strategy_runtime_runner_passes_trigger_lane_metadata_to_worker() 
     assert workers[0].allowed_model_names == ["Momentum"]
 
 
-def test_strategy_runtime_runner_event_timeframes_fall_back_to_publish_timeframes() -> None:
+def test_strategy_runtime_runner_lifecycle_uses_configured_pairs_only() -> None:
     from libs.common.asset_manifest import AssetLifecycleEvent
 
+    runner = StrategyRuntimeRunner(
+        [
+            StrategyPair(asset="BTCUSDT", timeframe="1h"),
+            StrategyPair(asset="BTCUSDT", timeframe="4h"),
+        ]
+    )
     event = AssetLifecycleEvent.model_validate(
         {
             "event_id": "evt-runtime-timeframes",
@@ -242,7 +273,10 @@ def test_strategy_runtime_runner_event_timeframes_fall_back_to_publish_timeframe
         }
     )
 
-    assert StrategyRuntimeRunner._event_timeframes(event) == ["1m", "1h", "4h"]
+    assert [pair.key for pair in runner._desired_pairs_for_event(event)] == [
+        "BTCUSDT:1h",
+        "BTCUSDT:4h",
+    ]
 
 
 @pytest.mark.asyncio
@@ -262,7 +296,9 @@ async def test_strategy_runtime_runner_clears_app_streams_on_remove() -> None:
     runner = StrategyRuntimeRunner(
         pairs,
         worker_factory=_StubWorker,
-        worker_settings=StrategyWorkerSettings(consumer_group="strategy_lifecycle_remove_test"),
+        worker_settings=StrategyWorkerSettings(
+            consumer_group="strategy_lifecycle_remove_test"
+        ),
     )
 
     await runner.connect(redis)
@@ -288,7 +324,9 @@ async def test_strategy_runtime_runner_clears_app_streams_on_remove() -> None:
     )
 
     async def _workers_cancelled() -> None:
-        await asyncio.gather(*[worker.cancelled.wait() for worker in _StubWorker.created[:2]])
+        await asyncio.gather(
+            *[worker.cancelled.wait() for worker in _StubWorker.created[:2]]
+        )
 
     await asyncio.wait_for(_workers_cancelled(), timeout=2)
     await asyncio.sleep(0.05)

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from enum import Enum
 import hashlib
+import inspect
+from collections.abc import Iterable
+from enum import Enum
 from time import time
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from valkey.exceptions import WatchError
 
 from libs.contracts.ingestion import IngestionCommandType
 from libs.contracts.serialization import valkey_decode, valkey_encode
@@ -20,6 +23,10 @@ class AssetLifecycleEventType(str, Enum):
     ASSET_STOPPED = "ASSET_STOPPED"
     ASSET_RESUMED = "ASSET_RESUMED"
     ASSET_REMOVE_REQUESTED = "ASSET_REMOVE_REQUESTED"
+
+
+class AssetManifestOwnershipError(RuntimeError):
+    """A producer attempted to mutate an asset owned by another source."""
 
 
 class AssetManifest(BaseModel):
@@ -39,7 +46,7 @@ class AssetManifest(BaseModel):
     timeframe_version: int | None = None
     request_id: str | None = None
     updated_at: float
-    source: str = "ingestion_app"
+    source: str = "ingestion"
 
     @field_validator("symbol", mode="before")
     @classmethod
@@ -64,7 +71,7 @@ class AssetTimeframeManifest(BaseModel):
     timeframe_version: int | None = None
     request_id: str | None = None
     updated_at: float
-    source: str = "ingestion_app"
+    source: str = "ingestion"
 
     @field_validator("symbol", mode="before")
     @classmethod
@@ -90,9 +97,10 @@ class AssetLifecycleEvent(BaseModel):
     request_id: str | None = None
     asset_version: int = 1
     timeframe_version: int | None = None
-    requested_by: str = "api_app"
+    requested_by: str = "ingestion"
     reason: str | None = None
     emitted_at: float
+    source: str = "ingestion"
 
     @field_validator("symbol", mode="before")
     @classmethod
@@ -133,7 +141,10 @@ def make_lifecycle_event_id(
 
 def manifest_runtime_timeframes(manifest: AssetManifest) -> list[str]:
     ordered: list[str] = []
-    candidates = manifest.timeframes or [manifest.base_timeframe, *list(manifest.publish_timeframes)]
+    candidates = manifest.timeframes or [
+        manifest.base_timeframe,
+        *list(manifest.publish_timeframes),
+    ]
     for timeframe in candidates:
         normalized = str(timeframe).strip()
         if normalized and normalized not in ordered:
@@ -182,8 +193,12 @@ class AssetManifestStore:
             return None
         return valkey_decode(dict(raw), AssetManifest)
 
-    async def read_timeframe(self, symbol: str, timeframe: str) -> AssetTimeframeManifest | None:
-        raw = await self.redis_client.hgetall(asset_timeframe_manifest_key(symbol, timeframe))
+    async def read_timeframe(
+        self, symbol: str, timeframe: str
+    ) -> AssetTimeframeManifest | None:
+        raw = await self.redis_client.hgetall(
+            asset_timeframe_manifest_key(symbol, timeframe)
+        )
         if not raw:
             return None
         return valkey_decode(dict(raw), AssetTimeframeManifest)
@@ -208,10 +223,7 @@ class AssetManifestStore:
         request_id: str | None = None,
     ) -> tuple[AssetManifest, list[AssetTimeframeManifest]]:
         timestamp = updated_at if updated_at is not None else time()
-        previous = await self.read_asset(asset.symbol)
         timeframes = self._all_timeframes(asset)
-        previous_timeframes = set(previous.timeframes if previous is not None else [])
-        current_timeframes = set(timeframes)
 
         manifest = AssetManifest(
             symbol=asset.symbol,
@@ -226,14 +238,12 @@ class AssetManifestStore:
             desired_state=self._enum_value(asset.desired_state),
             asset_version=int(getattr(asset, "asset_version", 1)),
             timeframe_version=int(
-                getattr(asset, "timeframe_version", None) or getattr(asset, "asset_version", 1)
+                getattr(asset, "timeframe_version", None)
+                or getattr(asset, "asset_version", 1)
             ),
             request_id=request_id,
             updated_at=timestamp,
-        )
-        await self.redis_client.hset(
-            asset_manifest_key(asset.symbol),
-            mapping=valkey_encode(manifest, inject_trace=False),
+            source="ingestion",
         )
 
         timeframe_manifests: list[AssetTimeframeManifest] = []
@@ -251,21 +261,219 @@ class AssetManifestStore:
                 desired_state=self._enum_value(asset.desired_state),
                 asset_version=int(getattr(asset, "asset_version", 1)),
                 timeframe_version=int(
-                    getattr(asset, "timeframe_version", None) or getattr(asset, "asset_version", 1)
+                    getattr(asset, "timeframe_version", None)
+                    or getattr(asset, "asset_version", 1)
                 ),
                 request_id=request_id,
                 updated_at=timestamp,
-            )
-            await self.redis_client.hset(
-                asset_timeframe_manifest_key(asset.symbol, timeframe),
-                mapping=valkey_encode(timeframe_manifest, inject_trace=False),
+                source="ingestion",
             )
             timeframe_manifests.append(timeframe_manifest)
 
-        for stale_timeframe in sorted(previous_timeframes - current_timeframes):
-            await self.redis_client.delete(asset_timeframe_manifest_key(asset.symbol, stale_timeframe))
+        return await self.sync_manifest(manifest, timeframe_manifests)
 
-        return manifest, timeframe_manifests
+    async def sync_manifest(
+        self,
+        manifest: AssetManifest,
+        timeframe_manifests: Iterable[AssetTimeframeManifest] = (),
+        *,
+        allow_source_takeover: bool = False,
+    ) -> tuple[AssetManifest, list[AssetTimeframeManifest]]:
+        """Persist normalized manifest state while enforcing source ownership."""
+        if not isinstance(manifest, AssetManifest):
+            raise TypeError("manifest must be AssetManifest")
+
+        normalized_timeframes: list[AssetTimeframeManifest] = []
+        for timeframe_manifest in timeframe_manifests:
+            if not isinstance(timeframe_manifest, AssetTimeframeManifest):
+                raise TypeError(
+                    "timeframe_manifests must contain AssetTimeframeManifest"
+                )
+            if timeframe_manifest.symbol != manifest.symbol:
+                raise ValueError("timeframe manifest symbol must match asset manifest")
+            if timeframe_manifest.source != manifest.source:
+                raise ValueError("timeframe manifest source must match asset manifest")
+            normalized_timeframes.append(timeframe_manifest)
+
+        current_timeframes = {item.timeframe for item in normalized_timeframes}
+        asset_key = asset_manifest_key(manifest.symbol)
+        manifest_mapping = valkey_encode(manifest, inject_trace=False)
+
+        pipeline_factory = getattr(self.redis_client, "pipeline", None)
+        if callable(pipeline_factory):
+            for _attempt in range(3):
+                pipeline = pipeline_factory()
+                if inspect.iscoroutine(pipeline):
+                    pipeline.close()
+                    break
+                if inspect.isawaitable(pipeline):
+                    pipeline = await pipeline
+                try:
+                    async with pipeline:
+                        await pipeline.watch(asset_key)
+                        raw_previous = await pipeline.hgetall(asset_key)
+                        previous = (
+                            valkey_decode(dict(raw_previous), AssetManifest)
+                            if raw_previous
+                            else None
+                        )
+                        self._validate_source_ownership(
+                            previous,
+                            manifest,
+                            allow_source_takeover=allow_source_takeover,
+                        )
+                        previous_timeframes = set(
+                            previous.timeframes if previous is not None else []
+                        )
+                        pipeline.multi()
+                        pipeline.hset(asset_key, mapping=manifest_mapping)
+                        for timeframe_manifest in normalized_timeframes:
+                            pipeline.hset(
+                                asset_timeframe_manifest_key(
+                                    timeframe_manifest.symbol,
+                                    timeframe_manifest.timeframe,
+                                ),
+                                mapping=valkey_encode(
+                                    timeframe_manifest,
+                                    inject_trace=False,
+                                ),
+                            )
+                        for stale_timeframe in sorted(
+                            previous_timeframes - current_timeframes
+                        ):
+                            pipeline.delete(
+                                asset_timeframe_manifest_key(
+                                    manifest.symbol,
+                                    stale_timeframe,
+                                )
+                            )
+                        await pipeline.execute()
+                        return manifest, normalized_timeframes
+                except WatchError:
+                    if _attempt == 2:
+                        raise
+
+        previous = await self.read_asset(manifest.symbol)
+        self._validate_source_ownership(
+            previous,
+            manifest,
+            allow_source_takeover=allow_source_takeover,
+        )
+        previous_timeframes = set(previous.timeframes if previous is not None else [])
+        await self.redis_client.hset(asset_key, mapping=manifest_mapping)
+        for timeframe_manifest in normalized_timeframes:
+            await self.redis_client.hset(
+                asset_timeframe_manifest_key(
+                    timeframe_manifest.symbol,
+                    timeframe_manifest.timeframe,
+                ),
+                mapping=valkey_encode(timeframe_manifest, inject_trace=False),
+            )
+        for stale_timeframe in sorted(previous_timeframes - current_timeframes):
+            await self.redis_client.delete(
+                asset_timeframe_manifest_key(manifest.symbol, stale_timeframe)
+            )
+        return manifest, normalized_timeframes
+
+    async def publish_event(self, event: AssetLifecycleEvent) -> str:
+        """Publish a lifecycle event only from the current manifest owner."""
+        if not isinstance(event, AssetLifecycleEvent):
+            raise TypeError("event must be AssetLifecycleEvent")
+        asset_key = asset_manifest_key(event.symbol)
+        event_payload = valkey_encode(event, inject_trace=False)
+        pipeline_factory = getattr(self.redis_client, "pipeline", None)
+        if callable(pipeline_factory):
+            for _attempt in range(3):
+                pipeline = pipeline_factory()
+                if inspect.iscoroutine(pipeline):
+                    pipeline.close()
+                    break
+                if inspect.isawaitable(pipeline):
+                    pipeline = await pipeline
+                try:
+                    async with pipeline:
+                        await pipeline.watch(asset_key)
+                        raw_current = await pipeline.hgetall(asset_key)
+                        current = (
+                            valkey_decode(dict(raw_current), AssetManifest)
+                            if raw_current
+                            else None
+                        )
+                        self._validate_event_ownership(current, event)
+                        pipeline.multi()
+                        pipeline.xadd(
+                            ASSET_LIFECYCLE_STREAM,
+                            event_payload,
+                            maxlen=self.lifecycle_stream_maxlen,
+                            approximate=self.lifecycle_stream_approximate,
+                        )
+                        result = await pipeline.execute()
+                        return str(result[0])
+                except WatchError:
+                    if _attempt == 2:
+                        raise
+
+        current = await self.read_asset(event.symbol)
+        self._validate_event_ownership(current, event)
+        return await self.redis_client.xadd(
+            ASSET_LIFECYCLE_STREAM,
+            event_payload,
+            maxlen=self.lifecycle_stream_maxlen,
+            approximate=self.lifecycle_stream_approximate,
+        )
+
+    async def has_lifecycle_event(self, event_id: str) -> bool | None:
+        """Return whether a lifecycle event ID is retained in the stream.
+
+        ``None`` means the client does not expose stream inspection. This keeps
+        lightweight test doubles and legacy clients on the existing optimistic
+        reconciliation path while real Valkey can repair a missing event after
+        stream loss.
+        """
+        xrange_fn = getattr(self.redis_client, "xrange", None)
+        if not callable(xrange_fn):
+            return None
+        for _, fields in await xrange_fn(ASSET_LIFECYCLE_STREAM, "-", "+"):
+            raw_event_id = fields.get("event_id", fields.get(b"event_id"))
+            if isinstance(raw_event_id, bytes):
+                raw_event_id = raw_event_id.decode("utf-8")
+            if str(raw_event_id) == event_id:
+                return True
+        return False
+
+    @staticmethod
+    def _validate_source_ownership(
+        previous: AssetManifest | None,
+        manifest: AssetManifest,
+        *,
+        allow_source_takeover: bool,
+    ) -> None:
+        if (
+            previous is not None
+            and previous.source != manifest.source
+            and not allow_source_takeover
+        ):
+            raise AssetManifestOwnershipError(
+                f"asset {manifest.symbol} is owned by {previous.source}; "
+                f"source {manifest.source} cannot overwrite it"
+            )
+
+    @staticmethod
+    def _validate_event_ownership(
+        current: AssetManifest | None,
+        event: AssetLifecycleEvent,
+    ) -> None:
+        if current is None:
+            if event.source != "ingestion":
+                raise AssetManifestOwnershipError(
+                    f"cannot publish {event.source} lifecycle event for "
+                    f"{event.symbol} without an owned manifest"
+                )
+        elif current.source != event.source:
+            raise AssetManifestOwnershipError(
+                f"asset {event.symbol} is owned by {current.source}; "
+                f"source {event.source} cannot publish lifecycle events"
+            )
 
     async def publish_lifecycle_event(
         self,
@@ -281,7 +489,9 @@ class AssetManifestStore:
     ) -> str:
         timestamp = emitted_at if emitted_at is not None else time()
         asset_version = int(getattr(asset, "asset_version", 1))
-        timeframe_version = int(getattr(asset, "timeframe_version", None) or asset_version)
+        timeframe_version = int(
+            getattr(asset, "timeframe_version", None) or asset_version
+        )
         event = AssetLifecycleEvent(
             event_id=event_id
             or make_lifecycle_event_id(
@@ -307,13 +517,9 @@ class AssetManifestStore:
             requested_by=requested_by,
             reason=reason,
             emitted_at=timestamp,
+            source="ingestion",
         )
-        return await self.redis_client.xadd(
-            ASSET_LIFECYCLE_STREAM,
-            valkey_encode(event, inject_trace=False),
-            maxlen=self.lifecycle_stream_maxlen,
-            approximate=self.lifecycle_stream_approximate,
-        )
+        return await self.publish_event(event)
 
     @staticmethod
     def _all_timeframes(asset: Any) -> list[str]:
@@ -333,12 +539,18 @@ class AssetManifestStore:
         scan_iter = getattr(self.redis_client, "scan_iter", None)
         if callable(scan_iter):
             async for raw_key in scan_iter(match="asset:*"):
-                key = raw_key.decode("utf-8") if isinstance(raw_key, bytes) else str(raw_key)
+                key = (
+                    raw_key.decode("utf-8")
+                    if isinstance(raw_key, bytes)
+                    else str(raw_key)
+                )
                 if await self._is_asset_manifest_key(key):
                     keys.append(key)
             return sorted(keys)
         for raw_key in await self.redis_client.keys("asset:*"):
-            key = raw_key.decode("utf-8") if isinstance(raw_key, bytes) else str(raw_key)
+            key = (
+                raw_key.decode("utf-8") if isinstance(raw_key, bytes) else str(raw_key)
+            )
             if await self._is_asset_manifest_key(key):
                 keys.append(key)
         return sorted(keys)
@@ -352,5 +564,9 @@ class AssetManifestStore:
             return True
 
         raw_key_type = await key_type_fn(key)
-        key_type = raw_key_type.decode("utf-8") if isinstance(raw_key_type, bytes) else str(raw_key_type)
+        key_type = (
+            raw_key_type.decode("utf-8")
+            if isinstance(raw_key_type, bytes)
+            else str(raw_key_type)
+        )
         return key_type == "hash"

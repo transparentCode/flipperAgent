@@ -2,20 +2,31 @@ from __future__ import annotations
 
 from typing import Any
 
-from libs.common.timeframes import timeframe_to_seconds
-from libs.contracts.signal import FeatureVector, StreamOHLCVPayload
-
+from apps.signal_app.ohlcv_source import IngestionHistoryFetcher
 from apps.signal_app.pipeline.engineered import EngineeredFeaturePipeline
 from apps.signal_app.pipeline.features import FeaturePipeline
-from apps.signal_app.pipeline.priming import HistoricalFetcher, StartupPrimer, TimescaleStartupHistoryFetcher
+from apps.signal_app.pipeline.priming import (
+    HistoricalFetcher,
+    StartupPrimer,
+)
 from apps.signal_app.pipeline.raw_indicators import RawIndicatorPipeline
+from apps.signal_app.settings import SignalWorkerSettings
+from libs.common.timeframes import timeframe_to_seconds
+from libs.contracts.signal import FeatureVector, StreamOHLCVPayload
 
 
 class FeatureSnapshotService:
     """Compute on-demand feature snapshots without publishing to streams."""
 
-    def __init__(self, fetcher: HistoricalFetcher | None = None) -> None:
-        self.primer = StartupPrimer(fetcher or TimescaleStartupHistoryFetcher())
+    def __init__(
+        self,
+        fetcher: HistoricalFetcher | None = None,
+        *,
+        settings: SignalWorkerSettings | None = None,
+    ) -> None:
+        self._fetcher = fetcher
+        self._settings = settings
+        self.primer = StartupPrimer(fetcher) if fetcher is not None else None
 
     async def compute(
         self,
@@ -26,11 +37,16 @@ class FeatureSnapshotService:
         bars: list[dict[str, float]] | None = None,
     ) -> FeatureVector:
         asset = asset.upper()
-        history = bars_to_history(bars) if bars else await self.primer.fetch_history(
-            asset,
-            timeframe,
-            lookback,
-        )
+        if bars:
+            history = bars_to_history(bars)
+        else:
+            settings = self._settings or SignalWorkerSettings.from_config()
+            binding = settings.source_binding(asset)
+            if self._fetcher is not None:
+                fetcher = self._fetcher
+            else:
+                fetcher = IngestionHistoryFetcher(binding)
+            history = list(await fetcher(asset, timeframe, lookback))
         if not history:
             raise ValueError(f"No history available for {asset}:{timeframe}")
 

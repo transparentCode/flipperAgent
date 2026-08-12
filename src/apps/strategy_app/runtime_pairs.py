@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from apps.strategy_app.settings import create_strategy_config_manager
+from apps.strategy_app.state import StrategyPair
 from libs.common.asset_manifest import (
     AssetManifest,
-    iter_live_manifest_timeframes,
-    live_manifest_pairs,
 )
 from libs.common.config import ConfigManager
 from libs.contracts.model_runtime import (
@@ -15,9 +15,6 @@ from libs.contracts.model_runtime import (
     iter_enabled_runtime_specs,
     validate_supported_runtime_spec,
 )
-
-from apps.strategy_app.settings import create_strategy_config_manager
-from apps.strategy_app.state import StrategyPair
 
 _MODEL_ROOTS = ("models", "scoring_models", "strategy_models")
 
@@ -40,12 +37,11 @@ def build_strategy_pairs(
     live_manifests: list[AssetManifest] | None = None,
 ) -> list[StrategyPair]:
     manager = create_strategy_config_manager(config_manager or ConfigManager())
-    if live_pairs is None and live_manifests:
-        live_pairs = live_manifest_pairs(live_manifests)
     live_pair_set = {
         (str(asset).upper().strip(), str(timeframe).strip())
         for asset, timeframe in (live_pairs or [])
     }
+    manifest_gate = _manifest_gate(live_manifests) if live_pairs is None else {}
     accumulators: dict[tuple[str, str, str], _PairAccumulator] = {}
 
     for normalized_asset in _iter_runtime_assets(manager):
@@ -59,14 +55,23 @@ def build_strategy_pairs(
                 allow_decision_projection=True,
             )
             trigger_timeframe = derive_trigger_timeframe(runtime_spec)
-            if live_pair_set and (normalized_asset, trigger_timeframe) not in live_pair_set:
+            if (
+                live_pair_set
+                and (normalized_asset, trigger_timeframe) not in live_pair_set
+            ):
+                continue
+            if manifest_gate and not manifest_gate.get(normalized_asset, True):
                 continue
             pair_key = (
                 normalized_asset,
                 runtime_spec.decision_timeframe,
                 trigger_timeframe,
             )
-            source = "asset_manifest" if live_pair_set else "config"
+            source = (
+                "asset_manifest"
+                if live_pairs is not None or live_manifests is not None
+                else "config"
+            )
             accumulator = accumulators.get(pair_key)
             if accumulator is None:
                 accumulator = _PairAccumulator(
@@ -104,27 +109,23 @@ def build_strategy_pairs(
         )
         for acc in accumulators.values()
     ]
-    _append_manifest_fallback_pairs(pairs, live_manifests)
-    pairs.sort(key=lambda pair: (pair.asset, pair.timeframe, pair.trigger_timeframe or pair.timeframe))
-    return pairs
-def _append_manifest_fallback_pairs(
-    pairs: list[StrategyPair],
-    manifests: list[AssetManifest] | None,
-) -> None:
-    existing_keys = {pair.key for pair in pairs}
-    for manifest, timeframe in iter_live_manifest_timeframes(manifests):
-        pair = StrategyPair(
-            asset=manifest.symbol,
-            timeframe=timeframe,
-            trigger_timeframe=timeframe,
-            base_timeframe=manifest.base_timeframe,
-            trigger_mode="on_bar_close",
-            source="asset_manifest",
+    pairs.sort(
+        key=lambda pair: (
+            pair.asset,
+            pair.timeframe,
+            pair.trigger_timeframe or pair.timeframe,
         )
-        if pair.key in existing_keys:
-            continue
-        pairs.append(pair)
-        existing_keys.add(pair.key)
+    )
+    return pairs
+
+
+def _manifest_gate(manifests: list[AssetManifest] | None) -> dict[str, bool]:
+    gate: dict[str, bool] = {}
+    for manifest in manifests or []:
+        gate[manifest.symbol] = bool(
+            manifest.enabled and str(manifest.desired_state).upper() == "LIVE"
+        )
+    return gate
 
 
 def _iter_runtime_assets(manager: ConfigManager) -> list[str]:

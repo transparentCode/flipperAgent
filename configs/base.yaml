@@ -2,217 +2,6 @@ logging:
   level: INFO
   console_format: json
 
-conductor:
-  runtime:
-    plans_dir: plans
-    conductor_dir: .conductor
-    squad_db: .squad/messages.db
-    squad_binary: squad
-    log_level: INFO
-    default_local_roles:
-      - orchestrator
-      - architect
-      - coder
-    default_remote_roles: []
-    agent_commands:
-      orchestrator: [.venv/bin/python, conductor/scripts/opencode_wrapper.py]
-      architect: [.venv/bin/python, conductor/scripts/opencode_wrapper.py]
-      coder: [.venv/bin/python, conductor/scripts/codex_wrapper.py]
-  workflow:
-    role_for_stage:
-      intake: orchestrator
-      research: architect
-      architect: architect
-      code: coder
-      review: orchestrator
-      approval: orchestrator
-    transitions:
-      next_stage:
-        intake: architect
-        research: architect
-        architect: code
-        code: review
-        review: done
-        approval: done
-        done: done
-      gate_stage_for:
-        architect: human_ready
-        review: human_review
-      gate_target:
-        human_ready: code
-        human_review: done
-      retry_stage:
-        review: code
-        approval: architect
-        code: architect
-      retry_stage_for_gate:
-        human_ready: architect
-        human_review: code
-    stub_stage_transitions:
-      architect: coder
-      coder: orchestrator
-      orchestrator: done
-  remote:
-    poll_seconds: 30
-    timeout_seconds: 86400
-    roles: []
-  human_gates:
-    before_code: true
-    before_approval: true
-    auto_advance_low_risk_architect_pass: false
-    auto_advance_low_risk_review_pass: false
-    force_human_if_changed_paths:
-      - src/libs/execution
-      - src/libs/risk
-      - src/libs/order
-      - src/libs/models/regime
-      - src/libs/models/regime_v2
-      - src/libs/models/regime_prob
-      - src/libs/optimizer
-    force_human_if_keywords:
-      - live
-      - order
-      - position_size
-      - leverage
-      - risk
-      - promotion
-      - optimizer
-      - walk_forward
-      - oos
-      - lookahead
-      - leakage
-  timeouts:
-    queued_timeout_seconds: 300
-    ack_timeout_seconds: 600
-    soft_timeout_seconds: 1800
-    hard_timeout_seconds: 3600
-    remote_timeout_seconds: 86400
-    checkpoint_grace_seconds: 300
-    max_stall_count: 2
-    max_retry_count: 2
-    stage_timeouts:
-      INTAKE:
-        soft_timeout_seconds: 900
-        hard_timeout_seconds: 1800
-      ARCHITECT:
-        soft_timeout_seconds: 1800
-        hard_timeout_seconds: 3600
-      CODE:
-        soft_timeout_seconds: 3600
-        hard_timeout_seconds: 7200
-      REVIEW:
-        soft_timeout_seconds: 1800
-        hard_timeout_seconds: 3600
-      APPROVAL:
-        soft_timeout_seconds: 86400
-        hard_timeout_seconds: null
-
-ingestion:
-  credentials:
-    api_key: ""
-    api_secret: ""
-  assets:
-    default_binance_asset: BTCUSDT
-    historical_backfill_days: 2
-    target_list:
-    - BTCUSDT
-    - ETHUSDT
-    - XRPUSDT
-    - SOLUSDT
-    - BNBUSDT
-    - DOGEUSDT
-    publish_timeframes:
-      BTCUSDT: ["30m","1h", "4h"]
-      ETHUSDT: ["30m","1h", "4h"]  # standby — ETHUSDT/1d not configured; no model consumer for 30m, 1h
-      XRPUSDT: ["30m","1h", "4h"]
-      SOLUSDT: ["30m","1h", "4h"]  # standby — SOLUSDT/15m not configured; no model consumer for 30m, 4h
-      BNBUSDT: ["30m","1h", "4h"]
-      DOGEUSDT: ["30m","1h", "4h"]
-  concurrency:
-    gap_fill_limit: 5
-    gap_fill_sleep_seconds: 0.5
-    worker_job_timeout: 300
-    worker_max_jobs: 20
-  orchestration:
-    schedules:
-      funding_hours:
-      - 0
-      - 4
-      - 8
-      - 12
-      - 16
-      - 20
-      funding_timeout: 60
-      gap_fill_minutes:
-      - 0
-      - 5
-      - 10
-      - 15
-      - 20
-      - 25
-      - 30
-      - 35
-      - 40
-      - 45
-      - 50
-      - 55
-      gap_fill_timeout: 300
-      ohlcv_minutes:
-      - 0
-      - 15
-      - 30
-      - 45
-      ohlcv_timeout: 120
-      l2_depth_minutes:
-      - 0
-      - 5
-      - 10
-      - 15
-      - 20
-      - 25
-      - 30
-      - 35
-      - 40
-      - 45
-      - 50
-      - 55
-      l2_depth_timeout: 60
-  retry:
-    max_attempts: 5
-    max_seconds: 60
-    min_seconds: 4
-    multiplier: 1
-  streams:
-    control_maxlen: 1000
-    control_approximate: true
-    events_maxlen: 1000
-    events_approximate: true
-    lifecycle_maxlen: 1000
-    lifecycle_approximate: true
-    runtime_status_maxlen: 1000
-    runtime_status_approximate: true
-    ohlcv_maxlen: 1000
-    ohlcv_approximate: true
-  server:
-    host: 0.0.0.0
-    port: 8001
-  timeframes:
-    base_gap_fill: 1m
-    binance_stream_interval: 1m
-    default: 15m
-
-  l2_depth:
-    snapshot_levels: 20      # Binance depth limit (5, 10, 20, 50, 100)
-    top_n_imbalance: 5       # levels for imbalance computation
-
-  websocket:
-    stream_url: wss://fstream.binancefuture.com
-    queue_drop_warning_every: 100
-    queue_maxsize: 1000
-    reconnect_sleep_seconds: 5
-    verification_sleep_seconds: 10
-    warmup_threshold_ms: 300000
-    warmup_timeout_seconds: 600
 postgres:
   database: flipper_db
   host: localhost
@@ -237,6 +26,31 @@ signal:
     price_update_stream_maxlen: 200
     price_update_stream_approximate: true
     ltf_context_ttl_seconds: 21600
+    ohlcv_sources:
+      BTCUSDT:
+        source: ingestion
+        venue: binance
+        instrument_id: BTC-USDT-PERP
+      ETHUSDT:
+        source: ingestion
+        venue: binance
+        instrument_id: ETH-USDT-PERP
+      XRPUSDT:
+        source: ingestion
+        venue: binance
+        instrument_id: XRP-USDT-PERP
+      SOLUSDT:
+        source: ingestion
+        venue: binance
+        instrument_id: SOL-USDT-PERP
+      BNBUSDT:
+        source: ingestion
+        venue: binance
+        instrument_id: BNB-USDT-PERP
+      DOGEUSDT:
+        source: ingestion
+        venue: binance
+        instrument_id: DOGE-USDT-PERP
 
 risk:
   runtime:

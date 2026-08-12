@@ -21,8 +21,8 @@ from apps.scraper_app.core.models import (
     ScrapeJobRecord,
     ScrapeJobStatus,
     ScrapePriority,
-    ScraperProvider,
     ScrapeRequest,
+    ScraperProvider,
 )
 from libs.contracts.serialization import valkey_encode
 
@@ -207,6 +207,7 @@ async def test_alert_api_controls_end_to_end(alert_valkey_client):
         timeframes=["1m", "30m"],
         enabled=True,
         desired_state="PAUSED",
+        source="ingestion",
         request_id=f"e2e-request-{asset_version}",
         asset_version=asset_version,
         timeframe_version=asset_version,
@@ -223,7 +224,7 @@ async def test_alert_api_controls_end_to_end(alert_valkey_client):
 
     incident = await _wait_for_incident(
         asset=symbol,
-        source_app="ingestion_app",
+        source_app="ingestion",
         event_type="lifecycle_event",
     )
     incident_id = incident["incident_id"]
@@ -350,60 +351,6 @@ async def test_alert_signal_freshness_breach_and_recovery(alert_valkey_client):
         timeout_s=20.0,
         interval_s=1.0,
         description="signal freshness recovery incident resolution",
-    )
-    assert resolved["resolved_at"] is not None
-
-
-@pytest.mark.asyncio
-async def test_alert_ingestion_transition_timeout_and_recovery(alert_valkey_client):
-    asset = f"WARM{uuid.uuid4().hex[:6]}".upper()
-    timeframe = "1m"
-    runtime_key = f"ingestion:runtime_status:{asset}:{timeframe}"
-
-    await alert_valkey_client.hset(
-        runtime_key,
-        mapping={
-            "runtime_state": "WARMING",
-            "updated_at": str(time.time() - 4000),
-        },
-    )
-    await asyncio.to_thread(_trigger_alert_reconcile_once)
-
-    stale = await _wait_for_incident(
-        asset=asset,
-        source_app="ingestion_app",
-        event_type="ingestion_runtime_failure",
-        predicate=lambda item: item.get("state") == "open"
-        and item.get("detail", {}).get("runtime_state") == "WARMING",
-        timeout_s=20.0,
-    )
-    assert stale["state"] == "open"
-
-    await alert_valkey_client.hset(
-        runtime_key,
-        mapping={
-            "runtime_state": "LIVE",
-            "updated_at": str(time.time()),
-        },
-    )
-    await asyncio.to_thread(_trigger_alert_reconcile_once)
-
-    async def _resolved():
-        payload = await asyncio.to_thread(
-            _http_json,
-            "GET",
-            _alerts_url(f"/alerts/incidents/{stale['incident_id']}"),
-        )
-        incident = payload.get("incident")
-        if incident and incident.get("state") == "resolved":
-            return incident
-        return None
-
-    resolved = await _wait_until(
-        _resolved,
-        timeout_s=20.0,
-        interval_s=1.0,
-        description="ingestion transition recovery incident resolution",
     )
     assert resolved["resolved_at"] is not None
 

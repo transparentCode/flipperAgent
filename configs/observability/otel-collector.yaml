@@ -23,6 +23,8 @@ exporters:
 
   prometheusremotewrite:
     endpoint: http://prometheus:9090/api/v1/write
+    resource_to_telemetry_conversion:
+      enabled: true
 
   loki:
     endpoint: http://loki:3100/loki/api/v1/push

@@ -47,7 +47,7 @@ signals, replay, optimization, or promotion, and it never writes YAML.
 
 The canonical package imports no application connector, Binance SDK, Jupyter, IPython, Plotly,
 TVLC, RegimeV2, or Trendline V2 code. Concrete provider integration belongs under
-`apps.ingestion_app.adapters`. L2-A2 adds causal replay and evidence APIs; L2-B adds notebook and
+`libs.market_data` and the research workflow adapter. L2-A2 adds causal replay and evidence APIs; L2-B adds notebook and
 viewer presentation.
 
 ## Causal Replay and Evidence (L2-A2)

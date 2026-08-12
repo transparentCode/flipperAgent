@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import os
-from typing import Any
 
 import valkey.asyncio as valkey
 
@@ -38,19 +37,42 @@ async def create_valkey_client(
             config_mgr = ConfigManager()
         uri = config_mgr.get("valkey.uri", "redis://localhost:6379/0")
 
-    _masked_uri = uri.split('@')[-1] if '@' in uri else uri
+    _masked_uri = uri.split("@")[-1] if "@" in uri else uri
     logger.info(f"Connecting Valkey client → ...@{_masked_uri}")
 
     last_err: Exception | None = None
     for attempt in range(_VALKEY_CONNECT_RETRIES):
+        client: valkey.Valkey | None = None
         try:
-            client: valkey.Valkey = valkey.Valkey.from_url(uri, decode_responses=True)
+            client = valkey.Valkey.from_url(uri, decode_responses=True)
             await client.ping()
             logger.info("Valkey client connected")
             return client
-        except Exception as e:
+        except asyncio.CancelledError:
+            if client is not None:
+                try:
+                    await asyncio.shield(client.aclose())
+                except Exception:
+                    logger.warning(
+                        "Failed to close cancelled Valkey connection candidate",
+                        exc_info=True,
+                    )
+            raise
+        except Exception as e:  # noqa: BLE001
             last_err = e
-            delay = _VALKEY_RETRY_DELAYS[attempt] if attempt < len(_VALKEY_RETRY_DELAYS) else _VALKEY_RETRY_DELAYS[-1]
+            if client is not None:
+                try:
+                    await client.aclose()
+                except Exception:
+                    logger.warning(
+                        "Failed to close Valkey connection candidate after failure",
+                        exc_info=True,
+                    )
+            delay = (
+                _VALKEY_RETRY_DELAYS[attempt]
+                if attempt < len(_VALKEY_RETRY_DELAYS)
+                else _VALKEY_RETRY_DELAYS[-1]
+            )
             logger.warning(
                 f"Valkey connection attempt {attempt + 1}/{_VALKEY_CONNECT_RETRIES} failed: {e}. "
                 f"Retrying in {delay}s..."

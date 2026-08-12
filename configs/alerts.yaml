@@ -6,7 +6,6 @@ alerts:
     idle_sleep_seconds: 5
   streams:
     lifecycle: "asset:lifecycle"
-    ingestion_events: "stream:events:ingestion"
     execution_failure_prefix: "execution:failures:"
   incidents:
     dedupe_ttl_seconds: 900
@@ -118,12 +117,12 @@ alerts:
   health_checks:
     ingestion_runtime:
       enabled: true
-      source_app: ingestion_app
-      url: http://worker-streams:8001/health
+      source_app: ingestion
+      url: http://ingestion:8003/health/ready
       timeout_seconds: 5
       startup_grace_seconds: 60
       healthy_statuses:
-        - ok
+        - ready
     scraper_service:
       enabled: true
       source_app: scraper_app
@@ -133,11 +132,6 @@ alerts:
       healthy_statuses:
         - ok
   freshness:
-    ingestion:
-      warming_timeout_seconds: 900
-      disconnect_breach_count: 3
-      disconnect_recovery_seconds: 900
-      stale_live_threshold_seconds: 900
     scraper:
       worker_running_timeout_seconds: 1200
       success_stale_threshold_seconds: 3600

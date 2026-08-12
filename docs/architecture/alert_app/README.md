@@ -20,9 +20,8 @@ alert events and incidents, and routes outbound notifications.
 Current validated scope includes:
 
 - lifecycle event consumption from `asset:lifecycle`
-- ingestion runtime event consumption from `stream:events:ingestion`
 - execution failure stream consumption from `execution:failures:{asset}`
-- reconciler-driven freshness detection for ingestion, signal, and strategy
+- reconciler-driven freshness detection for signal and strategy
 - reconciler-driven scraper job failure/recovery detection
 - reconciler-driven health check breach/recovery detection
 - incident dedupe, renotify, ack, resolve, and silence management
@@ -51,9 +50,9 @@ Current validated scope includes:
 At a high level the app has four runtime pieces:
 
 - **Stream consumers**
-  - lifecycle, ingestion runtime, and execution failure streams
+  - lifecycle and execution failure streams
 - **Synthetic reconciler**
-  - scans runtime hashes, scraper jobs, and configured health endpoints
+  - scans signal/strategy runtime hashes, scraper jobs, and configured health endpoints
 - **Incident engine**
   - dedupe, open/update/resolve, hot-state projection, SQL durability
 - **Notification dispatcher**
@@ -75,14 +74,12 @@ At a high level the app has four runtime pieces:
 ### Consumed
 
 - `asset:lifecycle`
-- `stream:events:ingestion`
 - `execution:failures:{asset}`
-- `ingestion:runtime_status:{asset}:{tf}`
 - `signal:status:{asset}:{tf}`
 - `strategy:status:{asset}:{tf}`
 - `scraper:job:{job_id}`
 - configured HTTP health surfaces such as:
-  - `worker-streams:8001/health`
+  - `ingestion:8003/health/ready`
   - `scraper-service:8081/health`
   - with per-check startup grace from `alerts.health_checks.*.startup_grace_seconds`
 
@@ -100,7 +97,6 @@ The current implementation is backed by local and Docker validation for:
 - incident list/detail/ack/resolve/silence-delete flows
 - execution failure incident creation
 - signal freshness breach + recovery
-- ingestion transition timeout + recovery
 - scraper job failure incident creation
 - route rate limiting and transport retry behavior
 - Telegram HTML-safe formatting

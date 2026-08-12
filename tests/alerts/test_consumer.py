@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import AsyncMock
-
 import pytest
 
 from apps.alert_app.runtime.consumer import AlertEventConsumer
 from apps.alert_app.settings import AlertAppSettings
-from libs.contracts.ingestion import IngestionEventType, IngestionRuntimeEvent
 
 
 class _FakeManifestStore:
@@ -32,22 +28,6 @@ class _FakeRedis:
 
 class _FakeIncidentService:
     pass
-
-
-class _SingleBatchRedis:
-    def __init__(self, payload: dict[str, str]) -> None:
-        self.payload = payload
-        self.calls = 0
-        self.acks: list[tuple[str, str, str]] = []
-
-    async def xreadgroup(self, *args, **kwargs):
-        if self.calls == 0:
-            self.calls += 1
-            return [("stream:events:ingestion", [("1-0", self.payload)])]
-        raise asyncio.CancelledError
-
-    async def xack(self, stream: str, group: str, message_id: str) -> None:
-        self.acks.append((stream, group, message_id))
 
 
 @pytest.mark.asyncio
@@ -79,33 +59,25 @@ async def test_refresh_execution_failure_streams_discovers_live_streams(monkeypa
 
 
 @pytest.mark.asyncio
-async def test_watch_ingestion_events_skips_success_only_runtime_events(monkeypatch) -> None:
-    event = IngestionRuntimeEvent(
-        event_id="evt_gap_fill_completed",
-        event_type=IngestionEventType.GAP_FILL_COMPLETED,
-        symbol="BINANCE",
-        timeframe="1m",
-        severity="info",
-        detail={"asset_count": 6},
-        emitted_at=123.0,
-    )
-    redis_client = _SingleBatchRedis(event.model_dump(mode="json"))
-    incident_service = AsyncMock()
+async def test_ensure_groups_has_no_legacy_ingestion_event_group(monkeypatch) -> None:
+    ensured: list[str] = []
 
+    async def _fake_ensure(redis_client, stream, consumer_group, start_id="$"):
+        ensured.append(stream)
+
+    monkeypatch.setattr(
+        "apps.alert_app.runtime.consumer.ensure_consumer_group",
+        _fake_ensure,
+    )
     consumer = AlertEventConsumer(
-        redis_client=redis_client,
+        redis_client=_FakeRedis(),
         settings=AlertAppSettings(),
-        incident_service=incident_service,
+        incident_service=_FakeIncidentService(),
     )
+    consumer.manifest_store = _FakeManifestStore()
 
-    with pytest.raises(asyncio.CancelledError):
-        await consumer.watch_ingestion_events()
+    await consumer.ensure_groups()
 
-    incident_service.record_event.assert_not_called()
-    assert redis_client.acks == [
-        (
-            consumer.settings.ingestion_events_stream,
-            consumer.settings.consumer_group,
-            "1-0",
-        )
-    ]
+    assert "asset:lifecycle" in ensured
+    assert "stream:events:ingestion" not in ensured
+    assert all("execution:failures:" in stream or stream == "asset:lifecycle" for stream in ensured)

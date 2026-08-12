@@ -9,27 +9,57 @@ logger = bind_logger(__name__)
 
 
 def validate_config_alignment(config_mgr: ConfigManager) -> list[str]:
-    """Cross-check models, features, risk, execution, and ingestion configs.
+    """Cross-check model consumers, features, runtime bindings, risk, and execution.
 
     Returns a list of warning strings for any mismatches found.
     Logs each warning. Does NOT raise — callers decide whether to fail.
     """
     warnings: list[str] = []
 
-    # --- Source of truth: models.yaml ---
-    models = config_mgr.get("models", {})
-    models_assets = models.get("assets", {})
+    # --- Source of truth: model configuration ---
+    # ``models.yaml`` contains several model roots.  Ingestion no longer defines
+    # the model universe or its timeframes; it only supplies market data.
     model_pairs: set[tuple[str, str]] = set()
     model_asset_set: set[str] = set()
 
-    for asset, cfg in models_assets.items():
-        if asset == "default" or not isinstance(cfg, dict):
+    def _has_enabled_model(timeframe_config: object) -> bool:
+        if not isinstance(timeframe_config, dict):
+            return False
+        return any(
+            isinstance(model_config, dict) and model_config.get("enabled", True)
+            for model_config in timeframe_config.values()
+        )
+
+    models_file = config_mgr.get("models", {}) or {}
+    for root_name in ("models", "strategy_models", "scoring_models"):
+        root = (
+            models_file.get(root_name)
+            if isinstance(models_file, dict) and root_name in models_file
+            else config_mgr.get(root_name, {})
+        ) or {}
+        if (
+            root_name == "models"
+            and isinstance(models_file, dict)
+            and "assets" in models_file
+        ):
+            root = models_file
+        assets = root.get("assets", {}) if isinstance(root, dict) else {}
+        if not isinstance(assets, dict):
             continue
-        model_asset_set.add(asset)
-        tfs = cfg.get("timeframes", {})
-        for tf in tfs:
-            if tf != "default":
-                model_pairs.add((asset, tf))
+        for asset, cfg in assets.items():
+            if asset == "default" or not isinstance(cfg, dict):
+                continue
+            timeframes = cfg.get("timeframes", {})
+            if not isinstance(timeframes, dict):
+                continue
+            active_asset = False
+            for timeframe, timeframe_config in timeframes.items():
+                if timeframe == "default" or not _has_enabled_model(timeframe_config):
+                    continue
+                active_asset = True
+                model_pairs.add((asset, timeframe))
+            if active_asset:
+                model_asset_set.add(asset)
 
     # --- features.yaml ---
     features = config_mgr.get("features", {})
@@ -56,32 +86,33 @@ def validate_config_alignment(config_mgr: ConfigManager) -> list[str]:
             w = f"models.yaml defines {asset}:{tf} but features.yaml has no explicit features (using defaults)"
             warnings.append(w)
 
-    # --- ingestion (base.yaml) ---
-    ingestion = config_mgr.get("ingestion", {})
-    target_list = set(ingestion.get("assets", {}).get("target_list", []))
-    publish_tfs = ingestion.get("assets", {}).get("publish_timeframes", {})
-
-    for asset in target_list:
-        if asset not in model_asset_set:
-            w = f"ingestion target_list includes {asset} but no models exist for it"
-            warnings.append(w)
-
-    for asset in model_asset_set:
-        if asset not in target_list:
-            w = f"models.yaml defines {asset} but ingestion target_list does not include it"
-            warnings.append(w)
-
-    for asset, tfs_list in publish_tfs.items():
-        for tf in tfs_list:
-            if (asset, tf) not in model_pairs:
-                w = f"ingestion publishes {asset}:{tf} but no model consumes it"
-                warnings.append(w)
-
-    for asset, tf in model_pairs:
-        pub_tfs = publish_tfs.get(asset, [])
-        if tf not in pub_tfs:
-            w = f"models.yaml defines {asset}:{tf} but ingestion does not publish this timeframe"
-            warnings.append(w)
+    # --- signal source bindings ---
+    bindings = config_mgr.get("signal.runtime.ohlcv_sources", {}) or {}
+    if not isinstance(bindings, dict):
+        warnings.append("signal.runtime.ohlcv_sources must be a mapping")
+        bindings = {}
+    normalized_bindings = {
+        str(asset).upper(): value for asset, value in bindings.items()
+    }
+    for asset in sorted(model_asset_set):
+        binding = normalized_bindings.get(str(asset).upper())
+        if not isinstance(binding, dict):
+            warnings.append(
+                f"active model asset {asset} has no explicit signal.runtime.ohlcv_sources binding"
+            )
+            continue
+        if str(binding.get("source", "")).strip() != "ingestion":
+            warnings.append(
+                f"active model asset {asset} must use signal source ingestion"
+            )
+        if not str(binding.get("venue", "")).strip():
+            warnings.append(
+                f"active model asset {asset} has an empty signal source venue"
+            )
+        if not str(binding.get("instrument_id", "")).strip():
+            warnings.append(
+                f"active model asset {asset} has an empty signal source instrument_id"
+            )
 
     # --- risk.yaml ---
     risk = config_mgr.get("risk", {})

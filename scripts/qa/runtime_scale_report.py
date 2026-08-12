@@ -2,22 +2,28 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import asdict
 from pathlib import Path
 
-from dataclasses import asdict
-
+from apps.ingestion_app.settings import load_ingestion_settings
 from apps.signal_app.runtime_pairs import build_signal_pairs
 from apps.strategy_app.runtime_pairs import build_strategy_pairs
 from libs.common.config import ConfigManager
 from libs.common.constants import CONFIG_FILE_FEATURES, CONFIG_FILE_MODELS
-from libs.common.runtime_scale import RuntimeScaleInputs, StreamCaps, estimate_runtime_scale
+from libs.common.runtime_scale import (
+    RuntimeScaleInputs,
+    StreamCaps,
+    estimate_runtime_scale,
+)
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Estimate worker fanout and bounded stream replay capacity at larger asset counts.",
     )
-    parser.add_argument("--asset-count", type=int, required=True, help="Projected live asset count.")
+    parser.add_argument(
+        "--asset-count", type=int, required=True, help="Projected live asset count."
+    )
     parser.add_argument(
         "--output",
         type=Path,
@@ -49,24 +55,19 @@ def _load_current_counts() -> tuple[ConfigManager, dict[str, float | int]]:
     manager = ConfigManager()
     manager.register_file(CONFIG_FILE_MODELS)
     manager.register_file(CONFIG_FILE_FEATURES)
+    ingestion_settings = load_ingestion_settings(manager)
 
-    target_assets = [
-        str(symbol).upper().strip()
-        for symbol in manager.get("ingestion.assets.target_list", [])
-        if str(symbol).strip()
-    ]
-    publish_timeframes = manager.get("ingestion.assets.publish_timeframes", {}) or {}
-    base_timeframe = str(manager.get("ingestion.timeframes.base_gap_fill", "1m")).strip() or "1m"
+    target_assets = sorted(
+        asset.asset for asset in ingestion_settings.assets.values() if asset.enabled
+    )
 
     runtime_timeframes_total = 0
     for asset in target_assets:
-        configured = publish_timeframes.get(asset, []) or []
-        unique_timeframes = []
-        for timeframe in [base_timeframe, *configured]:
-            normalized = str(timeframe).strip()
-            if normalized and normalized not in unique_timeframes:
-                unique_timeframes.append(normalized)
-        runtime_timeframes_total += len(unique_timeframes)
+        asset_settings = ingestion_settings.assets[asset]
+        runtime_timeframes_total += sum(
+            len(instrument.timeframes)
+            for instrument in asset_settings.instruments.values()
+        )
 
     signal_pairs = build_signal_pairs(manager)
     strategy_pairs = build_strategy_pairs(manager)
@@ -74,6 +75,7 @@ def _load_current_counts() -> tuple[ConfigManager, dict[str, float | int]]:
 
     return manager, {
         "configured_asset_count": asset_count,
+        "enabled_asset_count": asset_count,
         "runtime_timeframes_total": runtime_timeframes_total,
         "signal_pair_count": len(signal_pairs),
         "strategy_pair_count": len(strategy_pairs),
@@ -89,26 +91,34 @@ def _load_current_counts() -> tuple[ConfigManager, dict[str, float | int]]:
     }
 
 
-def _stream_caps(manager: ConfigManager) -> StreamCaps:
+def _stream_caps(manager: ConfigManager, ingestion_settings) -> StreamCaps:
     return StreamCaps(
-        ohlcv_maxlen=int(manager.get("ingestion.streams.ohlcv_maxlen", 1000)),
-        feature_stream_maxlen=int(manager.get("signal.runtime.feature_stream_maxlen", 1000)),
-        price_update_stream_maxlen=int(manager.get("signal.runtime.price_update_stream_maxlen", 200)),
-        signal_stream_maxlen=int(manager.get("strategy.runtime.signal_stream_maxlen", 1000)),
+        ohlcv_maxlen=ingestion_settings.publication.stream_maxlen,
+        feature_stream_maxlen=int(
+            manager.get("signal.runtime.feature_stream_maxlen", 1000)
+        ),
+        price_update_stream_maxlen=int(
+            manager.get("signal.runtime.price_update_stream_maxlen", 200)
+        ),
+        signal_stream_maxlen=int(
+            manager.get("strategy.runtime.signal_stream_maxlen", 1000)
+        ),
         order_stream_maxlen=int(manager.get("risk.runtime.order_stream_maxlen", 1000)),
-        fill_stream_maxlen=int(manager.get("execution.runtime.fill_stream_maxlen", 1000)),
-        failure_stream_maxlen=int(manager.get("execution.runtime.failure_stream_maxlen", 1000)),
-        lifecycle_maxlen=int(manager.get("ingestion.streams.lifecycle_maxlen", 1000)),
-        control_maxlen=int(manager.get("ingestion.streams.control_maxlen", 1000)),
-        events_maxlen=int(manager.get("ingestion.streams.events_maxlen", 1000)),
-        runtime_status_maxlen=int(manager.get("ingestion.streams.runtime_status_maxlen", 1000)),
+        fill_stream_maxlen=int(
+            manager.get("execution.runtime.fill_stream_maxlen", 1000)
+        ),
+        failure_stream_maxlen=int(
+            manager.get("execution.runtime.failure_stream_maxlen", 1000)
+        ),
+        lifecycle_maxlen=ingestion_settings.publication.stream_maxlen,
     )
 
 
 def main() -> int:
     args = _build_parser().parse_args()
     manager, current = _load_current_counts()
-    caps = _stream_caps(manager)
+    ingestion_settings = load_ingestion_settings(manager)
+    caps = _stream_caps(manager, ingestion_settings)
     report = estimate_runtime_scale(
         RuntimeScaleInputs(
             asset_count=args.asset_count,

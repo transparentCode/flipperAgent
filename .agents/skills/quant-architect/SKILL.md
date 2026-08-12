@@ -18,7 +18,6 @@ This role absorbs the former research agent. It is read-only and owns:
 
 - Applications: `src/apps/`
 - Shared libraries: `src/libs/`
-- Conductor: `conductor/`
 - Configuration: `configs/`
 - Tests: `tests/`
 - Durable handoffs: `plans/`

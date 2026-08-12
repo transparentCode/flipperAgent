@@ -9,13 +9,18 @@ from typing import Any
 from arq import cron
 from arq.connections import RedisSettings
 
+from apps.scraper_app.providers.tradingview.config import config_manager
+from apps.scraper_app.providers.tradingview.storage import (
+    FundingRateRecord,
+    OIRecord,
+    TradingViewTimescaleWriter,
+)
 from apps.scraper_app.runtime_status import (
     ScraperRuntimeStatus,
     ScraperRuntimeStatusStore,
 )
-from libs.common.logging.logger_utils import bind_logger
 from libs.common.enums import SystemComponent
-from apps.scraper_app.providers.tradingview.config import config_manager
+from libs.common.logging.logger_utils import bind_logger
 
 logger = bind_logger(__name__, system_component=SystemComponent.MARKET_DATA)
 
@@ -346,13 +351,10 @@ async def fetch_tv_derivatives(ctx: dict[str, Any]) -> None:
                 # Upsert into TimescaleDB
                 if db_pool:
                     try:
-                        from apps.ingestion_app.models.tick_models import OIRecord
-                        from apps.ingestion_app.storage.timescale_writer import TimescaleWriter
-
-                        writer = TimescaleWriter(db_pool)
+                        writer = TradingViewTimescaleWriter(db_pool)
                         records = [
                             OIRecord(
-                                timestamp=int(row["timestamp"]),
+                                timestamp=row["timestamp"],
                                 symbol=asset,
                                 open_interest=float(row["value"]),
                             )
@@ -385,13 +387,10 @@ async def fetch_tv_derivatives(ctx: dict[str, Any]) -> None:
                 # Upsert into TimescaleDB
                 if db_pool:
                     try:
-                        from apps.ingestion_app.models.tick_models import FundingRateRecord
-                        from apps.ingestion_app.storage.timescale_writer import TimescaleWriter
-
-                        writer = TimescaleWriter(db_pool)
+                        writer = TradingViewTimescaleWriter(db_pool)
                         records = [
                             FundingRateRecord(
-                                timestamp=int(row["timestamp"]),
+                                timestamp=row["timestamp"],
                                 symbol=asset,
                                 funding_rate=float(row["value"]),
                             )
@@ -423,7 +422,9 @@ async def fetch_tv_derivatives(ctx: dict[str, Any]) -> None:
 
 async def startup(ctx: dict[str, Any]) -> None:
     """Worker startup — initialize TV interceptor and connections."""
-    from apps.scraper_app.providers.tradingview.interceptor import TradingViewInterceptor
+    from apps.scraper_app.providers.tradingview.interceptor import (
+        TradingViewInterceptor,
+    )
 
     logger.info("Initializing TV scraper worker...")
 

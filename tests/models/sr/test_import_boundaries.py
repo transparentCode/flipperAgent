@@ -13,15 +13,15 @@ _YAML_IMPORT_PATHS = {
 _BASELINE_EXTERNAL_IMPORTS = {
     "pandas",
     "libs.features.indicators.volatility.atr",
-    "apps.ingestion_app.adapters.binance_native",
+    "libs.market_data.binance_native",
 }
 
 _V23_SOURCE_EXTERNAL_IMPORTS = {
-    "apps.ingestion_app.adapters.binance_native",
+    "libs.market_data.binance_native",
 }
 
 _V24_SOURCE_EXTERNAL_IMPORTS = {
-    "apps.ingestion_app.adapters.binance_native",
+    "libs.market_data.binance_native",
 }
 
 

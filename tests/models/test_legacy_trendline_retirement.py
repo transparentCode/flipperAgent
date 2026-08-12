@@ -3,7 +3,6 @@ import importlib.util
 import re
 from pathlib import Path
 
-
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 _RETIRED_TEST_TREE = _REPOSITORY_ROOT / "tests" / "models" / "trendline_family"
 _RETIRED_PATHS = (
@@ -34,7 +33,7 @@ _RETIRED_IMPORT_PREFIXES = (
     "libs.models.trendline_family",
     "libs.models.trendlines_old",
 )
-_SCAN_ROOTS = ("src", "tests", "scripts", "conductor", "benchmarks", "research")
+_SCAN_ROOTS = ("src", "tests", "scripts", "benchmarks", "research")
 _NONSTANDARD_TEXT_ROOTS = ("benchmarks", "research")
 _NONSTANDARD_TEXT_SUFFIXES = (".py", ".ipynb", ".md")
 _RETIRED_NAMESPACE_PATTERN = re.compile(
@@ -103,8 +102,7 @@ def _iter_scanned_python_files():
         root = _REPOSITORY_ROOT / root_name
         if not root.exists():
             continue
-        for path in sorted(root.rglob("*.py")):
-            yield path
+        yield from sorted(root.rglob("*.py"))
 
 
 def _iter_nonstandard_text_files():
@@ -166,7 +164,9 @@ def test_retired_nonstandard_trendline_surfaces_are_absent() -> None:
         assert not path.exists(), path
 
 
-def test_nonstandard_active_roots_do_not_reference_retired_trendline_namespaces() -> None:
+def test_nonstandard_active_roots_do_not_reference_retired_trendline_namespaces() -> (
+    None
+):
     violations = _nonstandard_retired_namespace_violations()
 
     assert not violations, "\n".join(violations)

@@ -1,7 +1,7 @@
 direction: right
 
 title: {
-  label: "ingestion_app IO contracts"
+  label: "ingestion_app IO and contract map"
   near: top-center
 }
 
@@ -11,311 +11,299 @@ classes: {
   contract: { style.fill: "#FFF2D8" }
   storage: { style.fill: "#F4EAFE" }
   consumer: { style.fill: "#FCE8E8" }
-  control: { style.fill: "#EAF7F0" }
   rule: { style.fill: "#F3FAEF" }
 }
 
 sources: {
   label: "Inputs"
 
-  lifecycle_request: {
+  config_global: {
     class: source
-    label: "asset lifecycle request"
+    label: "configs/ingestion/global.yaml\ningestion:*"
     shape: document
-    link: "../../../src/apps/ingestion_app/models/asset_registry.py"
+    link: "../../../configs/ingestion/global.yaml"
   }
 
-  live_feed: {
+  config_assets: {
     class: source
-    label: "Binance live kline"
-    link: "../../../src/apps/ingestion_app/adapters/binance_native.py"
+    label: "configs/ingestion/assets/*.yaml\ningestion.assets.*"
+    shape: document
+    link: "../../../configs/ingestion/assets/BTC.yaml"
   }
 
-  historical_feed: {
+  control: {
     class: source
-    label: "historical OHLCV / depth"
-    link: "../../../src/apps/ingestion_app/adapters/crypto_ccxt.py"
+    label: "FastAPI control requests"
+    shape: document
+    link: "../../../src/apps/ingestion_app/api/routes.py"
+  }
+
+  ws: {
+    class: source
+    label: "Binance Futures finalized klines"
+    shape: queue
+  }
+
+  rest: {
+    class: source
+    label: "Binance native REST / CCXT history"
+    shape: queue
   }
 }
 
 components: {
-  label: "Components"
+  label: "Processing"
 
-  router: {
+  settings: {
     class: component
-    label: "ingestion_router"
-    link: "../../../src/apps/api_app/routers/ingestion.py"
+    label: "typed settings"
+    link: "../../../src/apps/ingestion_app/settings.py"
   }
 
-  runtime_app: {
+  config_service: {
     class: component
-    label: "runtime_app"
-    link: "../../../src/apps/ingestion_app/runtime/app.py"
+    label: "AssetConfigService"
+    link: "../../../src/apps/ingestion_app/services/config_reconciliation.py"
   }
 
-  control: {
+  controller: {
     class: component
-    label: "control_plane"
-    link: "../../../src/apps/ingestion_app/control_plane/service.py"
+    label: "RuntimeController"
+    link: "../../../src/apps/ingestion_app/runtime/controller.py"
   }
 
-  reconciler: {
+  supervisor: {
     class: component
-    label: "runtime_reconciler"
-    link: "../../../src/apps/ingestion_app/runtime/reconciler.py"
+    label: "RuntimeSupervisor"
+    link: "../../../src/apps/ingestion_app/runtime/supervisor.py"
   }
 
-  ws: {
+  websocket: {
     class: component
-    label: "websocket_pipeline"
+    label: "BinanceWebSocketManager"
     link: "../../../src/apps/ingestion_app/runtime/websocket.py"
   }
 
-  jobs: {
+  recovery: {
     class: component
-    label: "queue_jobs"
-    link: "../../../src/apps/ingestion_app/worker.py"
+    label: "RecoveryEngine"
+    link: "../../../src/apps/ingestion_app/services/recovery.py"
   }
 
-  validator: {
+  canonicalize: {
     class: component
-    label: "candle_validator"
-    link: "../../../src/apps/ingestion_app/runtime/websocket.py"
+    label: "CandleIngestionService"
+    link: "../../../src/apps/ingestion_app/services/candle_ingestion.py"
+  }
+
+  htf: {
+    class: component
+    label: "HTFAggregationService"
+    link: "../../../src/apps/ingestion_app/services/htf_aggregation.py"
+  }
+
+  repository: {
+    class: component
+    label: "CandleRepository"
+    link: "../../../src/apps/ingestion_app/storage/repository.py"
+  }
+
+  publisher: {
+    class: component
+    label: "OutboxPublisher"
+    link: "../../../src/apps/ingestion_app/publication/publisher.py"
+  }
+
+  lifecycle: {
+    class: component
+    label: "AssetLifecycleReconciler"
+    link: "../../../src/apps/ingestion_app/services/asset_lifecycle.py"
+  }
+
+  retention: {
+    class: component
+    label: "RetentionJanitor"
+    link: "../../../src/apps/ingestion_app/services/retention.py"
   }
 }
 
 contracts: {
-  label: "Valkey / Job Contracts"
+  label: "Domain / Transport Contracts"
 
-  asset_manifest: {
+  market_lane: {
     class: contract
-    label: "asset:{symbol}\nprojection"
-    shape: stored_data
+    label: "MarketLane\nvenue + instrument + timeframe"
+    shape: document
   }
 
-  asset_manifest_tf: {
+  observation: {
     class: contract
-    label: "asset:{symbol}:tf:{tf}\nprojection"
+    label: "CandleObservation\nprovider sourced"
+    shape: document
+  }
+
+  canonical: {
+    class: contract
+    label: "CanonicalCandle\nprovider or derived"
+    shape: document
+  }
+
+  recovery_request: {
+    class: contract
+    label: "RecoveryRequest\naligned [since, until)"
+    shape: document
+  }
+
+  outbox_event: {
+    class: contract
+    label: "candle.committed v1\nproducer=ingestion"
+    shape: document
+  }
+
+  ohlcv_stream: {
+    class: contract
+    label: "stream:ohlcv:ingestion:{venue}:{instrument_id}:{tf}"
+    shape: queue
+  }
+
+  asset_hash: {
+    class: contract
+    label: "asset:{symbol}\nasset:{symbol}:tf:{tf}"
     shape: stored_data
   }
 
   lifecycle_stream: {
     class: contract
-    label: "asset:lifecycle"
+    label: "asset:lifecycle\nsource=ingestion"
     shape: queue
   }
+}
 
-  control_stream: {
-    class: contract
-    label: "stream:control:ingestion"
-    shape: queue
+storage: {
+  label: "TimescaleDB"
+
+  candles: {
+    class: storage
+    label: "ingestion.candles\nPK=(venue,instrument_id,timeframe,open_time)"
+    shape: cylinder
   }
 
-  events_stream: {
-    class: contract
-    label: "stream:events:ingestion"
-    shape: queue
-  }
-
-  asset_status_stream: {
-    class: contract
-    label: "asset:status"
-    shape: queue
-  }
-
-  dlq_stream: {
-    class: contract
-    label: "stream:dlq:ingestion (target)"
-    shape: queue
-  }
-
-  ohlcv_stream: {
-    class: contract
-    label: "stream:ohlcv:{symbol}:{tf}"
-    shape: queue
-  }
-
-  runtime_coordination: {
-    class: contract
-    label: "ingestion:state:{symbol}:{tf}\ninternal coordination state"
-    shape: stored_data
-  }
-
-  runtime_status: {
-    class: contract
-    label: "ingestion:runtime_status:{symbol}:{tf}\nstatus projection"
-    shape: stored_data
-  }
-
-  gap_fill_job: {
-    class: contract
-    label: "run_rest_gap_fill"
-    shape: queue
-  }
-
-  topup_job: {
-    class: contract
-    label: "poll_binance_ohlcv"
-    shape: queue
-  }
-
-  depth_job: {
-    class: contract
-    label: "poll_l2_depth"
-    shape: queue
-  }
-
-  purge_job: {
-    class: contract
-    label: "purge_removed_asset"
-    shape: queue
+  outbox: {
+    class: storage
+    label: "ingestion.outbox\npending iff published_at IS NULL"
+    shape: cylinder
   }
 }
 
 rules: {
   label: "Operating Rules"
 
-  truth_policy: {
+  utc: {
     class: rule
-    label: "truth policy\nTimescaleDB `ingestion_assets` = canonical durable registry\nValkey keys/streams = projection + transport\nnever independent dual truth"
+    label: "UTC + explicit alignment origin"
   }
 
-  idempotency_policy: {
+  base_htf: {
     class: rule
-    label: "idempotency policy\nrequest_id\ncommand_id\nasset_version\ntimeframe_version\nsame request must converge to one runtime + one backfill"
+    label: "provider 1m base -> complete derived HTFs"
   }
 
-  recovery_policy: {
+  conflict: {
     class: rule
-    label: "recovery policy\ndisconnect/restart/late/duplicate/REST-vs-WS mismatch\ngap-fill from last persisted closed candle + overlap\nmust recover before LIVE"
+    label: "same key + different canonical content = CONFLICT"
   }
 
-  candle_policy: {
+  transaction: {
     class: rule
-    label: "candle policy\nclosed only by default for downstream\nforming candle stays internal or opt-in\ncorrected_closed explicit"
+    label: "new candle + outbox insert = one DB transaction"
   }
 
-  parity_policy: {
+  delivery: {
     class: rule
-    label: "parity policy\nhistorical and live share close timestamp/finality/correction semantics"
-  }
-}
-
-storage: {
-  label: "Persistence"
-
-  ingestion_assets: {
-    class: storage
-    shape: cylinder
-    label: "ingestion_assets\ncanonical"
+    label: "Valkey delivery = at least once\nmark published only after XADD"
   }
 
-  ohlcv: {
-    class: storage
-    shape: cylinder
-    label: "ohlcv"
+  history: {
+    class: rule
+    label: "Timescale = historical authority\nValkey = bounded transport"
   }
 
-  l2: {
-    class: storage
-    shape: cylinder
-    label: "l2_depth_features"
+  recovery_bound: {
+    class: rule
+    label: "bounded pages + retries + lane lock + global concurrency"
   }
 
-  failures: {
-    class: storage
-    shape: cylinder
-    label: "ingestion_failures (target)\ndurable terminal failure sink"
+  retention_rule: {
+    class: rule
+    label: "retention deletes published outbox only\npending rows survive"
   }
 }
 
 consumers: {
   label: "Consumers"
 
-  signal_app: {
+  signal_live: {
     class: consumer
-    label: "signal_app"
+    label: "signal_app live workers"
   }
 
-  strategy_app: {
+  signal_history: {
     class: consumer
-    label: "strategy_app"
+    label: "signal_app Timescale primer"
   }
 
-  risk_app: {
+  downstream_lifecycle: {
     class: consumer
-    label: "risk_app (target)"
-  }
-
-  execution_app: {
-    class: consumer
-    label: "execution_app (target)"
-  }
-
-  operators: {
-    class: consumer
-    label: "operators"
-  }
-
-  alert_app: {
-    class: consumer
-    label: "alert_app"
+    label: "signal_app / alert_app lifecycle"
   }
 }
 
-sources.lifecycle_request -> components.router: "HTTP"
-components.router -> components.control: "upsert / patch / action"
-components.runtime_app -> components.reconciler: "startup reconcile"
-sources.live_feed -> components.ws: "websocket"
-sources.historical_feed -> components.jobs: "REST"
+sources.config_global -> components.settings: "load"
+sources.config_assets -> components.settings: "register directory"
+sources.control -> components.config_service: "create / patch assets"
+sources.control -> components.controller: "pause / resume / reconnect / recover"
+sources.ws -> components.websocket: "finalized base klines"
+sources.rest -> components.recovery: "historical pages"
 
-components.control -> storage.ingestion_assets: "persist registry"
-storage.ingestion_assets -> contracts.asset_manifest: "project canonical state"
-components.control -> contracts.asset_manifest: "write"
-components.control -> contracts.asset_manifest_tf: "write"
-components.control -> contracts.lifecycle_stream: "publish"
-components.control -> contracts.control_stream: "publish"
-components.control -> contracts.events_stream: "publish"
-components.control -> rules.truth_policy: "must obey"
-components.control -> rules.idempotency_policy: "must obey"
+components.settings -> components.controller: "validated runtime composition"
+components.config_service -> components.settings: "reload"
+components.config_service -> components.controller: "atomic settings replacement"
+components.config_service -> components.lifecycle: "mark dirty"
+components.controller -> components.supervisor: "start / replace / control"
+components.websocket -> contracts.observation: "emit"
+contracts.observation -> components.supervisor: "live input"
+components.supervisor -> components.canonicalize: "base commit"
+components.supervisor -> components.htf: "base candle"
+components.supervisor -> contracts.recovery_request: "startup / interruption / HTF gaps"
+contracts.recovery_request -> components.recovery: "recover"
+components.recovery -> components.canonicalize: "recovered provider observations"
+components.recovery -> components.htf: "affected HTF reconciliation"
+components.htf -> components.repository: "read complete constituents"
+components.htf -> contracts.canonical: "derived candle"
+contracts.canonical -> components.canonicalize: "commit derived"
+components.canonicalize -> components.repository: "INSERTED / DUPLICATE / CONFLICT"
+components.repository -> storage.candles: "canonical read/write"
+components.repository -> storage.outbox: "atomic new-event write"
+storage.outbox -> components.publisher: "ordered pending batch"
+components.publisher -> contracts.outbox_event: "encode fields"
+contracts.outbox_event -> contracts.ohlcv_stream: "XADD"
+contracts.ohlcv_stream -> consumers.signal_live: "consumer group"
+storage.candles -> consumers.signal_history: "history query"
+components.lifecycle -> contracts.asset_hash: "sync manifests"
+components.lifecycle -> contracts.lifecycle_stream: "publish transition"
+contracts.lifecycle_stream -> consumers.downstream_lifecycle: "consume"
+components.retention -> storage.outbox: "bounded old published delete"
+components.retention -> storage.candles: "drop old chunks"
 
-storage.ingestion_assets -> components.reconciler: "effective state"
-contracts.control_stream -> components.reconciler: "consume"
-components.reconciler -> contracts.gap_fill_job: "enqueue"
-components.reconciler -> contracts.purge_job: "enqueue"
-components.reconciler -> contracts.runtime_coordination: "write internal state"
-components.reconciler -> contracts.runtime_status: "write status projection"
-components.reconciler -> contracts.asset_status_stream: "append status"
-components.reconciler -> rules.recovery_policy: "must obey"
-
-components.ws -> components.validator: "candidate closed candle"
-components.validator -> storage.ohlcv: "persist canonical candle"
-components.validator -> contracts.ohlcv_stream: "publish closed candle"
-components.ws -> contracts.runtime_coordination: "write internal state"
-components.ws -> contracts.runtime_status: "write status projection"
-components.ws -> contracts.asset_status_stream: "append status"
-components.ws -> contracts.gap_fill_job: "enqueue on recovery"
-components.validator -> rules.candle_policy: "must obey"
-components.validator -> rules.parity_policy: "must obey"
-
-contracts.gap_fill_job -> components.jobs: "consume"
-contracts.topup_job -> components.jobs: "scheduled consume"
-contracts.depth_job -> components.jobs: "scheduled consume"
-contracts.purge_job -> components.jobs: "consume"
-components.jobs -> storage.ohlcv: "gap-fill / top-up"
-components.jobs -> storage.l2: "depth writes"
-components.jobs -> contracts.events_stream: "publish outcomes"
-components.jobs -> contracts.dlq_stream: "terminal failures (target)"
-components.jobs -> storage.failures: "durable failures (target)"
-components.jobs -> rules.recovery_policy: "repair gaps / corrections"
-
-contracts.lifecycle_stream -> consumers.signal_app: "consume"
-contracts.lifecycle_stream -> consumers.strategy_app: "consume"
-contracts.ohlcv_stream -> consumers.signal_app: "consume"
-consumers.signal_app -> consumers.strategy_app: "feature outputs"
-consumers.strategy_app -> consumers.risk_app: "trade intents"
-consumers.risk_app -> consumers.execution_app: "approved orders"
-contracts.events_stream -> consumers.operators: "observe"
-contracts.events_stream -> consumers.alert_app: "consume"
-contracts.runtime_status -> consumers.alert_app: "scan"
-contracts.dlq_stream -> consumers.operators: "investigate"
+rules.utc -> components.settings
+rules.utc -> components.recovery
+rules.utc -> components.htf
+rules.base_htf -> components.supervisor
+rules.base_htf -> components.htf
+rules.conflict -> components.repository
+rules.transaction -> components.repository
+rules.delivery -> components.publisher
+rules.history -> storage.candles
+rules.history -> contracts.ohlcv_stream
+rules.recovery_bound -> components.recovery
+rules.retention_rule -> components.retention

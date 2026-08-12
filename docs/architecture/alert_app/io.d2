@@ -23,22 +23,10 @@ sources: {
     shape: queue
   }
 
-  ingestion_events: {
-    class: source
-    label: "stream:events:ingestion"
-    shape: queue
-  }
-
   execution_failures: {
     class: source
     label: "execution:failures:{asset}"
     shape: queue
-  }
-
-  ingestion_runtime: {
-    class: source
-    label: "ingestion:runtime_status:{asset}:{tf}"
-    shape: stored_data
   }
 
   signal_runtime: {
@@ -186,9 +174,7 @@ rules: {
 }
 
 sources.lifecycle -> components.consumer: "normalize"
-sources.ingestion_events -> components.consumer: "normalize"
 sources.execution_failures -> components.consumer: "normalize"
-sources.ingestion_runtime -> components.reconciler: "scan"
 sources.signal_runtime -> components.reconciler: "scan"
 sources.strategy_runtime -> components.reconciler: "scan"
 sources.scraper_jobs -> components.reconciler: "scan"

@@ -54,7 +54,7 @@ flipper-scraper-api = "apps.scraper_app.api.main:main"
 flipper-portfolio-api = "apps.portfolio_app.api.main:main"
 flipper-alert-api = "apps.alert_app.api.main:main"
 flipper-alert-runner = "apps.alert_app.main:main"
-flipper-conductor = "conductor.main:main"
+flipper-ingestion = "apps.ingestion_app.main:main"
 
 
 [build-system]
@@ -65,7 +65,6 @@ build-backend = "poetry.core.masonry.api"
 packages = [
     { include = "apps", from = "src" },
     { include = "libs", from = "src" },
-    { include = "conductor" },
 ]
 
 [tool.pyright]

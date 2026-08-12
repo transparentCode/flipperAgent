@@ -2,354 +2,301 @@ app:
   name: ingestion_app
   path: src/apps/ingestion_app
   purpose: >
-    Owns exchange ingestion, historical backfill, asset lifecycle control,
-    canonical asset manifest publication, runtime reconciliation, and
-    closed-candle distribution for downstream consumers.
+    Own canonical market-data acquisition, bounded recovery, base-to-HTF
+    derivation, Timescale persistence, transactional outbox publication,
+    asset lifecycle projection, runtime control, retention, and ingestion
+    observability.
+
+canonical_naming:
+  python_package: apps.ingestion_app
+  config_directory: configs/ingestion
+  config_namespace: ingestion
+  external_contracts:
+    compose_service: ingestion
+    database_schema: ingestion
+    stream_prefix: stream:ohlcv:ingestion
+    manifest_source: ingestion
+    otel_service_name: ingestion
+    candle_event_producer: ingestion
 
 entrypoints:
-  runtime_process:
+  process:
     path: src/apps/ingestion_app/main.py
-    role: Launches runtime app and reconciler process
-  runtime_controller:
-    path: src/apps/ingestion_app/runtime/app.py
-    role: Storage init, coordinator wiring, reconciler lifespan, health surface
-  queue_worker:
-    path: src/apps/ingestion_app/worker.py
-    role: ARQ worker for backfill, purge, cleanup, and polling jobs
-  operator_api:
-    path: src/apps/api_app/routers/ingestion.py
-    role: Asset lifecycle, batch control, ops, status, events, and scraper bridge routes
+    role: Load server config, initialize telemetry/logging, and run FastAPI
+  application:
+    path: src/apps/ingestion_app/bootstrap.py
+    role: Compose database, providers, runtime, publisher, lifecycle, retention, and API
+  routes:
+    path: src/apps/ingestion_app/api/routes.py
+    role: Health, runtime, asset config, providers, and manual recovery control plane
 
-features:
-  - key: canonical_asset_manifest
-    summary: Writes canonical asset and asset-timeframe manifests to Valkey
-  - key: lifecycle_streaming
-    summary: Publishes normalized asset lifecycle events for downstream apps
-  - key: desired_state_registry
-    summary: Persists desired asset lifecycle state in Timescale-backed registry storage
-  - key: runtime_reconciliation
-    summary: Reconciles desired asset state into running websocket runtimes
-  - key: backfill_before_live
-    summary: Performs warmup and resume recovery before promoting runtimes to live
-  - key: websocket_ingestion
-    summary: Streams live Binance candles and persists/publishes closed bars
-  - key: rest_gap_fill
-    summary: Backfills gaps before live and after disconnects
-  - key: asset_cleanup
-    summary: Purges storage and runtime state for removed assets
-  - key: observability_routes
-    summary: Exposes catalog, status, events, and ops summary routes
-  - key: scraper_bridge
-    summary: Proxies internal scraper fetch/job flows for on-demand data pulls
-  - key: closed_candle_contract
-    summary: Uses closed-candle publication as the default downstream trigger surface
-  - key: durable_registry_projection_split
-    summary: Keeps durable registry truth separate from Valkey runtime projection
-
-architecture_decisions:
-  canonical_truth:
-    durable_owner:
-      kind: timescaledb
-      contract: ingestion_assets
-    projection_owner:
-      kind: valkey
-      contracts:
-        - asset:{symbol}
-        - asset:{symbol}:tf:{timeframe}
-        - asset:lifecycle
-    rule: Timescale-backed registry is the only durable canonical truth; Valkey is projection and stream distribution and must always be reconstructible from Timescale state.
-  candle_semantics:
-    default_downstream_trigger: closed_candles_only
-    forming_candle_policy: internal_or_explicit_opt_in_only
-    provisional_support: optional
-    correction_mode: explicit_not_implicit
-  lifecycle_idempotency:
-    required_identifiers:
-      - request_id
-      - command_id
-      - asset_version
-      - timeframe_version
-    convergence_rule: Replayed equivalent commands must not create duplicate runtimes or duplicate backfill work.
-  source_reconciliation:
-    conflict_case: websocket_vs_rest
-    precedence: websocket_for_live_closed_candles__rest_for_backfill_and_repair
-    requirement: Explicit source precedence and observable correction path.
-  downstream_guardrail:
-    rule: strategy_app must not bypass risk_app on the path to execution_app.
-
-operational_contracts:
-  lifecycle_write_order:
-    sequence:
-      - persist_timescaledb_registry
-      - project_valkey_manifest
-      - publish_lifecycle_and_control_streams
-    rule: Valkey projection must be reconstructible from durable registry.
-  lifecycle_idempotency:
-    keys:
-      - request_id
-      - command_id
-      - asset_version
-      - timeframe_version
-    guarantees:
-      - duplicate_enable_requests_do_not_spawn_duplicate_runtimes
-      - duplicate_resume_requests_do_not_spawn_duplicate_gap_fill_jobs
-      - replayed_batch_requests_converge_to_same_effective_state
-  runtime_recovery:
-    disconnect_rule: websocket_disconnect_demotes_runtime_to_warming_until_gap_fill_completes_and_live_feed_is_healthy
-    restart_rule: process_restart_rebuilds_from_timescaledb_registry_then_reprimes_before_returning_live
-    backfill_anchor_rule: recover_from_last_persisted_closed_candle_with_overlap_window
-    duplicate_rule: closed_candle_dedupes_on_symbol_timeframe_open_timestamp
-    late_data_rule: late_or_corrected_data_uses_explicit_correction_path
-    conflict_rule: rest_vs_websocket_source_precedence_must_be_observable
-  candle_finality:
-    default_trigger: closed_only
-    optional_states:
-      - provisional
-      - corrected_closed
-    forming_candle_scope: not_part_of_default_downstream_contract
-    downstream_default:
-      - signal_app
-      - strategy_app
-  backtest_live_parity:
-    parity_dimensions:
-      - timeframe_alignment
-      - close_timestamp_convention
-      - finality_semantics
-      - duplicate_correction_policy
-      - source_precedence
-      - storage_schema_compatibility
-  failure_handling:
-    operator_stream: stream:events:ingestion
-    terminal_failure_stream: stream:dlq:ingestion
-    durable_failure_sink: ingestion_failures
-    rule: Silent non-recoverable ingestion failure is not acceptable.
-  observability:
-    metrics:
-      - ws_connected
-      - last_candle_lag_seconds
-      - gap_fill_pending_count
-      - failed_jobs_count
-      - duplicate_candle_count
-      - runtime_restarts_total
-      - candle_publish_latency_ms
-    surfaces:
-      - prometheus
-      - grafana
-      - loki_or_structured_logs
-      - future_alerting
+configuration:
+  global:
+    path: configs/ingestion/global.yaml
+    namespace: ingestion
+  assets:
+    path: configs/ingestion/assets/*.yaml
+    namespace: ingestion.assets
+  source_of_truth:
+    - enabled assets and lifecycle ownership
+    - instruments and provider symbols
+    - base and derived timeframes
+    - continuous UTC alignment origin
+    - provider availability
+    - recovery limits and finalization grace
+    - websocket endpoint and queue bound
+    - runtime reconnect backoff
+    - server bind
+    - publication batch/stream bounds
+    - retention horizons and cleanup bounds
 
 internal_components:
-  - name: control_plane
+  - name: typed_domain
     paths:
-      - src/apps/ingestion_app/control_plane/service.py
-      - src/apps/ingestion_app/control_plane/publisher.py
-      - src/apps/ingestion_app/control_plane/repository.py
-      - src/apps/ingestion_app/control_plane/catalog.py
+      - src/apps/ingestion_app/domain/instrument.py
+      - src/apps/ingestion_app/domain/candle.py
+      - src/apps/ingestion_app/domain/recovery.py
     responsibilities:
-      - Persist desired asset state
-      - Sync canonical asset manifests
-      - Publish lifecycle events for downstream apps
-      - Publish ingestion runtime control commands
-      - Publish accepted control and operator events
+      - immutable instrument and market-lane identity
+      - immutable provider observations and canonical candles
+      - UTC and Decimal validation
+      - explicit bounded RecoveryRequest contract
 
-  - name: runtime_reconciler
+  - name: provider_layer
     paths:
-      - src/apps/ingestion_app/runtime/reconciler.py
-      - src/apps/ingestion_app/runtime/bootstrap.py
-      - src/apps/ingestion_app/runtime/shared.py
-    responsibilities:
-      - Bootstrap effective assets
-      - Watch control-stream changes
-      - Start, stop, resume, and remove per-asset runtimes
-      - Coordinate backfill-before-live transitions
-      - Dispatch purge and recovery work
-
-  - name: websocket_pipeline
-    paths:
+      - src/apps/ingestion_app/providers/base.py
+      - src/apps/ingestion_app/providers/binance_native.py
+      - src/apps/ingestion_app/providers/ccxt.py
       - src/apps/ingestion_app/runtime/websocket.py
-      - src/apps/ingestion_app/adapters/binance_native.py
     responsibilities:
-      - Consume live kline feeds
-      - Persist OHLCV
-      - Publish closed-candle streams
-      - Keep forming candle handling outside the default downstream trigger contract
-      - Write runtime liveness/state
-      - Trigger recovery gap-fill jobs on disconnect/gap
-      - Enforce candle finality and publication semantics
+      - structural historical/live provider protocols
+      - Binance-native REST history
+      - CCXT Binance USD-M historical fallback
+      - multiplexed finalized Binance websocket candles
+      - interruption-to-recovery request generation
 
-  - name: queue_jobs
+  - name: runtime_controller
     paths:
-      - src/apps/ingestion_app/jobs/gap_fill.py
-      - src/apps/ingestion_app/jobs/cleanup.py
-      - src/apps/ingestion_app/jobs/l2_depth.py
-      - src/apps/ingestion_app/jobs/topup.py
+      - src/apps/ingestion_app/runtime/controller.py
     responsibilities:
-      - Run REST gap-fill jobs
-      - Purge removed assets
-      - Poll L2 depth snapshots
-      - Top up missing candle data
-      - Repair gaps without violating closed-candle parity semantics
+      - process-level desired state
+      - runtime pause/resume/reconnect/manual recovery
+      - validated settings replacement
+      - fresh supervisor replacement after config change
 
-  - name: data_quality_validation
+  - name: runtime_supervisor
     paths:
-      - src/apps/ingestion_app/runtime/websocket.py
-      - src/apps/ingestion_app/jobs/gap_fill.py
-      - src/apps/ingestion_app/jobs/topup.py
+      - src/apps/ingestion_app/runtime/supervisor.py
     responsibilities:
-      - Enforce timestamp/timeframe alignment
-      - Detect duplicate closed-candle conflicts
-      - Enforce source-precedence aware correction behavior
+      - resolve enabled base lanes from config
+      - bounded startup catch-up
+      - reconcile latest closed HTFs before websocket connect
+      - commit finalized live base candles
+      - trigger affected HTF work
+      - close recovery requests before reconnect
+      - fail on canonical conflict
 
-  - name: operator_api
+  - name: canonical_ingestion
     paths:
-      - src/apps/api_app/routers/ingestion.py
+      - src/apps/ingestion_app/services/candle_ingestion.py
+      - src/apps/ingestion_app/storage/repository.py
     responsibilities:
-      - Serve effective asset catalog
-      - Serve runtime status snapshots
-      - Serve recent ingestion events
-      - Serve compact operator summaries
-      - Bridge on-demand scraper-backed provider requests
+      - normalize observations into canonical candles
+      - classify INSERTED DUPLICATE CONFLICT
+      - atomically persist new candle plus outbox intent
+      - expose point/range/latest reads for recovery and aggregation
 
-tech_stack:
-  language: python
-  framework:
-    - fastapi
-    - arq
-    - asyncpg
-  infra:
-    - valkey
-    - timescaledb
-  adapters:
-    - binance_websocket
-    - binance_rest
-    - ccxt_rest
+  - name: htf_aggregation
+    paths:
+      - src/apps/ingestion_app/services/htf_aggregation.py
+      - src/apps/ingestion_app/services/time_alignment.py
+    responsibilities:
+      - derive configured HTFs from canonical base candles
+      - enforce complete constituent windows
+      - use explicit continuous UTC alignment origin
+      - emit follow-up recovery when a bucket is incomplete
+
+  - name: recovery_engine
+    paths:
+      - src/apps/ingestion_app/services/recovery.py
+    responsibilities:
+      - bounded provider paging
+      - provider fallback and retry
+      - per-lane serialization
+      - global concurrency limiting
+      - closed-candle cutoff and finalization grace
+      - cancellation propagation
+      - HTF follow-up reconciliation
+
+  - name: outbox_publication
+    paths:
+      - src/apps/ingestion_app/publication/outbox.py
+      - src/apps/ingestion_app/publication/publisher.py
+      - src/apps/ingestion_app/publication/stream_keys.py
+    responsibilities:
+      - stable candle.committed event payload
+      - durable pending selection
+      - ordered Valkey XADD publication
+      - mark published only after successful XADD
+      - bounded approximate stream MAXLEN
+      - retry broker connectivity independently of canonical runtime
+
+  - name: asset_config_and_lifecycle
+    paths:
+      - src/apps/ingestion_app/services/config_reconciliation.py
+      - src/apps/ingestion_app/services/asset_lifecycle.py
+      - src/libs/common/asset_manifest.py
+    responsibilities:
+      - create/patch one asset YAML atomically with runtime replacement
+      - rollback disk/runtime on mutation failure or cancellation
+      - project owned assets into canonical Valkey manifests
+      - publish idempotent asset lifecycle events
+      - re-reconcile after broker reconnect
+
+  - name: retention
+    paths:
+      - src/apps/ingestion_app/services/retention.py
+      - src/apps/ingestion_app/storage/repository.py
+    responsibilities:
+      - delete only old published outbox rows in bounded batches
+      - preserve pending publication intents
+      - drop candle chunks older than configured retention
+      - retry non-authoritatively without affecting readiness
+
+  - name: observability
+    paths:
+      - src/apps/ingestion_app/observability.py
+      - src/apps/ingestion_app/api/routes.py
+    responsibilities:
+      - commit metrics and duration
+      - websocket connected/reconnect/interruption metrics
+      - recovery outcome/duration metrics
+      - outbox pending/oldest/publish metrics
+      - runtime live gauge
+      - liveness/readiness/runtime control surfaces
+
+storage:
+  timescaledb:
+    schema: ingestion
+    tables:
+      - name: ingestion.candles
+        role: canonical historical OHLCV authority
+        identity: venue + instrument_id + timeframe + open_time
+        hypertable_time_column: open_time
+      - name: ingestion.outbox
+        role: durable publication intents
+        pending_rule: published_at IS NULL
+    write_rule: new canonical candle and outbox intent commit atomically
 
 valkey:
-  canonical_keys:
-    writes:
-      - name: asset:{symbol}
-        owner: control_plane
-      - name: asset:{symbol}:tf:{timeframe}
-        owner: control_plane
-    stream:
+  produces:
+    streams:
+      - name: stream:ohlcv:ingestion:{venue}:{instrument_id}:{timeframe}
+        producer: outbox_publication
+        semantics: at_least_once
+        retention: bounded approximate MAXLEN
       - name: asset:lifecycle
-        producer: control_plane
+        producer: asset_config_and_lifecycle
         consumers:
           - signal_app
-          - strategy_app
-  runtime_streams:
-    produces:
-      - name: stream:control:ingestion
-        producer: control_plane
-        consumers:
-          - runtime_reconciler
-      - name: stream:events:ingestion
-        producer: control_plane_and_queue_jobs
-        consumers:
-          - operators
           - alert_app
-      - name: asset:status
-        producer: coordinator_via_asset_runtime_status_store
-      - name: stream:dlq:ingestion
-        producer: recommended_future_failure_sink
-        consumers:
-          - operators
-          - future_alert_app
-      - name: stream:ohlcv:{symbol}:{timeframe}
-        producer: websocket_pipeline
-        consumers:
-          - signal_app
-          - future_backtest_live_parity_auditors
-  runtime_keys:
-    writes:
-      - name: ingestion:state:{symbol}:{timeframe}
-        owner: runtime_reconciler_and_websocket_pipeline
-      - name: ingestion:runtime_status:{symbol}:{timeframe}
-        owner: coordinator_via_asset_runtime_status_store
-  jobs:
-    queue:
-      - name: run_rest_gap_fill
-        producer: websocket_pipeline_and_runtime_reconciler
-        consumer: queue_worker
-      - name: purge_removed_asset
-        producer: runtime_reconciler
-        consumer: queue_worker
-    scheduled:
-      - name: poll_l2_depth
-        producer: ingestion_scheduler
-        consumer: queue_worker
-      - name: poll_binance_ohlcv
-        producer: ingestion_scheduler
-        consumer: queue_worker
-      - name: scheduled_gap_fill
-        producer: ingestion_scheduler
-        consumer: queue_worker
-      - name: scheduled_asset_cleanup
-        producer: ingestion_scheduler
-        consumer: queue_worker
+    hashes:
+      - name: asset:{symbol}
+        producer: asset_config_and_lifecycle
+      - name: asset:{symbol}:tf:{timeframe}
+        producer: asset_config_and_lifecycle
+  historical_authority: false
+  published_replay_after_destructive_loss: false
+  pending_replay_after_broker_reconnect: true
 
-database:
-  tables:
-    owns:
-      - name: ingestion_assets
-      - name: ohlcv
-      - name: ticks
-      - name: open_interest
-      - name: funding_rate
-      - name: l2_depth_features
-    recommended_future:
-      - name: ingestion_failures
-        purpose: Durable non-recoverable ingestion failure sink and audit history
+events:
+  candle_committed:
+    type: candle.committed
+    schema_version: 1
+    producer: ingestion
+    payload:
+      - venue
+      - instrument_id
+      - timeframe
+      - open_time
+      - close_time
+      - open
+      - high
+      - low
+      - close
+      - volume
+      - taker_buy_base
+      - source_type
+      - source_provider
+      - source_timeframe
 
 api:
   routes:
     - method: GET
-      path: /ingestion/assets
-      purpose: Effective asset catalog
-    - method: POST
-      path: /ingestion/assets
-      purpose: Upsert asset
-    - method: POST
-      path: /ingestion/assets/batch
-      purpose: Batch upsert assets
-    - method: POST
-      path: /ingestion/assets/batch/action
-      purpose: Batch pause stop resume remove
+      path: /health/live
+      purpose: process liveness
     - method: GET
-      path: /ingestion/status
-      purpose: Runtime state snapshot
+      path: /health/ready
+      purpose: started and non-error runtime readiness
     - method: GET
-      path: /ingestion/events
-      purpose: Recent ingestion events
+      path: /runtime
+      purpose: desired/current runtime state and enabled asset count
     - method: GET
-      path: /ingestion/ops-summary
-      purpose: Latest operator-focused failure summary
+      path: /assets
+      purpose: effective asset configuration
+    - method: GET
+      path: /assets/{asset}
+      purpose: one asset configuration
     - method: POST
-      path: /ingestion/scraper/fetch
-      purpose: Synchronous scraper-backed on-demand provider fetch
-    - method: POST
-      path: /ingestion/scraper/jobs
-      purpose: Queue asynchronous scraper-backed provider fetch
+      path: /assets
+      purpose: create a validated asset config and replace runtime settings
+    - method: PATCH
+      path: /assets/{asset}
+      purpose: patch a validated asset config and replace runtime settings
     - method: GET
-      path: /ingestion/scraper/jobs/{job_id}
-      purpose: Read asynchronous scraper job status/result
+      path: /providers
+      purpose: configured provider inventory
+    - method: POST
+      path: /runtime/pause
+      purpose: stop producer work without stopping the process/publisher
+    - method: POST
+      path: /runtime/resume
+      purpose: fresh startup/catch-up and live cycle
+    - method: POST
+      path: /runtime/reconnect
+      purpose: rebuild the live supervisor after a runtime error
+    - method: POST
+      path: /runtime/recover
+      purpose: execute one aligned bounded manual recovery while offline
 
-validated_behaviors:
-  - initial gap-fill before websocket live handoff
-  - closed-candle publication to downstream signal consumers
-  - canonical truth stored durably and projected into Valkey manifests
-  - idempotent lifecycle replay convergence on runtime and backfill behavior
-  - runtime asset add remove flows
-  - pause and resume with backfill-before-live semantics
-  - canonical lifecycle fan-out to downstream apps
-  - operator-facing status, event, and ops-summary routes
+runtime_states:
+  desired:
+    - running
+    - paused
+  actual:
+    - stopped
+    - starting
+    - recovering
+    - live
+    - error
 
-review_focus:
-  explicit_risks_to_review:
-    - canonical truth must not split across Timescale and Valkey
-    - lifecycle requests need formal idempotency
-    - reconnect, restart, duplicate, and late-candle rules must be explicit
-    - closed-candle finality is the default downstream trigger contract
-    - backtest/live parity must be preserved at candle-schema and semantic level
-    - silent failures require DLQ or durable failure storage
-    - risk gate must remain between strategy_app and execution_app
+failure_contracts:
+  broker_unavailable: canonical DB writes continue; outbox remains pending and publisher retries
+  websocket_interrupted: close bounded recovery requests before reconnect
+  database_unavailable: canonical path fails closed; no non-durable acknowledgement
+  canonical_conflict: fatal data-quality error; never silent overwrite
+  config_mutation_failure: rollback config file and runtime settings
+  retention_failure: warn/backoff; non-authoritative to runtime readiness
+
+validated_invariants:
+  - continuous UTC calendar with explicit alignment origin
+  - config-owned asset/provider/timeframe/runtime parameters
+  - provider-sourced base candles and derived HTFs
+  - transactional candle plus outbox commit
+  - pending outbox survives broker outage
+  - no automatic replay of already-published history after destructive Valkey loss
+  - bounded recovery with per-lane locks and global concurrency limit
+  - dynamic asset config rollback safety
+  - lifecycle manifests rebuilt after broker loss
+  - signal startup/history recovery uses Timescale authority
+  - retention deletes published outbox only

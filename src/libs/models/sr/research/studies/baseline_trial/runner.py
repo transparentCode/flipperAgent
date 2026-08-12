@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
-from libs.models.sr.domain import create_initial_state
-from libs.models.sr.domain import ContractValidationError
+from libs.models.sr.domain import ContractValidationError, create_initial_state
 from libs.models.sr.evaluation.diagnostics import compute_diagnostics
 from libs.models.sr.evaluation.trace_builder import build_evaluation_trace
 from libs.models.sr.replay.runner import replay_bars
@@ -71,7 +70,7 @@ async def run_trial(
         raise ContractValidationError("resolved input config does not match trial")
 
     if adapter is None:
-        from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
+        from libs.market_data.binance_native import BinanceNativeAdapter
 
         adapter = BinanceNativeAdapter()
     dataset = await fetch_validated_dataset(adapter, trial)

@@ -1,0 +1,2246 @@
+{
+  "config": {
+    "enabled_assets": [
+      "BNB",
+      "BTC",
+      "DOGE",
+      "ETH",
+      "SOL",
+      "XRP"
+    ],
+    "expected_ingestion_stream_keys": [
+      "stream:ohlcv:ingestion:binance:BNB-USDT-PERP:12h",
+      "stream:ohlcv:ingestion:binance:BNB-USDT-PERP:15m",
+      "stream:ohlcv:ingestion:binance:BNB-USDT-PERP:1d",
+      "stream:ohlcv:ingestion:binance:BNB-USDT-PERP:1h",
+      "stream:ohlcv:ingestion:binance:BNB-USDT-PERP:1m",
+      "stream:ohlcv:ingestion:binance:BNB-USDT-PERP:1w",
+      "stream:ohlcv:ingestion:binance:BNB-USDT-PERP:30m",
+      "stream:ohlcv:ingestion:binance:BNB-USDT-PERP:4h",
+      "stream:ohlcv:ingestion:binance:BNB-USDT-PERP:6h",
+      "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:12h",
+      "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:15m",
+      "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1d",
+      "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+      "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1m",
+      "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1w",
+      "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:30m",
+      "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:4h",
+      "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:6h",
+      "stream:ohlcv:ingestion:binance:DOGE-USDT-PERP:12h",
+      "stream:ohlcv:ingestion:binance:DOGE-USDT-PERP:15m",
+      "stream:ohlcv:ingestion:binance:DOGE-USDT-PERP:1d",
+      "stream:ohlcv:ingestion:binance:DOGE-USDT-PERP:1h",
+      "stream:ohlcv:ingestion:binance:DOGE-USDT-PERP:1m",
+      "stream:ohlcv:ingestion:binance:DOGE-USDT-PERP:1w",
+      "stream:ohlcv:ingestion:binance:DOGE-USDT-PERP:30m",
+      "stream:ohlcv:ingestion:binance:DOGE-USDT-PERP:4h",
+      "stream:ohlcv:ingestion:binance:DOGE-USDT-PERP:6h",
+      "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:12h",
+      "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:15m",
+      "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:1d",
+      "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:1h",
+      "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:1m",
+      "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:1w",
+      "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:30m",
+      "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:4h",
+      "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:6h",
+      "stream:ohlcv:ingestion:binance:SOL-USDT-PERP:12h",
+      "stream:ohlcv:ingestion:binance:SOL-USDT-PERP:15m",
+      "stream:ohlcv:ingestion:binance:SOL-USDT-PERP:1d",
+      "stream:ohlcv:ingestion:binance:SOL-USDT-PERP:1h",
+      "stream:ohlcv:ingestion:binance:SOL-USDT-PERP:1m",
+      "stream:ohlcv:ingestion:binance:SOL-USDT-PERP:1w",
+      "stream:ohlcv:ingestion:binance:SOL-USDT-PERP:30m",
+      "stream:ohlcv:ingestion:binance:SOL-USDT-PERP:4h",
+      "stream:ohlcv:ingestion:binance:SOL-USDT-PERP:6h",
+      "stream:ohlcv:ingestion:binance:XRP-USDT-PERP:12h",
+      "stream:ohlcv:ingestion:binance:XRP-USDT-PERP:15m",
+      "stream:ohlcv:ingestion:binance:XRP-USDT-PERP:1d",
+      "stream:ohlcv:ingestion:binance:XRP-USDT-PERP:1h",
+      "stream:ohlcv:ingestion:binance:XRP-USDT-PERP:1m",
+      "stream:ohlcv:ingestion:binance:XRP-USDT-PERP:1w",
+      "stream:ohlcv:ingestion:binance:XRP-USDT-PERP:30m",
+      "stream:ohlcv:ingestion:binance:XRP-USDT-PERP:4h",
+      "stream:ohlcv:ingestion:binance:XRP-USDT-PERP:6h"
+    ],
+    "expected_manifest_keys": [
+      "asset:BNBUSDT",
+      "asset:BTCUSDT",
+      "asset:DOGEUSDT",
+      "asset:ETHUSDT",
+      "asset:SOLUSDT",
+      "asset:XRPUSDT"
+    ],
+    "manifest_owners": [
+      "BNB",
+      "BTC",
+      "DOGE",
+      "ETH",
+      "SOL",
+      "XRP"
+    ],
+    "signal_pairs": [
+      [
+        "BNBUSDT",
+        "30m"
+      ],
+      [
+        "BTCUSDT",
+        "1h"
+      ],
+      [
+        "BTCUSDT",
+        "4h"
+      ],
+      [
+        "DOGEUSDT",
+        "1h"
+      ],
+      [
+        "DOGEUSDT",
+        "4h"
+      ],
+      [
+        "ETHUSDT",
+        "4h"
+      ],
+      [
+        "SOLUSDT",
+        "1h"
+      ],
+      [
+        "XRPUSDT",
+        "1h"
+      ]
+    ],
+    "source_bindings": {
+      "BNBUSDT": {
+        "instrument_id": "BNB-USDT-PERP",
+        "source": "ingestion",
+        "venue": "binance"
+      },
+      "BTCUSDT": {
+        "instrument_id": "BTC-USDT-PERP",
+        "source": "ingestion",
+        "venue": "binance"
+      },
+      "DOGEUSDT": {
+        "instrument_id": "DOGE-USDT-PERP",
+        "source": "ingestion",
+        "venue": "binance"
+      },
+      "ETHUSDT": {
+        "instrument_id": "ETH-USDT-PERP",
+        "source": "ingestion",
+        "venue": "binance"
+      },
+      "SOLUSDT": {
+        "instrument_id": "SOL-USDT-PERP",
+        "source": "ingestion",
+        "venue": "binance"
+      },
+      "XRPUSDT": {
+        "instrument_id": "XRP-USDT-PERP",
+        "source": "ingestion",
+        "venue": "binance"
+      }
+    }
+  },
+  "database_after": {
+    "dependencies": {
+      "ingestion.provider_candles": {
+        "foreign_keys": [],
+        "views": []
+      },
+      "public.ingestion_assets": {
+        "foreign_keys": [],
+        "views": []
+      },
+      "public.ohlcv": {
+        "foreign_keys": [],
+        "views": []
+      }
+    },
+    "ingestion_protected": {
+      "candles": 195380,
+      "outbox": 195380,
+      "pending": 0
+    },
+    "legacy_tables": {
+      "ingestion.provider_candles": {
+        "relation": null,
+        "rows": null
+      },
+      "public.ingestion_assets": {
+        "relation": null,
+        "rows": null
+      },
+      "public.ohlcv": {
+        "relation": null,
+        "rows": null
+      }
+    }
+  },
+  "production_db0_flush_issued": false,
+  "resolved_db": 0,
+  "services": {
+    "alert-api": {
+      "containers": [
+        {
+          "exit_code": "0",
+          "health": "not_configured",
+          "id": "56fe290b76935c9c2156ccda23a0fe789133c00045121fed6e988715b04814d3",
+          "oom_killed": false,
+          "state": "exited"
+        }
+      ],
+      "healthy": false,
+      "present": true,
+      "running": false
+    },
+    "alert-worker": {
+      "containers": [
+        {
+          "exit_code": "137",
+          "health": "not_configured",
+          "id": "b6cd64b7c018fce17880d84c8cc0dc8fb019f157638bff8047020dc79555039d",
+          "oom_killed": false,
+          "state": "exited"
+        }
+      ],
+      "healthy": false,
+      "present": true,
+      "running": false
+    },
+    "api-server": {
+      "containers": [],
+      "healthy": false,
+      "present": false,
+      "running": false
+    },
+    "broker": {
+      "containers": [
+        {
+          "exit_code": "0",
+          "health": "healthy",
+          "id": "ae5e5f2d91e167752fb93b7e5a757492ad3cec9d0259fdf27d5992daf83b6cac",
+          "oom_killed": false,
+          "state": "running"
+        }
+      ],
+      "healthy": true,
+      "present": true,
+      "running": true
+    },
+    "db": {
+      "containers": [
+        {
+          "exit_code": "0",
+          "health": "healthy",
+          "id": "08de6403fda91c60c4005fb08e08bcfa7cdc9a2793e9df710d292fcfd9d25c72",
+          "oom_killed": false,
+          "state": "running"
+        }
+      ],
+      "healthy": true,
+      "present": true,
+      "running": true
+    },
+    "execution-worker": {
+      "containers": [],
+      "healthy": false,
+      "present": false,
+      "running": false
+    },
+    "ingestion": {
+      "containers": [
+        {
+          "exit_code": "0",
+          "health": "unhealthy",
+          "id": "a58a7d3ac9c159ae1277a1e2c0b0a2ea3fa9f5a79d87c5b325bae7f4cdb4d0a8",
+          "oom_killed": false,
+          "state": "exited"
+        }
+      ],
+      "healthy": false,
+      "present": true,
+      "running": false
+    },
+    "portfolio-worker": {
+      "containers": [],
+      "healthy": false,
+      "present": false,
+      "running": false
+    },
+    "risk-worker": {
+      "containers": [],
+      "healthy": false,
+      "present": false,
+      "running": false
+    },
+    "scheduler": {
+      "containers": [],
+      "healthy": false,
+      "present": false,
+      "running": false
+    },
+    "scraper-service": {
+      "containers": [],
+      "healthy": false,
+      "present": false,
+      "running": false
+    },
+    "scraper-tradingview": {
+      "containers": [],
+      "healthy": false,
+      "present": false,
+      "running": false
+    },
+    "signal-worker": {
+      "containers": [
+        {
+          "exit_code": "0",
+          "health": "not_configured",
+          "id": "2327b13385bb95c16e5e13109685be1b4991a798a6f55f403305e5e848668b30",
+          "oom_killed": false,
+          "state": "exited"
+        }
+      ],
+      "healthy": false,
+      "present": true,
+      "running": false
+    },
+    "strategy-worker": {
+      "containers": [],
+      "healthy": false,
+      "present": false,
+      "running": false
+    }
+  },
+  "starting_sha": "ca4cf860086b916323adefc4b71b1fa7c43f5231",
+  "status": "READY_FOR_REVIEW",
+  "valkey_after": {
+    "dbsize": 163,
+    "legacy": {
+      "exact_keys": [
+        "stream:control:ingestion",
+        "stream:events:ingestion"
+      ],
+      "key_count": 0,
+      "keys": [],
+      "patterns": [
+        "stream:ohlcv:*",
+        "ingestion:state:*",
+        "ingestion:state_updated_ts:*",
+        "ingestion:disconnect_ts:*",
+        "ingestion:last_live_ts:*",
+        "ingestion:last_ready_ts:*",
+        "ingestion:disconnect_count:*",
+        "ingestion:resume_backfill_required:*",
+        "ingestion:last_closed_published:*",
+        "ingestion:publish_dedup:*",
+        "ingestion:runtime_status:*",
+        "ingestion:registry_projection:*"
+      ],
+      "stream_count": 0,
+      "streams": {}
+    },
+    "protected": {
+      "asset_keys": {
+        "asset:BNBUSDT": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "provider": "binance_native",
+            "publish_timeframes": "[\"15m\", \"30m\", \"1h\", \"4h\", \"6h\", \"12h\", \"1d\", \"1w\"]",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "BNBUSDT",
+            "timeframe_version": "1",
+            "timeframes": "[\"1m\", \"15m\", \"30m\", \"1h\", \"4h\", \"6h\", \"12h\", \"1d\", \"1w\"]",
+            "updated_at": "1786500092.2861085"
+          },
+          "value_hash": "b93d212749952e2ea2c316fee8259e70df8c37b04eb1175811e602e63e301ed2"
+        },
+        "asset:BNBUSDT:tf:12h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "BNBUSDT",
+            "timeframe": "12h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.2861085"
+          },
+          "value_hash": "0558d71791d8b82425861367b4bfc1dad4a3e99000f9edaa8b26faf151673ae4"
+        },
+        "asset:BNBUSDT:tf:15m": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "BNBUSDT",
+            "timeframe": "15m",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.2861085"
+          },
+          "value_hash": "052d90c05814149280183eaa4bbb50f555c4bacf8254695e8c8cea078f70295f"
+        },
+        "asset:BNBUSDT:tf:1d": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "BNBUSDT",
+            "timeframe": "1d",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.2861085"
+          },
+          "value_hash": "15ada730839e23fc400e514653876ecf78bcfc721997bb7b5cb51b843ee112be"
+        },
+        "asset:BNBUSDT:tf:1h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "BNBUSDT",
+            "timeframe": "1h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.2861085"
+          },
+          "value_hash": "e4359dfe7752c0221e5a6a1bd06ed3354eb7de8fb3690734595fc6467b150f84"
+        },
+        "asset:BNBUSDT:tf:1m": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "True",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "BNBUSDT",
+            "timeframe": "1m",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.2861085"
+          },
+          "value_hash": "984295ae47662396002a7ee1b28bf578b6ace816b8341592ce429a1187f3d2d3"
+        },
+        "asset:BNBUSDT:tf:1w": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "BNBUSDT",
+            "timeframe": "1w",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.2861085"
+          },
+          "value_hash": "b6de9f03fdcfbdfb095711d83021bfecf9e2b4fae98bd279281a4ba3fef01e1a"
+        },
+        "asset:BNBUSDT:tf:30m": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "BNBUSDT",
+            "timeframe": "30m",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.2861085"
+          },
+          "value_hash": "1017d93a0e0ac89f20f55d9f381d0433d9fac9eb734dba7a8fc4e3cc7acf22fe"
+        },
+        "asset:BNBUSDT:tf:4h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "BNBUSDT",
+            "timeframe": "4h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.2861085"
+          },
+          "value_hash": "f03945ec860a298ea6f2ec2378fd6fa37d1751f8995140737c8dd85c5aafcb28"
+        },
+        "asset:BNBUSDT:tf:6h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "BNBUSDT",
+            "timeframe": "6h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.2861085"
+          },
+          "value_hash": "150a736f26dca1af95555e0bc5a28cbbb9df359ba266c53aae204acd1464b7a4"
+        },
+        "asset:BTCUSDT": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "provider": "binance_native",
+            "publish_timeframes": "[\"15m\", \"30m\", \"1h\", \"4h\", \"6h\", \"12h\", \"1d\", \"1w\"]",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "BTCUSDT",
+            "timeframe_version": "1",
+            "timeframes": "[\"1m\", \"15m\", \"30m\", \"1h\", \"4h\", \"6h\", \"12h\", \"1d\", \"1w\"]",
+            "updated_at": "1786500092.3248885"
+          },
+          "value_hash": "f8946bf9ce8f4cfe362de2eff31a536eb18a716fdcdd6530ae9bae3258a8fce4"
+        },
+        "asset:BTCUSDT:tf:12h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "BTCUSDT",
+            "timeframe": "12h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3248885"
+          },
+          "value_hash": "5764e220fa7a5a0771444f17f6e749c86ca76b50ca0b51b4507102ceb2c8ecaa"
+        },
+        "asset:BTCUSDT:tf:15m": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "BTCUSDT",
+            "timeframe": "15m",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3248885"
+          },
+          "value_hash": "34df30cb3554bd5dd29a9041addd7a035c1f6e12f50e2c35e611d6fdc6932fd1"
+        },
+        "asset:BTCUSDT:tf:1d": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "BTCUSDT",
+            "timeframe": "1d",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3248885"
+          },
+          "value_hash": "1eb52e634b90402308ce976db8eb3b05fc788a3777cfca59d1a048edace5dc0d"
+        },
+        "asset:BTCUSDT:tf:1h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "BTCUSDT",
+            "timeframe": "1h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3248885"
+          },
+          "value_hash": "777665ca766b6113be9a0e9d7f8897752adfa127086c2f4bd77d39e99e26b132"
+        },
+        "asset:BTCUSDT:tf:1m": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "True",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "BTCUSDT",
+            "timeframe": "1m",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3248885"
+          },
+          "value_hash": "ab3c2df297aa15f87ae82642d4a7d9aded0f4658b88b109503ce7b17fc1e5c5d"
+        },
+        "asset:BTCUSDT:tf:1w": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "BTCUSDT",
+            "timeframe": "1w",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3248885"
+          },
+          "value_hash": "d119f46782316de7d77ead75ead48e77a4c6984ef59e075dd6f9cb0116245b63"
+        },
+        "asset:BTCUSDT:tf:30m": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "BTCUSDT",
+            "timeframe": "30m",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3248885"
+          },
+          "value_hash": "6e2d58548cc3e109e729cd753fb8acd3a109329549e01fc9e9c9660c6e283551"
+        },
+        "asset:BTCUSDT:tf:4h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "BTCUSDT",
+            "timeframe": "4h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3248885"
+          },
+          "value_hash": "a8ae789b935541dc148d096de004801c9fe9f07814b5d1aceec83b6fae830652"
+        },
+        "asset:BTCUSDT:tf:6h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "BTCUSDT",
+            "timeframe": "6h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3248885"
+          },
+          "value_hash": "578eeaf645e8e292525569aeff21318f1b372ad7da3e721a4d8d28920c7d6f12"
+        },
+        "asset:DOGEUSDT": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "provider": "binance_native",
+            "publish_timeframes": "[\"15m\", \"30m\", \"1h\", \"4h\", \"6h\", \"12h\", \"1d\", \"1w\"]",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "DOGEUSDT",
+            "timeframe_version": "1",
+            "timeframes": "[\"1m\", \"15m\", \"30m\", \"1h\", \"4h\", \"6h\", \"12h\", \"1d\", \"1w\"]",
+            "updated_at": "1786500092.327038"
+          },
+          "value_hash": "cc8216098a271f999c52a5378c7fe8abdfe30fcab429bd7e8c19fc5380e7ebb9"
+        },
+        "asset:DOGEUSDT:tf:12h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "DOGEUSDT",
+            "timeframe": "12h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.327038"
+          },
+          "value_hash": "52e0461987787f9d68c913dd488ff6afac375cfd4f807f0851b687a994605e4f"
+        },
+        "asset:DOGEUSDT:tf:15m": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "DOGEUSDT",
+            "timeframe": "15m",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.327038"
+          },
+          "value_hash": "a9e846bf9a6b0b557fee1b847a1f36243f7cebff7bc634afd47a6688694217be"
+        },
+        "asset:DOGEUSDT:tf:1d": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "DOGEUSDT",
+            "timeframe": "1d",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.327038"
+          },
+          "value_hash": "56cd69d2ce53936585575767e7fc5a3e6b7abc97df1a098f26804ccf12acec8e"
+        },
+        "asset:DOGEUSDT:tf:1h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "DOGEUSDT",
+            "timeframe": "1h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.327038"
+          },
+          "value_hash": "93d54ad4215498c3b9fa4e22117b2a35e750781fc35868586296e27199f8aad8"
+        },
+        "asset:DOGEUSDT:tf:1m": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "True",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "DOGEUSDT",
+            "timeframe": "1m",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.327038"
+          },
+          "value_hash": "8feb4a07b06d8860172517453d194235c9e4d803ae360cac139ad9e9990be05e"
+        },
+        "asset:DOGEUSDT:tf:1w": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "DOGEUSDT",
+            "timeframe": "1w",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.327038"
+          },
+          "value_hash": "3a7860447503a9c2d862034e57a171fc3b88d4f0fb3039b88615b535ee7e09b7"
+        },
+        "asset:DOGEUSDT:tf:30m": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "DOGEUSDT",
+            "timeframe": "30m",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.327038"
+          },
+          "value_hash": "281c3169abfd5fbca47df2cd96f8b99b0e3c3551898824d5df722bc0f180d6d6"
+        },
+        "asset:DOGEUSDT:tf:4h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "DOGEUSDT",
+            "timeframe": "4h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.327038"
+          },
+          "value_hash": "4450ec36a6b0e93dfa3533f96b911b7e617c194484646ead5f65ab6e28c65fbc"
+        },
+        "asset:DOGEUSDT:tf:6h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "DOGEUSDT",
+            "timeframe": "6h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.327038"
+          },
+          "value_hash": "cdae493d4730eeb1841e1f748029818218572a96c4937028cbf19d07d5ad83c6"
+        },
+        "asset:ETHUSDT": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "provider": "binance_native",
+            "publish_timeframes": "[\"15m\", \"30m\", \"1h\", \"4h\", \"6h\", \"12h\", \"1d\", \"1w\"]",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "ETHUSDT",
+            "timeframe_version": "1",
+            "timeframes": "[\"1m\", \"15m\", \"30m\", \"1h\", \"4h\", \"6h\", \"12h\", \"1d\", \"1w\"]",
+            "updated_at": "1786500092.328578"
+          },
+          "value_hash": "3aba29c74b1ffd3fd3e3729dfa4abfabc0af625007763a952fbd7cf8db084c38"
+        },
+        "asset:ETHUSDT:tf:12h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "ETHUSDT",
+            "timeframe": "12h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.328578"
+          },
+          "value_hash": "6bade9204fea6420d09171a83d5dcca0c9399c36c66da5704d2ef06f4c5e9826"
+        },
+        "asset:ETHUSDT:tf:15m": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "ETHUSDT",
+            "timeframe": "15m",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.328578"
+          },
+          "value_hash": "dd7a284ea8d618451db6f241707aa27970195335f8d39b260949c70ad778c004"
+        },
+        "asset:ETHUSDT:tf:1d": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "ETHUSDT",
+            "timeframe": "1d",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.328578"
+          },
+          "value_hash": "475f214b0a7994472031ff3943961926a0a2a3636f31660d545094b3394376b0"
+        },
+        "asset:ETHUSDT:tf:1h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "ETHUSDT",
+            "timeframe": "1h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.328578"
+          },
+          "value_hash": "fd4b6fffddee59d1d28f6d6b2ef79b1def14cfa4ec93434b27bc2d161d065f28"
+        },
+        "asset:ETHUSDT:tf:1m": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "True",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "ETHUSDT",
+            "timeframe": "1m",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.328578"
+          },
+          "value_hash": "42557fe7da7a117bbfde5f87bca39552ebf41e65e6b652f91ff58e6a78e86d8d"
+        },
+        "asset:ETHUSDT:tf:1w": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "ETHUSDT",
+            "timeframe": "1w",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.328578"
+          },
+          "value_hash": "352bf9f91792402e709633acca1197f0f8ae7c5219a00fd8677c925b2955a61f"
+        },
+        "asset:ETHUSDT:tf:30m": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "ETHUSDT",
+            "timeframe": "30m",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.328578"
+          },
+          "value_hash": "adca023b0db5054185e866de2078419bea604d22e984fdbda03c484a1e5dbeec"
+        },
+        "asset:ETHUSDT:tf:4h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "ETHUSDT",
+            "timeframe": "4h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.328578"
+          },
+          "value_hash": "34e002a047047d784df1b750cd0015686d51f3f5da293a782a2a596f081dccd6"
+        },
+        "asset:ETHUSDT:tf:6h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "ETHUSDT",
+            "timeframe": "6h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.328578"
+          },
+          "value_hash": "aa8c67e0f8d0c64ebb40c9fe2c6a14f1cdd4c780161edf349b0ae7b66ebc4356"
+        },
+        "asset:SOLUSDT": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "provider": "binance_native",
+            "publish_timeframes": "[\"15m\", \"30m\", \"1h\", \"4h\", \"6h\", \"12h\", \"1d\", \"1w\"]",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "SOLUSDT",
+            "timeframe_version": "1",
+            "timeframes": "[\"1m\", \"15m\", \"30m\", \"1h\", \"4h\", \"6h\", \"12h\", \"1d\", \"1w\"]",
+            "updated_at": "1786500092.3310945"
+          },
+          "value_hash": "ad8b14667411c0a940c0c63c6df81191c5df9db8085430cb8648f3b4b223d61d"
+        },
+        "asset:SOLUSDT:tf:12h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "SOLUSDT",
+            "timeframe": "12h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3310945"
+          },
+          "value_hash": "b4ab75372b78bd3683b515b85ae6dcfda87fff1c1cf62754f9e2d929792a315b"
+        },
+        "asset:SOLUSDT:tf:15m": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "SOLUSDT",
+            "timeframe": "15m",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3310945"
+          },
+          "value_hash": "6d850bee7bde515a13fff0ce76bfd8d1ee05368732a4756cdfeaa6983a8796e2"
+        },
+        "asset:SOLUSDT:tf:1d": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "SOLUSDT",
+            "timeframe": "1d",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3310945"
+          },
+          "value_hash": "ab78e5d7f7ec4d05f292ee2a91e3edf9051d3875b823db2ef3f6d4c84778c31b"
+        },
+        "asset:SOLUSDT:tf:1h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "SOLUSDT",
+            "timeframe": "1h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3310945"
+          },
+          "value_hash": "1dd99e3ab6b437e8f1f68eaece5016da895521f321f972a2781c1863dba7601a"
+        },
+        "asset:SOLUSDT:tf:1m": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "True",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "SOLUSDT",
+            "timeframe": "1m",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3310945"
+          },
+          "value_hash": "d2d909020f4b55a19a220ac074f86551b050bcaf9518547cc21d94fe919c4911"
+        },
+        "asset:SOLUSDT:tf:1w": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "SOLUSDT",
+            "timeframe": "1w",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3310945"
+          },
+          "value_hash": "418e1dd9f0f54bc4f5dd20781c5ba4e4e0feaeab70d7a55a5274bb3b48d78f16"
+        },
+        "asset:SOLUSDT:tf:30m": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "SOLUSDT",
+            "timeframe": "30m",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3310945"
+          },
+          "value_hash": "8152ccf64786d91ade27c6152d40f2dc4435e7d757cc72484f9b01cdde109867"
+        },
+        "asset:SOLUSDT:tf:4h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "SOLUSDT",
+            "timeframe": "4h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3310945"
+          },
+          "value_hash": "cef06a672b73609c8899bef5ff80764d484e0028018612177d74f81b42b0e495"
+        },
+        "asset:SOLUSDT:tf:6h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "SOLUSDT",
+            "timeframe": "6h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3310945"
+          },
+          "value_hash": "0f2b9de62411776f58cb8b7eaa78a04ab6e9392ca587c1db57a0f6f708c5ac4a"
+        },
+        "asset:XRPUSDT": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "provider": "binance_native",
+            "publish_timeframes": "[\"15m\", \"30m\", \"1h\", \"4h\", \"6h\", \"12h\", \"1d\", \"1w\"]",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "XRPUSDT",
+            "timeframe_version": "1",
+            "timeframes": "[\"1m\", \"15m\", \"30m\", \"1h\", \"4h\", \"6h\", \"12h\", \"1d\", \"1w\"]",
+            "updated_at": "1786500092.3330877"
+          },
+          "value_hash": "b628da5139dac88601596ff101212f68c03123b6e6a0f40609e08072d96f8d62"
+        },
+        "asset:XRPUSDT:tf:12h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "XRPUSDT",
+            "timeframe": "12h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3330877"
+          },
+          "value_hash": "768f8aedfcb4a62220b372d74717d7fa0f05b569aac65086e66271108adecb40"
+        },
+        "asset:XRPUSDT:tf:15m": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "XRPUSDT",
+            "timeframe": "15m",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3330877"
+          },
+          "value_hash": "718efde45ba2f356a471bdca9c11f9a8f8f7727467907c8d196c0a4b7e8cbfcf"
+        },
+        "asset:XRPUSDT:tf:1d": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "XRPUSDT",
+            "timeframe": "1d",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3330877"
+          },
+          "value_hash": "9e637c6a509dd6e183816ea65e879cef668c933002e1664186779a7493aa4996"
+        },
+        "asset:XRPUSDT:tf:1h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "XRPUSDT",
+            "timeframe": "1h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3330877"
+          },
+          "value_hash": "05c32f803d0c9e5221fd237a61dea1ef126b122a880c653041ad5f8700160007"
+        },
+        "asset:XRPUSDT:tf:1m": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "True",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "XRPUSDT",
+            "timeframe": "1m",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3330877"
+          },
+          "value_hash": "70a8993258da4a40de38af9673ae6958f651caba50b657756b699fb2a41da2a5"
+        },
+        "asset:XRPUSDT:tf:1w": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "XRPUSDT",
+            "timeframe": "1w",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3330877"
+          },
+          "value_hash": "d9158e7dbce5d1a3a9e1ec44f4c8383fc402df33e851b270cde275ba9791cf20"
+        },
+        "asset:XRPUSDT:tf:30m": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "XRPUSDT",
+            "timeframe": "30m",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3330877"
+          },
+          "value_hash": "b608e376993d17c71c21c64598b7b11b729e0493bc25ef1048d0e9b2af504501"
+        },
+        "asset:XRPUSDT:tf:4h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "XRPUSDT",
+            "timeframe": "4h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3330877"
+          },
+          "value_hash": "05bdf364bef13b17c7ae22dcddc19718f1b839a32833adc1857722a909bc6b24"
+        },
+        "asset:XRPUSDT:tf:6h": {
+          "type": "hash",
+          "value": {
+            "asset_version": "1",
+            "base_timeframe": "1m",
+            "desired_state": "LIVE",
+            "enabled": "True",
+            "exchange": "binance",
+            "historical_backfill_days": "0",
+            "is_base_timeframe": "False",
+            "provider": "binance_native",
+            "request_id": "__NONE__",
+            "retention_days": "__NONE__",
+            "source": "ingestion",
+            "symbol": "XRPUSDT",
+            "timeframe": "6h",
+            "timeframe_version": "1",
+            "updated_at": "1786500092.3330877"
+          },
+          "value_hash": "9f17a8c555dc5ed64ecb0491e26c14f2aa621b8d67f532a94eb8bbd58e9011be"
+        },
+        "asset:lifecycle": {
+          "type": "stream",
+          "value": {
+            "exists": true,
+            "groups": [
+              {
+                "consumers": 1,
+                "consumers_detail": [
+                  {
+                    "name": "signal_worker_lifecycle",
+                    "pending": 0
+                  }
+                ],
+                "entries-read": null,
+                "lag": 0,
+                "last-delivered-id": "1786500092334-0",
+                "name": "signal_app_group",
+                "pending": 0
+              }
+            ],
+            "length": 6
+          },
+          "value_hash": "d86f8eacee8838483b91b391644efa8d4f7b0c377733191162b37b9b7bb53dbc"
+        }
+      },
+      "asset_lifecycle": {
+        "exists": true,
+        "groups": [
+          {
+            "consumers": 1,
+            "consumers_detail": [
+              {
+                "name": "signal_worker_lifecycle",
+                "pending": 0
+              }
+            ],
+            "entries-read": null,
+            "lag": 0,
+            "last-delivered-id": "1786500092334-0",
+            "name": "signal_app_group",
+            "pending": 0
+          }
+        ],
+        "length": 6
+      },
+      "ingestion_streams": {
+        "stream:ohlcv:ingestion:binance:BNB-USDT-PERP:12h": {
+          "exists": true,
+          "groups": [],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:BNB-USDT-PERP:15m": {
+          "exists": true,
+          "groups": [],
+          "length": 15
+        },
+        "stream:ohlcv:ingestion:binance:BNB-USDT-PERP:1d": {
+          "exists": true,
+          "groups": [],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:BNB-USDT-PERP:1h": {
+          "exists": true,
+          "groups": [],
+          "length": 4
+        },
+        "stream:ohlcv:ingestion:binance:BNB-USDT-PERP:1m": {
+          "exists": true,
+          "groups": [],
+          "length": 227
+        },
+        "stream:ohlcv:ingestion:binance:BNB-USDT-PERP:1w": {
+          "exists": true,
+          "groups": [],
+          "length": 0
+        },
+        "stream:ohlcv:ingestion:binance:BNB-USDT-PERP:30m": {
+          "exists": true,
+          "groups": [
+            {
+              "consumers": 1,
+              "consumers_detail": [
+                {
+                  "name": "signal_worker_BNBUSDT_30m",
+                  "pending": 0
+                }
+              ],
+              "entries-read": 8,
+              "lag": 0,
+              "last-delivered-id": "1786505400475-0",
+              "name": "signal_app_group",
+              "pending": 0
+            }
+          ],
+          "length": 8
+        },
+        "stream:ohlcv:ingestion:binance:BNB-USDT-PERP:4h": {
+          "exists": true,
+          "groups": [],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:BNB-USDT-PERP:6h": {
+          "exists": true,
+          "groups": [],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:12h": {
+          "exists": true,
+          "groups": [],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:15m": {
+          "exists": true,
+          "groups": [],
+          "length": 15
+        },
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1d": {
+          "exists": true,
+          "groups": [],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h": {
+          "exists": true,
+          "groups": [
+            {
+              "consumers": 1,
+              "consumers_detail": [
+                {
+                  "name": "signal_worker_BTCUSDT_1h",
+                  "pending": 0
+                }
+              ],
+              "entries-read": 4,
+              "lag": 0,
+              "last-delivered-id": "1786503600706-0",
+              "name": "signal_app_group",
+              "pending": 0
+            }
+          ],
+          "length": 4
+        },
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1m": {
+          "exists": true,
+          "groups": [],
+          "length": 227
+        },
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1w": {
+          "exists": true,
+          "groups": [],
+          "length": 0
+        },
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:30m": {
+          "exists": true,
+          "groups": [],
+          "length": 8
+        },
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:4h": {
+          "exists": true,
+          "groups": [
+            {
+              "consumers": 1,
+              "consumers_detail": [
+                {
+                  "name": "signal_worker_BTCUSDT_4h",
+                  "pending": 0
+                }
+              ],
+              "entries-read": null,
+              "lag": 0,
+              "last-delivered-id": "1786500096275-0",
+              "name": "signal_app_group",
+              "pending": 0
+            }
+          ],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:6h": {
+          "exists": true,
+          "groups": [],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:DOGE-USDT-PERP:12h": {
+          "exists": true,
+          "groups": [],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:DOGE-USDT-PERP:15m": {
+          "exists": true,
+          "groups": [],
+          "length": 15
+        },
+        "stream:ohlcv:ingestion:binance:DOGE-USDT-PERP:1d": {
+          "exists": true,
+          "groups": [],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:DOGE-USDT-PERP:1h": {
+          "exists": true,
+          "groups": [
+            {
+              "consumers": 1,
+              "consumers_detail": [
+                {
+                  "name": "signal_worker_DOGEUSDT_1h",
+                  "pending": 0
+                }
+              ],
+              "entries-read": 4,
+              "lag": 0,
+              "last-delivered-id": "1786503600701-0",
+              "name": "signal_app_group",
+              "pending": 0
+            }
+          ],
+          "length": 4
+        },
+        "stream:ohlcv:ingestion:binance:DOGE-USDT-PERP:1m": {
+          "exists": true,
+          "groups": [],
+          "length": 227
+        },
+        "stream:ohlcv:ingestion:binance:DOGE-USDT-PERP:1w": {
+          "exists": true,
+          "groups": [],
+          "length": 0
+        },
+        "stream:ohlcv:ingestion:binance:DOGE-USDT-PERP:30m": {
+          "exists": true,
+          "groups": [],
+          "length": 8
+        },
+        "stream:ohlcv:ingestion:binance:DOGE-USDT-PERP:4h": {
+          "exists": true,
+          "groups": [
+            {
+              "consumers": 1,
+              "consumers_detail": [
+                {
+                  "name": "signal_worker_DOGEUSDT_4h",
+                  "pending": 0
+                }
+              ],
+              "entries-read": null,
+              "lag": 0,
+              "last-delivered-id": "1786500096272-0",
+              "name": "signal_app_group",
+              "pending": 0
+            }
+          ],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:DOGE-USDT-PERP:6h": {
+          "exists": true,
+          "groups": [],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:12h": {
+          "exists": true,
+          "groups": [],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:15m": {
+          "exists": true,
+          "groups": [],
+          "length": 15
+        },
+        "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:1d": {
+          "exists": true,
+          "groups": [],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:1h": {
+          "exists": true,
+          "groups": [],
+          "length": 4
+        },
+        "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:1m": {
+          "exists": true,
+          "groups": [],
+          "length": 227
+        },
+        "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:1w": {
+          "exists": true,
+          "groups": [],
+          "length": 0
+        },
+        "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:30m": {
+          "exists": true,
+          "groups": [],
+          "length": 8
+        },
+        "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:4h": {
+          "exists": true,
+          "groups": [
+            {
+              "consumers": 1,
+              "consumers_detail": [
+                {
+                  "name": "signal_worker_ETHUSDT_4h",
+                  "pending": 0
+                }
+              ],
+              "entries-read": null,
+              "lag": 0,
+              "last-delivered-id": "1786500096281-0",
+              "name": "signal_app_group",
+              "pending": 0
+            }
+          ],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:6h": {
+          "exists": true,
+          "groups": [],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:SOL-USDT-PERP:12h": {
+          "exists": true,
+          "groups": [],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:SOL-USDT-PERP:15m": {
+          "exists": true,
+          "groups": [],
+          "length": 15
+        },
+        "stream:ohlcv:ingestion:binance:SOL-USDT-PERP:1d": {
+          "exists": true,
+          "groups": [],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:SOL-USDT-PERP:1h": {
+          "exists": true,
+          "groups": [
+            {
+              "consumers": 1,
+              "consumers_detail": [
+                {
+                  "name": "signal_worker_SOLUSDT_1h",
+                  "pending": 0
+                }
+              ],
+              "entries-read": 4,
+              "lag": 0,
+              "last-delivered-id": "1786503600699-0",
+              "name": "signal_app_group",
+              "pending": 0
+            }
+          ],
+          "length": 4
+        },
+        "stream:ohlcv:ingestion:binance:SOL-USDT-PERP:1m": {
+          "exists": true,
+          "groups": [],
+          "length": 227
+        },
+        "stream:ohlcv:ingestion:binance:SOL-USDT-PERP:1w": {
+          "exists": true,
+          "groups": [],
+          "length": 0
+        },
+        "stream:ohlcv:ingestion:binance:SOL-USDT-PERP:30m": {
+          "exists": true,
+          "groups": [],
+          "length": 8
+        },
+        "stream:ohlcv:ingestion:binance:SOL-USDT-PERP:4h": {
+          "exists": true,
+          "groups": [],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:SOL-USDT-PERP:6h": {
+          "exists": true,
+          "groups": [],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:XRP-USDT-PERP:12h": {
+          "exists": true,
+          "groups": [],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:XRP-USDT-PERP:15m": {
+          "exists": true,
+          "groups": [],
+          "length": 15
+        },
+        "stream:ohlcv:ingestion:binance:XRP-USDT-PERP:1d": {
+          "exists": true,
+          "groups": [],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:XRP-USDT-PERP:1h": {
+          "exists": true,
+          "groups": [
+            {
+              "consumers": 1,
+              "consumers_detail": [
+                {
+                  "name": "signal_worker_XRPUSDT_1h",
+                  "pending": 0
+                }
+              ],
+              "entries-read": 4,
+              "lag": 0,
+              "last-delivered-id": "1786503601717-0",
+              "name": "signal_app_group",
+              "pending": 0
+            }
+          ],
+          "length": 4
+        },
+        "stream:ohlcv:ingestion:binance:XRP-USDT-PERP:1m": {
+          "exists": true,
+          "groups": [],
+          "length": 227
+        },
+        "stream:ohlcv:ingestion:binance:XRP-USDT-PERP:1w": {
+          "exists": true,
+          "groups": [],
+          "length": 0
+        },
+        "stream:ohlcv:ingestion:binance:XRP-USDT-PERP:30m": {
+          "exists": true,
+          "groups": [],
+          "length": 8
+        },
+        "stream:ohlcv:ingestion:binance:XRP-USDT-PERP:4h": {
+          "exists": true,
+          "groups": [],
+          "length": 1
+        },
+        "stream:ohlcv:ingestion:binance:XRP-USDT-PERP:6h": {
+          "exists": true,
+          "groups": [],
+          "length": 1
+        }
+      },
+      "signal_groups": {
+        "stream:ohlcv:ingestion:binance:BNB-USDT-PERP:30m": {
+          "expected_consumer": "signal_worker_BNBUSDT_30m",
+          "groups": [
+            {
+              "consumers": 1,
+              "consumers_detail": [
+                {
+                  "name": "signal_worker_BNBUSDT_30m",
+                  "pending": 0
+                }
+              ],
+              "entries-read": 8,
+              "lag": 0,
+              "last-delivered-id": "1786505400475-0",
+              "name": "signal_app_group",
+              "pending": 0
+            }
+          ],
+          "pair": {
+            "asset": "BNBUSDT",
+            "timeframe": "30m",
+            "trigger_timeframe": "30m"
+          }
+        },
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h": {
+          "expected_consumer": "signal_worker_BTCUSDT_1h",
+          "groups": [
+            {
+              "consumers": 1,
+              "consumers_detail": [
+                {
+                  "name": "signal_worker_BTCUSDT_1h",
+                  "pending": 0
+                }
+              ],
+              "entries-read": 4,
+              "lag": 0,
+              "last-delivered-id": "1786503600706-0",
+              "name": "signal_app_group",
+              "pending": 0
+            }
+          ],
+          "pair": {
+            "asset": "BTCUSDT",
+            "timeframe": "1h",
+            "trigger_timeframe": "1h"
+          }
+        },
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:4h": {
+          "expected_consumer": "signal_worker_BTCUSDT_4h",
+          "groups": [
+            {
+              "consumers": 1,
+              "consumers_detail": [
+                {
+                  "name": "signal_worker_BTCUSDT_4h",
+                  "pending": 0
+                }
+              ],
+              "entries-read": null,
+              "lag": 0,
+              "last-delivered-id": "1786500096275-0",
+              "name": "signal_app_group",
+              "pending": 0
+            }
+          ],
+          "pair": {
+            "asset": "BTCUSDT",
+            "timeframe": "4h",
+            "trigger_timeframe": "4h"
+          }
+        },
+        "stream:ohlcv:ingestion:binance:DOGE-USDT-PERP:1h": {
+          "expected_consumer": "signal_worker_DOGEUSDT_1h",
+          "groups": [
+            {
+              "consumers": 1,
+              "consumers_detail": [
+                {
+                  "name": "signal_worker_DOGEUSDT_1h",
+                  "pending": 0
+                }
+              ],
+              "entries-read": 4,
+              "lag": 0,
+              "last-delivered-id": "1786503600701-0",
+              "name": "signal_app_group",
+              "pending": 0
+            }
+          ],
+          "pair": {
+            "asset": "DOGEUSDT",
+            "timeframe": "1h",
+            "trigger_timeframe": "1h"
+          }
+        },
+        "stream:ohlcv:ingestion:binance:DOGE-USDT-PERP:4h": {
+          "expected_consumer": "signal_worker_DOGEUSDT_4h",
+          "groups": [
+            {
+              "consumers": 1,
+              "consumers_detail": [
+                {
+                  "name": "signal_worker_DOGEUSDT_4h",
+                  "pending": 0
+                }
+              ],
+              "entries-read": null,
+              "lag": 0,
+              "last-delivered-id": "1786500096272-0",
+              "name": "signal_app_group",
+              "pending": 0
+            }
+          ],
+          "pair": {
+            "asset": "DOGEUSDT",
+            "timeframe": "4h",
+            "trigger_timeframe": "4h"
+          }
+        },
+        "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:4h": {
+          "expected_consumer": "signal_worker_ETHUSDT_4h",
+          "groups": [
+            {
+              "consumers": 1,
+              "consumers_detail": [
+                {
+                  "name": "signal_worker_ETHUSDT_4h",
+                  "pending": 0
+                }
+              ],
+              "entries-read": null,
+              "lag": 0,
+              "last-delivered-id": "1786500096281-0",
+              "name": "signal_app_group",
+              "pending": 0
+            }
+          ],
+          "pair": {
+            "asset": "ETHUSDT",
+            "timeframe": "4h",
+            "trigger_timeframe": "4h"
+          }
+        },
+        "stream:ohlcv:ingestion:binance:SOL-USDT-PERP:1h": {
+          "expected_consumer": "signal_worker_SOLUSDT_1h",
+          "groups": [
+            {
+              "consumers": 1,
+              "consumers_detail": [
+                {
+                  "name": "signal_worker_SOLUSDT_1h",
+                  "pending": 0
+                }
+              ],
+              "entries-read": 4,
+              "lag": 0,
+              "last-delivered-id": "1786503600699-0",
+              "name": "signal_app_group",
+              "pending": 0
+            }
+          ],
+          "pair": {
+            "asset": "SOLUSDT",
+            "timeframe": "1h",
+            "trigger_timeframe": "1h"
+          }
+        },
+        "stream:ohlcv:ingestion:binance:XRP-USDT-PERP:1h": {
+          "expected_consumer": "signal_worker_XRPUSDT_1h",
+          "groups": [
+            {
+              "consumers": 1,
+              "consumers_detail": [
+                {
+                  "name": "signal_worker_XRPUSDT_1h",
+                  "pending": 0
+                }
+              ],
+              "entries-read": 4,
+              "lag": 0,
+              "last-delivered-id": "1786503601717-0",
+              "name": "signal_app_group",
+              "pending": 0
+            }
+          ],
+          "pair": {
+            "asset": "XRPUSDT",
+            "timeframe": "1h",
+            "trigger_timeframe": "1h"
+          }
+        }
+      }
+    }
+  },
+  "valkey_flush_commands_issued": false,
+  "verification_only": true
+}

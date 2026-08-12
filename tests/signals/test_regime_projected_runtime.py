@@ -1,17 +1,35 @@
 from __future__ import annotations
 
+from typing import ClassVar
+
 import pytest
 
+from apps.signal_app.ohlcv_source import OhlcvSourceBinding
 from apps.signal_app.pipeline.features import FeaturePipeline
 from apps.signal_app.pipeline.regime import RegimeFeaturePipeline
 from apps.signal_app.runtime.worker import SignalRuntimeWorker
+from apps.signal_app.settings import SignalWorkerSettings
+
+_SETTINGS = SignalWorkerSettings(
+    ohlcv_sources=(
+        OhlcvSourceBinding(
+            asset="BTCUSDT",
+            source="ingestion",
+            venue="binance",
+            instrument_id="BTC-USDT-PERP",
+        ),
+    )
+)
 
 
 class _RawIndicators:
-    indicators: list[object] = []
+    indicators: ClassVar[list[object]] = []
+
+    def __init__(self) -> None:
+        self.prime_calls: list[list[tuple[float, ...]]] = []
 
     def prime(self, history) -> None:
-        del history
+        self.prime_calls.append(history)
 
     def get_unprimed_indicator_keys(self) -> list[str]:
         return []
@@ -33,7 +51,9 @@ class _ActiveRegimeV2:
 
 
 @pytest.mark.asyncio
-async def test_projected_regime_history_advances_once_on_confirmed_decision_close() -> None:
+async def test_projected_regime_history_advances_once_on_confirmed_decision_close() -> (
+    None
+):
     raw = _RawIndicators()
     active_regime = _ActiveRegimeV2()
     regime = RegimeFeaturePipeline(
@@ -49,6 +69,7 @@ async def test_projected_regime_history_advances_once_on_confirmed_decision_clos
         "BTCUSDT",
         "4h",
         pipeline=pipeline,
+        settings=_SETTINGS,
         trigger_timeframe="1h",
         trigger_mode="on_base_bar_close",
     )
@@ -89,10 +110,22 @@ async def test_projected_regime_history_advances_once_on_confirmed_decision_clos
     assert any(observation["closed"] for observation in observations)
     assert any(not observation["closed"] for observation in observations)
     assert sum(int(observation["closed"]) for observation in observations) == 1
-    close_index = next(index for index, observation in enumerate(observations) if observation["closed"])
-    assert observations[close_index]["history_after"] == observations[close_index]["history_before"] + 1
-    assert observations[close_index + 1]["history_before"] == observations[close_index]["history_after"]
-    assert observations[close_index + 1]["reported_history_length"] == observations[close_index]["history_after"]
+    close_index = next(
+        index for index, observation in enumerate(observations) if observation["closed"]
+    )
+    assert (
+        observations[close_index]["history_after"]
+        == observations[close_index]["history_before"] + 1
+    )
+    assert (
+        observations[close_index + 1]["history_before"]
+        == observations[close_index]["history_after"]
+    )
+    assert (
+        observations[close_index + 1]["reported_history_length"]
+        == observations[close_index]["history_after"]
+    )
+    assert len(raw.prime_calls) == 1
 
 
 def _decision_history() -> list[tuple[float, ...]]:

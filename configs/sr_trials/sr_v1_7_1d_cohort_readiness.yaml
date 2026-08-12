@@ -20,7 +20,7 @@ sources:
     until: "2025-12-31T00:00:00Z"
 
 provider:
-  adapter: apps.ingestion_app.adapters.binance_native.BinanceNativeAdapter
+  adapter: libs.market_data.binance_native.BinanceNativeAdapter
   limit: 1000
 
 grid:

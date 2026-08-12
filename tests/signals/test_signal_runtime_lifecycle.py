@@ -143,19 +143,16 @@ async def test_signal_runtime_runner_reacts_to_pause_and_resume_lifecycle_events
         },
     )
     async def _resumed_workers_started() -> None:
-        while len(_StubWorker.created) < 3:
+        while len(_StubWorker.created) < 2:
             await asyncio.sleep(0.01)
-        await asyncio.gather(
-            _StubWorker.created[1].started.wait(),
-            _StubWorker.created[2].started.wait(),
-        )
+        await _StubWorker.created[1].started.wait()
 
     await asyncio.wait_for(_resumed_workers_started(), timeout=2)
 
     await runner.stop()
     await start_task
 
-    assert len(_StubWorker.created) == 3
+    assert len(_StubWorker.created) == 2
     assert redis.acks == [
         (ASSET_LIFECYCLE_STREAM, "signal_lifecycle_test", "1-0"),
         (ASSET_LIFECYCLE_STREAM, "signal_lifecycle_test", "2-0"),

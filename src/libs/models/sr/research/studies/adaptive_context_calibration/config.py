@@ -62,7 +62,7 @@ PROVIDER_12H_START = datetime(2024, 8, 19, tzinfo=timezone.utc)
 PROVIDER_12H_END = datetime(2026, 1, 1, tzinfo=timezone.utc)
 PROVIDER_12H_ROWS = 1000
 PROVIDER_12H_INTERVAL = timedelta(hours=12)
-PROVIDER_ADAPTER = "apps.ingestion_app.adapters.binance_native.BinanceNativeAdapter"
+PROVIDER_ADAPTER = "libs.market_data.binance_native.BinanceNativeAdapter"
 PROVIDER_LIMIT = 1000
 PROVIDER_CALLS_PER_ASSET = 1
 

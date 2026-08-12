@@ -3,31 +3,34 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
 import hashlib
 import http.client
 import json
 import math
 import os
-from pathlib import Path
 import subprocess
 import tempfile
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from threading import Thread
 from typing import Any, Callable
 
 import pandas as pd
 
-from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
-from libs.models.trendline_v2.tools.viewer import write_viewer_bundle
-from libs.models.trendline_v2.tools.viewer.server import make_server, validate_bundle
+from libs.market_data.binance_native import BinanceNativeAdapter
 from libs.models.trendline_v2 import discover_trendlines
 from libs.models.trendline_v2.configuration import (
     ConfirmedExtremaPairConfig,
     resolve_trendline_v2_config,
 )
-from libs.models.trendline_v2.discovery import ProviderReason, ProviderResult, ProviderStatus
+from libs.models.trendline_v2.discovery import (
+    ProviderReason,
+    ProviderResult,
+    ProviderStatus,
+)
 from libs.models.trendline_v2.input import ConfirmedOHLCVFrame
-
+from libs.models.trendline_v2.tools.viewer import write_viewer_bundle
+from libs.models.trendline_v2.tools.viewer.server import make_server, validate_bundle
 
 UTC = timezone.utc
 ASSET = "BTCUSDT"

@@ -10,12 +10,7 @@ sources: {
   style.fill: "#E8F1FF"
 
   ingestion_lifecycle: {
-    label: "asset:lifecycle\ningestion_app"
-    link: "../../../src/apps/alert_app/runtime/consumer.py"
-  }
-
-  ingestion_events: {
-    label: "stream:events:ingestion\ningestion_app"
+    label: "asset:lifecycle\ningestion"
     link: "../../../src/apps/alert_app/runtime/consumer.py"
   }
 
@@ -25,7 +20,7 @@ sources: {
   }
 
   runtime_hashes: {
-    label: "runtime status hashes\ningestion/signal/strategy"
+    label: "runtime status hashes\nsignal/strategy"
     link: "../../../src/apps/alert_app/runtime/reconciler.py"
   }
 
@@ -162,7 +157,6 @@ rules: {
 }
 
 sources.ingestion_lifecycle -> alert_app.consumer: "stream"
-sources.ingestion_events -> alert_app.consumer: "stream"
 sources.execution_failures -> alert_app.consumer: "stream family"
 sources.runtime_hashes -> alert_app.reconciler: "poll"
 sources.scraper_jobs -> alert_app.reconciler: "poll"

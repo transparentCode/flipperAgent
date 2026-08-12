@@ -6,11 +6,11 @@ access, and artifact publication live in separate leaf modules.
 
 from __future__ import annotations
 
+import math
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import math
 from pathlib import Path, PurePath
-import re
 from typing import Any
 
 from libs.models.sr.config.models import ResolvedSRConfig
@@ -26,7 +26,6 @@ from libs.models.sr.evaluation.diagnostics import SRDiagnostics
 from libs.models.sr.research.config.input_resolution import ResolvedInputConfig
 from libs.models.sr.research.source.contracts import SourceBar
 from libs.models.sr.research.viewer.contracts import ViewerConfig
-
 
 SR_BASELINE_TRIAL_SCHEMA_VERSION = "1.0"
 BINANCE_ADAPTER_MAX_LIMIT = 1500
@@ -348,7 +347,7 @@ class EvidenceManifest:
         if type(self.trial) is not TrialSpec:
             raise ContractValidationError("manifest.trial must be exactly TrialSpec")
         object.__setattr__(self, "provider_adapter", _string(self.provider_adapter, field_name="provider_adapter"))
-        if self.provider_adapter != "apps.ingestion_app.adapters.binance_native.BinanceNativeAdapter":
+        if self.provider_adapter != "libs.market_data.binance_native.BinanceNativeAdapter":
             raise ContractValidationError("unsupported provider adapter")
         for field_name, expected in (("sr_schema_version", "1.0"), ("evaluation_schema_version", "1.0")):
             if _string(getattr(self, field_name), field_name=field_name) != expected:

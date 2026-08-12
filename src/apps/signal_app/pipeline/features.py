@@ -1,8 +1,7 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
-
-from libs.contracts.signal import FeatureVector, PriceUpdate, StreamOHLCVPayload
 
 from apps.signal_app.enrichment.valkey import ValkeySignalEnrichmentReader
 from apps.signal_app.pipeline.context_namespaces import (
@@ -13,6 +12,7 @@ from apps.signal_app.pipeline.context_namespaces import (
 from apps.signal_app.pipeline.engineered import EngineeredFeaturePipeline
 from apps.signal_app.pipeline.raw_indicators import BarTuple, RawIndicatorPipeline
 from apps.signal_app.pipeline.regime import RegimeFeaturePipeline
+from libs.contracts.signal import FeatureVector, PriceUpdate, StreamOHLCVPayload
 
 
 class FeaturePipeline:
@@ -47,7 +47,9 @@ class FeaturePipeline:
         append_current_bar: bool = True,
     ) -> tuple[FeatureVector, PriceUpdate]:
         if self.raw_indicators is None:
-            raise RuntimeError("RawIndicatorPipeline is required to process closed candles.")
+            raise RuntimeError(
+                "RawIndicatorPipeline is required to process closed candles."
+            )
 
         raw_features = self.raw_indicators.process_tick(_candle_to_tuple(candle))
         features = self.build_features(
@@ -80,7 +82,8 @@ class FeaturePipeline:
             index_data = await self.enrichment_reader.load_index_data()
             derivatives_data = await self.enrichment_reader.load_derivatives_data()
 
-        feature_vector, price_update = self.process_closed_candle(
+        feature_vector, price_update = await asyncio.to_thread(
+            self.process_closed_candle,
             asset=asset,
             timeframe=timeframe,
             candle=candle,
@@ -90,7 +93,9 @@ class FeaturePipeline:
             append_current_bar=append_current_bar,
         )
         if self.regime_features is not None:
-            feature_vector.features = await self.regime_features.enrich(feature_vector.features)
+            feature_vector.features = await self.regime_features.enrich(
+                feature_vector.features
+            )
         return feature_vector, price_update
 
     def build_features(

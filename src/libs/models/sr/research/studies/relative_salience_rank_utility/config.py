@@ -21,7 +21,7 @@ _EXPECTED = {
     "version": "1",
     "trial": {"trial_name": "sr-v2.4-relative-salience-rank-utility", "venue": "binance_usdm", "assets": list(ASSETS), "timeframes": list(TIMEFRAMES)},
     "history": {"v2_3_source_bundle_path": "research/tmp_sr_v2_3/source/041618553c8ce85cfcbc81e6415e2cccf3711e73f66bcd3651b526124a5b473e", "v2_3_source_bundle_id": "041618553c8ce85cfcbc81e6415e2cccf3711e73f66bcd3651b526124a5b473e"},
-    "provider": {"adapter": "apps.ingestion_app.adapters.binance_native.BinanceNativeAdapter", "start": "2026-01-01T00:00:00Z", "end": "2026-07-01T00:00:00Z", "limit": 1000, "max_calls": 6, "expected_rows": {"1d": 181, "12h": 362}},
+    "provider": {"adapter": "libs.market_data.binance_native.BinanceNativeAdapter", "start": "2026-01-01T00:00:00Z", "end": "2026-07-01T00:00:00Z", "limit": 1000, "max_calls": 6, "expected_rows": {"1d": 181, "12h": 362}},
     "atr": {"method": "wilder_rma", "period": 14, "seed": "sma", "common_start_index": 28},
     "normalization": {"history_days": 365, "rank": "deterministic_midrank"},
     "outcome": {"first_touch_offset_bars": 1, "touch_search_bars": 50, "horizon_bars": 10, "control_side_order": ["SUPPORT", "RESISTANCE"]},

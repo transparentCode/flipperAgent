@@ -26,7 +26,6 @@ index_cbm_dir() {
 
 index_cbm_dir "/workspace/src"          "flipperAgent-src"
 index_cbm_dir "/workspace/tests"        "flipperAgent-tests"
-index_cbm_dir "/workspace/conductor"     "flipperAgent-conductor"
 index_cbm_dir "/workspace/scripts"       "flipperAgent-scripts"
 index_cbm_dir "/workspace/docs"           "flipperAgent-docs"
 index_cbm_dir "/workspace/plans"         "flipperAgent-plans"

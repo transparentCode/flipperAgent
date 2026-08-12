@@ -7,9 +7,9 @@ inside :func:`default_provider_adapter` at execution time.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 from importlib import import_module
-import json
 from numbers import Integral, Real
 from pathlib import Path
 from typing import Any, Protocol
@@ -19,8 +19,8 @@ from libs.models.sr.domain.identity import deterministic_hash, utc_isoformat
 from libs.models.sr.research.artifacts.validator import load_strict_json
 from libs.models.sr.research.config.identities import ContentIdentity
 from libs.models.sr.research.provenance.repository import resolve_repository_path
-from libs.models.sr.research.source.contracts import SourceBar
 from libs.models.sr.research.source.capsules import CapsuleStage, SourceCapsule
+from libs.models.sr.research.source.contracts import SourceBar
 from libs.models.sr.research.source.frozen import read_verified_frozen_file
 
 from .config import CohortConfig
@@ -28,15 +28,14 @@ from .contracts import (
     ADAPTER_LIMIT,
     APPROVED_ASSETS,
     APPROVED_SOURCE_ROWS,
-    AssetSource,
-    SourceBundle,
     TAO_BARS_SHA256,
     TAO_SOURCE_BUNDLE_ID,
     TAO_SOURCE_ID,
+    AssetSource,
+    SourceBundle,
     bars_sha256,
     grid_sha256,
 )
-
 
 DAY_MS = 86_400_000
 _REQUIRED_COLUMNS = ("timestamp", "open", "high", "low", "close", "volume")
@@ -441,7 +440,7 @@ def build_source_bundle(
 
 def default_provider_adapter() -> HistoricalOHLCVAdapter:
     """Construct the approved adapter behind a lazy import boundary."""
-    adapter_module = import_module("apps.ingestion_app.adapters.binance_native")
+    adapter_module = import_module("libs.market_data.binance_native")
     return adapter_module.BinanceNativeAdapter()
 
 

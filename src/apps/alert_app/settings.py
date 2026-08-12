@@ -25,7 +25,6 @@ class AlertAppSettings:
     poll_block_ms: int = 1000
     idle_sleep_seconds: float = 5.0
     lifecycle_stream: str = "asset:lifecycle"
-    ingestion_events_stream: str = "stream:events:ingestion"
     execution_failure_prefix: str = "execution:failures:"
     dedupe_ttl_seconds: int = 900
     renotify_seconds: int = 1800
@@ -36,7 +35,7 @@ class AlertAppSettings:
     def from_config(
         cls,
         config_manager: ConfigManager | None = None,
-    ) -> "AlertAppSettings":
+    ) -> AlertAppSettings:
         manager = create_alert_config_manager(config_manager)
         runtime = manager.get("alerts.runtime", {}) or {}
         streams = manager.get("alerts.streams", {}) or {}
@@ -51,9 +50,6 @@ class AlertAppSettings:
                 runtime.get("idle_sleep_seconds", cls.idle_sleep_seconds),
             ),
             lifecycle_stream=str(streams.get("lifecycle", cls.lifecycle_stream)),
-            ingestion_events_stream=str(
-                streams.get("ingestion_events", cls.ingestion_events_stream),
-            ),
             execution_failure_prefix=str(
                 streams.get(
                     "execution_failure_prefix",

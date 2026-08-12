@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from libs.common.asset_manifest import AssetManifest
-from libs.common.config import ConfigManager
+import copy
 
 from apps.signal_app.runtime_pairs import build_signal_pairs
+from libs.common.asset_manifest import AssetManifest
+from libs.common.config import ConfigManager
 
 
 def test_build_signal_pairs_keeps_runtime_base_lane_when_live() -> None:
@@ -154,7 +155,7 @@ def test_build_signal_pairs_inherits_default_scoring_models_for_asset_timeframes
     assert pairs[0].required_context_profiles == ["breakout_pressure_15m"]
 
 
-def test_build_signal_pairs_adds_manifest_fallback_pairs_when_no_model_config_exists() -> None:
+def test_build_signal_pairs_does_not_create_manifest_only_workers() -> None:
     config_manager = _empty_models_config_manager()
 
     pairs = build_signal_pairs(
@@ -170,8 +171,33 @@ def test_build_signal_pairs_adds_manifest_fallback_pairs_when_no_model_config_ex
         ],
     )
 
-    assert [pair.key for pair in pairs] == ["BTCUSDT:1h", "BTCUSDT:1m"]
-    assert all(pair.source == "asset_manifest" for pair in pairs)
+    assert pairs == []
+
+
+def test_partial_manifests_gate_owned_asset_without_suppressing_unowned_config() -> None:
+    config_manager = _runtime_models_config_manager()
+    config_manager._state["models"]["assets"]["ETHUSDT"] = copy.deepcopy(
+        config_manager._state["models"]["assets"]["BTCUSDT"]
+    )
+
+    pairs = build_signal_pairs(
+        config_manager,
+        live_manifests=[
+            AssetManifest(
+                symbol="BTCUSDT",
+                enabled=True,
+                desired_state="LIVE",
+                updated_at=1.0,
+            )
+        ],
+    )
+
+    assert [pair.key for pair in pairs] == [
+        "BTCUSDT:1h",
+        "BTCUSDT:1m",
+        "ETHUSDT:1h",
+        "ETHUSDT:1m",
+    ]
 
 
 def _runtime_models_config_manager() -> ConfigManager:

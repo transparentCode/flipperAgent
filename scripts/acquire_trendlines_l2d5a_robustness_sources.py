@@ -6,17 +6,14 @@ import argparse
 import asyncio
 import hashlib
 import json
-from pathlib import Path
 import shutil
 import tempfile
+from pathlib import Path
 from typing import Any, Callable
 
 import pandas as pd
 
-from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
-from apps.ingestion_app.adapters.trendlines_research import (
-    BinanceTrendlineResearchLoader,
-)
+from libs.market_data.binance_native import BinanceNativeAdapter
 from libs.models.trendlines.config import load_trendlines_config
 from libs.models.trendlines.workflows.research import (
     TrendlineResearchDataMode,
@@ -38,7 +35,9 @@ from libs.models.trendlines.workflows.research.adequacy import (
     frozen_robustness_source_member_specs,
     validate_robustness_source_matrix_bundle,
 )
-
+from libs.models.trendlines.workflows.research.binance import (
+    BinanceTrendlineResearchLoader,
+)
 
 DEFAULT_OUTPUT_ROOT = Path(
     "artifacts/trendlines_research_robustness/20260727_l2d5a_source_matrix_v1"

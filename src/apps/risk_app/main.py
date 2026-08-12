@@ -6,6 +6,18 @@ import asyncio
 import os
 from typing import Any
 
+import libs.risk.rules.cooldown
+import libs.risk.rules.daily_loss
+import libs.risk.rules.max_drawdown
+import libs.risk.rules.max_exposure
+import libs.risk.rules.max_positions  # noqa: F401
+from apps.risk_app.runtime import (
+    FillListener,
+    RiskRuntimeRunner,
+    RiskWorker,
+    persist_state_loop,
+    supervise_consumer,
+)
 from libs.common.asset_manifest import AssetManifestStore
 from libs.common.config import ConfigManager
 from libs.common.connections import create_valkey_client, init_db_pools
@@ -22,19 +34,6 @@ from libs.risk.rules.base import RiskRuleRegistry
 from libs.risk.sizer import PositionSizer
 from libs.risk.stop_loss import StopLossCalculator
 from libs.risk.take_profit import TakeProfitCalculator
-
-import libs.risk.rules.cooldown  # noqa: F401
-import libs.risk.rules.daily_loss  # noqa: F401
-import libs.risk.rules.max_drawdown  # noqa: F401
-import libs.risk.rules.max_exposure  # noqa: F401
-import libs.risk.rules.max_positions  # noqa: F401
-from apps.risk_app.runtime import (
-    FillListener,
-    RiskRuntimeRunner,
-    RiskWorker,
-    persist_state_loop,
-    supervise_consumer,
-)
 
 KEY_RISK = "risk"
 
@@ -63,7 +62,9 @@ def _build_risk_engine(risk_config: dict[str, Any]) -> RiskEngine:
     )
 
 
-async def _persist_final_state(account: AccountState, positions: PositionTracker) -> None:
+async def _persist_final_state(
+    account: AccountState, positions: PositionTracker
+) -> None:
     """Persist account and position state on shutdown."""
     db_pool = DBPoolManager.get_writer_pool()
     await account.update_unrealized(positions.all_positions())
@@ -78,22 +79,20 @@ async def _discover_runtime_asset_map(
     config_mgr: ConfigManager,
     manifest_store: AssetManifestStore,
 ) -> tuple[dict[str, list[str]], set[str]]:
-    """Prefer canonical manifest assets, then fall back to config discovery."""
+    """Use manifests as availability gates over the configured risk graph."""
+    configured = discover_asset_timeframes(config_mgr)
     manifests = await manifest_store.list_assets()
-    if manifests:
-        listener_assets = {manifest.symbol for manifest in manifests}
-        runtime_asset_map: dict[str, list[str]] = {}
-        for manifest in manifests:
-            if not manifest.enabled or str(manifest.desired_state).upper() != "LIVE":
-                continue
-            timeframes = list(manifest.publish_timeframes or [manifest.base_timeframe])
-            runtime_asset_map[manifest.symbol] = [
-                timeframe for timeframe in timeframes if timeframe
-            ]
-        return runtime_asset_map, listener_assets
-
-    discovered = discover_asset_timeframes(config_mgr)
-    return discovered, set(discovered)
+    manifest_by_symbol = {manifest.symbol: manifest for manifest in manifests}
+    runtime_asset_map: dict[str, list[str]] = {}
+    for asset, timeframes in configured.items():
+        manifest = manifest_by_symbol.get(asset)
+        if manifest is not None and (
+            not manifest.enabled or str(manifest.desired_state).upper() != "LIVE"
+        ):
+            continue
+        runtime_asset_map[asset] = list(timeframes)
+    # Fill listeners remain configured for assets that may have open exposure.
+    return runtime_asset_map, set(configured)
 
 
 async def _run() -> None:
@@ -125,7 +124,9 @@ async def _run() -> None:
     await init_db_pools(config_mgr)
     redis_client = await create_valkey_client(config_mgr)
     manifest_store = AssetManifestStore(redis_client)
-    asset_map, listener_assets = await _discover_runtime_asset_map(config_mgr, manifest_store)
+    asset_map, listener_assets = await _discover_runtime_asset_map(
+        config_mgr, manifest_store
+    )
     if not asset_map and not listener_assets:
         logger.warning("No asset/timeframe pairs found in models.yaml. Exiting.")
         return
@@ -150,7 +151,10 @@ async def _run() -> None:
         fill_listener_factory=FillListener,
         restart_delay_seconds=risk_config.get("consumer_restart_delay_seconds", 5),
         fill_listener_assets=listener_assets,
-        persistence_interval_seconds=risk_config.get("state_persist_interval_seconds", 60),
+        configured_timeframes=discover_asset_timeframes(config_mgr),
+        persistence_interval_seconds=risk_config.get(
+            "state_persist_interval_seconds", 60
+        ),
     )
 
     try:

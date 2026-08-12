@@ -1,5 +1,5 @@
-from datetime import timedelta
 import asyncio
+from datetime import timedelta
 
 import pytest
 
@@ -69,7 +69,7 @@ def test_provider_rejects_negative_taker_value() -> None:
 
 
 def test_real_adapter_parser_taker_value_does_not_change_ohlcv_bars() -> None:
-    from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
+    from libs.market_data.binance_native import BinanceNativeAdapter
 
     config = load_relative_salience_rank_config("configs/sr_trials/sr_v2_4_relative_salience_rank_utility.yaml")
 

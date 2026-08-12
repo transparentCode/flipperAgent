@@ -10,16 +10,18 @@ from apps.alert_app.notifications import AlertNotificationDispatcher
 from apps.alert_app.rules import resolve_routes_for_event
 from apps.alert_app.runtime.normalizers import (
     normalize_execution_failure_event,
-    normalize_ingestion_runtime_event,
     normalize_lifecycle_event,
 )
 from apps.alert_app.settings import AlertAppSettings, create_alert_config_manager
 from apps.execution_app.state import ExecutionFailureEvent
-from libs.common.asset_manifest import ASSET_LIFECYCLE_STREAM, AssetLifecycleEvent, AssetManifestStore
+from libs.common.asset_manifest import (
+    ASSET_LIFECYCLE_STREAM,
+    AssetLifecycleEvent,
+    AssetManifestStore,
+)
 from libs.common.lifecycle_dedup import mark_lifecycle_event_processed
 from libs.common.logging.logger_utils import bind_logger
 from libs.common.stream_consumer import ensure_consumer_group
-from libs.contracts.ingestion import IngestionRuntimeEvent
 from libs.contracts.serialization import valkey_decode
 
 logger = bind_logger(__name__, system_component="ALERTING")
@@ -47,12 +49,6 @@ class AlertEventConsumer:
         await ensure_consumer_group(
             self.redis_client,
             self.settings.lifecycle_stream,
-            self.settings.consumer_group,
-            start_id="$",
-        )
-        await ensure_consumer_group(
-            self.redis_client,
-            self.settings.ingestion_events_stream,
             self.settings.consumer_group,
             start_id="$",
         )
@@ -118,58 +114,6 @@ class AlertEventConsumer:
                 await asyncio.sleep(1)
             except Exception as exc:
                 logger.warning("Alert lifecycle consumer failed: %s", exc, exc_info=True)
-                await asyncio.sleep(1)
-
-    async def watch_ingestion_events(self) -> None:
-        consumer_name = f"{self.settings.consumer_name_prefix}_ingestion"
-        streams = {self.settings.ingestion_events_stream: ">"}
-        while True:
-            try:
-                response = await self.redis_client.xreadgroup(
-                    self.settings.consumer_group,
-                    consumer_name,
-                    streams,
-                    count=25,
-                    block=self.settings.poll_block_ms,
-                )
-                if not response:
-                    continue
-                for _stream_name, messages in response:
-                    for message_id, payload in messages:
-                        event = valkey_decode(payload, IngestionRuntimeEvent)
-                        normalized = normalize_ingestion_runtime_event(event)
-                        if normalized is None:
-                            await self.redis_client.xack(
-                                self.settings.ingestion_events_stream,
-                                self.settings.consumer_group,
-                                message_id,
-                            )
-                            continue
-                        routes = resolve_routes_for_event(
-                            normalized,
-                            config_manager=self.config_manager,
-                        )
-                        incident, should_notify = await self.incident_service.record_event(
-                            normalized,
-                            route_names=routes,
-                        )
-                        if should_notify and self.notification_dispatcher is not None:
-                            await self.notification_dispatcher.enqueue_incident(
-                                incident,
-                                route_names=routes,
-                            )
-                        await self.redis_client.xack(
-                            self.settings.ingestion_events_stream,
-                            self.settings.consumer_group,
-                            message_id,
-                        )
-            except asyncio.CancelledError:
-                raise
-            except ValkeyTimeoutError:
-                logger.warning("Alert ingestion consumer timed out; retrying.")
-                await asyncio.sleep(1)
-            except Exception as exc:
-                logger.warning("Alert ingestion consumer failed: %s", exc, exc_info=True)
                 await asyncio.sleep(1)
 
     async def watch_execution_failures(self) -> None:

@@ -13,7 +13,7 @@ description: Sole implementation skill for approved flipperAgent changes, from s
 
 ## Repository Context
 
-- Production packages: `src/apps/`, `src/libs/`, and `conductor/`.
+- Production packages: `src/apps/` and `src/libs/`.
 - Configuration: `configs/`.
 - Environment: `.venv/bin/python`.
 - Dependencies: `pyproject.toml`.

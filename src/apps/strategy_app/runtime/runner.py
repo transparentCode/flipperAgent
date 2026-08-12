@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
 import inspect
+from collections.abc import Callable
 from typing import Any
 
 from valkey.exceptions import TimeoutError as ValkeyTimeoutError
@@ -12,7 +12,11 @@ from apps.strategy_app.observability.runtime_state import StrategyRuntimeStateSt
 from apps.strategy_app.runtime.worker import StrategyWorker
 from apps.strategy_app.settings import StrategyWorkerSettings
 from apps.strategy_app.state import StrategyPair, StrategyPairState
-from libs.common.asset_manifest import ASSET_LIFECYCLE_STREAM, AssetLifecycleEvent
+from libs.common.asset_manifest import (
+    ASSET_LIFECYCLE_STREAM,
+    AssetLifecycleEvent,
+    AssetManifestStore,
+)
 from libs.common.enums import SystemComponent
 from libs.common.lifecycle_dedup import mark_lifecycle_event_processed
 from libs.common.logging.logger_utils import bind_logger
@@ -35,7 +39,9 @@ class StrategyRuntimeRunner:
         self.worker_settings = worker_settings or StrategyWorkerSettings()
         self.config_manager = config_manager
         self.redis_client: Any = None
-        self._catalog_pairs_by_key: dict[str, StrategyPair] = {pair.key: pair for pair in pairs}
+        self._catalog_pairs_by_key: dict[str, StrategyPair] = {
+            pair.key: pair for pair in pairs
+        }
         self._pairs_by_key: dict[str, StrategyPair] = {pair.key: pair for pair in pairs}
         self._workers_by_key: dict[str, StrategyWorker] = {}
         self._worker_tasks: dict[str, asyncio.Task[None]] = {}
@@ -43,17 +49,21 @@ class StrategyRuntimeRunner:
         self._control_state: StrategyControlStore | None = None
         self._lifecycle_task: asyncio.Task[None] | None = None
         self._supervisor_task: asyncio.Task[None] | None = None
+        self._manifest_store: AssetManifestStore | None = None
 
     async def connect(self, redis_client: Any) -> list[StrategyWorker]:
         self.redis_client = redis_client
         self._runtime_state = StrategyRuntimeStateStore(redis_client)
         self._control_state = StrategyControlStore(redis_client)
+        self._manifest_store = AssetManifestStore(redis_client)
         workers = await self._start_pairs(list(self._pairs_by_key.values()))
         return list(workers)
 
     async def start(self) -> None:
         if self.redis_client is None:
-            raise RuntimeError("StrategyRuntimeRunner.connect() must be called before start().")
+            raise RuntimeError(
+                "StrategyRuntimeRunner.connect() must be called before start()."
+            )
         await ensure_consumer_group(
             self.redis_client,
             ASSET_LIFECYCLE_STREAM,
@@ -69,7 +79,9 @@ class StrategyRuntimeRunner:
                 return_exceptions=True,
             )
             for result in results:
-                if isinstance(result, BaseException) and not isinstance(result, asyncio.CancelledError):
+                if isinstance(result, BaseException) and not isinstance(
+                    result, asyncio.CancelledError
+                ):
                     raise result
         finally:
             self._lifecycle_task = None
@@ -151,7 +163,10 @@ class StrategyRuntimeRunner:
                     state=state,
                     last_error=None,
                     replace_last_error=True,
-                    detail={"phase": "lifecycle", "reason": reason or state.value.lower()},
+                    detail={
+                        "phase": "lifecycle",
+                        "reason": reason or state.value.lower(),
+                    },
                 )
         if clear_status:
             self._pairs_by_key.pop(pair_key, None)
@@ -202,16 +217,20 @@ class StrategyRuntimeRunner:
                 logger.warning("Strategy lifecycle watcher timed out; retrying.")
                 await asyncio.sleep(1)
             except Exception as exc:
-                logger.warning("Strategy lifecycle watcher failed: %s", exc, exc_info=True)
+                logger.warning(
+                    "Strategy lifecycle watcher failed: %s", exc, exc_info=True
+                )
                 await asyncio.sleep(1)
 
     async def _apply_lifecycle_event(self, event: AssetLifecycleEvent) -> None:
+        if not await self._is_authoritative_event(event):
+            return
         desired_pairs = {
-            pair.key: pair
-            for pair in self._desired_pairs_for_event(event)
+            pair.key: pair for pair in self._desired_pairs_for_event(event)
         }
         existing_keys = [
-            pair_key for pair_key in list(self._pairs_by_key)
+            pair_key
+            for pair_key in list(self._pairs_by_key)
             if pair_key.startswith(f"{event.symbol}:")
         ]
         if event.desired_state == "LIVE" and event.enabled:
@@ -285,35 +304,19 @@ class StrategyRuntimeRunner:
             kwargs["allowed_model_names"] = list(pair.model_names)
         return self.worker_factory(pair.asset, pair.timeframe, **kwargs)
 
-    @staticmethod
-    def _event_timeframes(event: AssetLifecycleEvent) -> list[str]:
-        timeframes = list(event.timeframes or [])
-        if not timeframes:
-            timeframes = [event.base_timeframe, *list(event.publish_timeframes or [])]
-        ordered: list[str] = []
-        for timeframe in timeframes:
-            normalized = str(timeframe).strip()
-            if normalized and normalized not in ordered:
-                ordered.append(normalized)
-        return ordered
-
-    def _desired_pairs_for_event(self, event: AssetLifecycleEvent) -> list[StrategyPair]:
-        event_timeframes = set(self._event_timeframes(event))
-        configured = [
+    def _desired_pairs_for_event(
+        self, event: AssetLifecycleEvent
+    ) -> list[StrategyPair]:
+        return [
             pair
             for pair in self._catalog_pairs_by_key.values()
             if pair.asset == event.symbol
-            and (pair.trigger_timeframe or pair.timeframe) in event_timeframes
         ]
-        if configured:
-            return configured
-        return [
-            StrategyPair(
-                asset=event.symbol,
-                timeframe=timeframe,
-                trigger_timeframe=timeframe,
-                base_timeframe=event.base_timeframe,
-                source="asset_manifest",
-            )
-            for timeframe in event_timeframes
-        ]
+
+    async def _is_authoritative_event(self, event: AssetLifecycleEvent) -> bool:
+        if self._manifest_store is None:
+            return True
+        if not callable(getattr(self.redis_client, "hgetall", None)):
+            return True
+        manifest = await self._manifest_store.read_asset(event.symbol)
+        return manifest is None or manifest.source == event.source

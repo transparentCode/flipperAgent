@@ -114,7 +114,7 @@ valkey:
         group: signal_app_group
   consumes:
     streams:
-      - name: stream:ohlcv:{symbol}:{timeframe}
+      - name: stream:ohlcv:ingestion:{venue}:{instrument_id}:{timeframe}
         consumer: runtime_worker
         group: signal_app_group
   produces:

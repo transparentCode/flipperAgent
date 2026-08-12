@@ -16,9 +16,7 @@ import subprocess
 import tempfile
 from typing import Any
 
-from apps.ingestion_app.adapters.trendlines_research import (
-    BinanceTrendlineResearchLoader,
-)
+from libs.models.trendlines.workflows.research.binance import BinanceTrendlineResearchLoader
 from libs.models.trendlines.config.loader import load_trendlines_config
 from libs.models.trendlines.research_viewer.bundle import (
     validate_viewer_bundle,

@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class StreamOHLCVPayload(BaseModel):
-    """Pydantic validation for incoming stream:ohlcv:{symbol}:{tf} payloads.
+    """Pydantic validation for incoming V2 OHLCV stream payloads.
 
     Published by the ingestion layer, consumed by the signal runtime worker.
     """

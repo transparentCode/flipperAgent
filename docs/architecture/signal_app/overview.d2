@@ -10,7 +10,7 @@ inputs: {
   style.fill: "#E8F1FF"
 
   ingestion_stream: {
-    label: "stream:ohlcv:{symbol}:{tf}"
+    label: "stream:ohlcv:ingestion:{venue}:{instrument_id}:{tf}"
     link: "../../../src/apps/ingestion_app/runtime/websocket.py"
   }
 
@@ -20,8 +20,8 @@ inputs: {
   }
 
   history: {
-    label: "Timescale OHLCV"
-    link: "../../../src/libs/common/db/timescale_reader.py"
+    label: "ingestion.candles"
+    link: "../../../src/apps/ingestion_app/storage/repository.py"
   }
 
   context_hashes: {
@@ -117,13 +117,13 @@ timescaledb: {
   style.fill: "#F4EAFE"
 
   ohlcv: {
-    label: "ohlcv"
-    link: "../../../src/apps/ingestion_app/storage/schema.sql"
+    label: "ingestion.candles"
+    link: "../../../src/apps/ingestion_app/storage/repository.py"
   }
 
   l2: {
     label: "l2_depth_features"
-    link: "../../../src/apps/ingestion_app/storage/schema.sql"
+    link: "../../../src/libs/common/db/timescale_reader.py"
   }
 }
 

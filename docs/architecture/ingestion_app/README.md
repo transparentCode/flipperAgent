@@ -1,491 +1,278 @@
-# `ingestion_app` Architecture Metadata
+# `ingestion_app` Architecture
 
-This folder is the high-level architecture handoff for `ingestion_app`. It is
-meant to answer one question before LLD review: **what this app owns, how data
-and control move through it, and which contracts downstream apps can rely on.**
+This folder is the high-level and detailed architecture handoff for the current
+canonical `ingestion_app` implementation.
+
+It answers four questions:
+
+1. what the app owns;
+2. how live and recovered market data become canonical candles;
+3. how canonical state is persisted and published downstream; and
+4. how runtime/config/lifecycle failures are contained.
 
 ## Files
 
-- `catalog.yaml` — machine-readable app metadata
-- `overview.d2` — component and dependency map
-- `io.d2` — contract-level streams, keys, jobs, and storage map
-- `lifecycle_sequence.d2` — add/resume, pause/stop, and remove lifecycle sequences
-- this file — narrative overview and review guide
+- `catalog.yaml` — machine-readable architecture and contract inventory
+- `overview.d2` — HLD component/dependency view
+- `io.d2` — detailed data, storage, stream, and API contract view
+- `lifecycle_sequence.d2` — startup, live, interruption/recovery, config mutation,
+  and shutdown sequences
+- this file — narrative HLD and review guide
 
 ## Purpose
 
-`ingestion_app` is the market-data control plane and live-ingestion runtime.
-It owns:
+`ingestion_app` is the canonical market-data acquisition and normalization
+service. It owns:
 
-- asset lifecycle control for exchange/provider-backed assets
-- canonical asset manifest publication to Valkey
-- lifecycle fan-out for downstream apps
-- live websocket candle ingestion
-- historical gap-fill and top-up jobs
-- removal purge and storage cleanup
-- ingestion runtime observability
+- typed provider/instrument/timeframe configuration;
+- live Binance Futures websocket ingestion;
+- Binance-native and CCXT historical providers;
+- bounded causal gap recovery;
+- canonical 1m candle persistence;
+- higher-timeframe aggregation from the configured base timeframe;
+- transactional candle + outbox commits;
+- bounded Valkey stream publication;
+- canonical asset manifest/lifecycle projection;
+- dynamic asset config create/patch with rollback;
+- runtime pause/resume/reconnect/manual-recovery control;
+- retention housekeeping and ingestion observability.
 
-It does **not** own downstream feature computation, strategy evaluation,
-portfolio logic, or alert policy decisions.
+It does **not** own feature computation, strategy decisions, risk decisions,
+execution, portfolio accounting, or alert policy.
 
-## Review Lens
+## Canonical Naming Boundaries
 
-This doc distinguishes between:
+The implementation package, active configuration, persisted storage, and
+transport contracts use one canonical ingestion identity.
 
-- current implemented behavior
-- required architectural contract
-- recommended near-term addition
+| Concern | Canonical identity |
+| --- | --- |
+| Python package | `apps.ingestion_app` |
+| Active config directory | `configs/ingestion/` |
+| Active config namespace | `ingestion` |
+| Compose service | `ingestion` |
+| Timescale schema | `ingestion` |
+| Candle stream protocol | `stream:ohlcv:ingestion:{venue}:{instrument_id}:{timeframe}` |
+| Manifest source authority | `ingestion` |
+| OTEL / metric identity | `ingestion` |
+| Candle event producer | `ingestion` |
 
-That split matters because ingestion cannot leave canonical truth, idempotency,
-candle finality, parity, and failure handling implicit.
+These identities are one shared external contract across the Python package,
+configuration, storage, transport, and downstream consumers.
 
-## Runtime Shape
+## High-Level Architecture
 
-At a high level, the app is split into four layers:
+The application is composed in `bootstrap.py` as one FastAPI process with six
+cooperating layers.
 
-- **Ingress / control**
-  - operator-facing routes under `api_app`
-  - validates asset changes and persists desired state
-- **Canonical state publication**
-  - writes canonical asset keys
-  - emits normalized lifecycle events
-  - emits runtime control commands for the reconciler
-- **Runtime execution**
-  - reconciles desired state into running per-asset websocket runtimes
-  - performs backfill-before-live and resume-before-live flows
-  - publishes closed candles for downstream consumers
-- **Async recovery / cleanup**
-  - runs ARQ jobs for gap-fill, purge, top-up, and depth polling
-  - emits operator-facing outcome events
+### 1. Configuration and control plane
 
-## Entrypoints
+`settings.py` validates global/provider/timeframe settings plus one YAML file per
+asset under `configs/ingestion/assets/`.
 
-- `src/apps/ingestion_app/main.py`
-  - launches the ingestion runtime process
-- `src/apps/ingestion_app/runtime/app.py`
-  - process-local runtime app and reconciler lifespan
-- `src/apps/ingestion_app/worker.py`
-  - ARQ worker for async jobs
-- `src/apps/api_app/routers/ingestion.py`
-  - operator and internal orchestration API surface
+`api/routes.py` exposes:
 
-## Core Responsibilities
+- liveness/readiness;
+- runtime snapshot;
+- asset list/read/create/patch;
+- provider inventory;
+- runtime pause/resume/reconnect;
+- bounded manual recovery.
 
-### 1. Asset lifecycle ownership
+`AssetConfigService` validates an asset mutation before writing its YAML file,
+reloads the config through `ConfigManager`, swaps runtime settings atomically,
+and rolls the file/runtime state back if the mutation fails or is cancelled.
+There is no delete endpoint.
 
-`ingestion_app` is the only writer of canonical asset lifecycle state.
+### 2. Runtime controller and supervisor
 
-It accepts runtime mutations like:
+`RuntimeController` owns process-level desired state and replaces supervisors when
+configuration changes.
 
-- add / upsert asset
-- patch asset metadata
-- pause asset
-- stop asset
-- resume asset
-- remove asset
-- batch variants of the above
+`RuntimeSupervisor` resolves enabled assets into base-timeframe `MarketLane`s and
+runs the data plane:
 
-### 2. Canonical manifest publication
+1. determine the latest closed base boundary;
+2. perform bounded startup catch-up from Timescale state;
+3. reconcile latest closed HTF buckets;
+4. open the Binance websocket only after recovery closure completes;
+5. commit each finalized base candle;
+6. aggregate/reconcile affected HTFs;
+7. recover detected interruptions before reconnecting.
 
-It materializes desired/effective asset state into Valkey under canonical keys:
+Runtime states are `STARTING`, `RECOVERING`, `LIVE`, `STOPPED`, and `ERROR`.
+Desired runtime state is `RUNNING` or `PAUSED`.
 
-- `asset:{symbol}`
-- `asset:{symbol}:tf:{timeframe}`
+### 3. Providers and recovery
 
-And publishes lifecycle events via:
+The live provider is `BinanceWebSocketManager`. Historical recovery is provider
+pluggable through `HistoricalCandleProvider` and currently composes:
 
-- `asset:lifecycle`
+- `BinanceNativeHistoricalProvider`;
+- `CCXTHistoricalProvider` for Binance USD-M futures.
 
-This is the cross-app contract used by `signal_app` and `strategy_app`.
+`RecoveryEngine` performs bounded window paging, provider-order fallback,
+per-lane locking, global concurrency limiting, retry/backoff, closed-candle
+cutoffs, and HTF follow-up reconciliation. Recovery requests are explicit,
+UTC-aware, aligned ranges; they are not an unbounded replay mechanism.
 
-### 3. Runtime orchestration
+### 4. Canonicalization and Timescale persistence
 
-The runtime reconciler reads the effective asset catalog, compares it to active
-runtime handles, and decides whether to:
+Provider observations enter as immutable `CandleObservation` values and are
+canonicalized to immutable `CanonicalCandle` values.
 
-- start an asset runtime
-- stop an asset runtime
-- keep an asset runtime as-is
-- dispatch removal purge work
+`CandleRepository` persists to:
 
-Per-asset live runtime startup flows through:
+- `ingestion.candles` — Timescale hypertable;
+- `ingestion.outbox` — durable publication intents.
 
-- storage/bootstrap readiness
-- initial gap-fill / historical priming
-- websocket launch
-- first valid live payload
-- promotion from warming/resuming to live
+The primary candle identity is:
 
-### 4. Live market-data publication
+`(venue, instrument_id, timeframe, open_time)`.
 
-The websocket pipeline owns:
+A candle commit is classified as `INSERTED`, `DUPLICATE`, or `CONFLICT`.
+Canonical candle insertion and outbox insertion are one database transaction, so
+publication intent cannot be lost after a successful new candle commit.
 
-- consuming live exchange candle feeds
-- persisting canonical bars into TimescaleDB
-- writing runtime state / liveness
-- publishing closed candles to downstream stream consumers
+### 5. HTF derivation and downstream publication
 
-The main downstream hot-path stream is:
+The configured base timeframe is `1m`. Higher timeframes are derived from
+canonical base candles using a continuous UTC calendar and explicit alignment
+origin. Derived rows carry `source_type=derived` and `source_timeframe` provenance.
 
-- `stream:ohlcv:{symbol}:{timeframe}`
+The outbox publisher reads unpublished rows in order and publishes them to:
 
-### 5. Recovery, cleanup, and async operations
+`stream:ohlcv:ingestion:{venue}:{instrument_id}:{timeframe}`
 
-Async jobs cover:
+using bounded approximate `MAXLEN` streams. Only after a successful `XADD` is the
+row marked `published_at`.
 
-- REST gap-fill before/after websocket gaps
-- candle top-up
-- depth polling / feature persistence
-- storage purge for removed assets
+Semantics are intentionally **at least once** across the Valkey boundary. A broker
+outage does not invalidate canonical ingestion: unpublished rows remain durable
+and drain when the publisher reconnects. Already-published rows are not
+historically replayed automatically after destructive broker loss; consumers
+recover historical state from Timescale.
 
-These jobs are intentionally separate from the hot websocket path.
+### 6. Asset lifecycle, retention, and observability
 
-## Explicit Architectural Contracts
+For assets with `owns_manifest_lifecycle=true`, the lifecycle reconciler projects
+current configuration to canonical Valkey manifests:
 
-### Canonical truth ownership
+- `asset:{symbol}`;
+- `asset:{symbol}:tf:{timeframe}`;
+- `asset:lifecycle`.
 
-This must be single-owner.
+This is the lifecycle authority consumed by downstream apps. The persisted source
+value remains `ingestion`.
 
-**Decision**
+`RetentionJanitor` is deliberately non-authoritative. It deletes only old
+**published** outbox rows in bounded batches and drops candle chunks older than the
+configured candle retention horizon. Pending outbox rows are not retention
+candidates. Janitor failure is logged/retried and does not make canonical ingestion
+unhealthy.
 
-- `TimescaleDB.ingestion_assets` is the durable canonical asset registry
-- Valkey canonical asset keys are the runtime projection and stream layer
+`IngestionObservability` records commit, websocket, recovery, outbox, base-candle,
+and runtime metrics. `/health/ready` fails closed when the runtime is not started or
+is in `ERROR`; `/health/live` represents process liveness.
 
-Meaning:
+## Data Ownership and Source-of-Truth Rules
 
-- persistent lifecycle writes land in the registry first
-- Valkey `asset:{symbol}` and `asset:{symbol}:tf:{timeframe}` are derived
-  projection state
-- durable recovery must be able to rebuild Valkey projection from registry
+### Configuration truth
 
-**Rule**
+`configs/ingestion/global.yaml` and `configs/ingestion/assets/*.yaml` are the
+configuration source of truth for enabled assets, providers, timeframes, calendar,
+runtime, publication, recovery, and retention parameters.
 
-There must never be two independently mutable truths for lifecycle state.
+Asset API mutations change those files through `ConfigManager`; the runtime does
+not maintain an independent mutable asset registry.
 
-### Lifecycle idempotency
+### Candle truth
 
-Lifecycle mutations must converge safely under replay.
+Timescale `ingestion.candles` is canonical historical OHLCV truth. Valkey is a
+bounded transport/state layer, not historical authority.
 
-Examples:
+### Publication truth
 
-- repeated `UPSERT`
-- repeated `RESUME`
-- repeated batch submissions
-- replayed control messages after reconnect/restart
+`ingestion.outbox` is the durable bridge between canonical database commit and
+Valkey publication. Pending rows are recoverable publication work; `published_at`
+marks completion of that work.
 
-**Required identifiers**
+### Lifecycle truth
 
-- `request_id`
-- `command_id`
-- `asset_version`
-- `timeframe_version`
+For configured owned assets, the ingestion config is authoritative and Valkey
+asset manifests/lifecycle events are its runtime projection for downstream apps.
 
-**Convergence rule**
+## Failure and Recovery Contracts
 
-Equivalent repeated commands must not:
+### Broker unavailable
 
-- create duplicate runtimes
-- enqueue duplicate backfill work
-- publish conflicting lifecycle state
+Canonical candle writes continue because the publisher connection loop is
+independent of the runtime controller. Outbox rows remain pending until Valkey is
+available again.
 
-### Websocket reconnect and recovery rules
+### Websocket interruption
 
-These are normal cases, not edge cases.
+The live provider raises `LiveStreamInterrupted` with bounded recovery requests.
+The supervisor enters `RECOVERING`, closes the missing range using historical
+providers, waits the configured reconnect backoff, then starts a fresh live cycle.
 
-Required rules:
+### Database unavailable
 
-- websocket disconnect
-  - runtime degrades or warms
-  - reconnects
-  - backfills missing closed intervals before returning live
-- process restart
-  - rebuilds desired runtime set from durable registry
-  - restores projection state
-  - re-primes before live
-- late candle arrival
-  - must obey explicit closed-candle ordering rules
-- duplicate closed candle
-  - dedupe by `(symbol, timeframe, open_timestamp)`
-- REST versus websocket conflict
-  - resolve by explicit source-precedence policy
-  - correction path must be observable
+Canonical writes and recovery fail closed. Readiness reflects runtime failure; the
+system does not acknowledge a candle that was not durably committed.
 
-### Candle finalization contract
+### Canonical conflict
 
-Downstream semantics depend on this.
+A same-key candle with different canonical content is `CONFLICT` and is treated as
+a fatal live-path data-quality error. It is not silently overwritten.
 
-**Recommended default**
+### Dynamic config failure
 
-- downstream apps consume closed candles only
-- forming candles are optional and must be explicitly provisional
+Candidate settings are validated before runtime replacement. Disk/runtime mutation
+is rolled back on failure or cancellation. Lifecycle reconciliation is marked dirty
+only after a successful config/runtime change.
 
-**Default trigger rule**
+### Shutdown
 
-- `signal_app` and `strategy_app` trigger on closed-candle publication by
-  default
+The application first closes the runtime controller, then retention, then the
+outbox/lifecycle publisher task, then provider resources and DB pools. Certification
+uses an explicit pause-and-drain sequence before stopping the process when it needs
+to prove a zero-pending terminal state; normal durability does not depend on that
+certification-specific quiescence rule.
 
-**Required semantic marker**
+## Key Invariants
 
-Every candle event should have explicit finality such as:
+- all timestamps are timezone-aware UTC;
+- timeframe alignment comes from config, not implicit wall-clock assumptions;
+- base candles are provider sourced; HTFs are derived from base candles;
+- no HTF is published without complete constituent coverage;
+- canonical conflicts never become silent updates;
+- pending outbox rows survive broker failure;
+- published outbox cleanup never deletes pending rows;
+- recovery is bounded and cancellation-aware;
+- one lane recovery is serialized by lane lock;
+- enabled runtime assets are config driven;
+- downstream historical recovery reads Timescale rather than assuming Valkey is a
+  replay log;
+- lifecycle ownership is explicit per asset.
 
-- `provisional`
-- `closed`
-- optionally `corrected_closed`
+## Downstream Contracts
 
-### Backtest / live parity
+`signal_app` consumes the configured ingestion OHLCV streams and reads Timescale for
+startup/gap priming. It also consumes `asset:lifecycle` and canonical asset
+manifests.
 
-The ingestion layer should preserve parity between:
-
-- historical candles used in research/backtest
-- live candles seen by downstream strategy consumers
-
-Parity should hold for:
-
-- timeframe alignment
-- close timestamp convention
-- candle finality semantics
-- duplicate correction policy
-- source precedence and repair behavior
-
-If parity cannot hold, the divergence point must be explicit and observable.
-
-## State Domains
-
-The app deliberately separates three state domains.
-
-### Canonical control-plane state
-
-Authoritative, cross-app, durable enough for bootstrap:
-
-- `asset:{symbol}`
-- `asset:{symbol}:tf:{timeframe}`
-- `asset:lifecycle`
-
-### Ingestion runtime / ops state
-
-Operational and app-owned:
-
-- `stream:control:ingestion`
-- `stream:events:ingestion`
-- `ingestion:state:{symbol}:{timeframe}`
-- `ingestion:runtime_status:{symbol}:{timeframe}`
-- `asset:status`
-
-### Durable market history
-
-Owned in TimescaleDB:
-
-- `ingestion_assets`
-- `ohlcv`
-- `ticks`
-- `open_interest`
-- `funding_rate`
-- `l2_depth_features`
-
-## Control Flow
-
-### Asset mutation path
-
-1. Request enters `api_app` ingestion router
-2. `IngestionControlService` persists desired state
-3. control-plane publisher:
-   - syncs canonical manifest keys
-   - emits `asset:lifecycle`
-   - emits `stream:control:ingestion`
-   - emits accepted/operator events
-4. runtime reconciler consumes the change and converges the live runtime
-
-### Live data path
-
-1. runtime reconciler starts asset runtime
-2. bootstrap primes/backs fills required history
-3. websocket pipeline connects to exchange
-4. closed candles persist to TimescaleDB
-5. closed candles publish to `stream:ohlcv:{symbol}:{timeframe}`
-6. downstream apps consume independently
-
-### Remove path
-
-1. asset desired state becomes `REMOVING`
-2. runtime reconciler stops live runtime
-3. purge job is enqueued
-4. job clears owned runtime keys and Timescale rows
-5. outcome event is published
-
-## Runtime Guarantees
-
-Current intended guarantees:
-
-- ingestion is the only writer of canonical asset lifecycle state
-- pause/stop do not require downstream apps to mutate ingestion canonical state
-- resume promotes back to live only after required recovery work completes
-- removed assets are purged from owned runtime state and storage
-- downstream apps consume canonical lifecycle and live candle streams, but do not
-  control ingestion internals directly
-
-## Failure and Quality Contracts
-
-### Data quality validator
-
-Before publishing downstream closed candles, the architecture should assume a
-validation layer exists in websocket and recovery paths.
-
-Validator responsibilities:
-
-- timeframe-boundary timestamp alignment
-- OHLC consistency
-- non-negative volume
-- duplicate closed-candle conflict detection
-- missing-interval detection
-- source-precedence aware correction handling
-
-This can stay internal to runtime/job modules, but the contract should be
-architecturally explicit.
-
-### Failure sink / DLQ
-
-`stream:events:ingestion` is the shared operator and `alert_app` event stream,
-but it should not be the only failure sink long term.
-
-Recommended additions:
-
-- `stream:dlq:ingestion`
-- or durable storage such as `ingestion_failures`
-
-Use cases:
-
-- non-recoverable job failures
-- repeated gap-fill failures
-- conflicting candle correction events
-- validator rejects needing operator action
-
-Silent ingestion failure is a first-class risk.
-
-## Observability Expectations
-
-The architecture should explicitly model an observability plane.
-
-Recommended surfaces:
-
-- Prometheus metrics
-- Grafana dashboards
-- Loki or structured logs
-- future alert consumer
-
-Important metrics:
-
-- `ws_connected`
-- `last_candle_lag_seconds`
-- `gap_fill_pending_count`
-- `failed_jobs_count`
-- `duplicate_candle_count`
-- `runtime_restarts_total`
-- `candle_publish_latency_ms`
-
-## Downstream Safety Chain
-
-Current direct downstream consumers:
-
-- `signal_app`
-- `strategy_app`
-
-Target trading chain:
-
-- `ingestion_app -> signal_app -> strategy_app -> risk_app -> execution_app`
-
-Safety rule:
-
-- `strategy_app` must not bypass `risk_app` to place live orders
-
-## Storage Policy
-
-Current storage classes:
-
-- canonical market history
-  - `ohlcv`
-  - `open_interest`
-  - `funding_rate`
-  - compressed after `14 days`
-  - retained for `180 days`
-- rebuildable raw data
-  - `ticks`
-  - compressed after `1 day`
-  - retained for `30 days`
-- rebuildable derived data
-  - `l2_depth_features`
-  - compressed after `7 days`
-  - retained for `90 days`
-
-## What Is Implemented Now
-
-Current architecture coverage reflected by this doc set:
-
-- registry-backed lifecycle control
-- canonical manifest keys and lifecycle stream
-- runtime reconciler and per-asset runtime handles
-- websocket ingestion and closed-candle publication
-- gap-fill / purge / depth / top-up jobs
-- ingestion status, events, ops-summary, and scraper bridge routes
-- Timescale retention/compression bootstrap
-
-## What Still Needs Hardening
-
-Explicit review items still needing formalization:
-
-- lifecycle command/event idempotency identifiers
-- REST vs websocket source-precedence policy
-- candle finality and provisional-candle contract
-- DLQ or durable failure sink
-- validator contract before downstream candle publication
-- parity checklist for historical versus live candle semantics
-
-## What Is Intentionally Deferred
-
-Not owned here yet:
-
-- alert policy engine
-- downstream strategy/risk semantics
-- frontend-oriented API aggregation
-- cross-app incident response workflows beyond emitted events
-
-## Review Order
-
-For high-level review, read in this order:
-
-1. `docs/architecture/ingestion_app/overview.d2`
-2. `docs/architecture/ingestion_app/io.d2`
-3. `docs/architecture/ingestion_app/catalog.yaml`
-4. `src/apps/ingestion_app/README.md`
-
-Then move into LLD/code in this order:
-
-1. `src/apps/ingestion_app/control_plane/service.py`
-2. `src/apps/ingestion_app/runtime/reconciler.py`
-3. `src/apps/ingestion_app/runtime/bootstrap.py`
-4. `src/apps/ingestion_app/runtime/websocket.py`
-5. `src/apps/ingestion_app/jobs/`
-
-## Validation Modes
-
-- focused repo validation
-  - pytest slices for storage bootstrap, cleanup, and runtime transitions
-- deep runtime boundedness validation
-  - `scripts/qa/ingestion_runtime_memory_soak.py`
-- final infra validation
-  - Docker/local Valkey + Timescale layer-by-layer verification
+Other downstream apps consume signal outputs; they do not bypass ingestion's
+canonical candle/storage contract.
 
 ## Rendering
 
-If `d2` is installed locally:
+If `d2` is installed:
 
 ```bash
 d2 docs/architecture/ingestion_app/overview.d2 docs/architecture/ingestion_app/overview.svg
 d2 docs/architecture/ingestion_app/io.d2 docs/architecture/ingestion_app/io.svg
+d2 docs/architecture/ingestion_app/lifecycle_sequence.d2 docs/architecture/ingestion_app/lifecycle_sequence.svg
 ```
 
-Or use:
-
-```bash
-./scripts/render_d2.sh docs/architecture/ingestion_app/overview.d2
-./scripts/render_d2.sh docs/architecture/ingestion_app/io.d2
-```
+Or use `scripts/render_d2.sh` for each D2 source.

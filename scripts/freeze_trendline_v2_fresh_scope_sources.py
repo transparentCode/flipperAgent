@@ -10,17 +10,17 @@ from __future__ import annotations
 import argparse
 import asyncio
 import csv
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import io
 import json
 import math
 import os
-from pathlib import Path
 import shutil
 import sys
 import tempfile
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 import pandas as pd
@@ -31,7 +31,6 @@ from libs.models.trendline_v2.domain.validation import (
     ContractValidationError,
     parse_utc_isoformat,
 )
-
 
 UTC = timezone.utc
 MARKET = "binance_usd_m_futures"
@@ -691,7 +690,7 @@ def _decision(
 
 
 def _default_adapter_factory() -> Any:
-    from apps.ingestion_app.adapters.binance_native import BinanceNativeAdapter
+    from libs.market_data.binance_native import BinanceNativeAdapter
 
     return BinanceNativeAdapter()
 

@@ -3,7 +3,11 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from apps.alert_app.incidents import AlertIncidentRepository, AlertIncidentService, AlertIncidentStore
+from apps.alert_app.incidents import (
+    AlertIncidentRepository,
+    AlertIncidentService,
+    AlertIncidentStore,
+)
 from apps.alert_app.notifications import AlertNotificationDispatcher
 from apps.alert_app.runtime.consumer import AlertEventConsumer
 from apps.alert_app.runtime.reconciler import AlertFreshnessReconciler
@@ -63,19 +67,17 @@ class AlertRuntimeRunner:
         await self.consumer.ensure_groups()
         await self.notification_dispatcher.start()
         logger.info(
-            "alert_app runtime started with lifecycle stream=%s ingestion stream=%s",
+            "alert_app runtime started with lifecycle stream=%s",
             self.settings.lifecycle_stream,
-            self.settings.ingestion_events_stream,
         )
         self._tasks = [
             asyncio.create_task(self.consumer.watch_lifecycle()),
-            asyncio.create_task(self.consumer.watch_ingestion_events()),
             asyncio.create_task(self.consumer.watch_execution_failures()),
             asyncio.create_task(self.reconciler.run()),
         ]
         stop_task = asyncio.create_task(self._stop_event.wait())
         try:
-            done, pending = await asyncio.wait(
+            done, _ = await asyncio.wait(
                 [*self._tasks, stop_task],
                 return_when=asyncio.FIRST_COMPLETED,
             )

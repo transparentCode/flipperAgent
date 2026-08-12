@@ -1,31 +1,44 @@
 from __future__ import annotations
 
 import asyncio
-from collections import deque
 import inspect
 import math
+from collections import deque
 from typing import Any
-
-from libs.common.enums import SystemComponent
-from libs.common.logging.logger_utils import bind_logger
-from libs.common.stream_consumer import BaseStreamConsumer
-from libs.common.timeframes import timeframe_to_seconds
-from libs.contracts.signal import StreamOHLCVPayload
 
 from apps.signal_app.enrichment.valkey import ValkeySignalEnrichmentReader
 from apps.signal_app.models import SignalPair, SignalPairState
 from apps.signal_app.observability.runtime_state import SignalRuntimeStateStore
-from apps.signal_app.pipeline import EngineeredFeaturePipeline, FeaturePipeline, RawIndicatorPipeline
+from apps.signal_app.ohlcv_source import (
+    IngestionHistoryFetcher,
+    decode_ingestion_event,
+    stream_key_for_binding,
+)
+from apps.signal_app.pipeline import (
+    EngineeredFeaturePipeline,
+    FeaturePipeline,
+    RawIndicatorPipeline,
+)
 from apps.signal_app.pipeline.ltf_context import (
     ValkeyLtfContextStore,
     compute_profile_snapshots,
     required_history_bars,
 )
-from apps.signal_app.pipeline.projection import ProjectedBar, project_current_decision_bar
-from apps.signal_app.pipeline.priming import StartupPrimer, TimescaleStartupHistoryFetcher
+from apps.signal_app.pipeline.priming import (
+    StartupPrimer,
+)
+from apps.signal_app.pipeline.projection import (
+    ProjectedBar,
+    project_current_decision_bar,
+)
 from apps.signal_app.pipeline.regime import RegimeFeaturePipeline
 from apps.signal_app.publishing import SignalStreamPublisher
 from apps.signal_app.settings import SignalWorkerSettings
+from libs.common.enums import SystemComponent
+from libs.common.logging.logger_utils import bind_logger
+from libs.common.stream_consumer import BaseStreamConsumer, ensure_consumer_group
+from libs.common.timeframes import timeframe_to_seconds
+from libs.contracts.signal import StreamOHLCVPayload
 
 logger = bind_logger(__name__, system_component=SystemComponent.SIGNAL_APP)
 
@@ -52,10 +65,16 @@ class SignalRuntimeWorker(BaseStreamConsumer):
         self.asset = asset.upper()
         self.timeframe = timeframe
         self.base_timeframe = str(base_timeframe).strip() or "1m"
-        self.trigger_timeframe = str(trigger_timeframe or timeframe).strip() or timeframe
+        self.trigger_timeframe = (
+            str(trigger_timeframe or timeframe).strip() or timeframe
+        )
         self.trigger_mode = str(trigger_mode).strip() or "on_bar_close"
+        self.source_binding = settings.source_binding(self.asset)
         super().__init__(
-            stream_key=f"stream:ohlcv:{asset.lower()}:{self.trigger_timeframe}",
+            stream_key=stream_key_for_binding(
+                self.source_binding,
+                self.trigger_timeframe,
+            ),
             group_name=settings.consumer_group,
             consumer_name=_consumer_name(
                 settings.consumer_name_prefix,
@@ -81,7 +100,10 @@ class SignalRuntimeWorker(BaseStreamConsumer):
         if getattr(self.pipeline, "raw_indicators", None) is not None:
             self.raw_indicators = self.pipeline.raw_indicators
         self.publisher = publisher
-        self.primer = primer or StartupPrimer(TimescaleStartupHistoryFetcher())
+        if primer is not None:
+            self.primer = primer
+        else:
+            self.primer = StartupPrimer(IngestionHistoryFetcher(self.source_binding))
         self.state_store: SignalRuntimeStateStore | None = None
         self.context_store: ValkeyLtfContextStore | None = None
         self.startup_retry_delay_sec = (
@@ -95,8 +117,12 @@ class SignalRuntimeWorker(BaseStreamConsumer):
             self.required_context_profiles,
             base_timeframe=self.base_timeframe,
         )
-        self._ltf_history: deque[tuple[float, ...]] = deque(maxlen=max(self._ltf_history_bars, 1))
-        self._projection_history: deque[tuple[float, ...]] = deque(maxlen=max(self.max_lookback, 1))
+        self._ltf_history: deque[tuple[float, ...]] = deque(
+            maxlen=max(self._ltf_history_bars, 1)
+        )
+        self._projection_history: deque[tuple[float, ...]] = deque(
+            maxlen=max(self.max_lookback, 1)
+        )
         self._source_window_bars = max(
             self._ltf_history_bars,
             math.ceil(
@@ -105,9 +131,17 @@ class SignalRuntimeWorker(BaseStreamConsumer):
             ),
             1,
         )
-        self._source_history: deque[tuple[float, ...]] = deque(maxlen=self._source_window_bars)
+        self._source_history: deque[tuple[float, ...]] = deque(
+            maxlen=self._source_window_bars
+        )
 
     async def connect(self, redis_client: Any) -> None:
+        await ensure_consumer_group(
+            redis_client,
+            self.stream_key,
+            self.group_name,
+            start_id="$",
+        )
         await super().connect(redis_client)
         self.state_store = SignalRuntimeStateStore(redis_client)
         self.context_store = ValkeyLtfContextStore(
@@ -175,7 +209,7 @@ class SignalRuntimeWorker(BaseStreamConsumer):
                     )
                     return None
 
-                self.raw_indicators.prime(history)
+                await asyncio.to_thread(self.raw_indicators.prime, history)
                 self._prime_projection_history(history)
                 if self._is_projected_lane():
                     source_history = await self.primer.fetch_history(
@@ -243,13 +277,22 @@ class SignalRuntimeWorker(BaseStreamConsumer):
                     )
         return None
 
-    async def publish_bootstrap_snapshot(self, history: list[tuple[float, ...]]) -> None:
+    async def publish_bootstrap_snapshot(
+        self, history: list[tuple[float, ...]]
+    ) -> None:
         if not history:
             return
         publisher = self._ensure_publisher()
         projected = self._current_projected_bar()
-        bootstrap_history = self._projection_history_for_snapshot(projected) if projected is not None else history
-        raw_features = self.raw_indicators.snapshot_features(bootstrap_history)
+        bootstrap_history = (
+            self._projection_history_for_snapshot(projected)
+            if projected is not None
+            else history
+        )
+        raw_features = await asyncio.to_thread(
+            self.raw_indicators.snapshot_features,
+            bootstrap_history,
+        )
         if not raw_features:
             logger.warning(
                 "Skipping bootstrap snapshot for %s:%s: no primed indicator outputs.",
@@ -273,13 +316,18 @@ class SignalRuntimeWorker(BaseStreamConsumer):
         derivatives_data: dict[str, float] = {}
         ltf_context_profiles = await self._resolve_ltf_context_profiles(
             candle=candle,
-            history=list(self._source_history) if self._is_projected_lane() else history,
+            history=list(self._source_history)
+            if self._is_projected_lane()
+            else history,
         )
         if self.pipeline.enrichment_reader is not None:
             index_data = await self.pipeline.enrichment_reader.load_index_data()
-            derivatives_data = await self.pipeline.enrichment_reader.load_derivatives_data()
+            derivatives_data = (
+                await self.pipeline.enrichment_reader.load_derivatives_data()
+            )
 
-        features = self.pipeline.build_features(
+        features = await asyncio.to_thread(
+            self.pipeline.build_features,
             candle=candle,
             raw_features=raw_features,
             index_data=index_data,
@@ -300,10 +348,14 @@ class SignalRuntimeWorker(BaseStreamConsumer):
             source_feature_timeframe=self.trigger_timeframe,
             decision_bar_closed=projected.closed if projected is not None else True,
         )
-        self._last_processed_ts = self._bootstrap_last_processed_ts(candle, feature_vector)
+        self._last_processed_ts = self._bootstrap_last_processed_ts(
+            candle, feature_vector
+        )
         await publisher.publish_feature_vector(
             feature_vector,
-            trigger_timeframe=self.trigger_timeframe if self._is_projected_lane() else None,
+            trigger_timeframe=self.trigger_timeframe
+            if self._is_projected_lane()
+            else None,
         )
         if not self._is_projected_lane():
             await publisher.publish_price_update(price_update)
@@ -316,19 +368,17 @@ class SignalRuntimeWorker(BaseStreamConsumer):
         )
 
     async def process_message(self, message_id: str, data: dict[str, str]) -> None:
-        payload = _decode_payload(data)
-        if not _is_closed_bar(payload):
-            return
-
-        try:
-            candle = StreamOHLCVPayload.model_validate(payload)
-        except Exception as exc:
-            logger.warning("Invalid OHLCV payload %s, skipping: %s", message_id, exc)
-            return
+        candle = decode_ingestion_event(
+            data,
+            self.source_binding,
+            self.trigger_timeframe,
+        )
 
         timestamp = normalize_timestamp_ms(candle.timestamp)
         try:
             if self._last_processed_ts is not None:
+                if timestamp <= self._last_processed_ts:
+                    return
                 gap_ms = timestamp - self._last_processed_ts
                 if gap_ms > 2 * self._expected_interval_ms:
                     logger.warning(
@@ -353,14 +403,21 @@ class SignalRuntimeWorker(BaseStreamConsumer):
             self._last_processed_ts = timestamp
 
             publisher = self._ensure_publisher()
-            ltf_context_profiles = await self._resolve_ltf_context_profiles(candle=candle)
-            feature_vector, price_update = await self._process_closed_candle_with_optional_context(
+            ltf_context_profiles = await self._resolve_ltf_context_profiles(
+                candle=candle
+            )
+            (
+                feature_vector,
+                price_update,
+            ) = await self._process_closed_candle_with_optional_context(
                 candle=candle,
                 ltf_context_profiles=ltf_context_profiles,
             )
             await publisher.publish_feature_vector(
                 feature_vector,
-                trigger_timeframe=self.trigger_timeframe if self._is_projected_lane() else None,
+                trigger_timeframe=self.trigger_timeframe
+                if self._is_projected_lane()
+                else None,
             )
             if not self._is_projected_lane():
                 await publisher.publish_price_update(price_update)
@@ -381,7 +438,9 @@ class SignalRuntimeWorker(BaseStreamConsumer):
             raise
 
     async def reprime_after_gap(self) -> bool:
-        history = await self.primer.fetch_history(self.asset, self.timeframe, self.max_lookback)
+        history = await self.primer.fetch_history(
+            self.asset, self.timeframe, self.max_lookback
+        )
         if not history:
             logger.warning(
                 "Gap re-priming deferred for %s:%s: no history returned yet.",
@@ -395,7 +454,7 @@ class SignalRuntimeWorker(BaseStreamConsumer):
             )
             return False
 
-        self.raw_indicators.prime(history)
+        await asyncio.to_thread(self.raw_indicators.prime, history)
         self._prime_projection_history(history)
         if self._is_projected_lane():
             source_history = await self.primer.fetch_history(
@@ -454,7 +513,9 @@ class SignalRuntimeWorker(BaseStreamConsumer):
                 candle=candle,
                 ltf_context_profiles=ltf_context_profiles,
             )
-        parameters = inspect.signature(self.pipeline.process_closed_candle_enriched).parameters
+        parameters = inspect.signature(
+            self.pipeline.process_closed_candle_enriched
+        ).parameters
         kwargs: dict[str, Any] = {
             "asset": self.asset,
             "timeframe": self.timeframe,
@@ -476,14 +537,20 @@ class SignalRuntimeWorker(BaseStreamConsumer):
 
         projected_candle = self._projected_candle_from_projection(projected)
         history_for_snapshot = self._projection_history_for_snapshot(projected)
-        raw_features = self.raw_indicators.snapshot_features(history_for_snapshot)
+        raw_features = await asyncio.to_thread(
+            self.raw_indicators.snapshot_features,
+            history_for_snapshot,
+        )
         index_data: dict[str, dict[str, float]] = {}
         derivatives_data: dict[str, float] = {}
         if self.pipeline.enrichment_reader is not None:
             index_data = await self.pipeline.enrichment_reader.load_index_data()
-            derivatives_data = await self.pipeline.enrichment_reader.load_derivatives_data()
+            derivatives_data = (
+                await self.pipeline.enrichment_reader.load_derivatives_data()
+            )
 
-        features = self.pipeline.build_features(
+        features = await asyncio.to_thread(
+            self.pipeline.build_features,
             candle=projected_candle,
             raw_features=raw_features,
             index_data=index_data,
@@ -518,7 +585,7 @@ class SignalRuntimeWorker(BaseStreamConsumer):
             decision_bar_closed=projected.closed,
         )
         if projected.closed:
-            self._commit_projected_bar(projected)
+            await self._commit_projected_bar(projected)
         return feature_vector, price_update
 
     def _prime_ltf_history(self, history: list[tuple[float, ...]]) -> None:
@@ -581,7 +648,9 @@ class SignalRuntimeWorker(BaseStreamConsumer):
         )
 
     def _should_publish_ltf_context(self) -> bool:
-        return self.trigger_timeframe == self.base_timeframe and bool(self.required_context_profiles)
+        return self.trigger_timeframe == self.base_timeframe and bool(
+            self.required_context_profiles
+        )
 
     def _is_projected_lane(self) -> bool:
         return self.trigger_timeframe != self.timeframe
@@ -589,15 +658,21 @@ class SignalRuntimeWorker(BaseStreamConsumer):
     def _ensure_publisher(self) -> SignalStreamPublisher:
         if self.publisher is None:
             if self.redis_client is None:
-                raise RuntimeError("SignalRuntimeWorker requires a publisher or redis client.")
-            self.publisher = SignalStreamPublisher(self.redis_client, settings=self.settings)
+                raise RuntimeError(
+                    "SignalRuntimeWorker requires a publisher or redis client."
+                )
+            self.publisher = SignalStreamPublisher(
+                self.redis_client, settings=self.settings
+            )
         return self.publisher
 
     def _pair(self) -> SignalPair:
         return SignalPair(
             asset=self.asset,
             timeframe=self.timeframe,
-            trigger_timeframe=None if not self._is_projected_lane() else self.trigger_timeframe,
+            trigger_timeframe=None
+            if not self._is_projected_lane()
+            else self.trigger_timeframe,
             trigger_mode=self.trigger_mode,
             base_timeframe=self.base_timeframe,
             required_context_profiles=list(self.required_context_profiles),
@@ -610,7 +685,9 @@ class SignalRuntimeWorker(BaseStreamConsumer):
             source_timeframe=self.trigger_timeframe,
         )
 
-    def _projection_history_for_snapshot(self, projected: ProjectedBar) -> list[tuple[float, ...]]:
+    def _projection_history_for_snapshot(
+        self, projected: ProjectedBar
+    ) -> list[tuple[float, ...]]:
         history = list(self._projection_history)
         if history and int(float(history[-1][5])) == int(projected.bucket_start):
             history[-1] = projected.bar
@@ -624,7 +701,9 @@ class SignalRuntimeWorker(BaseStreamConsumer):
         *,
         origin: str = "decision_projection_live",
     ) -> StreamOHLCVPayload:
-        provider = "timescale" if origin == "decision_projection_bootstrap" else "projected"
+        provider = (
+            "timescale" if origin == "decision_projection_bootstrap" else "projected"
+        )
         return projected.to_candle(
             asset=self.asset,
             base_timeframe=self.base_timeframe,
@@ -646,24 +725,42 @@ class SignalRuntimeWorker(BaseStreamConsumer):
         transport["trigger_mode"] = self.trigger_mode
         transport["source_feature_timeframe"] = source_feature_timeframe
         transport["decision_bar_closed"] = decision_bar_closed
-        transport["projection_mode"] = "decision_view" if self._is_projected_lane() else "direct"
+        transport["projection_mode"] = (
+            "decision_view" if self._is_projected_lane() else "direct"
+        )
         features["ctx_transport"] = transport
         return feature_vector.model_copy(update={"features": features})
 
-    def _commit_projected_bar(self, projected: ProjectedBar) -> None:
-        if self._projection_history and int(float(self._projection_history[-1][5])) == int(projected.bucket_start):
+    async def _commit_projected_bar(self, projected: ProjectedBar) -> None:
+        if self._projection_history and int(
+            float(self._projection_history[-1][5])
+        ) == int(projected.bucket_start):
             self._projection_history[-1] = projected.bar
         else:
             self._projection_history.append(projected.bar)
-        self.raw_indicators.prime(list(self._projection_history))
+        await asyncio.to_thread(
+            self.raw_indicators.prime,
+            list(self._projection_history),
+        )
 
-    def _bootstrap_last_processed_ts(self, candle: StreamOHLCVPayload, feature_vector: Any) -> int:
+    def _bootstrap_last_processed_ts(
+        self, candle: StreamOHLCVPayload, feature_vector: Any
+    ) -> int:
         if self._source_history:
             return normalize_timestamp_ms(float(self._source_history[-1][5]))
-        return int(feature_vector.timestamp if feature_vector.timestamp else normalize_timestamp_ms(candle.timestamp))
+        return int(
+            feature_vector.timestamp
+            if feature_vector.timestamp
+            else normalize_timestamp_ms(candle.timestamp)
+        )
 
-    def _current_runtime_state(self, history: list[tuple[float, ...]]) -> SignalPairState:
-        if self.raw_indicators.get_unprimed_indicator_keys() or len(history) < self.max_lookback:
+    def _current_runtime_state(
+        self, history: list[tuple[float, ...]]
+    ) -> SignalPairState:
+        if (
+            self.raw_indicators.get_unprimed_indicator_keys()
+            or len(history) < self.max_lookback
+        ):
             return SignalPairState.DEGRADED
         return SignalPairState.LIVE
 
@@ -692,23 +789,6 @@ class SignalRuntimeWorker(BaseStreamConsumer):
             replace_last_error=last_error is None,
             detail=detail,
         )
-
-
-def _is_closed_bar(payload: dict[str, Any]) -> bool:
-    return payload.get("bar_closed") in ("true", "True", "1", True) or payload.get("is_closed") in (
-        "true",
-        "True",
-        "1",
-        True,
-    )
-
-
-def _decode_payload(data: dict[Any, Any]) -> dict[str, Any]:
-    return {
-        key.decode() if isinstance(key, bytes) else str(key):
-        value.decode() if isinstance(value, bytes) else value
-        for key, value in data.items()
-    }
 
 
 def normalize_timestamp_ms(timestamp: float) -> int:

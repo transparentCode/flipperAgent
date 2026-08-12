@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+import json
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from apps.signal_app.ohlcv_source import OhlcvSourceBinding
 from apps.signal_app.pipeline.features import FeaturePipeline
 from apps.signal_app.runtime.worker import SignalRuntimeWorker
+from apps.signal_app.settings import SignalWorkerSettings
 from apps.strategy_app.evaluation.service import StrategyEvaluationResult
+from apps.strategy_app.settings import StrategyWorkerSettings
 from apps.strategy_app.strategy_worker import StrategyWorker
 from libs.contracts.schemas import (
     FeatureVector,
@@ -17,6 +22,49 @@ from libs.contracts.schemas import (
     valkey_encode,
 )
 from libs.contracts.signal import ScoringOutput
+
+_SIGNAL_SETTINGS = SignalWorkerSettings(
+    ohlcv_sources=(
+        OhlcvSourceBinding(
+            asset="BTCUSDT",
+            source="ingestion",
+            venue="binance",
+            instrument_id="BTC-USDT-PERP",
+        ),
+    )
+)
+
+
+def _v2_event(timestamp: float) -> dict[str, str]:
+    open_time = datetime.fromtimestamp(timestamp, tz=UTC)
+    payload = {
+        "venue": "binance",
+        "instrument_id": "BTC-USDT-PERP",
+        "timeframe": "1m",
+        "open_time": open_time.isoformat().replace("+00:00", "Z"),
+        "close_time": (open_time + timedelta(minutes=1))
+        .isoformat()
+        .replace("+00:00", "Z"),
+        "open": "100.0",
+        "high": "101.0",
+        "low": "99.0",
+        "close": "100.5",
+        "volume": "10.0",
+        "taker_buy_base": "4.0",
+        "source_type": "provider",
+        "source_provider": "binance_native",
+        "source_timeframe": None,
+    }
+    return {
+        "event_id": f"test-{timestamp}",
+        "event_type": "candle.committed",
+        "schema_version": "1",
+        "producer": "ingestion",
+        "occurred_at": (open_time + timedelta(minutes=1, seconds=1))
+        .isoformat()
+        .replace("+00:00", "Z"),
+        "payload": json.dumps(payload),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -30,7 +78,13 @@ def _make_feature_vector() -> FeatureVector:
         timeframe="4h",
         timestamp=1_700_000_000.0,
         features={"RSI": {"value": 45.0}, "ATR": {"value": 500.0}},
-        bar_data={"open": 49_000.0, "high": 51_000.0, "low": 48_500.0, "close": 50_000.0, "volume": 100.0},
+        bar_data={
+            "open": 49_000.0,
+            "high": 51_000.0,
+            "low": 48_500.0,
+            "close": 50_000.0,
+            "volume": 100.0,
+        },
     )
 
 
@@ -46,13 +100,17 @@ def _make_model_output(direction: int = 1) -> ModelOutput:
     )
 
 
-def _history(length: int = 8, timeframe_seconds: int = 14_400) -> list[tuple[float, ...]]:
+def _history(
+    length: int = 8, timeframe_seconds: int = 14_400
+) -> list[tuple[float, ...]]:
     start = 1_700_000_000 - length * timeframe_seconds
     rows: list[tuple[float, ...]] = []
     for index in range(length):
         ts = float(start + index * timeframe_seconds)
         price = 100.0 + index
-        rows.append((price, price + 1.0, price - 1.0, price + 0.5, 10.0 + index, ts, 4.0))
+        rows.append(
+            (price, price + 1.0, price - 1.0, price + 0.5, 10.0 + index, ts, 4.0)
+        )
     return rows
 
 
@@ -62,7 +120,9 @@ def _history_1m(length: int = 240) -> list[tuple[float, ...]]:
     for index in range(length):
         ts = float(start + index * 60)
         price = 100.0 + (index * 0.05)
-        rows.append((price, price + 0.2, price - 0.2, price + 0.1, 5.0 + index, ts, 2.0))
+        rows.append(
+            (price, price + 0.2, price - 0.2, price + 0.1, 5.0 + index, ts, 2.0)
+        )
     return rows
 
 
@@ -82,7 +142,9 @@ class _FakeRawIndicators:
     def snapshot_features(self, history: list[tuple[float, ...]]) -> dict[str, float]:
         return dict(self.snapshot)
 
-    def snapshot_raw(self, history: list[tuple[float, ...]]) -> dict[str, dict[str, float]]:
+    def snapshot_raw(
+        self, history: list[tuple[float, ...]]
+    ) -> dict[str, dict[str, float]]:
         return {name: {"value": value} for name, value in self.snapshot.items()}
 
     def update(self, row: tuple[float, ...]) -> None:
@@ -105,7 +167,9 @@ class TestStrategyWorkerProcessFeatures:
     @pytest.mark.asyncio
     @patch("apps.strategy_app.strategy_worker.ModelManager")
     @patch("apps.strategy_app.strategy_worker.UnifiedModelManager")
-    async def test_process_features_publishes_signal(self, MockUnifiedMM, MockMM) -> None:
+    async def test_process_features_publishes_signal(
+        self, MockUnifiedMM, MockMM
+    ) -> None:
         """Valid FeatureVector payload → model evaluates → xadd called with signal stream."""
         from apps.strategy_app.strategy_worker import StrategyWorker
 
@@ -132,7 +196,9 @@ class TestStrategyWorkerProcessFeatures:
     @pytest.mark.asyncio
     @patch("apps.strategy_app.strategy_worker.ModelManager")
     @patch("apps.strategy_app.strategy_worker.UnifiedModelManager")
-    async def test_process_features_flat_direction_no_publish(self, MockUnifiedMM, MockMM) -> None:
+    async def test_process_features_flat_direction_no_publish(
+        self, MockUnifiedMM, MockMM
+    ) -> None:
         """When model returns direction=0, no signal should be published."""
         from apps.strategy_app.strategy_worker import StrategyWorker
 
@@ -223,7 +289,23 @@ class TestStrategyWorkerProcessFeatures:
         mock_unified_mm.evaluate.return_value = []
         MockUnifiedMM.return_value = mock_unified_mm
 
-        worker = StrategyWorker("BTCUSDT", "1h")
+        worker = StrategyWorker(
+            "BTCUSDT",
+            "1h",
+            settings=StrategyWorkerSettings(
+                blender_enabled=True,
+                blender_config={
+                    "transition": {"entry_threshold": 0.70, "exit_threshold": 0.30},
+                    "mtf": {"confirming_scale": 1.2, "conflicting_scale": 0.5},
+                    "weights": {
+                        "TREND_BEAR": {
+                            "mean_reversion": 0.49,
+                            "squeeze_breakout": 0.51,
+                        }
+                    },
+                },
+            ),
+        )
         worker.redis_client = AsyncMock()
 
         fv = FeatureVector(
@@ -236,7 +318,13 @@ class TestStrategyWorkerProcessFeatures:
                     "changepoint_prob": 0.05,
                 }
             },
-            bar_data={"open": 49_000.0, "high": 51_000.0, "low": 48_500.0, "close": 50_000.0, "volume": 100.0},
+            bar_data={
+                "open": 49_000.0,
+                "high": 51_000.0,
+                "low": 48_500.0,
+                "close": 50_000.0,
+                "volume": 100.0,
+            },
         )
 
         await worker.process_features(valkey_encode(fv))
@@ -291,7 +379,9 @@ class TestStrategyWorkerProcessFeatures:
         worker.redis_client.xadd.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_process_features_preserves_projected_source_lane_metadata(self) -> None:
+    async def test_process_features_preserves_projected_source_lane_metadata(
+        self,
+    ) -> None:
         signal_redis = AsyncMock()
         signal_redis.xadd = AsyncMock(return_value="1-0")
         signal_redis.hset = AsyncMock(return_value=1)
@@ -302,6 +392,7 @@ class TestStrategyWorkerProcessFeatures:
             "BTCUSDT",
             "4h",
             pipeline=pipeline,
+            settings=_SIGNAL_SETTINGS,
             trigger_timeframe="1m",
             trigger_mode="on_base_bar_close",
             required_context_profiles=["volatility_15m"],
@@ -315,18 +406,7 @@ class TestStrategyWorkerProcessFeatures:
 
         await signal_worker.process_message(
             "1-0",
-            {
-                b"bar_closed": b"true",
-                b"symbol": b"BTCUSDT",
-                b"timeframe": b"1m",
-                b"timestamp": str(int(history_1m[-1][5] + 60)).encode(),
-                b"open": b"100.0",
-                b"high": b"101.0",
-                b"low": b"99.0",
-                b"close": b"100.5",
-                b"volume": b"10.0",
-                b"taker_buy_base": b"4.0",
-            },
+            _v2_event(history_1m[-1][5] + 60),
         )
 
         published_payload = signal_redis.xadd.await_args_list[0].args[1]
@@ -342,7 +422,12 @@ class TestStrategyWorkerProcessFeatures:
         strategy_worker._update_runtime_state = AsyncMock()
         captured: dict[str, object] = {}
 
-        def _evaluate(feature_vec: FeatureVector, *, allowed_model_names=None, runtime_metadata=None):
+        def _evaluate(
+            feature_vec: FeatureVector,
+            *,
+            allowed_model_names=None,
+            runtime_metadata=None,
+        ):
             captured["feature_vec"] = feature_vec
             captured["runtime_metadata"] = runtime_metadata
             return StrategyEvaluationResult(feature_vector=feature_vec, selected=[])

@@ -293,7 +293,7 @@ def test_runner_has_no_browser_launcher_or_forbidden_model_imports() -> None:
         assert forbidden not in source
     tree = ast.parse(source)
     allowed_prefixes = (
-        "apps.ingestion_app.adapters.binance_native",
+        "libs.market_data.binance_native",
         "libs.models.trendline_v2.tools.viewer",
         "libs.models.trendline_v2",
     )

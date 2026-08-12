@@ -10,11 +10,11 @@ from typing import Any
 
 import pandas as pd
 
-from apps.ingestion_app.adapters.base import BaseExchangeAdapter
 from apps.scraper_app.core import BrowserScraperRuntime
 from libs.common.config import ConfigManager
-from libs.common.logging.logger_utils import bind_logger
+from libs.common.constants import CONFIG_FILE_TRADINGVIEW
 from libs.common.enums import SystemComponent
+from libs.common.logging.logger_utils import bind_logger
 
 logger = bind_logger(__name__, system_component=SystemComponent.MARKET_DATA)
 
@@ -125,7 +125,7 @@ def extract_single_series_from_tv_response(
     return bars
 
 
-class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
+class TradingViewInterceptor(BrowserScraperRuntime):
     """Stealth WebSocket interceptor for TradingView chart data.
 
     Uses patchright to launch a headless Chromium browser, navigate to a TradingView chart,
@@ -134,6 +134,7 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
 
     def __init__(self, cookies_path: str | None = None, proxy_url: str | None = None):
         config = ConfigManager()
+        config.register_file(CONFIG_FILE_TRADINGVIEW)
         resolved_cookies_path = cookies_path or config.get(
             "tradingview.cookies_path", "secrets/tv_cookies.json"
         )
@@ -149,9 +150,9 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
         self,
         symbol: str,
         timeframe: str,
-        since: int = None,
-        until: int = None,
-        limit: int = None,
+        since: int | None = None,
+        until: int | None = None,
+        limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch historical OHLCV for a TradingView symbol.
 
@@ -169,9 +170,9 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
         Returns:
             DataFrame with columns [timestamp, open, high, low, close, volume]
         """
-        return (await self.get_historical_ohlcv_batch([symbol], timeframe, limit=limit)).get(
-            symbol, self._empty_frame()
-        )
+        return (
+            await self.get_historical_ohlcv_batch([symbol], timeframe, limit=limit)
+        ).get(symbol, self._empty_frame())
 
     async def get_historical_ohlcv_batch(
         self, symbols: list[str], timeframe: str, limit: int | None = None
@@ -183,11 +184,8 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
 
         try:
             context = await self._get_or_create_context()
-        except Exception as e:
-            logger.error(
-                f"TradingView browser session failed for {symbols}: {e}",
-                exc_info=True,
-            )
+        except Exception:
+            logger.exception("TradingView browser session failed for %s", symbols)
             await self.close()
             return results
 
@@ -199,11 +197,8 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
                 )
                 if idx < len(symbols) - 1 and fetch_delay > 0:
                     await asyncio.sleep(fetch_delay)
-        except Exception as e:
-            logger.error(
-                f"TradingView symbol fetch failed for {symbols}: {e}",
-                exc_info=True,
-            )
+        except Exception:
+            logger.exception("TradingView symbol fetch failed for %s", symbols)
             await self.close()
 
         return results
@@ -212,19 +207,24 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
         self,
         symbol: str,
         timeframe: str,
-        since: int = None,
-        until: int = None,
-        limit: int = None,
+        since: int | None = None,
+        until: int | None = None,
+        limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch a single-value time series (OI, funding rate, etc.) from TradingView.
 
         Returns DataFrame with columns [timestamp, value].
         """
-        result = await self.get_historical_series_batch([symbol], timeframe, limit=limit)
+        result = await self.get_historical_series_batch(
+            [symbol], timeframe, limit=limit
+        )
         return result.get(symbol, pd.DataFrame(columns=["timestamp", "value"]))
 
     async def get_historical_series_batch(
-        self, symbols: list[str], timeframe: str, limit: int | None = None,
+        self,
+        symbols: list[str],
+        timeframe: str,
+        limit: int | None = None,
     ) -> dict[str, pd.DataFrame]:
         """Fetch multiple single-value TradingView series in one browser session."""
         results = {s: pd.DataFrame(columns=["timestamp", "value"]) for s in symbols}
@@ -233,10 +233,9 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
 
         try:
             context = await self._get_or_create_context()
-        except Exception as e:
-            logger.error(
-                f"TradingView browser session failed for series {symbols}: {e}",
-                exc_info=True,
+        except Exception:
+            logger.exception(
+                "TradingView browser session failed for series %s", symbols
             )
             await self.close()
             return results
@@ -251,11 +250,8 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
                     results[symbol] = df
                 if idx < len(symbols) - 1 and fetch_delay > 0:
                     await asyncio.sleep(fetch_delay)
-        except Exception as e:
-            logger.error(
-                f"TradingView series fetch failed for {symbols}: {e}",
-                exc_info=True,
-            )
+        except Exception:
+            logger.exception("TradingView series fetch failed for %s", symbols)
             await self.close()
 
         return results
@@ -274,7 +270,9 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
         chart_url = self._build_chart_url(symbol, timeframe)
         page = None
 
-        logger.info(f"Fetching TV data for {symbol} ({timeframe}) via WS interception...")
+        logger.info(
+            f"Fetching TV data for {symbol} ({timeframe}) via WS interception..."
+        )
 
         try:
             page = await context.new_page()
@@ -303,8 +301,7 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
             deadline = time.monotonic() + timeout_s
             while time.monotonic() < deadline:
                 has_data = any(
-                    "timescale_update" in m or '"du"' in m
-                    for m in intercepted_messages
+                    "timescale_update" in m or '"du"' in m for m in intercepted_messages
                 )
                 if has_data:
                     break
@@ -317,8 +314,8 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
                 target_rows=target_rows,
                 mode="ohlcv",
             )
-        except Exception as e:
-            logger.error(f"WS interception failed for {symbol}: {e}", exc_info=True)
+        except Exception:
+            logger.exception("WS interception failed for %s", symbol)
             return self._empty_frame()
         finally:
             await self._close_quietly(page, "page")
@@ -360,7 +357,9 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
         chart_url = self._build_chart_url(symbol, timeframe)
         page = None
 
-        logger.info(f"Fetching TV series for {symbol} ({timeframe}) via WS interception...")
+        logger.info(
+            f"Fetching TV series for {symbol} ({timeframe}) via WS interception..."
+        )
 
         try:
             page = await context.new_page()
@@ -389,8 +388,7 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
             deadline = time.monotonic() + timeout_s
             while time.monotonic() < deadline:
                 has_data = any(
-                    "timescale_update" in m or '"du"' in m
-                    for m in intercepted_messages
+                    "timescale_update" in m or '"du"' in m for m in intercepted_messages
                 )
                 if has_data:
                     break
@@ -403,17 +401,15 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
                 target_rows=target_rows,
                 mode="series",
             )
-        except Exception as e:
-            logger.error(f"WS interception failed for series {symbol}: {e}", exc_info=True)
+        except Exception:
+            logger.exception("WS interception failed for series %s", symbol)
             return pd.DataFrame(columns=["timestamp", "value"])
         finally:
             await self._close_quietly(page, "page")
 
         return self._messages_to_series_frame(symbol, intercepted_messages)
 
-    async def _apply_history_viewport(
-        self, page: Any, target_rows: int | None
-    ) -> None:
+    async def _apply_history_viewport(self, page: Any, target_rows: int | None) -> None:
         if not target_rows:
             return
         min_target_rows = int(
@@ -506,9 +502,7 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
             return
 
         count_fn = (
-            self._count_ohlcv_rows
-            if mode == "ohlcv"
-            else self._count_series_rows
+            self._count_ohlcv_rows if mode == "ohlcv" else self._count_series_rows
         )
         current_count = count_fn(intercepted_messages)
         if current_count >= target_rows:
@@ -537,7 +531,9 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
             if not dragged:
                 break
 
-            await self._wait_for_history_growth(intercepted_messages, count_fn, before_count)
+            await self._wait_for_history_growth(
+                intercepted_messages, count_fn, before_count
+            )
             current_count = count_fn(intercepted_messages)
             if current_count >= target_rows:
                 break
@@ -576,9 +572,9 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
                 )
             ),
         )
-        required_steps = (target_rows - current_count + estimated_rows_per_step - 1) // (
-            estimated_rows_per_step
-        )
+        required_steps = (
+            target_rows - current_count + estimated_rows_per_step - 1
+        ) // (estimated_rows_per_step)
         hard_cap = int(
             self._config.get("tradingview.history_expansion_hard_max_steps", base_steps)
         )
@@ -602,16 +598,24 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
         }
         start_x = int(
             viewport["width"]
-            * float(self._config.get("tradingview.history_expansion_drag_start_x_ratio", 0.72))
+            * float(
+                self._config.get(
+                    "tradingview.history_expansion_drag_start_x_ratio", 0.72
+                )
+            )
         )
         end_x = start_x + int(
             self._config.get("tradingview.history_expansion_drag_distance_px", 700)
         )
         y = int(
             viewport["height"]
-            * float(self._config.get("tradingview.history_expansion_drag_y_ratio", 0.45))
+            * float(
+                self._config.get("tradingview.history_expansion_drag_y_ratio", 0.45)
+            )
         )
-        steps = int(self._config.get("tradingview.history_expansion_drag_move_steps", 12))
+        steps = int(
+            self._config.get("tradingview.history_expansion_drag_move_steps", 12)
+        )
 
         await move(start_x, y)
         await down()
@@ -627,7 +631,9 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
     ) -> bool:
         """Wait briefly for additional history frames to arrive after a chart pan."""
         timeout_s = float(
-            self._config.get("tradingview.history_expansion_settle_timeout_seconds", 2.5)
+            self._config.get(
+                "tradingview.history_expansion_settle_timeout_seconds", 2.5
+            )
         )
         poll_s = float(
             self._config.get("tradingview.history_expansion_settle_poll_seconds", 0.25)
@@ -662,7 +668,9 @@ class TradingViewInterceptor(BrowserScraperRuntime, BaseExchangeAdapter):
         return "tradingview"
 
     def _log_patchright_missing(self) -> None:
-        logger.error("Patchright is not installed. Install with: pip install patchright")
+        logger.error(
+            "Patchright is not installed. Install with: pip install patchright"
+        )
 
     def _log_cookie_load_failure(self) -> None:
         logger.warning(f"Failed to load TV cookies from {self.cookies_path}")

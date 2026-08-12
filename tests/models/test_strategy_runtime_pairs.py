@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+from apps.strategy_app.runtime_pairs import build_strategy_pairs
 from libs.common.asset_manifest import AssetManifest
 from libs.common.config import ConfigManager
-
-from apps.strategy_app.runtime_pairs import build_strategy_pairs
 
 
 def test_build_strategy_pairs_groups_models_by_decision_and_trigger_lane() -> None:
@@ -116,7 +115,9 @@ def test_build_strategy_pairs_includes_scoring_model_only_assets() -> None:
     assert pairs[0].model_names == ["RegimePullbackScorer"]
 
 
-def test_build_strategy_pairs_inherits_default_scoring_models_for_asset_timeframes() -> None:
+def test_build_strategy_pairs_inherits_default_scoring_models_for_asset_timeframes() -> (
+    None
+):
     ConfigManager.reset_singleton()
     config_manager = ConfigManager()
     config_manager.register_file = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
@@ -166,7 +167,7 @@ def test_build_strategy_pairs_inherits_default_scoring_models_for_asset_timefram
     assert pairs[0].model_names == ["Momentum", "RegimePullbackScorer"]
 
 
-def test_build_strategy_pairs_adds_manifest_fallback_pairs_when_no_model_config_exists() -> None:
+def test_build_strategy_pairs_does_not_create_manifest_only_workers() -> None:
     ConfigManager.reset_singleton()
     config_manager = ConfigManager()
     config_manager.register_file = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
@@ -186,5 +187,59 @@ def test_build_strategy_pairs_adds_manifest_fallback_pairs_when_no_model_config_
         ],
     )
 
-    assert [pair.key for pair in pairs] == ["BTCUSDT:1h", "BTCUSDT:1m"]
-    assert all(pair.source == "asset_manifest" for pair in pairs)
+    assert pairs == []
+
+
+def test_partial_manifests_gate_owned_strategy_asset_only() -> None:
+    ConfigManager.reset_singleton()
+    config_manager = ConfigManager()
+    config_manager.register_file = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+    config_manager._load_configs = lambda trigger_callbacks=True: None  # type: ignore[method-assign]
+    config_manager._state = {
+        "models": {
+            "assets": {
+                "BTCUSDT": {
+                    "timeframes": {
+                        "1h": {
+                            "Momentum": {
+                                "enabled": True,
+                                "runtime": {
+                                    "decision_timeframe": "1h",
+                                    "base_timeframe": "1m",
+                                    "trigger_mode": "on_bar_close",
+                                },
+                            }
+                        }
+                    }
+                },
+                "ETHUSDT": {
+                    "timeframes": {
+                        "1h": {
+                            "Momentum": {
+                                "enabled": True,
+                                "runtime": {
+                                    "decision_timeframe": "1h",
+                                    "base_timeframe": "1m",
+                                    "trigger_mode": "on_bar_close",
+                                },
+                            }
+                        }
+                    }
+                },
+            }
+        }
+    }
+
+    pairs = build_strategy_pairs(
+        config_manager,
+        live_manifests=[
+            AssetManifest(
+                symbol="BTCUSDT",
+                enabled=True,
+                desired_state="LIVE",
+                updated_at=1.0,
+            )
+        ],
+    )
+
+    assert [pair.key for pair in pairs] == ["BTCUSDT:1h", "ETHUSDT:1h"]

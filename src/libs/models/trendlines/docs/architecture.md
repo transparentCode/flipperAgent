@@ -64,7 +64,7 @@ part of this layer.
 injected, or bounded-provider data, computes one source identity per timeframe, builds a dataset
 manifest, and resolves YAML pipeline parameters. It does not extract pivots, fit lines, produce
 signals, replay history, optimize parameters, or promote configuration. Concrete Binance access
-is kept in `apps.ingestion_app.adapters.trendlines_research`, which injects the current native
+is kept in `libs.models.trendlines.workflows.research.binance`, which injects the current native
 adapter into canonical research contracts. Smoke mode never makes network calls.
 
 ## Research Replay Boundary

@@ -20,7 +20,7 @@ used by the Codex CLI or VS Code MCP clients. Both clients use Streamable HTTP.
 ## When to use codebase-memory-mcp
 
 - Default for code discovery, symbol lookup, and semantic search.
-- Reading specific code snippets or tracing paths inside `src/`, `tests/`, `conductor/`, `scripts/`, `docs/`, or `plans/`.
+- Reading specific code snippets or tracing paths inside `src/`, `tests/`, `scripts/`, `docs/`, or `plans/`.
 - Architecture overview, hotspots, cluster detection.
 - Cross-impact inside a single project or a few known files.
 

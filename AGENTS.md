@@ -73,7 +73,7 @@ This repository is indexed by `codebase-memory-mcp` (MIT) and `gitnexus`
 Follow `.agents/skills/mcp-tiered-code-intelligence/SKILL.md`.
 
 - Start with `codebase-memory-mcp` for code discovery, symbol lookup, semantic
-  search, and paths inside `src/`, `tests/`, `conductor/`, `scripts/`, `docs/`,
+  search, and paths inside `src/`, `tests/`, `scripts/`, `docs/`,
   and `plans/`.
 - Escalate to `gitnexus` only for whole-repo structural queries, cross-directory
   flows, impact analysis, or files outside cbm's indexed directories (e.g.
@@ -91,7 +91,7 @@ Surface HIGH or CRITICAL impact before making a risky change.
 
 - Python environment: `.venv/bin/python`.
 - Dependency source of truth: `pyproject.toml`.
-- Production packages live under `src/apps/`, `src/libs/`, and `conductor/`.
+- Production packages live under `src/apps/` and `src/libs/`.
 - Tests live under `tests/`; use focused pytest first, then broader validation in
   proportion to risk. Run Ruff for Python changes.
 - Keep changes minimal and preserve public contracts unless explicitly changed.

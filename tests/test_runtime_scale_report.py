@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from libs.common.runtime_scale import RuntimeScaleInputs, StreamCaps, estimate_runtime_scale
+from libs.common.runtime_scale import (
+    RuntimeScaleInputs,
+    StreamCaps,
+    estimate_runtime_scale,
+)
 
 
 def test_estimate_runtime_scale_computes_worker_and_stream_counts() -> None:
@@ -19,9 +23,6 @@ def test_estimate_runtime_scale_computes_worker_and_stream_counts() -> None:
                 fill_stream_maxlen=1000,
                 failure_stream_maxlen=1000,
                 lifecycle_maxlen=1000,
-                control_maxlen=1000,
-                events_maxlen=1000,
-                runtime_status_maxlen=1000,
             ),
         )
     )
@@ -51,9 +52,6 @@ def test_estimate_runtime_scale_rounds_fractional_pairs_up() -> None:
                 fill_stream_maxlen=10,
                 failure_stream_maxlen=10,
                 lifecycle_maxlen=10,
-                control_maxlen=10,
-                events_maxlen=10,
-                runtime_status_maxlen=10,
             ),
         )
     )

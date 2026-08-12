@@ -3,10 +3,9 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 
+from apps.signal_app.models import SignalPair
 from libs.common.asset_manifest import (
     AssetManifest,
-    iter_live_manifest_timeframes,
-    live_manifest_pairs,
 )
 from libs.common.config import ConfigManager
 from libs.common.constants import CONFIG_FILE_FEATURES, CONFIG_FILE_MODELS
@@ -16,8 +15,6 @@ from libs.contracts.model_runtime import (
     iter_enabled_runtime_specs,
     validate_supported_runtime_spec,
 )
-
-from apps.signal_app.models import SignalPair
 
 
 @dataclass
@@ -40,12 +37,11 @@ def build_signal_pairs(
     manager = config_manager or ConfigManager()
     manager.register_file(CONFIG_FILE_MODELS)
     manager.register_file(CONFIG_FILE_FEATURES)
-    if live_pairs is None and live_manifests:
-        live_pairs = live_manifest_pairs(live_manifests)
     live_pair_set = {
         (str(asset).upper().strip(), str(timeframe).strip())
         for asset, timeframe in (live_pairs or [])
     }
+    manifest_gate = _manifest_gate(live_manifests) if live_pairs is None else {}
     accumulators: dict[tuple[str, str, str], _PairAccumulator] = {}
     base_pair_profiles: dict[tuple[str, str], set[str]] = defaultdict(set)
 
@@ -61,18 +57,28 @@ def build_signal_pairs(
             )
             if runtime_spec.required_context_profiles and _pair_is_live(
                 live_pair_set,
+                manifest_gate,
                 normalized_asset,
                 runtime_spec.base_timeframe,
             ):
-                base_pair_profiles[(normalized_asset, runtime_spec.base_timeframe)].update(
-                    runtime_spec.required_context_profiles
-                )
+                base_pair_profiles[
+                    (normalized_asset, runtime_spec.base_timeframe)
+                ].update(runtime_spec.required_context_profiles)
             decision_timeframe = runtime_spec.decision_timeframe
             trigger_timeframe = derive_trigger_timeframe(runtime_spec)
-            if live_pair_set and (normalized_asset, trigger_timeframe) not in live_pair_set:
+            if (
+                live_pair_set
+                and (normalized_asset, trigger_timeframe) not in live_pair_set
+            ):
+                continue
+            if manifest_gate and not manifest_gate.get(normalized_asset, True):
                 continue
             pair_key = (normalized_asset, decision_timeframe, trigger_timeframe)
-            source = "asset_manifest" if live_pair_set else "runtime"
+            source = (
+                "asset_manifest"
+                if live_pairs is not None or live_manifests is not None
+                else "runtime"
+            )
             accumulator = accumulators.get(pair_key)
             if accumulator is None:
                 accumulator = _PairAccumulator(
@@ -91,7 +97,9 @@ def build_signal_pairs(
             asset=acc.asset,
             timeframe=acc.timeframe,
             trigger_timeframe=(
-                None if acc.trigger_timeframe == acc.timeframe else acc.trigger_timeframe
+                None
+                if acc.trigger_timeframe == acc.timeframe
+                else acc.trigger_timeframe
             ),
             trigger_mode=acc.trigger_mode,
             base_timeframe=acc.base_timeframe,
@@ -109,7 +117,11 @@ def build_signal_pairs(
             trigger_mode="on_bar_close",
             base_timeframe=base_timeframe,
             required_context_profiles=sorted(profiles),
-            source="asset_manifest" if live_pair_set else "runtime_base",
+            source=(
+                "asset_manifest"
+                if live_pairs is not None or live_manifests is not None
+                else "runtime_base"
+            ),
         )
         if all(existing.key != pair.key for existing in pairs):
             pairs.append(pair)
@@ -124,9 +136,13 @@ def build_signal_pairs(
             existing.required_context_profiles = merged
             break
 
-    _append_manifest_fallback_pairs(pairs, live_manifests)
-
-    pairs.sort(key=lambda pair: (pair.asset, pair.timeframe, pair.trigger_timeframe or pair.timeframe))
+    pairs.sort(
+        key=lambda pair: (
+            pair.asset,
+            pair.timeframe,
+            pair.trigger_timeframe or pair.timeframe,
+        )
+    )
     return pairs
 
 
@@ -144,12 +160,13 @@ def _iter_runtime_assets(manager: ConfigManager) -> list[str]:
 
 def _pair_is_live(
     live_pair_set: set[tuple[str, str]],
+    manifest_gate: dict[str, bool],
     asset: str,
     timeframe: str,
 ) -> bool:
-    if not live_pair_set:
-        return True
-    return (asset, timeframe) in live_pair_set
+    if live_pair_set:
+        return (asset, timeframe) in live_pair_set
+    return manifest_gate.get(asset, True)
 
 
 def _merge_runtime_spec_into_accumulator(
@@ -172,23 +189,15 @@ def _merge_runtime_spec_into_accumulator(
         normalized = str(profile).strip()
         if normalized:
             accumulator.required_context_profiles.add(normalized)
-def _append_manifest_fallback_pairs(
-    pairs: list[SignalPair],
-    manifests: list[AssetManifest] | None,
-) -> None:
-    existing_keys = {pair.key for pair in pairs}
-    for manifest, timeframe in iter_live_manifest_timeframes(manifests):
-        pair = SignalPair(
-            asset=manifest.symbol,
-            timeframe=timeframe,
-            trigger_mode="on_bar_close",
-            base_timeframe=manifest.base_timeframe,
-            source="asset_manifest",
+
+
+def _manifest_gate(manifests: list[AssetManifest] | None) -> dict[str, bool]:
+    gate: dict[str, bool] = {}
+    for manifest in manifests or []:
+        gate[manifest.symbol] = bool(
+            manifest.enabled and str(manifest.desired_state).upper() == "LIVE"
         )
-        if pair.key in existing_keys:
-            continue
-        pairs.append(pair)
-        existing_keys.add(pair.key)
+    return gate
 
 
 __all__ = ["build_signal_pairs"]

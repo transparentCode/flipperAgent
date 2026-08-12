@@ -43,7 +43,7 @@ sources:
         end: "2025-12-31T00:00:00Z"
         provider_calls: 0
   provider_12h:
-    adapter: apps.ingestion_app.adapters.binance_native.BinanceNativeAdapter
+    adapter: libs.market_data.binance_native.BinanceNativeAdapter
     venue: binance_usdm
     timeframe: 12h
     start: "2024-08-19T00:00:00Z"

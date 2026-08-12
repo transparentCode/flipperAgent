@@ -2,17 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any
 
-from opentelemetry import context, trace
-from opentelemetry.propagators.textmap import (
-    CarrierT,
-    Getter,
-    Setter,
-    TextMapPropagator,
-)
+from opentelemetry import context
 from opentelemetry.propagate import get_global_textmap
-
+from opentelemetry.propagators.textmap import Getter, Setter
 
 # Keys used in Valkey flat-map payloads to carry the traceparent header.
 # Underscore-prefixed to avoid collision with Pydantic model fields.
@@ -21,18 +15,18 @@ TRACESTATE_KEY = "_tracestate"
 
 
 class DictSetter(Setter):
-    def set(self, carrier: dict, key: str, value: str) -> None:
+    def set(self, carrier: dict[str, Any], key: str, value: str) -> None:
         carrier[key] = value
 
 
 class DictGetter(Getter):
-    def get(self, carrier: dict, key: str) -> Optional[list[str]]:
+    def get(self, carrier: dict[str, Any], key: str) -> list[str] | None:
         val = carrier.get(key)
         if val is None:
             return None
         return [val]
 
-    def keys(self, carrier: dict) -> list[str]:
+    def keys(self, carrier: dict[str, Any]) -> list[str]:
         return list(carrier.keys())
 
 

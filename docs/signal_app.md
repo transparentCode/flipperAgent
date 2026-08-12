@@ -14,8 +14,8 @@ The **Signal App** is the feature computation layer in the flipperAgent pipeline
 
 ```mermaid
 flowchart LR
-    subgraph Ingestion App
-        WS[Binance WebSocket] --> IC[Ingestion Controller]
+    subgraph Ingestion
+        WS[Binance WebSocket] --> IC[Ingestion Runtime]
     end
 
     subgraph Signal App
@@ -28,7 +28,7 @@ flowchart LR
         STW[StrategyWorker]
     end
 
-    IC -- "Valkey Stream\nstream:ohlcv:{symbol}:{tf}" --> SW
+    IC -- "Valkey Stream\nstream:ohlcv:ingestion:{venue}:{instrument_id}:{tf}" --> SW
     SW -- "Valkey Stream\nfeatures:{asset}:{tf}" --> STW
 
 ```
@@ -37,7 +37,7 @@ flowchart LR
 
 | Principle | Implementation |
 |---|---|
-| **Decoupled via streams** | No imports from `ingestion_app` or `strategy_app` — Valkey streams are the only integration boundary |
+| **Decoupled via streams** | No imports from ingestion or strategy runtimes — Valkey streams are the only integration boundary |
 | **Config-driven indicators** | `features.yaml` defines which indicators run per asset/timeframe via fallback chain |
 | **Registry pattern** | `IndicatorRegistry` auto-discovers indicator classes via decorators |
 | **Multi-instance aliasing** | Same indicator type can appear multiple times with different params (e.g., `EMA_fast`, `EMA_slow`) |
@@ -47,7 +47,7 @@ flowchart LR
 
 | Contract | Direction | Schema |
 |---|---|---|
-| **Input** | Valkey `XREADGROUP` from `stream:ohlcv:{asset}:{timeframe}` | Raw OHLCV fields: `open`, `high`, `low`, `close`, `volume`, `timestamp`, `bar_closed` |
+| **Input** | Valkey `XREADGROUP` from `stream:ohlcv:ingestion:{venue}:{instrument_id}:{timeframe}` | Canonical ingestion OHLCV event fields |
 | **Output** | Valkey `XADD` to `features:{asset}:{timeframe}` | `FeatureVector`: `{asset, timeframe, timestamp, features: dict, bar_data: dict}` |
 
 ---
@@ -77,7 +77,7 @@ classDiagram
         +config_mgr: ConfigManager
         -_indicator_entries: list~tuple[str, Indicator]~
         +indicators: list~Indicator~
-        +fetch_historical_db_records(max_lookback)
+        +fetch_history(max_lookback)
         +prime(historical_data)
         +process_tick(data) dict
         -_initialize_indicators()
@@ -191,11 +191,11 @@ sequenceDiagram
     Note over FM: _indicator_entries = [(output_key, Indicator), ...]
 
     SW->>VK: connect(redis_client)
-    SW->>VK: XGROUP CREATE market_data:{asset}:{tf}
+    SW->>VK: XGROUP CREATE stream:ohlcv:ingestion:{venue}:{instrument_id}:{tf}
 
     SW->>FM: max(ind.lookback_required) across all indicators
-    SW->>FM: fetch_historical_db_records(max_lookback)
-    FM->>DB: Query last N closed 1m candles
+    SW->>FM: fetch_history(max_lookback)
+    FM->>DB: Query ingestion.candles
     DB-->>FM: historical OHLCV tuples
 
     SW->>FM: prime(historical_data)
@@ -251,7 +251,7 @@ sequenceDiagram
 
 ### 5.1 Input Stream
 
-- **Key:** `stream:ohlcv:{asset}:{timeframe}` (e.g., `stream:ohlcv:btcusdt:1h`)
+- **Key:** `stream:ohlcv:ingestion:{venue}:{instrument_id}:{timeframe}`
 - **Consumer group:** `signal_app_group`
 - **Consumer name:** `signal_worker_{asset}_{timeframe}`
 - **Payload fields:**

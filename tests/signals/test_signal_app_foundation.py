@@ -1,25 +1,36 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import math
+import threading
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-import math
 import pandas as pd
 import pytest
 from valkey.exceptions import TimeoutError as ValkeyTimeoutError
 
-from apps.signal_app.feature_manager import FeatureManager
 from apps.signal_app.api.dependencies import SignalApiDependencies
+from apps.signal_app.api.routes import (
+    signal_feature_snapshot,
+    signal_latest,
+    signal_status,
+)
 from apps.signal_app.catalog import SignalPairCatalog
 from apps.signal_app.catalog.static import StaticSignalPairCatalog
 from apps.signal_app.enrichment.valkey import ValkeySignalEnrichmentReader
-from apps.signal_app.models import SignalPair, SignalPairState, SignalRuntimeStatus
-from apps.signal_app.observability.status import SignalObservabilityService
+from apps.signal_app.feature_manager import FeatureManager
+from apps.signal_app.models import (
+    SignalFeatureSnapshotRequest,
+    SignalPair,
+    SignalPairState,
+    SignalRuntimeStatus,
+)
 from apps.signal_app.observability.runtime_state import runtime_status_key
-from apps.signal_app.api.routes import signal_feature_snapshot, signal_latest, signal_status
-from apps.signal_app.pipeline.engineered import EngineeredFeaturePipeline
-from apps.signal_app.pipeline.features import FeaturePipeline
+from apps.signal_app.observability.status import SignalObservabilityService
+from apps.signal_app.ohlcv_source import OhlcvSourceBinding
 from apps.signal_app.pipeline.context_namespaces import (
     LTF_CONTEXT_PREFIX,
     TRANSPORT_CONTEXT_KEY,
@@ -27,20 +38,74 @@ from apps.signal_app.pipeline.context_namespaces import (
     ltf_context_key,
     merge_ltf_context,
 )
-from apps.signal_app.pipeline.priming import StartupPrimer, dataframe_to_bar_tuples
-from apps.signal_app.pipeline.snapshot import _bar_tuple_to_candle as snapshot_bar_tuple_to_candle
+from apps.signal_app.pipeline.engineered import EngineeredFeaturePipeline
+from apps.signal_app.pipeline.features import FeaturePipeline
+from apps.signal_app.pipeline.priming import StartupPrimer
 from apps.signal_app.pipeline.raw_indicators import RawIndicatorPipeline
-from apps.signal_app.pipeline.regime import FeatureProducerConfigResolver, RegimeFeaturePipeline
+from apps.signal_app.pipeline.regime import (
+    FeatureProducerConfigResolver,
+    RegimeFeaturePipeline,
+)
 from apps.signal_app.pipeline.snapshot import FeatureSnapshotService
+from apps.signal_app.pipeline.snapshot import (
+    _bar_tuple_to_candle as snapshot_bar_tuple_to_candle,
+)
 from apps.signal_app.publishing.streams import SignalStreamPublisher
 from apps.signal_app.runtime.runner import SignalRuntimeRunner
-from apps.signal_app.runtime.worker import SignalRuntimeWorker, _bar_tuple_to_candle as runtime_bar_tuple_to_candle
+from apps.signal_app.runtime.worker import SignalRuntimeWorker
+from apps.signal_app.runtime.worker import (
+    _bar_tuple_to_candle as runtime_bar_tuple_to_candle,
+)
 from apps.signal_app.settings import SignalWorkerSettings
 from libs.common.config import ConfigManager
-from libs.contracts.signal import FeatureVector, PriceUpdate, StreamOHLCVPayload
 from libs.contracts.serialization import valkey_encode
+from libs.contracts.signal import FeatureVector, PriceUpdate, StreamOHLCVPayload
 from libs.features.engineered.manager import EngineeredFeatureManager
-from apps.signal_app.models import SignalFeatureSnapshotRequest
+
+_TEST_BINDING = OhlcvSourceBinding(
+    asset="BTCUSDT",
+    source="ingestion",
+    venue="binance",
+    instrument_id="BTC-USDT-PERP",
+)
+_TEST_SETTINGS = SignalWorkerSettings(ohlcv_sources=(_TEST_BINDING,))
+
+
+def _ingestion_event(
+    *,
+    timeframe: str = "1h",
+    timestamp: float = 1_700_000_000.0,
+    close: str = "105.0",
+    taker_buy_base: str = "4.0",
+) -> dict[str, str]:
+    open_time = datetime.fromtimestamp(timestamp, tz=UTC)
+    duration = timedelta(seconds={"1m": 60, "1h": 3600}[timeframe])
+    payload = {
+        "venue": "binance",
+        "instrument_id": "BTC-USDT-PERP",
+        "timeframe": timeframe,
+        "open_time": open_time.isoformat().replace("+00:00", "Z"),
+        "close_time": (open_time + duration).isoformat().replace("+00:00", "Z"),
+        "open": "100.0",
+        "high": "110.0",
+        "low": "95.0",
+        "close": close,
+        "volume": "10.0",
+        "taker_buy_base": taker_buy_base,
+        "source_type": "provider",
+        "source_provider": "binance_native",
+        "source_timeframe": None,
+    }
+    return {
+        "event_id": f"test-{timestamp}-{timeframe}",
+        "event_type": "candle.committed",
+        "schema_version": "1",
+        "producer": "ingestion",
+        "occurred_at": (open_time + duration + timedelta(seconds=1))
+        .isoformat()
+        .replace("+00:00", "Z"),
+        "payload": json.dumps(payload),
+    }
 
 
 def test_signal_pair_catalog_lists_configured_pairs() -> None:
@@ -356,7 +421,9 @@ def test_feature_pipeline_adds_engineered_and_derivatives_features() -> None:
 def test_feature_producer_config_resolver_deep_merges_fallbacks(monkeypatch) -> None:
     ConfigManager.reset_singleton()
     config_manager = ConfigManager()
-    monkeypatch.setattr(config_manager, "_load_configs", lambda trigger_callbacks=True: None)
+    monkeypatch.setattr(
+        config_manager, "_load_configs", lambda trigger_callbacks=True: None
+    )
     monkeypatch.setattr(ConfigManager, "register_file", lambda self, _: None)
     config_manager._state = {
         "feature_producers": {
@@ -366,7 +433,10 @@ def test_feature_producer_config_resolver_deep_merges_fallbacks(monkeypatch) -> 
                         "default": {
                             "RegimeClassification": {
                                 "enabled": False,
-                                "params": {"hurst_lookback": 100, "hmm_student_df": 5.0},
+                                "params": {
+                                    "hurst_lookback": 100,
+                                    "hmm_student_df": 5.0,
+                                },
                             }
                         },
                         "1h": {
@@ -506,7 +576,9 @@ async def test_signal_stream_publisher_uses_current_stream_contracts() -> None:
 
 
 @pytest.mark.asyncio
-async def test_signal_stream_publisher_supports_projected_trigger_lane_streams() -> None:
+async def test_signal_stream_publisher_supports_projected_trigger_lane_streams() -> (
+    None
+):
     redis_client = AsyncMock()
     redis_client.xadd = AsyncMock(return_value="1-0")
     publisher = SignalStreamPublisher(redis_client)
@@ -558,23 +630,14 @@ async def test_signal_runtime_worker_processes_closed_bar() -> None:
     redis_client = AsyncMock()
     redis_client.xadd = AsyncMock(return_value="1-0")
     pipeline = StubPipeline()
-    worker = SignalRuntimeWorker("BTCUSDT", "1h", pipeline=pipeline)
+    worker = SignalRuntimeWorker(
+        "BTCUSDT", "1h", pipeline=pipeline, settings=_TEST_SETTINGS
+    )
     worker.redis_client = redis_client
 
     await worker.process_message(
         "1-0",
-        {
-            b"bar_closed": b"true",
-            b"symbol": b"BTCUSDT",
-            b"timeframe": b"1h",
-            b"timestamp": b"1700000000",
-            b"open": b"100.0",
-            b"high": b"110.0",
-            b"low": b"95.0",
-            b"close": b"105.0",
-            b"volume": b"10.0",
-            b"taker_buy_base": b"4.0",
-        },
+        _ingestion_event(),
     )
 
     assert len(pipeline.calls) == 1
@@ -584,7 +647,9 @@ async def test_signal_runtime_worker_processes_closed_bar() -> None:
 
 
 @pytest.mark.asyncio
-async def test_signal_runtime_worker_projects_decision_view_on_base_trigger_lane() -> None:
+async def test_signal_runtime_worker_projects_decision_view_on_base_trigger_lane() -> (
+    None
+):
     redis_client = AsyncMock()
     redis_client.xadd = AsyncMock(return_value="1-0")
     redis_client.hset = AsyncMock(return_value=1)
@@ -595,6 +660,7 @@ async def test_signal_runtime_worker_projects_decision_view_on_base_trigger_lane
         "BTCUSDT",
         "4h",
         pipeline=pipeline,
+        settings=_TEST_SETTINGS,
         trigger_timeframe="1m",
         trigger_mode="on_base_bar_close",
         required_context_profiles=["volatility_15m"],
@@ -608,18 +674,11 @@ async def test_signal_runtime_worker_projects_decision_view_on_base_trigger_lane
 
     await worker.process_message(
         "1-0",
-        {
-            b"bar_closed": b"true",
-            b"symbol": b"BTCUSDT",
-            b"timeframe": b"1m",
-            b"timestamp": str(int(history_1m[-1][5] + 60)).encode(),
-            b"open": b"100.0",
-            b"high": b"101.0",
-            b"low": b"99.0",
-            b"close": b"100.5",
-            b"volume": b"10.0",
-            b"taker_buy_base": b"4.0",
-        },
+        _ingestion_event(
+            timeframe="1m",
+            timestamp=history_1m[-1][5] + 60,
+            close="100.5",
+        ),
     )
 
     assert redis_client.xadd.await_args_list[0].args[0] == "features:BTCUSDT:4h@1m"
@@ -675,6 +734,7 @@ async def test_signal_runtime_worker_base_lane_publishes_ltf_context_profiles() 
         "BTCUSDT",
         "1m",
         pipeline=pipeline,
+        settings=_TEST_SETTINGS,
         required_context_profiles=["volatility_15m"],
     )
     await worker.connect(redis_client)
@@ -682,18 +742,7 @@ async def test_signal_runtime_worker_base_lane_publishes_ltf_context_profiles() 
 
     await worker.process_message(
         "1-0",
-        {
-            b"bar_closed": b"true",
-            b"symbol": b"BTCUSDT",
-            b"timeframe": b"1m",
-            b"timestamp": b"1700000900",
-            b"open": b"100.0",
-            b"high": b"101.0",
-            b"low": b"99.0",
-            b"close": b"100.5",
-            b"volume": b"10.0",
-            b"taker_buy_base": b"4.0",
-        },
+        _ingestion_event(timeframe="1m", timestamp=1_700_000_900.0, close="100.5"),
     )
 
     assert any(
@@ -701,7 +750,8 @@ async def test_signal_runtime_worker_base_lane_publishes_ltf_context_profiles() 
         for call in redis_client.hset.await_args_list
     )
     assert any(
-        call.args[0] == "signal:ltf_context:BTCUSDT:1m:volatility_15m" and call.args[1] == 21_600
+        call.args[0] == "signal:ltf_context:BTCUSDT:1m:volatility_15m"
+        and call.args[1] == 21_600
         for call in redis_client.expire.await_args_list
     )
     assert "volatility_15m" in pipeline.calls[0]
@@ -714,11 +764,15 @@ async def test_signal_runtime_worker_ignores_open_and_invalid_bars() -> None:
     redis_client.xadd = AsyncMock(return_value="1-0")
     pipeline = AsyncMock()
     pipeline.enrichment_reader = None
-    worker = SignalRuntimeWorker("BTCUSDT", "1h", pipeline=pipeline)
+    worker = SignalRuntimeWorker(
+        "BTCUSDT", "1h", pipeline=pipeline, settings=_TEST_SETTINGS
+    )
     worker.redis_client = redis_client
 
-    await worker.process_message("1-0", {"bar_closed": "false"})
-    await worker.process_message("1-1", {"bar_closed": "true", "close": "bad"})
+    with pytest.raises(ValueError):
+        await worker.process_message("1-0", {})
+    with pytest.raises(ValueError):
+        await worker.process_message("1-1", {"event_type": "bad"})
 
     pipeline.process_closed_candle_enriched.assert_not_called()
     redis_client.xadd.assert_not_called()
@@ -731,7 +785,13 @@ async def test_signal_runtime_worker_publish_failure_bubbles() -> None:
 
         async def process_closed_candle_enriched(self, *, asset, timeframe, candle):
             return (
-                FeatureVector(asset=asset, timeframe=timeframe, timestamp=1.0, features={}, bar_data={}),
+                FeatureVector(
+                    asset=asset,
+                    timeframe=timeframe,
+                    timestamp=1.0,
+                    features={},
+                    bar_data={},
+                ),
                 PriceUpdate(
                     asset=asset,
                     timeframe=timeframe,
@@ -746,42 +806,16 @@ async def test_signal_runtime_worker_publish_failure_bubbles() -> None:
 
     redis_client = AsyncMock()
     redis_client.xadd = AsyncMock(side_effect=RuntimeError("stream publish failed"))
-    worker = SignalRuntimeWorker("BTCUSDT", "1h", pipeline=StubPipeline())
+    worker = SignalRuntimeWorker(
+        "BTCUSDT", "1h", pipeline=StubPipeline(), settings=_TEST_SETTINGS
+    )
     worker.redis_client = redis_client
 
     with pytest.raises(RuntimeError, match="stream publish failed"):
         await worker.process_message(
             "1-0",
-            {
-                "bar_closed": "true",
-                "timestamp": "1700000000",
-                "open": "100.0",
-                "high": "110.0",
-                "low": "95.0",
-                "close": "105.0",
-                "volume": "10.0",
-            },
+            _ingestion_event(),
         )
-
-
-def test_dataframe_to_bar_tuples_normalizes_timestamp_and_nan_taker_buy() -> None:
-    frame = pd.DataFrame(
-        [
-            {
-                "timestamp": pd.Timestamp("2026-01-01T00:00:00Z"),
-                "open": 100.0,
-                "high": 110.0,
-                "low": 95.0,
-                "close": 105.0,
-                "volume": 10.0,
-                "taker_buy_base": math.nan,
-            }
-        ]
-    )
-
-    rows = dataframe_to_bar_tuples(frame)
-
-    assert rows == [(100.0, 110.0, 95.0, 105.0, 10.0, 1_767_225_600.0, 0.0)]
 
 
 @pytest.mark.asyncio
@@ -794,12 +828,86 @@ async def test_signal_runtime_worker_primes_startup_history() -> None:
         "1h",
         pipeline=pipeline,
         primer=primer,
+        settings=_TEST_SETTINGS,
     )
 
     history = await worker.prime_startup_history(4)
 
     assert history == _history(length=4)
     assert raw.prime_calls == [_history(length=4)]
+
+
+@pytest.mark.asyncio
+async def test_signal_runtime_worker_offloads_indicator_cpu_work(monkeypatch) -> None:
+    raw = _FakeRawIndicators(snapshot={"RSI": 55.0})
+    pipeline = FeaturePipeline(raw_indicators=raw)
+    history = _history(length=4)
+    primer = StartupPrimer(AsyncMock(return_value=history))
+    redis_client = AsyncMock()
+    redis_client.xadd = AsyncMock(return_value="1-0")
+    worker = SignalRuntimeWorker(
+        "BTCUSDT",
+        "1h",
+        pipeline=pipeline,
+        primer=primer,
+        settings=_TEST_SETTINGS,
+    )
+    worker.redis_client = redis_client
+
+    calls: list[str] = []
+    real_to_thread = asyncio.to_thread
+
+    async def tracking_to_thread(func, *args, **kwargs):
+        calls.append(func.__name__)
+        return await real_to_thread(func, *args, **kwargs)
+
+    monkeypatch.setattr(asyncio, "to_thread", tracking_to_thread)
+
+    await worker.prime_startup_history(4)
+    await worker.publish_bootstrap_snapshot(history)
+    await worker.reprime_after_gap()
+
+    assert calls == ["prime", "snapshot_features", "build_features", "prime"]
+    assert raw.prime_calls == [history, history]
+
+
+@pytest.mark.asyncio
+async def test_signal_runtime_worker_indicator_prime_does_not_block_event_loop() -> (
+    None
+):
+    raw = _FakeRawIndicators(snapshot={"RSI": 55.0})
+    history = _history(length=4)
+    prime_started = threading.Event()
+    release_prime = threading.Event()
+    original_prime = raw.prime
+
+    def blocking_prime(prime_history: list[tuple[float, ...]]) -> None:
+        prime_started.set()
+        release_prime.wait(timeout=0.2)
+        original_prime(prime_history)
+
+    raw.prime = blocking_prime
+    worker = SignalRuntimeWorker(
+        "BTCUSDT",
+        "1h",
+        pipeline=FeaturePipeline(raw_indicators=raw),
+        primer=StartupPrimer(AsyncMock(return_value=history)),
+        settings=_TEST_SETTINGS,
+    )
+    release_timer = threading.Timer(0.2, release_prime.set)
+    release_timer.start()
+    worker_task = asyncio.create_task(worker.prime_startup_history(4))
+
+    async def heartbeat() -> None:
+        await asyncio.sleep(0.02)
+
+    try:
+        await asyncio.wait_for(heartbeat(), timeout=0.1)
+        assert prime_started.is_set()
+    finally:
+        release_prime.set()
+        release_timer.cancel()
+        await worker_task
 
 
 def test_signal_runtime_worker_applies_settings_defaults() -> None:
@@ -814,6 +922,7 @@ def test_signal_runtime_worker_applies_settings_defaults() -> None:
         regime_min_bars=300,
         regime_max_history=4000,
         regime_reeval_interval=12,
+        ohlcv_sources=(_TEST_BINDING,),
     )
 
     worker = SignalRuntimeWorker("BTCUSDT", "1h", settings=settings)
@@ -831,10 +940,14 @@ def test_signal_runtime_worker_applies_settings_defaults() -> None:
     assert worker.pipeline.regime_features.reeval_interval == 12
 
 
-def test_signal_worker_settings_from_config_reads_runtime_and_regime_overrides(monkeypatch) -> None:
+def test_signal_worker_settings_from_config_reads_runtime_and_regime_overrides(
+    monkeypatch,
+) -> None:
     ConfigManager.reset_singleton()
     config_manager = ConfigManager()
-    monkeypatch.setattr(config_manager, "_load_configs", lambda trigger_callbacks=True: None)
+    monkeypatch.setattr(
+        config_manager, "_load_configs", lambda trigger_callbacks=True: None
+    )
     monkeypatch.setattr(ConfigManager, "register_file", lambda self, _: None)
     config_manager._state = {
         "signal": {
@@ -845,6 +958,13 @@ def test_signal_worker_settings_from_config_reads_runtime_and_regime_overrides(m
                 "block_ms": 2100,
                 "priming_retry_delay_sec": 3.0,
                 "warming_retry_delay_sec": 9.0,
+                "ohlcv_sources": {
+                    "BTCUSDT": {
+                        "source": "ingestion",
+                        "venue": "binance",
+                        "instrument_id": "BTC-USDT-PERP",
+                    }
+                },
             },
             "regime": {
                 "min_bars": 333,
@@ -872,12 +992,16 @@ def test_signal_worker_settings_from_config_reads_runtime_and_regime_overrides(m
 
 
 @pytest.mark.asyncio
-async def test_signal_runtime_worker_bootstrap_snapshot_publishes_without_live_tick() -> None:
+async def test_signal_runtime_worker_bootstrap_snapshot_publishes_without_live_tick() -> (
+    None
+):
     raw = _FakeRawIndicators(snapshot={"RSI": 55.0})
     pipeline = FeaturePipeline(raw_indicators=raw)
     redis_client = AsyncMock()
     redis_client.xadd = AsyncMock(return_value="1-0")
-    worker = SignalRuntimeWorker("BTCUSDT", "1h", pipeline=pipeline)
+    worker = SignalRuntimeWorker(
+        "BTCUSDT", "1h", pipeline=pipeline, settings=_TEST_SETTINGS
+    )
     worker.redis_client = redis_client
 
     await worker.publish_bootstrap_snapshot(_history(length=4))
@@ -933,21 +1057,14 @@ async def test_signal_runtime_worker_gap_reprime_before_processing() -> None:
         "1h",
         pipeline=pipeline,
         primer=primer,
+        settings=_TEST_SETTINGS,
     )
     worker.redis_client = redis_client
     worker._last_processed_ts = 1_700_000_000_000
 
     await worker.process_message(
         "1-0",
-        {
-            "bar_closed": "true",
-            "timestamp": "1700021600",
-            "open": "100.0",
-            "high": "110.0",
-            "low": "95.0",
-            "close": "105.0",
-            "volume": "10.0",
-        },
+        _ingestion_event(timestamp=1_700_021_600.0),
     )
 
     assert raw.prime_calls == [_history(length=5)]
@@ -1005,6 +1122,7 @@ async def test_signal_runtime_worker_gap_reprime_degrades_on_partial_history() -
         "1h",
         pipeline=pipeline,
         primer=primer,
+        settings=_TEST_SETTINGS,
     )
     worker.redis_client = redis_client
     worker.state_store = AsyncMock()
@@ -1012,15 +1130,7 @@ async def test_signal_runtime_worker_gap_reprime_degrades_on_partial_history() -
 
     await worker.process_message(
         "1-0",
-        {
-            "bar_closed": "true",
-            "timestamp": "1700021600",
-            "open": "100.0",
-            "high": "110.0",
-            "low": "95.0",
-            "close": "105.0",
-            "volume": "10.0",
-        },
+        _ingestion_event(timestamp=1_700_021_600.0),
     )
 
     assert raw.prime_calls == [_history(length=5)]
@@ -1104,7 +1214,10 @@ async def test_signal_runtime_runner_lifecycle_watcher_retries_timeout() -> None
 
     with (
         patch("apps.signal_app.runtime.runner.valkey_decode", return_value=event),
-        patch("apps.signal_app.runtime.runner.mark_lifecycle_event_processed", new=AsyncMock(return_value=True)),
+        patch(
+            "apps.signal_app.runtime.runner.mark_lifecycle_event_processed",
+            new=AsyncMock(return_value=True),
+        ),
         pytest.raises(asyncio.CancelledError),
     ):
         await runner._watch_lifecycle()
@@ -1117,7 +1230,9 @@ def test_signal_runtime_runner_passes_worker_settings_when_supported() -> None:
     seen_settings: list[SignalWorkerSettings] = []
 
     class StubWorker:
-        def __init__(self, asset: str, timeframe: str, *, settings: SignalWorkerSettings) -> None:
+        def __init__(
+            self, asset: str, timeframe: str, *, settings: SignalWorkerSettings
+        ) -> None:
             self.asset = asset
             self.timeframe = timeframe
             seen_settings.append(settings)
@@ -1192,7 +1307,9 @@ async def test_signal_latest_route_returns_latest_feature(monkeypatch) -> None:
             redis_client,
         )
     )
-    monkeypatch.setattr("apps.signal_app.api.routes.get_signal_api_dependencies", lambda: deps)
+    monkeypatch.setattr(
+        "apps.signal_app.api.routes.get_signal_api_dependencies", lambda: deps
+    )
 
     latest = await signal_latest()
 
@@ -1224,7 +1341,9 @@ async def test_signal_status_route_returns_runtime_status(monkeypatch) -> None:
             redis_client,
         )
     )
-    monkeypatch.setattr("apps.signal_app.api.routes.get_signal_api_dependencies", lambda: deps)
+    monkeypatch.setattr(
+        "apps.signal_app.api.routes.get_signal_api_dependencies", lambda: deps
+    )
 
     status = await signal_status()
 
@@ -1235,10 +1354,14 @@ async def test_signal_status_route_returns_runtime_status(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_valkey_enrichment_reader_decodes_index_and_derivatives(monkeypatch) -> None:
+async def test_valkey_enrichment_reader_decodes_index_and_derivatives(
+    monkeypatch,
+) -> None:
     ConfigManager.reset_singleton()
     config_manager = ConfigManager()
-    monkeypatch.setattr(config_manager, "_load_configs", lambda trigger_callbacks=True: None)
+    monkeypatch.setattr(
+        config_manager, "_load_configs", lambda trigger_callbacks=True: None
+    )
     monkeypatch.setattr(ConfigManager, "register_file", lambda self, _: None)
     config_manager._state = {
         "tradingview": {
@@ -1253,13 +1376,24 @@ async def test_valkey_enrichment_reader_decodes_index_and_derivatives(monkeypatc
 
     async def hgetall(key: str):
         if key == "index:latest:TOTAL3ES":
-            return {"symbol": "TOTAL3ES", "close": "123.4", "timestamp": "1700000000000"}
+            return {
+                "symbol": "TOTAL3ES",
+                "close": "123.4",
+                "timestamp": "1700000000000",
+            }
         if key == "derivatives:latest:BTCUSDT:oi":
             return {"value": "99.5"}
         return {}
 
     redis_client.hgetall.side_effect = hgetall
-    reader = ValkeySignalEnrichmentReader(redis_client, config_manager=config_manager)
+    reader = ValkeySignalEnrichmentReader(
+        redis_client,
+        config_manager=config_manager,
+        settings=SignalWorkerSettings(
+            ohlcv_sources=(_TEST_BINDING,),
+            enrichment_index_keys=("TOTAL3ES",),
+        ),
+    )
 
     index_data = await reader.load_index_data()
     derivatives = await reader.load_derivatives_data()
@@ -1269,10 +1403,14 @@ async def test_valkey_enrichment_reader_decodes_index_and_derivatives(monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_valkey_enrichment_reader_decodes_ltf_context_profiles(monkeypatch) -> None:
+async def test_valkey_enrichment_reader_decodes_ltf_context_profiles(
+    monkeypatch,
+) -> None:
     ConfigManager.reset_singleton()
     config_manager = ConfigManager()
-    monkeypatch.setattr(config_manager, "_load_configs", lambda trigger_callbacks=True: None)
+    monkeypatch.setattr(
+        config_manager, "_load_configs", lambda trigger_callbacks=True: None
+    )
     monkeypatch.setattr(ConfigManager, "register_file", lambda self, _: None)
     config_manager._state = {"tradingview": {"indices": []}}
 
@@ -1282,7 +1420,11 @@ async def test_valkey_enrichment_reader_decodes_ltf_context_profiles(monkeypatch
         "window_bars": "60",
         "base_timeframe": "1m",
     }
-    reader = ValkeySignalEnrichmentReader(redis_client, config_manager=config_manager)
+    reader = ValkeySignalEnrichmentReader(
+        redis_client,
+        config_manager=config_manager,
+        settings=_TEST_SETTINGS,
+    )
 
     profiles = await reader.load_ltf_context_profiles(
         asset="BTCUSDT",
@@ -1298,7 +1440,9 @@ async def test_valkey_enrichment_reader_decodes_ltf_context_profiles(monkeypatch
 async def test_signal_observability_service_reads_latest_feature(monkeypatch) -> None:
     ConfigManager.reset_singleton()
     config_manager = ConfigManager()
-    monkeypatch.setattr(config_manager, "_load_configs", lambda trigger_callbacks=True: None)
+    monkeypatch.setattr(
+        config_manager, "_load_configs", lambda trigger_callbacks=True: None
+    )
     monkeypatch.setattr(ConfigManager, "register_file", lambda self, _: None)
     config_manager._state = {
         "models": {
@@ -1333,10 +1477,14 @@ async def test_signal_observability_service_reads_latest_feature(monkeypatch) ->
 
 
 @pytest.mark.asyncio
-async def test_signal_observability_service_reads_persisted_runtime_state(monkeypatch) -> None:
+async def test_signal_observability_service_reads_persisted_runtime_state(
+    monkeypatch,
+) -> None:
     ConfigManager.reset_singleton()
     config_manager = ConfigManager()
-    monkeypatch.setattr(config_manager, "_load_configs", lambda trigger_callbacks=True: None)
+    monkeypatch.setattr(
+        config_manager, "_load_configs", lambda trigger_callbacks=True: None
+    )
     monkeypatch.setattr(ConfigManager, "register_file", lambda self, _: None)
     config_manager._state = {
         "models": {
@@ -1395,7 +1543,9 @@ def _signal_models_config_manager() -> ConfigManager:
         "models": {
             "assets": {
                 "BTCUSDT": {"timeframes": {"1h": {"MeanReversion": {"enabled": True}}}},
-                "ETHUSDT": {"timeframes": {"4h": {"TrendFollowing": {"enabled": True}}}},
+                "ETHUSDT": {
+                    "timeframes": {"4h": {"TrendFollowing": {"enabled": True}}}
+                },
             }
         }
     }

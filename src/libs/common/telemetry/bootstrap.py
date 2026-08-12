@@ -2,23 +2,28 @@
 
 from __future__ import annotations
 
+import atexit
 import logging
 import os
-from pathlib import Path
-from typing import Optional
+import threading
 from collections.abc import Mapping
+from pathlib import Path
 
-from opentelemetry import trace, metrics
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, ConsoleSpanExporter
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
-from opentelemetry.sdk.resources import Resource, SERVICE_NAME, SERVICE_VERSION
+from opentelemetry import metrics, trace
+from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
+from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
-from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION, Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import (
+    BatchSpanProcessor,
+    ConsoleSpanExporter,
+    SimpleSpanProcessor,
+)
 
 from libs.common.paths import PROJECT_ROOT, get_logs_dir
 
@@ -83,7 +88,9 @@ def _otel_internal_logging_settings(
     return {
         "enabled": overrides.get(
             "enabled",
-            env_enabled if env_enabled is not None else _OTEL_INTERNAL_DEFAULTS["enabled"],
+            env_enabled
+            if env_enabled is not None
+            else _OTEL_INTERNAL_DEFAULTS["enabled"],
         ),
         "level": overrides.get(
             "level",
@@ -108,7 +115,9 @@ def _clear_otel_internal_handlers(logger: logging.Logger) -> None:
         handler.close()
 
 
-def _configure_otel_internal_logging(overrides: Mapping[str, object] | None = None) -> None:
+def _configure_otel_internal_logging(
+    overrides: Mapping[str, object] | None = None,
+) -> None:
     settings = _otel_internal_logging_settings(overrides)
     enabled = _coerce_bool(settings["enabled"], True)
 
@@ -125,14 +134,16 @@ def _configure_otel_internal_logging(overrides: Mapping[str, object] | None = No
         handler.setLevel(_coerce_level(settings["level"], logging.WARNING))
         handler.setFormatter(logging.Formatter(str(settings["format"])))
         logger.addHandler(handler)
-        logger.setLevel(min(logger.level, logging.WARNING) if logger.level else logging.WARNING)
+        logger.setLevel(
+            min(logger.level, logging.WARNING) if logger.level else logging.WARNING
+        )
         logger.propagate = False
 
 
 def init_telemetry(
     service_name: str,
     service_version: str = "0.1.0",
-    otlp_endpoint: Optional[str] = None,
+    otlp_endpoint: str | None = None,
 ) -> tuple[trace.Tracer, metrics.Meter]:
     """Initialize OTel TracerProvider + MeterProvider.
 
@@ -148,6 +159,8 @@ def init_telemetry(
     Returns:
         (tracer, meter) tuple for the calling app to use.
     """
+    global _telemetry_shutdown_started
+    _telemetry_shutdown_started = False
     _configure_otel_internal_logging()
 
     endpoint = (
@@ -156,16 +169,17 @@ def init_telemetry(
         or "http://otel-collector:4317"
     )
 
-    resource = Resource.create({
-        SERVICE_NAME: service_name,
-        SERVICE_VERSION: service_version,
-    })
+    resource = Resource.create(
+        {
+            SERVICE_NAME: service_name,
+            SERVICE_VERSION: service_version,
+        }
+    )
 
     # --- Traces ---
+    span_exporter = OTLPSpanExporter(endpoint=endpoint, insecure=True)
     tracer_provider = TracerProvider(resource=resource)
-    tracer_provider.add_span_processor(
-        BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint, insecure=True))
-    )
+    tracer_provider.add_span_processor(BatchSpanProcessor(span_exporter))
     # Debug: also print spans to stdout so they appear in docker logs
     if os.environ.get("OTEL_DEBUG"):
         tracer_provider.add_span_processor(SimpleSpanProcessor(ConsoleSpanExporter()))
@@ -173,8 +187,9 @@ def init_telemetry(
     tracer = trace.get_tracer(service_name, service_version)
 
     # --- Metrics ---
+    metric_exporter = OTLPMetricExporter(endpoint=endpoint, insecure=True)
     metric_reader = PeriodicExportingMetricReader(
-        OTLPMetricExporter(endpoint=endpoint, insecure=True),
+        metric_exporter,
         export_interval_millis=15_000,
     )
     meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
@@ -182,10 +197,9 @@ def init_telemetry(
     meter = metrics.get_meter(service_name, service_version)
 
     # --- Logs ---
+    log_exporter = OTLPLogExporter(endpoint=endpoint, insecure=True)
     log_provider = LoggerProvider(resource=resource)
-    log_provider.add_log_record_processor(
-        BatchLogRecordProcessor(OTLPLogExporter(endpoint=endpoint, insecure=True))
-    )
+    log_provider.add_log_record_processor(BatchLogRecordProcessor(log_exporter))
     otel_handler = LoggingHandler(
         level=logging.NOTSET,
         logger_provider=log_provider,
@@ -193,8 +207,10 @@ def init_telemetry(
     # Store the handler so it can be attached after configure_logging().
     # Don't add to root logger here — the namespace logger has propagate=False,
     # so root-level handlers never see app logs.
-    global _otel_log_handler  # noqa: PLW0603
+    global _otel_log_handler
     _otel_log_handler = otel_handler
+    global _telemetry_exporters
+    _telemetry_exporters = (span_exporter, metric_exporter, log_exporter)
 
     return tracer, meter
 
@@ -210,3 +226,113 @@ def attach_otel_log_handler(namespace: str = "flipper_agent") -> None:
     """
     if _otel_log_handler is not None:
         logging.getLogger(namespace).addHandler(_otel_log_handler)
+
+
+def shutdown_telemetry_nonblocking(namespace: str = "flipper_agent") -> None:
+    """Detach telemetry and finish exporter shutdown without blocking exit.
+
+    OTLP exporters can wait on an unavailable collector during synchronous
+    provider shutdown.  Application shutdown must remain bounded, so the
+    provider work is handed to a daemon thread after handlers and atexit hooks
+    are removed.  Repeated calls are intentionally harmless.
+    """
+    global _otel_log_handler, _telemetry_exporters, _telemetry_shutdown_started
+    if _telemetry_shutdown_started:
+        return
+    _telemetry_shutdown_started = True
+
+    try:
+        from opentelemetry import metrics as otel_metrics
+
+        providers: list[object] = [
+            trace.get_tracer_provider(),
+            otel_metrics.get_meter_provider(),
+        ]
+    except ImportError:
+        return
+
+    log_handler = _otel_log_handler
+    logger_provider = getattr(log_handler, "_logger_provider", None)
+    if logger_provider is not None:
+        providers.append(logger_provider)
+
+    if log_handler is not None:
+        logger = logging.getLogger(namespace)
+        logger.removeHandler(log_handler)
+        log_handler.close()
+        _otel_log_handler = None
+
+    # gRPC creates native event-engine threads for each OTLP channel.  Closing
+    # the channels before handing provider shutdown to a daemon thread keeps
+    # collector loss from holding process termination past the container grace
+    # period.  The provider shutdown still flushes whatever can finish quickly.
+    exporters = _telemetry_exporters
+    _telemetry_exporters = ()
+    for exporter in exporters:
+        channel = getattr(exporter, "_channel", None)
+        close = getattr(channel, "close", None)
+        if not callable(close):
+            continue
+        try:
+            close()
+        except Exception:
+            logging.getLogger(__name__).debug(
+                "Could not close OTel exporter channel",
+                exc_info=True,
+            )
+
+    for provider, handler_name in (
+        (trace.get_tracer_provider(), "_atexit_handler"),
+        (otel_metrics.get_meter_provider(), "_atexit_handler"),
+        (logger_provider, "_at_exit_handler"),
+    ):
+        if provider is None:
+            continue
+        handler = getattr(provider, handler_name, None)
+        if handler is None:
+            continue
+        try:
+            atexit.unregister(handler)
+        except Exception:
+            logging.getLogger(__name__).debug(
+                "Could not unregister OTel atexit callback",
+                exc_info=True,
+            )
+        try:
+            setattr(provider, handler_name, None)
+        except Exception:
+            logging.getLogger(__name__).debug(
+                "Could not clear OTel atexit callback",
+                exc_info=True,
+            )
+
+    unique_providers: list[object] = []
+    seen_provider_ids: set[int] = set()
+    for provider in providers:
+        if provider is None or id(provider) in seen_provider_ids:
+            continue
+        seen_provider_ids.add(id(provider))
+        unique_providers.append(provider)
+
+    def finish_shutdown() -> None:
+        for provider in unique_providers:
+            shutdown = getattr(provider, "shutdown", None)
+            if not callable(shutdown):
+                continue
+            try:
+                shutdown()
+            except Exception:
+                logging.getLogger(__name__).warning(
+                    "Telemetry provider shutdown failed",
+                    exc_info=True,
+                )
+
+    threading.Thread(
+        target=finish_shutdown,
+        name="otel-telemetry-shutdown",
+        daemon=True,
+    ).start()
+
+
+_telemetry_shutdown_started = False
+_telemetry_exporters: tuple[object, ...] = ()
