@@ -1,0 +1,287 @@
+direction: right
+
+title: {
+  label: "decision_app startup, live, recovery, and shutdown sequence"
+  near: top-center
+}
+
+classes: {
+  step: { style.fill: "#EEF7EA" }
+  gate: { style.fill: "#FFF2D8" }
+  failure: { style.fill: "#FCE8E8" }
+  source: { style.fill: "#E8F1FF" }
+  terminal: { style.fill: "#F4EAFE" }
+}
+
+startup: {
+  label: "1. Startup input progress and warmup"
+
+  resolve: {
+    class: step
+    label: "Resolve required streams\nstatic lane + dependency plan"
+  }
+
+  capture: {
+    class: gate
+    label: "Capture InputReadCursor\nstream tails + DB cutoffs"
+  }
+
+  history: {
+    class: source
+    label: "Timescale warmup\nthrough captured cutoffs"
+    shape: cylinder
+  }
+
+  stores: {
+    class: step
+    label: "Build shared BarStores\ncausal views only"
+  }
+
+  warm_state: {
+    class: step
+    label: "Replay causal chain:\nbars -> features -> replay-safe data\n-> upstream deps -> stateful bindings\npublication suppressed"
+  }
+
+  verify: {
+    class: gate
+    label: "Verify every required\ncausal cutoff is reached"
+  }
+}
+
+live: {
+  label: "2. Normal live event"
+
+  candle: {
+    class: source
+    label: "ingestion closed candle"
+    shape: queue
+  }
+
+  append: {
+    class: step
+    label: "InputReadCursor observes\nappend BarStore observation"
+  }
+
+  price: {
+    class: step
+    label: "PriceRelay publishes\nindependent price update"
+  }
+
+  ready: {
+    class: gate
+    label: "Required timeframes/data\nready through market_as_of"
+  }
+
+  evaluate: {
+    class: step
+    label: "Resolve data once\nexecute same-lane topology"
+  }
+
+  policy: {
+    class: step
+    label: "DecisionPolicy\nzero or one result"
+  }
+
+  publish: {
+    class: step
+    label: "Publish / finalize no-signal\nidempotent success"
+  }
+}
+
+special: {
+  label: "3. Bounded special cases"
+
+  external: {
+    class: step
+    label: "External demand\ncache -> PIT -> bounded LIVE source"
+  }
+
+  dependency: {
+    class: step
+    label: "Boundary artifact\nreused by Regression binding"
+  }
+
+  state_commit: {
+    class: gate
+    label: "After publication success\ncommit proposed state"
+  }
+
+  advance_lane_commit: {
+    class: terminal
+    label: "Advance affected LaneCommitWatermark\nonly after state commit"
+  }
+
+  publication_failure: {
+    class: failure
+    label: "Publish failure/conflict\nstate + LaneCommitWatermark unchanged"
+  }
+
+  model_failure: {
+    class: failure
+    label: "Missing data / dependency / exception\nstateful binding DEGRADED or INVALID"
+  }
+
+  rewarm: {
+    class: step
+    label: "Causal durable re-warm\nthen return LIVE"
+  }
+}
+
+progress: {
+  label: "4. Independent progress paths"
+
+  input_cursor: {
+    class: source
+    label: "InputReadCursor\nreader position continues"
+  }
+
+  bar_store: {
+    class: step
+    label: "Causal BarStore\nshared views continue"
+  }
+
+  price_relay: {
+    class: step
+    label: "PriceRelay\nindependent handling"
+  }
+
+  price_progress: {
+    class: gate
+    label: "PriceRelayProgress\nhandled position + gap evidence"
+  }
+
+  lane_a: {
+    class: step
+    label: "Lane A\nmodel + policy"
+  }
+
+  lane_b: {
+    class: step
+    label: "Lane B\nmodel + policy"
+  }
+
+  lane_a_commit: {
+    class: gate
+    label: "Lane A Commit Watermark\nsuccessful result / no-signal"
+  }
+
+  lane_b_commit: {
+    class: gate
+    label: "Lane B Commit Watermark\nsuccessful result / no-signal"
+  }
+
+  lane_a_degraded: {
+    class: failure
+    label: "Lane A degraded / rewarm\nLaneCommitWatermark unchanged"
+  }
+}
+
+recovery: {
+  label: "5. Broker gap and restart"
+
+  disconnect: {
+    class: failure
+    label: "Broker disconnect"
+  }
+
+  input_cursor: {
+    class: step
+    label: "Continuous stream:\nresume InputReadCursor"
+  }
+
+  gap: {
+    class: gate
+    label: "Retention gap detected?"
+  }
+
+  rebuild: {
+    class: step
+    label: "Rebuild BarStore + affected lanes\nfrom Timescale"
+  }
+
+  restart: {
+    class: step
+    label: "Process restart:\nreconstruct, suppress stale decisions"
+  }
+
+  resume: {
+    class: terminal
+    label: "New input/lane progress\nresume input reading"
+  }
+}
+
+shutdown: {
+  label: "6. Controlled shutdown"
+
+  stop_inputs: {
+    class: step
+    label: "Stop live reads\nstop new evaluations"
+  }
+
+  flush: {
+    class: gate
+    label: "Finish / cancel bounded work\nwithout stale publication"
+  }
+
+  stop: {
+    class: terminal
+    label: "Close runtime\nrelease resources"
+  }
+}
+
+startup.resolve -> startup.capture: "graph ready"
+startup.capture -> startup.history: "cutoff"
+startup.history -> startup.stores: "ordered bars"
+startup.stores -> startup.warm_state: "causal views"
+startup.warm_state -> startup.verify: "publication suppressed"
+startup.verify -> live.candle: "begin reads after captured ids"
+
+live.candle -> live.append: "closed event"
+live.append -> live.price: "always eligible"
+live.append -> live.ready: "BarStore cutoff update"
+live.ready -> live.evaluate: "ready"
+live.evaluate -> live.policy: "artifacts / outcomes"
+live.policy -> live.publish: "authoritative result or no-signal"
+
+live.evaluate -> special.external: "semantic request phase"
+live.evaluate -> special.dependency: "static named dependency"
+special.external -> live.evaluate: "DataSnapshot"
+special.dependency -> live.policy: "upstream artifact"
+live.publish -> special.state_commit: "successful idempotent publication"
+live.publish -> special.publication_failure: "transport failure/conflict"
+special.state_commit -> special.advance_lane_commit: "commit point"
+
+live.evaluate -> special.model_failure: "required input / exception"
+special.model_failure -> special.rewarm: "no stale-state continuation"
+special.rewarm -> live.ready: "reconstructed state"
+
+recovery.disconnect -> recovery.input_cursor: "if input stream remains continuous"
+recovery.input_cursor -> recovery.gap: "check retention"
+recovery.gap -> recovery.rebuild: "gap detected"
+recovery.gap -> recovery.resume: "no gap"
+recovery.rebuild -> recovery.resume: "new input/lane progress"
+recovery.restart -> recovery.rebuild: "full process restart"
+recovery.resume -> live.candle: "post-input-cursor reads"
+
+live.candle -> progress.input_cursor: "reader observes"
+progress.input_cursor -> progress.bar_store: "accepted observation"
+progress.bar_store -> progress.price_relay: "independent price input"
+progress.bar_store -> progress.lane_a: "causal view"
+progress.bar_store -> progress.lane_b: "causal view"
+progress.price_relay -> progress.price_progress: "handled / published"
+progress.lane_a -> progress.lane_a_commit: "success"
+progress.lane_b -> progress.lane_b_commit: "success"
+progress.lane_a -> progress.lane_a_degraded: "failure"
+progress.lane_a_degraded -> progress.input_cursor: "does not block" {
+  style.stroke-dash: 5
+}
+progress.lane_a_degraded -> progress.price_relay: "does not block" {
+  style.stroke-dash: 5
+}
+progress.lane_a_degraded -> progress.lane_b: "does not block" {
+  style.stroke-dash: 5
+}
+
+live.publish -> shutdown.stop_inputs: "operator shutdown"
+shutdown.stop_inputs -> shutdown.flush: "no new input"
+shutdown.flush -> shutdown.stop: "bounded completion"

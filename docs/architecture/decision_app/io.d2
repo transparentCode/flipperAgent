@@ -1,0 +1,228 @@
+direction: right
+
+title: {
+  label: "decision_app semantic IO contracts"
+  near: top-center
+}
+
+classes: {
+  source: { style.fill: "#E8F1FF" }
+  runtime: { style.fill: "#EEF7EA" }
+  contract: { style.fill: "#FFF2D8" }
+  storage: { style.fill: "#F4EAFE" }
+  boundary: { style.fill: "#FCE8E8" }
+  rule: { style.fill: "#F3FAEF" }
+}
+
+inputs: {
+  label: "Canonical inputs"
+
+  candle: {
+    class: source
+    label: "ingestion candle\nbar_open_at / bar_close_at\nvenue + instrument + timeframe"
+    shape: document
+    link: "../../../src/apps/ingestion_app/domain/candle.py"
+  }
+
+  lifecycle: {
+    class: source
+    label: "ingestion lifecycle\nasset availability only"
+    shape: document
+    link: "../../../src/libs/common/asset_manifest.py"
+  }
+
+  config: {
+    class: source
+    label: "static model catalog\nplugin + lane bindings"
+    shape: document
+  }
+}
+
+runtime: {
+  label: "Causal evaluation boundary"
+
+  input_cursor: {
+    class: runtime
+    label: "InputReadCursor\ncanonical reader position"
+  }
+
+  bar_store: {
+    class: runtime
+    label: "Causal BarStore\ncontinues independent of lanes"
+  }
+
+  context: {
+    class: contract
+    label: "DecisionContext\nmarket_as_of\ncausal bars + provenance"
+    shape: document
+    link: "./contracts.md"
+  }
+
+  feature_plan: {
+    class: runtime
+    label: "FeaturePlan\nshared policy-gated features"
+  }
+
+  data_request: {
+    class: contract
+    label: "DataRequest\nsemantic concept + freshness\nresolver knowledge cutoff"
+    shape: document
+  }
+
+  data_snapshot: {
+    class: contract
+    label: "DataSnapshot\nevent / available / fetched\nresolver capability"
+    shape: document
+  }
+
+  model: {
+    class: runtime
+    label: "Model plugin\nsynchronous semantic evaluation"
+  }
+
+  artifact: {
+    class: contract
+    label: "ModelArtifact\ntyped analytical result"
+    shape: document
+  }
+
+  outcome: {
+    class: contract
+    label: "ModelOutcome\noptional decision\nproposed next state"
+    shape: document
+  }
+
+  policy: {
+    class: runtime
+    label: "DecisionPolicy\nlane-local composition"
+  }
+
+  signal: {
+    class: contract
+    label: "TradeSignal\nsignal_time = market_as_of\ndecision_ready_at\nrisk_profile_key + idempotency"
+    shape: document
+  }
+
+  price: {
+    class: contract
+    label: "PriceUpdate\nindependent relay path"
+    shape: document
+  }
+
+  price_progress: {
+    class: contract
+    label: "PriceRelayProgress\nhandled position + gap evidence"
+    shape: document
+  }
+
+  lane_commit: {
+    class: contract
+    label: "LaneCommitWatermark\nper-lane commit position"
+    shape: document
+  }
+}
+
+physical: {
+  label: "Physical sources and transport"
+
+  timescale: {
+    class: storage
+    label: "Timescale\ncanonical durable history"
+    shape: cylinder
+  }
+
+  scraper: {
+    class: storage
+    label: "scraper_service\nLIVE bounded source only"
+    shape: package
+  }
+
+  streams: {
+    class: storage
+    label: "Valkey\nsignals:* + price_update:*"
+    shape: queue
+  }
+}
+
+downstream: {
+  label: "Consumers"
+
+  risk: {
+    class: boundary
+    label: "risk_app\nprice + signal consumers"
+  }
+
+  execution: {
+    class: boundary
+    label: "execution_app\norder consumer"
+  }
+}
+
+inputs.candle -> runtime.input_cursor: "observed canonical candle"
+inputs.lifecycle -> runtime.context: "asset availability"
+inputs.config -> runtime.context: "resolved lane/binding"
+runtime.input_cursor -> runtime.bar_store: "append accepted observation"
+runtime.bar_store -> runtime.context: "causal views"
+physical.timescale -> runtime.bar_store: "warmup / gap rebuild"
+runtime.context -> runtime.feature_plan: "requirements"
+runtime.context -> runtime.data_request: "semantic demand"
+runtime.data_request -> physical.scraper: "only permitted LIVE request"
+runtime.data_request -> physical.timescale: "PIT lookup"
+physical.scraper -> runtime.data_snapshot: "payload + fetched_at"
+physical.timescale -> runtime.data_snapshot: "payload + available_at"
+runtime.data_snapshot -> runtime.model: "complete external context"
+runtime.feature_plan -> runtime.model: "shared feature values"
+runtime.context -> runtime.model: "DecisionContext"
+runtime.model -> runtime.artifact: "analytical artifact"
+runtime.model -> runtime.outcome: "optional decision + proposed state"
+runtime.artifact -> runtime.policy: "upstream artifact"
+runtime.outcome -> runtime.policy: "binding outcome"
+runtime.policy -> runtime.signal: "zero or one authoritative result"
+runtime.bar_store -> runtime.price: "independent eligible price"
+runtime.signal -> physical.streams: "signals:*"
+runtime.price -> physical.streams: "price_update:*"
+runtime.price -> runtime.price_progress: "handled / published"
+runtime.signal -> runtime.lane_commit: "publication success / no-signal + state commit"
+physical.streams -> downstream.risk: "live transport"
+downstream.risk -> downstream.execution: "orders"
+
+rules: {
+  label: "Non-negotiable semantics"
+
+  causal: {
+    class: rule
+    label: "market_as_of is causal cutoff;\nrepresented end <= cutoff"
+  }
+
+  state: {
+    class: rule
+    label: "publish success -> commit state\nthen advance LaneCommitWatermark"
+  }
+
+  progress: {
+    class: rule
+    label: "InputReadCursor + BarStore continue;\nlane failure cannot block unrelated lanes"
+  }
+
+  price_recovery: {
+    class: rule
+    label: "PriceRelay gap is explicit;\nmissed-price policy needs risk proof"
+  }
+
+  replay: {
+    class: rule
+    label: "REPLAY: available_at <= knowledge cutoff;\nnever live scraper"
+  }
+
+  price_independent: {
+    class: rule
+    label: "model failure cannot block PriceRelay"
+  }
+}
+
+runtime.context -> rules.causal: "must satisfy"
+runtime.outcome -> rules.state: "must satisfy"
+runtime.bar_store -> rules.progress: "independent progress"
+runtime.data_snapshot -> rules.replay: "provenance gate"
+runtime.price_progress -> rules.price_recovery: "continuity evidence"
+runtime.price -> rules.price_independent: "separate path"

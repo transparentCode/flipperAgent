@@ -1,0 +1,742 @@
+{
+  "carry_forward": [
+    "FINAL_MODEL_MIX_RESOURCE_RECERTIFICATION_REQUIRED",
+    "MODEL_STATE_RESOURCE_REVIEW_REQUIRED_DURING_MODEL_REFACTOR"
+  ],
+  "created_at": "2026-08-14T16:17:25.685285Z",
+  "current_inventory": {
+    "canonical_series": [
+      {
+        "asset": "BNB",
+        "instrument_id": "BNB-USDT-PERP",
+        "timeframe": "1m",
+        "venue": "binance"
+      },
+      {
+        "asset": "BNB",
+        "instrument_id": "BNB-USDT-PERP",
+        "timeframe": "15m",
+        "venue": "binance"
+      },
+      {
+        "asset": "BNB",
+        "instrument_id": "BNB-USDT-PERP",
+        "timeframe": "30m",
+        "venue": "binance"
+      },
+      {
+        "asset": "BNB",
+        "instrument_id": "BNB-USDT-PERP",
+        "timeframe": "1h",
+        "venue": "binance"
+      },
+      {
+        "asset": "BNB",
+        "instrument_id": "BNB-USDT-PERP",
+        "timeframe": "4h",
+        "venue": "binance"
+      },
+      {
+        "asset": "BNB",
+        "instrument_id": "BNB-USDT-PERP",
+        "timeframe": "6h",
+        "venue": "binance"
+      },
+      {
+        "asset": "BNB",
+        "instrument_id": "BNB-USDT-PERP",
+        "timeframe": "12h",
+        "venue": "binance"
+      },
+      {
+        "asset": "BNB",
+        "instrument_id": "BNB-USDT-PERP",
+        "timeframe": "1d",
+        "venue": "binance"
+      },
+      {
+        "asset": "BNB",
+        "instrument_id": "BNB-USDT-PERP",
+        "timeframe": "1w",
+        "venue": "binance"
+      },
+      {
+        "asset": "BTC",
+        "instrument_id": "BTC-USDT-PERP",
+        "timeframe": "1m",
+        "venue": "binance"
+      },
+      {
+        "asset": "BTC",
+        "instrument_id": "BTC-USDT-PERP",
+        "timeframe": "15m",
+        "venue": "binance"
+      },
+      {
+        "asset": "BTC",
+        "instrument_id": "BTC-USDT-PERP",
+        "timeframe": "30m",
+        "venue": "binance"
+      },
+      {
+        "asset": "BTC",
+        "instrument_id": "BTC-USDT-PERP",
+        "timeframe": "1h",
+        "venue": "binance"
+      },
+      {
+        "asset": "BTC",
+        "instrument_id": "BTC-USDT-PERP",
+        "timeframe": "4h",
+        "venue": "binance"
+      },
+      {
+        "asset": "BTC",
+        "instrument_id": "BTC-USDT-PERP",
+        "timeframe": "6h",
+        "venue": "binance"
+      },
+      {
+        "asset": "BTC",
+        "instrument_id": "BTC-USDT-PERP",
+        "timeframe": "12h",
+        "venue": "binance"
+      },
+      {
+        "asset": "BTC",
+        "instrument_id": "BTC-USDT-PERP",
+        "timeframe": "1d",
+        "venue": "binance"
+      },
+      {
+        "asset": "BTC",
+        "instrument_id": "BTC-USDT-PERP",
+        "timeframe": "1w",
+        "venue": "binance"
+      },
+      {
+        "asset": "DOGE",
+        "instrument_id": "DOGE-USDT-PERP",
+        "timeframe": "1m",
+        "venue": "binance"
+      },
+      {
+        "asset": "DOGE",
+        "instrument_id": "DOGE-USDT-PERP",
+        "timeframe": "15m",
+        "venue": "binance"
+      },
+      {
+        "asset": "DOGE",
+        "instrument_id": "DOGE-USDT-PERP",
+        "timeframe": "30m",
+        "venue": "binance"
+      },
+      {
+        "asset": "DOGE",
+        "instrument_id": "DOGE-USDT-PERP",
+        "timeframe": "1h",
+        "venue": "binance"
+      },
+      {
+        "asset": "DOGE",
+        "instrument_id": "DOGE-USDT-PERP",
+        "timeframe": "4h",
+        "venue": "binance"
+      },
+      {
+        "asset": "DOGE",
+        "instrument_id": "DOGE-USDT-PERP",
+        "timeframe": "6h",
+        "venue": "binance"
+      },
+      {
+        "asset": "DOGE",
+        "instrument_id": "DOGE-USDT-PERP",
+        "timeframe": "12h",
+        "venue": "binance"
+      },
+      {
+        "asset": "DOGE",
+        "instrument_id": "DOGE-USDT-PERP",
+        "timeframe": "1d",
+        "venue": "binance"
+      },
+      {
+        "asset": "DOGE",
+        "instrument_id": "DOGE-USDT-PERP",
+        "timeframe": "1w",
+        "venue": "binance"
+      },
+      {
+        "asset": "ETH",
+        "instrument_id": "ETH-USDT-PERP",
+        "timeframe": "1m",
+        "venue": "binance"
+      },
+      {
+        "asset": "ETH",
+        "instrument_id": "ETH-USDT-PERP",
+        "timeframe": "15m",
+        "venue": "binance"
+      },
+      {
+        "asset": "ETH",
+        "instrument_id": "ETH-USDT-PERP",
+        "timeframe": "30m",
+        "venue": "binance"
+      },
+      {
+        "asset": "ETH",
+        "instrument_id": "ETH-USDT-PERP",
+        "timeframe": "1h",
+        "venue": "binance"
+      },
+      {
+        "asset": "ETH",
+        "instrument_id": "ETH-USDT-PERP",
+        "timeframe": "4h",
+        "venue": "binance"
+      },
+      {
+        "asset": "ETH",
+        "instrument_id": "ETH-USDT-PERP",
+        "timeframe": "6h",
+        "venue": "binance"
+      },
+      {
+        "asset": "ETH",
+        "instrument_id": "ETH-USDT-PERP",
+        "timeframe": "12h",
+        "venue": "binance"
+      },
+      {
+        "asset": "ETH",
+        "instrument_id": "ETH-USDT-PERP",
+        "timeframe": "1d",
+        "venue": "binance"
+      },
+      {
+        "asset": "ETH",
+        "instrument_id": "ETH-USDT-PERP",
+        "timeframe": "1w",
+        "venue": "binance"
+      },
+      {
+        "asset": "SOL",
+        "instrument_id": "SOL-USDT-PERP",
+        "timeframe": "1m",
+        "venue": "binance"
+      },
+      {
+        "asset": "SOL",
+        "instrument_id": "SOL-USDT-PERP",
+        "timeframe": "15m",
+        "venue": "binance"
+      },
+      {
+        "asset": "SOL",
+        "instrument_id": "SOL-USDT-PERP",
+        "timeframe": "30m",
+        "venue": "binance"
+      },
+      {
+        "asset": "SOL",
+        "instrument_id": "SOL-USDT-PERP",
+        "timeframe": "1h",
+        "venue": "binance"
+      },
+      {
+        "asset": "SOL",
+        "instrument_id": "SOL-USDT-PERP",
+        "timeframe": "4h",
+        "venue": "binance"
+      },
+      {
+        "asset": "SOL",
+        "instrument_id": "SOL-USDT-PERP",
+        "timeframe": "6h",
+        "venue": "binance"
+      },
+      {
+        "asset": "SOL",
+        "instrument_id": "SOL-USDT-PERP",
+        "timeframe": "12h",
+        "venue": "binance"
+      },
+      {
+        "asset": "SOL",
+        "instrument_id": "SOL-USDT-PERP",
+        "timeframe": "1d",
+        "venue": "binance"
+      },
+      {
+        "asset": "SOL",
+        "instrument_id": "SOL-USDT-PERP",
+        "timeframe": "1w",
+        "venue": "binance"
+      },
+      {
+        "asset": "XRP",
+        "instrument_id": "XRP-USDT-PERP",
+        "timeframe": "1m",
+        "venue": "binance"
+      },
+      {
+        "asset": "XRP",
+        "instrument_id": "XRP-USDT-PERP",
+        "timeframe": "15m",
+        "venue": "binance"
+      },
+      {
+        "asset": "XRP",
+        "instrument_id": "XRP-USDT-PERP",
+        "timeframe": "30m",
+        "venue": "binance"
+      },
+      {
+        "asset": "XRP",
+        "instrument_id": "XRP-USDT-PERP",
+        "timeframe": "1h",
+        "venue": "binance"
+      },
+      {
+        "asset": "XRP",
+        "instrument_id": "XRP-USDT-PERP",
+        "timeframe": "4h",
+        "venue": "binance"
+      },
+      {
+        "asset": "XRP",
+        "instrument_id": "XRP-USDT-PERP",
+        "timeframe": "6h",
+        "venue": "binance"
+      },
+      {
+        "asset": "XRP",
+        "instrument_id": "XRP-USDT-PERP",
+        "timeframe": "12h",
+        "venue": "binance"
+      },
+      {
+        "asset": "XRP",
+        "instrument_id": "XRP-USDT-PERP",
+        "timeframe": "1d",
+        "venue": "binance"
+      },
+      {
+        "asset": "XRP",
+        "instrument_id": "XRP-USDT-PERP",
+        "timeframe": "1w",
+        "venue": "binance"
+      }
+    ],
+    "canonical_series_count": 54,
+    "enabled_assets": [
+      "BNB",
+      "BTC",
+      "DOGE",
+      "ETH",
+      "SOL",
+      "XRP"
+    ],
+    "live_batch_size": 10,
+    "normal_risk_route_count": 7,
+    "normal_risk_routes": [
+      [
+        "BNBUSDT",
+        "30m"
+      ],
+      [
+        "BTCUSDT",
+        "1h"
+      ],
+      [
+        "BTCUSDT",
+        "4h"
+      ],
+      [
+        "DOGEUSDT",
+        "4h"
+      ],
+      [
+        "ETHUSDT",
+        "4h"
+      ],
+      [
+        "SOLUSDT",
+        "1h"
+      ],
+      [
+        "XRPUSDT",
+        "1h"
+      ]
+    ],
+    "price_relay_approximate": true,
+    "price_relay_maxlen": 200,
+    "retention_edge_bars": 10800,
+    "timeframes": [
+      "1m",
+      "15m",
+      "30m",
+      "1h",
+      "4h",
+      "6h",
+      "12h",
+      "1d",
+      "1w"
+    ]
+  },
+  "deterministic_identity_sha256": "ce2e4750ad6fcf34e4f6d370cb49b3fa34f5e491ee39942de3a0ae8778e76302",
+  "host": {
+    "blas_thread_environment": {}
+  },
+  "limitations": [
+    "LOCAL_INFRASTRUCTURE_RESOURCE_PROBE_BLOCKED_ENVIRONMENT",
+    "Current representative SR is diagnostic only, not a final model-mix claim."
+  ],
+  "measurement_payload_sha256": "2851062eed11fd82aaf9b5576dcc28181a0c2ee64abfbcc4e1af6939ffccf597",
+  "platform": {
+    "cpu_count": 8,
+    "machine": "arm64",
+    "release": "27.0.0",
+    "system": "Darwin"
+  },
+  "python": "3.13.13 (main, Aug  3 2026, 12:34:10) [Clang 21.0.0 (clang-2100.1.1.101)]",
+  "resource_target": {
+    "cpu_cores": 4.0,
+    "hard_memory_bytes": 8589934592,
+    "normal_working_set_bytes": 5368709120
+  },
+  "scenarios": [
+    {
+      "evidence": {
+        "accepted_count": 7,
+        "bar_store_capacities": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "config_batch_size": 10,
+        "config_price_maxlen": 200,
+        "continuous_count": 7,
+        "correct": true,
+        "input_cursor_count": 7,
+        "input_cursor_ids": [
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0"
+        ],
+        "lane_count": 0,
+        "max_history_in_flight": 1,
+        "max_stream_entries": 1,
+        "max_xadd_in_flight": 1,
+        "published_count": 7,
+        "relay_count": 7,
+        "scenario": "current_risk_relay_boundary",
+        "xadd_calls": 7,
+        "xread_calls": 1
+      },
+      "id": "current_risk_relay_boundary",
+      "measurement": {
+        "cpu_core_equivalent": 0.9637501968461071,
+        "process_cpu_seconds": 0.029132000000000047,
+        "process_peak_rss_bytes": 59752448,
+        "tasks_after": 0,
+        "tasks_before": 0,
+        "tasks_peak": null,
+        "threads_after": 1,
+        "threads_before": 1,
+        "tracemalloc_peak_bytes": 503305,
+        "wall_seconds": 0.030227749986806884
+      }
+    },
+    {
+      "evidence": {
+        "correct": true,
+        "generations_built": [
+          1,
+          2,
+          3
+        ],
+        "lifecycle_generation_state": "PAUSED",
+        "lifecycle_task_after_stop": false,
+        "market_task_after_stop": false,
+        "paused_desired_state": "PAUSED",
+        "paused_state": "PAUSED",
+        "price_publications_while_paused": 7,
+        "resumed_state": "RUNNING",
+        "scenario": "service_lifecycle_boundedness",
+        "stopped_state": "STOPPED",
+        "task_count_after_start": 2,
+        "task_count_after_stop": 0,
+        "task_peak": 2,
+        "thread_count_before_after": [
+          1,
+          1
+        ]
+      },
+      "id": "service_lifecycle_boundedness",
+      "measurement": {
+        "cpu_core_equivalent": 0.9151161085517577,
+        "process_cpu_seconds": 0.025997000000000048,
+        "process_peak_rss_bytes": 59867136,
+        "tasks_after": 0,
+        "tasks_before": 0,
+        "tasks_peak": null,
+        "threads_after": 1,
+        "threads_before": 1,
+        "tracemalloc_peak_bytes": 152515,
+        "wall_seconds": 0.028408416983438656
+      }
+    },
+    {
+      "evidence": {
+        "accepted_count": 54,
+        "bar_store_capacity_max": 1,
+        "bar_store_capacity_min": 1,
+        "continuous_count": 54,
+        "correct": true,
+        "input_cursor_ids": [
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0",
+          "1-0"
+        ],
+        "lane_count": 0,
+        "max_history_in_flight": 1,
+        "max_stream_entries": 1,
+        "max_xadd_in_flight": 1,
+        "poll_count": 6,
+        "published_count": 54,
+        "scenario": "full_canonical_54_series_boundary",
+        "series_count": 54
+      },
+      "id": "full_canonical_54_series_boundary",
+      "measurement": {
+        "cpu_core_equivalent": 0.932971397467596,
+        "process_cpu_seconds": 0.09938400000000003,
+        "process_peak_rss_bytes": 60112896,
+        "tasks_after": 0,
+        "tasks_before": 0,
+        "tasks_peak": null,
+        "threads_after": 1,
+        "threads_before": 1,
+        "tracemalloc_peak_bytes": 462015,
+        "wall_seconds": 0.10652416598168202
+      }
+    },
+    {
+      "evidence": {
+        "batch_size": 10,
+        "continuous_count": 54,
+        "correct": true,
+        "exact_id_sequences": true,
+        "expected_bars": 10800,
+        "idle_publications": 0,
+        "input_failure_count": 0,
+        "max_history_in_flight": 1,
+        "max_materialized_history_bars": 200,
+        "max_stream_entries": 200,
+        "max_xadd_in_flight": 1,
+        "pending_target_count": 0,
+        "publications_per_pass_max": 540,
+        "publications_per_relay_per_pass_max": 10,
+        "reconcile_passes": 20,
+        "relay_count": 54,
+        "retention_maxlen": 200,
+        "sample_last_ids": {
+          "price_update:BNBUSDT:12h": "1776254400000-0",
+          "price_update:BNBUSDT:15m": "1767752100000-0",
+          "price_update:BNBUSDT:1d": "1784937600000-0",
+          "price_update:BNBUSDT:1h": "1768294800000-0",
+          "price_update:BNBUSDT:1m": "1767583260000-0",
+          "price_update:BNBUSDT:1w": "1889136000000-0",
+          "price_update:BNBUSDT:30m": "1767933000000-0",
+          "price_update:BNBUSDT:4h": "1770465600000-0",
+          "price_update:BNBUSDT:6h": "1771912800000-0",
+          "price_update:BTCUSDT:12h": "1776254400000-0",
+          "price_update:BTCUSDT:15m": "1767752100000-0",
+          "price_update:BTCUSDT:1d": "1784937600000-0",
+          "price_update:BTCUSDT:1h": "1768294800000-0",
+          "price_update:BTCUSDT:1m": "1767583260000-0",
+          "price_update:BTCUSDT:1w": "1889136000000-0",
+          "price_update:BTCUSDT:30m": "1767933000000-0",
+          "price_update:BTCUSDT:4h": "1770465600000-0",
+          "price_update:BTCUSDT:6h": "1771912800000-0",
+          "price_update:DOGEUSDT:12h": "1776254400000-0",
+          "price_update:DOGEUSDT:15m": "1767752100000-0",
+          "price_update:DOGEUSDT:1d": "1784937600000-0",
+          "price_update:DOGEUSDT:1h": "1768294800000-0",
+          "price_update:DOGEUSDT:1m": "1767583260000-0",
+          "price_update:DOGEUSDT:1w": "1889136000000-0",
+          "price_update:DOGEUSDT:30m": "1767933000000-0",
+          "price_update:DOGEUSDT:4h": "1770465600000-0",
+          "price_update:DOGEUSDT:6h": "1771912800000-0",
+          "price_update:ETHUSDT:12h": "1776254400000-0",
+          "price_update:ETHUSDT:15m": "1767752100000-0",
+          "price_update:ETHUSDT:1d": "1784937600000-0",
+          "price_update:ETHUSDT:1h": "1768294800000-0",
+          "price_update:ETHUSDT:1m": "1767583260000-0",
+          "price_update:ETHUSDT:1w": "1889136000000-0",
+          "price_update:ETHUSDT:30m": "1767933000000-0",
+          "price_update:ETHUSDT:4h": "1770465600000-0",
+          "price_update:ETHUSDT:6h": "1771912800000-0",
+          "price_update:SOLUSDT:12h": "1776254400000-0",
+          "price_update:SOLUSDT:15m": "1767752100000-0",
+          "price_update:SOLUSDT:1d": "1784937600000-0",
+          "price_update:SOLUSDT:1h": "1768294800000-0",
+          "price_update:SOLUSDT:1m": "1767583260000-0",
+          "price_update:SOLUSDT:1w": "1889136000000-0",
+          "price_update:SOLUSDT:30m": "1767933000000-0",
+          "price_update:SOLUSDT:4h": "1770465600000-0",
+          "price_update:SOLUSDT:6h": "1771912800000-0",
+          "price_update:XRPUSDT:12h": "1776254400000-0",
+          "price_update:XRPUSDT:15m": "1767752100000-0",
+          "price_update:XRPUSDT:1d": "1784937600000-0",
+          "price_update:XRPUSDT:1h": "1768294800000-0",
+          "price_update:XRPUSDT:1m": "1767583260000-0",
+          "price_update:XRPUSDT:1w": "1889136000000-0",
+          "price_update:XRPUSDT:30m": "1767933000000-0",
+          "price_update:XRPUSDT:4h": "1770465600000-0",
+          "price_update:XRPUSDT:6h": "1771912800000-0"
+        },
+        "scenario": "retention_edge_54x200",
+        "total_publications": 10800,
+        "xadd_options": [
+          [
+            200,
+            true
+          ]
+        ]
+      },
+      "id": "retention_edge_54x200",
+      "measurement": {
+        "cpu_core_equivalent": 0.9707036159084586,
+        "process_cpu_seconds": 10.713811,
+        "process_peak_rss_bytes": 77873152,
+        "tasks_after": 0,
+        "tasks_before": 0,
+        "tasks_peak": null,
+        "threads_after": 1,
+        "threads_before": 1,
+        "tracemalloc_peak_bytes": 7879081,
+        "wall_seconds": 11.037159874977078
+      }
+    },
+    {
+      "evidence": {
+        "configured_max_active_zones": 8,
+        "correct": true,
+        "encoded_state_bytes_end": 78188,
+        "encoded_state_bytes_max": 78188,
+        "encoded_state_bytes_start": 679,
+        "internal_zone_count_max": 116,
+        "model_mix_recertification_required": true,
+        "note": "Existing SRDecisionPlugin artifact projection diagnostic only; not a final model-mix claim.",
+        "projected_artifact_zone_count_max": 2,
+        "scenario": "sr_reference_1000_steps",
+        "status": "REFERENCE_ONLY",
+        "steps": 1000
+      },
+      "id": "sr_reference_1000_steps",
+      "measurement": {
+        "cpu_core_equivalent": 0.9936510759647619,
+        "process_cpu_seconds": 65.17669599999999,
+        "process_peak_rss_bytes": 321880064,
+        "tasks_after": 0,
+        "tasks_before": 0,
+        "tasks_peak": null,
+        "threads_after": 1,
+        "threads_before": 1,
+        "tracemalloc_peak_bytes": 115216890,
+        "wall_seconds": 65.59314187499695
+      }
+    }
+  ],
+  "schema_version": "d10.resource_capacity.v1",
+  "source_base": "4fc0de62515112dc371e08a6cde503746c54f7f7",
+  "static_guards": {
+    "decision_create_task_sites": 2,
+    "no_executor_or_process_fanout": true,
+    "resource_ownership": "one lifespan Valkey client; reader and writer DB pools"
+  },
+  "status": "APPROVED",
+  "structural_boundedness": {
+    "correct": true,
+    "create_task_sites": 2,
+    "decision_runtime_has_no_executor_fanout": true,
+    "expected_long_lived_task_sites": 2,
+    "forbidden_matches": {},
+    "python_file_count": 38
+  },
+  "validation": {
+    "offline_core_gates": {
+      "cpu_core_equivalent_at_most_4": true,
+      "hard_rss_below_8_gib_all_scenarios": true,
+      "normal_rss_below_5_gib": true,
+      "scenario_correct": true,
+      "stress_rss_below_8_gib": true
+    },
+    "optional_local_infrastructure_probe": "LOCAL_INFRASTRUCTURE_RESOURCE_PROBE_BLOCKED_ENVIRONMENT"
+  },
+  "worktree": "/Users/kajukatli/projects/flipperAgent/.worktrees/decision-app-d0"
+}

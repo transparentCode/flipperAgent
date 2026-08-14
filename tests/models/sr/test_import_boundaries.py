@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import ast
-from pathlib import Path
 import sys
-
+from pathlib import Path
 
 _SR_IMPORT_PREFIX = "libs.models.sr"
 _YAML_IMPORT_PATHS = {
@@ -87,6 +86,7 @@ def _allowed_import(path: Path, node: ast.Import | ast.ImportFrom) -> bool:
         "relative_salience_rank_utility",
         "metrics.py",
     )
+    is_decision_adapter = relative.as_posix() == "adapters/decision_plugin.py"
     if isinstance(node, ast.Import):
         modules = [alias.name for alias in node.names]
     else:
@@ -101,9 +101,9 @@ def _allowed_import(path: Path, node: ast.Import | ast.ImportFrom) -> bool:
         root = module.split(".", 1)[0]
         if root in sys.stdlib_module_names:
             continue
-        if module == _SR_IMPORT_PREFIX or module.startswith(
-            f"{_SR_IMPORT_PREFIX}."
-        ):
+        if module == _SR_IMPORT_PREFIX or module.startswith(f"{_SR_IMPORT_PREFIX}."):
+            continue
+        if is_decision_adapter and module == "libs.contracts.decision":
             continue
         if is_baseline_integration and module in _BASELINE_EXTERNAL_IMPORTS:
             continue
@@ -117,9 +117,8 @@ def _allowed_import(path: Path, node: ast.Import | ast.ImportFrom) -> bool:
             continue
         if is_v24_metrics and module == "numpy":
             continue
-        if (
-            (module == "yaml" or module.startswith("yaml."))
-            and any(path.as_posix().endswith(allowed) for allowed in _YAML_IMPORT_PATHS)
+        if (module == "yaml" or module.startswith("yaml.")) and any(
+            path.as_posix().endswith(allowed) for allowed in _YAML_IMPORT_PATHS
         ):
             continue
         return False
@@ -167,7 +166,7 @@ def test_root_and_empty_leaf_package_imports_are_side_effect_free() -> None:
     subprocess.run(
         [sys.executable, "-c", package_code],
         check=True,
-        env={**dict(), "PYTHONPATH": "src"},
+        env={"PYTHONPATH": "src"},
     )
 
     leaf_code = (
@@ -180,5 +179,5 @@ def test_root_and_empty_leaf_package_imports_are_side_effect_free() -> None:
     subprocess.run(
         [sys.executable, "-c", leaf_code],
         check=True,
-        env={**dict(), "PYTHONPATH": "src"},
+        env={"PYTHONPATH": "src"},
     )

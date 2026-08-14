@@ -1,0 +1,175 @@
+app:
+  name: decision_app
+  status: D0_ARCHITECTURE_FREEZE
+  purpose: >-
+    Single runtime for causal model evaluation and lane-local authoritative
+    decision publication. It does not own canonical market data, risk, sizing,
+    stop-loss/take-profit, or execution.
+  target_path: src/apps/decision_app
+  implementation_status: not_created_in_D0
+
+contracts:
+  canonical_market_data_authority: ingestion
+  durable_history: Timescale
+  hot_transport: Valkey
+  replay_policy: reconstruct_from_durable_history
+  stale_decision_replay: false
+  model_infrastructure_access: false
+  dependency_scope: same_decision_lane_only
+  dependency_graph: static_acyclic
+  authoritative_results: zero_or_one_per_lane_and_market_as_of
+
+components:
+  - name: asset_runtime
+    role: >-
+      Owns asset lifecycle state, configured lanes, shared bounded stores, and
+      independent PriceRelay policy.
+    source_of_asset_availability: ingestion_manifest_lifecycle
+  - name: bar_store
+    role: >-
+      Shared bounded causal bar views keyed by lane/timeframe and fed by the
+      independent InputReadCursor.
+  - name: lane_readiness
+    role: >-
+      Verifies required canonical inputs and dependencies reach the causal
+      market cutoff before evaluation.
+  - name: price_relay
+    role: >-
+      Publishes risk-compatible price updates independently of model evaluation
+      and records independent PriceRelayProgress.
+  - name: feature_plan
+    role: >-
+      Computes demand- and operator-policy-approved shared features once per
+      relevant lane/as-of.
+  - name: data_resolver
+    role: >-
+      Resolves semantic data requests through cache, PIT storage, or one bounded
+      live acquisition phase and records timing/provenance.
+  - name: model_execution_plan
+    role: >-
+      Evaluates the explicit catalog in same-lane topological order, reuses
+      upstream artifacts, and replays the same causal chain for stateful re-warm.
+  - name: decision_policy
+    role: >-
+      Performs lane-local normalization, gating, weighting, and zero-or-one
+      authoritative result selection.
+  - name: publication
+    role: >-
+      Publishes deterministic authoritative results with idempotent retry and
+      conflict detection.
+
+progress:
+  input_read_cursor: >-
+    Canonical stream-reader position; advances as accepted observations enter the
+    shared BarStore and is never held by a model lane.
+  lane_commit_watermark: >-
+    Per-lane market_as_of committed only after successful publication or final
+    no-signal disposition and proposed-state commit.
+  price_relay_progress: >-
+    PriceRelay-specific handled position and continuity evidence, independent of
+    input and model-lane commit progress.
+  price_gap_policy: >-
+    Explicit gap evidence is required; replay/catch-up versus discard is deferred
+    to downstream risk compatibility proof.
+
+flows:
+  - name: live
+    steps:
+      - ingestion candle
+      - InputReadCursor and causal BarStore update
+      - independent PriceRelay publication
+      - lane readiness
+      - bounded feature/data resolution
+      - same-lane model execution
+      - DecisionPolicy
+      - authoritative signal publication
+      - affected LaneCommitWatermark commit
+  - name: startup
+    steps:
+      - resolve streams and static graph
+      - capture stream tails and DB cutoffs
+      - warm from Timescale through cutoffs
+      - causal stateful re-warm with publication suppressed
+      - verify cutoffs
+      - consume post-cutoff live events
+  - name: gap_recovery
+    steps:
+      - detect stream gap
+      - rebuild affected state from Timescale
+      - establish new input/lane progress positions
+      - resume input reading without stale decision replay
+
+timing:
+  canonical_time_type: timezone_aware_utc_instant
+  market_as_of: causal_market_cutoff
+  signal_time: market_as_of
+  decision_ready_at: runtime_completion_time_for_latency_only
+  external_fields:
+    - event_time
+    - available_at
+    - fetched_at
+  numeric_unit_inference: prohibited
+
+external_data:
+  semantic_concepts:
+    - OPEN_INTEREST
+    - BTC_DOMINANCE
+    - LIQUIDATION_HEATMAP
+  source_order_live:
+    - runtime_cache
+    - pit_database
+    - permitted_bounded_scraper
+  source_order_replay:
+    - pit_database
+  request_phase: one_bounded_phase_per_evaluation
+  equivalent_request_policy: single_flight
+  model_requirement_fields:
+    - required
+    - freshness
+    - alignment
+    - replay_support_required
+  resolved_capabilities:
+    - LIVE_AND_REPLAY
+    - LIVE_ONLY
+    - UNAVAILABLE
+  pit_rules:
+    represented_end_at_most_market_as_of: true
+    replay_available_at_at_most_knowledge_cutoff: true
+    fetched_at_is_not_historical_availability: true
+
+identity:
+  binding_config_fingerprint: sha256_canonical_binding_parameters_and_runtime
+  effective_lane_revision: sha256_canonical_lane_and_policy
+  decision_id: lane_id_plus_lane_revision_plus_market_as_of
+
+configuration:
+  future_global: configs/decision/global.yaml
+  future_asset_directory: configs/decision/assets/{ASSET}.yaml
+  graph_reload: process_restart_only
+  plugin_loading: explicit_catalog
+
+downstream:
+  risk: risk_app
+  execution: execution_app
+  price_relay_is_independent: true
+  risk_profile_identity:
+    passthrough: stable_configured_risk_key
+    composed: explicit_risk_profile_key
+    contributors: metadata_only
+
+resource_target:
+  host_memory_gib: 8
+  host_cpu_cores: 4
+  working_set_class: approximately_5_gib
+  cpu_policy: bounded_below_total_saturation
+  model_process_per_plugin: false
+  uncontrolled_thread_fanout: false
+
+documentation:
+  hld: README.md
+  lld: contracts.md
+  decisions: decisions.md
+  diagrams:
+    - overview.d2
+    - io.d2
+    - lifecycle_sequence.d2

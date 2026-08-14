@@ -9,7 +9,14 @@ from typing import Any
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
 from libs.common.stream_consumer import BaseStreamConsumer, ensure_consumer_group
-from libs.contracts.schemas import OrderExecutionRequest, TradeSignal, PriceUpdate, valkey_encode, valkey_decode
+from libs.common.timeframes import timeframe_to_seconds
+from libs.contracts.schemas import (
+    OrderExecutionRequest,
+    PriceUpdate,
+    TradeSignal,
+    valkey_decode,
+    valkey_encode,
+)
 from libs.risk.account_state import AccountState
 from libs.risk.engine import RiskEngine
 from libs.risk.mtf.aggregator import SignalAggregator
@@ -23,7 +30,9 @@ _tracer = None
 _extract_trace_context = None
 try:
     from opentelemetry import trace as _trace
+
     from libs.common.telemetry.propagation import extract_trace_context as _etc
+
     _tracer = _trace.get_tracer(__name__)
     _extract_trace_context = _etc
 except ImportError:
@@ -48,7 +57,9 @@ class RiskWorker(BaseStreamConsumer):
     ) -> None:
         # Use first signal stream as primary stream_key for base class
         super().__init__(
-            stream_key=f"signals:{asset}:{timeframes[0]}" if timeframes else f"signals:{asset}",
+            stream_key=f"signals:{asset}:{timeframes[0]}"
+            if timeframes
+            else f"signals:{asset}",
             group_name="risk_app_group",
             consumer_name=f"risk_worker_{asset}",
             batch_size=10,
@@ -69,7 +80,9 @@ class RiskWorker(BaseStreamConsumer):
         self.order_stream_key = f"orders:{asset}"
         self.price_group_name = "risk_app_price_group"
         self.order_stream_maxlen = int(runtime_config.get("order_stream_maxlen", 1000))
-        self.order_stream_approximate = bool(runtime_config.get("order_stream_approximate", True))
+        self.order_stream_approximate = bool(
+            runtime_config.get("order_stream_approximate", True)
+        )
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -90,8 +103,7 @@ class RiskWorker(BaseStreamConsumer):
     async def run(self) -> None:
         """Multi-stream batch consumer loop."""
         logger.info(
-            f"Starting risk worker for {self.asset} "
-            f"(timeframes={self.timeframes})",
+            f"Starting risk worker for {self.asset} (timeframes={self.timeframes})",
         )
 
         if not self.redis_client:
@@ -99,11 +111,14 @@ class RiskWorker(BaseStreamConsumer):
             return
 
         await self._drain_signal_pel()
+        await self._drain_price_pel()
 
         signal_streams = {key: ">" for key in self.signal_stream_keys}
         price_streams = {key: ">" for key in self.price_stream_keys}
         consecutive_failures = 0
-        circuit_breaker_threshold = self.risk_config.get("circuit_breaker_threshold", 50)
+        circuit_breaker_threshold = self.risk_config.get(
+            "circuit_breaker_threshold", 50
+        )
 
         while True:
             try:
@@ -142,7 +157,9 @@ class RiskWorker(BaseStreamConsumer):
                                             "messaging.system": "valkey",
                                             "messaging.destination": stream_name
                                             if isinstance(stream_name, str)
-                                            else stream_name.decode("utf-8", errors="replace"),
+                                            else stream_name.decode(
+                                                "utf-8", errors="replace"
+                                            ),
                                             "risk.asset": self.asset,
                                         },
                                     ):
@@ -150,10 +167,12 @@ class RiskWorker(BaseStreamConsumer):
                                 else:
                                     await self._process_price_update(payload)
                                 await self.redis_client.xack(
-                                    stream_name, self.price_group_name, message_id,
+                                    stream_name,
+                                    self.price_group_name,
+                                    message_id,
                                 )
-                            except Exception as e:
-                                logger.error(f"Failed to process price update: {e}", exc_info=True)
+                            except Exception:
+                                logger.exception("Failed to process price update")
 
                 if not response:
                     continue
@@ -169,7 +188,7 @@ class RiskWorker(BaseStreamConsumer):
                                 first_parent_ctx = _extract_trace_context(payload)
                             sig = self._decode_signal(payload)
                             signals.append(sig)
-                        except Exception as e:
+                        except Exception as e:  # noqa: BLE001
                             logger.error(f"Failed to decode signal: {e}")
                         ack_items.append((stream_name, message_id))
 
@@ -199,9 +218,12 @@ class RiskWorker(BaseStreamConsumer):
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except Exception:
                 consecutive_failures += 1
-                logger.error(f"Error in risk worker loop: {e} (consecutive failures: {consecutive_failures})", exc_info=True)
+                logger.exception(
+                    "Error in risk worker loop (consecutive failures: %s)",
+                    consecutive_failures,
+                )
                 if consecutive_failures >= circuit_breaker_threshold:
                     logger.critical(
                         f"Circuit breaker tripped for risk worker {self.asset}: "
@@ -217,8 +239,8 @@ class RiskWorker(BaseStreamConsumer):
     async def _drain_signal_pel(self) -> None:
         """Re-claim and reprocess any signal messages left in the PEL from a previous crash.
 
-        Price-update streams are not drained — price heartbeats are ephemeral and
-        replaying them after a crash offers no value.
+        Price updates have their own critical PEL drain immediately after this
+        signal drain; the two consumer groups remain intentionally separate.
         """
         for stream_key in self.signal_stream_keys:
             try:
@@ -241,8 +263,10 @@ class RiskWorker(BaseStreamConsumer):
                     for message_id, data in pending_messages:
                         try:
                             signals.append(self._decode_signal(data))
-                        except Exception as e:
-                            logger.error(f"Failed to decode PEL signal {message_id}: {e}")
+                        except Exception:
+                            logger.exception(
+                                "Failed to decode PEL signal %s", message_id
+                            )
                         ack_ids.append(message_id)
 
                     if signals:
@@ -257,6 +281,47 @@ class RiskWorker(BaseStreamConsumer):
             except Exception:
                 logger.warning(
                     f"PEL drain failed for {stream_key} — skipping, proceeding to live stream",
+                    exc_info=True,
+                )
+
+    async def _drain_price_pel(self) -> None:
+        """Reclaim price updates and acknowledge only successful processing."""
+        for stream_key in self.price_stream_keys:
+            try:
+                next_id = "0-0"
+                while True:
+                    result = await self.redis_client.xautoclaim(
+                        stream_key,
+                        self.price_group_name,
+                        self.consumer_name,
+                        min_idle_time=self.pel_reclaim_idle_ms,
+                        start_id=next_id,
+                        count=self.batch_size,
+                    )
+                    next_id, pending_messages, _ = result
+                    if not pending_messages:
+                        break
+                    for message_id, data in pending_messages:
+                        try:
+                            await self._process_price_update(data)
+                        except Exception:
+                            logger.exception(
+                                "Failed to process PEL price update %s",
+                                message_id,
+                            )
+                            continue
+                        await self.redis_client.xack(
+                            stream_key,
+                            self.price_group_name,
+                            message_id,
+                        )
+                    if next_id == "0-0":
+                        break
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.warning(
+                    f"Price PEL drain failed for {stream_key} — proceeding to live stream",
                     exc_info=True,
                 )
 
@@ -279,7 +344,9 @@ class RiskWorker(BaseStreamConsumer):
             await self.account.check_daily_reset(signals[0].timestamp)
 
         # Drop signals older than signal_timeout_seconds
-        timeout_secs = batch_risk_config.get("mtf", {}).get("signal_timeout_seconds", 300)
+        timeout_secs = batch_risk_config.get("mtf", {}).get(
+            "signal_timeout_seconds", 300
+        )
         if timeout_secs > 0:
             wall_now = time.time()
             fresh = [s for s in signals if wall_now - s.timestamp <= timeout_secs]
@@ -295,7 +362,8 @@ class RiskWorker(BaseStreamConsumer):
         # Determine conflict resolution strategy from config
         mtf_config = batch_risk_config.get("mtf", {})
         strategy = mtf_config.get(
-            "default_conflict_resolution", "conviction_weighted",
+            "default_conflict_resolution",
+            "conviction_weighted",
         )
         tf_weights = mtf_config.get("timeframe_weights", {})
 
@@ -316,13 +384,15 @@ class RiskWorker(BaseStreamConsumer):
                 model_name=signal.model_name,
             )
             assessment = self.risk_engine.assess(
-                signal, self.account, self.positions, effective_risk_config,
+                signal,
+                self.account,
+                self.positions,
+                effective_risk_config,
             )
 
             if not assessment.allowed:
                 logger.info(
-                    f"Signal REJECTED for {self.asset}: "
-                    f"{assessment.rejection_reason}",
+                    f"Signal REJECTED for {self.asset}: {assessment.rejection_reason}",
                 )
                 continue
 
@@ -381,17 +451,36 @@ class RiskWorker(BaseStreamConsumer):
     async def _process_price_update(self, payload: dict) -> None:
         """Handle a price heartbeat — check SL/TP on every bar regardless of signals."""
         price_update = valkey_decode(payload, PriceUpdate)
+        timeframe_seconds = timeframe_to_seconds(price_update.timeframe, default=0)
+        if timeframe_seconds <= 0:
+            raise ValueError(
+                f"invalid price-update timeframe: {price_update.timeframe}"
+            )
+        bar_open_seconds = price_update.timestamp / 1000.0
+        bar_close_seconds = bar_open_seconds + timeframe_seconds
         close = price_update.close
         high = price_update.high
         low = price_update.low
 
-        self.positions.update_prices(self.asset, close)
-        self.positions.update_trailing_stops(self.asset, close)
+        self.positions.update_prices(
+            self.asset,
+            close,
+            bar_close_seconds=bar_close_seconds,
+        )
+        self.positions.update_trailing_stops(
+            self.asset,
+            close,
+            bar_close_seconds=bar_close_seconds,
+        )
         await self.account.update_unrealized(self.positions.all_positions())
 
         # Multi-TP: check for partial exits first
         partial_exits = self.positions.check_sl_tp_hlc_multi(
-            self.asset, high, low, close,
+            self.asset,
+            high,
+            low,
+            close,
+            bar_close_seconds=bar_close_seconds,
         )
         for pos, close_reason, close_size in partial_exits:
             close_side = "sell" if pos.direction == 1 else "buy"
@@ -400,7 +489,7 @@ class RiskWorker(BaseStreamConsumer):
                 side=close_side,
                 size=close_size,
                 order_type="market",
-                timestamp=price_update.timestamp,
+                timestamp=bar_close_seconds,
                 requested_price=close,
                 idempotency_key=(
                     f"{close_reason}_{self.asset}_{int(pos.entry_timestamp)}_"
@@ -422,7 +511,7 @@ class RiskWorker(BaseStreamConsumer):
                     self.asset,
                     pos.entry_timestamp,
                     close_reason,
-                    price_update.timestamp,
+                    bar_close_seconds,
                 )
                 logger.info(
                     f"Queued {close_reason} exit for {self.asset}: "
@@ -430,14 +519,20 @@ class RiskWorker(BaseStreamConsumer):
                 )
 
         # Legacy single-TP path (positions where tp_levels is empty)
-        hit_positions = self.positions.check_sl_tp_hlc(self.asset, high, low, close)
+        hit_positions = self.positions.check_sl_tp_hlc(
+            self.asset,
+            high,
+            low,
+            close,
+            bar_close_seconds=bar_close_seconds,
+        )
         for pos in hit_positions:
             tp_hit = False
-            if pos.take_profit_price is not None:
-                if pos.direction == 1 and high >= pos.take_profit_price:
-                    tp_hit = True
-                elif pos.direction == -1 and low <= pos.take_profit_price:
-                    tp_hit = True
+            if pos.take_profit_price is not None and (
+                (pos.direction == 1 and high >= pos.take_profit_price)
+                or (pos.direction == -1 and low <= pos.take_profit_price)
+            ):
+                tp_hit = True
             close_reason = "tp" if tp_hit else "sl"
             close_side = "sell" if pos.direction == 1 else "buy"
             order = OrderExecutionRequest(
@@ -445,7 +540,7 @@ class RiskWorker(BaseStreamConsumer):
                 side=close_side,
                 size=pos.size,
                 order_type="market",
-                timestamp=price_update.timestamp,
+                timestamp=bar_close_seconds,
                 requested_price=close,
                 idempotency_key=(
                     f"{close_reason}_{self.asset}_{int(pos.entry_timestamp)}_"
@@ -469,7 +564,7 @@ class RiskWorker(BaseStreamConsumer):
                     self.asset,
                     pos.entry_timestamp,
                     close_reason,
-                    price_update.timestamp,
+                    bar_close_seconds,
                 )
                 logger.info(
                     f"Price heartbeat SL/TP triggered for {self.asset}: "

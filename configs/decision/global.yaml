@@ -1,0 +1,10 @@
+decision:
+  live_input:
+    batch_size: 10
+    block_ms: 1000
+  signal_publication:
+    stream_maxlen: 1000
+    stream_approximate: true
+  price_relay:
+    stream_maxlen: 200
+    stream_approximate: true

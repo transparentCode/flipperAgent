@@ -21,17 +21,17 @@ from libs.risk.position_tracker import PositionTracker
 
 
 def _make_signal(**overrides) -> TradeSignal:
-    defaults = dict(
-        asset="BTCUSDT",
-        timeframe="1h",
-        timestamp=time.time(),
-        direction=1,
-        conviction=0.8,
-        price=50_000.0,
-        idempotency_key="test_key",
-        model_name="test_model",
-        metadata={"ATR": 500.0},
-    )
+    defaults = {
+        "asset": "BTCUSDT",
+        "timeframe": "1h",
+        "timestamp": time.time(),
+        "direction": 1,
+        "conviction": 0.8,
+        "price": 50_000.0,
+        "idempotency_key": "test_key",
+        "model_name": "test_model",
+        "metadata": {"ATR": 500.0},
+    }
     defaults.update(overrides)
     return TradeSignal(**defaults)
 
@@ -198,10 +198,16 @@ class TestProcessSignalBatch:
                 "position_sizing": {
                     "default_strategy": "fixed_fractional",
                     "fixed_fractional": {"risk_per_trade_pct": 2.0},
-                    "volatility_scaled": {"target_risk_pct": 1.0, "atr_multiplier": 2.0},
+                    "volatility_scaled": {
+                        "target_risk_pct": 1.0,
+                        "atr_multiplier": 2.0,
+                    },
                 },
                 "stop_loss": {"default_method": "fixed_pct", "fixed_pct": {"pct": 2.0}},
-                "take_profit": {"default_method": "risk_reward", "risk_reward": {"ratio": 2.0}},
+                "take_profit": {
+                    "default_method": "risk_reward",
+                    "risk_reward": {"ratio": 2.0},
+                },
                 "mtf": {"default_conflict_resolution": "conviction_weighted"},
                 "model_profiles": {
                     "test_model": {
@@ -229,7 +235,10 @@ class TestProcessSignalBatch:
 
         assess_call = worker.risk_engine.assess.call_args
         effective_config = assess_call.args[3]
-        assert effective_config["position_sizing"]["default_strategy"] == "volatility_scaled"
+        assert (
+            effective_config["position_sizing"]["default_strategy"]
+            == "volatility_scaled"
+        )
 
     @pytest.mark.asyncio
     async def test_asset_model_override_is_passed_to_risk_engine(self) -> None:
@@ -280,7 +289,9 @@ class TestProcessSignalBatch:
         assert effective_config["take_profit"]["default_method"] == "multi_level"
 
     @pytest.mark.asyncio
-    async def test_batch_profile_can_override_mtf_strategy_when_model_is_uniform(self) -> None:
+    async def test_batch_profile_can_override_mtf_strategy_when_model_is_uniform(
+        self,
+    ) -> None:
         worker = _make_worker(
             risk_config={
                 "mtf": {
@@ -340,16 +351,18 @@ class TestProcessSignalBatch:
         worker.positions.positions["BTCUSDT"].append(pos)
 
         # Send a price update where low breaches stop_loss
-        price_payload = valkey_encode(PriceUpdate(
-            asset="BTCUSDT",
-            timeframe="1h",
-            timestamp=time.time(),
-            open=49_500.0,
-            high=49_800.0,
-            low=48_000.0,
-            close=48_500.0,
-            volume=100.0,
-        ))
+        price_payload = valkey_encode(
+            PriceUpdate(
+                asset="BTCUSDT",
+                timeframe="1h",
+                timestamp=int(time.time() * 1000),
+                open=49_500.0,
+                high=49_800.0,
+                low=48_000.0,
+                close=48_500.0,
+                volume=100.0,
+            )
+        )
 
         await worker._process_price_update(price_payload)
 
@@ -430,10 +443,18 @@ class TestProcessPriceUpdateMultiTP:
         )
         worker.positions.positions["BTCUSDT"].append(pos)
 
-        price_payload = valkey_encode(PriceUpdate(
-            asset="BTCUSDT", timeframe="1h", timestamp=time.time(),
-            open=100.5, high=102.0, low=100.0, close=101.5, volume=100.0,
-        ))
+        price_payload = valkey_encode(
+            PriceUpdate(
+                asset="BTCUSDT",
+                timeframe="1h",
+                timestamp=int(time.time() * 1000),
+                open=100.5,
+                high=102.0,
+                low=100.0,
+                close=101.5,
+                volume=100.0,
+            )
+        )
 
         await worker._process_price_update(price_payload)
 
@@ -475,10 +496,18 @@ class TestProcessPriceUpdateMultiTP:
         )
         worker.positions.positions["BTCUSDT"].append(pos)
 
-        price_payload = valkey_encode(PriceUpdate(
-            asset="BTCUSDT", timeframe="1h", timestamp=time.time(),
-            open=99.0, high=99.5, low=97.0, close=97.5, volume=100.0,
-        ))
+        price_payload = valkey_encode(
+            PriceUpdate(
+                asset="BTCUSDT",
+                timeframe="1h",
+                timestamp=int(time.time() * 1000),
+                open=99.0,
+                high=99.5,
+                low=97.0,
+                close=97.5,
+                volume=100.0,
+            )
+        )
 
         await worker._process_price_update(price_payload)
 
@@ -515,10 +544,18 @@ class TestProcessPriceUpdateMultiTP:
         worker.positions.positions["BTCUSDT"].append(pos)
 
         # Price doesn't hit any TP or SL
-        price_payload = valkey_encode(PriceUpdate(
-            asset="BTCUSDT", timeframe="1h", timestamp=time.time(),
-            open=100.0, high=101.0, low=99.0, close=100.5, volume=100.0,
-        ))
+        price_payload = valkey_encode(
+            PriceUpdate(
+                asset="BTCUSDT",
+                timeframe="1h",
+                timestamp=int(time.time() * 1000),
+                open=100.0,
+                high=101.0,
+                low=99.0,
+                close=100.5,
+                volume=100.0,
+            )
+        )
 
         await worker._process_price_update(price_payload)
 
@@ -552,10 +589,18 @@ class TestProcessPriceUpdateMultiTP:
         )
         worker.positions.positions["BTCUSDT"].append(pos)
 
-        price_payload = valkey_encode(PriceUpdate(
-            asset="BTCUSDT", timeframe="1h", timestamp=time.time(),
-            open=100.5, high=102.0, low=100.0, close=101.5, volume=100.0,
-        ))
+        price_payload = valkey_encode(
+            PriceUpdate(
+                asset="BTCUSDT",
+                timeframe="1h",
+                timestamp=int(time.time() * 1000),
+                open=100.5,
+                high=102.0,
+                low=100.0,
+                close=101.5,
+                volume=100.0,
+            )
+        )
 
         await worker._process_price_update(price_payload)
 
@@ -595,10 +640,18 @@ class TestProcessPriceUpdateMultiTP:
         )
         worker.positions.positions["BTCUSDT"].append(pos)
 
-        price_payload = valkey_encode(PriceUpdate(
-            asset="BTCUSDT", timeframe="1h", timestamp=time.time(),
-            open=100.0, high=101.0, low=99.5, close=103.0, volume=100.0,
-        ))
+        price_payload = valkey_encode(
+            PriceUpdate(
+                asset="BTCUSDT",
+                timeframe="1h",
+                timestamp=int(time.time() * 1000),
+                open=100.0,
+                high=101.0,
+                low=99.5,
+                close=103.0,
+                volume=100.0,
+            )
+        )
 
         await worker._process_price_update(price_payload)
 

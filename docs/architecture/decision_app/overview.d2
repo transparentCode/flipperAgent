@@ -1,0 +1,137 @@
+direction: right
+
+title: {
+  label: "decision_app D0 architecture freeze"
+  near: top-center
+}
+
+sources: {
+  label: "Authoritative inputs"
+  style.fill: "#E8F1FF"
+
+  ingestion: {
+    label: "ingestion\ncanonical OHLCV + lifecycle"
+    link: "../ingestion_app/README.md"
+    shape: package
+  }
+
+  scraper: {
+    label: "scraper_service\npermitted bounded live acquisition"
+    link: "../scraper_app/README.md"
+    shape: package
+  }
+
+  config: {
+    label: "future configs/decision\nstatic catalog + policy"
+    shape: document
+  }
+}
+
+decision_app: {
+  label: "decision_app\none runtime / in-process plugins"
+  style.fill: "#EEF7EA"
+  link: "./README.md"
+
+  asset_runtime: {
+    label: "AssetRuntime\nlifecycle + lane ownership"
+  }
+
+  input: {
+    label: "InputReadCursor\ncanonical reader position"
+  }
+
+  bar_store: {
+    label: "Causal BarStore\nshared bounded views"
+  }
+
+  readiness: {
+    label: "Lane readiness\ncausal cutoff checks"
+  }
+
+  price_relay: {
+    label: "PriceRelay\nindependent risk cadence"
+  }
+
+  price_progress: {
+    label: "PriceRelayProgress\nhandled position + gap evidence"
+  }
+
+  lane_commit: {
+    label: "LaneCommitWatermark\nper-lane commit position"
+  }
+
+  feature_plan: {
+    label: "FeaturePlan\npolicy-gated shared features"
+  }
+
+  data_resolver: {
+    label: "DataResolver\nsemantic requests + provenance"
+  }
+
+  model_plan: {
+    label: "Model execution plan\nstatic same-lane topology"
+  }
+
+  policy: {
+    label: "DecisionPolicy\nzero or one authoritative result"
+  }
+
+  publication: {
+    label: "Publication\ndeterministic identity / conflict gate"
+  }
+}
+
+storage: {
+  label: "Durable and hot state"
+  style.fill: "#F4EAFE"
+
+  timescale: {
+    label: "Timescale\ningestion.candles\ncausal history authority"
+    shape: cylinder
+  }
+
+  valkey: {
+    label: "Valkey\nprogress metadata / live transport"
+    shape: cylinder
+  }
+}
+
+downstream: {
+  label: "Downstream boundaries"
+  style.fill: "#FCE8E8"
+
+  risk: {
+    label: "risk_app\nprice monitoring + risk policy"
+    shape: package
+  }
+
+  execution: {
+    label: "execution_app\norders and fills"
+    shape: package
+  }
+}
+
+sources.ingestion -> decision_app.input: "closed canonical candles"
+sources.ingestion -> decision_app.asset_runtime: "manifest / lifecycle authority"
+sources.config -> decision_app.asset_runtime: "static asset catalog"
+sources.scraper -> decision_app.data_resolver: "bounded LIVE acquisition only"
+
+decision_app.input -> decision_app.asset_runtime: "asset-scoped event"
+decision_app.input -> decision_app.bar_store: "append accepted observation"
+decision_app.bar_store -> decision_app.readiness: "causal views / observed cutoffs"
+decision_app.bar_store -> decision_app.price_relay: "independent price input"
+decision_app.readiness -> decision_app.feature_plan: "ready cutoff"
+decision_app.readiness -> decision_app.data_resolver: "semantic data phase"
+decision_app.feature_plan -> decision_app.model_plan: "shared features"
+decision_app.data_resolver -> decision_app.model_plan: "DataSnapshot values"
+decision_app.model_plan -> decision_app.policy: "artifacts / decisions"
+decision_app.policy -> decision_app.publication: "authoritative result"
+decision_app.publication -> storage.valkey: "signals:*"
+decision_app.publication -> decision_app.lane_commit: "success/no-signal + state commit"
+decision_app.price_relay -> decision_app.price_progress: "handled observation"
+decision_app.price_progress -> storage.valkey: "price_update:*"
+storage.valkey -> downstream.risk: "signals + price updates"
+downstream.risk -> downstream.execution: "orders"
+storage.timescale -> decision_app.bar_store: "startup / gap reconstruction"
+decision_app.data_resolver -> storage.timescale: "PIT source"
+decision_app.price_relay -> downstream.risk: "independent price path"

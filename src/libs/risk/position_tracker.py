@@ -14,6 +14,14 @@ from libs.contracts.schemas import PositionState
 logger = bind_logger(__name__, system_component=SystemComponent.RISK_MANAGER)
 
 
+def _before_bar_entry(position: PositionState, bar_close_seconds: float | None) -> bool:
+    """Return whether a completed bar ended before this position existed."""
+
+    return (
+        bar_close_seconds is not None and position.entry_timestamp >= bar_close_seconds
+    )
+
+
 class PositionTracker:
     """Manages open positions per asset with SL/TP checking and trailing stop updates."""
 
@@ -86,40 +94,64 @@ class PositionTracker:
     # Price updates
     # ------------------------------------------------------------------
 
-    def update_prices(self, asset: str, current_price: float) -> None:
+    def update_prices(
+        self,
+        asset: str,
+        current_price: float,
+        *,
+        bar_close_seconds: float | None = None,
+    ) -> None:
         """Update current price and unrealized PnL for all positions of *asset*."""
         for pos in self.positions.get(asset, []):
+            if _before_bar_entry(pos, bar_close_seconds):
+                continue
             pos.current_price = current_price
-            pos.unrealized_pnl = pos.direction * (current_price - pos.entry_price) * pos.size
+            pos.unrealized_pnl = (
+                pos.direction * (current_price - pos.entry_price) * pos.size
+            )
 
-    def update_trailing_stops(self, asset: str, current_price: float) -> None:
+    def update_trailing_stops(
+        self,
+        asset: str,
+        current_price: float,
+        *,
+        bar_close_seconds: float | None = None,
+    ) -> None:
         """Move trailing stop closer to price when price moves favorably."""
         for pos in self.positions.get(asset, []):
+            if _before_bar_entry(pos, bar_close_seconds):
+                continue
             if pos.trailing_stop_distance is None or pos.stop_loss_price is None:
                 continue
 
             if pos.direction == 1:
                 # Long: stop trails upward
                 new_sl = current_price - pos.trailing_stop_distance
-                if new_sl > pos.stop_loss_price:
-                    pos.stop_loss_price = new_sl
+                pos.stop_loss_price = max(pos.stop_loss_price, new_sl)
             elif pos.direction == -1:
                 # Short: stop trails downward
                 new_sl = current_price + pos.trailing_stop_distance
-                if new_sl < pos.stop_loss_price:
-                    pos.stop_loss_price = new_sl
+                pos.stop_loss_price = min(pos.stop_loss_price, new_sl)
 
     # ------------------------------------------------------------------
     # SL / TP checks
     # ------------------------------------------------------------------
 
-    def check_sl_tp(self, asset: str, current_price: float) -> list[PositionState]:
+    def check_sl_tp(
+        self,
+        asset: str,
+        current_price: float,
+        *,
+        bar_close_seconds: float | None = None,
+    ) -> list[PositionState]:
         """Return positions that have hit their SL or TP at *current_price*.
 
         Skips multi-TP positions — those are handled by check_sl_tp_hlc_multi.
         """
         hit: list[PositionState] = []
         for pos in self.positions.get(asset, []):
+            if _before_bar_entry(pos, bar_close_seconds):
+                continue
             if pos.pending_close_reason:
                 continue
             if pos.tp_levels:
@@ -142,7 +174,13 @@ class PositionTracker:
         return hit
 
     def check_sl_tp_hlc(
-        self, asset: str, high: float, low: float, close: float,
+        self,
+        asset: str,
+        high: float,
+        low: float,
+        close: float,
+        *,
+        bar_close_seconds: float | None = None,
     ) -> list[PositionState]:
         """Return positions whose SL or TP was hit using intrabar high/low extremes.
 
@@ -152,6 +190,8 @@ class PositionTracker:
         """
         hit: list[PositionState] = []
         for pos in self.positions.get(asset, []):
+            if _before_bar_entry(pos, bar_close_seconds):
+                continue
             if pos.pending_close_reason:
                 continue
             if pos.tp_levels:
@@ -159,24 +199,30 @@ class PositionTracker:
             tp_hit = False
             sl_hit = False
 
-            if pos.take_profit_price is not None:
-                if pos.direction == 1 and high >= pos.take_profit_price:
-                    tp_hit = True
-                elif pos.direction == -1 and low <= pos.take_profit_price:
-                    tp_hit = True
+            if pos.take_profit_price is not None and (
+                (pos.direction == 1 and high >= pos.take_profit_price)
+                or (pos.direction == -1 and low <= pos.take_profit_price)
+            ):
+                tp_hit = True
 
-            if pos.stop_loss_price is not None:
-                if pos.direction == 1 and low <= pos.stop_loss_price:
-                    sl_hit = True
-                elif pos.direction == -1 and high >= pos.stop_loss_price:
-                    sl_hit = True
+            if pos.stop_loss_price is not None and (
+                (pos.direction == 1 and low <= pos.stop_loss_price)
+                or (pos.direction == -1 and high >= pos.stop_loss_price)
+            ):
+                sl_hit = True
 
             if tp_hit or sl_hit:
                 hit.append(pos)
         return hit
 
     def check_sl_tp_hlc_multi(
-        self, asset: str, high: float, low: float, close: float,
+        self,
+        asset: str,
+        high: float,
+        low: float,
+        close: float,
+        *,
+        bar_close_seconds: float | None = None,
     ) -> list[tuple[PositionState, str, float]]:
         """Check multi-TP positions for partial exits using intrabar H/L.
 
@@ -187,6 +233,8 @@ class PositionTracker:
         """
         results: list[tuple[PositionState, str, float]] = []
         for pos in self.positions.get(asset, []):
+            if _before_bar_entry(pos, bar_close_seconds):
+                continue
             if pos.pending_close_reason:
                 continue
             if not pos.tp_levels:
@@ -201,9 +249,9 @@ class PositionTracker:
                     continue
 
                 tp_hit = False
-                if pos.direction == 1 and high >= tp_price:
-                    tp_hit = True
-                elif pos.direction == -1 and low <= tp_price:
+                if (pos.direction == 1 and high >= tp_price) or (
+                    pos.direction == -1 and low <= tp_price
+                ):
                     tp_hit = True
 
                 if tp_hit:
@@ -216,9 +264,9 @@ class PositionTracker:
             # SL check only if no TP fired this bar
             if not tp_fired and pos.stop_loss_price is not None:
                 sl_hit = False
-                if pos.direction == 1 and low <= pos.stop_loss_price:
-                    sl_hit = True
-                elif pos.direction == -1 and high >= pos.stop_loss_price:
+                if (pos.direction == 1 and low <= pos.stop_loss_price) or (
+                    pos.direction == -1 and high >= pos.stop_loss_price
+                ):
                     sl_hit = True
 
                 if sl_hit:
@@ -228,7 +276,11 @@ class PositionTracker:
         return results
 
     def apply_partial_exit(
-        self, asset: str, pos_index: int, close_size: float, tp_level_index: int,
+        self,
+        asset: str,
+        pos_index: int,
+        close_size: float,
+        tp_level_index: int,
     ) -> None:
         """Reduce position size after a partial TP hit.
 
