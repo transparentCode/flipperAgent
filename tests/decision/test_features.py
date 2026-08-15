@@ -5,7 +5,12 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from apps.decision_app.features import (
+from apps.decision_app.domain.market_state import (
+    MarketSeriesKey,
+    TimeframeGrid,
+    compile_bar_store_capacities,
+)
+from apps.decision_app.features.planning import (
     FeatureCatalog,
     FeatureCatalogError,
     FeatureHistoryRequirement,
@@ -17,12 +22,7 @@ from apps.decision_app.features import (
     merge_bar_store_capacities,
     resolve_feature_history_requirements,
 )
-from apps.decision_app.market_state import (
-    MarketSeriesKey,
-    TimeframeGrid,
-    compile_bar_store_capacities,
-)
-from apps.decision_app.planner import (
+from apps.decision_app.planning.planner import (
     DecisionLaneSpec,
     ModelBindingSpec,
     compile_decision_plan,
@@ -102,7 +102,7 @@ def compile_lane(
     model_specs: list[ModelSpec],
     lane_spec: DecisionLaneSpec,
 ):
-    from apps.decision_app.catalog import PluginCatalog
+    from apps.decision_app.planning.catalog import PluginCatalog
 
     return compile_decision_plan(PluginCatalog(model_specs), [lane_spec]).lanes[0]
 
@@ -267,7 +267,7 @@ def test_feature_capacity_merges_with_base_by_maximum() -> None:
     lane_plan = compile_lane([model], lane(binding("a", "A")))
     decision_plan = compile_decision_plan(
         __import__(
-            "apps.decision_app.catalog", fromlist=["PluginCatalog"]
+            "apps.decision_app.planning.catalog", fromlist=["PluginCatalog"]
         ).PluginCatalog([model]),
         [lane(binding("a", "A"))],
     )
@@ -304,7 +304,7 @@ def test_feature_capacity_requires_complete_current_lane_plans() -> None:
     model = spec("A", requirements=(FeatureRequirement(name="VOLATILITY"),))
     decision_plan = compile_decision_plan(
         __import__(
-            "apps.decision_app.catalog", fromlist=["PluginCatalog"]
+            "apps.decision_app.planning.catalog", fromlist=["PluginCatalog"]
         ).PluginCatalog([model]),
         [lane(binding("a", "A"))],
     )
@@ -331,7 +331,7 @@ def test_feature_capacity_requires_complete_current_lane_plans() -> None:
 
     extra_lane = compile_decision_plan(
         __import__(
-            "apps.decision_app.catalog", fromlist=["PluginCatalog"]
+            "apps.decision_app.planning.catalog", fromlist=["PluginCatalog"]
         ).PluginCatalog([model]),
         [lane(binding("a", "A"), lane_id="ETHUSDT:1h")],
     ).lanes[0]
@@ -349,7 +349,7 @@ def test_feature_capacity_rejects_stale_binding_demand() -> None:
     model = spec("A", requirements=(FeatureRequirement(name="VOLATILITY"),))
     decision_plan = compile_decision_plan(
         __import__(
-            "apps.decision_app.catalog", fromlist=["PluginCatalog"]
+            "apps.decision_app.planning.catalog", fromlist=["PluginCatalog"]
         ).PluginCatalog([model]),
         [lane(binding("a", "A"))],
     )

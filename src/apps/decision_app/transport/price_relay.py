@@ -14,8 +14,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
-from apps.decision_app.contracts import PriceRelayPlan, PriceRelayProgress
-from apps.decision_app.market_state import (
+from apps.decision_app.domain.contracts import PriceRelayPlan, PriceRelayProgress
+from apps.decision_app.domain.market_state import (
     MarketSeriesKey,
     TimeframeGrid,
     validate_canonical_bar_geometry,

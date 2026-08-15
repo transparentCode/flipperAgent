@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import pytest
 
-from apps.decision_app.market_state import MarketSeriesKey, TimeframeGrid
+from apps.decision_app.domain.market_state import MarketSeriesKey, TimeframeGrid
 from apps.decision_app.settings import (
     CanonicalInstrument,
     DecisionAssetSettings,

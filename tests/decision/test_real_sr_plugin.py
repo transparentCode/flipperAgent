@@ -8,48 +8,48 @@ from pathlib import Path
 
 import pytest
 
-from apps.decision_app.catalog import PluginCatalog
-from apps.decision_app.data import (
+from apps.decision_app.data.resolver import (
     DataPolicy,
     DataResolver,
     DataSourceCatalog,
     compile_data_plan,
 )
-from apps.decision_app.feature_engine import FeatureEngine, SharedFeatureContext
-from apps.decision_app.features import (
-    FeatureCatalog,
-    FeaturePolicy,
-    compile_feature_plan,
-    merge_bar_store_capacities,
-)
-from apps.decision_app.market_state import (
+from apps.decision_app.domain.market_state import (
     BarStore,
     TimeframeGrid,
     compile_bar_store_capacities,
 )
-from apps.decision_app.model_runtime import (
-    ModelRuntime,
-    RewarmError,
-    RewarmStep,
-    StateTransactionError,
-)
-from apps.decision_app.planner import (
-    DecisionLaneSpec,
-    ModelBindingSpec,
-    compile_decision_plan,
-)
-from apps.decision_app.readiness import compile_lane_market_requirements
-from apps.decision_app.real_features import (
+from apps.decision_app.domain.view import DecisionViewBuilder
+from apps.decision_app.features.definitions import (
     SR_ATR_DEFINITION,
     SR_ATR_HISTORY_BARS,
     SR_ATR_PERIOD,
     calculate_sr_atr,
 )
-from apps.decision_app.runtime_plugins import (
+from apps.decision_app.features.engine import FeatureEngine, SharedFeatureContext
+from apps.decision_app.features.planning import (
+    FeatureCatalog,
+    FeaturePolicy,
+    compile_feature_plan,
+    merge_bar_store_capacities,
+)
+from apps.decision_app.planning.catalog import PluginCatalog
+from apps.decision_app.planning.planner import (
+    DecisionLaneSpec,
+    ModelBindingSpec,
+    compile_decision_plan,
+)
+from apps.decision_app.planning.readiness import compile_lane_market_requirements
+from apps.decision_app.runtime.models import (
+    ModelRuntime,
+    RewarmError,
+    RewarmStep,
+    StateTransactionError,
+)
+from apps.decision_app.runtime.plugins import (
     RuntimePluginCatalog,
     RuntimePluginDefinition,
 )
-from apps.decision_app.view import DecisionViewBuilder
 from libs.contracts.decision import CausalBarView, DecisionContext, FeatureSnapshot
 from libs.models.sr.adapters.decision_plugin import (
     SR_ARTIFACT_TYPE,
@@ -146,7 +146,7 @@ def _lane_and_runtime(
         FeaturePolicy(name="operator", version="1", allowed_features=("ATR",)),
         GRID,
     )
-    from apps.decision_app.features import compile_feature_bar_store_capacities
+    from apps.decision_app.features.planning import compile_feature_bar_store_capacities
 
     feature_capacities = compile_feature_bar_store_capacities(
         plan,

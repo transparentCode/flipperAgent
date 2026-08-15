@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import pytest
 
-from apps.decision_app.state import LaneExecutionIdentity
+from apps.decision_app.domain.state import LaneExecutionIdentity
 from apps.decision_app.storage.checkpoints import (
     CheckpointCorruptionError,
     CheckpointSaveResult,

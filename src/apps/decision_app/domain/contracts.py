@@ -205,7 +205,7 @@ class DecisionPolicyResult:
                 raise ValueError(
                     "base_lane_revision must match effective_lane_revision"
                 )
-            from apps.decision_app.identity import (
+            from apps.decision_app.domain.identity import (
                 compute_decision_execution_revision,
                 decision_id,
             )

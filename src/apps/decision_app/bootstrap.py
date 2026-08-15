@@ -14,23 +14,23 @@ from apps.decision_app.composition import (
     DecisionComposition,
     build_production_composition,
 )
-from apps.decision_app.lifecycle import (
+from apps.decision_app.runtime.lifecycle import (
     LifecycleNotificationReader,
     capture_lifecycle_tail,
 )
-from apps.decision_app.live_runtime import LiveDecisionRuntime
-from apps.decision_app.price_relay import PriceRelay, plan_series_key
-from apps.decision_app.service import (
+from apps.decision_app.runtime.live import LiveDecisionRuntime
+from apps.decision_app.runtime.service import (
     DecisionRuntimeGeneration,
     DecisionService,
     GenerationFactory,
 )
+from apps.decision_app.runtime.startup import DecisionStartupCoordinator
 from apps.decision_app.settings import DecisionConfig, load_decision_config
-from apps.decision_app.signal_transport import ValkeySignalPublisher
-from apps.decision_app.startup import DecisionStartupCoordinator
 from apps.decision_app.storage.bootstrap import ensure_checkpoint_schema
 from apps.decision_app.storage.checkpoints import CheckpointRepository
 from apps.decision_app.storage.market_history import CanonicalMarketHistoryRepository
+from apps.decision_app.transport.price_relay import PriceRelay, plan_series_key
+from apps.decision_app.transport.signals import ValkeySignalPublisher
 from libs.common.asset_manifest import AssetManifestStore
 from libs.common.config import ConfigManager
 from libs.common.connections import create_valkey_client, init_db_pools

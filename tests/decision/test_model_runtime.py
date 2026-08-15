@@ -7,8 +7,7 @@ from decimal import Decimal
 
 import pytest
 
-from apps.decision_app.catalog import PluginCatalog
-from apps.decision_app.data import (
+from apps.decision_app.data.resolver import (
     ConceptDataPolicy,
     DataPolicy,
     DataResolver,
@@ -16,34 +15,35 @@ from apps.decision_app.data import (
     DataSourceDefinition,
     compile_data_plan,
 )
-from apps.decision_app.feature_engine import FeatureEngine
-from apps.decision_app.features import (
+from apps.decision_app.domain.market_state import (
+    BarStore,
+    TimeframeGrid,
+    compile_bar_store_capacities,
+)
+from apps.decision_app.domain.view import DecisionViewBuilder
+from apps.decision_app.features.engine import FeatureEngine
+from apps.decision_app.features.planning import (
     FeatureCatalog,
     FeaturePolicy,
     SharedFeatureDefinition,
     compile_feature_plan,
 )
-from apps.decision_app.market_state import (
-    BarStore,
-    TimeframeGrid,
-    compile_bar_store_capacities,
-)
-from apps.decision_app.model_runtime import (
-    BindingExecutionResult,
-    ModelRuntime,
-    PreparedLaneExecution,
-)
-from apps.decision_app.planner import (
+from apps.decision_app.planning.catalog import PluginCatalog
+from apps.decision_app.planning.planner import (
     DecisionLaneSpec,
     ModelBindingSpec,
     compile_decision_plan,
 )
-from apps.decision_app.readiness import compile_lane_market_requirements
-from apps.decision_app.runtime_plugins import (
+from apps.decision_app.planning.readiness import compile_lane_market_requirements
+from apps.decision_app.runtime.models import (
+    BindingExecutionResult,
+    ModelRuntime,
+    PreparedLaneExecution,
+)
+from apps.decision_app.runtime.plugins import (
     RuntimePluginCatalog,
     RuntimePluginDefinition,
 )
-from apps.decision_app.view import DecisionViewBuilder
 from libs.contracts.decision import (
     CausalBarView,
     DataRequirement,
@@ -215,7 +215,7 @@ def make_bundle(
         GRID,
     )
     feature_capacities = {}
-    from apps.decision_app.features import (
+    from apps.decision_app.features.planning import (
         compile_feature_bar_store_capacities,
         merge_bar_store_capacities,
     )

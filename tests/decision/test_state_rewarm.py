@@ -5,12 +5,12 @@ from datetime import timedelta
 
 import pytest
 
-from apps.decision_app.model_runtime import (
+from apps.decision_app.planning.planner import ModelBindingSpec
+from apps.decision_app.runtime.models import (
     RewarmError,
     RewarmStep,
     StateTransactionError,
 )
-from apps.decision_app.planner import ModelBindingSpec
 from libs.contracts.decision import (
     DataRequirement,
     DataSnapshot,

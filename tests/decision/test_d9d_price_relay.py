@@ -7,15 +7,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from apps.decision_app.market_state import MarketSeriesKey, TimeframeGrid
-from apps.decision_app.price_relay import (
-    PriceRelay,
-    PriceRelayPublicationAck,
-    PriceRelayPublisher,
-    build_price_update,
-    compile_price_relay_plans,
-    price_relay_entry_id,
-)
+from apps.decision_app.domain.market_state import MarketSeriesKey, TimeframeGrid
 from apps.decision_app.settings import (
     CanonicalInstrument,
     DecisionAssetSettings,
@@ -25,6 +17,14 @@ from apps.decision_app.settings import (
 )
 from apps.decision_app.storage.market_history import (
     InMemoryCanonicalMarketHistoryRepository,
+)
+from apps.decision_app.transport.price_relay import (
+    PriceRelay,
+    PriceRelayPublicationAck,
+    PriceRelayPublisher,
+    build_price_update,
+    compile_price_relay_plans,
+    price_relay_entry_id,
 )
 from libs.contracts.decision import CausalBarView
 from libs.contracts.schemas import PriceUpdate, valkey_encode

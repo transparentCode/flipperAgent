@@ -14,9 +14,9 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any, Literal
 
-from apps.decision_app.contracts import ResolvedModelBinding
-from apps.decision_app.identity import sha256_fingerprint
-from apps.decision_app.planner import ResolvedLanePlan
+from apps.decision_app.domain.contracts import ResolvedModelBinding
+from apps.decision_app.domain.identity import sha256_fingerprint
+from apps.decision_app.planning.planner import ResolvedLanePlan
 from libs.contracts.decision import (
     DataMode,
     DataRequest,

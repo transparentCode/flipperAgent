@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 
-from apps.decision_app.contracts import ResolvedModelBinding
+from apps.decision_app.domain.contracts import ResolvedModelBinding
 from libs.contracts.decision import DecisionModelPlugin, FrozenMapping
 
 RuntimePluginFactory = Callable[[Mapping[str, object]], DecisionModelPlugin]

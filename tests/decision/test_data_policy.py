@@ -5,8 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from apps.decision_app.catalog import PluginCatalog
-from apps.decision_app.data import (
+from apps.decision_app.data.resolver import (
     ConceptDataPolicy,
     DataPlanError,
     DataPolicy,
@@ -19,7 +18,8 @@ from apps.decision_app.data import (
     materialize_data_request,
     validate_data_plan_against_lane,
 )
-from apps.decision_app.planner import (
+from apps.decision_app.planning.catalog import PluginCatalog
+from apps.decision_app.planning.planner import (
     DecisionLaneSpec,
     ModelBindingSpec,
     compile_decision_plan,

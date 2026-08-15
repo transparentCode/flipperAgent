@@ -5,13 +5,13 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from apps.decision_app.identity import (
+from apps.decision_app.domain.identity import (
     compute_decision_execution_revision,
     decision_id,
 )
-from apps.decision_app.model_runtime import BindingExecutionResult
-from apps.decision_app.planner import ModelBindingSpec
-from apps.decision_app.policy import (
+from apps.decision_app.planning.planner import ModelBindingSpec
+from apps.decision_app.runtime.models import BindingExecutionResult
+from apps.decision_app.runtime.policy import (
     PASSTHROUGH_V1,
     PRIORITY_V1,
     DecisionPolicy,

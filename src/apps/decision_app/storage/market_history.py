@@ -9,12 +9,12 @@ from decimal import Decimal, InvalidOperation
 from itertools import pairwise
 from typing import Any
 
-from apps.decision_app.ingestion_input import validate_canonical_provenance
-from apps.decision_app.market_state import (
+from apps.decision_app.domain.market_state import (
     MarketSeriesKey,
     TimeframeGrid,
     validate_canonical_bar_geometry,
 )
+from apps.decision_app.transport.ingestion import validate_canonical_provenance
 from libs.contracts.decision import CausalBarView, require_utc
 
 

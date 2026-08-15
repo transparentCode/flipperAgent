@@ -11,9 +11,12 @@ from apps.decision_app.api.app import create_app
 from apps.decision_app.api.routes import health_live, snapshot_payload
 from apps.decision_app.bootstrap import build_generation_factory, create_application
 from apps.decision_app.composition import build_production_composition
-from apps.decision_app.lifecycle import LifecycleReadResult
-from apps.decision_app.live_runtime import DecisionPollResult
-from apps.decision_app.service import DecisionRuntimeGeneration, DecisionServiceSnapshot
+from apps.decision_app.runtime.lifecycle import LifecycleReadResult
+from apps.decision_app.runtime.live import DecisionPollResult
+from apps.decision_app.runtime.service import (
+    DecisionRuntimeGeneration,
+    DecisionServiceSnapshot,
+)
 from apps.decision_app.settings import (
     DecisionConfig,
     DecisionGlobalSettings,

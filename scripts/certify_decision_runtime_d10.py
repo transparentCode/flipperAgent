@@ -36,20 +36,15 @@ SOURCE_ROOT = REPOSITORY_ROOT / "src"
 if str(SOURCE_ROOT) not in sys.path:
     sys.path.insert(0, str(SOURCE_ROOT))
 
-from apps.decision_app.catalog import PluginCatalog
-from apps.decision_app.data import DataPolicy, DataResolver, DataSourceCatalog
-from apps.decision_app.features import FeatureCatalog, FeaturePolicy
-from apps.decision_app.ingestion_input import canonical_ingestion_stream_key
-from apps.decision_app.lifecycle import LifecycleReadResult
-from apps.decision_app.live_runtime import LiveDecisionRuntime
-from apps.decision_app.market_state import MarketSeriesKey, TimeframeGrid
-from apps.decision_app.price_relay import (
-    PriceRelay,
-    compile_price_relay_plans,
-    price_relay_entry_id,
-)
-from apps.decision_app.runtime_plugins import RuntimePluginCatalog
-from apps.decision_app.service import DecisionRuntimeGeneration, DecisionService
+from apps.decision_app.data.resolver import DataPolicy, DataResolver, DataSourceCatalog
+from apps.decision_app.domain.market_state import MarketSeriesKey, TimeframeGrid
+from apps.decision_app.features.planning import FeatureCatalog, FeaturePolicy
+from apps.decision_app.planning.catalog import PluginCatalog
+from apps.decision_app.runtime.lifecycle import LifecycleReadResult
+from apps.decision_app.runtime.live import LiveDecisionRuntime
+from apps.decision_app.runtime.plugins import RuntimePluginCatalog
+from apps.decision_app.runtime.service import DecisionRuntimeGeneration, DecisionService
+from apps.decision_app.runtime.startup import DecisionStartupCoordinator
 from apps.decision_app.settings import (
     CanonicalInstrument,
     DecisionAssetSettings,
@@ -60,8 +55,13 @@ from apps.decision_app.settings import (
     PriceRelaySettings,
     SignalPublicationSettings,
 )
-from apps.decision_app.startup import DecisionStartupCoordinator
 from apps.decision_app.storage.market_history import CanonicalMarketRecord
+from apps.decision_app.transport.ingestion import canonical_ingestion_stream_key
+from apps.decision_app.transport.price_relay import (
+    PriceRelay,
+    compile_price_relay_plans,
+    price_relay_entry_id,
+)
 from libs.common.config import ConfigManager
 from libs.common.constants import CONFIG_FILE_MODELS
 from libs.common.discovery import discover_asset_timeframes

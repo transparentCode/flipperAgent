@@ -8,13 +8,21 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = ROOT / "src" / "apps" / "decision_app"
 GENERIC_MODULES = {
-    "data.py",
-    "live_runtime.py",
-    "model_runtime.py",
-    "planner.py",
-    "service.py",
-    "startup.py",
+    "data/resolver.py",
+    "runtime/live.py",
+    "runtime/models.py",
+    "planning/planner.py",
+    "runtime/service.py",
+    "runtime/startup.py",
 }
+SIGNATURE_BOUNDARY_MODULES = {
+    "runtime/lifecycle.py",
+    "transport/live_input.py",
+    "runtime/service.py",
+    "transport/signals.py",
+    "runtime/startup.py",
+}
+PROTECTED_MODULES = GENERIC_MODULES | SIGNATURE_BOUNDARY_MODULES
 LEGACY_RUNTIME_PREFIXES = (
     "apps.ingestion_app",
     "apps.signal_app",
@@ -33,6 +41,10 @@ FORBIDDEN_STREAM_METHODS = ("xreadgroup", "xack", "xautoclaim", "xgroup")
 
 def _source_files() -> tuple[Path, ...]:
     return tuple(sorted(SOURCE_ROOT.rglob("*.py")))
+
+
+def _source_relative_path(path: Path) -> str:
+    return path.relative_to(SOURCE_ROOT).as_posix()
 
 
 def _parsed_sources() -> tuple[tuple[Path, str, ast.Module], ...]:
@@ -62,10 +74,19 @@ def test_decision_app_does_not_import_legacy_runtime_apps() -> None:
     assert offenders == []
 
 
+def test_all_architecture_guard_targets_exist() -> None:
+    missing = sorted(
+        relative_path
+        for relative_path in PROTECTED_MODULES
+        if not (SOURCE_ROOT / relative_path).is_file()
+    )
+    assert missing == []
+
+
 def test_generic_decision_modules_do_not_import_model_implementation_packages() -> None:
     offenders: list[str] = []
     for path, _, tree in _parsed_sources():
-        if path.name not in GENERIC_MODULES:
+        if _source_relative_path(path) not in GENERIC_MODULES:
             continue
         for name in _import_names(tree):
             if name.startswith("libs.models"):
@@ -112,7 +133,7 @@ def test_plugin_loading_is_explicit_not_discovered_dynamically() -> None:
 def test_generic_orchestration_has_no_model_specific_branches() -> None:
     offenders: list[str] = []
     for path, _, tree in _parsed_sources():
-        if path.name not in GENERIC_MODULES:
+        if _source_relative_path(path) not in GENERIC_MODULES:
             continue
         for node in ast.walk(tree):
             if not isinstance(node, ast.If):
@@ -126,21 +147,12 @@ def test_generic_orchestration_has_no_model_specific_branches() -> None:
 def test_generation_and_transport_boundaries_do_not_guess_signatures() -> None:
     offenders: list[str] = []
     for path, text, _ in _parsed_sources():
+        relative_path = _source_relative_path(path)
         if "inspect.signature" in text or "_maybe_await" in text:
             offenders.append(str(path))
-        if path.name == "service.py" and "asyncio.wait_for" in text:
+        if relative_path == "runtime/service.py" and "asyncio.wait_for" in text:
             offenders.append(f"{path}: periodic wake fallback")
-        if (
-            path.name
-            in {
-                "lifecycle.py",
-                "live_input.py",
-                "service.py",
-                "signal_transport.py",
-                "startup.py",
-            }
-            and "except TypeError" in text
-        ):
+        if relative_path in SIGNATURE_BOUNDARY_MODULES and "except TypeError" in text:
             offenders.append(f"{path}: TypeError compatibility fallback")
     assert offenders == []
 

@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from apps.decision_app.catalog import PluginCatalog
-from apps.decision_app.planner import (
+from apps.decision_app.planning.catalog import PluginCatalog
+from apps.decision_app.planning.planner import (
     DecisionLaneSpec,
     ModelBindingSpec,
     compile_decision_plan,
 )
-from apps.decision_app.runtime_plugins import (
+from apps.decision_app.runtime.plugins import (
     RuntimePluginCatalog,
     RuntimePluginDefinition,
 )

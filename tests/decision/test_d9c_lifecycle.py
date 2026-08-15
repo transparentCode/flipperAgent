@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from apps.decision_app.lifecycle import (
+from apps.decision_app.runtime.lifecycle import (
     LifecycleNotificationReader,
     capture_lifecycle_tail,
 )

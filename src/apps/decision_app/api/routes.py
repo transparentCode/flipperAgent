@@ -8,7 +8,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 
 from apps.decision_app.api.dependencies import get_decision_service
-from apps.decision_app.service import DecisionService, DecisionServiceSnapshot
+from apps.decision_app.runtime.service import DecisionService, DecisionServiceSnapshot
 
 router = APIRouter()
 

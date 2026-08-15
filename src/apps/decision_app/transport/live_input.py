@@ -12,22 +12,22 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal
 
-from apps.decision_app.contracts import InputReadCursor
-from apps.decision_app.ingestion_input import (
-    CanonicalIngestionEventError,
-    CanonicalMarketEvent,
-    canonical_ingestion_stream_key,
-    parse_canonical_ingestion_event,
-)
-from apps.decision_app.market_state import (
+from apps.decision_app.domain.contracts import InputReadCursor
+from apps.decision_app.domain.market_state import (
     BarConflictError,
     BarOrderError,
     BarStore,
     MarketSeriesKey,
     TimeframeGrid,
 )
-from apps.decision_app.startup import SeriesStartupPosition
+from apps.decision_app.runtime.startup import SeriesStartupPosition
 from apps.decision_app.storage.market_history import CanonicalMarketRecord
+from apps.decision_app.transport.ingestion import (
+    CanonicalIngestionEventError,
+    CanonicalMarketEvent,
+    canonical_ingestion_stream_key,
+    parse_canonical_ingestion_event,
+)
 from libs.contracts.decision import CausalBarView, FrozenMapping, require_utc
 
 InputDisposition = Literal[

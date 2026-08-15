@@ -13,13 +13,13 @@ from math import isfinite
 from types import MappingProxyType
 from typing import Literal
 
-from apps.decision_app.contracts import DecisionPolicyResult
-from apps.decision_app.identity import (
+from apps.decision_app.domain.contracts import DecisionPolicyResult
+from apps.decision_app.domain.identity import (
     compute_decision_execution_revision,
     decision_id,
 )
-from apps.decision_app.model_runtime import PreparedLaneExecution
-from apps.decision_app.planner import ResolvedLanePlan
+from apps.decision_app.planning.planner import ResolvedLanePlan
+from apps.decision_app.runtime.models import PreparedLaneExecution
 from libs.contracts.decision import ModelDecision, require_utc
 
 PolicyStatus = Literal["SIGNAL", "NO_SIGNAL", "BLOCKED", "INVALID"]

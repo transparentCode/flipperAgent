@@ -5,25 +5,25 @@ from decimal import Decimal
 
 import pytest
 
-from apps.decision_app.catalog import PluginCatalog
-from apps.decision_app.contracts import InputReadCursor, LaneCommitWatermark
-from apps.decision_app.market_state import (
+from apps.decision_app.domain.contracts import InputReadCursor, LaneCommitWatermark
+from apps.decision_app.domain.market_state import (
     BarStore,
     MarketSeriesKey,
     TimeframeGrid,
     compile_bar_store_capacities,
 )
-from apps.decision_app.planner import (
-    DecisionLaneSpec,
-    ModelBindingSpec,
-    compile_decision_plan,
-)
-from apps.decision_app.readiness import compile_lane_market_requirements
-from apps.decision_app.view import (
+from apps.decision_app.domain.view import (
     DecisionViewBuilder,
     LaneMarketView,
     MarketViewNotReadyError,
 )
+from apps.decision_app.planning.catalog import PluginCatalog
+from apps.decision_app.planning.planner import (
+    DecisionLaneSpec,
+    ModelBindingSpec,
+    compile_decision_plan,
+)
+from apps.decision_app.planning.readiness import compile_lane_market_requirements
 from libs.contracts.decision import CausalBarView, ModelSpec, WarmupRequirements
 
 BASE = datetime(2026, 1, 5, tzinfo=UTC)

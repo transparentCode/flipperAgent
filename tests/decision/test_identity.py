@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from apps.decision_app.identity import (
+from apps.decision_app.domain.identity import (
     binding_config_fingerprint,
     decision_id,
     effective_lane_revision,

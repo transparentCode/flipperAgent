@@ -6,16 +6,20 @@ from decimal import Decimal
 
 import pytest
 
-from apps.decision_app.ingestion_input import canonical_ingestion_stream_key
-from apps.decision_app.live_input import (
+from apps.decision_app.domain.market_state import (
+    BarStore,
+    MarketSeriesKey,
+    TimeframeGrid,
+)
+from apps.decision_app.runtime.startup import SeriesStartupPosition
+from apps.decision_app.storage.market_history import (
+    InMemoryCanonicalMarketHistoryRepository,
+)
+from apps.decision_app.transport.ingestion import canonical_ingestion_stream_key
+from apps.decision_app.transport.live_input import (
     DirectCursorInput,
     compare_stream_ids,
     normalize_stream_id,
-)
-from apps.decision_app.market_state import BarStore, MarketSeriesKey, TimeframeGrid
-from apps.decision_app.startup import SeriesStartupPosition
-from apps.decision_app.storage.market_history import (
-    InMemoryCanonicalMarketHistoryRepository,
 )
 from libs.contracts.decision import CausalBarView
 

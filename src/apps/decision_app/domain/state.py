@@ -12,7 +12,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Literal
 
-from apps.decision_app.contracts import CommitDisposition
+from apps.decision_app.domain.contracts import CommitDisposition
 from libs.contracts.decision import (
     FrozenMapping,
     ModelState,

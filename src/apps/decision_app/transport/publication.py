@@ -7,14 +7,14 @@ from decimal import Decimal
 from math import isfinite
 from typing import Literal
 
-from apps.decision_app.identity import (
+from apps.decision_app.domain.identity import (
     compute_decision_execution_revision,
     sha256_fingerprint,
 )
-from apps.decision_app.model_runtime import PreparedLaneExecution
-from apps.decision_app.planner import ResolvedLanePlan
-from apps.decision_app.policy import DecisionPolicyEvaluation
-from apps.decision_app.view import LaneMarketView
+from apps.decision_app.domain.view import LaneMarketView
+from apps.decision_app.planning.planner import ResolvedLanePlan
+from apps.decision_app.runtime.models import PreparedLaneExecution
+from apps.decision_app.runtime.policy import DecisionPolicyEvaluation
 from libs.contracts.signal import TradeSignal
 
 PublicationOutcome = Literal["PUBLISHED", "ALREADY_IDENTICAL", "CONFLICT", "FAILED"]

@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from starlette.types import Lifespan
 
 from apps.decision_app.api.routes import router
-from apps.decision_app.service import DecisionService
+from apps.decision_app.runtime.service import DecisionService
 
 
 def create_app(

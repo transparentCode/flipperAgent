@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from apps.decision_app.catalog import PluginCatalog
-from apps.decision_app.planner import (
+from apps.decision_app.planning.catalog import PluginCatalog
+from apps.decision_app.planning.planner import (
     DecisionLaneSpec,
     ModelBindingSpec,
     PlannerError,
@@ -760,8 +760,8 @@ def test_planner_has_no_infrastructure_or_model_execution_dependency() -> None:
     source = "\n".join(
         Path(path).read_text()
         for path in (
-            Path("src/apps/decision_app/catalog.py"),
-            Path("src/apps/decision_app/planner.py"),
+            Path("src/apps/decision_app/planning/catalog.py"),
+            Path("src/apps/decision_app/planning/planner.py"),
         )
     )
     for forbidden in (

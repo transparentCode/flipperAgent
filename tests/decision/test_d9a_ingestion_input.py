@@ -6,12 +6,12 @@ from decimal import Decimal
 
 import pytest
 
-from apps.decision_app.ingestion_input import (
+from apps.decision_app.domain.market_state import MarketSeriesKey, TimeframeGrid
+from apps.decision_app.transport.ingestion import (
     CanonicalIngestionEventError,
     canonical_ingestion_stream_key,
     parse_canonical_ingestion_event,
 )
-from apps.decision_app.market_state import MarketSeriesKey, TimeframeGrid
 
 BASE = datetime(2026, 1, 5, tzinfo=UTC)
 GRID = TimeframeGrid(

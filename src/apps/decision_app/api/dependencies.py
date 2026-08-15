@@ -6,7 +6,7 @@ from typing import cast
 
 from fastapi import HTTPException, Request
 
-from apps.decision_app.service import DecisionService
+from apps.decision_app.runtime.service import DecisionService
 
 
 def get_decision_service(request: Request) -> DecisionService:

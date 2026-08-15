@@ -6,14 +6,20 @@ from decimal import Decimal
 
 import pytest
 
-from apps.decision_app.catalog import PluginCatalog
-from apps.decision_app.feature_engine import (
+from apps.decision_app.domain.market_state import (
+    BarStore,
+    TimeframeGeometryError,
+    TimeframeGrid,
+    compile_bar_store_capacities,
+)
+from apps.decision_app.domain.view import DecisionViewBuilder
+from apps.decision_app.features.engine import (
     BindingFeatureResolution,
     FeatureComputationError,
     FeatureEngine,
     FeatureResolution,
 )
-from apps.decision_app.features import (
+from apps.decision_app.features.planning import (
     FeatureCatalog,
     FeatureHistoryRequirement,
     FeaturePlanError,
@@ -23,19 +29,13 @@ from apps.decision_app.features import (
     compile_feature_plan,
     merge_bar_store_capacities,
 )
-from apps.decision_app.market_state import (
-    BarStore,
-    TimeframeGeometryError,
-    TimeframeGrid,
-    compile_bar_store_capacities,
-)
-from apps.decision_app.planner import (
+from apps.decision_app.planning.catalog import PluginCatalog
+from apps.decision_app.planning.planner import (
     DecisionLaneSpec,
     ModelBindingSpec,
     compile_decision_plan,
 )
-from apps.decision_app.readiness import compile_lane_market_requirements
-from apps.decision_app.view import DecisionViewBuilder
+from apps.decision_app.planning.readiness import compile_lane_market_requirements
 from libs.contracts.decision import (
     CausalBarView,
     FeatureRequirement,

@@ -7,22 +7,22 @@ from decimal import Decimal
 
 import pytest
 
-from apps.decision_app.catalog import PluginCatalog
-from apps.decision_app.data import DataPolicy, DataResolver, DataSourceCatalog
-from apps.decision_app.features import (
+from apps.decision_app.data.resolver import DataPolicy, DataResolver, DataSourceCatalog
+from apps.decision_app.domain.market_state import MarketSeriesKey, TimeframeGrid
+from apps.decision_app.features.planning import (
     FeatureCatalog,
     FeatureHistoryRequirement,
     FeaturePolicy,
     SharedFeatureDefinition,
     compile_feature_plan,
 )
-from apps.decision_app.ingestion_input import canonical_ingestion_stream_key
-from apps.decision_app.market_state import MarketSeriesKey, TimeframeGrid
-from apps.decision_app.runtime_plugins import (
+from apps.decision_app.planning.catalog import PluginCatalog
+from apps.decision_app.runtime.plugins import (
     RuntimePluginCatalog,
     RuntimePluginDefinition,
     StateInitializationRequirement,
 )
+from apps.decision_app.runtime.startup import DecisionStartupCoordinator
 from apps.decision_app.settings import (
     CanonicalInstrument,
     DecisionAssetSettings,
@@ -31,7 +31,6 @@ from apps.decision_app.settings import (
     DecisionLaneSettings,
     DecisionPolicySettings,
 )
-from apps.decision_app.startup import DecisionStartupCoordinator
 from apps.decision_app.storage.checkpoints import (
     CheckpointSaveResult,
     InMemoryCheckpointRepository,
@@ -39,6 +38,7 @@ from apps.decision_app.storage.checkpoints import (
 from apps.decision_app.storage.market_history import (
     InMemoryCanonicalMarketHistoryRepository,
 )
+from apps.decision_app.transport.ingestion import canonical_ingestion_stream_key
 from libs.contracts.decision import (
     CausalBarView,
     DecisionContext,
@@ -457,7 +457,7 @@ def _feature_plan_for_manifest_gate():
         },
     )
     plan = __import__(
-        "apps.decision_app.planner", fromlist=["compile_decision_plan"]
+        "apps.decision_app.planning.planner", fromlist=["compile_decision_plan"]
     ).compile_decision_plan(PluginCatalog([feature_spec]), config.lane_specs())
     feature_plan = compile_feature_plan(
         plan.lanes[0],

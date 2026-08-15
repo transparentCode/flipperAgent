@@ -13,20 +13,32 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal
 
-from apps.decision_app.contracts import (
-    InputReadCursor,
-    LaneCommitWatermark,
-    PriceRelayPlan,
-)
-from apps.decision_app.data import (
+from apps.decision_app.data.resolver import (
     DataPlan,
     DataPolicy,
     DataResolver,
     DataSourceCatalog,
     compile_data_plan,
 )
-from apps.decision_app.feature_engine import FeatureEngine
-from apps.decision_app.features import (
+from apps.decision_app.domain.contracts import (
+    InputReadCursor,
+    LaneCommitWatermark,
+    PriceRelayPlan,
+)
+from apps.decision_app.domain.market_state import (
+    BarStore,
+    MarketSeriesKey,
+    TimeframeGrid,
+    compile_bar_store_capacities,
+)
+from apps.decision_app.domain.state import BindingRuntimeState, LaneExecutionIdentity
+from apps.decision_app.domain.view import (
+    DecisionViewBuilder,
+    LaneMarketView,
+    MarketViewNotReadyError,
+)
+from apps.decision_app.features.engine import FeatureEngine
+from apps.decision_app.features.planning import (
     FeatureCatalog,
     FeaturePlan,
     FeaturePolicy,
@@ -34,50 +46,41 @@ from apps.decision_app.features import (
     compile_feature_plan,
     merge_bar_store_capacities,
 )
-from apps.decision_app.ingestion_input import (
-    CanonicalMarketEvent,
-    canonical_ingestion_stream_key,
-    parse_canonical_ingestion_event,
-)
-from apps.decision_app.market_state import (
-    BarStore,
-    MarketSeriesKey,
-    TimeframeGrid,
-    compile_bar_store_capacities,
-)
-from apps.decision_app.model_runtime import ModelRuntime, RewarmError, RewarmStep
-from apps.decision_app.planner import (
+from apps.decision_app.planning.planner import (
     ResolvedDecisionPlan,
     ResolvedLanePlan,
     compile_decision_plan,
 )
-from apps.decision_app.policy import (
-    PASSTHROUGH_V1,
-    PRIORITY_V1,
-    DecisionPolicyCatalog,
-)
-from apps.decision_app.price_relay import compile_price_relay_plans, plan_series_key
-from apps.decision_app.readiness import (
+from apps.decision_app.planning.readiness import (
     LaneMarketRequirements,
     compile_lane_causal_history_requirements,
     compile_lane_market_requirements,
 )
-from apps.decision_app.runtime_plugins import (
+from apps.decision_app.runtime.models import ModelRuntime, RewarmError, RewarmStep
+from apps.decision_app.runtime.plugins import (
     RuntimePluginCatalog,
     StateInitializationRequirement,
 )
+from apps.decision_app.runtime.policy import (
+    PASSTHROUGH_V1,
+    PRIORITY_V1,
+    DecisionPolicyCatalog,
+)
 from apps.decision_app.settings import DecisionConfig
-from apps.decision_app.state import BindingRuntimeState, LaneExecutionIdentity
 from apps.decision_app.storage.checkpoints import (
     CheckpointSaveResult,
     InMemoryCheckpointRepository,
     LaneStateCheckpoint,
 )
 from apps.decision_app.storage.market_history import CanonicalMarketHistoryRepository
-from apps.decision_app.view import (
-    DecisionViewBuilder,
-    LaneMarketView,
-    MarketViewNotReadyError,
+from apps.decision_app.transport.ingestion import (
+    CanonicalMarketEvent,
+    canonical_ingestion_stream_key,
+    parse_canonical_ingestion_event,
+)
+from apps.decision_app.transport.price_relay import (
+    compile_price_relay_plans,
+    plan_series_key,
 )
 from libs.contracts.decision import FrozenMapping, deep_freeze, require_utc
 

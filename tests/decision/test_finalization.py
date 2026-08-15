@@ -5,18 +5,18 @@ from datetime import timedelta
 
 import pytest
 
-from apps.decision_app.finalization import (
+from apps.decision_app.runtime.finalization import (
     FinalizationError,
     FinalizationReceipt,
     LaneFinalizer,
 )
-from apps.decision_app.model_runtime import RewarmStep
-from apps.decision_app.policy import (
+from apps.decision_app.runtime.models import RewarmStep
+from apps.decision_app.runtime.policy import (
     PASSTHROUGH_V1,
     DecisionPolicy,
     DecisionPolicyCatalog,
 )
-from apps.decision_app.publication import (
+from apps.decision_app.transport.publication import (
     SignalPublicationAck,
     build_signal_envelope,
     signal_payload_fingerprint,

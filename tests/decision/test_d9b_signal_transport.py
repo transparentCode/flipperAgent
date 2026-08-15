@@ -4,12 +4,12 @@ import asyncio
 
 import pytest
 
-from apps.decision_app.publication import (
+from apps.decision_app.transport.publication import (
     SignalPublicationEnvelope,
     signal_idempotency_key,
     signal_payload_fingerprint,
 )
-from apps.decision_app.signal_transport import ValkeySignalPublisher
+from apps.decision_app.transport.signals import ValkeySignalPublisher
 from libs.contracts.serialization import valkey_encode
 from libs.contracts.signal import TradeSignal
 

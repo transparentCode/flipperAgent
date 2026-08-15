@@ -7,18 +7,18 @@ from decimal import Decimal
 
 import pytest
 
-from apps.decision_app.catalog import PluginCatalog
 from apps.decision_app.composition import sr_initialization_requirement
-from apps.decision_app.data import DataPolicy, DataResolver, DataSourceCatalog
-from apps.decision_app.features import FeatureCatalog, FeaturePolicy
-from apps.decision_app.ingestion_input import canonical_ingestion_stream_key
-from apps.decision_app.live_runtime import LiveDecisionRuntime
-from apps.decision_app.market_state import MarketSeriesKey, TimeframeGrid
-from apps.decision_app.real_features import SR_ATR_DEFINITION
-from apps.decision_app.runtime_plugins import (
+from apps.decision_app.data.resolver import DataPolicy, DataResolver, DataSourceCatalog
+from apps.decision_app.domain.market_state import MarketSeriesKey, TimeframeGrid
+from apps.decision_app.features.definitions import SR_ATR_DEFINITION
+from apps.decision_app.features.planning import FeatureCatalog, FeaturePolicy
+from apps.decision_app.planning.catalog import PluginCatalog
+from apps.decision_app.runtime.live import LiveDecisionRuntime
+from apps.decision_app.runtime.plugins import (
     RuntimePluginCatalog,
     RuntimePluginDefinition,
 )
+from apps.decision_app.runtime.startup import DecisionStartupCoordinator
 from apps.decision_app.settings import (
     CanonicalInstrument,
     DecisionAssetSettings,
@@ -27,8 +27,6 @@ from apps.decision_app.settings import (
     DecisionLaneSettings,
     DecisionPolicySettings,
 )
-from apps.decision_app.signal_transport import ValkeySignalPublisher
-from apps.decision_app.startup import DecisionStartupCoordinator
 from apps.decision_app.storage.checkpoints import (
     CheckpointSaveResult,
     InMemoryCheckpointRepository,
@@ -36,6 +34,8 @@ from apps.decision_app.storage.checkpoints import (
 from apps.decision_app.storage.market_history import (
     InMemoryCanonicalMarketHistoryRepository,
 )
+from apps.decision_app.transport.ingestion import canonical_ingestion_stream_key
+from apps.decision_app.transport.signals import ValkeySignalPublisher
 from libs.contracts.decision import (
     CausalBarView,
     DecisionContext,

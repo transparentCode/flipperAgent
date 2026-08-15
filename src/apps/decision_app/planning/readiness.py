@@ -7,19 +7,19 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from itertools import pairwise
 
-from apps.decision_app.contracts import (
+from apps.decision_app.domain.contracts import (
     InputReadCursor,
     LaneCommitWatermark,
     LaneReadiness,
 )
-from apps.decision_app.market_state import (
+from apps.decision_app.domain.market_state import (
     BarStore,
     MarketSeriesKey,
     TimeframeGrid,
     _validate_projection_geometry,
     validate_canonical_bar_geometry,
 )
-from apps.decision_app.planner import ResolvedLanePlan
+from apps.decision_app.planning.planner import ResolvedLanePlan
 from libs.contracts.decision import CausalBarView, FrozenMapping, require_utc
 
 
@@ -200,7 +200,7 @@ def compile_lane_causal_history_requirements(
 ) -> Mapping[MarketSeriesKey, int]:
     """Merge D3 lane demand and D4 feature lookback demand by maximum."""
 
-    from apps.decision_app.features import FeaturePlan
+    from apps.decision_app.features.planning import FeaturePlan
 
     if not isinstance(feature_plan, FeaturePlan):
         raise TypeError("feature_plan must be a FeaturePlan")

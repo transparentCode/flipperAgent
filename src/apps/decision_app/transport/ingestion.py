@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from urllib.parse import quote
 
-from apps.decision_app.market_state import (
+from apps.decision_app.domain.market_state import (
     MarketSeriesKey,
     TimeframeGrid,
     validate_canonical_bar_geometry,

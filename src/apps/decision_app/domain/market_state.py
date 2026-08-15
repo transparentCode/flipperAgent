@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 from libs.contracts.decision import CausalBarView, FrozenMapping, require_utc
 
 if TYPE_CHECKING:
-    from apps.decision_app.planner import ResolvedDecisionPlan
+    from apps.decision_app.planning.planner import ResolvedDecisionPlan
 
 
 class MarketStateError(ValueError):
@@ -344,7 +344,7 @@ def compile_bar_store_capacities(
 ) -> FrozenMapping[MarketSeriesKey, int]:
     """Compile maximum shared retained capacity required by every lane."""
 
-    from apps.decision_app.planner import ResolvedDecisionPlan
+    from apps.decision_app.planning.planner import ResolvedDecisionPlan
 
     if not isinstance(plan, ResolvedDecisionPlan):
         raise TypeError("plan must be a ResolvedDecisionPlan")

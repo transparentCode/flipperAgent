@@ -8,20 +8,20 @@ from datetime import datetime
 from itertools import pairwise
 from typing import Any
 
-from apps.decision_app.features import (
+from apps.decision_app.domain.market_state import (
+    BarStore,
+    TimeframeGrid,
+    validate_canonical_bar_geometry,
+)
+from apps.decision_app.domain.view import LaneMarketView
+from apps.decision_app.features.planning import (
     FeatureCatalog,
     FeaturePlan,
     SharedFeatureDefinition,
     resolve_feature_history_requirements,
     validate_feature_plan_against_lane,
 )
-from apps.decision_app.market_state import (
-    BarStore,
-    TimeframeGrid,
-    validate_canonical_bar_geometry,
-)
-from apps.decision_app.planner import ResolvedLanePlan
-from apps.decision_app.view import LaneMarketView
+from apps.decision_app.planning.planner import ResolvedLanePlan
 from libs.contracts.decision import (
     CausalBarView,
     FeatureSnapshot,

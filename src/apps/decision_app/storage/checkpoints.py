@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
-from apps.decision_app.state import LaneExecutionIdentity
+from apps.decision_app.domain.state import LaneExecutionIdentity
 from apps.decision_app.storage.state_codec import (
     StateCodecError,
     decode_state_payload,

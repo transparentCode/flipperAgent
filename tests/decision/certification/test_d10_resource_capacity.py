@@ -55,7 +55,7 @@ def test_relay_only_config_compiles_exactly_one_bounded_series_store_slot() -> N
     inventory = load_canonical_inventory()
     config = build_relay_config(inventory)
 
-    from apps.decision_app.price_relay import compile_price_relay_plans
+    from apps.decision_app.transport.price_relay import compile_price_relay_plans
 
     plans = compile_price_relay_plans(config)
     assert len(plans) == 54

@@ -7,7 +7,7 @@ from decimal import Decimal
 from math import isfinite
 from typing import Any
 
-from apps.decision_app.features import (
+from apps.decision_app.features.planning import (
     FeatureHistoryRequirement,
     SharedFeatureDefinition,
 )

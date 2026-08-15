@@ -7,13 +7,16 @@ from dataclasses import dataclass, field
 from heapq import heappop, heappush
 from typing import Any
 
-from apps.decision_app.catalog import CatalogError, PluginCatalog
-from apps.decision_app.contracts import PublicationAuthority, ResolvedModelBinding
-from apps.decision_app.identity import (
+from apps.decision_app.domain.contracts import (
+    PublicationAuthority,
+    ResolvedModelBinding,
+)
+from apps.decision_app.domain.identity import (
     binding_config_fingerprint,
     effective_lane_revision,
     make_binding_id,
 )
+from apps.decision_app.planning.catalog import CatalogError, PluginCatalog
 from libs.contracts.decision import (
     FrozenMapping,
     ModelSpec,

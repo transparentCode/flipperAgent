@@ -8,12 +8,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol
 
-from apps.decision_app.lifecycle import (
+from apps.decision_app.runtime.lifecycle import (
     LifecycleNotificationReader,
     LifecycleReadResult,
 )
-from apps.decision_app.live_input import InputTransportError
-from apps.decision_app.live_runtime import DecisionPollResult
+from apps.decision_app.runtime.live import DecisionPollResult
+from apps.decision_app.transport.live_input import InputTransportError
 from libs.contracts.decision import FrozenMapping, deep_freeze, require_utc
 
 ServiceState = Literal[

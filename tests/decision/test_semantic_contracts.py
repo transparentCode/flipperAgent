@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import pytest
 
-from apps.decision_app.contracts import (
+from apps.decision_app.domain.contracts import (
     DecisionPolicyResult,
     InputReadCursor,
     LaneCommitWatermark,

@@ -11,20 +11,20 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from apps.decision_app.catalog import PluginCatalog
-from apps.decision_app.contracts import ResolvedModelBinding
-from apps.decision_app.data import DataPolicy, DataResolver, DataSourceCatalog
-from apps.decision_app.features import FeatureCatalog, FeaturePolicy
-from apps.decision_app.policy import (
-    PASSTHROUGH_V1,
-    PRIORITY_V1,
-    DecisionPolicyCatalog,
-)
-from apps.decision_app.real_features import SR_ATR_DEFINITION
-from apps.decision_app.runtime_plugins import (
+from apps.decision_app.data.resolver import DataPolicy, DataResolver, DataSourceCatalog
+from apps.decision_app.domain.contracts import ResolvedModelBinding
+from apps.decision_app.features.definitions import SR_ATR_DEFINITION
+from apps.decision_app.features.planning import FeatureCatalog, FeaturePolicy
+from apps.decision_app.planning.catalog import PluginCatalog
+from apps.decision_app.runtime.plugins import (
     RuntimePluginCatalog,
     RuntimePluginDefinition,
     StateInitializationRequirement,
+)
+from apps.decision_app.runtime.policy import (
+    PASSTHROUGH_V1,
+    PRIORITY_V1,
+    DecisionPolicyCatalog,
 )
 from apps.decision_app.settings import DecisionConfig
 from libs.models.sr.adapters.decision_plugin import SR_MODEL_SPEC, SRDecisionPlugin

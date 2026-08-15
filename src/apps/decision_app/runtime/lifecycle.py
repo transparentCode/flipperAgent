@@ -12,7 +12,10 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from apps.decision_app.live_input import compare_stream_ids, normalize_stream_id
+from apps.decision_app.transport.live_input import (
+    compare_stream_ids,
+    normalize_stream_id,
+)
 from libs.common.asset_manifest import (
     ASSET_LIFECYCLE_STREAM,
     AssetLifecycleEvent,

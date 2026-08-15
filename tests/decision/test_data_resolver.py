@@ -7,8 +7,7 @@ from decimal import Decimal
 
 import pytest
 
-from apps.decision_app.catalog import PluginCatalog
-from apps.decision_app.data import (
+from apps.decision_app.data.resolver import (
     BindingDataRequest,
     BindingDataResolution,
     ConceptDataPolicy,
@@ -23,7 +22,8 @@ from apps.decision_app.data import (
     compile_data_plan,
     materialize_data_request,
 )
-from apps.decision_app.planner import (
+from apps.decision_app.planning.catalog import PluginCatalog
+from apps.decision_app.planning.planner import (
     DecisionLaneSpec,
     ModelBindingSpec,
     compile_decision_plan,

@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import pytest
 
-from apps.decision_app.market_state import (
+from apps.decision_app.domain.market_state import (
     AppendResult,
     BarConflictError,
     BarOrderError,
@@ -16,12 +16,12 @@ from apps.decision_app.market_state import (
     TimeframeGrid,
     compile_bar_store_capacities,
 )
-from apps.decision_app.planner import (
+from apps.decision_app.planning.planner import (
     DecisionLaneSpec,
     ModelBindingSpec,
     compile_decision_plan,
 )
-from apps.decision_app.readiness import compile_lane_market_requirements
+from apps.decision_app.planning.readiness import compile_lane_market_requirements
 from libs.contracts.decision import CausalBarView, ModelSpec, WarmupRequirements
 
 BASE = datetime(2026, 1, 5, tzinfo=UTC)
@@ -233,7 +233,7 @@ def test_bar_store_is_bounded_and_queries_are_causal_immutable_tuples() -> None:
 
 
 def test_capacity_plan_uses_shared_max_and_projection_ratio() -> None:
-    from apps.decision_app.catalog import PluginCatalog
+    from apps.decision_app.planning.catalog import PluginCatalog
 
     first_spec = ModelSpec(
         name="BoundaryModel",
@@ -292,7 +292,7 @@ def test_capacity_plan_uses_shared_max_and_projection_ratio() -> None:
 
 
 def test_projection_capacity_requires_short_integral_trigger_geometry() -> None:
-    from apps.decision_app.catalog import PluginCatalog
+    from apps.decision_app.planning.catalog import PluginCatalog
 
     catalog = PluginCatalog([make_model_spec()])
     with pytest.raises(TimeframeGeometryError, match="shorter"):
@@ -325,7 +325,7 @@ def test_projection_capacity_requires_short_integral_trigger_geometry() -> None:
 
 
 def test_zero_warmup_does_not_create_or_raise_a_required_series() -> None:
-    from apps.decision_app.catalog import PluginCatalog
+    from apps.decision_app.planning.catalog import PluginCatalog
 
     zero_other = compile_decision_plan(
         PluginCatalog([make_model_spec({"4h": 0})]),

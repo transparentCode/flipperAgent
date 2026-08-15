@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from apps.decision_app.planner import ModelBindingSpec
-from apps.decision_app.policy import (
+from apps.decision_app.planning.planner import ModelBindingSpec
+from apps.decision_app.runtime.policy import (
     PASSTHROUGH_V1,
     DecisionPolicy,
     DecisionPolicyCatalog,
 )
-from apps.decision_app.publication import (
+from apps.decision_app.transport.publication import (
     PublicationCompatibilityError,
     SignalPublicationAck,
     build_signal_envelope,
@@ -49,7 +49,7 @@ async def _prepared_signal(
     definitions = ()
     allowed_features = ()
     if with_atr:
-        from apps.decision_app.features import SharedFeatureDefinition
+        from apps.decision_app.features.planning import SharedFeatureDefinition
 
         definitions = (
             SharedFeatureDefinition(
@@ -179,7 +179,12 @@ def test_d8_production_modules_have_no_infrastructure_imports() -> None:
         "valkey",
     }
     for filename in ("policy.py", "publication.py", "finalization.py"):
-        path = Path("src/apps/decision_app") / filename
+        module_directory = {
+            "policy.py": "runtime",
+            "publication.py": "transport",
+            "finalization.py": "runtime",
+        }[filename]
+        path = Path("src/apps/decision_app") / module_directory / filename
         tree = ast.parse(path.read_text(encoding="utf-8"))
         imports = set()
         for node in ast.walk(tree):

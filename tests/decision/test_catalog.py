@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from apps.decision_app.catalog import CatalogError, PluginCatalog
+from apps.decision_app.planning.catalog import CatalogError, PluginCatalog
 from libs.contracts.decision import ModelSpec
 
 

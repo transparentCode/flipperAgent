@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-from apps.decision_app.identity import binding_config_fingerprint
+from apps.decision_app.domain.identity import binding_config_fingerprint
 from libs.contracts.decision import (
     CausalBarView,
     DataRequirement,
@@ -179,12 +179,12 @@ def test_plugin_contract_has_no_infrastructure_imports() -> None:
 
     paths = (
         Path("src/libs/contracts/decision.py"),
-        Path("src/apps/decision_app/contracts.py"),
-        Path("src/apps/decision_app/identity.py"),
+        Path("src/apps/decision_app/domain/contracts.py"),
+        Path("src/apps/decision_app/domain/identity.py"),
     )
     pure_plugin_paths = {
         Path("src/libs/contracts/decision.py"),
-        Path("src/apps/decision_app/identity.py"),
+        Path("src/apps/decision_app/domain/identity.py"),
     }
     forbidden = {"asyncpg", "valkey", "redis", "httpx", "requests"}
     for path in paths:
