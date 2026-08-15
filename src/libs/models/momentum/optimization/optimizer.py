@@ -10,6 +10,9 @@ from typing import Any
 import optuna
 import pandas as pd
 
+# The Momentum package root is lazy; this model-local optimizer owns its
+# concrete legacy model import instead of relying on global discovery.
+import libs.models.momentum.model  # noqa: F401
 from libs.models.registry import ModelRegistry
 from libs.optim_utils.objective import build_suggest
 from libs.optim_utils.scoring import (

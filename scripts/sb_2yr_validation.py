@@ -23,11 +23,16 @@ if _src not in sys.path:
 import numpy as np
 import pandas as pd
 
+from libs.models.legacy_bootstrap import bootstrap_legacy_model_registries
 from libs.optim_utils.data_fetcher import fetch_historical_ohlcv
+from libs.optim_utils.scoring import (
+    compute_max_drawdown,
+    compute_returns,
+    compute_sharpe,
+)
 from libs.optim_utils.scoring_feature_pipeline import build_scoring_feature_df
-from libs.optim_utils.scoring import compute_returns, compute_sharpe, compute_max_drawdown
 
-import libs.models  # noqa: F401
+bootstrap_legacy_model_registries()
 from libs.models.registry import ModelRegistry
 
 # ── Config ─────────────────────────────────────────────────────────────

@@ -21,6 +21,7 @@ import pandas as pd
 
 from libs.common.config import ConfigManager
 from libs.contracts.optimization import ScreeningSummary, TwoStageResult
+from libs.models.legacy_bootstrap import bootstrap_legacy_model_registries
 from libs.models.registry import ModelRegistry
 from libs.optim_utils.callbacks import ConvergenceCallback
 from libs.optim_utils.walk_forward import WalkForwardSplitter
@@ -137,6 +138,7 @@ class TwoStageOptimizer:
         (multi_level take-profit and fixed_pct stop-loss).  Pass explicit
         values to override.
         """
+        bootstrap_legacy_model_registries()
         optuna.logging.set_verbosity(optuna.logging.WARNING)
 
         # Resolve TP/SL from risk.yaml when not explicitly provided

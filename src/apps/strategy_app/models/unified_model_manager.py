@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from apps.strategy_app.feature_contracts import build_available_feature_contract
+from apps.strategy_app.settings import (
+    create_strategy_config_manager,
+    resolve_asset_timeframe_node,
+)
 from libs.common.config import ConfigManager
 from libs.common.enums import SystemComponent
 from libs.common.exceptions import ConfigurationError
@@ -16,14 +21,15 @@ from libs.contracts.strategy_model import (
     ModelTriggerSpec,
 )
 from libs.models.base import BaseModel
+from libs.models.legacy_bootstrap import bootstrap_legacy_model_registries
 from libs.models.registry import ModelRegistry
 from libs.models.scoring_base import ScoringModel
-from libs.models.strategy_adapters import LegacyBaseModelAdapter, LegacyScoringModelAdapter
+from libs.models.strategy_adapters import (
+    LegacyBaseModelAdapter,
+    LegacyScoringModelAdapter,
+)
 from libs.models.strategy_model_v2 import StrategyModelV2
 from libs.models.strategy_registry import StrategyModelRegistry
-
-from apps.strategy_app.feature_contracts import build_available_feature_contract
-from apps.strategy_app.settings import create_strategy_config_manager, resolve_asset_timeframe_node
 
 logger = bind_logger(__name__, system_component=SystemComponent.MODEL_STRATEGY)
 
@@ -47,6 +53,7 @@ class UnifiedModelManager:
     ) -> None:
         self.asset = asset
         self.timeframe = timeframe
+        bootstrap_legacy_model_registries()
         self.config_mgr = create_strategy_config_manager(config_manager or ConfigManager())
         self.bridge_legacy_roots = bridge_legacy_roots
         self.models: list[StrategyModelV2] = []

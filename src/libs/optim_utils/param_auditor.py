@@ -14,6 +14,7 @@ import pandas as pd
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
 from libs.contracts.schemas import ParamAuditReport
+from libs.models.legacy_bootstrap import bootstrap_legacy_model_registries
 from libs.models.registry import ModelRegistry
 from libs.optim_utils.scoring import (
     compute_max_drawdown,
@@ -71,6 +72,7 @@ class ParamAuditor:
         proposed_params: dict[str, Any],
     ) -> ParamAuditReport:
         """Run both param sets and compare."""
+        bootstrap_legacy_model_registries()
         model_cls = ModelRegistry.get(model_name)
 
         current_metrics = self._score(model_cls(current_params))

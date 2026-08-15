@@ -8,10 +8,8 @@ import optuna
 
 from libs.contracts.schemas import ParamDef
 from libs.models.base import BaseModel
+from libs.models.legacy_bootstrap import bootstrap_legacy_model_registries
 from libs.models.registry import ModelRegistry
-
-# Ensure concrete models are registered.
-import libs.models  # noqa: F401
 
 
 def build_suggest(trial: optuna.Trial, name: str, pdef: ParamDef) -> Any:
@@ -36,6 +34,7 @@ def make_objective(
     *backtest_fn* receives a fully-instantiated model and returns a dict of
     metric names → values (e.g. ``{"sharpe": 1.2, "max_drawdown": -0.1}``).
     """
+    bootstrap_legacy_model_registries()
     model_cls = ModelRegistry.get(model_name)
 
     def objective(trial: optuna.Trial) -> float | tuple[float, ...]:

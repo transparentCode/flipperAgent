@@ -25,8 +25,9 @@ import pandas as pd
 # Suppress Optuna trial-by-trial logging
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
+# Trigger model registration
+from libs.models.legacy_bootstrap import bootstrap_legacy_model_registries
 from libs.optim_utils.data_fetcher import fetch_historical_ohlcv
-from libs.optim_utils.scoring_feature_pipeline import build_scoring_feature_df
 from libs.optim_utils.scoring import (
     compute_max_drawdown,
     compute_returns,
@@ -34,17 +35,17 @@ from libs.optim_utils.scoring import (
     compute_win_rate,
     split_temporal,
 )
+from libs.optim_utils.scoring_feature_pipeline import build_scoring_feature_df
 
-# Trigger model registration
-import libs.models  # noqa: F401
+bootstrap_legacy_model_registries()
 
-from libs.models.registry import ModelRegistry
 from libs.models.mean_reversion.optimization.optimizer import (
     MODEL_NAME,
     STUDY_DEFAULTS,
     make_objective,
     post_process_params,
 )
+from libs.models.registry import ModelRegistry
 
 # ── Configuration ──────────────────────────────────────────────────────
 

@@ -294,8 +294,12 @@ class ConfigManager:
             return names
 
         # ---- 1. Check each enabled model's required_indicators ----
-        # Lazy import to avoid circular dependency at module load time
+        # This validator is a standalone legacy model/feature boundary. Keep
+        # the bootstrap lazy so importing ConfigManager remains side-effect-free.
+        from libs.models.legacy_bootstrap import bootstrap_legacy_model_registries
         from libs.models.registry import ModelRegistry
+
+        bootstrap_legacy_model_registries()
 
         model_consumer_combos: set[tuple[str, str]] = set()
 

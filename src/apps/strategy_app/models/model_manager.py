@@ -4,26 +4,24 @@ from __future__ import annotations
 
 from typing import Any
 
-from libs.common.config import ConfigManager
-from libs.common.enums import SystemComponent
-from libs.common.exceptions import ConfigurationError
-from libs.common.logging.logger_utils import bind_logger
-from libs.contracts.schemas import FeatureVector, ModelOutput
-from libs.contracts.signal import ScoringOutput
-from libs.models.base import BaseModel
-from libs.models.legacy_adapter import LegacyScoringAdapter
-from libs.models.registry import ModelRegistry
-from libs.models.scoring_base import ScoringModel
-from libs.contracts.model_runtime import ResolvedModelRuntimeSpec
-
 from apps.strategy_app.feature_contracts import build_available_feature_contract
 from apps.strategy_app.runtime_specs import resolve_model_runtime_spec
 from apps.strategy_app.settings import (
     create_strategy_config_manager,
     resolve_asset_timeframe_node,
 )
-
-import libs.models  # noqa: F401
+from libs.common.config import ConfigManager
+from libs.common.enums import SystemComponent
+from libs.common.exceptions import ConfigurationError
+from libs.common.logging.logger_utils import bind_logger
+from libs.contracts.model_runtime import ResolvedModelRuntimeSpec
+from libs.contracts.schemas import FeatureVector, ModelOutput
+from libs.contracts.signal import ScoringOutput
+from libs.models.base import BaseModel
+from libs.models.legacy_adapter import LegacyScoringAdapter
+from libs.models.legacy_bootstrap import bootstrap_legacy_model_registries
+from libs.models.registry import ModelRegistry
+from libs.models.scoring_base import ScoringModel
 
 logger = bind_logger(__name__, system_component=SystemComponent.MODEL_STRATEGY)
 
@@ -45,6 +43,7 @@ class ModelManager:
     ) -> None:
         self.asset = asset
         self.timeframe = timeframe
+        bootstrap_legacy_model_registries()
         self.config_mgr = create_strategy_config_manager(config_manager or ConfigManager())
 
         self.models: list[BaseModel] = []

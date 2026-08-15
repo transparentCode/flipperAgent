@@ -26,20 +26,23 @@ if _src not in sys.path:
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
+from libs.models.scoring_registry import ScoringModelRegistry
+
+from libs.contracts.schemas import StudyConfig
+from libs.models.legacy_bootstrap import bootstrap_legacy_model_registries
+from libs.models.registry import ModelRegistry
 from libs.optim_utils.data_fetcher import fetch_historical_ohlcv
-from libs.optim_utils.scoring_feature_pipeline import build_scoring_feature_df
+from libs.optim_utils.runner import OptunaRunner
 from libs.optim_utils.scoring import (
+    compute_max_drawdown,
     compute_returns,
     compute_sharpe,
     compute_signal_weighted_returns,
-    compute_max_drawdown,
     compute_win_rate,
 )
-from libs.optim_utils.runner import OptunaRunner
-from libs.contracts.schemas import StudyConfig
-from libs.models.scoring_registry import ScoringModelRegistry
-from libs.models.registry import ModelRegistry
-import libs.models  # noqa: F401 — trigger registration
+from libs.optim_utils.scoring_feature_pipeline import build_scoring_feature_df
+
+bootstrap_legacy_model_registries()
 
 from libs.models.squeeze_breakout.optimization import scoring_optimizer as sb_optimizer
 

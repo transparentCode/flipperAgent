@@ -22,14 +22,16 @@ from libs.common.config import ConfigManager
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
 from libs.contracts.schemas import StudyConfig
+
+# Trigger model registration
+from libs.models.legacy_bootstrap import bootstrap_legacy_model_registries
 from libs.optim_utils.data_fetcher import fetch_historical_ohlcv
-from libs.optim_utils.scoring_feature_pipeline import build_scoring_feature_df
 from libs.optim_utils.param_auditor import ParamAuditor
 from libs.optim_utils.param_writeback import read_current_params, write_best_params
 from libs.optim_utils.runner import OptunaRunner
+from libs.optim_utils.scoring_feature_pipeline import build_scoring_feature_df
 
-# Trigger model registration
-import libs.models  # noqa: F401
+bootstrap_legacy_model_registries()
 
 # Import this model's optimizer module
 from libs.models.mean_reversion.optimization import optimizer as mr_optimizer

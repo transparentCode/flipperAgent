@@ -18,12 +18,13 @@ if _src not in sys.path:
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
 from libs.contracts.schemas import StudyConfig
+from libs.models.legacy_bootstrap import bootstrap_legacy_model_registries
 from libs.optim_utils.data_fetcher import fetch_historical_ohlcv
 from libs.optim_utils.param_auditor import ParamAuditor
 from libs.optim_utils.param_writeback import read_current_params, write_best_params
 from libs.optim_utils.runner import OptunaRunner
 
-import libs.models  # noqa: F401
+bootstrap_legacy_model_registries()
 
 from libs.models.momentum.optimization import optimizer as mom_optimizer
 
