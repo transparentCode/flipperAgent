@@ -3,10 +3,12 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 
 from scripts.certify_momentum_decision_m4 import (
     _digest,
+    _source_sha,
     build_functional_artifact,
     evaluate_functional_gates,
 )
@@ -30,6 +32,7 @@ M4_ARTIFACT = (
 M4_RESOURCE_ARTIFACT = (
     ROOT / "artifacts" / "decision_m4" / ("m4_momentum_resource_certification.json")
 )
+HISTORICAL_M4_SOURCE_SHA = "e7bce3d5ca2ea46772447cdf003c989124ea1847"
 
 
 def _sha256(path: Path) -> str:
@@ -46,8 +49,8 @@ def test_protected_artifacts_remain_unchanged() -> None:
 
 
 def test_m4_functional_artifact_is_deterministic_and_complete() -> None:
-    first = build_functional_artifact()
-    second = build_functional_artifact()
+    first = build_functional_artifact(source_sha=HISTORICAL_M4_SOURCE_SHA)
+    second = build_functional_artifact(source_sha=HISTORICAL_M4_SOURCE_SHA)
     stored = json.loads(M4_ARTIFACT.read_text())
     assert first == second == stored
     assert first["source_sha"]
@@ -111,6 +114,16 @@ def test_m4_functional_artifact_is_deterministic_and_complete() -> None:
     assert first["deterministic_identity_sha256"]
     assert first["measurement_payload_sha256"]
     assert first["deterministic_identity_sha256"] != first["measurement_payload_sha256"]
+
+
+def test_default_m4_source_resolution_uses_current_checkout() -> None:
+    expected = subprocess.run(
+        ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert _source_sha() == expected
 
 
 def test_functional_gates_fail_closed_and_measurement_digest_covers_evidence() -> None:

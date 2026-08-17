@@ -97,10 +97,10 @@ def _digest(value: Mapping[str, Any]) -> str:
     return hashlib.sha256(_json_bytes(value)).hexdigest()
 
 
-def _source_sha() -> str:
+def _source_sha(root: Path = ROOT) -> str:
+    """Resolve the source checkout used for a new M4 certification."""
     return subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=ROOT,
+        ["git", "-C", str(root), "rev-parse", "HEAD"],
         check=True,
         capture_output=True,
         text=True,
@@ -747,7 +747,9 @@ def evaluate_functional_gates(evidence: Mapping[str, Any]) -> Mapping[str, bool]
     }
 
 
-async def _collect() -> tuple[dict[str, Any], dict[str, Any]]:
+async def _collect(
+    source_sha: str | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     config = _load_config()
     m3_artifact = _validate_m3_identity(config)
     if hashlib.sha256(D10_ARTIFACT.read_bytes()).hexdigest() != D10_ARTIFACT_SHA256:
@@ -1070,7 +1072,7 @@ async def _collect() -> tuple[dict[str, Any], dict[str, Any]]:
     }
     functional = {
         "schema_version": 1,
-        "source_sha": _source_sha(),
+        "source_sha": _source_sha() if source_sha is None else source_sha,
         "m3_artifact_sha256": MOMENTUM_M3_ARTIFACT_SHA256,
         "m3_source_sha": m3_artifact["source_sha"],
         "protected_artifacts": {
@@ -1244,8 +1246,8 @@ def resource_measurement_placeholder() -> int:
     return 0
 
 
-def build_functional_artifact() -> dict[str, Any]:
-    return asyncio.run(_collect())[0]
+def build_functional_artifact(source_sha: str | None = None) -> dict[str, Any]:
+    return asyncio.run(_collect(source_sha=source_sha))[0]
 
 
 def write_artifacts(output_dir: Path) -> tuple[Path, Path]:

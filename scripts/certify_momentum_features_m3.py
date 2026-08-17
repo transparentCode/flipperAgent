@@ -173,6 +173,7 @@ def _json_hash(value: Any) -> str:
 
 
 def _source_sha(root: Path) -> str:
+    """Resolve the source checkout used for a new M3 certification."""
     return subprocess.run(
         ["git", "-C", str(root), "rev-parse", "HEAD"],
         check=True,
@@ -1348,7 +1349,11 @@ def measurement_payload_sha256(artifact: dict[str, Any]) -> str:
     return _json_hash(measurement_payload(artifact))
 
 
-def build_certification(root: Path = ROOT) -> dict[str, Any]:
+def build_certification(
+    root: Path = ROOT,
+    *,
+    source_sha: str | None = None,
+) -> dict[str, Any]:
     routes = resolve_routes(root)
     synthetic_corpus = _corpus_series()
     repository_members = load_repository_market_members(root)
@@ -1406,7 +1411,7 @@ def build_certification(root: Path = ROOT) -> dict[str, Any]:
     core = {
         "schema_version": SCHEMA_VERSION,
         "certification": "momentum_rsi_macd_canonical_semantics_m3",
-        "source_sha": _source_sha(root),
+        "source_sha": _source_sha(root) if source_sha is None else source_sha,
         "routes": route_artifacts,
         "candidate_horizon_multipliers": list(HORIZON_MULTIPLIERS),
         "corpus": {

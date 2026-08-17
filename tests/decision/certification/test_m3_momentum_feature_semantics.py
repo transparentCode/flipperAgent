@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,7 @@ from scripts.certify_momentum_features_m3 import (
     ROUTES,
     _corpus_series,
     _select_candidate,
+    _source_sha,
     build_certification,
     corpus_identity,
     evaluate_candidate,
@@ -22,6 +24,8 @@ from scripts.certify_momentum_features_m3 import (
     measurement_payload_sha256,
     resolve_routes,
 )
+
+HISTORICAL_M3_SOURCE_SHA = "6feedc278db5fe077ac94a30dc72195e9fcafcc1"
 
 
 def _closes(length: int = 120) -> list[float]:
@@ -236,9 +240,23 @@ def test_repository_member_eligibility_cannot_be_satisfied_by_synthetic_only() -
     )
 
 
+def test_default_m3_source_resolution_uses_current_checkout() -> None:
+    root = Path(__file__).resolve().parents[3]
+    expected = subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert _source_sha(root) == expected
+
+
 @pytest.fixture(scope="module")
 def certification_artifact() -> dict:
-    return build_certification(Path(__file__).resolve().parents[3])
+    return build_certification(
+        Path(__file__).resolve().parents[3],
+        source_sha=HISTORICAL_M3_SOURCE_SHA,
+    )
 
 
 def test_certification_artifact_is_complete_and_fail_closed_for_no_stable_route(
@@ -246,7 +264,7 @@ def test_certification_artifact_is_complete_and_fail_closed_for_no_stable_route(
 ) -> None:
     artifact = certification_artifact
     assert artifact["schema_version"] == 1
-    assert artifact["source_sha"] == "e7bce3d5ca2ea46772447cdf003c989124ea1847"
+    assert artifact["source_sha"] == "6feedc278db5fe077ac94a30dc72195e9fcafcc1"
     assert len(artifact["routes"]) == 3
     assert all(len(route["candidate_results"]) == 5 for route in artifact["routes"])
     assert artifact["corpus"]["repository_fixture_used"] is True
