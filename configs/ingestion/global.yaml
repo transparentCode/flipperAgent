@@ -32,7 +32,7 @@ ingestion:
     stream_approximate: true
 
   retention:
-    candle_days: 90
+    candle_days: 91
     published_outbox_days: 7
     cleanup_interval_seconds: 86400
     error_backoff_seconds: 60

@@ -581,6 +581,10 @@ def load_decision_config(
         raise TypeError("decision global config must be a mapping")
     if not isinstance(raw_assets, Mapping):
         raise TypeError("decision asset config must be a mapping")
+    # Registered decision asset files live below ``decision.assets``.  Remove
+    # that namespace from the global model before strict validation; otherwise
+    # any real asset directory would be mistaken for an unknown global field.
+    raw_global = {key: value for key, value in raw_global.items() if key != "assets"}
     global_settings = DecisionGlobalSettings.model_validate(raw_global)
     assets = {
         key: DecisionAssetSettings.model_validate(value)

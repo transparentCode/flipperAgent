@@ -14,6 +14,12 @@ from dataclasses import dataclass
 from apps.decision_app.data.resolver import DataPolicy, DataResolver, DataSourceCatalog
 from apps.decision_app.domain.contracts import ResolvedModelBinding
 from apps.decision_app.features.definitions import SR_ATR_DEFINITION
+from apps.decision_app.features.momentum_integration import (
+    MomentumBindingEnvelope,
+    build_momentum_feature_definitions,
+    momentum_runtime_factory,
+    parse_momentum_binding_parameters,
+)
 from apps.decision_app.features.planning import FeatureCatalog, FeaturePolicy
 from apps.decision_app.planning.catalog import PluginCatalog
 from apps.decision_app.runtime.plugins import (
@@ -76,6 +82,33 @@ class DecisionComposition:
     data_resolver: DataResolver
 
 
+def _configured_momentum_profiles(
+    config: DecisionConfig,
+) -> dict[str, MomentumBindingEnvelope]:
+    """Validate the explicit Momentum route envelopes in active config."""
+
+    profiles: dict[str, MomentumBindingEnvelope] = {}
+    for lane in config.lane_specs():
+        for binding in lane.bindings:
+            if binding.plugin_name != "momentum":
+                continue
+            if binding.plugin_version != "1":
+                raise ValueError(
+                    f"unsupported Momentum plugin version: {binding.plugin_version}"
+                )
+            profile = parse_momentum_binding_parameters(
+                binding.parameters,
+                expected_asset=lane.asset,
+                expected_decision_timeframe=lane.decision_timeframe,
+            )
+            if profile.route_key in profiles:
+                raise ValueError(
+                    f"duplicate Momentum route profile: {profile.route_key}"
+                )
+            profiles[profile.route_key] = profile
+    return profiles
+
+
 def build_production_composition(config: DecisionConfig) -> DecisionComposition:
     """Build the reviewed, non-discovering D9C production composition."""
 
@@ -96,25 +129,43 @@ def build_production_composition(config: DecisionConfig) -> DecisionComposition:
             allowed_features=(),
         )
     )
+    momentum_profiles = _configured_momentum_profiles(config)
+    momentum_enabled = bool(momentum_profiles)
     source_catalog = DataSourceCatalog(())
     data_policy = DataPolicy(
         name=EMPTY_DATA_POLICY_NAME,
         version=EMPTY_DATA_POLICY_VERSION,
         concepts={},
     )
-    return DecisionComposition(
-        plugin_catalog=PluginCatalog((SR_MODEL_SPEC,)),
-        runtime_plugin_catalog=RuntimePluginCatalog(
-            (
-                RuntimePluginDefinition(
-                    plugin_name=SR_MODEL_SPEC.name,
-                    plugin_version=SR_MODEL_SPEC.version,
-                    factory=SRDecisionPlugin,
-                    initialization_requirement=sr_initialization_requirement,
-                ),
+    plugin_specs = [SR_MODEL_SPEC]
+    runtime_definitions = [
+        RuntimePluginDefinition(
+            plugin_name=SR_MODEL_SPEC.name,
+            plugin_version=SR_MODEL_SPEC.version,
+            factory=SRDecisionPlugin,
+            initialization_requirement=sr_initialization_requirement,
+        )
+    ]
+    feature_definitions = [SR_ATR_DEFINITION]
+    if momentum_enabled:
+        from libs.models.momentum.adapters.decision_plugin import MOMENTUM_MODEL_SPEC
+
+        plugin_specs.append(MOMENTUM_MODEL_SPEC)
+        runtime_definitions.append(
+            RuntimePluginDefinition(
+                plugin_name=MOMENTUM_MODEL_SPEC.name,
+                plugin_version=MOMENTUM_MODEL_SPEC.version,
+                factory=momentum_runtime_factory,
             )
-        ),
-        feature_catalog=FeatureCatalog((SR_ATR_DEFINITION,)),
+        )
+        feature_definitions.extend(
+            build_momentum_feature_definitions(momentum_profiles)
+        )
+
+    return DecisionComposition(
+        plugin_catalog=PluginCatalog(plugin_specs),
+        runtime_plugin_catalog=RuntimePluginCatalog(runtime_definitions),
+        feature_catalog=FeatureCatalog(feature_definitions),
         feature_policy=feature_policy,
         policy_catalog=DecisionPolicyCatalog((PASSTHROUGH_V1, PRIORITY_V1)),
         data_source_catalog=source_catalog,

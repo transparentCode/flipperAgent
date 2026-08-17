@@ -141,7 +141,7 @@ def test_real_global_and_asset_configuration_load_successfully() -> None:
     assert settings.publication.error_backoff_seconds == 1
     assert settings.publication.stream_maxlen == 1000
     assert settings.publication.stream_approximate is True
-    assert settings.retention.candle_days == 90
+    assert settings.retention.candle_days == 91
     assert settings.retention.published_outbox_days == 7
     assert settings.retention.cleanup_interval_seconds == 86400
     assert settings.retention.error_backoff_seconds == 60

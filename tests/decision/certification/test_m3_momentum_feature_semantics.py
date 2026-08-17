@@ -246,7 +246,7 @@ def test_certification_artifact_is_complete_and_fail_closed_for_no_stable_route(
 ) -> None:
     artifact = certification_artifact
     assert artifact["schema_version"] == 1
-    assert artifact["source_sha"] == "6feedc278db5fe077ac94a30dc72195e9fcafcc1"
+    assert artifact["source_sha"] == "e7bce3d5ca2ea46772447cdf003c989124ea1847"
     assert len(artifact["routes"]) == 3
     assert all(len(route["candidate_results"]) == 5 for route in artifact["routes"])
     assert artifact["corpus"]["repository_fixture_used"] is True
