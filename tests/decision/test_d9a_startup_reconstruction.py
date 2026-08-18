@@ -97,7 +97,22 @@ class CounterPlugin:
         )
 
 
-def _config() -> DecisionConfig:
+FEATURE_SPEC = ModelSpec(
+    name="feature-counter",
+    version="1",
+    stateful=False,
+    output_kind="analytical",
+    produces_artifact_type="counter.v1",
+    supported_trigger_modes=("on_bar_close",),
+    intrinsic_feature_requirements=(FeatureRequirement(name="FIXED"),),
+)
+
+
+class FeatureGapPlugin(CounterPlugin):
+    spec = FEATURE_SPEC
+
+
+def _config_for(plugin_name: str) -> DecisionConfig:
     lane = DecisionLaneSettings(
         decision_timeframe="1h",
         trigger_timeframe="1h",
@@ -109,7 +124,7 @@ def _config() -> DecisionConfig:
         ),
         bindings={
             "counter": {
-                "plugin": "counter",
+                "plugin": plugin_name,
                 "version": "1",
             }
         },
@@ -134,6 +149,14 @@ def _config() -> DecisionConfig:
             )
         },
     )
+
+
+def _config() -> DecisionConfig:
+    return _config_for("counter")
+
+
+def _stateless_config() -> DecisionConfig:
+    return _config_for("feature-counter")
 
 
 def _bar(index: int):
@@ -249,6 +272,81 @@ def _coordinator(history, checkpoints, tail_index: int):
         checkpoint_repository=checkpoints,
         data_resolver=DataResolver(DataSourceCatalog([])),
     )
+
+
+def _stateless_coordinator(history, checkpoints, tail_index: int):
+    return DecisionStartupCoordinator(
+        decision_config=_stateless_config(),
+        plugin_catalog=PluginCatalog([FEATURE_SPEC]),
+        feature_catalog=FeatureCatalog(
+            [
+                SharedFeatureDefinition(
+                    name="FIXED",
+                    version="1",
+                    calculator=lambda _context: pytest.fail(
+                        "startup must not evaluate features"
+                    ),
+                    history_requirements=(
+                        FeatureHistoryRequirement(
+                            source="fixed",
+                            timeframe="1h",
+                            bars=3,
+                        ),
+                    ),
+                )
+            ]
+        ),
+        feature_policy=FeaturePolicy(
+            name="operator",
+            version="1",
+            allowed_features=("FIXED",),
+        ),
+        data_policy=DataPolicy(name="operator", version="1"),
+        source_catalog=DataSourceCatalog([]),
+        runtime_plugin_catalog=RuntimePluginCatalog(
+            [
+                RuntimePluginDefinition(
+                    plugin_name="feature-counter",
+                    plugin_version="1",
+                    factory=lambda _parameters: FeatureGapPlugin(),
+                )
+            ]
+        ),
+        history_repository=history,
+        stream_client=TailClient(tail_index),
+        checkpoint_repository=checkpoints,
+        data_resolver=DataResolver(DataSourceCatalog([])),
+    )
+
+
+@pytest.mark.asyncio
+async def test_stateless_feature_history_gap_blocks_at_selected_resume_cutoff() -> None:
+    healthy_history = InMemoryCanonicalMarketHistoryRepository(
+        {SERIES: tuple(_bar(index) for index in range(5))},
+        timeframe_grid=GRID,
+    )
+    healthy = await _stateless_coordinator(
+        healthy_history,
+        InMemoryCheckpointRepository(),
+        tail_index=3,
+    ).start()
+    assert healthy.snapshot.status == "STARTUP_READY"
+    assert healthy.snapshot.lane_watermarks
+
+    gap_history = InMemoryCanonicalMarketHistoryRepository(
+        {SERIES: tuple(_bar(index) for index in (0, 1, 3, 4))},
+        timeframe_grid=GRID,
+    )
+    blocked = await _stateless_coordinator(
+        gap_history,
+        InMemoryCheckpointRepository(),
+        tail_index=3,
+    ).start()
+    evidence = blocked.snapshot.lane_evidence["BTCUSDT:main"]
+    assert blocked.snapshot.status == "STARTUP_BLOCKED"
+    assert evidence.status == "BLOCKED"
+    assert blocked.snapshot.lane_watermarks == {}
+    assert not blocked.runtimes
 
 
 @pytest.mark.asyncio

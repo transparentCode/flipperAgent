@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from itertools import pairwise
 from typing import Any, Literal
 
 from apps.decision_app.data.resolver import (
@@ -30,6 +31,7 @@ from apps.decision_app.domain.market_state import (
     MarketSeriesKey,
     TimeframeGrid,
     compile_bar_store_capacities,
+    validate_canonical_bar_geometry,
 )
 from apps.decision_app.domain.state import BindingRuntimeState, LaneExecutionIdentity
 from apps.decision_app.domain.view import (
@@ -669,6 +671,67 @@ class DecisionStartupCoordinator:
             self._config.timeframe_grid,
         )
 
+    def _validate_causal_history_at_cutoff(
+        self,
+        lane: ResolvedLanePlan,
+        feature_plan: FeaturePlan,
+        store: BarStore,
+        cutoff: datetime,
+    ) -> None:
+        """Require the merged D3+D4 history window at one selected cutoff."""
+
+        require_utc(cutoff, field_name="startup resume cutoff")
+        requirements = self._lane_history_requirements(lane, feature_plan)
+        for key, required_count in requirements.items():
+            expected_cutoff = self._config.timeframe_grid.expected_closed_cutoff(
+                key.timeframe,
+                cutoff,
+            )
+            try:
+                bars = store.bars_at(
+                    key,
+                    expected_cutoff,
+                    limit=required_count,
+                )
+            except (KeyError, TypeError, ValueError) as exc:
+                raise StartupLaneError(
+                    "no ready causal lane cutoff in retained history"
+                ) from exc
+            if len(bars) != required_count:
+                raise StartupLaneError(
+                    "no ready causal lane cutoff in retained history"
+                )
+            previous = None
+            for bar in bars:
+                try:
+                    validate_canonical_bar_geometry(
+                        key,
+                        bar,
+                        self._config.timeframe_grid,
+                    )
+                except (TypeError, ValueError) as exc:
+                    raise StartupLaneError(
+                        "no ready causal lane cutoff in retained history"
+                    ) from exc
+                if (
+                    not bar.closed
+                    or bar.market_as_of != bar.bar_close_at
+                    or bar.market_as_of > cutoff
+                    or bar.bar_close_at > expected_cutoff
+                ):
+                    raise StartupLaneError(
+                        "no ready causal lane cutoff in retained history"
+                    )
+                if previous is not None and bar.bar_open_at != previous.bar_close_at:
+                    raise StartupLaneError(
+                        "no ready causal lane cutoff in retained history"
+                    )
+                previous = bar
+            if bars[-1].market_as_of != expected_cutoff:
+                raise StartupLaneError(
+                    "no ready causal lane cutoff in retained history"
+                )
+
     def _lane_identity(
         self,
         lane: ResolvedLanePlan,
@@ -869,6 +932,12 @@ class DecisionStartupCoordinator:
         if not baseline_ready:
             raise StartupLaneError("no ready causal lane cutoff in retained history")
         resume_candidate, _ = baseline_ready[-1]
+        self._validate_causal_history_at_cutoff(
+            lane,
+            feature_plan,
+            baseline_store,
+            resume_candidate,
+        )
         checkpoint = await self._checkpoints.load(
             identity,
             expected_binding_ids=lane_stateful,
@@ -942,6 +1011,12 @@ class DecisionStartupCoordinator:
             raise StartupLaneError(
                 "reconstruction history does not reach startup resume cutoff"
             )
+        self._validate_causal_history_at_cutoff(
+            lane,
+            feature_plan,
+            temp_store,
+            resume_cutoff,
+        )
         checkpoint_loaded = checkpoint is not None
         state_inception_at: datetime | None = None
         replay_steps: list[RewarmStep] = []
@@ -994,8 +1069,6 @@ class DecisionStartupCoordinator:
                 trigger_duration = self._config.timeframe_grid.duration(
                     lane.trigger_timeframe
                 )
-                from itertools import pairwise
-
                 if any(
                     current[0] != previous[0] + trigger_duration
                     for previous, current in pairwise(selected)

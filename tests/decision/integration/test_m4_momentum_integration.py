@@ -638,7 +638,7 @@ async def test_route_tail_isolated_from_over_retained_history(
 
 
 @pytest.mark.asyncio
-async def test_insufficient_and_gapped_history_are_unavailable(
+async def test_m4_interior_feature_history_gap_blocks_eth_startup(
     fixture_config: DecisionConfig,
 ) -> None:
     composition = build_production_composition(fixture_config)
@@ -653,24 +653,17 @@ async def test_insufficient_and_gapped_history_are_unavailable(
         composition,
         missing=(eth_key, 10),
     )
-    assert startup.snapshot.status == "STARTUP_READY"
+    assert startup.snapshot.status == "STARTUP_BLOCKED"
     lane = next(item for item in startup.decision_plan.lanes if item.asset == "ETHUSDT")
-    view = _view_for(fixture_config, startup, lane)
-    prepared = await startup.runtimes[lane.lane_id].prepare_live(
-        view,
-        resolver_knowledge_cutoff=view.market_as_of + timedelta(seconds=1),
+    eth_evidence = startup.snapshot.lane_evidence[lane.lane_id]
+    assert eth_evidence.status == "BLOCKED"
+    assert eth_evidence.resume_cutoff is None
+    assert lane.lane_id not in startup.runtimes
+    assert lane.lane_id not in startup.snapshot.lane_watermarks
+    assert all(
+        startup.snapshot.lane_evidence[lane_id].status == "STARTUP_READY"
+        for lane_id in ("BTCUSDT:momentum_1h", "BTCUSDT:momentum_4h")
     )
-    assert "MACD" in prepared.feature_resolution.unavailable_features
-    assert (
-        prepared.binding_results[next(iter(prepared.binding_results))].status
-        == "UNAVAILABLE"
-    )
-    policy = DecisionPolicy(composition.policy_catalog).evaluate(
-        lane,
-        prepared,
-        decision_ready_at=view.market_as_of + timedelta(seconds=1),
-    )
-    assert policy.status == "BLOCKED"
 
 
 def test_retention_days_cover_certified_eth_history(
