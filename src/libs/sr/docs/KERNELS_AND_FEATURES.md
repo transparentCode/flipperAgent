@@ -34,7 +34,7 @@ To prevent hyperparameter bloat during cross-asset optimization, all kernel para
 | `TPOValueAreaKernel` | Time-at-price POC and value area boundaries across a rolling window. | `tpo_window_bars`, `tpo_value_area_pct`, `min_bars` |
 | `FairValueGapKernel` | Multi-bar imbalances with lookback chop-filtering. | `gap_min_atr`, `validity_lookback_bars`, `max_gap_atr_cap`, `filled_penalty_multiplier`, `min_bars` |
 | `OrderBlockKernel` | High-displacement engulfing pivots. | `displacement_atr`, `validity_lookback_bars` |
-| `RegressionBandKernel` | Regression boundaries from inline asset-scoped bands, with OLS as a last-resort fallback. | `band_width_sigma` |
+| `RegressionBandKernel` | Regression boundaries from an explicit injected result, with local OLS + σ bands as fallback. | `band_width_sigma` |
 | `FractalChannelKernel` | Upper/lower trend boundaries. | `boundary_buffer_atr`, `midline_strength_factor`, `min_bars` |
 | `SessionGapKernel` | Weekend/overnight market gaps gated by timestamp session breaks, assuming upstream-adjusted and prefiltered bars. | `gap_min_atr`, `max_gap_atr_cap`, `min_bars` |
 | `LiquiditySweepKernel`| Optional stop-hunt rejections past local structures. | `max_pierce_atr`, `sweep_lookback`, `min_bars` |

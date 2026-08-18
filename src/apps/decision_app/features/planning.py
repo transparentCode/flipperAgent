@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Literal
 
@@ -141,6 +141,12 @@ class FeatureHistoryRequirement:
             _require_non_empty(self.timeframe, field_name="feature history timeframe")
 
 
+FeatureHistoryRequirementResolver = Callable[
+    [ResolvedLanePlan], Sequence[FeatureHistoryRequirement]
+]
+FeatureConfigFingerprintResolver = Callable[[ResolvedLanePlan], str]
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class SharedFeatureDefinition:
     """Explicit app-owned implementation metadata for one shared feature."""
@@ -149,18 +155,33 @@ class SharedFeatureDefinition:
     version: str
     calculator: FeatureCalculator
     history_requirements: tuple[FeatureHistoryRequirement, ...] = ()
+    history_requirement_resolver: FeatureHistoryRequirementResolver | None = None
+    config_fingerprint_resolver: FeatureConfigFingerprintResolver | None = None
 
     def __post_init__(self) -> None:
         _require_non_empty(self.name, field_name="feature name")
         _require_non_empty(self.version, field_name="feature version")
         if not callable(self.calculator):
             raise TypeError("feature calculator must be callable")
+        if self.history_requirement_resolver is not None and not callable(
+            self.history_requirement_resolver
+        ):
+            raise TypeError("history_requirement_resolver must be callable")
+        if self.config_fingerprint_resolver is not None and not callable(
+            self.config_fingerprint_resolver
+        ):
+            raise TypeError("config_fingerprint_resolver must be callable")
         requirements = tuple(self.history_requirements)
         if any(
             not isinstance(item, FeatureHistoryRequirement) for item in requirements
         ):
             raise TypeError(
                 "history_requirements must contain FeatureHistoryRequirement values"
+            )
+        if self.history_requirement_resolver is not None and requirements:
+            raise ValueError(
+                "dynamic history requirements cannot be combined with static "
+                "history_requirements"
             )
         object.__setattr__(
             self,
@@ -323,6 +344,7 @@ class FeaturePlan:
     history_requirements: Mapping[str, Mapping[MarketSeriesKey, int]]
     bindings: Mapping[str, BindingFeaturePlan]
     feature_plan_fingerprint: str
+    feature_config_fingerprints: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         for field_name in (
@@ -349,6 +371,14 @@ class FeaturePlan:
             self,
             "feature_versions",
             _freeze_string_map(self.feature_versions, field_name="feature_versions"),
+        )
+        object.__setattr__(
+            self,
+            "feature_config_fingerprints",
+            _freeze_string_map(
+                self.feature_config_fingerprints,
+                field_name="feature_config_fingerprints",
+            ),
         )
         if not isinstance(self.history_requirements, Mapping):
             raise TypeError("history_requirements must be a mapping")
@@ -397,6 +427,10 @@ class FeaturePlan:
         if set(self.history_requirements) != effective:
             raise ValueError(
                 "history_requirements must cover exactly effective features"
+            )
+        if not set(self.feature_config_fingerprints) <= effective:
+            raise ValueError(
+                "feature_config_fingerprints must contain only effective features"
             )
         if not set(self.effective_shared_features) <= set(
             self.requested_shared_features
@@ -458,8 +492,28 @@ def resolve_feature_history_requirements(
     if not isinstance(timeframe_grid, TimeframeGrid):
         raise TypeError("timeframe_grid must be a TimeframeGrid")
 
+    if definition.history_requirement_resolver is None:
+        requirements = definition.history_requirements
+    else:
+        resolved_requirements = definition.history_requirement_resolver(lane)
+        if isinstance(resolved_requirements, (str, bytes)) or not isinstance(
+            resolved_requirements, Sequence
+        ):
+            raise TypeError(
+                "history_requirement_resolver must return a sequence of "
+                "FeatureHistoryRequirement values"
+            )
+        requirements = tuple(resolved_requirements)
+        if any(
+            not isinstance(item, FeatureHistoryRequirement) for item in requirements
+        ):
+            raise TypeError(
+                "history_requirement_resolver must return only "
+                "FeatureHistoryRequirement values"
+            )
+
     resolved: dict[MarketSeriesKey, int] = {}
-    for requirement in definition.history_requirements:
+    for requirement in requirements:
         if requirement.source == "decision":
             timeframe = lane.decision_timeframe
         elif requirement.source == "trigger":
@@ -478,6 +532,24 @@ def resolve_feature_history_requirements(
     return _freeze_history_map(resolved, field_name="resolved feature history")
 
 
+def resolve_feature_config_fingerprint(
+    definition: SharedFeatureDefinition,
+    lane: ResolvedLanePlan,
+) -> str | None:
+    """Resolve one optional lane-specific feature configuration identity."""
+
+    if not isinstance(definition, SharedFeatureDefinition):
+        raise TypeError("definition must be a SharedFeatureDefinition")
+    if not isinstance(lane, ResolvedLanePlan):
+        raise TypeError("lane must be a ResolvedLanePlan")
+    if definition.config_fingerprint_resolver is None:
+        return None
+    return _require_non_empty(
+        definition.config_fingerprint_resolver(lane),
+        field_name="feature config fingerprint",
+    )
+
+
 def _feature_fingerprint_payload(
     *,
     lane_id: str,
@@ -491,7 +563,27 @@ def _feature_fingerprint_payload(
     disabled: Sequence[str],
     undefined: Sequence[str],
     histories: Mapping[str, Mapping[MarketSeriesKey, int]],
+    feature_config_fingerprints: Mapping[str, str],
 ) -> Mapping[str, Any]:
+    effective_features: list[dict[str, Any]] = []
+    for name in sorted(effective):
+        feature = {
+            "name": name,
+            "version": feature_versions[name],
+            "history": [
+                {
+                    "asset": key.asset,
+                    "venue": key.venue,
+                    "instrument_id": key.instrument_id,
+                    "timeframe": key.timeframe,
+                    "bars": count,
+                }
+                for key, count in histories[name].items()
+            ],
+        }
+        if name in feature_config_fingerprints:
+            feature["config_fingerprint"] = feature_config_fingerprints[name]
+        effective_features.append(feature)
     return {
         "lane_id": lane_id,
         "base_lane_revision": base_lane_revision,
@@ -513,23 +605,7 @@ def _feature_fingerprint_payload(
             }
             for binding_id, plan in sorted(binding_plans.items())
         ],
-        "effective_features": [
-            {
-                "name": name,
-                "version": feature_versions[name],
-                "history": [
-                    {
-                        "asset": key.asset,
-                        "venue": key.venue,
-                        "instrument_id": key.instrument_id,
-                        "timeframe": key.timeframe,
-                        "bars": count,
-                    }
-                    for key, count in histories[name].items()
-                ],
-            }
-            for name in sorted(effective)
-        ],
+        "effective_features": effective_features,
         "disabled_features": tuple(sorted(disabled)),
         "undefined_features": tuple(sorted(undefined)),
     }
@@ -551,6 +627,7 @@ def _compute_feature_plan_fingerprint(plan: FeaturePlan) -> str:
             disabled=plan.disabled_features,
             undefined=plan.undefined_features,
             histories=plan.history_requirements,
+            feature_config_fingerprints=plan.feature_config_fingerprints,
         )
     )
 
@@ -636,6 +713,16 @@ def compile_feature_plan(
         for name in effective
     }
     feature_versions = {name: catalog.resolve(name).version for name in effective}
+    feature_config_fingerprints = {
+        name: fingerprint
+        for name in effective
+        if (
+            fingerprint := resolve_feature_config_fingerprint(
+                catalog.resolve(name), lane
+            )
+        )
+        is not None
+    }
     fingerprint = sha256_fingerprint(
         _feature_fingerprint_payload(
             lane_id=lane.lane_id,
@@ -649,6 +736,7 @@ def compile_feature_plan(
             disabled=disabled,
             undefined=undefined,
             histories=histories,
+            feature_config_fingerprints=feature_config_fingerprints,
         )
     )
     return FeaturePlan(
@@ -665,19 +753,24 @@ def compile_feature_plan(
         history_requirements=histories,
         bindings=binding_plans,
         feature_plan_fingerprint=fingerprint,
+        feature_config_fingerprints=feature_config_fingerprints,
     )
 
 
 def validate_feature_plan_against_lane(
     feature_plan: FeaturePlan,
     lane: ResolvedLanePlan,
+    feature_catalog: FeatureCatalog | None = None,
+    timeframe_grid: TimeframeGrid | None = None,
 ) -> None:
-    """Validate plan identity and binding demand against a resolved lane."""
+    """Validate plan identity, demand, and optional catalog-owned semantics."""
 
     if not isinstance(feature_plan, FeaturePlan):
         raise TypeError("feature_plan must be a FeaturePlan")
     if not isinstance(lane, ResolvedLanePlan):
         raise TypeError("lane must be a ResolvedLanePlan")
+    if (feature_catalog is None) != (timeframe_grid is None):
+        raise TypeError("feature_catalog and timeframe_grid must be supplied together")
     if feature_plan.lane_id != lane.lane_id:
         raise FeaturePlanError("feature plan lane_id must match resolved lane")
     if feature_plan.base_lane_revision != lane.effective_lane_revision:
@@ -720,6 +813,32 @@ def validate_feature_plan_against_lane(
             raise FeaturePlanError(
                 f"feature plan optional demand mismatch for binding {binding_id}"
             )
+
+    if feature_catalog is None or timeframe_grid is None:
+        return
+
+    expected_config_fingerprints: dict[str, str] = {}
+    for name in feature_plan.effective_shared_features:
+        definition = feature_catalog.resolve(name)
+        if feature_plan.feature_versions[name] != definition.version:
+            raise FeaturePlanError(
+                f"feature plan version mismatch for {name}: "
+                f"{feature_plan.feature_versions[name]} != {definition.version}"
+            )
+        expected_history = resolve_feature_history_requirements(
+            definition, lane, timeframe_grid
+        )
+        if dict(feature_plan.history_requirements[name]) != dict(expected_history):
+            raise FeaturePlanError(f"feature plan history mismatch for {name}")
+        config_fingerprint = resolve_feature_config_fingerprint(definition, lane)
+        if config_fingerprint is not None:
+            expected_config_fingerprints[name] = config_fingerprint
+
+    if dict(feature_plan.feature_config_fingerprints) != expected_config_fingerprints:
+        raise FeaturePlanError("feature plan configuration fingerprint mismatch")
+    expected_fingerprint = _compute_feature_plan_fingerprint(feature_plan)
+    if feature_plan.feature_plan_fingerprint != expected_fingerprint:
+        raise FeaturePlanError("feature_plan_fingerprint does not match plan")
 
 
 def _normalize_feature_plans(
@@ -776,7 +895,12 @@ def compile_feature_bar_store_capacities(
             raise FeaturePlanError(
                 f"feature plan references unknown lane: {plan.lane_id}"
             ) from exc
-        validate_feature_plan_against_lane(plan, lane)
+        validate_feature_plan_against_lane(
+            plan,
+            lane,
+            feature_catalog,
+            timeframe_grid,
+        )
         for name in plan.effective_shared_features:
             definition = feature_catalog.resolve(name)
             if plan.feature_versions[name] != definition.version:
@@ -814,8 +938,10 @@ __all__ = [
     "BindingFeaturePlan",
     "FeatureCatalog",
     "FeatureCatalogError",
+    "FeatureConfigFingerprintResolver",
     "FeatureError",
     "FeatureHistoryRequirement",
+    "FeatureHistoryRequirementResolver",
     "FeaturePlan",
     "FeaturePlanError",
     "FeaturePolicy",
@@ -823,6 +949,7 @@ __all__ = [
     "compile_feature_bar_store_capacities",
     "compile_feature_plan",
     "merge_bar_store_capacities",
+    "resolve_feature_config_fingerprint",
     "resolve_feature_history_requirements",
     "validate_feature_plan_against_lane",
 ]

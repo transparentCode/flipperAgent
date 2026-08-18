@@ -352,7 +352,7 @@ Adopted from `app.regression.optimization` cross-module review: walk-forward CV,
 | Starting point | Stage 1 global best params |
 | Search bounds | ±25% of Stage 1 optimum, clamped to original bounds |
 | Objective | `composite_score × gate_mult × constraint_mult - regularization_penalty` |
-| Walk-forward | Rolling multi-fold CV via `WalkForwardValidator` (reused from `app.regression.optimization.walk_forward`). Default: `train_bars=300`, `test_bars=100`, `step_bars=100`, `purge_bars=10` |
+| Walk-forward | Rolling multi-fold CV via the SR-owned `WalkForwardValidator` (`libs.sr.optimization.walk_forward`). Default: `train_bars=300`, `test_bars=100`, `step_bars=100`, `purge_bars=10` |
 | Trial pruning | `MedianPruner(n_startup_trials=5, n_warmup_steps=1)` — kills unpromising trials mid-fold |
 | Zone count gate | Trials producing < `min_zone_count_gate` (default 3) zones get `score × gate_penalty` (default 0.5) |
 | Survival constraint | Trials with `survival_rate < min_survival_rate_constraint` (default 0.20) get soft penalty: `score × (floor + (1 - floor) × survival / min_survival)` where `floor = constraint_penalty_floor` (default 0.50) |
@@ -393,7 +393,7 @@ If at least 4 of the 5 checks are good, classify the run as plateau-robust.
 
 | Component | Source | How Used in SR |
 |-|-|-|
-| `WalkForwardValidator` | `app.regression.optimization.walk_forward` | Rolling CV with purge gap for per-asset fold evaluation |
+| `WalkForwardValidator` | `libs.sr.optimization.walk_forward` | Rolling CV with purge gap for per-asset fold evaluation |
 | Gate/constraint pattern | `app.regression.optimization.optimizer._compute_fold_score` | Zone count gate + survival rate constraint as multiplicative penalties |
 | Result persistence | `app.regression.optimization.models.RegressionOptimizationResult` | `save()` with path validation, `apply_to_yaml()` with backup + ruamel.yaml |
 | Trial pruning | `app.regression.optimization.optimizer._objective` | `trial.report()` per fold + `MedianPruner` |

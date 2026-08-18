@@ -14,9 +14,12 @@ from .schema import (
     OrchestratorConfig,
     PluginConfig,
     ResolvedPipelineConfig,
+    StructuralChannelConfig,
     TimeframeConfig,
     VolumeProfile,
 )
+
+_STRUCTURAL_CHANNEL_KEYS = frozenset({"inner_coverage", "outer_coverage"})
 
 
 class ConfigResolver:
@@ -41,6 +44,13 @@ class ConfigResolver:
     @property
     def orchestrator_config(self) -> OrchestratorConfig:
         return self._config
+
+    @property
+    def structural_channel_config(self) -> StructuralChannelConfig:
+        """Return the configured structural channel policy."""
+        if self._config.structural_channel is None:
+            raise ValueError("structural channel configuration is not configured")
+        return self._config.structural_channel
 
     def resolve(self, asset: str, timeframe: str) -> ResolvedPipelineConfig:
         """Resolve the full config for a specific (asset, timeframe) pair.
@@ -67,17 +77,7 @@ class ConfigResolver:
             tf_cfg.window_size,
             g.default_window_size,
         )
-        trend_atr = _pick(atf_cfg.trend_atr_fraction, asset_cfg.trend_atr_fraction, tf_cfg.trend_atr_fraction, g.trend_atr_fraction)
-        spread_atr = _pick(atf_cfg.spread_atr_fraction, asset_cfg.spread_atr_fraction, tf_cfg.spread_atr_fraction, g.spread_atr_fraction)
-        momentum_atr = _pick(atf_cfg.momentum_atr_fraction, asset_cfg.momentum_atr_fraction, tf_cfg.momentum_atr_fraction, g.momentum_atr_fraction)
-        neutral_slope = _pick(
-            atf_cfg.neutral_slope_atr_fraction,
-            asset_cfg.neutral_slope_atr_fraction,
-            tf_cfg.neutral_slope_atr_fraction,
-            g.neutral_slope_atr_fraction,
-        )
         band_mult = _pick(atf_cfg.band_multiplier, asset_cfg.band_multiplier, tf_cfg.band_multiplier, g.band_multiplier)
-        slope_accel = _pick(atf_cfg.slope_acceleration_alpha, tf_cfg.slope_acceleration_alpha, 0.0)
 
         # ── Plugin resolution: most specific non-None wins, else global ──
         features = _pick(ac_cfg.features, tf_cfg.features, g.features)
@@ -109,8 +109,7 @@ class ConfigResolver:
         features_tuple = tuple(features)
 
         config_hash = _compute_hash(
-            asset, timeframe, window_size, trend_atr, spread_atr,
-            momentum_atr, neutral_slope, band_mult, slope_accel,
+            asset, timeframe, window_size, band_mult,
             features_tuple, methods_tuple, ensemble, uncertainty,
         )
 
@@ -124,20 +123,13 @@ class ConfigResolver:
             min_window=g.min_window,
             max_window=g.max_window,
             atr_period=g.atr_period,
-            trend_atr_fraction=trend_atr,
-            spread_atr_fraction=spread_atr,
-            momentum_atr_fraction=momentum_atr,
-            neutral_slope_atr_fraction=neutral_slope,
             band_multiplier=band_mult,
-            slope_acceleration_alpha=slope_accel,
             features=features_tuple,
             methods=methods_tuple,
             ensemble=ensemble,
             uncertainty=uncertainty,
             session_gap_handling=ac_cfg.session_gap_handling,
             low_liquidity_window_handling=ac_cfg.low_liquidity_window_handling,
-            regime_context_enabled=self._config.regime_context_enabled,
-            regime_window_override=self._config.regime_window_override,
             mtf_enabled=mtf_enabled,
             mtf_timeframes=mtf_timeframes,
         )
@@ -163,12 +155,31 @@ class ConfigResolver:
             orch.mtf_timeframes = orch_raw["mtf_timeframes"]
         if "tf_weights" in orch_raw:
             orch.tf_weights = orch_raw["tf_weights"]
-        if "regime_context_enabled" in orch_raw:
-            orch.regime_context_enabled = orch_raw["regime_context_enabled"]
-        if "regime_window_override" in orch_raw:
-            orch.regime_window_override = orch_raw["regime_window_override"]
-        if "regime_window_defaults" in orch_raw:
-            orch.regime_window_defaults = orch_raw["regime_window_defaults"]
+
+        if "structural_channel" in raw:
+            channel_raw = raw["structural_channel"]
+            if not isinstance(channel_raw, dict):
+                raise ValueError("structural_channel must be a mapping")
+            channel_keys = set(channel_raw)
+            missing = sorted(_STRUCTURAL_CHANNEL_KEYS - channel_keys)
+            unexpected = sorted(channel_keys - _STRUCTURAL_CHANNEL_KEYS, key=repr)
+            if missing or unexpected:
+                details = []
+                if missing:
+                    details.append("missing required key(s): " + ", ".join(missing))
+                if unexpected:
+                    details.append(
+                        "unexpected key(s): "
+                        + ", ".join(repr(key) for key in unexpected)
+                    )
+                raise ValueError(
+                    "structural_channel must contain exactly "
+                    "inner_coverage and outer_coverage (" + "; ".join(details) + ")"
+                )
+            orch.structural_channel = StructuralChannelConfig(
+                inner_coverage=channel_raw["inner_coverage"],
+                outer_coverage=channel_raw["outer_coverage"],
+            )
 
         # Tier 1: Global
         g_raw = raw.get("global", {})
@@ -196,9 +207,8 @@ class ConfigResolver:
     def _parse_global(cls, raw: Dict[str, Any]) -> GlobalConfig:
         g = GlobalConfig()
         for scalar in (
-            "atr_period", "trend_atr_fraction", "spread_atr_fraction",
-            "momentum_atr_fraction", "neutral_slope_atr_fraction",
-            "band_multiplier", "min_window", "max_window", "default_window_size",
+            "atr_period", "band_multiplier", "min_window", "max_window",
+            "default_window_size",
         ):
             if scalar in raw:
                 setattr(g, scalar, raw[scalar])
@@ -217,11 +227,7 @@ class ConfigResolver:
     @classmethod
     def _parse_timeframe(cls, raw: Dict[str, Any]) -> TimeframeConfig:
         tf = TimeframeConfig()
-        for scalar in (
-            "window_size", "trend_atr_fraction", "spread_atr_fraction",
-            "momentum_atr_fraction", "neutral_slope_atr_fraction",
-            "band_multiplier", "slope_acceleration_alpha",
-        ):
+        for scalar in ("window_size", "band_multiplier"):
             if scalar in raw:
                 setattr(tf, scalar, raw[scalar])
         if "features" in raw:
@@ -269,11 +275,7 @@ class ConfigResolver:
         if "timeframes" in raw:
             for tf, tf_raw in raw["timeframes"].items():
                 atf = AssetTimeframeConfig()
-                for scalar in (
-                    "window_size", "trend_atr_fraction", "spread_atr_fraction",
-                    "momentum_atr_fraction", "neutral_slope_atr_fraction",
-                    "band_multiplier", "slope_acceleration_alpha",
-                ):
+                for scalar in ("window_size", "band_multiplier"):
                     if scalar in tf_raw:
                         setattr(atf, scalar, tf_raw[scalar])
                 if "methods" in tf_raw:

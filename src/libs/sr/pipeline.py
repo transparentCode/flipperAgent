@@ -308,14 +308,13 @@ class SRv2Pipeline:
 
         for name, kernel in self._kernels.items():
             kernel_params = self._config.kernels.get(name, {})
-            extra = {"asset": self._asset} if name == "regression_band" else {}
             kc = KernelConfig(
                 kernel_name=name,
                 timeframe=self._timeframe,
                 kernel_params=kernel_params,
                 metadata=self._config.metadata,
                 rule_derived=self._config.rule_derived,
-                extra=extra,
+                extra={},
                 atr_period=atr_period,
                 precomputed_atr=precomputed_atr,
             )

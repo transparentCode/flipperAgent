@@ -78,7 +78,7 @@ app/sr/
 | `FairValueGapKernel` | `fair_value_gap` | 3-candle FVG with fill tracking |
 | `SessionGapKernel` | `session_gap` | Session-boundary gap origin/destination/fill-level from upstream-adjusted, prefiltered bars |
 | `FractalChannelKernel` | `fractal_channel` | Wraps `app.indicators.fractal_channel` |
-| `RegressionBandKernel` | `regression_band` | Asset-scoped regression + σ bands with optional injected result and OLS last-resort fallback |
+| `RegressionBandKernel` | `regression_band` | Explicit injected regression result or local OLS + σ bands |
 | `LiquiditySweepKernel` | `liquidity_sweep` | Optional stop-hunt rejection levels around recently swept pivots |
 
 `volume_hvn` is not a standalone runtime kernel. HVN candidates are emitted by `VolumePOCKernel` metadata and enabled through `volume_poc`.

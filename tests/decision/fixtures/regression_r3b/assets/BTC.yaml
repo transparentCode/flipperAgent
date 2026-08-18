@@ -1,0 +1,46 @@
+manifest_asset: BTC
+decision_asset: BTCUSDT
+venue: binance
+instrument_id: BTC-USDT-PERP
+enabled: true
+lanes:
+  momentum_regression_shadow_1h:
+    decision_timeframe: 1h
+    trigger_timeframe: 1h
+    trigger_mode: on_bar_close
+    authority: shadow
+    policy:
+      name: passthrough
+      version: "1"
+      parameters:
+        source_slot: primary
+    bindings:
+      primary:
+        plugin: momentum
+        version: "1"
+        parameters:
+          model:
+            rsi_long_threshold: 70
+            rsi_short_threshold: 34
+            require_macd_positive: true
+            histogram_min_abs: 0.7
+          feature_profile:
+            rsi:
+              period: 14
+              history_bars: 60
+            macd:
+              fast_period: 12
+              slow_period: 26
+              signal_period: 9
+              history_bars: 136
+          certification:
+            asset: BTCUSDT
+            decision_timeframe: 1h
+            m3_artifact_sha256: 6fcd3d736524b513a63f244a3268478a658924cd571a62a72ec33958ad67972c
+            route_profile_sha256: edb9f009b74877c39dcf620ea3786797379c76b135e18642e8e0d68d6a1a9c88
+      observer:
+        plugin: momentum_regression_observer
+        version: "1"
+        parameters: {}
+        dependencies:
+          momentum: primary

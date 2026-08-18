@@ -33,7 +33,7 @@ The full field-by-field placement source of truth is `plan/design-sr-config-plac
 | `kernel_params` | Mixed | Contains the explicit per-kernel config knobs listed below. |
 | `metadata` | Rule-derived / asset nature | Carries market structure flags such as `has_session_gaps` and round-number mode. |
 | `rule_derived` | Rule-derived / asset nature | Carries derived values such as `n1`, `n2`, `round_interval`, `vp_lookback_hours`, and `fractal_period`. |
-| `extra` | Shared runtime-derived | Injected runtime objects such as `regression_result` or asset context for inline adapters; not part of YAML optimization. |
+| `extra` | Shared runtime-derived | Injected runtime objects such as `regression_result`; not part of YAML optimization. |
 | `atr_period` | Global fixed heuristic | Shared ATR normalization knob inherited from pipeline config. |
 
 ## 3. Kernel Matrix
@@ -144,8 +144,7 @@ Fractal Channel wrapper review notes:
 | `zone_half_width_atr` | `kernel_params` | Global fixed heuristic | Fixed globally | Shared output width normalization. |
 | `min_bars` | `kernel_params` | Global fixed heuristic | Fixed globally | Data sufficiency guardrail. |
 | `extra.regression_result` | `KernelConfig.extra` | Shared runtime-derived | Not optimized | Optional pre-computed regression result; ignored when present but invalid. |
-| `extra.asset` | `KernelConfig.extra` | Shared runtime-derived | Not optimized | Asset symbol injected by the SR pipeline so the kernel can resolve the regression module config inline. |
-| ATR, inline regression, OLS fallback | Runtime data | Shared runtime-derived | Not optimized | Uses inline regression first when asset context is available, then local OLS only if no usable regression result exists. |
+| ATR, local OLS fallback | Runtime data | Shared runtime-derived | Not optimized | Uses local OLS + σ bands when no usable injected regression result exists. |
 
 ### 3.8 `LiquiditySweepKernel` (`liquidity_sweep`)
 
@@ -183,7 +182,7 @@ Fractal Channel wrapper review notes:
 | `order_block` | `displacement_atr`, `imbalance_ratio` | `validity_lookback_bars` | ATR |
 | `session_gap` | `gap_min_atr` | `fill_level_fractions` | `metadata.has_session_gaps`, ATR |
 | `fractal_channel` | None by default | `channel_lookback`, `boundary_buffer_atr` | `fractal_period`, `fractal_buffer` (currently unused), ATR |
-| `regression_band` | `band_width_sigma` | None | ATR, `extra.regression_result`, `extra.asset` |
+| `regression_band` | `band_width_sigma` | None | ATR, `extra.regression_result` |
 | `liquidity_sweep` | `sweep_lookback`, `max_pierce_atr` | None | ATR |
 | `round_number` | None by default | `atr_snap_factor`, `strength_decay` | `round_interval`, ATR |
 

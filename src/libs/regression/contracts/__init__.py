@@ -1,24 +1,10 @@
-from .context import PipelineRequest, RegimeSnapshot, CascadeContext, AssetMeta
-from .result import (
-    DegradationLevel,
-    FeatureSet,
-    MethodResult,
-    EnsembleResult,
-    RegressionResult,
-    MTFOutput,
-    UniverseResult,
-)
+from .channel import StructuralChannelEstimate
+from .context_snapshot import RegressionContextSnapshot, ResidualRegion
+from .structural import StructuralRegressionEstimate
 
 __all__ = [
-    "PipelineRequest",
-    "RegimeSnapshot",
-    "CascadeContext",
-    "AssetMeta",
-    "DegradationLevel",
-    "FeatureSet",
-    "MethodResult",
-    "EnsembleResult",
-    "RegressionResult",
-    "MTFOutput",
-    "UniverseResult",
+    "RegressionContextSnapshot",
+    "ResidualRegion",
+    "StructuralChannelEstimate",
+    "StructuralRegressionEstimate",
 ]

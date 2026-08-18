@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import enum
+import math
 from dataclasses import dataclass, field
+from numbers import Real
 from typing import Any, Dict, List, Optional
 
 
@@ -18,7 +20,15 @@ class VolumeProfile(enum.Enum):
     PROXY = "proxy"  # fx — tick-count proxy, unreliable
 
 
-from app.common.config.schema import PluginConfig  # noqa: E402 — canonical location
+@dataclass
+class PluginConfig:
+    name: str
+    enabled: bool = True
+    weight: float = 1.0
+    params: dict[str, Any] = field(default_factory=dict)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self.params.get(key, default)
 
 
 # ── Tier 1: Global Defaults ──
@@ -49,15 +59,11 @@ class GlobalConfig:
         )
     )
 
-    # ATR fractions — all thresholds are ATR-normalized
+    # Pipeline parameters
     atr_period: int = 14
-    trend_atr_fraction: float = 0.10
-    spread_atr_fraction: float = 0.15
-    momentum_atr_fraction: float = 0.10
-    neutral_slope_atr_fraction: float = 0.04
     band_multiplier: float = 2.0
 
-    # Window bounds (for clamping runtime overrides)
+    # Window bounds for configuration validation
     min_window: int = 15
     max_window: int = 300
     default_window_size: int = 100
@@ -71,12 +77,7 @@ class TimeframeConfig:
     """Tier 2: per-timeframe overrides. None fields inherit from global."""
 
     window_size: Optional[int] = None
-    trend_atr_fraction: Optional[float] = None
-    spread_atr_fraction: Optional[float] = None
-    momentum_atr_fraction: Optional[float] = None
-    neutral_slope_atr_fraction: Optional[float] = None
     band_multiplier: Optional[float] = None
-    slope_acceleration_alpha: Optional[float] = None
 
     features: Optional[List[PluginConfig]] = None
     methods: Optional[Dict[str, PluginConfig]] = None
@@ -109,12 +110,7 @@ class AssetTimeframeConfig:
     """Tier 4b: per-asset-per-timeframe overrides."""
 
     window_size: Optional[int] = None
-    trend_atr_fraction: Optional[float] = None
-    spread_atr_fraction: Optional[float] = None
-    momentum_atr_fraction: Optional[float] = None
-    neutral_slope_atr_fraction: Optional[float] = None
     band_multiplier: Optional[float] = None
-    slope_acceleration_alpha: Optional[float] = None
     methods: Optional[Dict[str, PluginConfig]] = None
     ensemble: Optional[PluginConfig] = None
 
@@ -130,13 +126,28 @@ class AssetConfig:
 
     # Any per-asset global overrides
     window_size: Optional[int] = None
-    trend_atr_fraction: Optional[float] = None
-    spread_atr_fraction: Optional[float] = None
-    momentum_atr_fraction: Optional[float] = None
-    neutral_slope_atr_fraction: Optional[float] = None
     band_multiplier: Optional[float] = None
     methods: Optional[Dict[str, PluginConfig]] = None
     ensemble: Optional[PluginConfig] = None
+
+
+@dataclass(frozen=True)
+class StructuralChannelConfig:
+    """YAML-owned empirical coverages for structural channel geometry."""
+
+    inner_coverage: float
+    outer_coverage: float
+
+    def __post_init__(self) -> None:
+        inner = _validated_coverage(self.inner_coverage, "inner_coverage")
+        outer = _validated_coverage(self.outer_coverage, "outer_coverage")
+        if not 0.0 < inner < outer < 1.0:
+            raise ValueError(
+                "structural channel coverages must satisfy "
+                "0 < inner_coverage < outer_coverage < 1"
+            )
+        object.__setattr__(self, "inner_coverage", inner)
+        object.__setattr__(self, "outer_coverage", outer)
 
 
 # ── Orchestrator Config ──
@@ -146,24 +157,13 @@ class AssetConfig:
 class OrchestratorConfig:
     """Top-level config: wraps all tiers."""
 
-    # MTF cascade settings (for assets that have mtf_enabled=True)
+    # MTF settings (for assets that have mtf_enabled=True)
     mtf_timeframes: List[str] = field(
         default_factory=lambda: ["4h", "1h", "30m"]
     )
     tf_weights: Dict[str, float] = field(
         default_factory=lambda: {"4h": 0.5, "1h": 0.3, "30m": 0.2}
     )
-    regime_context_enabled: bool = True
-    regime_window_override: bool = True  # allow regime.suggested_window
-    regime_window_defaults: Dict[str, int] = field(
-        default_factory=lambda: {
-            "CLEAN_TREND": 150,
-            "VOLATILE_TREND": 60,
-            "CHOPPY": 30,
-            "QUIET_MR": 100,
-        }
-    )
-
     # 4 tiers
     global_config: GlobalConfig = field(default_factory=GlobalConfig)
     timeframes: Dict[str, TimeframeConfig] = field(default_factory=dict)
@@ -174,24 +174,17 @@ class OrchestratorConfig:
     optimization: Dict[str, List[str]] = field(
         default_factory=lambda: {
             "global_tunable": [
-                "trend_atr_fraction",
-                "spread_atr_fraction",
-                "momentum_atr_fraction",
-                "neutral_slope_atr_fraction",
                 "band_multiplier",
             ],
             "per_tf_tunable": [
                 "window_size",
-                "methods.theil_sen.weight",
-                "methods.vwr.weight",
-                "slope_acceleration_alpha",
             ],
             "per_asset_tunable": [
                 "window_size",
-                "ensemble.params",
             ],
         }
     )
+    structural_channel: StructuralChannelConfig | None = None
 
 
 # ── Resolved Config (output of the resolver) ──
@@ -215,12 +208,7 @@ class ResolvedPipelineConfig:
     min_window: int
     max_window: int
     atr_period: int
-    trend_atr_fraction: float
-    spread_atr_fraction: float
-    momentum_atr_fraction: float
-    neutral_slope_atr_fraction: float
     band_multiplier: float
-    slope_acceleration_alpha: float
 
     # Plugins
     features: tuple  # Tuple[PluginConfig, ...] — frozen
@@ -231,10 +219,6 @@ class ResolvedPipelineConfig:
     # Session handling (from asset class)
     session_gap_handling: bool
     low_liquidity_window_handling: bool
-
-    # Regime
-    regime_context_enabled: bool
-    regime_window_override: bool
 
     # MTF
     mtf_enabled: bool
@@ -247,3 +231,12 @@ class ResolvedPipelineConfig:
     def get_feature_configs(self) -> List[PluginConfig]:
         """Return features as a mutable list (convenience for pipeline)."""
         return list(self.features)
+
+
+def _validated_coverage(value: object, name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise TypeError(f"{name} must be a finite numeric coverage")
+    numeric = float(value)
+    if not math.isfinite(numeric):
+        raise ValueError(f"{name} must be a finite numeric coverage")
+    return numeric

@@ -276,7 +276,7 @@ Where:
 
 ### 5.6 Walk-forward structure
 
-The optimizer uses `WalkForwardValidator` from the regression module and evaluates bar-by-bar with `MultiBarRunner`.
+The optimizer uses the SR-owned `WalkForwardValidator` and evaluates bar-by-bar with `MultiBarRunner`.
 
 This is a deliberate design choice: single-bar quality is not enough to judge S/R behavior. The lifecycle needs time to express itself.
 

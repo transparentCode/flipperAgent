@@ -1,23 +1,21 @@
+from .resolver import ConfigResolver
 from .schema import (
-    GlobalConfig,
-    TimeframeConfig,
     AssetClassConfig,
     AssetConfig,
+    GlobalConfig,
+    OptimizationTier,
     PluginConfig,
     ResolvedPipelineConfig,
-    OptimizationTier,
+    TimeframeConfig,
 )
-from .resolver import ConfigResolver
-from .validator import ConfigValidator
 
 __all__ = [
-    "GlobalConfig",
-    "TimeframeConfig",
     "AssetClassConfig",
     "AssetConfig",
+    "ConfigResolver",
+    "GlobalConfig",
+    "OptimizationTier",
     "PluginConfig",
     "ResolvedPipelineConfig",
-    "OptimizationTier",
-    "ConfigResolver",
-    "ConfigValidator",
+    "TimeframeConfig",
 ]

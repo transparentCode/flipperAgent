@@ -539,7 +539,7 @@ class TestOptimizerCompatibilitySmoke:
 
     def test_walk_forward_splits_exist(self):
         """Ensure walk-forward creates at least 1 split for the data size."""
-        from app.regression.optimization.walk_forward_2way import WalkForwardValidator
+        from libs.sr.optimization.walk_forward import WalkForwardValidator
 
         wf = WalkForwardValidator(
             train_bars=80,

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 
 from apps.decision_app.data.resolver import DataPolicy, DataResolver, DataSourceCatalog
 from apps.decision_app.domain.contracts import ResolvedModelBinding
@@ -109,6 +110,59 @@ def _configured_momentum_profiles(
     return profiles
 
 
+def _validate_regression_observer_configuration(config: DecisionConfig) -> bool:
+    """Validate the observer's dedicated shadow-lane graph invariants."""
+
+    enabled = False
+    for lane in config.lane_specs():
+        bindings_by_slot = {binding.slot_name: binding for binding in lane.bindings}
+        for binding in lane.bindings:
+            if binding.plugin_name != "momentum_regression_observer":
+                continue
+            if binding.plugin_version != "1":
+                raise ValueError(
+                    "unsupported Momentum regression observer version: "
+                    f"{binding.plugin_version}"
+                )
+            if lane.authority != "shadow":
+                raise ValueError(
+                    "momentum_regression_observer@1 requires a shadow lane: "
+                    f"{lane.lane_id}"
+                )
+            if "momentum" not in binding.dependencies:
+                raise ValueError(
+                    "momentum_regression_observer@1 requires a momentum dependency: "
+                    f"{lane.lane_id}:{binding.slot_name}"
+                )
+            provider_slot = binding.dependencies["momentum"]
+            provider = bindings_by_slot.get(provider_slot)
+            if provider is None:
+                raise ValueError(
+                    "momentum_regression_observer@1 momentum dependency must resolve "
+                    "to a same-lane binding: "
+                    f"{lane.lane_id}:{provider_slot}"
+                )
+            if (provider.plugin_name, provider.plugin_version) != ("momentum", "1"):
+                raise ValueError(
+                    "momentum_regression_observer@1 momentum dependency must resolve "
+                    "to momentum@1: "
+                    f"{lane.lane_id}:{provider_slot}"
+                )
+            if (lane.policy_name, lane.policy_version) != ("passthrough", "1"):
+                raise ValueError(
+                    "momentum_regression_observer@1 requires passthrough@1 policy: "
+                    f"{lane.lane_id}"
+                )
+            if lane.policy_parameters.get("source_slot") != provider_slot:
+                raise ValueError(
+                    "momentum_regression_observer@1 requires passthrough source_slot "
+                    "to equal its Momentum provider slot: "
+                    f"{lane.lane_id}:{provider_slot}"
+                )
+            enabled = True
+    return enabled
+
+
 def build_production_composition(config: DecisionConfig) -> DecisionComposition:
     """Build the reviewed, non-discovering D9C production composition."""
 
@@ -131,6 +185,7 @@ def build_production_composition(config: DecisionConfig) -> DecisionComposition:
     )
     momentum_profiles = _configured_momentum_profiles(config)
     momentum_enabled = bool(momentum_profiles)
+    observer_enabled = _validate_regression_observer_configuration(config)
     source_catalog = DataSourceCatalog(())
     data_policy = DataPolicy(
         name=EMPTY_DATA_POLICY_NAME,
@@ -160,6 +215,36 @@ def build_production_composition(config: DecisionConfig) -> DecisionComposition:
         )
         feature_definitions.extend(
             build_momentum_feature_definitions(momentum_profiles)
+        )
+    if observer_enabled:
+        from apps.decision_app.features.regression_context import (
+            build_regression_context_feature_definition,
+        )
+        from apps.decision_app.observers.momentum_regression import (
+            MOMENTUM_REGRESSION_OBSERVER_SPEC,
+            momentum_regression_runtime_factory,
+        )
+        from libs.regression.config.resolver import ConfigResolver
+
+        regression_config_path = (
+            Path(__file__).resolve().parents[3]
+            / "src"
+            / "libs"
+            / "regression"
+            / "config"
+            / "regression.yaml"
+        )
+        regression_resolver = ConfigResolver.from_yaml(str(regression_config_path))
+        plugin_specs.append(MOMENTUM_REGRESSION_OBSERVER_SPEC)
+        runtime_definitions.append(
+            RuntimePluginDefinition(
+                plugin_name=MOMENTUM_REGRESSION_OBSERVER_SPEC.name,
+                plugin_version=MOMENTUM_REGRESSION_OBSERVER_SPEC.version,
+                factory=momentum_regression_runtime_factory,
+            )
+        )
+        feature_definitions.append(
+            build_regression_context_feature_definition(regression_resolver)
         )
 
     return DecisionComposition(
