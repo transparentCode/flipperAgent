@@ -1,0 +1,72 @@
+study:
+  id: regression_r3c2_4h_short_overextension_replication_v1
+  version: "1"
+
+hypothesis:
+  direction: -1
+  region_a: LOWER_OUTER_BAND
+  region_b: BELOW_OUTER
+  horizons: [2, 4, 8, 16]
+
+members:
+  btc_4h_candidate_normalized:
+    path: artifacts/trendline_family_candidate_trials/btcusdt_4h_20250801_20251201_candidate_geometry_v2/input/normalized_ohlcv.csv
+    provenance_class: canonical_normalized_artifact
+    asset: BTCUSDT
+    timeframe: 4h
+    row_count: 732
+    sha256: b8590c34400042fe8e38c23ac0d01b8d26916f2b0d5a6bed4f4b51d208d0a150
+    first_open_time: 2025-08-01T00:00:00Z
+    last_open_time: 2025-11-30T20:00:00Z
+    input_manifest_path: artifacts/trendline_family_candidate_trials/btcusdt_4h_20250801_20251201_candidate_geometry_v2/input/input_manifest.json
+    input_manifest_sha256: 089d1c743100a0a5591cb615ae453c19992cd3534fe274b8eef91e2af582fc48
+  btc_4h_saturating_normalized:
+    path: artifacts/trendline_family_saturating_quality_trials/btcusdt_4h_20251201_20260401_saturating_quality_v1/input/normalized_ohlcv.csv
+    provenance_class: canonical_normalized_artifact
+    asset: BTCUSDT
+    timeframe: 4h
+    row_count: 726
+    sha256: 2be2f31fafef8188cf936326a43cbcc926ac4320a72658ed9977c403a98c1c42
+    first_open_time: 2025-12-01T00:00:00Z
+    last_open_time: 2026-03-31T20:00:00Z
+    input_manifest_path: artifacts/trendline_family_saturating_quality_trials/btcusdt_4h_20251201_20260401_saturating_quality_v1/input/input_manifest.json
+    input_manifest_sha256: 2c85eaf5dbd70bdf59fc1ba8e0350b0d7b9289cdf8ef24e838c8a4c2dbc0d228
+  eth_4h_tv_research_input:
+    path: research/model_inputs/ethusdt_4h_tv_derivatives_2025.csv
+    provenance_class: research_input_noncanonical
+    asset: ETHUSDT
+    timeframe: 4h
+    row_count: 3124
+    sha256: 49359cc6c94919767830ded5a008edf6ed8299663ac9ffe3868546f776c75964
+    first_open_time: 2025-01-01T00:00:00Z
+    last_open_time: 2026-06-05T12:00:00Z
+    input_manifest_path: null
+    input_manifest_sha256: null
+
+r3c1:
+  decision_sha256: d611018a96a2986b30d51daeec65e17db0ba326c358a18d1654bd4ff333312be
+  study_manifest_sha256: 1d3a0cd3abf9c9f05ba9c416985401be5b53efd317e838e859c6373df0556752
+  observation_ledger_sha256: 6d10b021efc8675dfc47b530f4f9b4e32c8e17329a8efa0b14cadefc8a4f07f6
+  conditional_metrics_sha256: ffc1448a8e09afb8f9cdbea3a50a8df9aa6c4795c40e2267eca00e00b80af9b3
+  coverage_summary_sha256: 904c697e8e9dbe76823a094b679b176db5853952e9ec7efd954e6a1fcd388028
+  source_identity_sha256: 1072617287a5723d9418458f2b7d38942fcba8cee5934fca2e1405ec26760d0e
+  study_summary_sha256: 38d65eb6c564dd4e6978912e0525e67116cc86cf4dcbac4b847909556c9239e8
+  checksums_sha256: 083b09d466d0735009bc6523c99876073786d7ade57015bc1b646050e809c364
+
+runtime:
+  base_git_sha: 4647a04dc53a7ffd3de85a2f84b10bae4be9cefa
+  cumulative_manifest_sha256: 2085c0f9cf290e763c97b016bb2ea38a2cc22559500d357cf475c2d085b017e0
+  r3p_manifest_sha256: 93f8c140560e5a5f6237fe4805e309ab07f3fdbcbd77b9bbd33f127d26dce8cc
+  m3_artifact_sha256: 6fcd3d736524b513a63f244a3268478a658924cd571a62a72ec33958ad67972c
+  m4_functional_artifact_sha256: 3d1339be919e8d176dcd1053cb1c42f46bf6a2dc5f62647114b805faea1e4792
+
+m4_fixtures:
+  global_path: tests/decision/fixtures/momentum_m4/global.yaml
+  global_sha256: a805b2efcd8d126dc9c425e6083c22939905f8bbf1136fbbb197e957c04c4ca5
+  btc_path: tests/decision/fixtures/momentum_m4/assets/BTC.yaml
+  btc_sha256: adbd011928ce80ee028cf72db5116f55dd758f7976244469defa329be7e76cdd
+  eth_path: tests/decision/fixtures/momentum_m4/assets/ETH.yaml
+  eth_sha256: a4220a9297e93ab96642e0fda6472349efeda867266a0850a326fc8adc7ca5b3
+
+output:
+  root: artifacts/regression_r3c/4h_short_overextension_replication_v1
