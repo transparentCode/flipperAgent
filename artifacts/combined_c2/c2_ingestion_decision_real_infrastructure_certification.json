@@ -1,0 +1,1776 @@
+{
+  "before_empty": true,
+  "cleanup": {
+    "trial_a": true,
+    "trial_b": true
+  },
+  "db_after": {
+    "base_1m_rows": 720,
+    "outbox_pending": 0,
+    "outbox_total": 727,
+    "route_rows": {
+      "BTCUSDT/1h": 548,
+      "BTCUSDT/4h": 545,
+      "ETHUSDT/4h": 546
+    },
+    "total_rows": 2359
+  },
+  "duplicate": {
+    "dispositions": [
+      "DUPLICATE"
+    ],
+    "signal_count_after": 5,
+    "signal_count_before": 5,
+    "signal_retry_outcome": "ALREADY_IDENTICAL",
+    "stream_id_changed": true,
+    "transaction_count": 0
+  },
+  "evidence_digest": "d490b69c0735d612a161e2ebe20a20fe7ebad5f82e9db532e0762e96432fedb9",
+  "gates": {
+    "cleanup": true,
+    "db_stream_decision_parity": true,
+    "duplicate_noop": true,
+    "healthy_recovery": true,
+    "infrastructure_contract": true,
+    "live_producer_counts": true,
+    "no_base_signal": true,
+    "production_scope": true,
+    "protected_hashes": true,
+    "restart_reconstruction": true,
+    "route_parity": true,
+    "schema_contract": true,
+    "signal_contract": true,
+    "startup_exact": true,
+    "two_trial_determinism": true
+  },
+  "identity_digest": "39c66933da63d43e2edc256d946e981c2f5e4c39eef75912b36f6090c5a57a3f",
+  "infrastructure": {
+    "before_empty": true,
+    "broker_image": "valkey/valkey:latest",
+    "db_image": "timescale/timescaledb:latest-pg15",
+    "isolated_project": true,
+    "valkey_noeviction": true
+  },
+  "live": {
+    "base_inserted": 480,
+    "db_counts_after_live": {
+      "base_1m_rows": 480,
+      "outbox_pending": 0,
+      "outbox_total": 486,
+      "route_rows": {
+        "BTCUSDT/1h": 548,
+        "BTCUSDT/4h": 545,
+        "ETHUSDT/4h": 545
+      },
+      "total_rows": 2118
+    },
+    "db_outbox_pending": 0,
+    "db_outbox_total": 486,
+    "decision_parity": true,
+    "derived_counts": {
+      "BTCUSDT/1h": 4,
+      "BTCUSDT/4h": 1,
+      "ETHUSDT/4h": 1
+    },
+    "input_inserted_count": 6,
+    "lane_results": {
+      "BTCUSDT:momentum_1h": {
+        "finalization_status": "COMMITTED",
+        "policy_status": "SIGNAL",
+        "publication_outcome": "PUBLISHED",
+        "status": "LIVE",
+        "trigger_cutoff": "1972-10-01T04:00:00+00:00"
+      },
+      "BTCUSDT:momentum_4h": {
+        "finalization_status": "COMMITTED",
+        "policy_status": "SIGNAL",
+        "publication_outcome": "PUBLISHED",
+        "status": "LIVE",
+        "trigger_cutoff": "1972-10-01T04:00:00+00:00"
+      },
+      "ETHUSDT:momentum_4h": {
+        "finalization_status": "COMMITTED",
+        "policy_status": "SIGNAL",
+        "publication_outcome": "PUBLISHED",
+        "status": "LIVE",
+        "trigger_cutoff": "1972-10-01T04:00:00+00:00"
+      }
+    },
+    "no_base_signal": true,
+    "outbox": {
+      "attempts": 1,
+      "published": 486
+    },
+    "producer_stream_lengths": {
+      "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h": 4,
+      "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1m": 240,
+      "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:4h": 1,
+      "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:1m": 240,
+      "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:4h": 1
+    },
+    "producer_stream_total": 486,
+    "route_parity": {
+      "BTCUSDT:momentum_1h": {
+        "macd": {
+          "histogram": 2.379483853577591,
+          "line": 4.426135730653272,
+          "signal": 2.0466518770756807
+        },
+        "market_as_of": "1972-10-01T04:00:00+00:00",
+        "momentum": {
+          "conviction": 1.0,
+          "direction": 1,
+          "score": 1.0
+        },
+        "parity": true,
+        "rsi": 100.0
+      },
+      "BTCUSDT:momentum_4h": {
+        "macd": {
+          "histogram": 1.525242165242162,
+          "line": 2.606552706552776,
+          "signal": 1.081310541310614
+        },
+        "market_as_of": "1972-10-01T04:00:00+00:00",
+        "momentum": {
+          "conviction": 1.0,
+          "direction": 1,
+          "score": 1.0
+        },
+        "parity": true,
+        "rsi": 100.0
+      },
+      "ETHUSDT:momentum_4h": {
+        "macd": {
+          "histogram": 1.525242165242162,
+          "line": 2.606552706552776,
+          "signal": 1.081310541310614
+        },
+        "market_as_of": "1972-10-01T04:00:00+00:00",
+        "momentum": {
+          "conviction": 1.0,
+          "direction": 1,
+          "score": 1.0
+        },
+        "parity": true,
+        "rsi": 100.0
+      }
+    },
+    "semantic_cutoffs_match": true,
+    "stream_event_count": 6
+  },
+  "parity": {
+    "db_stream_decision": true,
+    "derived_provenance": true,
+    "forward_stream_order": true,
+    "records": [
+      {
+        "db_equals_stream": true,
+        "geometry_equal": true,
+        "market_as_of": "1972-10-01T01:00:00+00:00",
+        "provenance_equal": true,
+        "route": "BTCUSDT/1h",
+        "stream_equals_decision": true
+      },
+      {
+        "db_equals_stream": true,
+        "geometry_equal": true,
+        "market_as_of": "1972-10-01T02:00:00+00:00",
+        "provenance_equal": true,
+        "route": "BTCUSDT/1h",
+        "stream_equals_decision": true
+      },
+      {
+        "db_equals_stream": true,
+        "geometry_equal": true,
+        "market_as_of": "1972-10-01T03:00:00+00:00",
+        "provenance_equal": true,
+        "route": "BTCUSDT/1h",
+        "stream_equals_decision": true
+      },
+      {
+        "db_equals_stream": true,
+        "geometry_equal": true,
+        "market_as_of": "1972-10-01T04:00:00+00:00",
+        "provenance_equal": true,
+        "route": "BTCUSDT/1h",
+        "stream_equals_decision": true
+      },
+      {
+        "db_equals_stream": true,
+        "geometry_equal": true,
+        "market_as_of": "1972-10-01T04:00:00+00:00",
+        "provenance_equal": true,
+        "route": "BTCUSDT/4h",
+        "stream_equals_decision": true
+      },
+      {
+        "db_equals_stream": true,
+        "geometry_equal": true,
+        "market_as_of": "1972-10-01T04:00:00+00:00",
+        "provenance_equal": true,
+        "route": "ETHUSDT/4h",
+        "stream_equals_decision": true
+      }
+    ]
+  },
+  "production_scope": {
+    "decision_assets_empty": true,
+    "decision_container_absent": true,
+    "production_compose_unchanged": true
+  },
+  "protected_hashes": {
+    "c1": "386b9eb33ed38128decade737bb7977cb2861a21b39e3d8cc061838635248ad4",
+    "d10": "2382c92cd83bb29cbab2800c5687ec102d53fe37b213925fa174852a2caa0459",
+    "m3": "6fcd3d736524b513a63f244a3268478a658924cd571a62a72ec33958ad67972c",
+    "m4_functional": "3d1339be919e8d176dcd1053cb1c42f46bf6a2dc5f62647114b805faea1e4792",
+    "m4_resource": "e11ae8aee717764a3cca9dbfaa0f58d6b4308387ac6b5b264fb4bdf8e5f570c4"
+  },
+  "protected_hashes_valid": true,
+  "recovery": {
+    "c1_reference_close": "178.3",
+    "candle_semantics_actual": {
+      "bar_duration_seconds": 14400,
+      "bar_open_aligned": true,
+      "close": "178.3",
+      "high": "178.5",
+      "instrument_id": "ETH-USDT-PERP",
+      "low": "154.2",
+      "open": "154.4",
+      "source_provider": null,
+      "source_timeframe": "1m",
+      "source_type": "derived",
+      "taker_buy_base": "96.0",
+      "timeframe": "4h",
+      "venue": "binance",
+      "volume": "240"
+    },
+    "candle_semantics_reference": {
+      "bar_duration_seconds": 14400,
+      "bar_open_aligned": true,
+      "close": "178.3",
+      "high": "178.5",
+      "instrument_id": "ETH-USDT-PERP",
+      "low": "154.2",
+      "open": "154.4",
+      "source_provider": null,
+      "source_timeframe": "1m",
+      "source_type": "derived",
+      "taker_buy_base": "96.0",
+      "timeframe": "4h",
+      "venue": "binance",
+      "volume": "240"
+    },
+    "follow_ups": 0,
+    "input_dispositions": [
+      "INSERTED"
+    ],
+    "lane_result_actual": {
+      "finalization_status": "COMMITTED",
+      "policy_status": "SIGNAL",
+      "publication_outcome": "PUBLISHED",
+      "status": "LIVE",
+      "trigger_cutoff": "1972-10-01T08:00:00+00:00"
+    },
+    "lane_result_reference": {
+      "finalization_status": "COMMITTED",
+      "policy_status": "SIGNAL",
+      "publication_outcome": "PUBLISHED",
+      "status": "LIVE",
+      "trigger_cutoff": "1972-10-01T08:00:00+00:00"
+    },
+    "lane_results": {
+      "BTCUSDT:momentum_1h": {
+        "finalization_status": null,
+        "policy_status": null,
+        "publication_outcome": null,
+        "status": "LIVE",
+        "trigger_cutoff": null
+      },
+      "BTCUSDT:momentum_4h": {
+        "finalization_status": null,
+        "policy_status": null,
+        "publication_outcome": null,
+        "status": "LIVE",
+        "trigger_cutoff": null
+      },
+      "ETHUSDT:momentum_4h": {
+        "finalization_status": "COMMITTED",
+        "policy_status": "SIGNAL",
+        "publication_outcome": "PUBLISHED",
+        "status": "LIVE",
+        "trigger_cutoff": "1972-10-01T08:00:00+00:00"
+      }
+    },
+    "outbox": {
+      "attempts": 1,
+      "published": 2
+    },
+    "premature_derived_count": 0,
+    "provider_calls": 1,
+    "recovered_base_count": 1,
+    "recovered_close": "178.3",
+    "recovered_row_count": 1,
+    "request_count": 1,
+    "semantic_actual": {
+      "macd": {
+        "histogram": 2.391420589118593,
+        "line": 4.0705862777088555,
+        "signal": 1.6791656885902624
+      },
+      "market_as_of": "1972-10-01T08:00:00+00:00",
+      "momentum": {
+        "conviction": 1.0,
+        "direction": 1,
+        "score": 1.0
+      },
+      "parity": true,
+      "rsi": 100.0
+    },
+    "semantic_reference": {
+      "macd": {
+        "histogram": 2.391420589118593,
+        "line": 4.0705862777088555,
+        "signal": 1.6791656885902624
+      },
+      "market_as_of": "1972-10-01T08:00:00+00:00",
+      "momentum": {
+        "conviction": 1.0,
+        "direction": 1,
+        "score": 1.0
+      },
+      "parity": true,
+      "rsi": 100.0
+    }
+  },
+  "restart": {
+    "continuous_input_cursors": {
+      "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h": "1972-10-01T04:00:00+00:00",
+      "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:4h": "1972-10-01T04:00:00+00:00",
+      "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:4h": "1972-10-01T08:00:00+00:00"
+    },
+    "continuous_semantics": {
+      "BTCUSDT:momentum_1h": {
+        "macd": {
+          "histogram": 2.379483853577591,
+          "line": 4.426135730653272,
+          "signal": 2.0466518770756807
+        },
+        "market_as_of": "1972-10-01T04:00:00+00:00",
+        "momentum": {
+          "conviction": 1.0,
+          "direction": 1,
+          "score": 1.0
+        },
+        "parity": true,
+        "rsi": 100.0
+      },
+      "BTCUSDT:momentum_4h": {
+        "macd": {
+          "histogram": 1.525242165242162,
+          "line": 2.606552706552776,
+          "signal": 1.081310541310614
+        },
+        "market_as_of": "1972-10-01T04:00:00+00:00",
+        "momentum": {
+          "conviction": 1.0,
+          "direction": 1,
+          "score": 1.0
+        },
+        "parity": true,
+        "rsi": 100.0
+      },
+      "ETHUSDT:momentum_4h": {
+        "macd": {
+          "histogram": 2.391420589118593,
+          "line": 4.0705862777088555,
+          "signal": 1.6791656885902624
+        },
+        "market_as_of": "1972-10-01T08:00:00+00:00",
+        "momentum": {
+          "conviction": 1.0,
+          "direction": 1,
+          "score": 1.0
+        },
+        "parity": true,
+        "rsi": 100.0
+      }
+    },
+    "continuous_signal_count": 6,
+    "continuous_watermarks": {
+      "BTCUSDT:momentum_1h": "1972-10-01T04:00:00+00:00",
+      "BTCUSDT:momentum_4h": "1972-10-01T04:00:00+00:00",
+      "ETHUSDT:momentum_4h": "1972-10-01T08:00:00+00:00"
+    },
+    "cursor_count": 3,
+    "cursors_match": true,
+    "fresh_input_cursors": {
+      "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h": "1972-10-01T04:00:00+00:00",
+      "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:4h": "1972-10-01T04:00:00+00:00",
+      "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:4h": "1972-10-01T08:00:00+00:00"
+    },
+    "fresh_poll_transactions": 0,
+    "fresh_replay_step_count": 0,
+    "fresh_semantics": {
+      "BTCUSDT:momentum_1h": {
+        "macd": {
+          "histogram": 2.379483853577591,
+          "line": 4.426135730653272,
+          "signal": 2.0466518770756807
+        },
+        "market_as_of": "1972-10-01T04:00:00+00:00",
+        "momentum": {
+          "conviction": 1.0,
+          "direction": 1,
+          "score": 1.0
+        },
+        "parity": true,
+        "rsi": 100.0
+      },
+      "BTCUSDT:momentum_4h": {
+        "macd": {
+          "histogram": 1.525242165242162,
+          "line": 2.606552706552776,
+          "signal": 1.081310541310614
+        },
+        "market_as_of": "1972-10-01T04:00:00+00:00",
+        "momentum": {
+          "conviction": 1.0,
+          "direction": 1,
+          "score": 1.0
+        },
+        "parity": true,
+        "rsi": 100.0
+      },
+      "ETHUSDT:momentum_4h": {
+        "macd": {
+          "histogram": 2.391420589118593,
+          "line": 4.0705862777088555,
+          "signal": 1.6791656885902624
+        },
+        "market_as_of": "1972-10-01T08:00:00+00:00",
+        "momentum": {
+          "conviction": 1.0,
+          "direction": 1,
+          "score": 1.0
+        },
+        "parity": true,
+        "rsi": 100.0
+      }
+    },
+    "fresh_signal_count_delta": 0,
+    "fresh_stateful_binding_count": 0,
+    "fresh_status": "STARTUP_READY",
+    "fresh_watermarks": {
+      "BTCUSDT:momentum_1h": "1972-10-01T04:00:00+00:00",
+      "BTCUSDT:momentum_4h": "1972-10-01T04:00:00+00:00",
+      "ETHUSDT:momentum_4h": "1972-10-01T08:00:00+00:00"
+    },
+    "semantics_match": true,
+    "watermarks_match": true
+  },
+  "schema": {
+    "candles_hypertable": true,
+    "checkpoint_schema_idempotent": true,
+    "decision_checkpoint_table": true,
+    "ingestion_outbox_table": true,
+    "ingestion_schema_idempotent": true,
+    "timescaledb_extension": true
+  },
+  "schema_version": 1,
+  "signals": {
+    "count": 6,
+    "entries": [
+      {
+        "asset": "BTCUSDT",
+        "conviction": 1.0,
+        "decision_id": "BTCUSDT:momentum_1h:417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802:1972-10-01T02:00:00.000000Z",
+        "direction": 1,
+        "idempotency_key": "21cdf75e713ad93c3fe75f5e1b16999fd668a857f567bef6574a487c3f470ae3",
+        "idempotency_matches_decision": true,
+        "metadata_revision": "417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802",
+        "metadata_revision_matches_decision": true,
+        "metadata_timestamp_unit": "seconds",
+        "model_name": "m4-btc-1h",
+        "price": 166.3,
+        "stream": "signals:BTCUSDT:1h",
+        "stream_id": "86752800000-0",
+        "timeframe": "1h",
+        "timestamp": 86752800.0
+      },
+      {
+        "asset": "BTCUSDT",
+        "conviction": 1.0,
+        "decision_id": "BTCUSDT:momentum_1h:417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802:1972-10-01T03:00:00.000000Z",
+        "direction": 1,
+        "idempotency_key": "379133ad126ef4bd047e8a64ebf3fd05c668983952ef5a574f999935d3d5a6ce",
+        "idempotency_matches_decision": true,
+        "metadata_revision": "417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802",
+        "metadata_revision_matches_decision": true,
+        "metadata_timestamp_unit": "seconds",
+        "model_name": "m4-btc-1h",
+        "price": 172.3,
+        "stream": "signals:BTCUSDT:1h",
+        "stream_id": "86756400000-0",
+        "timeframe": "1h",
+        "timestamp": 86756400.0
+      },
+      {
+        "asset": "BTCUSDT",
+        "conviction": 1.0,
+        "decision_id": "BTCUSDT:momentum_1h:417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802:1972-10-01T04:00:00.000000Z",
+        "direction": 1,
+        "idempotency_key": "46d9f460b2a9d0f8b34820a644a574ccc03487d76bd1256863804f9c59ca3de4",
+        "idempotency_matches_decision": true,
+        "metadata_revision": "417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802",
+        "metadata_revision_matches_decision": true,
+        "metadata_timestamp_unit": "seconds",
+        "model_name": "m4-btc-1h",
+        "price": 178.3,
+        "stream": "signals:BTCUSDT:1h",
+        "stream_id": "86760000000-0",
+        "timeframe": "1h",
+        "timestamp": 86760000.0
+      },
+      {
+        "asset": "BTCUSDT",
+        "conviction": 1.0,
+        "decision_id": "BTCUSDT:momentum_4h:674c165df5ccd3ad51dbfd725b0c3edbcf9119fc2af3dfe872b69c87173627d3:1972-10-01T04:00:00.000000Z",
+        "direction": 1,
+        "idempotency_key": "0ee15a944a762d6c70093ebb3788dea57f81fa578d18f311053f17ee9c6af6e3",
+        "idempotency_matches_decision": true,
+        "metadata_revision": "674c165df5ccd3ad51dbfd725b0c3edbcf9119fc2af3dfe872b69c87173627d3",
+        "metadata_revision_matches_decision": true,
+        "metadata_timestamp_unit": "seconds",
+        "model_name": "m4-btc-4h",
+        "price": 178.3,
+        "stream": "signals:BTCUSDT:4h",
+        "stream_id": "86760000000-0",
+        "timeframe": "4h",
+        "timestamp": 86760000.0
+      },
+      {
+        "asset": "ETHUSDT",
+        "conviction": 1.0,
+        "decision_id": "ETHUSDT:momentum_4h:b884dfcef763ce499d70bc9ef3ef1133008c11af01fa599113078876344cbf5e:1972-10-01T04:00:00.000000Z",
+        "direction": 1,
+        "idempotency_key": "1ffb810971d2a880df62a5ac81048774b4b00ba51f630662d4bdaf4562cadf2a",
+        "idempotency_matches_decision": true,
+        "metadata_revision": "b884dfcef763ce499d70bc9ef3ef1133008c11af01fa599113078876344cbf5e",
+        "metadata_revision_matches_decision": true,
+        "metadata_timestamp_unit": "seconds",
+        "model_name": "m4-eth-4h",
+        "price": 178.3,
+        "stream": "signals:ETHUSDT:4h",
+        "stream_id": "86760000000-0",
+        "timeframe": "4h",
+        "timestamp": 86760000.0
+      },
+      {
+        "asset": "ETHUSDT",
+        "conviction": 1.0,
+        "decision_id": "ETHUSDT:momentum_4h:b884dfcef763ce499d70bc9ef3ef1133008c11af01fa599113078876344cbf5e:1972-10-01T08:00:00.000000Z",
+        "direction": 1,
+        "idempotency_key": "b4fb721d17cc907180156c100bbad74852a4eee733292562fec127392474ccbc",
+        "idempotency_matches_decision": true,
+        "metadata_revision": "b884dfcef763ce499d70bc9ef3ef1133008c11af01fa599113078876344cbf5e",
+        "metadata_revision_matches_decision": true,
+        "metadata_timestamp_unit": "seconds",
+        "model_name": "m4-eth-4h",
+        "price": 178.3,
+        "stream": "signals:ETHUSDT:4h",
+        "stream_id": "86774400000-0",
+        "timeframe": "4h",
+        "timestamp": 86774400.0
+      }
+    ],
+    "valid": true
+  },
+  "source_sha": "4647a04dc53a7ffd3de85a2f84b10bae4be9cefa",
+  "startup": {
+    "fetch_limits": [
+      544,
+      544,
+      544
+    ],
+    "lanes": {
+      "BTCUSDT:momentum_1h": "STARTUP_READY",
+      "BTCUSDT:momentum_4h": "STARTUP_READY",
+      "ETHUSDT:momentum_4h": "STARTUP_READY"
+    },
+    "replay_step_count": 0,
+    "retained_capacity": {
+      "BTCUSDT/1h": 544,
+      "BTCUSDT/4h": 544,
+      "ETHUSDT/4h": 544
+    },
+    "route_counts": {
+      "BTCUSDT/1h": 544,
+      "BTCUSDT/4h": 544,
+      "ETHUSDT/4h": 544
+    },
+    "signal_count": 0,
+    "stateful_binding_count": 0,
+    "status": "STARTUP_READY"
+  },
+  "terminal_status": "INGESTION_DECISION_C2_REAL_INFRASTRUCTURE_READY_FOR_RESILIENCE",
+  "trial_a": {
+    "before_empty": true,
+    "db_after": {
+      "base_1m_rows": 720,
+      "outbox_pending": 0,
+      "outbox_total": 727,
+      "route_rows": {
+        "BTCUSDT/1h": 548,
+        "BTCUSDT/4h": 545,
+        "ETHUSDT/4h": 546
+      },
+      "total_rows": 2359
+    },
+    "duplicate": {
+      "dispositions": [
+        "DUPLICATE"
+      ],
+      "signal_count_after": 5,
+      "signal_count_before": 5,
+      "signal_retry_outcome": "ALREADY_IDENTICAL",
+      "stream_id_changed": true,
+      "transaction_count": 0
+    },
+    "infrastructure": {
+      "before_empty": true,
+      "broker_image": "valkey/valkey:latest",
+      "db_image": "timescale/timescaledb:latest-pg15",
+      "isolated_project": true,
+      "valkey_noeviction": true
+    },
+    "live": {
+      "base_inserted": 480,
+      "db_counts_after_live": {
+        "base_1m_rows": 480,
+        "outbox_pending": 0,
+        "outbox_total": 486,
+        "route_rows": {
+          "BTCUSDT/1h": 548,
+          "BTCUSDT/4h": 545,
+          "ETHUSDT/4h": 545
+        },
+        "total_rows": 2118
+      },
+      "db_outbox_pending": 0,
+      "db_outbox_total": 486,
+      "decision_parity": true,
+      "derived_counts": {
+        "BTCUSDT/1h": 4,
+        "BTCUSDT/4h": 1,
+        "ETHUSDT/4h": 1
+      },
+      "input_inserted_count": 6,
+      "lane_results": {
+        "BTCUSDT:momentum_1h": {
+          "finalization_status": "COMMITTED",
+          "policy_status": "SIGNAL",
+          "publication_outcome": "PUBLISHED",
+          "status": "LIVE",
+          "trigger_cutoff": "1972-10-01T04:00:00+00:00"
+        },
+        "BTCUSDT:momentum_4h": {
+          "finalization_status": "COMMITTED",
+          "policy_status": "SIGNAL",
+          "publication_outcome": "PUBLISHED",
+          "status": "LIVE",
+          "trigger_cutoff": "1972-10-01T04:00:00+00:00"
+        },
+        "ETHUSDT:momentum_4h": {
+          "finalization_status": "COMMITTED",
+          "policy_status": "SIGNAL",
+          "publication_outcome": "PUBLISHED",
+          "status": "LIVE",
+          "trigger_cutoff": "1972-10-01T04:00:00+00:00"
+        }
+      },
+      "no_base_signal": true,
+      "outbox": {
+        "attempts": 1,
+        "published": 486
+      },
+      "producer_stream_lengths": {
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h": 4,
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1m": 240,
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:4h": 1,
+        "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:1m": 240,
+        "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:4h": 1
+      },
+      "producer_stream_total": 486,
+      "route_parity": {
+        "BTCUSDT:momentum_1h": {
+          "macd": {
+            "histogram": 2.379483853577591,
+            "line": 4.426135730653272,
+            "signal": 2.0466518770756807
+          },
+          "market_as_of": "1972-10-01T04:00:00+00:00",
+          "momentum": {
+            "conviction": 1.0,
+            "direction": 1,
+            "score": 1.0
+          },
+          "parity": true,
+          "rsi": 100.0
+        },
+        "BTCUSDT:momentum_4h": {
+          "macd": {
+            "histogram": 1.525242165242162,
+            "line": 2.606552706552776,
+            "signal": 1.081310541310614
+          },
+          "market_as_of": "1972-10-01T04:00:00+00:00",
+          "momentum": {
+            "conviction": 1.0,
+            "direction": 1,
+            "score": 1.0
+          },
+          "parity": true,
+          "rsi": 100.0
+        },
+        "ETHUSDT:momentum_4h": {
+          "macd": {
+            "histogram": 1.525242165242162,
+            "line": 2.606552706552776,
+            "signal": 1.081310541310614
+          },
+          "market_as_of": "1972-10-01T04:00:00+00:00",
+          "momentum": {
+            "conviction": 1.0,
+            "direction": 1,
+            "score": 1.0
+          },
+          "parity": true,
+          "rsi": 100.0
+        }
+      },
+      "semantic_cutoffs_match": true,
+      "stream_event_count": 6
+    },
+    "parity": {
+      "db_stream_decision": true,
+      "derived_provenance": true,
+      "forward_stream_order": true,
+      "records": [
+        {
+          "db_equals_stream": true,
+          "geometry_equal": true,
+          "market_as_of": "1972-10-01T01:00:00+00:00",
+          "provenance_equal": true,
+          "route": "BTCUSDT/1h",
+          "stream_equals_decision": true
+        },
+        {
+          "db_equals_stream": true,
+          "geometry_equal": true,
+          "market_as_of": "1972-10-01T02:00:00+00:00",
+          "provenance_equal": true,
+          "route": "BTCUSDT/1h",
+          "stream_equals_decision": true
+        },
+        {
+          "db_equals_stream": true,
+          "geometry_equal": true,
+          "market_as_of": "1972-10-01T03:00:00+00:00",
+          "provenance_equal": true,
+          "route": "BTCUSDT/1h",
+          "stream_equals_decision": true
+        },
+        {
+          "db_equals_stream": true,
+          "geometry_equal": true,
+          "market_as_of": "1972-10-01T04:00:00+00:00",
+          "provenance_equal": true,
+          "route": "BTCUSDT/1h",
+          "stream_equals_decision": true
+        },
+        {
+          "db_equals_stream": true,
+          "geometry_equal": true,
+          "market_as_of": "1972-10-01T04:00:00+00:00",
+          "provenance_equal": true,
+          "route": "BTCUSDT/4h",
+          "stream_equals_decision": true
+        },
+        {
+          "db_equals_stream": true,
+          "geometry_equal": true,
+          "market_as_of": "1972-10-01T04:00:00+00:00",
+          "provenance_equal": true,
+          "route": "ETHUSDT/4h",
+          "stream_equals_decision": true
+        }
+      ]
+    },
+    "recovery": {
+      "c1_reference_close": "178.3",
+      "candle_semantics_actual": {
+        "bar_duration_seconds": 14400,
+        "bar_open_aligned": true,
+        "close": "178.3",
+        "high": "178.5",
+        "instrument_id": "ETH-USDT-PERP",
+        "low": "154.2",
+        "open": "154.4",
+        "source_provider": null,
+        "source_timeframe": "1m",
+        "source_type": "derived",
+        "taker_buy_base": "96.0",
+        "timeframe": "4h",
+        "venue": "binance",
+        "volume": "240"
+      },
+      "candle_semantics_reference": {
+        "bar_duration_seconds": 14400,
+        "bar_open_aligned": true,
+        "close": "178.3",
+        "high": "178.5",
+        "instrument_id": "ETH-USDT-PERP",
+        "low": "154.2",
+        "open": "154.4",
+        "source_provider": null,
+        "source_timeframe": "1m",
+        "source_type": "derived",
+        "taker_buy_base": "96.0",
+        "timeframe": "4h",
+        "venue": "binance",
+        "volume": "240"
+      },
+      "follow_ups": 0,
+      "input_dispositions": [
+        "INSERTED"
+      ],
+      "lane_result_actual": {
+        "finalization_status": "COMMITTED",
+        "policy_status": "SIGNAL",
+        "publication_outcome": "PUBLISHED",
+        "status": "LIVE",
+        "trigger_cutoff": "1972-10-01T08:00:00+00:00"
+      },
+      "lane_result_reference": {
+        "finalization_status": "COMMITTED",
+        "policy_status": "SIGNAL",
+        "publication_outcome": "PUBLISHED",
+        "status": "LIVE",
+        "trigger_cutoff": "1972-10-01T08:00:00+00:00"
+      },
+      "lane_results": {
+        "BTCUSDT:momentum_1h": {
+          "finalization_status": null,
+          "policy_status": null,
+          "publication_outcome": null,
+          "status": "LIVE",
+          "trigger_cutoff": null
+        },
+        "BTCUSDT:momentum_4h": {
+          "finalization_status": null,
+          "policy_status": null,
+          "publication_outcome": null,
+          "status": "LIVE",
+          "trigger_cutoff": null
+        },
+        "ETHUSDT:momentum_4h": {
+          "finalization_status": "COMMITTED",
+          "policy_status": "SIGNAL",
+          "publication_outcome": "PUBLISHED",
+          "status": "LIVE",
+          "trigger_cutoff": "1972-10-01T08:00:00+00:00"
+        }
+      },
+      "outbox": {
+        "attempts": 1,
+        "published": 2
+      },
+      "premature_derived_count": 0,
+      "provider_calls": 1,
+      "recovered_base_count": 1,
+      "recovered_close": "178.3",
+      "recovered_row_count": 1,
+      "request_count": 1,
+      "semantic_actual": {
+        "macd": {
+          "histogram": 2.391420589118593,
+          "line": 4.0705862777088555,
+          "signal": 1.6791656885902624
+        },
+        "market_as_of": "1972-10-01T08:00:00+00:00",
+        "momentum": {
+          "conviction": 1.0,
+          "direction": 1,
+          "score": 1.0
+        },
+        "parity": true,
+        "rsi": 100.0
+      },
+      "semantic_reference": {
+        "macd": {
+          "histogram": 2.391420589118593,
+          "line": 4.0705862777088555,
+          "signal": 1.6791656885902624
+        },
+        "market_as_of": "1972-10-01T08:00:00+00:00",
+        "momentum": {
+          "conviction": 1.0,
+          "direction": 1,
+          "score": 1.0
+        },
+        "parity": true,
+        "rsi": 100.0
+      }
+    },
+    "restart": {
+      "continuous_input_cursors": {
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h": "1972-10-01T04:00:00+00:00",
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:4h": "1972-10-01T04:00:00+00:00",
+        "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:4h": "1972-10-01T08:00:00+00:00"
+      },
+      "continuous_semantics": {
+        "BTCUSDT:momentum_1h": {
+          "macd": {
+            "histogram": 2.379483853577591,
+            "line": 4.426135730653272,
+            "signal": 2.0466518770756807
+          },
+          "market_as_of": "1972-10-01T04:00:00+00:00",
+          "momentum": {
+            "conviction": 1.0,
+            "direction": 1,
+            "score": 1.0
+          },
+          "parity": true,
+          "rsi": 100.0
+        },
+        "BTCUSDT:momentum_4h": {
+          "macd": {
+            "histogram": 1.525242165242162,
+            "line": 2.606552706552776,
+            "signal": 1.081310541310614
+          },
+          "market_as_of": "1972-10-01T04:00:00+00:00",
+          "momentum": {
+            "conviction": 1.0,
+            "direction": 1,
+            "score": 1.0
+          },
+          "parity": true,
+          "rsi": 100.0
+        },
+        "ETHUSDT:momentum_4h": {
+          "macd": {
+            "histogram": 2.391420589118593,
+            "line": 4.0705862777088555,
+            "signal": 1.6791656885902624
+          },
+          "market_as_of": "1972-10-01T08:00:00+00:00",
+          "momentum": {
+            "conviction": 1.0,
+            "direction": 1,
+            "score": 1.0
+          },
+          "parity": true,
+          "rsi": 100.0
+        }
+      },
+      "continuous_signal_count": 6,
+      "continuous_watermarks": {
+        "BTCUSDT:momentum_1h": "1972-10-01T04:00:00+00:00",
+        "BTCUSDT:momentum_4h": "1972-10-01T04:00:00+00:00",
+        "ETHUSDT:momentum_4h": "1972-10-01T08:00:00+00:00"
+      },
+      "cursor_count": 3,
+      "cursors_match": true,
+      "fresh_input_cursors": {
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h": "1972-10-01T04:00:00+00:00",
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:4h": "1972-10-01T04:00:00+00:00",
+        "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:4h": "1972-10-01T08:00:00+00:00"
+      },
+      "fresh_poll_transactions": 0,
+      "fresh_replay_step_count": 0,
+      "fresh_semantics": {
+        "BTCUSDT:momentum_1h": {
+          "macd": {
+            "histogram": 2.379483853577591,
+            "line": 4.426135730653272,
+            "signal": 2.0466518770756807
+          },
+          "market_as_of": "1972-10-01T04:00:00+00:00",
+          "momentum": {
+            "conviction": 1.0,
+            "direction": 1,
+            "score": 1.0
+          },
+          "parity": true,
+          "rsi": 100.0
+        },
+        "BTCUSDT:momentum_4h": {
+          "macd": {
+            "histogram": 1.525242165242162,
+            "line": 2.606552706552776,
+            "signal": 1.081310541310614
+          },
+          "market_as_of": "1972-10-01T04:00:00+00:00",
+          "momentum": {
+            "conviction": 1.0,
+            "direction": 1,
+            "score": 1.0
+          },
+          "parity": true,
+          "rsi": 100.0
+        },
+        "ETHUSDT:momentum_4h": {
+          "macd": {
+            "histogram": 2.391420589118593,
+            "line": 4.0705862777088555,
+            "signal": 1.6791656885902624
+          },
+          "market_as_of": "1972-10-01T08:00:00+00:00",
+          "momentum": {
+            "conviction": 1.0,
+            "direction": 1,
+            "score": 1.0
+          },
+          "parity": true,
+          "rsi": 100.0
+        }
+      },
+      "fresh_signal_count_delta": 0,
+      "fresh_stateful_binding_count": 0,
+      "fresh_status": "STARTUP_READY",
+      "fresh_watermarks": {
+        "BTCUSDT:momentum_1h": "1972-10-01T04:00:00+00:00",
+        "BTCUSDT:momentum_4h": "1972-10-01T04:00:00+00:00",
+        "ETHUSDT:momentum_4h": "1972-10-01T08:00:00+00:00"
+      },
+      "semantics_match": true,
+      "watermarks_match": true
+    },
+    "schema": {
+      "candles_hypertable": true,
+      "checkpoint_schema_idempotent": true,
+      "decision_checkpoint_table": true,
+      "ingestion_outbox_table": true,
+      "ingestion_schema_idempotent": true,
+      "timescaledb_extension": true
+    },
+    "signals": {
+      "count": 6,
+      "entries": [
+        {
+          "asset": "BTCUSDT",
+          "conviction": 1.0,
+          "decision_id": "BTCUSDT:momentum_1h:417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802:1972-10-01T02:00:00.000000Z",
+          "direction": 1,
+          "idempotency_key": "21cdf75e713ad93c3fe75f5e1b16999fd668a857f567bef6574a487c3f470ae3",
+          "idempotency_matches_decision": true,
+          "metadata_revision": "417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802",
+          "metadata_revision_matches_decision": true,
+          "metadata_timestamp_unit": "seconds",
+          "model_name": "m4-btc-1h",
+          "price": 166.3,
+          "stream": "signals:BTCUSDT:1h",
+          "stream_id": "86752800000-0",
+          "timeframe": "1h",
+          "timestamp": 86752800.0
+        },
+        {
+          "asset": "BTCUSDT",
+          "conviction": 1.0,
+          "decision_id": "BTCUSDT:momentum_1h:417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802:1972-10-01T03:00:00.000000Z",
+          "direction": 1,
+          "idempotency_key": "379133ad126ef4bd047e8a64ebf3fd05c668983952ef5a574f999935d3d5a6ce",
+          "idempotency_matches_decision": true,
+          "metadata_revision": "417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802",
+          "metadata_revision_matches_decision": true,
+          "metadata_timestamp_unit": "seconds",
+          "model_name": "m4-btc-1h",
+          "price": 172.3,
+          "stream": "signals:BTCUSDT:1h",
+          "stream_id": "86756400000-0",
+          "timeframe": "1h",
+          "timestamp": 86756400.0
+        },
+        {
+          "asset": "BTCUSDT",
+          "conviction": 1.0,
+          "decision_id": "BTCUSDT:momentum_1h:417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802:1972-10-01T04:00:00.000000Z",
+          "direction": 1,
+          "idempotency_key": "46d9f460b2a9d0f8b34820a644a574ccc03487d76bd1256863804f9c59ca3de4",
+          "idempotency_matches_decision": true,
+          "metadata_revision": "417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802",
+          "metadata_revision_matches_decision": true,
+          "metadata_timestamp_unit": "seconds",
+          "model_name": "m4-btc-1h",
+          "price": 178.3,
+          "stream": "signals:BTCUSDT:1h",
+          "stream_id": "86760000000-0",
+          "timeframe": "1h",
+          "timestamp": 86760000.0
+        },
+        {
+          "asset": "BTCUSDT",
+          "conviction": 1.0,
+          "decision_id": "BTCUSDT:momentum_4h:674c165df5ccd3ad51dbfd725b0c3edbcf9119fc2af3dfe872b69c87173627d3:1972-10-01T04:00:00.000000Z",
+          "direction": 1,
+          "idempotency_key": "0ee15a944a762d6c70093ebb3788dea57f81fa578d18f311053f17ee9c6af6e3",
+          "idempotency_matches_decision": true,
+          "metadata_revision": "674c165df5ccd3ad51dbfd725b0c3edbcf9119fc2af3dfe872b69c87173627d3",
+          "metadata_revision_matches_decision": true,
+          "metadata_timestamp_unit": "seconds",
+          "model_name": "m4-btc-4h",
+          "price": 178.3,
+          "stream": "signals:BTCUSDT:4h",
+          "stream_id": "86760000000-0",
+          "timeframe": "4h",
+          "timestamp": 86760000.0
+        },
+        {
+          "asset": "ETHUSDT",
+          "conviction": 1.0,
+          "decision_id": "ETHUSDT:momentum_4h:b884dfcef763ce499d70bc9ef3ef1133008c11af01fa599113078876344cbf5e:1972-10-01T04:00:00.000000Z",
+          "direction": 1,
+          "idempotency_key": "1ffb810971d2a880df62a5ac81048774b4b00ba51f630662d4bdaf4562cadf2a",
+          "idempotency_matches_decision": true,
+          "metadata_revision": "b884dfcef763ce499d70bc9ef3ef1133008c11af01fa599113078876344cbf5e",
+          "metadata_revision_matches_decision": true,
+          "metadata_timestamp_unit": "seconds",
+          "model_name": "m4-eth-4h",
+          "price": 178.3,
+          "stream": "signals:ETHUSDT:4h",
+          "stream_id": "86760000000-0",
+          "timeframe": "4h",
+          "timestamp": 86760000.0
+        },
+        {
+          "asset": "ETHUSDT",
+          "conviction": 1.0,
+          "decision_id": "ETHUSDT:momentum_4h:b884dfcef763ce499d70bc9ef3ef1133008c11af01fa599113078876344cbf5e:1972-10-01T08:00:00.000000Z",
+          "direction": 1,
+          "idempotency_key": "b4fb721d17cc907180156c100bbad74852a4eee733292562fec127392474ccbc",
+          "idempotency_matches_decision": true,
+          "metadata_revision": "b884dfcef763ce499d70bc9ef3ef1133008c11af01fa599113078876344cbf5e",
+          "metadata_revision_matches_decision": true,
+          "metadata_timestamp_unit": "seconds",
+          "model_name": "m4-eth-4h",
+          "price": 178.3,
+          "stream": "signals:ETHUSDT:4h",
+          "stream_id": "86774400000-0",
+          "timeframe": "4h",
+          "timestamp": 86774400.0
+        }
+      ],
+      "valid": true
+    },
+    "startup": {
+      "fetch_limits": [
+        544,
+        544,
+        544
+      ],
+      "lanes": {
+        "BTCUSDT:momentum_1h": "STARTUP_READY",
+        "BTCUSDT:momentum_4h": "STARTUP_READY",
+        "ETHUSDT:momentum_4h": "STARTUP_READY"
+      },
+      "replay_step_count": 0,
+      "retained_capacity": {
+        "BTCUSDT/1h": 544,
+        "BTCUSDT/4h": 544,
+        "ETHUSDT/4h": 544
+      },
+      "route_counts": {
+        "BTCUSDT/1h": 544,
+        "BTCUSDT/4h": 544,
+        "ETHUSDT/4h": 544
+      },
+      "signal_count": 0,
+      "stateful_binding_count": 0,
+      "status": "STARTUP_READY"
+    }
+  },
+  "trial_b": {
+    "before_empty": true,
+    "db_after": {
+      "base_1m_rows": 720,
+      "outbox_pending": 0,
+      "outbox_total": 727,
+      "route_rows": {
+        "BTCUSDT/1h": 548,
+        "BTCUSDT/4h": 545,
+        "ETHUSDT/4h": 546
+      },
+      "total_rows": 2359
+    },
+    "duplicate": {
+      "dispositions": [
+        "DUPLICATE"
+      ],
+      "signal_count_after": 5,
+      "signal_count_before": 5,
+      "signal_retry_outcome": "ALREADY_IDENTICAL",
+      "stream_id_changed": true,
+      "transaction_count": 0
+    },
+    "infrastructure": {
+      "before_empty": true,
+      "broker_image": "valkey/valkey:latest",
+      "db_image": "timescale/timescaledb:latest-pg15",
+      "isolated_project": true,
+      "valkey_noeviction": true
+    },
+    "live": {
+      "base_inserted": 480,
+      "db_counts_after_live": {
+        "base_1m_rows": 480,
+        "outbox_pending": 0,
+        "outbox_total": 486,
+        "route_rows": {
+          "BTCUSDT/1h": 548,
+          "BTCUSDT/4h": 545,
+          "ETHUSDT/4h": 545
+        },
+        "total_rows": 2118
+      },
+      "db_outbox_pending": 0,
+      "db_outbox_total": 486,
+      "decision_parity": true,
+      "derived_counts": {
+        "BTCUSDT/1h": 4,
+        "BTCUSDT/4h": 1,
+        "ETHUSDT/4h": 1
+      },
+      "input_inserted_count": 6,
+      "lane_results": {
+        "BTCUSDT:momentum_1h": {
+          "finalization_status": "COMMITTED",
+          "policy_status": "SIGNAL",
+          "publication_outcome": "PUBLISHED",
+          "status": "LIVE",
+          "trigger_cutoff": "1972-10-01T04:00:00+00:00"
+        },
+        "BTCUSDT:momentum_4h": {
+          "finalization_status": "COMMITTED",
+          "policy_status": "SIGNAL",
+          "publication_outcome": "PUBLISHED",
+          "status": "LIVE",
+          "trigger_cutoff": "1972-10-01T04:00:00+00:00"
+        },
+        "ETHUSDT:momentum_4h": {
+          "finalization_status": "COMMITTED",
+          "policy_status": "SIGNAL",
+          "publication_outcome": "PUBLISHED",
+          "status": "LIVE",
+          "trigger_cutoff": "1972-10-01T04:00:00+00:00"
+        }
+      },
+      "no_base_signal": true,
+      "outbox": {
+        "attempts": 1,
+        "published": 486
+      },
+      "producer_stream_lengths": {
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h": 4,
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1m": 240,
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:4h": 1,
+        "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:1m": 240,
+        "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:4h": 1
+      },
+      "producer_stream_total": 486,
+      "route_parity": {
+        "BTCUSDT:momentum_1h": {
+          "macd": {
+            "histogram": 2.379483853577591,
+            "line": 4.426135730653272,
+            "signal": 2.0466518770756807
+          },
+          "market_as_of": "1972-10-01T04:00:00+00:00",
+          "momentum": {
+            "conviction": 1.0,
+            "direction": 1,
+            "score": 1.0
+          },
+          "parity": true,
+          "rsi": 100.0
+        },
+        "BTCUSDT:momentum_4h": {
+          "macd": {
+            "histogram": 1.525242165242162,
+            "line": 2.606552706552776,
+            "signal": 1.081310541310614
+          },
+          "market_as_of": "1972-10-01T04:00:00+00:00",
+          "momentum": {
+            "conviction": 1.0,
+            "direction": 1,
+            "score": 1.0
+          },
+          "parity": true,
+          "rsi": 100.0
+        },
+        "ETHUSDT:momentum_4h": {
+          "macd": {
+            "histogram": 1.525242165242162,
+            "line": 2.606552706552776,
+            "signal": 1.081310541310614
+          },
+          "market_as_of": "1972-10-01T04:00:00+00:00",
+          "momentum": {
+            "conviction": 1.0,
+            "direction": 1,
+            "score": 1.0
+          },
+          "parity": true,
+          "rsi": 100.0
+        }
+      },
+      "semantic_cutoffs_match": true,
+      "stream_event_count": 6
+    },
+    "parity": {
+      "db_stream_decision": true,
+      "derived_provenance": true,
+      "forward_stream_order": true,
+      "records": [
+        {
+          "db_equals_stream": true,
+          "geometry_equal": true,
+          "market_as_of": "1972-10-01T01:00:00+00:00",
+          "provenance_equal": true,
+          "route": "BTCUSDT/1h",
+          "stream_equals_decision": true
+        },
+        {
+          "db_equals_stream": true,
+          "geometry_equal": true,
+          "market_as_of": "1972-10-01T02:00:00+00:00",
+          "provenance_equal": true,
+          "route": "BTCUSDT/1h",
+          "stream_equals_decision": true
+        },
+        {
+          "db_equals_stream": true,
+          "geometry_equal": true,
+          "market_as_of": "1972-10-01T03:00:00+00:00",
+          "provenance_equal": true,
+          "route": "BTCUSDT/1h",
+          "stream_equals_decision": true
+        },
+        {
+          "db_equals_stream": true,
+          "geometry_equal": true,
+          "market_as_of": "1972-10-01T04:00:00+00:00",
+          "provenance_equal": true,
+          "route": "BTCUSDT/1h",
+          "stream_equals_decision": true
+        },
+        {
+          "db_equals_stream": true,
+          "geometry_equal": true,
+          "market_as_of": "1972-10-01T04:00:00+00:00",
+          "provenance_equal": true,
+          "route": "BTCUSDT/4h",
+          "stream_equals_decision": true
+        },
+        {
+          "db_equals_stream": true,
+          "geometry_equal": true,
+          "market_as_of": "1972-10-01T04:00:00+00:00",
+          "provenance_equal": true,
+          "route": "ETHUSDT/4h",
+          "stream_equals_decision": true
+        }
+      ]
+    },
+    "recovery": {
+      "c1_reference_close": "178.3",
+      "candle_semantics_actual": {
+        "bar_duration_seconds": 14400,
+        "bar_open_aligned": true,
+        "close": "178.3",
+        "high": "178.5",
+        "instrument_id": "ETH-USDT-PERP",
+        "low": "154.2",
+        "open": "154.4",
+        "source_provider": null,
+        "source_timeframe": "1m",
+        "source_type": "derived",
+        "taker_buy_base": "96.0",
+        "timeframe": "4h",
+        "venue": "binance",
+        "volume": "240"
+      },
+      "candle_semantics_reference": {
+        "bar_duration_seconds": 14400,
+        "bar_open_aligned": true,
+        "close": "178.3",
+        "high": "178.5",
+        "instrument_id": "ETH-USDT-PERP",
+        "low": "154.2",
+        "open": "154.4",
+        "source_provider": null,
+        "source_timeframe": "1m",
+        "source_type": "derived",
+        "taker_buy_base": "96.0",
+        "timeframe": "4h",
+        "venue": "binance",
+        "volume": "240"
+      },
+      "follow_ups": 0,
+      "input_dispositions": [
+        "INSERTED"
+      ],
+      "lane_result_actual": {
+        "finalization_status": "COMMITTED",
+        "policy_status": "SIGNAL",
+        "publication_outcome": "PUBLISHED",
+        "status": "LIVE",
+        "trigger_cutoff": "1972-10-01T08:00:00+00:00"
+      },
+      "lane_result_reference": {
+        "finalization_status": "COMMITTED",
+        "policy_status": "SIGNAL",
+        "publication_outcome": "PUBLISHED",
+        "status": "LIVE",
+        "trigger_cutoff": "1972-10-01T08:00:00+00:00"
+      },
+      "lane_results": {
+        "BTCUSDT:momentum_1h": {
+          "finalization_status": null,
+          "policy_status": null,
+          "publication_outcome": null,
+          "status": "LIVE",
+          "trigger_cutoff": null
+        },
+        "BTCUSDT:momentum_4h": {
+          "finalization_status": null,
+          "policy_status": null,
+          "publication_outcome": null,
+          "status": "LIVE",
+          "trigger_cutoff": null
+        },
+        "ETHUSDT:momentum_4h": {
+          "finalization_status": "COMMITTED",
+          "policy_status": "SIGNAL",
+          "publication_outcome": "PUBLISHED",
+          "status": "LIVE",
+          "trigger_cutoff": "1972-10-01T08:00:00+00:00"
+        }
+      },
+      "outbox": {
+        "attempts": 1,
+        "published": 2
+      },
+      "premature_derived_count": 0,
+      "provider_calls": 1,
+      "recovered_base_count": 1,
+      "recovered_close": "178.3",
+      "recovered_row_count": 1,
+      "request_count": 1,
+      "semantic_actual": {
+        "macd": {
+          "histogram": 2.391420589118593,
+          "line": 4.0705862777088555,
+          "signal": 1.6791656885902624
+        },
+        "market_as_of": "1972-10-01T08:00:00+00:00",
+        "momentum": {
+          "conviction": 1.0,
+          "direction": 1,
+          "score": 1.0
+        },
+        "parity": true,
+        "rsi": 100.0
+      },
+      "semantic_reference": {
+        "macd": {
+          "histogram": 2.391420589118593,
+          "line": 4.0705862777088555,
+          "signal": 1.6791656885902624
+        },
+        "market_as_of": "1972-10-01T08:00:00+00:00",
+        "momentum": {
+          "conviction": 1.0,
+          "direction": 1,
+          "score": 1.0
+        },
+        "parity": true,
+        "rsi": 100.0
+      }
+    },
+    "restart": {
+      "continuous_input_cursors": {
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h": "1972-10-01T04:00:00+00:00",
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:4h": "1972-10-01T04:00:00+00:00",
+        "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:4h": "1972-10-01T08:00:00+00:00"
+      },
+      "continuous_semantics": {
+        "BTCUSDT:momentum_1h": {
+          "macd": {
+            "histogram": 2.379483853577591,
+            "line": 4.426135730653272,
+            "signal": 2.0466518770756807
+          },
+          "market_as_of": "1972-10-01T04:00:00+00:00",
+          "momentum": {
+            "conviction": 1.0,
+            "direction": 1,
+            "score": 1.0
+          },
+          "parity": true,
+          "rsi": 100.0
+        },
+        "BTCUSDT:momentum_4h": {
+          "macd": {
+            "histogram": 1.525242165242162,
+            "line": 2.606552706552776,
+            "signal": 1.081310541310614
+          },
+          "market_as_of": "1972-10-01T04:00:00+00:00",
+          "momentum": {
+            "conviction": 1.0,
+            "direction": 1,
+            "score": 1.0
+          },
+          "parity": true,
+          "rsi": 100.0
+        },
+        "ETHUSDT:momentum_4h": {
+          "macd": {
+            "histogram": 2.391420589118593,
+            "line": 4.0705862777088555,
+            "signal": 1.6791656885902624
+          },
+          "market_as_of": "1972-10-01T08:00:00+00:00",
+          "momentum": {
+            "conviction": 1.0,
+            "direction": 1,
+            "score": 1.0
+          },
+          "parity": true,
+          "rsi": 100.0
+        }
+      },
+      "continuous_signal_count": 6,
+      "continuous_watermarks": {
+        "BTCUSDT:momentum_1h": "1972-10-01T04:00:00+00:00",
+        "BTCUSDT:momentum_4h": "1972-10-01T04:00:00+00:00",
+        "ETHUSDT:momentum_4h": "1972-10-01T08:00:00+00:00"
+      },
+      "cursor_count": 3,
+      "cursors_match": true,
+      "fresh_input_cursors": {
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h": "1972-10-01T04:00:00+00:00",
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:4h": "1972-10-01T04:00:00+00:00",
+        "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:4h": "1972-10-01T08:00:00+00:00"
+      },
+      "fresh_poll_transactions": 0,
+      "fresh_replay_step_count": 0,
+      "fresh_semantics": {
+        "BTCUSDT:momentum_1h": {
+          "macd": {
+            "histogram": 2.379483853577591,
+            "line": 4.426135730653272,
+            "signal": 2.0466518770756807
+          },
+          "market_as_of": "1972-10-01T04:00:00+00:00",
+          "momentum": {
+            "conviction": 1.0,
+            "direction": 1,
+            "score": 1.0
+          },
+          "parity": true,
+          "rsi": 100.0
+        },
+        "BTCUSDT:momentum_4h": {
+          "macd": {
+            "histogram": 1.525242165242162,
+            "line": 2.606552706552776,
+            "signal": 1.081310541310614
+          },
+          "market_as_of": "1972-10-01T04:00:00+00:00",
+          "momentum": {
+            "conviction": 1.0,
+            "direction": 1,
+            "score": 1.0
+          },
+          "parity": true,
+          "rsi": 100.0
+        },
+        "ETHUSDT:momentum_4h": {
+          "macd": {
+            "histogram": 2.391420589118593,
+            "line": 4.0705862777088555,
+            "signal": 1.6791656885902624
+          },
+          "market_as_of": "1972-10-01T08:00:00+00:00",
+          "momentum": {
+            "conviction": 1.0,
+            "direction": 1,
+            "score": 1.0
+          },
+          "parity": true,
+          "rsi": 100.0
+        }
+      },
+      "fresh_signal_count_delta": 0,
+      "fresh_stateful_binding_count": 0,
+      "fresh_status": "STARTUP_READY",
+      "fresh_watermarks": {
+        "BTCUSDT:momentum_1h": "1972-10-01T04:00:00+00:00",
+        "BTCUSDT:momentum_4h": "1972-10-01T04:00:00+00:00",
+        "ETHUSDT:momentum_4h": "1972-10-01T08:00:00+00:00"
+      },
+      "semantics_match": true,
+      "watermarks_match": true
+    },
+    "schema": {
+      "candles_hypertable": true,
+      "checkpoint_schema_idempotent": true,
+      "decision_checkpoint_table": true,
+      "ingestion_outbox_table": true,
+      "ingestion_schema_idempotent": true,
+      "timescaledb_extension": true
+    },
+    "signals": {
+      "count": 6,
+      "entries": [
+        {
+          "asset": "BTCUSDT",
+          "conviction": 1.0,
+          "decision_id": "BTCUSDT:momentum_1h:417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802:1972-10-01T02:00:00.000000Z",
+          "direction": 1,
+          "idempotency_key": "21cdf75e713ad93c3fe75f5e1b16999fd668a857f567bef6574a487c3f470ae3",
+          "idempotency_matches_decision": true,
+          "metadata_revision": "417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802",
+          "metadata_revision_matches_decision": true,
+          "metadata_timestamp_unit": "seconds",
+          "model_name": "m4-btc-1h",
+          "price": 166.3,
+          "stream": "signals:BTCUSDT:1h",
+          "stream_id": "86752800000-0",
+          "timeframe": "1h",
+          "timestamp": 86752800.0
+        },
+        {
+          "asset": "BTCUSDT",
+          "conviction": 1.0,
+          "decision_id": "BTCUSDT:momentum_1h:417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802:1972-10-01T03:00:00.000000Z",
+          "direction": 1,
+          "idempotency_key": "379133ad126ef4bd047e8a64ebf3fd05c668983952ef5a574f999935d3d5a6ce",
+          "idempotency_matches_decision": true,
+          "metadata_revision": "417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802",
+          "metadata_revision_matches_decision": true,
+          "metadata_timestamp_unit": "seconds",
+          "model_name": "m4-btc-1h",
+          "price": 172.3,
+          "stream": "signals:BTCUSDT:1h",
+          "stream_id": "86756400000-0",
+          "timeframe": "1h",
+          "timestamp": 86756400.0
+        },
+        {
+          "asset": "BTCUSDT",
+          "conviction": 1.0,
+          "decision_id": "BTCUSDT:momentum_1h:417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802:1972-10-01T04:00:00.000000Z",
+          "direction": 1,
+          "idempotency_key": "46d9f460b2a9d0f8b34820a644a574ccc03487d76bd1256863804f9c59ca3de4",
+          "idempotency_matches_decision": true,
+          "metadata_revision": "417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802",
+          "metadata_revision_matches_decision": true,
+          "metadata_timestamp_unit": "seconds",
+          "model_name": "m4-btc-1h",
+          "price": 178.3,
+          "stream": "signals:BTCUSDT:1h",
+          "stream_id": "86760000000-0",
+          "timeframe": "1h",
+          "timestamp": 86760000.0
+        },
+        {
+          "asset": "BTCUSDT",
+          "conviction": 1.0,
+          "decision_id": "BTCUSDT:momentum_4h:674c165df5ccd3ad51dbfd725b0c3edbcf9119fc2af3dfe872b69c87173627d3:1972-10-01T04:00:00.000000Z",
+          "direction": 1,
+          "idempotency_key": "0ee15a944a762d6c70093ebb3788dea57f81fa578d18f311053f17ee9c6af6e3",
+          "idempotency_matches_decision": true,
+          "metadata_revision": "674c165df5ccd3ad51dbfd725b0c3edbcf9119fc2af3dfe872b69c87173627d3",
+          "metadata_revision_matches_decision": true,
+          "metadata_timestamp_unit": "seconds",
+          "model_name": "m4-btc-4h",
+          "price": 178.3,
+          "stream": "signals:BTCUSDT:4h",
+          "stream_id": "86760000000-0",
+          "timeframe": "4h",
+          "timestamp": 86760000.0
+        },
+        {
+          "asset": "ETHUSDT",
+          "conviction": 1.0,
+          "decision_id": "ETHUSDT:momentum_4h:b884dfcef763ce499d70bc9ef3ef1133008c11af01fa599113078876344cbf5e:1972-10-01T04:00:00.000000Z",
+          "direction": 1,
+          "idempotency_key": "1ffb810971d2a880df62a5ac81048774b4b00ba51f630662d4bdaf4562cadf2a",
+          "idempotency_matches_decision": true,
+          "metadata_revision": "b884dfcef763ce499d70bc9ef3ef1133008c11af01fa599113078876344cbf5e",
+          "metadata_revision_matches_decision": true,
+          "metadata_timestamp_unit": "seconds",
+          "model_name": "m4-eth-4h",
+          "price": 178.3,
+          "stream": "signals:ETHUSDT:4h",
+          "stream_id": "86760000000-0",
+          "timeframe": "4h",
+          "timestamp": 86760000.0
+        },
+        {
+          "asset": "ETHUSDT",
+          "conviction": 1.0,
+          "decision_id": "ETHUSDT:momentum_4h:b884dfcef763ce499d70bc9ef3ef1133008c11af01fa599113078876344cbf5e:1972-10-01T08:00:00.000000Z",
+          "direction": 1,
+          "idempotency_key": "b4fb721d17cc907180156c100bbad74852a4eee733292562fec127392474ccbc",
+          "idempotency_matches_decision": true,
+          "metadata_revision": "b884dfcef763ce499d70bc9ef3ef1133008c11af01fa599113078876344cbf5e",
+          "metadata_revision_matches_decision": true,
+          "metadata_timestamp_unit": "seconds",
+          "model_name": "m4-eth-4h",
+          "price": 178.3,
+          "stream": "signals:ETHUSDT:4h",
+          "stream_id": "86774400000-0",
+          "timeframe": "4h",
+          "timestamp": 86774400.0
+        }
+      ],
+      "valid": true
+    },
+    "startup": {
+      "fetch_limits": [
+        544,
+        544,
+        544
+      ],
+      "lanes": {
+        "BTCUSDT:momentum_1h": "STARTUP_READY",
+        "BTCUSDT:momentum_4h": "STARTUP_READY",
+        "ETHUSDT:momentum_4h": "STARTUP_READY"
+      },
+      "replay_step_count": 0,
+      "retained_capacity": {
+        "BTCUSDT/1h": 544,
+        "BTCUSDT/4h": 544,
+        "ETHUSDT/4h": 544
+      },
+      "route_counts": {
+        "BTCUSDT/1h": 544,
+        "BTCUSDT/4h": 544,
+        "ETHUSDT/4h": 544
+      },
+      "signal_count": 0,
+      "stateful_binding_count": 0,
+      "status": "STARTUP_READY"
+    }
+  },
+  "trials": {
+    "normalized_equal": true
+  }
+}
