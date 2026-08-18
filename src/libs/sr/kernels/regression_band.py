@@ -1,16 +1,16 @@
 """
 Regression Band Kernel
 =======================
-Consumes the regression module's already-optimized band output and
-emits band edges as S/R candidates.
+Consumes an explicitly injected regression result when available and
+emits band edges as S/R candidates. Otherwise it computes local OLS
+bands from the input close prices.
 
 The upper band → resistance, lower band → support.
 Center line emitted optionally.
 
-This kernel **wraps** the regression pipeline — it does not re-fit
-regression models.  The ``band_width_sigma`` param is passed through
-to the regression pipeline if running inline, or the kernel accepts
-a pre-computed ``RegressionResult`` via ``config.extra["regression_result"]``.
+The kernel accepts a pre-computed ``RegressionResult`` via
+``config.extra["regression_result"]`` and otherwise uses its local
+OLS/sigma fallback.
 
 Config params (via ``KernelConfig.kernel_params``):
   * ``band_width_sigma`` — band width in σ (default 2.0)
@@ -21,10 +21,6 @@ Config params (via ``KernelConfig.kernel_params``):
 
 from __future__ import annotations
 
-import logging
-from dataclasses import replace
-from functools import lru_cache
-from pathlib import Path
 from typing import List
 
 import numpy as np
@@ -34,9 +30,6 @@ from app.sr.models import LevelType
 from app.sr.kernels.base import BaseSRKernel, KernelConfig
 from app.sr.kernels.registry import register_kernel
 from app.sr.models import CandidateLevel
-
-logger = logging.getLogger(__name__)
-
 
 @register_kernel("regression_band")
 class RegressionBandKernel(BaseSRKernel):
@@ -70,14 +63,6 @@ class RegressionBandKernel(BaseSRKernel):
 
         regression_result = config.extra.get("regression_result") if config.extra else None
         extracted = _extract_regression_values(regression_result)
-
-        if extracted is None:
-            inline_result = _compute_inline_regression_result(
-                df=df,
-                config=config,
-                band_width_sigma=band_width_sigma,
-            )
-            extracted = _extract_regression_values(inline_result)
 
         if extracted is not None:
             upper_val, lower_val, center_val, confidence, timestamp_source = extracted
@@ -228,41 +213,3 @@ def _extract_regression_values(regression_result):
     confidence = float(getattr(regression_result, "confidence", 0.5))
     timestamp = getattr(regression_result, "timestamp", None)
     return upper_val, lower_val, center_val, confidence, timestamp
-
-
-@lru_cache(maxsize=4)
-def _get_regression_resolver(config_path: str):
-    from app.regression.config.resolver import ConfigResolver
-
-    return ConfigResolver.from_yaml(config_path)
-
-
-def _compute_inline_regression_result(
-    df: pd.DataFrame,
-    config: KernelConfig,
-    band_width_sigma: float,
-):
-    asset = config.extra.get("asset") if config.extra else None
-    if not asset:
-        return None
-
-    from app.regression.api import compute_single_tf
-
-    config_path = config.extra.get("regression_config_path") if config.extra else None
-    if not config_path:
-        config_path = str(
-            Path(__file__).resolve().parents[2] / "regression" / "config" / "regression.yaml"
-        )
-
-    try:
-        resolved = _get_regression_resolver(config_path).resolve(asset, config.timeframe)
-        resolved = replace(resolved, band_multiplier=float(band_width_sigma))
-        return compute_single_tf(
-            df=df,
-            asset=asset,
-            timeframe=config.timeframe,
-            config=resolved,
-        )
-    except Exception as e:
-        logger.debug("Inline regression failed for %s:%s — %s", asset, config.timeframe, e)
-        return None

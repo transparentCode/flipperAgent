@@ -20,7 +20,9 @@ from apps.decision_app.features.planning import (
     compile_feature_bar_store_capacities,
     compile_feature_plan,
     merge_bar_store_capacities,
+    resolve_feature_config_fingerprint,
     resolve_feature_history_requirements,
+    validate_feature_plan_against_lane,
 )
 from apps.decision_app.planning.planner import (
     DecisionLaneSpec,
@@ -260,6 +262,124 @@ def test_feature_history_resolution_merges_same_series_by_maximum() -> None:
             timeframe="1h",
         ): 7
     }
+
+
+def test_dynamic_history_resolver_is_lane_resolved_and_rejects_ambiguity() -> None:
+    with pytest.raises(ValueError, match="cannot be combined"):
+        SharedFeatureDefinition(
+            name="DYNAMIC",
+            version="1",
+            calculator=lambda context: 1,
+            history_requirements=(
+                FeatureHistoryRequirement(source="decision", bars=2),
+            ),
+            history_requirement_resolver=lambda lane: (
+                FeatureHistoryRequirement(source="decision", bars=3),
+            ),
+        )
+
+    feature = SharedFeatureDefinition(
+        name="DYNAMIC",
+        version="1",
+        calculator=lambda context: 1,
+        history_requirement_resolver=lambda resolved_lane: (
+            FeatureHistoryRequirement(
+                source="decision",
+                bars=2 if resolved_lane.lane_id.endswith(":one") else 3,
+            ),
+        ),
+    )
+    one_lane = compile_lane(
+        [spec("A", requirements=(FeatureRequirement(name="DYNAMIC"),))],
+        lane(binding("a", "A"), lane_id="BTCUSDT:one"),
+    )
+    two_lane = compile_lane(
+        [spec("A", requirements=(FeatureRequirement(name="DYNAMIC"),))],
+        lane(binding("a", "A"), lane_id="BTCUSDT:two"),
+    )
+    catalog = FeatureCatalog([feature])
+    policy = FeaturePolicy(name="operator", version="1", allowed_features=("DYNAMIC",))
+    one = compile_feature_plan(one_lane, catalog, policy, GRID)
+    two = compile_feature_plan(two_lane, catalog, policy, GRID)
+    assert next(iter(one.history_requirements["DYNAMIC"].values())) == 2
+    assert next(iter(two.history_requirements["DYNAMIC"].values())) == 3
+    assert one.feature_plan_fingerprint != two.feature_plan_fingerprint
+
+
+def test_dynamic_history_resolver_rejects_malformed_output() -> None:
+    lane_plan = compile_lane(
+        [spec("A", requirements=(FeatureRequirement(name="DYNAMIC"),))],
+        lane(binding("a", "A")),
+    )
+    feature = SharedFeatureDefinition(
+        name="DYNAMIC",
+        version="1",
+        calculator=lambda context: 1,
+        history_requirement_resolver=lambda resolved_lane: ("not-a-requirement",),  # type: ignore[return-value]
+    )
+    with pytest.raises(TypeError, match="FeatureHistoryRequirement"):
+        resolve_feature_history_requirements(feature, lane_plan, GRID)
+
+
+def test_feature_config_fingerprint_is_planned_and_validated() -> None:
+    lane_plan = compile_lane(
+        [spec("A", requirements=(FeatureRequirement(name="F"),))],
+        lane(binding("a", "A")),
+    )
+    policy = FeaturePolicy(name="operator", version="1", allowed_features=("F",))
+    history = (FeatureHistoryRequirement(source="decision", bars=2),)
+
+    def make_feature(value: str) -> SharedFeatureDefinition:
+        return SharedFeatureDefinition(
+            name="F",
+            version="1",
+            calculator=lambda context: 1,
+            history_requirements=history,
+            config_fingerprint_resolver=lambda resolved_lane: value,
+        )
+
+    first_catalog = FeatureCatalog([make_feature("config-one")])
+    second_catalog = FeatureCatalog([make_feature("config-two")])
+    first = compile_feature_plan(lane_plan, first_catalog, policy, GRID)
+    second = compile_feature_plan(lane_plan, second_catalog, policy, GRID)
+    assert first.feature_config_fingerprints == {"F": "config-one"}
+    assert resolve_feature_config_fingerprint(
+        first_catalog.resolve("F"), lane_plan
+    ) == ("config-one")
+    assert first.feature_plan_fingerprint != second.feature_plan_fingerprint
+    with pytest.raises(FeaturePlanError, match="configuration fingerprint"):
+        validate_feature_plan_against_lane(first, lane_plan, second_catalog, GRID)
+
+    static = compile_feature_plan(
+        lane_plan,
+        FeatureCatalog([definition("F", history=history)]),
+        policy,
+        GRID,
+    )
+    assert static.feature_config_fingerprints == {}
+
+
+@pytest.mark.parametrize(
+    "resolver_value",
+    ("", 123, None),
+    ids=("empty", "non_string", "none"),
+)
+def test_feature_config_fingerprint_resolver_rejects_invalid_output(
+    resolver_value: object,
+) -> None:
+    lane_plan = compile_lane(
+        [spec("A", requirements=(FeatureRequirement(name="F"),))],
+        lane(binding("a", "A")),
+    )
+    feature = SharedFeatureDefinition(
+        name="F",
+        version="1",
+        calculator=lambda context: 1,
+        config_fingerprint_resolver=lambda resolved_lane: resolver_value,  # type: ignore[return-value]
+    )
+
+    with pytest.raises((TypeError, ValueError), match="feature config fingerprint"):
+        resolve_feature_config_fingerprint(feature, lane_plan)
 
 
 def test_feature_capacity_merges_with_base_by_maximum() -> None:

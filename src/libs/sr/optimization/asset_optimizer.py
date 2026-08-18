@@ -82,7 +82,7 @@ class AssetOptimizationConfig:
     # Search space narrowing
     bound_fraction: float = 0.60  # ±60% of global optimum
 
-    # Walk-forward CV (reuses regression's WalkForwardValidator)
+    # Walk-forward CV (uses the SR-owned WalkForwardValidator)
     min_bars: int = 500
     train_bars: int = 2000
     test_bars: int = 500
@@ -473,7 +473,7 @@ class AssetSROptimizer:
 
     def _build_walk_forward(self) -> "WalkForwardValidator":
         """Build a WalkForwardValidator with SR-specific config."""
-        from app.regression.optimization.walk_forward_2way import WalkForwardValidator
+        from libs.sr.optimization.walk_forward import WalkForwardValidator
 
         return WalkForwardValidator(
             train_bars=self._config.train_bars,

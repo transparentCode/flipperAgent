@@ -422,7 +422,12 @@ class FeatureEngine:
                 raise ValueError(
                     f"lane market view {field_name} must match resolved lane"
                 )
-        validate_feature_plan_against_lane(feature_plan, resolved_lane)
+        validate_feature_plan_against_lane(
+            feature_plan,
+            resolved_lane,
+            self._feature_catalog,
+            self._timeframe_grid,
+        )
         for name in feature_plan.effective_shared_features:
             definition = self._feature_catalog.resolve(name)
             if feature_plan.feature_versions[name] != definition.version:
@@ -491,7 +496,7 @@ class FeatureEngine:
         feature_plan: FeaturePlan,
         context: SharedFeatureContext,
     ) -> Mapping[str, Any]:
-        return {
+        provenance: dict[str, Any] = {
             "feature_name": definition.name,
             "feature_version": definition.version,
             "feature_plan_fingerprint": feature_plan.feature_plan_fingerprint,
@@ -504,6 +509,12 @@ class FeatureEngine:
             },
             "projected_decision_bar": not context.decision_bar_closed,
         }
+        config_fingerprint = feature_plan.feature_config_fingerprints.get(
+            definition.name
+        )
+        if config_fingerprint is not None:
+            provenance["feature_config_fingerprint"] = config_fingerprint
+        return provenance
 
 
 __all__ = [
