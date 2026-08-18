@@ -31,6 +31,19 @@ def test_c2_compose_is_two_services_and_uses_production_images() -> None:
     assert "${C2_BROKER_PORT" in fixture["services"]["broker"]["ports"][0]
 
 
+def test_c2_db_healthcheck_requires_final_postmaster_and_readiness() -> None:
+    fixture = yaml.safe_load(C2_COMPOSE_FILE.read_text(encoding="utf-8"))
+    healthcheck = fixture["services"]["db"]["healthcheck"]
+    command = healthcheck["test"][1]
+
+    assert healthcheck["test"][0] == "CMD-SHELL"
+    assert "head -n 1" in command
+    assert "postmaster.pid" in command
+    assert "$${PGDATA}" in command
+    assert '"1"' in command
+    assert "pg_isready -U c2_user -d c2_db" in command
+
+
 def test_c2_protected_evidence_is_current() -> None:
     assert protected_hashes_valid()
 
