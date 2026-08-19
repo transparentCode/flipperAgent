@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from apps.strategy_app.settings import create_strategy_config_manager
+from apps.strategy_app.settings import (
+    create_strategy_config_manager,
+    parse_relinquished_routes,
+)
 from apps.strategy_app.state import StrategyPair
 from libs.common.asset_manifest import (
     AssetManifest,
@@ -42,6 +45,9 @@ def build_strategy_pairs(
         for asset, timeframe in (live_pairs or [])
     }
     manifest_gate = _manifest_gate(live_manifests) if live_pairs is None else {}
+    relinquished_routes = parse_relinquished_routes(
+        manager.get("strategy.runtime.relinquished_routes", ())
+    )
     accumulators: dict[tuple[str, str, str], _PairAccumulator] = {}
 
     for normalized_asset in _iter_runtime_assets(manager):
@@ -55,13 +61,6 @@ def build_strategy_pairs(
                 allow_decision_projection=True,
             )
             trigger_timeframe = derive_trigger_timeframe(runtime_spec)
-            if (
-                live_pair_set
-                and (normalized_asset, trigger_timeframe) not in live_pair_set
-            ):
-                continue
-            if manifest_gate and not manifest_gate.get(normalized_asset, True):
-                continue
             pair_key = (
                 normalized_asset,
                 runtime_spec.decision_timeframe,
@@ -97,7 +96,7 @@ def build_strategy_pairs(
                 )
             accumulator.model_names.add(runtime_spec.model_name)
 
-    pairs = [
+    catalog_pairs = [
         StrategyPair(
             asset=acc.asset,
             timeframe=acc.decision_timeframe,
@@ -109,14 +108,29 @@ def build_strategy_pairs(
         )
         for acc in accumulators.values()
     ]
-    pairs.sort(
+    catalog_pairs.sort(
         key=lambda pair: (
             pair.asset,
             pair.timeframe,
             pair.trigger_timeframe or pair.timeframe,
         )
     )
-    return pairs
+    catalog_keys = {pair.key for pair in catalog_pairs}
+    unknown = sorted(set(relinquished_routes) - catalog_keys)
+    if unknown:
+        raise ValueError(
+            "unknown strategy.runtime.relinquished_routes: " + ", ".join(unknown)
+        )
+    return [
+        pair
+        for pair in catalog_pairs
+        if pair.key not in relinquished_routes
+        and (
+            not live_pair_set
+            or (pair.asset, pair.trigger_timeframe or pair.timeframe) in live_pair_set
+        )
+        and (not manifest_gate or manifest_gate.get(pair.asset, True))
+    ]
 
 
 def _manifest_gate(manifests: list[AssetManifest] | None) -> dict[str, bool]:

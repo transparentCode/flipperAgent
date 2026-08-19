@@ -75,6 +75,19 @@ REMEDIATED_SOURCE_PATHS = (
     "src/apps/decision_app/storage/schema.sql",
     "src/apps/decision_app/storage/shadow_progress.py",
 )
+
+# Historical C4B evidence is immutable.  Later phases may generalize these
+# modules, so its evaluator accepts this frozen source contract in addition to
+# the live C4B generator map; the stored-artifact regression compares exactly
+# against this map.
+FROZEN_C4B_RESTART_BACKLOG_SOURCE_HASHES = {
+    "src/apps/decision_app/bootstrap.py": "399c6bd55485fbf65b35c3ef270260b7cfb8bb73d217257102e7a31bdcd34ebb",
+    "src/apps/decision_app/runtime/live.py": "f7a500268973d9e547affe932cdce3d1b9c09a7732fd32cc3668a1d71d8c7f3a",
+    "src/apps/decision_app/runtime/startup.py": "6c00bce96d80ed9793b65762a4ecc36344567140995da949ea47f33676931499",
+    "src/apps/decision_app/storage/__init__.py": "d9c7b185f8d4f77022a67d9d523dcdb26c8331390fc71e945992edb79b2e38a5",
+    "src/apps/decision_app/storage/schema.sql": "18548f7d20e1982977d54121b5b2fee847cac85ac2eae78e61c48544ce7220e1",
+    "src/apps/decision_app/storage/shadow_progress.py": "30cc32c53030c3f152f19d7037007a04686fac0c8005f839a5ba04b79080db3d",
+}
 C4B_SUCCESS_STATUS = (
     "INGESTION_DECISION_C4B_SHADOW_SOAK_RESOURCE_CERTIFICATION_READY_FOR_REVIEW"
 )
@@ -1695,6 +1708,11 @@ def evaluate_c4b_gates(evidence: Mapping[str, object]) -> dict[str, bool]:
     normalized_a = evidence.get("normalized_trial_a")
     normalized_b = evidence.get("normalized_trial_b")
     trial_b_drift = normalized_a != normalized_b
+    source_hashes = (
+        source_contract.get("restart_backlog_source_hashes")
+        if isinstance(source_contract, Mapping)
+        else None
+    )
     gates: dict[str, bool] = {
         "protected_artifacts": protected == EXPECTED_PROTECTED_HASHES
         and protected_expected == EXPECTED_PROTECTED_HASHES,
@@ -1703,8 +1721,10 @@ def evaluate_c4b_gates(evidence: Mapping[str, object]) -> dict[str, bool]:
         and source_contract.get("c4a_manifest_sha") == C4A_MANIFEST_SHA
         and source_contract.get("c4a_artifact_sha") == C4A_ARTIFACT_SHA
         and source_contract.get("r4c_manifest_sha") == R4C_MANIFEST_SHA
-        and source_contract.get("restart_backlog_source_hashes")
-        == remediation_source_hashes(),
+        and (
+            source_hashes == remediation_source_hashes()
+            or source_hashes == FROZEN_C4B_RESTART_BACKLOG_SOURCE_HASHES
+        ),
         "fixture_contract": isinstance(evidence.get("fixture_hashes"), Mapping)
         and bool(evidence["fixture_hashes"].get("c4b_overlay")),
         "production_scope": isinstance(production_scope, Mapping)

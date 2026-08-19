@@ -1,0 +1,73 @@
+services:
+  db:
+    image: timescale/timescaledb:latest-pg15
+    environment:
+      POSTGRES_USER: d11a_user
+      POSTGRES_PASSWORD: d11a_password
+      POSTGRES_DB: d11a_db
+    ports:
+      - "127.0.0.1:${D11A_DB_PORT:?D11A_DB_PORT is required}:5432"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          test "$$(head -n 1 "$${PGDATA}/postmaster.pid" 2>/dev/null)" = "1"
+          && pg_isready -U d11a_user -d d11a_db
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    networks: [d11a-net]
+  broker:
+    image: valkey/valkey:latest
+    command: [valkey-server, --maxmemory, 192mb, --maxmemory-policy, noeviction]
+    ports:
+      - "127.0.0.1:${D11A_BROKER_PORT:?D11A_BROKER_PORT is required}:6379"
+    healthcheck:
+      test: [CMD, valkey-cli, ping]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    networks: [d11a-net]
+  decision:
+    build:
+      context: ../../../..
+      dockerfile: Dockerfile
+    command: python -m apps.decision_app.main
+    ports:
+      - "127.0.0.1:${D11A_DECISION_PORT:?D11A_DECISION_PORT is required}:8004"
+    volumes:
+      - ../../../..//configs/base.yaml:/app/configs/base.yaml:ro
+      - ../../../..//configs/ingestion:/app/configs/ingestion:ro
+      - ./decision:/app/configs/decision:ro
+      - d11a-logs:/app/logs
+    tmpfs: [/tmp]
+    environment:
+      POSTGRES_URI: postgresql://d11a_user:d11a_password@db:5432/d11a_db
+      VALKEY_URI: redis://broker:6379/0
+      LOG_FILE: /app/logs/decision.log
+      LOG_FORMAT: json
+      OTEL_SDK_DISABLED: "true"
+      OTEL_SERVICE_NAME: decision-d11a
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8004/health/ready', timeout=2)"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+      start_period: 20s
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    networks: [d11a-net]
+volumes:
+  d11a-logs:
+networks:
+  d11a-net:

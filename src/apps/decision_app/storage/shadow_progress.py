@@ -1,4 +1,10 @@
-"""Latest durable progress for non-authoritative shadow effects."""
+"""Latest durable effect progress for one exact Decision lane identity.
+
+The physical table retains its historical ``shadow_progress`` name.  The
+semantic contract is authority-neutral so authoritative SIGNAL/NO_SIGNAL
+effects and non-authoritative shadow observations use the same monotonic
+durability boundary.
+"""
 
 from __future__ import annotations
 
@@ -10,15 +16,18 @@ from typing import Any, Literal
 from apps.decision_app.domain.state import LaneExecutionIdentity
 from libs.contracts.decision import require_utc
 
-SHADOW_PROGRESS_SCHEMA_VERSION = 1
-ShadowDisposition = Literal["shadow"]
+LANE_EFFECT_PROGRESS_SCHEMA_VERSION = 1
+# Historical name retained for the already-certified C4B import surface.
+SHADOW_PROGRESS_SCHEMA_VERSION = LANE_EFFECT_PROGRESS_SCHEMA_VERSION
+LaneEffectDisposition = Literal["shadow", "published", "no_signal"]
+ShadowDisposition = LaneEffectDisposition
 
 
-class ShadowProgressCorruptionError(ValueError):
-    """Raised when durable shadow-progress evidence is not trustworthy."""
+class LaneEffectProgressCorruptionError(ValueError):
+    """Raised when durable lane-effect evidence is not trustworthy."""
 
 
-class ShadowProgressSaveResult(str, Enum):
+class LaneEffectProgressSaveResult(str, Enum):
     INSERTED = "INSERTED"
     UPDATED = "UPDATED"
     IDENTICAL = "IDENTICAL"
@@ -33,13 +42,13 @@ def _text(value: object, field_name: str) -> str:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class ShadowProgress:
+class LaneEffectProgress:
     """One latest-only effect-progress record for an exact lane identity."""
 
     identity: LaneExecutionIdentity
     market_as_of: datetime
-    last_disposition: ShadowDisposition | None = None
-    progress_schema_version: int = SHADOW_PROGRESS_SCHEMA_VERSION
+    last_disposition: LaneEffectDisposition | None = None
+    progress_schema_version: int = LANE_EFFECT_PROGRESS_SCHEMA_VERSION
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -47,10 +56,12 @@ class ShadowProgress:
         if not isinstance(self.identity, LaneExecutionIdentity):
             raise TypeError("identity must be LaneExecutionIdentity")
         require_utc(self.market_as_of, field_name="market_as_of")
-        if self.progress_schema_version != SHADOW_PROGRESS_SCHEMA_VERSION:
-            raise ValueError("unsupported shadow progress schema version")
-        if self.last_disposition not in {None, "shadow"}:
-            raise ValueError("last_disposition must be None or shadow")
+        if self.progress_schema_version != LANE_EFFECT_PROGRESS_SCHEMA_VERSION:
+            raise ValueError("unsupported lane effect progress schema version")
+        if self.last_disposition not in {None, "shadow", "published", "no_signal"}:
+            raise ValueError(
+                "last_disposition must be None, shadow, published, or no_signal"
+            )
         for field_name in ("created_at", "updated_at"):
             value = getattr(self, field_name)
             if value is not None:
@@ -65,7 +76,7 @@ class ShadowProgress:
         last_disposition: ShadowDisposition | None = None,
         created_at: datetime | None = None,
         updated_at: datetime | None = None,
-    ) -> ShadowProgress:
+    ) -> LaneEffectProgress:
         return cls(
             identity=identity,
             market_as_of=market_as_of,
@@ -75,11 +86,11 @@ class ShadowProgress:
         )
 
 
-def _validate_progress(progress: ShadowProgress) -> None:
-    if not isinstance(progress, ShadowProgress):
-        raise TypeError("progress must be ShadowProgress")
+def _validate_progress(progress: LaneEffectProgress) -> None:
+    if not isinstance(progress, LaneEffectProgress):
+        raise TypeError("progress must be LaneEffectProgress")
     # Reconstruct the value so a tampered or non-UTC row cannot cross the seam.
-    ShadowProgress(
+    LaneEffectProgress(
         identity=progress.identity,
         market_as_of=progress.market_as_of,
         last_disposition=progress.last_disposition,
@@ -89,13 +100,13 @@ def _validate_progress(progress: ShadowProgress) -> None:
     )
 
 
-class InMemoryShadowProgressRepository:
+class InMemoryLaneEffectProgressRepository:
     """Deterministic test/runtime seam with monotonic latest-only semantics."""
 
     def __init__(self) -> None:
-        self._items: dict[LaneExecutionIdentity, ShadowProgress] = {}
+        self._items: dict[LaneExecutionIdentity, LaneEffectProgress] = {}
 
-    async def load(self, identity: LaneExecutionIdentity) -> ShadowProgress | None:
+    async def load(self, identity: LaneExecutionIdentity) -> LaneEffectProgress | None:
         if not isinstance(identity, LaneExecutionIdentity):
             raise TypeError("identity must be LaneExecutionIdentity")
         progress = self._items.get(identity)
@@ -103,31 +114,31 @@ class InMemoryShadowProgressRepository:
             _validate_progress(progress)
         return progress
 
-    async def save(self, progress: ShadowProgress) -> ShadowProgressSaveResult:
+    async def save(self, progress: LaneEffectProgress) -> LaneEffectProgressSaveResult:
         _validate_progress(progress)
         current = self._items.get(progress.identity)
         if current is None:
             self._items[progress.identity] = progress
-            return ShadowProgressSaveResult.INSERTED
+            return LaneEffectProgressSaveResult.INSERTED
         if progress.market_as_of < current.market_as_of:
-            return ShadowProgressSaveResult.REJECTED_OLDER
+            return LaneEffectProgressSaveResult.REJECTED_OLDER
         if progress.market_as_of == current.market_as_of:
             if progress.last_disposition == current.last_disposition:
-                return ShadowProgressSaveResult.IDENTICAL
-            return ShadowProgressSaveResult.CONFLICT
+                return LaneEffectProgressSaveResult.IDENTICAL
+            return LaneEffectProgressSaveResult.CONFLICT
         self._items[progress.identity] = progress
-        return ShadowProgressSaveResult.UPDATED
+        return LaneEffectProgressSaveResult.UPDATED
 
 
-class ShadowProgressRepository:
-    """Small asyncpg repository for ``decision.shadow_progress``."""
+class LaneEffectProgressRepository:
+    """Small asyncpg repository for the historical progress table."""
 
     def __init__(self, pool: Any) -> None:
         if pool is None or not hasattr(pool, "acquire"):
             raise TypeError("pool must provide asyncpg acquire()")
         self._pool = pool
 
-    async def load(self, identity: LaneExecutionIdentity) -> ShadowProgress | None:
+    async def load(self, identity: LaneExecutionIdentity) -> LaneEffectProgress | None:
         if not isinstance(identity, LaneExecutionIdentity):
             raise TypeError("identity must be LaneExecutionIdentity")
         async with self._pool.acquire() as connection:
@@ -152,7 +163,7 @@ class ShadowProgressRepository:
             return None
         return _progress_from_row(row, identity)
 
-    async def save(self, progress: ShadowProgress) -> ShadowProgressSaveResult:
+    async def save(self, progress: LaneEffectProgress) -> LaneEffectProgressSaveResult:
         _validate_progress(progress)
         now = datetime.now(UTC)
         async with self._pool.acquire() as connection:
@@ -165,9 +176,9 @@ class ShadowProgressRepository:
     async def _save_locked(
         self,
         connection: Any,
-        progress: ShadowProgress,
+        progress: LaneEffectProgress,
         now: datetime,
-    ) -> ShadowProgressSaveResult:
+    ) -> LaneEffectProgressSaveResult:
         identity = progress.identity
         row = await connection.fetchrow(
             """
@@ -190,11 +201,11 @@ class ShadowProgressRepository:
         if row is not None:
             current = _progress_from_row(row, identity)
             if progress.market_as_of < current.market_as_of:
-                return ShadowProgressSaveResult.REJECTED_OLDER
+                return LaneEffectProgressSaveResult.REJECTED_OLDER
             if progress.market_as_of == current.market_as_of:
                 if progress.last_disposition == current.last_disposition:
-                    return ShadowProgressSaveResult.IDENTICAL
-                return ShadowProgressSaveResult.CONFLICT
+                    return LaneEffectProgressSaveResult.IDENTICAL
+                return LaneEffectProgressSaveResult.CONFLICT
             await connection.execute(
                 """
                 UPDATE decision.shadow_progress
@@ -212,7 +223,7 @@ class ShadowProgressRepository:
                 progress.last_disposition,
                 now,
             )
-            return ShadowProgressSaveResult.UPDATED
+            return LaneEffectProgressSaveResult.UPDATED
         await connection.execute(
             """
             INSERT INTO decision.shadow_progress (
@@ -230,22 +241,22 @@ class ShadowProgressRepository:
             progress.last_disposition,
             now,
         )
-        return ShadowProgressSaveResult.INSERTED
+        return LaneEffectProgressSaveResult.INSERTED
 
 
 def _row_value(row: Any, name: str) -> Any:
     try:
         return row[name]
     except (KeyError, TypeError, IndexError) as exc:
-        raise ShadowProgressCorruptionError(
-            f"shadow progress row missing {name}"
+        raise LaneEffectProgressCorruptionError(
+            f"lane effect progress row missing {name}"
         ) from exc
 
 
 def _progress_from_row(
     row: Any,
     identity: LaneExecutionIdentity,
-) -> ShadowProgress:
+) -> LaneEffectProgress:
     row_identity = LaneExecutionIdentity(
         lane_id=_row_value(row, "lane_id"),
         effective_lane_revision=_row_value(row, "effective_lane_revision"),
@@ -253,11 +264,11 @@ def _progress_from_row(
         data_plan_fingerprint=_row_value(row, "data_plan_fingerprint"),
     )
     if row_identity != identity:
-        raise ShadowProgressCorruptionError(
-            "shadow progress identity does not match query"
+        raise LaneEffectProgressCorruptionError(
+            "lane effect progress identity does not match query"
         )
     try:
-        progress = ShadowProgress(
+        progress = LaneEffectProgress(
             identity=row_identity,
             market_as_of=_row_value(row, "market_as_of"),
             last_disposition=_row_value(row, "last_disposition"),
@@ -266,18 +277,32 @@ def _progress_from_row(
             updated_at=_row_value(row, "updated_at"),
         )
     except (TypeError, ValueError) as exc:
-        raise ShadowProgressCorruptionError(
-            "shadow progress row contains invalid evidence"
+        raise LaneEffectProgressCorruptionError(
+            "lane effect progress row contains invalid evidence"
         ) from exc
     _validate_progress(progress)
     return progress
 
 
 __all__ = [
+    "LANE_EFFECT_PROGRESS_SCHEMA_VERSION",
     "SHADOW_PROGRESS_SCHEMA_VERSION",
+    "InMemoryLaneEffectProgressRepository",
     "InMemoryShadowProgressRepository",
+    "LaneEffectProgress",
+    "LaneEffectProgressCorruptionError",
+    "LaneEffectProgressRepository",
+    "LaneEffectProgressSaveResult",
     "ShadowProgress",
     "ShadowProgressCorruptionError",
     "ShadowProgressRepository",
     "ShadowProgressSaveResult",
 ]
+
+# Compatibility aliases for the certified C4B callers.  There is one
+# implementation and one table, not parallel shadow/authoritative stores.
+InMemoryShadowProgressRepository = InMemoryLaneEffectProgressRepository
+ShadowProgress = LaneEffectProgress
+ShadowProgressCorruptionError = LaneEffectProgressCorruptionError
+ShadowProgressRepository = LaneEffectProgressRepository
+ShadowProgressSaveResult = LaneEffectProgressSaveResult

@@ -49,9 +49,9 @@ from apps.decision_app.storage.checkpoints import (
     LaneStateCheckpoint,
 )
 from apps.decision_app.storage.shadow_progress import (
-    InMemoryShadowProgressRepository,
-    ShadowProgress,
-    ShadowProgressSaveResult,
+    InMemoryLaneEffectProgressRepository,
+    LaneEffectProgress,
+    LaneEffectProgressSaveResult,
 )
 from apps.decision_app.transport.ingestion import CanonicalMarketEvent
 from apps.decision_app.transport.live_input import (
@@ -260,13 +260,13 @@ class LiveDecisionRuntime:
             if checkpoint_repository is None
             else checkpoint_repository
         )
-        self._shadow_progress = (
-            InMemoryShadowProgressRepository()
+        self._effect_progress = (
+            InMemoryLaneEffectProgressRepository()
             if shadow_progress_repository is None
             else shadow_progress_repository
         )
-        if not callable(getattr(self._shadow_progress, "save", None)):
-            raise TypeError("shadow_progress_repository must provide save()")
+        if not callable(getattr(self._effect_progress, "save", None)):
+            raise TypeError("lane effect progress repository must provide save()")
         self._policy = DecisionPolicy(
             DecisionPolicyCatalog([PASSTHROUGH_V1, PRIORITY_V1])
             if policy_catalog is None
@@ -508,7 +508,7 @@ class LiveDecisionRuntime:
         self,
         poll_evidence: Mapping[str, _LanePollEvidence],
     ) -> bool:
-        """Drain durable shadow-effect backlog before accepting newer input."""
+        """Drain durable lane-effect backlog before accepting newer input."""
 
         for lane_id in sorted(self._lanes):
             live_lane = self._lanes[lane_id]
@@ -537,7 +537,7 @@ class LiveDecisionRuntime:
                     self._halt_lane(
                         live_lane,
                         "HALTED",
-                        "shadow catch-up did not advance its effect watermark",
+                        "lane effect catch-up did not advance its effect watermark",
                     )
                     return False
                 live_lane.startup_catchup_index += 1
@@ -797,48 +797,59 @@ class LiveDecisionRuntime:
                     f"checkpoint durability returned {checkpoint_result} after commit",
                 )
                 return
-        if live_lane.lane.authority == "shadow":
-            try:
-                progress_result = await self._save_shadow_progress(live_lane, receipt)
-            except Exception as exc:  # noqa: BLE001
-                self._halt_lane(
-                    live_lane,
-                    "HALTED",
-                    f"shadow progress durability failed after committed finalization: {exc}",
-                )
-                return
-            if progress_result not in {"INSERTED", "UPDATED", "IDENTICAL"}:
-                self._halt_lane(
-                    live_lane,
-                    "HALTED",
-                    f"shadow progress durability returned {progress_result} after commit",
-                )
-                return
+        try:
+            progress_result = await self._save_effect_progress(live_lane, receipt)
+        except Exception as exc:  # noqa: BLE001
+            self._halt_lane(
+                live_lane,
+                "HALTED",
+                f"lane effect progress durability failed after committed finalization: {exc}",
+            )
+            return
+        if progress_result not in {"INSERTED", "UPDATED", "IDENTICAL"}:
+            self._halt_lane(
+                live_lane,
+                "HALTED",
+                f"lane effect progress durability returned {progress_result} after commit",
+            )
+            return
         live_lane.pending_trigger_cutoff = None
         live_lane.reconciliation_attempted = False
         live_lane.status = "LIVE"
         live_lane.reason = None
+
+    async def _save_effect_progress(
+        self,
+        live_lane: LiveLane,
+        receipt: FinalizationReceipt,
+    ) -> str:
+        cutoff = receipt.watermark.latest_market_as_of
+        disposition = receipt.watermark.last_disposition
+        if cutoff is None or disposition not in {"shadow", "published", "no_signal"}:
+            raise LiveRuntimeHalt("committed finalization has no effect disposition")
+        progress = LaneEffectProgress.create(
+            identity=live_lane.identity,
+            market_as_of=cutoff,
+            last_disposition=disposition,
+            updated_at=self._now(),
+        )
+        result = await self._effect_progress.save(progress)
+        if isinstance(result, LaneEffectProgressSaveResult):
+            return result.value
+        if isinstance(result, str):
+            return result
+        raise LiveRuntimeHalt("lane effect progress repository returned invalid result")
 
     async def _save_shadow_progress(
         self,
         live_lane: LiveLane,
         receipt: FinalizationReceipt,
     ) -> str:
-        cutoff = receipt.watermark.latest_market_as_of
-        if cutoff is None or receipt.watermark.last_disposition != "shadow":
-            raise LiveRuntimeHalt("shadow finalization has no shadow watermark")
-        progress = ShadowProgress.create(
-            identity=live_lane.identity,
-            market_as_of=cutoff,
-            last_disposition="shadow",
-            updated_at=self._now(),
-        )
-        result = await self._shadow_progress.save(progress)
-        if isinstance(result, ShadowProgressSaveResult):
-            return result.value
-        if isinstance(result, str):
-            return result
-        raise LiveRuntimeHalt("shadow progress repository returned invalid result")
+        """Compatibility wrapper for the historical C4B private seam."""
+
+        if live_lane.lane.authority != "shadow":
+            raise LiveRuntimeHalt("shadow progress wrapper requires a shadow lane")
+        return await self._save_effect_progress(live_lane, receipt)
 
     async def _ensure_context(
         self,

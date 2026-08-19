@@ -77,8 +77,8 @@ from apps.decision_app.storage.checkpoints import (
 )
 from apps.decision_app.storage.market_history import CanonicalMarketHistoryRepository
 from apps.decision_app.storage.shadow_progress import (
-    InMemoryShadowProgressRepository,
-    ShadowProgress,
+    InMemoryLaneEffectProgressRepository,
+    LaneEffectProgress,
 )
 from apps.decision_app.transport.ingestion import (
     CanonicalMarketEvent,
@@ -252,7 +252,12 @@ class DecisionStartupSnapshot:
         for lane_id, watermark in self.lane_watermarks.items():
             if lane_id != watermark.lane_id:
                 raise ValueError("watermark map key must match lane_id")
-            if watermark.last_disposition not in {None, "shadow"}:
+            if watermark.last_disposition not in {
+                None,
+                "shadow",
+                "published",
+                "no_signal",
+            }:
                 raise ValueError("unsupported startup watermark disposition")
             watermarks[lane_id] = watermark
         evidence: dict[str, LaneStartupEvidence] = {}
@@ -508,13 +513,15 @@ class DecisionStartupCoordinator:
         self._history = history_repository
         self._streams = stream_client
         self._checkpoints = checkpoint_repository or InMemoryCheckpointRepository()
-        self._shadow_progress = (
-            shadow_progress_repository or InMemoryShadowProgressRepository()
+        self._effect_progress = (
+            shadow_progress_repository or InMemoryLaneEffectProgressRepository()
         )
-        if not callable(getattr(self._shadow_progress, "load", None)) or not callable(
-            getattr(self._shadow_progress, "save", None)
+        if not callable(getattr(self._effect_progress, "load", None)) or not callable(
+            getattr(self._effect_progress, "save", None)
         ):
-            raise TypeError("shadow_progress_repository must provide load() and save()")
+            raise TypeError(
+                "lane effect progress repository must provide load() and save()"
+            )
         self._manifest_store = manifest_store
         self._data_resolver = data_resolver or DataResolver(source_catalog)
 
@@ -618,16 +625,8 @@ class DecisionStartupCoordinator:
             resume_cutoff = evidence["resume_cutoff"]
             catchup_cutoffs = tuple(evidence.get("catchup_cutoffs", ()))
             lane_catchup_cutoffs[lane.lane_id] = catchup_cutoffs
-            watermark_cutoff = (
-                evidence.get("shadow_progress_cutoff")
-                if lane.authority == "shadow"
-                else resume_cutoff
-            )
-            watermark_disposition = (
-                evidence.get("shadow_progress_disposition")
-                if lane.authority == "shadow"
-                else None
-            )
+            watermark_cutoff = evidence.get("effect_progress_cutoff", resume_cutoff)
+            watermark_disposition = evidence.get("effect_progress_disposition")
             lane_watermarks[lane.lane_id] = LaneCommitWatermark(
                 lane_id=lane.lane_id,
                 latest_market_as_of=watermark_cutoff,
@@ -824,7 +823,7 @@ class DecisionStartupCoordinator:
             data_plan_fingerprint=data_plan.data_plan_fingerprint,
         )
 
-    async def _shadow_progress_for_lane(
+    async def _effect_progress_for_lane(
         self,
         *,
         lane: ResolvedLanePlan,
@@ -833,43 +832,39 @@ class DecisionStartupCoordinator:
         resume_cutoff: datetime,
         ready_views: Sequence[tuple[datetime, LaneMarketView]],
         stateful_binding_ids: Sequence[str],
-    ) -> tuple[ShadowProgress | None, tuple[datetime, ...]]:
-        """Resolve durable shadow effect progress without rewinding market state."""
+    ) -> tuple[LaneEffectProgress | None, tuple[datetime, ...]]:
+        """Resolve authority-neutral effect progress without rewinding input."""
 
-        if lane.authority != "shadow":
-            return None, ()
-        progress = await self._shadow_progress.load(identity)
+        progress = await self._effect_progress.load(identity)
         if progress is None:
-            baseline = ShadowProgress.create(
+            baseline = LaneEffectProgress.create(
                 identity=identity,
                 market_as_of=resume_cutoff,
                 last_disposition=None,
             )
-            result = await self._shadow_progress.save(baseline)
+            result = await self._effect_progress.save(baseline)
             if _save_result_value(result) not in {
                 "INSERTED",
                 "UPDATED",
                 "IDENTICAL",
             }:
                 raise StartupLaneError(
-                    f"shadow progress persistence {result} blocks startup"
+                    f"effect progress persistence {result} blocks startup"
                 )
             progress = baseline
-        if not isinstance(progress, ShadowProgress):
-            raise StartupLaneError("shadow progress repository returned invalid record")
+        if not isinstance(progress, LaneEffectProgress):
+            raise StartupLaneError("effect progress repository returned invalid record")
         if progress.identity != identity:
-            raise StartupLaneError("shadow progress identity does not match lane")
+            raise StartupLaneError("effect progress identity does not match lane")
         if progress.market_as_of > resume_cutoff:
-            raise StartupLaneError("shadow progress is ahead of market reconstruction")
+            raise StartupLaneError("effect progress is ahead of market reconstruction")
         if progress.market_as_of == resume_cutoff:
             return progress, ()
         if stateful_binding_ids:
-            raise StartupLaneError(
-                "stateful shadow lane has an unresolved effect backlog"
-            )
+            raise StartupLaneError("stateful lane has an unresolved effect backlog")
         if data_plan.requested_concepts:
             raise StartupLaneError(
-                "external-data shadow lane has an unresolved effect backlog"
+                "external-data lane has an unresolved effect backlog"
             )
         trigger_duration = self._config.timeframe_grid.duration(lane.trigger_timeframe)
         candidates = tuple(
@@ -880,14 +875,14 @@ class DecisionStartupCoordinator:
         expected_first = progress.market_as_of + trigger_duration
         if not candidates or candidates[0] != expected_first:
             raise StartupLaneError(
-                "retained history cannot bridge shadow effect progress backlog"
+                "retained history cannot bridge lane effect progress backlog"
             )
         if candidates[-1] != resume_cutoff or any(
             current != previous + trigger_duration
             for previous, current in pairwise(candidates)
         ):
             raise StartupLaneError(
-                "shadow effect backlog is not contiguous in retained history"
+                "lane effect backlog is not contiguous in retained history"
             )
         return progress, candidates
 
@@ -927,7 +922,7 @@ class DecisionStartupCoordinator:
             ready.append((cutoff, view))
         return ready
 
-    async def _load_shadow_catchup_store(
+    async def _load_effect_catchup_store(
         self,
         *,
         lane: ResolvedLanePlan,
@@ -936,16 +931,12 @@ class DecisionStartupCoordinator:
         catchup_cutoffs: Sequence[datetime],
         resume_cutoff: datetime,
     ) -> BarStore | None:
-        """Load one bounded causal store for a stateless shadow backlog."""
+        """Load one bounded causal store for a stateless effect backlog."""
 
         if not catchup_cutoffs:
             return None
-        if lane.authority != "shadow":
-            raise StartupLaneError("only shadow lanes may have an effect backlog")
         if any(binding.model_spec.stateful for binding in lane.bindings.values()):
-            raise StartupLaneError(
-                "stateful shadow lane has an unresolved effect backlog"
-            )
+            raise StartupLaneError("stateful lane has an unresolved effect backlog")
         first_cutoff = catchup_cutoffs[0]
         histories: dict[MarketSeriesKey, tuple[Any, ...]] = {}
         capacities: dict[MarketSeriesKey, int] = {}
@@ -968,7 +959,7 @@ class DecisionStartupCoordinator:
             )
             if len(bars) < required_count:
                 raise StartupLaneError(
-                    "retained history cannot bridge shadow effect progress backlog"
+                    "retained history cannot bridge lane effect progress backlog"
                 )
             histories[key] = bars
             capacities[key] = len(bars)
@@ -985,7 +976,7 @@ class DecisionStartupCoordinator:
                 )
         except (KeyError, TypeError, ValueError) as exc:
             raise StartupLaneError(
-                "retained history cannot bridge shadow effect progress backlog"
+                "retained history cannot bridge lane effect progress backlog"
             ) from exc
         return store
 
@@ -1151,7 +1142,7 @@ class DecisionStartupCoordinator:
         if checkpoint is not None and checkpoint.market_as_of > resume_candidate:
             raise StartupLaneError("checkpoint cutoff is after startup resume cutoff")
 
-        shadow_progress, catchup_cutoffs = await self._shadow_progress_for_lane(
+        effect_progress, catchup_cutoffs = await self._effect_progress_for_lane(
             lane=lane,
             data_plan=data_plan,
             identity=identity,
@@ -1159,7 +1150,7 @@ class DecisionStartupCoordinator:
             ready_views=baseline_ready,
             stateful_binding_ids=lane_stateful,
         )
-        catchup_store = await self._load_shadow_catchup_store(
+        catchup_store = await self._load_effect_catchup_store(
             lane=lane,
             feature_plan=feature_plan,
             lane_requirements=self._lane_history_requirements(lane, feature_plan),
@@ -1357,11 +1348,19 @@ class DecisionStartupCoordinator:
             "replay_step_count": len(replay_steps),
             "captured_tail_id": positions[trigger_key].captured_tail_id,
             "no_publication": True,
+            "effect_progress_cutoff": (
+                None if effect_progress is None else effect_progress.market_as_of
+            ),
+            "effect_progress_disposition": (
+                None if effect_progress is None else effect_progress.last_disposition
+            ),
+            # Keep the bounded C4B evidence keys while the physical table and
+            # compatibility tests transition to the authority-neutral names.
             "shadow_progress_cutoff": (
-                None if shadow_progress is None else shadow_progress.market_as_of
+                None if effect_progress is None else effect_progress.market_as_of
             ),
             "shadow_progress_disposition": (
-                None if shadow_progress is None else shadow_progress.last_disposition
+                None if effect_progress is None else effect_progress.last_disposition
             ),
             "catchup_cutoffs": catchup_cutoffs,
             "catchup_step_count": len(catchup_cutoffs),

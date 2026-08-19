@@ -71,10 +71,26 @@ async def test_shadow_progress_is_monotonic_and_exact_identity_scoped() -> None:
 
 
 @pytest.mark.asyncio
+async def test_lane_effect_progress_accepts_authoritative_dispositions() -> None:
+    published = ShadowProgress.create(
+        identity=_identity(),
+        market_as_of=BASE,
+        last_disposition="published",  # type: ignore[arg-type]
+    )
+    no_signal = ShadowProgress.create(
+        identity=_identity(),
+        market_as_of=BASE,
+        last_disposition="no_signal",  # type: ignore[arg-type]
+    )
+    assert published.last_disposition == "published"
+    assert no_signal.last_disposition == "no_signal"
+
+
+@pytest.mark.asyncio
 async def test_shadow_progress_rejects_invalid_disposition() -> None:
     with pytest.raises(ValueError, match="last_disposition"):
         ShadowProgress.create(
             identity=_identity(),
             market_as_of=BASE,
-            last_disposition="published",  # type: ignore[arg-type]
+            last_disposition="invalid",  # type: ignore[arg-type]
         )

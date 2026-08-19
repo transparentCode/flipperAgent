@@ -29,6 +29,15 @@ from tests.combined.c4b_harness import (
     stable_artifact,
 )
 
+C4B_FROZEN_RESTART_BACKLOG_SOURCE_HASHES = {
+    "src/apps/decision_app/bootstrap.py": "399c6bd55485fbf65b35c3ef270260b7cfb8bb73d217257102e7a31bdcd34ebb",
+    "src/apps/decision_app/runtime/live.py": "f7a500268973d9e547affe932cdce3d1b9c09a7732fd32cc3668a1d71d8c7f3a",
+    "src/apps/decision_app/runtime/startup.py": "6c00bce96d80ed9793b65762a4ecc36344567140995da949ea47f33676931499",
+    "src/apps/decision_app/storage/__init__.py": "d9c7b185f8d4f77022a67d9d523dcdb26c8331390fc71e945992edb79b2e38a5",
+    "src/apps/decision_app/storage/schema.sql": "18548f7d20e1982977d54121b5b2fee847cac85ac2eae78e61c48544ce7220e1",
+    "src/apps/decision_app/storage/shadow_progress.py": "30cc32c53030c3f152f19d7037007a04686fac0c8005f839a5ba04b79080db3d",
+}
+
 
 def _resource_samples() -> list[dict[str, object]]:
     return [
@@ -299,7 +308,8 @@ def test_stored_artifact_locks_final_remediation_sources() -> None:
     stored = json.loads(ARTIFACT_FILE.read_text(encoding="utf-8"))
     source_contract = stored["source_contract"]
     assert (
-        source_contract["restart_backlog_source_hashes"] == remediation_source_hashes()
+        source_contract["restart_backlog_source_hashes"]
+        == C4B_FROZEN_RESTART_BACKLOG_SOURCE_HASHES
     )
     gates = evaluate_c4b_gates(stored)
     assert len(gates) == 24
