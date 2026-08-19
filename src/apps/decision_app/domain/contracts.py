@@ -20,7 +20,7 @@ from libs.contracts.decision import (
 PublicationAuthority = Literal["authoritative", "shadow"]
 LaneState = Literal["WARMING", "LIVE", "DEGRADED", "INVALID", "PAUSED", "STOPPED"]
 PriceContinuity = Literal["CONTINUOUS", "GAP_DETECTED", "UNRESOLVED"]
-CommitDisposition = Literal["published", "no_signal"]
+CommitDisposition = Literal["published", "no_signal", "shadow"]
 
 
 def _require_non_empty(value: object, *, field_name: str) -> str:
@@ -262,8 +262,10 @@ class LaneCommitWatermark:
         _require_non_empty(self.lane_id, field_name="lane_id")
         if self.latest_market_as_of is not None:
             require_utc(self.latest_market_as_of, field_name="latest_market_as_of")
-        if self.last_disposition not in {"published", "no_signal", None}:
-            raise ValueError("last_disposition must be published, no_signal, or None")
+        if self.last_disposition not in {"published", "no_signal", "shadow", None}:
+            raise ValueError(
+                "last_disposition must be published, no_signal, shadow, or None"
+            )
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

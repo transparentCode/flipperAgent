@@ -35,6 +35,14 @@ from apps.decision_app.storage.market_history import (
     InMemoryCanonicalMarketHistoryRepository,
 )
 from apps.decision_app.transport.ingestion import canonical_ingestion_stream_key
+from apps.decision_app.transport.shadow import (
+    ShadowPublicationEnvelope,
+    ValkeyShadowPublisher,
+    build_shadow_envelope,
+    shadow_payload_fingerprint,
+    shadow_stream_entry_id,
+    shadow_stream_key,
+)
 from apps.decision_app.transport.signals import ValkeySignalPublisher
 from libs.contracts.decision import (
     CausalBarView,
@@ -303,6 +311,7 @@ class _IsolatedSignalClient:
     def __init__(self) -> None:
         self.entries: dict[str, dict[str, Mapping[object, object]]] = {}
         self.fail_xadd = False
+        self.xadd_calls = 0
 
     async def xrange(self, stream: str, minimum: str, maximum: str):
         values = self.entries.get(stream, {})
@@ -331,6 +340,7 @@ class _IsolatedSignalClient:
         approximate: bool,
     ) -> str:
         del maxlen, approximate
+        self.xadd_calls += 1
         if self.fail_xadd:
             raise RuntimeError("broker unavailable")
         values = self.entries.setdefault(stream, {})
@@ -446,13 +456,13 @@ def _sr_config() -> DecisionConfig:
     )
 
 
-def _signal_config() -> DecisionConfig:
+def _signal_config(*, authority: str = "authoritative") -> DecisionConfig:
     lane = DecisionLaneSettings(
         decision_timeframe="1h",
         trigger_timeframe="1h",
         trigger_mode="on_bar_close",
-        authority="authoritative",
-        risk_profile_key="test-risk",
+        authority=authority,
+        risk_profile_key="test-risk" if authority == "authoritative" else None,
         policy=DecisionPolicySettings(
             name="passthrough",
             version="1",
@@ -490,10 +500,12 @@ def _signal_config() -> DecisionConfig:
 def _signal_coordinator(
     history: InMemoryCanonicalMarketHistoryRepository,
     stream_client: _LiveInputClient,
+    *,
+    authority: str = "authoritative",
 ) -> DecisionStartupCoordinator:
     source_catalog = DataSourceCatalog([])
     return DecisionStartupCoordinator(
-        decision_config=_signal_config(),
+        decision_config=_signal_config(authority=authority),
         plugin_catalog=PluginCatalog([SIGNAL_SPEC]),
         feature_catalog=FeatureCatalog([]),
         feature_policy=FeaturePolicy(name="operator", version="1", allowed_features=()),
@@ -658,7 +670,6 @@ async def test_signal_path_publishes_exact_id_then_finalizes() -> None:
         signal_publisher=ValkeySignalPublisher(publisher_client),
         now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
     )
-
     stream.pending.append(("3-0", _signal_fields(3)))
     result = await runtime.poll_once()
     lane = result.lane_results["BTCUSDT:main"]
@@ -679,6 +690,123 @@ async def test_signal_path_publishes_exact_id_then_finalizes() -> None:
     assert signal.timestamp == _signal_bar(3).market_as_of.timestamp()
     assert signal.model_name == "test-risk"
     assert signal.price == float(_signal_bar(3).close)
+
+
+@pytest.mark.asyncio
+async def test_shadow_signal_uses_only_shadow_transport_and_commits_shadow() -> None:
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(3))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    input_stream = "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h"
+    stream = _LiveInputClient(
+        stream=input_stream,
+        tail_index=2,
+        field_factory=_signal_fields,
+    )
+    startup = await _signal_coordinator(history, stream, authority="shadow").start()
+    publisher_client = _IsolatedSignalClient()
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        shadow_publisher=ValkeyShadowPublisher(publisher_client),
+        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+    )
+
+    stream.pending.append(("3-0", _signal_fields(3)))
+    result = await runtime.poll_once()
+    lane = result.lane_results["BTCUSDT:main"]
+
+    assert lane.policy_status == "SIGNAL"
+    assert lane.publication_outcome == "PUBLISHED"
+    assert lane.finalization_status == "COMMITTED"
+    assert (
+        runtime.lanes["BTCUSDT:main"].finalizer.watermark.last_disposition == "shadow"
+    )
+    assert "decision:shadow:BTCUSDT:main" in publisher_client.entries
+    assert not any(key.startswith("signals:") for key in publisher_client.entries)
+
+
+@pytest.mark.asyncio
+async def test_shadow_preflight_failure_never_calls_publisher(monkeypatch) -> None:
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(3))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    input_stream = "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h"
+    stream = _LiveInputClient(
+        stream=input_stream,
+        tail_index=2,
+        field_factory=_signal_fields,
+    )
+    startup = await _signal_coordinator(history, stream, authority="shadow").start()
+    publisher_client = _IsolatedSignalClient()
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        shadow_publisher=ValkeyShadowPublisher(publisher_client),
+        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+    )
+
+    import apps.decision_app.runtime.live as live_module
+
+    canonical_builder = build_shadow_envelope
+
+    def forged_builder(lane, prepared, evaluation):
+        canonical = canonical_builder(lane, prepared, evaluation)
+        observation = canonical.observation.model_copy(update={"policy_version": "999"})
+        return ShadowPublicationEnvelope(
+            decision_id=observation.decision_id,
+            stream_key=shadow_stream_key(observation.lane_id),
+            stream_entry_id=shadow_stream_entry_id(observation.market_as_of),
+            observation=observation,
+            payload_fingerprint=shadow_payload_fingerprint(observation),
+        )
+
+    monkeypatch.setattr(live_module, "build_shadow_envelope", forged_builder)
+    stream.pending.append(("3-0", _signal_fields(3)))
+    result = await runtime.poll_once()
+
+    assert result.lane_results["BTCUSDT:main"].status == "HALTED"
+    assert publisher_client.xadd_calls == 0
+    assert not publisher_client.entries
+
+
+@pytest.mark.asyncio
+async def test_shadow_lane_without_shadow_publisher_fails_closed() -> None:
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(3))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    input_stream = "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h"
+    stream = _LiveInputClient(
+        stream=input_stream,
+        tail_index=2,
+        field_factory=_signal_fields,
+    )
+    startup = await _signal_coordinator(history, stream, authority="shadow").start()
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+    )
+    baseline_watermark = runtime.lanes["BTCUSDT:main"].finalizer.watermark
+
+    stream.pending.append(("3-0", _signal_fields(3)))
+    result = await runtime.poll_once()
+    lane = result.lane_results["BTCUSDT:main"]
+
+    assert lane.status == "HALTED"
+    assert lane.publication_outcome is None
+    assert lane.finalization_status is None
+    assert runtime.lanes["BTCUSDT:main"].finalizer.watermark == baseline_watermark
+    assert baseline_watermark.last_disposition is None
 
 
 @pytest.mark.asyncio

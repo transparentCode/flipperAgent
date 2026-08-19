@@ -1,0 +1,41 @@
+manifest_asset: ETH
+decision_asset: ETHUSDT
+venue: binance
+instrument_id: ETH-USDT-PERP
+enabled: true
+lanes:
+  momentum_4h:
+    decision_timeframe: 4h
+    trigger_timeframe: 4h
+    trigger_mode: on_bar_close
+    authority: shadow
+    risk_profile_key: null
+    policy:
+      name: passthrough
+      version: "1"
+      parameters:
+        source_slot: primary
+    bindings:
+      primary:
+        plugin: momentum
+        version: "1"
+        parameters:
+          model:
+            rsi_long_threshold: 55
+            rsi_short_threshold: 45
+            require_macd_positive: false
+            histogram_min_abs: 0.0
+          feature_profile:
+            rsi:
+              period: 12
+              history_bars: 208
+            macd:
+              fast_period: 12
+              slow_period: 26
+              signal_period: 9
+              history_bars: 544
+          certification:
+            asset: ETHUSDT
+            decision_timeframe: 4h
+            m3_artifact_sha256: 6fcd3d736524b513a63f244a3268478a658924cd571a62a72ec33958ad67972c
+            route_profile_sha256: 0124642bf1a9f91ca01042375583f4aacc534f14af497329a2a6721c6d3ecdb3

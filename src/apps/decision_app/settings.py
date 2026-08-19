@@ -295,18 +295,57 @@ class PriceRelayPublicationSettings(BaseModel):
         return self
 
 
+class DecisionServerSettings(BaseModel):
+    """HTTP settings for the optional Decision process."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    host: str = "0.0.0.0"
+    port: StrictInt = 8004
+
+    @field_validator("host", mode="before")
+    @classmethod
+    def normalize_host(cls, value: object) -> str:
+        return _text(value, "server.host")
+
+    @model_validator(mode="after")
+    def validate_port(self) -> DecisionServerSettings:
+        if not 1 <= self.port <= 65_535:
+            raise ValueError("server.port must be between 1 and 65535")
+        return self
+
+
+class ShadowPublicationSettings(BaseModel):
+    """Bounded exact-ID transport settings for shadow observations."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    stream_maxlen: StrictInt = 1000
+    stream_approximate: StrictBool = True
+
+    @model_validator(mode="after")
+    def validate_bounds(self) -> ShadowPublicationSettings:
+        if self.stream_maxlen <= 0:
+            raise ValueError("shadow_publication.stream_maxlen must be positive")
+        return self
+
+
 class DecisionGlobalSettings(BaseModel):
     """Small global settings owned by the bounded decision phases."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     feature_policy: FeaturePolicySettings | None = None
+    server: DecisionServerSettings = Field(default_factory=DecisionServerSettings)
     live_input: LiveInputSettings = Field(default_factory=LiveInputSettings)
     signal_publication: SignalPublicationSettings = Field(
         default_factory=SignalPublicationSettings
     )
     price_relay: PriceRelayPublicationSettings = Field(
         default_factory=PriceRelayPublicationSettings
+    )
+    shadow_publication: ShadowPublicationSettings = Field(
+        default_factory=ShadowPublicationSettings
     )
 
 
@@ -615,10 +654,12 @@ __all__ = [
     "DecisionGlobalSettings",
     "DecisionLaneSettings",
     "DecisionPolicySettings",
+    "DecisionServerSettings",
     "FeaturePolicySettings",
     "LiveInputSettings",
     "PriceRelayPublicationSettings",
     "PriceRelaySettings",
+    "ShadowPublicationSettings",
     "SignalPublicationSettings",
     "load_canonical_ingestion_contract",
     "load_decision_config",

@@ -57,6 +57,10 @@ from apps.decision_app.transport.publication import (
     SignalPublicationAck,
     build_signal_envelope,
 )
+from apps.decision_app.transport.shadow import (
+    ShadowPublicationAck,
+    build_shadow_envelope,
+)
 from libs.contracts.decision import FrozenMapping, require_utc
 
 LiveLaneStatus = Literal[
@@ -194,7 +198,7 @@ class LiveRuntimeHalt(LiveRuntimeError):
 
 
 class LiveDecisionRuntime:
-    """Serial, bounded live processor for authoritative startup-ready lanes."""
+    """Serial, bounded live processor for startup-ready lanes."""
 
     def __init__(
         self,
@@ -204,6 +208,7 @@ class LiveDecisionRuntime:
         stream_client: Any,
         history_repository: Any,
         signal_publisher: Any | None = None,
+        shadow_publisher: Any | None = None,
         checkpoint_repository: Any | None = None,
         price_relay: PriceRelay | None = None,
         policy_catalog: DecisionPolicyCatalog | None = None,
@@ -223,6 +228,10 @@ class LiveDecisionRuntime:
             getattr(signal_publisher, "publish", None)
         ):
             raise TypeError("signal_publisher must provide publish()")
+        if shadow_publisher is not None and not callable(
+            getattr(shadow_publisher, "publish", None)
+        ):
+            raise TypeError("shadow_publisher must provide publish()")
         if checkpoint_repository is not None and (
             not callable(getattr(checkpoint_repository, "save", None))
             or not callable(getattr(checkpoint_repository, "load", None))
@@ -233,6 +242,7 @@ class LiveDecisionRuntime:
         self._store: BarStore = startup.bar_store
         self._history = history_repository
         self._publisher = signal_publisher
+        self._shadow_publisher = shadow_publisher
         self._checkpoints = (
             InMemoryCheckpointRepository()
             if checkpoint_repository is None
@@ -259,8 +269,6 @@ class LiveDecisionRuntime:
         self._view_builder = DecisionViewBuilder(self._store, timeframe_grid)
         self._lanes: dict[str, LiveLane] = {}
         for lane in startup.decision_plan.lanes:
-            if lane.authority != "authoritative":
-                continue
             evidence = startup.snapshot.lane_evidence[lane.lane_id]
             runtime = startup.runtimes.get(lane.lane_id)
             if evidence.status != "STARTUP_READY" or runtime is None:
@@ -559,7 +567,32 @@ class LiveDecisionRuntime:
                 )
             return
         try:
-            if evaluation.status == "NO_SIGNAL":
+            if live_lane.lane.authority == "shadow":
+                if self._shadow_publisher is None:
+                    raise LiveRuntimeHalt("shadow lane requires a shadow publisher")
+                envelope = build_shadow_envelope(
+                    live_lane.lane,
+                    prepared,
+                    evaluation,
+                )
+                live_lane.finalizer.preflight_shadow(
+                    prepared,
+                    evaluation,
+                    envelope,
+                )
+                acknowledgement = await self._shadow_publisher.publish(envelope)
+                if not isinstance(acknowledgement, ShadowPublicationAck):
+                    raise LiveRuntimeHalt(
+                        "shadow publisher returned invalid acknowledgement"
+                    )
+                evidence.publication_outcome = acknowledgement.outcome
+                receipt = live_lane.finalizer.finalize_shadow(
+                    prepared,
+                    evaluation,
+                    envelope,
+                    acknowledgement,
+                )
+            elif evaluation.status == "NO_SIGNAL":
                 receipt = live_lane.finalizer.finalize_no_signal(prepared, evaluation)
             else:
                 if self._publisher is None:

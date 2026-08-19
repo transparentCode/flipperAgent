@@ -35,14 +35,17 @@ async def _prepared_signal(
     *,
     with_atr: bool = False,
     atr_value: float = 2.5,
+    direction: int | None = 1,
     conviction: float | None = 0.75,
+    authority: str = "authoritative",
+    risk_profile_key: str | None = "btc-default",
 ):
     feature_requirements = (
         (FeatureRequirement(name="ATR", required=True),) if with_atr else ()
     )
     plugin = decision_plugin(
         "Decision",
-        direction=1,
+        direction=direction,
         conviction=conviction,
         feature_requirements=feature_requirements,
     )
@@ -65,6 +68,8 @@ async def _prepared_signal(
         policy_parameters={"source_slot": "decision"},
         definitions=definitions,
         allowed_features=allowed_features,
+        authority=authority,
+        risk_profile_key=risk_profile_key,
     )
     view = bundle.view(0)
     prepared = await bundle.runtime.prepare_live(

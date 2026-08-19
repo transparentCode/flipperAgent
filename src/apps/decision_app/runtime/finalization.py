@@ -27,6 +27,11 @@ from apps.decision_app.transport.publication import (
     SignalPublicationEnvelope,
     validate_signal_envelope_against,
 )
+from apps.decision_app.transport.shadow import (
+    ShadowPublicationAck,
+    ShadowPublicationEnvelope,
+    validate_shadow_envelope_against,
+)
 from libs.contracts.decision import require_utc
 
 FinalizationStatus = Literal["COMMITTED", "ABORTED"]
@@ -58,7 +63,7 @@ class FinalizationReceipt:
         if self.watermark.lane_id != self.lane_id:
             raise ValueError("finalization watermark lane does not match")
         if self.status == "COMMITTED":
-            if self.disposition not in {"published", "no_signal"}:
+            if self.disposition not in {"published", "no_signal", "shadow"}:
                 raise ValueError("committed finalization requires disposition")
             if not isinstance(self.state_commit_receipt, StateCommitReceipt):
                 raise ValueError("committed finalization requires state receipt")
@@ -78,7 +83,10 @@ class FinalizationReceipt:
                 self.envelope, SignalPublicationEnvelope
             ):
                 raise ValueError("published finalization requires envelope")
-            if self.disposition == "no_signal" and self.envelope is not None:
+            if (
+                self.disposition in {"no_signal", "shadow"}
+                and self.envelope is not None
+            ):
                 raise ValueError("no-signal finalization cannot have envelope")
         else:
             if self.disposition is not None:
@@ -142,6 +150,8 @@ class LaneFinalizer:
 
         if not isinstance(evaluation, DecisionPolicyEvaluation):
             raise TypeError("evaluation must be DecisionPolicyEvaluation")
+        if self._lane.authority != "authoritative":
+            raise FinalizationError("signal preflight requires an authoritative lane")
         self._preflight(prepared, evaluation.result)
         if evaluation.status != "SIGNAL":
             raise FinalizationError("signal preflight requires policy SIGNAL")
@@ -167,6 +177,10 @@ class LaneFinalizer:
     ) -> FinalizationReceipt:
         if not isinstance(evaluation, DecisionPolicyEvaluation):
             raise TypeError("evaluation must be DecisionPolicyEvaluation")
+        if self._lane.authority != "authoritative":
+            raise FinalizationError(
+                "no-signal finalization requires an authoritative lane"
+            )
         if evaluation.status != "NO_SIGNAL" or evaluation.result is None:
             raise FinalizationError("no-signal finalization requires policy NO_SIGNAL")
         self._preflight(prepared, evaluation.result)
@@ -183,6 +197,33 @@ class LaneFinalizer:
             disposition="no_signal",
             state_commit_receipt=receipt,
         )
+
+    def preflight_shadow(
+        self,
+        prepared: PreparedLaneExecution,
+        evaluation: DecisionPolicyEvaluation,
+        envelope: ShadowPublicationEnvelope,
+    ) -> None:
+        """Validate shadow identity and state before durable publication."""
+
+        if not isinstance(evaluation, DecisionPolicyEvaluation):
+            raise TypeError("evaluation must be DecisionPolicyEvaluation")
+        if self._lane.authority != "shadow":
+            raise FinalizationError("shadow preflight requires a shadow lane")
+        if evaluation.status not in {"SIGNAL", "NO_SIGNAL"}:
+            raise FinalizationError("shadow preflight requires SIGNAL or NO_SIGNAL")
+        if not isinstance(envelope, ShadowPublicationEnvelope):
+            raise TypeError("envelope must be ShadowPublicationEnvelope")
+        self._preflight(prepared, evaluation.result)
+        try:
+            validate_shadow_envelope_against(
+                self._lane,
+                prepared,
+                evaluation,
+                envelope,
+            )
+        except (TypeError, ValueError) as exc:
+            raise FinalizationError(str(exc)) from exc
 
     def finalize_signal(
         self,
@@ -240,6 +281,59 @@ class LaneFinalizer:
             disposition="published",
             state_commit_receipt=receipt,
             envelope=envelope,
+        )
+
+    def finalize_shadow(
+        self,
+        prepared: PreparedLaneExecution,
+        evaluation: DecisionPolicyEvaluation,
+        envelope: ShadowPublicationEnvelope,
+        acknowledgement: ShadowPublicationAck,
+    ) -> FinalizationReceipt:
+        """Finalize a non-authoritative observation after durable publication."""
+
+        if not isinstance(evaluation, DecisionPolicyEvaluation):
+            raise TypeError("evaluation must be DecisionPolicyEvaluation")
+        if evaluation.status not in {"SIGNAL", "NO_SIGNAL"}:
+            raise FinalizationError("shadow finalization requires SIGNAL or NO_SIGNAL")
+        if not isinstance(acknowledgement, ShadowPublicationAck):
+            raise TypeError("acknowledgement must be ShadowPublicationAck")
+        if not isinstance(envelope, ShadowPublicationEnvelope):
+            raise TypeError("envelope must be ShadowPublicationEnvelope")
+        self.preflight_shadow(prepared, evaluation, envelope)
+        try:
+            acknowledgement.validate_against(envelope)
+        except (TypeError, ValueError) as exc:
+            raise FinalizationError(str(exc)) from exc
+        if acknowledgement.outcome in {"CONFLICT", "FAILED"}:
+            reason = acknowledgement.reason or acknowledgement.outcome.lower()
+            try:
+                self._runtime.abort_prepared(prepared, reason)
+            except (StateTransactionError, TypeError, ValueError) as exc:
+                raise FinalizationError(
+                    f"shadow publication failure abort failed: {exc}"
+                ) from exc
+            return FinalizationReceipt(
+                status="ABORTED",
+                lane_id=self._lane.lane_id,
+                market_as_of=prepared.market_as_of,
+                watermark=self._watermark,
+                reason=reason,
+            )
+        try:
+            receipt = self._runtime.commit_prepared(prepared, "shadow")
+        except (StateTransactionError, TypeError, ValueError) as exc:
+            raise FinalizationError(
+                f"shadow publication succeeded but state commit failed: {exc}"
+            ) from exc
+        self._advance_watermark(prepared.market_as_of, "shadow")
+        return FinalizationReceipt(
+            status="COMMITTED",
+            lane_id=self._lane.lane_id,
+            market_as_of=prepared.market_as_of,
+            watermark=self._watermark,
+            disposition="shadow",
+            state_commit_receipt=receipt,
         )
 
     def abort_policy_failure(

@@ -10,7 +10,7 @@ from apps.decision_app.runtime.finalization import (
     FinalizationReceipt,
     LaneFinalizer,
 )
-from apps.decision_app.runtime.models import RewarmStep
+from apps.decision_app.runtime.models import RewarmStep, StateTransactionError
 from apps.decision_app.runtime.policy import (
     PASSTHROUGH_V1,
     DecisionPolicy,
@@ -20,6 +20,10 @@ from apps.decision_app.transport.publication import (
     SignalPublicationAck,
     build_signal_envelope,
     signal_payload_fingerprint,
+)
+from apps.decision_app.transport.shadow import (
+    ShadowPublicationAck,
+    build_shadow_envelope,
 )
 from tests.decision.test_publication_compat import _prepared_signal
 from tests.decision.test_real_sr_plugin import (
@@ -58,6 +62,117 @@ async def test_successful_publication_ack_commits_then_advances_watermark(
     assert receipt.watermark.latest_market_as_of == view.market_as_of
     assert receipt.watermark.last_disposition == "published"
     assert finalizer.watermark == receipt.watermark
+
+
+@pytest.mark.asyncio
+async def test_shadow_no_signal_requires_shadow_evidence_and_commits_shadow() -> None:
+    bundle, _view, prepared, evaluation = await _prepared_signal(
+        direction=None,
+        conviction=None,
+        authority="shadow",
+        risk_profile_key=None,
+    )
+    assert evaluation.status == "NO_SIGNAL"
+    envelope = build_shadow_envelope(bundle.lane, prepared, evaluation)
+    acknowledgement = ShadowPublicationAck(
+        decision_id=envelope.decision_id,
+        stream_key=envelope.stream_key,
+        stream_entry_id=envelope.stream_entry_id,
+        payload_fingerprint=envelope.payload_fingerprint,
+        outcome="PUBLISHED",
+    )
+    finalizer = LaneFinalizer(bundle.lane, bundle.runtime)
+
+    receipt = finalizer.finalize_shadow(
+        prepared,
+        evaluation,
+        envelope,
+        acknowledgement,
+    )
+
+    assert receipt.status == "COMMITTED"
+    assert receipt.disposition == "shadow"
+    assert receipt.watermark.last_disposition == "shadow"
+
+
+@pytest.mark.asyncio
+async def test_shadow_lane_cannot_use_authoritative_no_signal_finalizer() -> None:
+    bundle, _view, prepared, evaluation = await _prepared_signal(
+        direction=None,
+        conviction=None,
+        authority="shadow",
+        risk_profile_key=None,
+    )
+    finalizer = LaneFinalizer(bundle.lane, bundle.runtime)
+    records_before = bundle.runtime.state_store.records
+
+    with pytest.raises(FinalizationError, match="authoritative"):
+        finalizer.finalize_no_signal(prepared, evaluation)
+
+    assert finalizer.watermark.latest_market_as_of is None
+    assert bundle.runtime.state_store.records == records_before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ("FAILED", "CONFLICT"))
+async def test_shadow_publication_failure_aborts_without_commit(
+    outcome: str,
+) -> None:
+    bundle, _view, prepared, evaluation = await _prepared_signal(
+        authority="shadow",
+        risk_profile_key=None,
+    )
+    envelope = build_shadow_envelope(bundle.lane, prepared, evaluation)
+    acknowledgement = ShadowPublicationAck(
+        decision_id=envelope.decision_id,
+        stream_key=envelope.stream_key,
+        stream_entry_id=envelope.stream_entry_id,
+        payload_fingerprint=envelope.payload_fingerprint,
+        outcome=outcome,
+        reason="shadow transport test",
+    )
+    finalizer = LaneFinalizer(bundle.lane, bundle.runtime)
+
+    receipt = finalizer.finalize_shadow(
+        prepared,
+        evaluation,
+        envelope,
+        acknowledgement,
+    )
+
+    assert receipt.status == "ABORTED"
+    assert finalizer.watermark.latest_market_as_of is None
+
+
+@pytest.mark.asyncio
+async def test_authoritative_lane_cannot_finalize_shadow_evidence() -> None:
+    bundle, _view, prepared, evaluation = await _prepared_signal()
+    with pytest.raises(ValueError, match="shadow lanes"):
+        build_shadow_envelope(bundle.lane, prepared, evaluation)
+
+
+@pytest.mark.asyncio
+async def test_shadow_and_authoritative_commit_dispositions_are_guarded() -> None:
+    shadow_bundle, _view, shadow_prepared, _evaluation = await _prepared_signal(
+        direction=None,
+        conviction=None,
+        authority="shadow",
+        risk_profile_key=None,
+    )
+    with pytest.raises(StateTransactionError, match="shadow lane"):
+        shadow_bundle.runtime.commit_prepared(shadow_prepared, "no_signal")
+
+    (
+        authoritative_bundle,
+        _view,
+        authoritative_prepared,
+        _evaluation,
+    ) = await _prepared_signal()
+    with pytest.raises(StateTransactionError, match="authoritative lane"):
+        authoritative_bundle.runtime.commit_prepared(
+            authoritative_prepared,
+            "shadow",
+        )
 
 
 @pytest.mark.asyncio

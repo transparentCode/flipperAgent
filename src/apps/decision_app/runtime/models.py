@@ -564,12 +564,20 @@ class ModelRuntime:
     def commit_prepared(
         self,
         prepared: PreparedLaneExecution,
-        disposition: Literal["published", "no_signal"],
+        disposition: Literal["published", "no_signal", "shadow"],
     ) -> StateCommitReceipt:
         """Commit only after a future policy/publication boundary authorizes it."""
 
         if not isinstance(prepared, PreparedLaneExecution):
             raise TypeError("prepared must be PreparedLaneExecution")
+        if self._lane.authority == "shadow" and disposition != "shadow":
+            raise StateTransactionError(
+                "shadow lane state commits require shadow disposition"
+            )
+        if self._lane.authority == "authoritative" and disposition == "shadow":
+            raise StateTransactionError(
+                "authoritative lane state commits cannot use shadow disposition"
+            )
         self._validate_prepared_transaction(prepared)
         if not prepared.state_commit_eligible:
             raise StateTransactionError("prepared execution is not commit eligible")

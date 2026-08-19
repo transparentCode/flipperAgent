@@ -115,6 +115,8 @@ def make_lane(
     policy_name: str = "default",
     policy_version: str = "1",
     policy_parameters: Mapping[str, object] | None = None,
+    authority: str = "authoritative",
+    risk_profile_key: str | None = "btc-default",
 ) -> DecisionLaneSpec:
     return DecisionLaneSpec(
         lane_id="BTCUSDT:1h",
@@ -127,7 +129,8 @@ def make_lane(
         policy_name=policy_name,
         policy_version=policy_version,
         policy_parameters={} if policy_parameters is None else policy_parameters,
-        risk_profile_key="btc-default",
+        authority=authority,
+        risk_profile_key=risk_profile_key,
         bindings=bindings,
     )
 
@@ -199,12 +202,16 @@ def make_bundle(
     policy_name: str = "default",
     policy_version: str = "1",
     policy_parameters: Mapping[str, object] | None = None,
+    authority: str = "authoritative",
+    risk_profile_key: str | None = "btc-default",
 ) -> tuple[Bundle, dict[str, object]]:
     lane_spec = make_lane(
         bindings,
         policy_name=policy_name,
         policy_version=policy_version,
         policy_parameters=policy_parameters,
+        authority=authority,
+        risk_profile_key=risk_profile_key,
     )
     lane = compile_decision_plan(PluginCatalog(specs), [lane_spec]).lanes[0]
     feature_catalog = FeatureCatalog(definitions)

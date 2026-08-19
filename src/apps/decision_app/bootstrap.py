@@ -30,6 +30,7 @@ from apps.decision_app.storage.bootstrap import ensure_checkpoint_schema
 from apps.decision_app.storage.checkpoints import CheckpointRepository
 from apps.decision_app.storage.market_history import CanonicalMarketHistoryRepository
 from apps.decision_app.transport.price_relay import PriceRelay, plan_series_key
+from apps.decision_app.transport.shadow import ValkeyShadowPublisher
 from apps.decision_app.transport.signals import ValkeySignalPublisher
 from libs.common.asset_manifest import AssetManifestStore
 from libs.common.config import ConfigManager
@@ -94,6 +95,13 @@ def build_generation_factory(
             stream_maxlen=config.global_settings.signal_publication.stream_maxlen,
             stream_approximate=config.global_settings.signal_publication.stream_approximate,
         )
+        shadow_publisher = ValkeyShadowPublisher(
+            stream_client,
+            stream_maxlen=config.global_settings.shadow_publication.stream_maxlen,
+            stream_approximate=(
+                config.global_settings.shadow_publication.stream_approximate
+            ),
+        )
         relay = None
         if startup.relay_plans:
             relay = PriceRelay(
@@ -119,6 +127,7 @@ def build_generation_factory(
             stream_client=stream_client,
             history_repository=history_repository,
             signal_publisher=publisher,
+            shadow_publisher=shadow_publisher,
             checkpoint_repository=checkpoint_repository,
             policy_catalog=composition.policy_catalog,
             price_relay=relay,

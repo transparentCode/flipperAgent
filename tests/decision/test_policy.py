@@ -81,6 +81,8 @@ def make_signal_bundle(
     policy_parameters: dict[str, object] | None = None,
     definitions=(),
     allowed_features=(),
+    authority: str = "authoritative",
+    risk_profile_key: str | None = "btc-default",
 ):
     specs = [plugin.spec for plugin in plugins.values()]
     overrides = {spec.name: plugins[spec.name] for spec in specs}
@@ -92,6 +94,8 @@ def make_signal_bundle(
         plugin_overrides=overrides,
         policy_name=policy_name,
         policy_parameters=policy_parameters,
+        authority=authority,
+        risk_profile_key=risk_profile_key,
     )
 
 

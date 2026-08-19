@@ -135,6 +135,7 @@ def test_minimal_decision_global_namespace_is_strict_and_has_no_asset_graph() ->
     manager.register_file("configs/decision/global.yaml")
 
     assert manager.get("decision") == {
+        "server": {"host": "0.0.0.0", "port": 8004},
         "live_input": {"batch_size": 10, "block_ms": 1000},
         "signal_publication": {
             "stream_maxlen": 1000,
@@ -142,6 +143,10 @@ def test_minimal_decision_global_namespace_is_strict_and_has_no_asset_graph() ->
         },
         "price_relay": {
             "stream_maxlen": 200,
+            "stream_approximate": True,
+        },
+        "shadow_publication": {
+            "stream_maxlen": 1000,
             "stream_approximate": True,
         },
     }

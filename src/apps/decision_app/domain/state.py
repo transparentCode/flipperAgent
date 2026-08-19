@@ -126,8 +126,8 @@ class StateCommitReceipt:
         if not isinstance(self.identity, LaneExecutionIdentity):
             raise TypeError("identity must be LaneExecutionIdentity")
         require_utc(self.market_as_of, field_name="market_as_of")
-        if self.disposition not in {"published", "no_signal"}:
-            raise ValueError("disposition must be published or no_signal")
+        if self.disposition not in {"published", "no_signal", "shadow"}:
+            raise ValueError("disposition must be published, no_signal, or shadow")
         object.__setattr__(
             self,
             "committed_binding_ids",
@@ -214,8 +214,8 @@ class LaneStateStore:
 
         self.assert_identity(identity)
         require_utc(market_as_of, field_name="market_as_of")
-        if disposition not in {"published", "no_signal"}:
-            raise ValueError("disposition must be published or no_signal")
+        if disposition not in {"published", "no_signal", "shadow"}:
+            raise ValueError("disposition must be published, no_signal, or shadow")
         if not isinstance(transitions, Mapping):
             raise TypeError("transitions must be a mapping")
         normalized = dict(transitions)

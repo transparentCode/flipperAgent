@@ -1,0 +1,5 @@
+services:
+  alert-worker:
+    env_file: !reset []
+  alert-api:
+    env_file: !reset []
