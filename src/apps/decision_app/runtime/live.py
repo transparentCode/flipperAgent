@@ -26,6 +26,7 @@ from apps.decision_app.domain.view import (
     DecisionViewBuilder,
     MarketViewNotReadyError,
 )
+from apps.decision_app.features.engine import FeatureEngine
 from apps.decision_app.planning.planner import ResolvedLanePlan
 from apps.decision_app.planning.readiness import (
     compile_lane_causal_history_requirements,
@@ -46,6 +47,11 @@ from apps.decision_app.storage.checkpoints import (
     CheckpointSaveResult,
     InMemoryCheckpointRepository,
     LaneStateCheckpoint,
+)
+from apps.decision_app.storage.shadow_progress import (
+    InMemoryShadowProgressRepository,
+    ShadowProgress,
+    ShadowProgressSaveResult,
 )
 from apps.decision_app.transport.ingestion import CanonicalMarketEvent
 from apps.decision_app.transport.live_input import (
@@ -106,6 +112,11 @@ class LiveLane:
     market_requirements: Any
     finalizer: LaneFinalizer
     state_inception_at: datetime | None
+    startup_catchup_cutoffs: tuple[datetime, ...] = ()
+    startup_catchup_index: int = 0
+    startup_catchup_store: BarStore | None = None
+    startup_catchup_view_builder: DecisionViewBuilder | None = None
+    startup_catchup_feature_engine: FeatureEngine | None = None
     pending_trigger_cutoff: datetime | None = None
     reconciliation_attempted: bool = False
     status: LiveLaneStatus = "LIVE"
@@ -210,6 +221,7 @@ class LiveDecisionRuntime:
         signal_publisher: Any | None = None,
         shadow_publisher: Any | None = None,
         checkpoint_repository: Any | None = None,
+        shadow_progress_repository: Any | None = None,
         price_relay: PriceRelay | None = None,
         policy_catalog: DecisionPolicyCatalog | None = None,
         batch_size: int = 10,
@@ -248,6 +260,13 @@ class LiveDecisionRuntime:
             if checkpoint_repository is None
             else checkpoint_repository
         )
+        self._shadow_progress = (
+            InMemoryShadowProgressRepository()
+            if shadow_progress_repository is None
+            else shadow_progress_repository
+        )
+        if not callable(getattr(self._shadow_progress, "save", None)):
+            raise TypeError("shadow_progress_repository must provide save()")
         self._policy = DecisionPolicy(
             DecisionPolicyCatalog([PASSTHROUGH_V1, PRIORITY_V1])
             if policy_catalog is None
@@ -273,6 +292,24 @@ class LiveDecisionRuntime:
             runtime = startup.runtimes.get(lane.lane_id)
             if evidence.status != "STARTUP_READY" or runtime is None:
                 continue
+            catchup_store = startup.lane_catchup_stores.get(lane.lane_id)
+            catchup_view_builder = None
+            catchup_feature_engine = None
+            if catchup_store is not None:
+                base_feature_engine = getattr(runtime, "_feature_engine", None)
+                feature_catalog = getattr(base_feature_engine, "_feature_catalog", None)
+                if feature_catalog is None:
+                    raise LiveRuntimeError(
+                        "startup catch-up runtime has no feature catalog"
+                    )
+                catchup_view_builder = DecisionViewBuilder(
+                    catchup_store, timeframe_grid
+                )
+                catchup_feature_engine = FeatureEngine(
+                    feature_catalog,
+                    catchup_store,
+                    timeframe_grid,
+                )
             self._lanes[lane.lane_id] = LiveLane(
                 lane=lane,
                 runtime=runtime,
@@ -284,6 +321,12 @@ class LiveDecisionRuntime:
                     startup.snapshot.lane_watermarks[lane.lane_id],
                 ),
                 state_inception_at=evidence.state_inception_at,
+                startup_catchup_cutoffs=startup.lane_catchup_cutoffs.get(
+                    lane.lane_id, ()
+                ),
+                startup_catchup_store=catchup_store,
+                startup_catchup_view_builder=catchup_view_builder,
+                startup_catchup_feature_engine=catchup_feature_engine,
             )
         self._lanes_by_series: dict[MarketSeriesKey, tuple[str, ...]] = {}
         series_lanes: dict[MarketSeriesKey, list[str]] = {}
@@ -322,10 +365,21 @@ class LiveDecisionRuntime:
         if not isinstance(evaluate_lanes, bool):
             raise TypeError("evaluate_lanes must be bool")
 
+        poll_evidence = {lane_id: _LanePollEvidence() for lane_id in self._lanes}
+        if evaluate_lanes and not await self._drain_startup_catchup(poll_evidence):
+            return DecisionPollResult(
+                input_results=(),
+                lane_results={
+                    lane_id: self._lane_result(live_lane, poll_evidence[lane_id])
+                    for lane_id, live_lane in sorted(self._lanes.items())
+                },
+                cursors=self._reader.cursors,
+                relay_results={},
+            )
+
         batch = await self._reader.read_once()
         input_results: list[InputRecordResult] = []
         relay_results: dict[str, PriceRelayResult] = {}
-        poll_evidence = {lane_id: _LanePollEvidence() for lane_id in self._lanes}
         failed_streams: set[str] = set()
         deferred_failures: dict[str, InputRecordResult] = {}
         for failure in batch.failures:
@@ -450,6 +504,51 @@ class LiveDecisionRuntime:
             relay_results=relay_results,
         )
 
+    async def _drain_startup_catchup(
+        self,
+        poll_evidence: Mapping[str, _LanePollEvidence],
+    ) -> bool:
+        """Drain durable shadow-effect backlog before accepting newer input."""
+
+        for lane_id in sorted(self._lanes):
+            live_lane = self._lanes[lane_id]
+            while live_lane.startup_catchup_index < len(
+                live_lane.startup_catchup_cutoffs
+            ):
+                if live_lane.status not in {"LIVE", "WAITING"}:
+                    return False
+                cutoff = live_lane.startup_catchup_cutoffs[
+                    live_lane.startup_catchup_index
+                ]
+                watermark = live_lane.finalizer.watermark.latest_market_as_of
+                if watermark is not None and cutoff <= watermark:
+                    live_lane.startup_catchup_index += 1
+                    continue
+                if live_lane.pending_trigger_cutoff is not None:
+                    return False
+                live_lane.pending_trigger_cutoff = cutoff
+                live_lane.reconciliation_attempted = False
+                await self._attempt_lane(live_lane, poll_evidence[lane_id])
+                if live_lane.pending_trigger_cutoff is not None:
+                    return False
+                if live_lane.status not in {"LIVE", "WAITING"}:
+                    return False
+                if live_lane.finalizer.watermark.latest_market_as_of != cutoff:
+                    self._halt_lane(
+                        live_lane,
+                        "HALTED",
+                        "shadow catch-up did not advance its effect watermark",
+                    )
+                    return False
+                live_lane.startup_catchup_index += 1
+                if live_lane.startup_catchup_index >= len(
+                    live_lane.startup_catchup_cutoffs
+                ):
+                    live_lane.startup_catchup_store = None
+                    live_lane.startup_catchup_view_builder = None
+                    live_lane.startup_catchup_feature_engine = None
+        return True
+
     def _schedule_trigger(self, event: CanonicalMarketEvent) -> None:
         for lane_id in self._lanes_by_series.get(event.series_key, ()):
             live_lane = self._lanes[lane_id]
@@ -500,10 +599,27 @@ class LiveDecisionRuntime:
             live_lane.feature_plan,
             self._grid,
         )
+        catchup_active = (
+            live_lane.startup_catchup_store is not None
+            and live_lane.startup_catchup_index < len(live_lane.startup_catchup_cutoffs)
+            and cutoff
+            == live_lane.startup_catchup_cutoffs[live_lane.startup_catchup_index]
+        )
+        context_store = (
+            live_lane.startup_catchup_store if catchup_active else self._store
+        )
+        if context_store is None:
+            self._halt_lane(
+                live_lane,
+                "HALTED",
+                "startup catch-up context store is unavailable",
+            )
+            return
         ready, fatal_reason = await self._ensure_context(
             live_lane,
             cutoff,
             merged,
+            store=context_store,
         )
         if fatal_reason is not None:
             self._halt_lane(live_lane, "RECONSTRUCTION_REQUIRED", fatal_reason)
@@ -512,8 +628,20 @@ class LiveDecisionRuntime:
             live_lane.status = "WAITING"
             live_lane.reason = "causal context is not ready"
             return
+        view_builder = (
+            live_lane.startup_catchup_view_builder
+            if catchup_active
+            else self._view_builder
+        )
+        if view_builder is None:
+            self._halt_lane(
+                live_lane,
+                "HALTED",
+                "startup catch-up view builder is unavailable",
+            )
+            return
         try:
-            view = self._view_builder.build(
+            view = view_builder.build(
                 live_lane.lane,
                 live_lane.market_requirements,
                 cutoff,
@@ -532,7 +660,17 @@ class LiveDecisionRuntime:
         live_lane.status = "LIVE"
         live_lane.reason = None
         resolver_cutoff = self._now()
+        previous_feature_engine = None
         try:
+            if catchup_active:
+                if live_lane.startup_catchup_feature_engine is None:
+                    raise LiveRuntimeHalt(
+                        "startup catch-up feature engine is unavailable"
+                    )
+                previous_feature_engine = live_lane.runtime._feature_engine
+                live_lane.runtime._feature_engine = (
+                    live_lane.startup_catchup_feature_engine
+                )
             prepared = await live_lane.runtime.prepare_live(
                 view,
                 resolver_knowledge_cutoff=resolver_cutoff,
@@ -540,6 +678,9 @@ class LiveDecisionRuntime:
         except Exception as exc:  # noqa: BLE001
             self._halt_lane(live_lane, "INVALID", f"model preparation failed: {exc}")
             return
+        finally:
+            if previous_feature_engine is not None:
+                live_lane.runtime._feature_engine = previous_feature_engine
         decision_ready_at = self._now()
         try:
             evaluation = self._policy.evaluate(
@@ -656,18 +797,58 @@ class LiveDecisionRuntime:
                     f"checkpoint durability returned {checkpoint_result} after commit",
                 )
                 return
+        if live_lane.lane.authority == "shadow":
+            try:
+                progress_result = await self._save_shadow_progress(live_lane, receipt)
+            except Exception as exc:  # noqa: BLE001
+                self._halt_lane(
+                    live_lane,
+                    "HALTED",
+                    f"shadow progress durability failed after committed finalization: {exc}",
+                )
+                return
+            if progress_result not in {"INSERTED", "UPDATED", "IDENTICAL"}:
+                self._halt_lane(
+                    live_lane,
+                    "HALTED",
+                    f"shadow progress durability returned {progress_result} after commit",
+                )
+                return
         live_lane.pending_trigger_cutoff = None
         live_lane.reconciliation_attempted = False
         live_lane.status = "LIVE"
         live_lane.reason = None
+
+    async def _save_shadow_progress(
+        self,
+        live_lane: LiveLane,
+        receipt: FinalizationReceipt,
+    ) -> str:
+        cutoff = receipt.watermark.latest_market_as_of
+        if cutoff is None or receipt.watermark.last_disposition != "shadow":
+            raise LiveRuntimeHalt("shadow finalization has no shadow watermark")
+        progress = ShadowProgress.create(
+            identity=live_lane.identity,
+            market_as_of=cutoff,
+            last_disposition="shadow",
+            updated_at=self._now(),
+        )
+        result = await self._shadow_progress.save(progress)
+        if isinstance(result, ShadowProgressSaveResult):
+            return result.value
+        if isinstance(result, str):
+            return result
+        raise LiveRuntimeHalt("shadow progress repository returned invalid result")
 
     async def _ensure_context(
         self,
         live_lane: LiveLane,
         cutoff: datetime,
         merged_requirements: Mapping[MarketSeriesKey, int],
+        *,
+        store: BarStore,
     ) -> tuple[bool, str | None]:
-        missing = self._missing_history(cutoff, merged_requirements)
+        missing = self._missing_history(cutoff, merged_requirements, store)
         if not missing:
             return True, None
         trigger_key = live_lane.market_requirements.trigger_series
@@ -677,7 +858,7 @@ class LiveDecisionRuntime:
                 if key == trigger_key:
                     continue
                 expected = self._grid.expected_closed_cutoff(key.timeframe, cutoff)
-                latest = self._store.latest_cutoff(key)
+                latest = store.latest_cutoff(key)
                 if latest is not None and expected <= latest:
                     return False, f"internal retained gap for {key.timeframe}"
                 try:
@@ -691,9 +872,9 @@ class LiveDecisionRuntime:
                     return False, f"canonical context resolution failed: {exc}"
                 if not bars:
                     continue
-                if not self._append_forward_context(key, bars, latest, expected):
+                if not self._append_forward_context(store, key, bars, latest, expected):
                     return False, f"canonical context gap for {key.timeframe}"
-            missing = self._missing_history(cutoff, merged_requirements)
+            missing = self._missing_history(cutoff, merged_requirements, store)
         if missing:
             return False, None
         return True, None
@@ -702,12 +883,13 @@ class LiveDecisionRuntime:
         self,
         cutoff: datetime,
         requirements: Mapping[MarketSeriesKey, int],
+        store: BarStore,
     ) -> tuple[MarketSeriesKey, ...]:
         missing: list[MarketSeriesKey] = []
         for key, count in requirements.items():
             expected = self._grid.expected_closed_cutoff(key.timeframe, cutoff)
             try:
-                bars = self._store.bars_at(key, expected, limit=count)
+                bars = store.bars_at(key, expected, limit=count)
             except KeyError:
                 missing.append(key)
                 continue
@@ -728,6 +910,7 @@ class LiveDecisionRuntime:
 
     def _append_forward_context(
         self,
+        store: BarStore,
         key: MarketSeriesKey,
         bars: Sequence[Any],
         latest: datetime | None,
@@ -738,7 +921,7 @@ class LiveDecisionRuntime:
             return False
         previous_close = None
         if latest is not None:
-            previous = self._store.latest_at_or_before(key, latest)
+            previous = store.latest_at_or_before(key, latest)
             previous_close = None if previous is None else previous.bar_close_at
         for bar in normalized:
             try:
@@ -752,7 +935,7 @@ class LiveDecisionRuntime:
             return False
         try:
             for bar in normalized:
-                self._store.append(key, bar)
+                store.append(key, bar)
         except Exception:  # noqa: BLE001
             return False
         return True

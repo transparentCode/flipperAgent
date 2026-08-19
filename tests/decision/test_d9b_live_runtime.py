@@ -11,7 +11,12 @@ from apps.decision_app.composition import sr_initialization_requirement
 from apps.decision_app.data.resolver import DataPolicy, DataResolver, DataSourceCatalog
 from apps.decision_app.domain.market_state import MarketSeriesKey, TimeframeGrid
 from apps.decision_app.features.definitions import SR_ATR_DEFINITION
-from apps.decision_app.features.planning import FeatureCatalog, FeaturePolicy
+from apps.decision_app.features.planning import (
+    FeatureCatalog,
+    FeatureHistoryRequirement,
+    FeaturePolicy,
+    SharedFeatureDefinition,
+)
 from apps.decision_app.planning.catalog import PluginCatalog
 from apps.decision_app.runtime.live import LiveDecisionRuntime
 from apps.decision_app.runtime.plugins import (
@@ -34,6 +39,10 @@ from apps.decision_app.storage.checkpoints import (
 from apps.decision_app.storage.market_history import (
     InMemoryCanonicalMarketHistoryRepository,
 )
+from apps.decision_app.storage.shadow_progress import (
+    InMemoryShadowProgressRepository,
+    ShadowProgressSaveResult,
+)
 from apps.decision_app.transport.ingestion import canonical_ingestion_stream_key
 from apps.decision_app.transport.shadow import (
     ShadowPublicationEnvelope,
@@ -47,6 +56,7 @@ from apps.decision_app.transport.signals import ValkeySignalPublisher
 from libs.contracts.decision import (
     CausalBarView,
     DecisionContext,
+    FeatureRequirement,
     ModelArtifact,
     ModelDecision,
     ModelOutcome,
@@ -149,6 +159,21 @@ class _SignalPlugin:
             ),
             decision=decision,
         )
+
+
+SIGNAL_HISTORY_SPEC = ModelSpec(
+    name="test-decision",
+    version="1",
+    stateful=False,
+    output_kind="decision_capable",
+    produces_artifact_type="test-decision.v1",
+    supported_trigger_modes=("on_bar_close",),
+    intrinsic_feature_requirements=(FeatureRequirement(name="HISTORY"),),
+)
+
+
+class _HistorySignalPlugin(_SignalPlugin):
+    spec = SIGNAL_HISTORY_SPEC
 
 
 def _signal_bar(index: int) -> CausalBarView:
@@ -502,13 +527,42 @@ def _signal_coordinator(
     stream_client: _LiveInputClient,
     *,
     authority: str = "authoritative",
+    shadow_progress_repository: InMemoryShadowProgressRepository | None = None,
+    history_capacity: int | None = None,
 ) -> DecisionStartupCoordinator:
     source_catalog = DataSourceCatalog([])
+    if history_capacity is None:
+        plugin_spec = SIGNAL_SPEC
+        feature_catalog = FeatureCatalog([])
+        feature_policy = FeaturePolicy(
+            name="operator", version="1", allowed_features=()
+        )
+        plugin_factory = lambda _parameters: _SignalPlugin()
+    else:
+        plugin_spec = SIGNAL_HISTORY_SPEC
+        feature_catalog = FeatureCatalog(
+            [
+                SharedFeatureDefinition(
+                    name="HISTORY",
+                    version="1",
+                    calculator=lambda _context: 1,
+                    history_requirements=(
+                        FeatureHistoryRequirement(
+                            source="trigger", timeframe=None, bars=history_capacity
+                        ),
+                    ),
+                )
+            ]
+        )
+        feature_policy = FeaturePolicy(
+            name="operator", version="1", allowed_features=("HISTORY",)
+        )
+        plugin_factory = lambda _parameters: _HistorySignalPlugin()
     return DecisionStartupCoordinator(
         decision_config=_signal_config(authority=authority),
-        plugin_catalog=PluginCatalog([SIGNAL_SPEC]),
-        feature_catalog=FeatureCatalog([]),
-        feature_policy=FeaturePolicy(name="operator", version="1", allowed_features=()),
+        plugin_catalog=PluginCatalog([plugin_spec]),
+        feature_catalog=feature_catalog,
+        feature_policy=feature_policy,
         data_policy=DataPolicy(name="operator", version="1", concepts={}),
         source_catalog=source_catalog,
         runtime_plugin_catalog=RuntimePluginCatalog(
@@ -516,13 +570,14 @@ def _signal_coordinator(
                 RuntimePluginDefinition(
                     plugin_name="test-decision",
                     plugin_version="1",
-                    factory=lambda _parameters: _SignalPlugin(),
+                    factory=plugin_factory,
                 )
             ]
         ),
         history_repository=history,
         stream_client=stream_client,
         data_resolver=DataResolver(source_catalog),
+        shadow_progress_repository=shadow_progress_repository,
     )
 
 
@@ -727,6 +782,219 @@ async def test_shadow_signal_uses_only_shadow_transport_and_commits_shadow() -> 
     )
     assert "decision:shadow:BTCUSDT:main" in publisher_client.entries
     assert not any(key.startswith("signals:") for key in publisher_client.entries)
+
+
+@pytest.mark.asyncio
+async def test_shadow_startup_persists_exact_baseline_without_backfill() -> None:
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(4))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    stream = _LiveInputClient(
+        stream="stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+        tail_index=2,
+        field_factory=_signal_fields,
+    )
+    progress = InMemoryShadowProgressRepository()
+
+    first = await _signal_coordinator(
+        history,
+        stream,
+        authority="shadow",
+        shadow_progress_repository=progress,
+    ).start()
+    identity = next(iter(first.runtimes.values())).identity
+    saved = await progress.load(identity)
+
+    assert saved is not None
+    assert saved.market_as_of == _signal_bar(3).market_as_of
+    assert saved.last_disposition is None
+    assert first.lane_catchup_cutoffs["BTCUSDT:main"] == ()
+    assert first.snapshot.lane_watermarks["BTCUSDT:main"].latest_market_as_of == (
+        _signal_bar(3).market_as_of
+    )
+
+    second = await _signal_coordinator(
+        history,
+        stream,
+        authority="shadow",
+        shadow_progress_repository=progress,
+    ).start()
+    assert second.lane_catchup_cutoffs["BTCUSDT:main"] == ()
+    assert await progress.load(identity) == saved
+
+
+@pytest.mark.asyncio
+async def test_shadow_restart_drains_exact_catchup_before_new_input() -> None:
+    progress = InMemoryShadowProgressRepository()
+    first_history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(4))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    first_stream = _LiveInputClient(
+        stream="stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+        tail_index=2,
+        field_factory=_signal_fields,
+    )
+    first = await _signal_coordinator(
+        first_history,
+        first_stream,
+        authority="shadow",
+        shadow_progress_repository=progress,
+        history_capacity=4,
+    ).start()
+    identity = next(iter(first.runtimes.values())).identity
+    baseline = await progress.load(identity)
+    assert baseline is not None
+
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(8))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    stream = _LiveInputClient(
+        stream="stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+        tail_index=6,
+        field_factory=_signal_fields,
+    )
+    startup = await _signal_coordinator(
+        history,
+        stream,
+        authority="shadow",
+        shadow_progress_repository=progress,
+        history_capacity=4,
+    ).start()
+
+    assert startup.lane_catchup_cutoffs["BTCUSDT:main"] == tuple(
+        _signal_bar(index).market_as_of for index in range(4, 8)
+    )
+    assert startup.snapshot.lane_watermarks["BTCUSDT:main"].latest_market_as_of == (
+        baseline.market_as_of
+    )
+
+    publisher_client = _IsolatedSignalClient()
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        shadow_publisher=ValkeyShadowPublisher(publisher_client),
+        shadow_progress_repository=progress,
+        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+    )
+    result = await runtime.poll_once()
+
+    lane = result.lane_results["BTCUSDT:main"]
+    assert lane.finalization_status == "COMMITTED"
+    assert runtime.lanes["BTCUSDT:main"].finalizer.watermark.latest_market_as_of == (
+        _signal_bar(7).market_as_of
+    )
+    saved = await progress.load(identity)
+    assert saved is not None
+    assert saved.market_as_of == _signal_bar(7).market_as_of
+    assert saved.last_disposition == "shadow"
+    assert len(publisher_client.entries["decision:shadow:BTCUSDT:main"]) == 4
+    assert not any(key.startswith("signals:") for key in publisher_client.entries)
+
+    restarted = await _signal_coordinator(
+        history,
+        stream,
+        authority="shadow",
+        shadow_progress_repository=progress,
+        history_capacity=4,
+    ).start()
+    assert restarted.lane_catchup_cutoffs["BTCUSDT:main"] == ()
+
+
+@pytest.mark.asyncio
+async def test_shadow_catchup_exact_id_reconciles_crash_window() -> None:
+    progress = InMemoryShadowProgressRepository()
+    first_history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(4))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    first_stream = _LiveInputClient(
+        stream="stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+        tail_index=2,
+        field_factory=_signal_fields,
+    )
+    await _signal_coordinator(
+        first_history,
+        first_stream,
+        authority="shadow",
+        shadow_progress_repository=progress,
+        history_capacity=1,
+    ).start()
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(5))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    stream = _LiveInputClient(
+        stream="stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+        tail_index=3,
+        field_factory=_signal_fields,
+    )
+    startup = await _signal_coordinator(
+        history,
+        stream,
+        authority="shadow",
+        shadow_progress_repository=progress,
+        history_capacity=1,
+    ).start()
+    publisher_client = _IsolatedSignalClient()
+    first_runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        shadow_publisher=ValkeyShadowPublisher(publisher_client),
+        shadow_progress_repository=progress,
+        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+    )
+    # The first process publishes the exact observation but loses the progress
+    # write, which is the crash window repaired by the next startup.
+    original_save = progress.save
+    failed_once = True
+
+    async def fail_progress_save(item):
+        nonlocal failed_once
+        if failed_once and item.last_disposition == "shadow":
+            failed_once = False
+            return ShadowProgressSaveResult.CONFLICT
+        return await original_save(item)
+
+    progress.save = fail_progress_save  # type: ignore[method-assign]
+    result = await first_runtime.poll_once()
+    assert result.lane_results["BTCUSDT:main"].status == "HALTED"
+    assert len(publisher_client.entries["decision:shadow:BTCUSDT:main"]) == 1
+
+    progress.save = original_save  # type: ignore[method-assign]
+    restarted = await _signal_coordinator(
+        history,
+        stream,
+        authority="shadow",
+        shadow_progress_repository=progress,
+        history_capacity=1,
+    ).start()
+    assert restarted.lane_catchup_cutoffs["BTCUSDT:main"] == (
+        _signal_bar(4).market_as_of,
+    )
+    second_runtime = LiveDecisionRuntime(
+        startup=restarted,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        shadow_publisher=ValkeyShadowPublisher(publisher_client),
+        shadow_progress_repository=progress,
+        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+    )
+    second = await second_runtime.poll_once()
+    assert second.lane_results["BTCUSDT:main"].publication_outcome == (
+        "ALREADY_IDENTICAL"
+    )
+    assert len(publisher_client.entries["decision:shadow:BTCUSDT:main"]) == 1
+    saved = await progress.load(next(iter(restarted.runtimes.values())).identity)
+    assert saved is not None
+    assert saved.market_as_of == _signal_bar(4).market_as_of
 
 
 @pytest.mark.asyncio

@@ -180,6 +180,10 @@ def _patch_owned_lifespan(
         lambda *_args, **_kwargs: SimpleNamespace(),
     )
     monkeypatch.setattr(
+        "apps.decision_app.bootstrap.ShadowProgressRepository",
+        lambda *_args, **_kwargs: SimpleNamespace(),
+    )
+    monkeypatch.setattr(
         "apps.decision_app.bootstrap.AssetManifestStore",
         lambda *_args, **_kwargs: SimpleNamespace(),
     )

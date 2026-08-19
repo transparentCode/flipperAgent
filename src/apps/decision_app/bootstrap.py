@@ -29,6 +29,7 @@ from apps.decision_app.settings import DecisionConfig, load_decision_config
 from apps.decision_app.storage.bootstrap import ensure_checkpoint_schema
 from apps.decision_app.storage.checkpoints import CheckpointRepository
 from apps.decision_app.storage.market_history import CanonicalMarketHistoryRepository
+from apps.decision_app.storage.shadow_progress import ShadowProgressRepository
 from apps.decision_app.transport.price_relay import PriceRelay, plan_series_key
 from apps.decision_app.transport.shadow import ValkeyShadowPublisher
 from apps.decision_app.transport.signals import ValkeySignalPublisher
@@ -57,6 +58,7 @@ def build_generation_factory(
     stream_client: Any,
     history_repository: Any,
     checkpoint_repository: Any,
+    shadow_progress_repository: Any | None = None,
     manifest_store: Any | None = None,
     now_fn: Callable[[], datetime] | None = None,
 ) -> GenerationFactory:
@@ -86,6 +88,7 @@ def build_generation_factory(
             history_repository=history_repository,
             stream_client=stream_client,
             checkpoint_repository=checkpoint_repository,
+            shadow_progress_repository=shadow_progress_repository,
             manifest_store=manifest_store,
             data_resolver=composition.data_resolver,
         )
@@ -129,6 +132,7 @@ def build_generation_factory(
             signal_publisher=publisher,
             shadow_publisher=shadow_publisher,
             checkpoint_repository=checkpoint_repository,
+            shadow_progress_repository=shadow_progress_repository,
             policy_catalog=composition.policy_catalog,
             price_relay=relay,
             batch_size=config.global_settings.live_input.batch_size,
@@ -156,6 +160,7 @@ def create_application(
     stream_client: Any | None = None,
     history_repository: Any | None = None,
     checkpoint_repository: Any | None = None,
+    shadow_progress_repository: Any | None = None,
     manifest_store: AssetManifestStore | None = None,
 ) -> FastAPI:
     """Build the ASGI app without performing I/O until lifespan startup."""
@@ -170,6 +175,7 @@ def create_application(
         current_stream_client = stream_client
         current_history = history_repository
         current_checkpoints = checkpoint_repository
+        current_shadow_progress = shadow_progress_repository
         current_manifest_store = manifest_store
         current_lifecycle_reader = lifecycle_reader
         try:
@@ -194,6 +200,8 @@ def create_application(
                         )
                     if current_checkpoints is None:
                         current_checkpoints = CheckpointRepository(writer_pool)
+                    if current_shadow_progress is None:
+                        current_shadow_progress = ShadowProgressRepository(writer_pool)
                 if current_manifest_store is None:
                     current_manifest_store = AssetManifestStore(current_stream_client)
                 # This capture intentionally precedes coordinator.start(),
@@ -206,6 +214,7 @@ def create_application(
                     stream_client=current_stream_client,
                     history_repository=current_history,
                     checkpoint_repository=current_checkpoints,
+                    shadow_progress_repository=current_shadow_progress,
                     manifest_store=current_manifest_store,
                 )
                 current_lifecycle_reader = (

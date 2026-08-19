@@ -9,8 +9,9 @@ does not read continuously, publish signals, or own lifecycle workers.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
+from enum import Enum
 from itertools import pairwise
 from typing import Any, Literal
 
@@ -75,6 +76,10 @@ from apps.decision_app.storage.checkpoints import (
     LaneStateCheckpoint,
 )
 from apps.decision_app.storage.market_history import CanonicalMarketHistoryRepository
+from apps.decision_app.storage.shadow_progress import (
+    InMemoryShadowProgressRepository,
+    ShadowProgress,
+)
 from apps.decision_app.transport.ingestion import (
     CanonicalMarketEvent,
     canonical_ingestion_stream_key,
@@ -109,6 +114,10 @@ def _text(value: object, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise TypeError(f"{field_name} must be non-empty text")
     return value
+
+
+def _save_result_value(value: object) -> str:
+    return value.value if isinstance(value, Enum) else str(value)
 
 
 def _sorted_keys(values: Sequence[MarketSeriesKey]) -> tuple[MarketSeriesKey, ...]:
@@ -243,8 +252,8 @@ class DecisionStartupSnapshot:
         for lane_id, watermark in self.lane_watermarks.items():
             if lane_id != watermark.lane_id:
                 raise ValueError("watermark map key must match lane_id")
-            if watermark.last_disposition is not None:
-                raise ValueError("startup watermark disposition must be None")
+            if watermark.last_disposition not in {None, "shadow"}:
+                raise ValueError("unsupported startup watermark disposition")
             watermarks[lane_id] = watermark
         evidence: dict[str, LaneStartupEvidence] = {}
         for lane_id, item in self.lane_evidence.items():
@@ -282,6 +291,10 @@ class DecisionStartupResult:
     feature_plans: Mapping[str, FeaturePlan]
     data_plans: Mapping[str, DataPlan]
     lane_requirements: Mapping[str, LaneMarketRequirements]
+    lane_catchup_cutoffs: Mapping[str, tuple[datetime, ...]] = field(
+        default_factory=dict
+    )
+    lane_catchup_stores: Mapping[str, BarStore] = field(default_factory=dict)
     relay_plans: tuple[PriceRelayPlan, ...] = ()
 
     def __post_init__(self) -> None:
@@ -315,6 +328,32 @@ class DecisionStartupResult:
                 raise ValueError(f"{name} must cover every resolved lane")
             if any(not isinstance(value, expected_type) for value in values.values()):
                 raise TypeError(f"{name} has invalid values")
+        if not isinstance(self.lane_catchup_cutoffs, Mapping):
+            raise TypeError("lane_catchup_cutoffs must be a mapping")
+        raw_catchups = self.lane_catchup_cutoffs
+        if not raw_catchups:
+            raw_catchups = {lane_id: () for lane_id in lane_ids}
+        if set(raw_catchups) != lane_ids:
+            raise ValueError("lane_catchup_cutoffs must cover every resolved lane")
+        normalized_catchups: dict[str, tuple[datetime, ...]] = {}
+        for lane_id, cutoffs in raw_catchups.items():
+            if isinstance(cutoffs, (str, bytes)) or not isinstance(cutoffs, Sequence):
+                raise TypeError("lane catch-up cutoffs must be sequences")
+            values = tuple(cutoffs)
+            for cutoff in values:
+                require_utc(cutoff, field_name="lane catch-up cutoff")
+            if any(current <= previous for previous, current in pairwise(values)):
+                raise ValueError("lane catch-up cutoffs must be strictly increasing")
+            normalized_catchups[lane_id] = values
+        if not isinstance(self.lane_catchup_stores, Mapping):
+            raise TypeError("lane_catchup_stores must be a mapping")
+        if not set(self.lane_catchup_stores) <= lane_ids:
+            raise ValueError("lane_catchup_stores contains an unknown lane")
+        if any(
+            not isinstance(store, BarStore)
+            for store in self.lane_catchup_stores.values()
+        ):
+            raise TypeError("lane_catchup_stores must contain BarStore values")
         object.__setattr__(
             self,
             "feature_plans",
@@ -329,6 +368,16 @@ class DecisionStartupResult:
             self,
             "lane_requirements",
             FrozenMapping(dict(sorted(self.lane_requirements.items()))),
+        )
+        object.__setattr__(
+            self,
+            "lane_catchup_cutoffs",
+            FrozenMapping(dict(sorted(normalized_catchups.items()))),
+        )
+        object.__setattr__(
+            self,
+            "lane_catchup_stores",
+            FrozenMapping(dict(sorted(self.lane_catchup_stores.items()))),
         )
         for lane_id in lane_ids:
             if (
@@ -424,6 +473,7 @@ class DecisionStartupCoordinator:
         policy_catalog: DecisionPolicyCatalog | None = None,
         stream_client: Any = None,
         checkpoint_repository: Any | None = None,
+        shadow_progress_repository: Any | None = None,
         manifest_store: Any | None = None,
         data_resolver: DataResolver | None = None,
     ) -> None:
@@ -458,6 +508,13 @@ class DecisionStartupCoordinator:
         self._history = history_repository
         self._streams = stream_client
         self._checkpoints = checkpoint_repository or InMemoryCheckpointRepository()
+        self._shadow_progress = (
+            shadow_progress_repository or InMemoryShadowProgressRepository()
+        )
+        if not callable(getattr(self._shadow_progress, "load", None)) or not callable(
+            getattr(self._shadow_progress, "save", None)
+        ):
+            raise TypeError("shadow_progress_repository must provide load() and save()")
         self._manifest_store = manifest_store
         self._data_resolver = data_resolver or DataResolver(source_catalog)
 
@@ -526,6 +583,10 @@ class DecisionStartupCoordinator:
         lane_watermarks: dict[str, LaneCommitWatermark] = {}
         runtimes: dict[str, ModelRuntime] = {}
         reconstruction_evidence: dict[str, Mapping[str, Any]] = {}
+        lane_catchup_cutoffs: dict[str, tuple[datetime, ...]] = {
+            lane.lane_id: () for lane in decision_plan.lanes
+        }
+        lane_catchup_stores: dict[str, BarStore] = {}
         for lane in decision_plan.lanes:
             if lane.asset not in active_assets:
                 lane_evidence[lane.lane_id] = LaneStartupEvidence(
@@ -535,7 +596,7 @@ class DecisionStartupCoordinator:
                 )
                 continue
             try:
-                runtime, evidence = await self._reconstruct_lane(
+                runtime, evidence, catchup_store = await self._reconstruct_lane(
                     lane,
                     feature_plans[lane.lane_id],
                     data_plans[lane.lane_id],
@@ -552,11 +613,25 @@ class DecisionStartupCoordinator:
                 )
                 continue
             runtimes[lane.lane_id] = runtime
+            if catchup_store is not None:
+                lane_catchup_stores[lane.lane_id] = catchup_store
             resume_cutoff = evidence["resume_cutoff"]
+            catchup_cutoffs = tuple(evidence.get("catchup_cutoffs", ()))
+            lane_catchup_cutoffs[lane.lane_id] = catchup_cutoffs
+            watermark_cutoff = (
+                evidence.get("shadow_progress_cutoff")
+                if lane.authority == "shadow"
+                else resume_cutoff
+            )
+            watermark_disposition = (
+                evidence.get("shadow_progress_disposition")
+                if lane.authority == "shadow"
+                else None
+            )
             lane_watermarks[lane.lane_id] = LaneCommitWatermark(
                 lane_id=lane.lane_id,
-                latest_market_as_of=resume_cutoff,
-                last_disposition=None,
+                latest_market_as_of=watermark_cutoff,
+                last_disposition=watermark_disposition,
             )
             lane_evidence[lane.lane_id] = LaneStartupEvidence(
                 lane_id=lane.lane_id,
@@ -594,6 +669,8 @@ class DecisionStartupCoordinator:
             feature_plans=feature_plans,
             data_plans=data_plans,
             lane_requirements=lane_requirements,
+            lane_catchup_cutoffs=lane_catchup_cutoffs,
+            lane_catchup_stores=lane_catchup_stores,
             relay_plans=active_relay_plans,
         )
 
@@ -747,6 +824,73 @@ class DecisionStartupCoordinator:
             data_plan_fingerprint=data_plan.data_plan_fingerprint,
         )
 
+    async def _shadow_progress_for_lane(
+        self,
+        *,
+        lane: ResolvedLanePlan,
+        data_plan: DataPlan,
+        identity: LaneExecutionIdentity,
+        resume_cutoff: datetime,
+        ready_views: Sequence[tuple[datetime, LaneMarketView]],
+        stateful_binding_ids: Sequence[str],
+    ) -> tuple[ShadowProgress | None, tuple[datetime, ...]]:
+        """Resolve durable shadow effect progress without rewinding market state."""
+
+        if lane.authority != "shadow":
+            return None, ()
+        progress = await self._shadow_progress.load(identity)
+        if progress is None:
+            baseline = ShadowProgress.create(
+                identity=identity,
+                market_as_of=resume_cutoff,
+                last_disposition=None,
+            )
+            result = await self._shadow_progress.save(baseline)
+            if _save_result_value(result) not in {
+                "INSERTED",
+                "UPDATED",
+                "IDENTICAL",
+            }:
+                raise StartupLaneError(
+                    f"shadow progress persistence {result} blocks startup"
+                )
+            progress = baseline
+        if not isinstance(progress, ShadowProgress):
+            raise StartupLaneError("shadow progress repository returned invalid record")
+        if progress.identity != identity:
+            raise StartupLaneError("shadow progress identity does not match lane")
+        if progress.market_as_of > resume_cutoff:
+            raise StartupLaneError("shadow progress is ahead of market reconstruction")
+        if progress.market_as_of == resume_cutoff:
+            return progress, ()
+        if stateful_binding_ids:
+            raise StartupLaneError(
+                "stateful shadow lane has an unresolved effect backlog"
+            )
+        if data_plan.requested_concepts:
+            raise StartupLaneError(
+                "external-data shadow lane has an unresolved effect backlog"
+            )
+        trigger_duration = self._config.timeframe_grid.duration(lane.trigger_timeframe)
+        candidates = tuple(
+            cutoff
+            for cutoff, _view in ready_views
+            if progress.market_as_of < cutoff <= resume_cutoff
+        )
+        expected_first = progress.market_as_of + trigger_duration
+        if not candidates or candidates[0] != expected_first:
+            raise StartupLaneError(
+                "retained history cannot bridge shadow effect progress backlog"
+            )
+        if candidates[-1] != resume_cutoff or any(
+            current != previous + trigger_duration
+            for previous, current in pairwise(candidates)
+        ):
+            raise StartupLaneError(
+                "shadow effect backlog is not contiguous in retained history"
+            )
+        return progress, candidates
+
     def _ready_views(
         self,
         lane: ResolvedLanePlan,
@@ -782,6 +926,68 @@ class DecisionStartupCoordinator:
                 continue
             ready.append((cutoff, view))
         return ready
+
+    async def _load_shadow_catchup_store(
+        self,
+        *,
+        lane: ResolvedLanePlan,
+        feature_plan: FeaturePlan,
+        lane_requirements: Mapping[MarketSeriesKey, int],
+        catchup_cutoffs: Sequence[datetime],
+        resume_cutoff: datetime,
+    ) -> BarStore | None:
+        """Load one bounded causal store for a stateless shadow backlog."""
+
+        if not catchup_cutoffs:
+            return None
+        if lane.authority != "shadow":
+            raise StartupLaneError("only shadow lanes may have an effect backlog")
+        if any(binding.model_spec.stateful for binding in lane.bindings.values()):
+            raise StartupLaneError(
+                "stateful shadow lane has an unresolved effect backlog"
+            )
+        first_cutoff = catchup_cutoffs[0]
+        histories: dict[MarketSeriesKey, tuple[Any, ...]] = {}
+        capacities: dict[MarketSeriesKey, int] = {}
+        for key, required_count in lane_requirements.items():
+            duration = self._config.timeframe_grid.duration(key.timeframe)
+            first_visible_cutoff = self._config.timeframe_grid.expected_closed_cutoff(
+                key.timeframe,
+                first_cutoff,
+            )
+            # ``start`` is an open-time bound while ``first_visible_cutoff``
+            # is a close-time bound.  N contiguous bars ending at that close
+            # begin exactly N durations earlier.
+            start = first_visible_cutoff - duration * required_count
+            bars = tuple(
+                await self._history.fetch_bars(
+                    key,
+                    start=start,
+                    through=resume_cutoff,
+                )
+            )
+            if len(bars) < required_count:
+                raise StartupLaneError(
+                    "retained history cannot bridge shadow effect progress backlog"
+                )
+            histories[key] = bars
+            capacities[key] = len(bars)
+
+        store = BarStore(capacities)
+        try:
+            self._fill_store(store, histories)
+            for cutoff in catchup_cutoffs:
+                self._validate_causal_history_at_cutoff(
+                    lane,
+                    feature_plan,
+                    store,
+                    cutoff,
+                )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise StartupLaneError(
+                "retained history cannot bridge shadow effect progress backlog"
+            ) from exc
+        return store
 
     async def _load_reconstruction_history(
         self,
@@ -909,7 +1115,7 @@ class DecisionStartupCoordinator:
         capacities: Mapping[MarketSeriesKey, int],
         positions: Mapping[MarketSeriesKey, SeriesStartupPosition],
         final_store: BarStore,
-    ) -> tuple[ModelRuntime, Mapping[str, Any]]:
+    ) -> tuple[ModelRuntime, Mapping[str, Any], BarStore | None]:
         lane_requirements = compile_lane_market_requirements(
             lane, self._config.timeframe_grid
         )
@@ -944,6 +1150,22 @@ class DecisionStartupCoordinator:
         )
         if checkpoint is not None and checkpoint.market_as_of > resume_candidate:
             raise StartupLaneError("checkpoint cutoff is after startup resume cutoff")
+
+        shadow_progress, catchup_cutoffs = await self._shadow_progress_for_lane(
+            lane=lane,
+            data_plan=data_plan,
+            identity=identity,
+            resume_cutoff=resume_candidate,
+            ready_views=baseline_ready,
+            stateful_binding_ids=lane_stateful,
+        )
+        catchup_store = await self._load_shadow_catchup_store(
+            lane=lane,
+            feature_plan=feature_plan,
+            lane_requirements=self._lane_history_requirements(lane, feature_plan),
+            catchup_cutoffs=catchup_cutoffs,
+            resume_cutoff=resume_candidate,
+        )
 
         replay_history: Mapping[MarketSeriesKey, Sequence[Any]] = history
         if lane_stateful and checkpoint is not None:
@@ -1135,8 +1357,16 @@ class DecisionStartupCoordinator:
             "replay_step_count": len(replay_steps),
             "captured_tail_id": positions[trigger_key].captured_tail_id,
             "no_publication": True,
+            "shadow_progress_cutoff": (
+                None if shadow_progress is None else shadow_progress.market_as_of
+            ),
+            "shadow_progress_disposition": (
+                None if shadow_progress is None else shadow_progress.last_disposition
+            ),
+            "catchup_cutoffs": catchup_cutoffs,
+            "catchup_step_count": len(catchup_cutoffs),
         }
-        return final_runtime, evidence
+        return final_runtime, evidence, catchup_store
 
 
 __all__ = [

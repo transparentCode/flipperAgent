@@ -1,0 +1,86 @@
+services:
+  db:
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+
+  broker:
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+
+  signal-worker:
+    build:
+      context: ../../../../
+      dockerfile: Dockerfile
+    command: python -m apps.signal_app.main
+    volumes:
+      - ../../../../configs:/app/configs:ro
+      - c4-logs:/app/logs
+    tmpfs:
+      - /tmp
+    environment:
+      POSTGRES_URI: postgresql://c4_user:c4_password@db:5432/c4_db
+      VALKEY_URI: redis://broker:6379/0
+      LOG_FILE: /app/logs/signal.log
+      LOG_FORMAT: json
+      OTEL_SDK_DISABLED: "true"
+      OTEL_SERVICE_NAME: signal-worker
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks: [c4-net]
+
+  strategy-worker:
+    build:
+      context: ../../../../
+      dockerfile: Dockerfile
+    command: python -m apps.strategy_app.main
+    volumes:
+      - ../../../../configs:/app/configs:ro
+      - c4-logs:/app/logs
+    tmpfs:
+      - /tmp
+    environment:
+      POSTGRES_URI: postgresql://c4_user:c4_password@db:5432/c4_db
+      VALKEY_URI: redis://broker:6379/0
+      LOG_FILE: /app/logs/strategy.log
+      LOG_FORMAT: json
+      OTEL_SDK_DISABLED: "true"
+      OTEL_SERVICE_NAME: strategy-worker
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks: [c4-net]
+
+volumes:
+  c4-logs:
+    external: false
+
+networks:
+  c4-net:
+    external: false
