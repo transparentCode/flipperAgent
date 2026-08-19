@@ -98,6 +98,7 @@ class StrategyWorkerSettings:
     blender_enabled: bool = False
     blender_config: dict[str, Any] | None = None
     relinquished_routes: tuple[str, ...] = ()
+    signal_authority_enforced: bool = False
 
     @classmethod
     def from_config(
@@ -134,5 +135,11 @@ class StrategyWorkerSettings:
             blender_config=blender_cfg if blender_cfg else None,
             relinquished_routes=parse_relinquished_routes(
                 manager.get("strategy.runtime.relinquished_routes", ())
+            ),
+            signal_authority_enforced=bool(
+                manager.get(
+                    "strategy.runtime.signal_authority_enforced",
+                    cls.signal_authority_enforced,
+                )
             ),
         )

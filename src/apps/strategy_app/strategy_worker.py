@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
-from libs.common.config import ConfigManager
-from libs.common.enums import SystemComponent
-from libs.common.logging.logger_utils import bind_logger
-
 from apps.strategy_app.evaluation.migration import log_migration_comparison
 from apps.strategy_app.model_manager import ModelManager
 from apps.strategy_app.models.unified_model_manager import UnifiedModelManager
 from apps.strategy_app.runtime.worker import StrategyWorker as _RuntimeStrategyWorker
 from apps.strategy_app.scoring_model_manager import ScoringModelManager
-from apps.strategy_app.settings import StrategyWorkerSettings, create_strategy_config_manager
+from apps.strategy_app.settings import (
+    StrategyWorkerSettings,
+    create_strategy_config_manager,
+)
+from libs.common.config import ConfigManager
+from libs.common.enums import SystemComponent
+from libs.common.logging.logger_utils import bind_logger
+from libs.common.signal_authority import SignalAuthorityStore
 from libs.models.blender.ensemble import RegimeEnsembleBlender
 from libs.selection.selection_layer import SelectionLayer
 
@@ -37,8 +40,11 @@ class StrategyWorker(_RuntimeStrategyWorker):
         trigger_mode: str = "on_bar_close",
         base_timeframe: str = "1m",
         allowed_model_names: list[str] | None = None,
+        authority_store: SignalAuthorityStore | None = None,
     ) -> None:
-        config_manager = create_strategy_config_manager(config_manager or ConfigManager())
+        config_manager = create_strategy_config_manager(
+            config_manager or ConfigManager()
+        )
         settings = settings or StrategyWorkerSettings.from_config(config_manager)
         model_manager = model_manager or ModelManager(
             asset,
@@ -60,7 +66,7 @@ class StrategyWorker(_RuntimeStrategyWorker):
         if blender is None and settings.blender_enabled and settings.blender_config:
             try:
                 blender = RegimeEnsembleBlender(settings.blender_config)
-            except Exception:
+            except Exception:  # noqa: BLE001
                 blender = None
         super().__init__(
             asset,
@@ -76,6 +82,7 @@ class StrategyWorker(_RuntimeStrategyWorker):
             trigger_mode=trigger_mode,
             base_timeframe=base_timeframe,
             allowed_model_names=allowed_model_names,
+            authority_store=authority_store,
         )
 
     def _log_migration_comparison(

@@ -1,0 +1,70 @@
+strategy:
+  runtime:
+    signal_authority_enforced: true
+
+strategy_models:
+  assets:
+    XRPUSDT:
+      timeframes:
+        1h:
+          MeanReversionV2:
+            enabled: true
+            runtime:
+              decision_timeframe: 1h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
+            params:
+              rsi_scale: 15.0
+              w_rsi: 0.4
+              w_bb: 0.2
+              w_kama: 0.2
+              adx_center: 25.0
+              adx_steepness: 5.0
+    SOLUSDT:
+      timeframes:
+        1h:
+          MeanReversionV2:
+            enabled: true
+            runtime:
+              decision_timeframe: 1h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
+            params:
+              rsi_scale: 15.0
+              w_rsi: 0.4
+              w_bb: 0.4
+              w_kama: 0.2
+              adx_center: 25.0
+              adx_steepness: 5.0
+    BNBUSDT:
+      timeframes:
+        30m:
+          MeanReversionV2:
+            enabled: true
+            runtime:
+              decision_timeframe: 30m
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
+            params:
+              rsi_scale: 15.0
+              w_rsi: 0.4
+              w_bb: 0.4
+              w_kama: 0.2
+              adx_center: 25.0
+              adx_steepness: 5.0
+    DOGEUSDT:
+      timeframes:
+        4h:
+          MeanReversionV2:
+            enabled: true
+            runtime:
+              decision_timeframe: 4h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
+            params:
+              rsi_scale: 15.0
+              w_rsi: 0.4
+              w_bb: 0.4
+              w_kama: 0.2
+              adx_center: 25.0
+              adx_steepness: 5.0

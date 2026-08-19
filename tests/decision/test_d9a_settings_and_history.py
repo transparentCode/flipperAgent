@@ -135,6 +135,11 @@ def test_minimal_decision_global_namespace_is_strict_and_has_no_asset_graph() ->
     manager.register_file("configs/decision/global.yaml")
 
     assert manager.get("decision") == {
+        "feature_policy": {
+            "name": "momentum-m4",
+            "version": "1",
+            "allowed_features": ["MACD", "RSI"],
+        },
         "server": {"host": "0.0.0.0", "port": 8004},
         "live_input": {"batch_size": 10, "block_ms": 1000},
         "signal_publication": {
@@ -152,10 +157,14 @@ def test_minimal_decision_global_namespace_is_strict_and_has_no_asset_graph() ->
     }
     with pytest.raises(ValueError):
         DecisionGlobalSettings.model_validate({"unexpected": True})
-    with pytest.raises(ValueError, match="must contain assets"):
-        from apps.decision_app.settings import load_decision_config
+    from apps.decision_app.settings import load_decision_config
 
-        load_decision_config(ConfigManager())
+    config = load_decision_config(manager)
+    assert {lane.lane_id for lane in config.lane_specs()} == {
+        "BTCUSDT:momentum_1h",
+        "BTCUSDT:momentum_4h",
+        "ETHUSDT:momentum_4h",
+    }
 
 
 class _Connection:

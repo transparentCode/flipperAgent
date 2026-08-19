@@ -1,4 +1,10 @@
 decision:
+  feature_policy:
+    name: momentum-m4
+    version: "1"
+    allowed_features:
+      - MACD
+      - RSI
   server:
     host: 0.0.0.0
     port: 8004

@@ -1,0 +1,58 @@
+strategy:
+  runtime:
+    signal_authority_enforced: true
+
+strategy_models:
+  assets:
+    BTCUSDT:
+      timeframes:
+        1h:
+          PriceActionV2:
+            enabled: true
+            runtime:
+              decision_timeframe: 1h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
+            params:
+              swing_lookback: 5
+              w_fvg: 0.0
+              w_sweep: 0.0
+              w_pin: 0.0
+              w_engulf: 0.0
+              w_bos: 0.0
+              w_inside: 0.0
+              confluence_scale: 0.0
+        4h:
+          PriceActionV2:
+            enabled: true
+            runtime:
+              decision_timeframe: 4h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
+            params:
+              swing_lookback: 5
+              w_fvg: 0.0
+              w_sweep: 0.0
+              w_pin: 0.0
+              w_engulf: 0.0
+              w_bos: 0.0
+              w_inside: 0.0
+              confluence_scale: 0.0
+    ETHUSDT:
+      timeframes:
+        4h:
+          PriceActionV2:
+            enabled: true
+            runtime:
+              decision_timeframe: 4h
+              base_timeframe: 1m
+              trigger_mode: on_bar_close
+            params:
+              swing_lookback: 5
+              w_fvg: 0.0
+              w_sweep: 0.0
+              w_pin: 0.0
+              w_engulf: 0.0
+              w_bos: 0.0
+              w_inside: 0.0
+              confluence_scale: 0.0

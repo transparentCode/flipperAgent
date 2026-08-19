@@ -3,7 +3,12 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
+from libs.common.signal_authority import SignalAuthorityStore, signal_route_from_stream
 from libs.contracts.schemas import FeatureVector, TradeSignal, valkey_encode
+
+
+class StrategyAuthorityDenied(RuntimeError):
+    """A managed legacy publication no longer has a valid authority fence."""
 
 
 def make_signal_idempotency_key(
@@ -24,11 +29,17 @@ class StrategySignalPublisher:
         maxlen: int,
         approximate: bool,
         logger: Any,
+        authority_store: SignalAuthorityStore | None = None,
     ) -> None:
         self.signal_stream_key = signal_stream_key
         self.maxlen = maxlen
         self.approximate = approximate
         self.logger = logger
+        if authority_store is not None and not isinstance(
+            authority_store, SignalAuthorityStore
+        ):
+            raise TypeError("authority_store must be SignalAuthorityStore or None")
+        self.authority_store = authority_store
 
     async def publish_selected(
         self,
@@ -36,6 +47,9 @@ class StrategySignalPublisher:
         redis_client: Any,
         feature_vec: FeatureVector,
         selected: list[Any],
+        authority_epoch: int | None = None,
+        authority_boundary_ms: int | None = None,
+        effect_cutoff_ms: int | None = None,
     ) -> int:
         bar_close = feature_vec.bar_data.get("close")
         if not bar_close:
@@ -73,12 +87,41 @@ class StrategySignalPublisher:
             )
 
             if redis_client:
-                await redis_client.xadd(
-                    self.signal_stream_key,
-                    valkey_encode(signal),
-                    maxlen=self.maxlen,
-                    approximate=self.approximate,
-                )
+                fields = valkey_encode(signal)
+                if self.authority_store is not None:
+                    route = signal_route_from_stream(self.signal_stream_key)
+                    guarded = await self.authority_store.guarded_xadd(
+                        route=route,
+                        expected_owner="strategy",
+                        expected_epoch=authority_epoch,
+                        expected_boundary_ms=authority_boundary_ms,
+                        effect_cutoff_ms=effect_cutoff_ms,
+                        stream_key=self.signal_stream_key,
+                        fields=fields,
+                        stream_id="*",
+                        maxlen=self.maxlen,
+                        approximate=self.approximate,
+                    )
+                    if not guarded.allowed:
+                        raise StrategyAuthorityDenied(
+                            f"signal authority denied legacy publication for {route}: "
+                            f"{guarded.reason or 'unknown reason'}"
+                        )
+                        continue
+                    if not guarded.managed:
+                        await redis_client.xadd(
+                            self.signal_stream_key,
+                            fields,
+                            maxlen=self.maxlen,
+                            approximate=self.approximate,
+                        )
+                else:
+                    await redis_client.xadd(
+                        self.signal_stream_key,
+                        fields,
+                        maxlen=self.maxlen,
+                        approximate=self.approximate,
+                    )
                 published += 1
                 self.logger.debug(f"Published signal: {signal.idempotency_key}")
         return published

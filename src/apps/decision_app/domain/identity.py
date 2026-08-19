@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
 from hashlib import sha256
+from importlib import import_module
 from math import isfinite
 from typing import Any
 
@@ -134,6 +135,45 @@ def compute_decision_execution_revision(
     )
 
 
+def lane_execution_identity(
+    lane: Any,
+    feature_plan: Any,
+    data_plan: Any,
+) -> Any:
+    """Derive the exact D6 lane identity without constructing a runtime.
+
+    The local import keeps the low-level fingerprint module independent from
+    the state store while giving startup and the D11B controller one canonical
+    identity derivation seam.
+    """
+
+    lane_id = getattr(lane, "lane_id", None)
+    revision = getattr(lane, "effective_lane_revision", None)
+    feature_fingerprint = getattr(feature_plan, "feature_plan_fingerprint", None)
+    data_fingerprint = getattr(data_plan, "data_plan_fingerprint", None)
+    if not all(
+        isinstance(value, str) and value.strip()
+        for value in (
+            lane_id,
+            revision,
+            feature_fingerprint,
+            data_fingerprint,
+        )
+    ):
+        raise TypeError(
+            "lane, feature_plan, and data_plan must expose exact identity fields"
+        )
+    identity_type = import_module(
+        "apps.decision_app.domain.state"
+    ).LaneExecutionIdentity
+    return identity_type(
+        lane_id=lane_id,
+        effective_lane_revision=revision,
+        feature_plan_fingerprint=feature_fingerprint,
+        data_plan_fingerprint=data_fingerprint,
+    )
+
+
 def _canonicalize(value: Any, *, path: str) -> Any:
     if value is None or isinstance(value, (str, bool, int)):
         return value
@@ -203,6 +243,7 @@ __all__ = [
     "compute_decision_execution_revision",
     "decision_id",
     "effective_lane_revision",
+    "lane_execution_identity",
     "make_binding_id",
     "sha256_fingerprint",
 ]
