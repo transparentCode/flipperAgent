@@ -6,20 +6,21 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
+from valkey.exceptions import ValkeyError
 
 from apps.risk_app.api.routes import router
 from apps.risk_app.observability import RiskObservabilityService
 from libs.common.asset_manifest import AssetManifestStore
 from libs.common.config import ConfigManager
 from libs.common.connections import create_valkey_client, init_db_pools
-from libs.common.constants import CONFIG_FILE_MODELS
+from libs.common.constants import CONFIG_FILE_RISK
 from libs.common.db.pool_manager import DBPoolManager
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     config_mgr = ConfigManager()
-    config_mgr.register_file(CONFIG_FILE_MODELS)
+    config_mgr.register_file(CONFIG_FILE_RISK)
     owns_valkey = False
     owns_db = False
 
@@ -28,7 +29,7 @@ async def lifespan(app: FastAPI):
         try:
             redis_client = await create_valkey_client(config_mgr)
             owns_valkey = True
-        except Exception:
+        except (ConnectionError, OSError, ValkeyError):
             redis_client = None
 
     db_pool = getattr(app.state, "db_pool", None)
@@ -39,7 +40,9 @@ async def lifespan(app: FastAPI):
 
     service = getattr(app.state, "observability_service", None)
     if service is None:
-        manifest_store = AssetManifestStore(redis_client) if redis_client is not None else None
+        manifest_store = (
+            AssetManifestStore(redis_client) if redis_client is not None else None
+        )
         service = RiskObservabilityService(
             db_pool,
             redis_client,

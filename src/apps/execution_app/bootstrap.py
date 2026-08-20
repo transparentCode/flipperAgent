@@ -8,11 +8,11 @@ from typing import Any
 
 from libs.common.config import ConfigManager
 from libs.common.connections import create_valkey_client, init_db_pools
-from libs.common.constants import CONFIG_FILE_EXECUTION, CONFIG_FILE_MODELS
+from libs.common.constants import CONFIG_FILE_EXECUTION, CONFIG_FILE_RISK
 from libs.common.db.pool_manager import DBPoolManager
-from libs.common.discovery import discover_assets
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger, configure_logging
+from libs.common.signal_routes import assets_from_routes, parse_signal_routes
 
 KEY_EXECUTION = "execution"
 
@@ -32,7 +32,7 @@ class ExecutionBootstrapContext:
 def build_config_manager() -> ConfigManager:
     config_mgr = ConfigManager()
     config_mgr.register_file(CONFIG_FILE_EXECUTION)
-    config_mgr.register_file(CONFIG_FILE_MODELS)
+    config_mgr.register_file(CONFIG_FILE_RISK)
     return config_mgr
 
 
@@ -63,9 +63,13 @@ async def bootstrap_execution_app() -> ExecutionBootstrapContext:
     config_mgr = build_config_manager()
     configure_execution_logging(config_mgr)
 
-    assets = discover_assets(config_mgr)
+    assets = assets_from_routes(
+        parse_signal_routes(config_mgr.get("risk.runtime.signal_routes", ()))
+    )
     if not assets:
-        logger.warning("No assets found in models.yaml. Exiting.")
+        logger.warning(
+            "No execution assets found in risk.runtime.signal_routes. Exiting."
+        )
         return ExecutionBootstrapContext(
             config_mgr=config_mgr,
             assets=[],

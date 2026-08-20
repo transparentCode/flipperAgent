@@ -102,13 +102,16 @@ def test_ru_maxrss_normalization_is_platform_explicit() -> None:
 @pytest.mark.asyncio
 async def test_current_risk_and_full_canonical_boundaries_are_bounded() -> None:
     inventory = load_canonical_inventory()
+    current_route_count = sum(
+        len(timeframes) for timeframes in _risk_timeframes(inventory).values()
+    )
 
     current = await run_current_risk_scenario(inventory)
     full = await run_full_boundary_scenario(inventory)
 
     assert current["correct"] is True
-    assert current["relay_count"] == 7
-    assert current["published_count"] == 7
+    assert current["relay_count"] == current_route_count
+    assert current["published_count"] == current_route_count
     assert current["max_history_in_flight"] == 1
     assert current["max_xadd_in_flight"] == 1
     assert full["correct"] is True
@@ -134,14 +137,18 @@ async def test_retention_edge_drains_exactly_10800_bars_in_bounded_passes() -> N
 
 @pytest.mark.asyncio
 async def test_decision_service_keeps_two_tasks_and_stops_cleanly() -> None:
-    evidence = await run_service_scenario(load_canonical_inventory())
+    inventory = load_canonical_inventory()
+    evidence = await run_service_scenario(inventory)
+    current_route_count = sum(
+        len(timeframes) for timeframes in _risk_timeframes(inventory).values()
+    )
 
     assert evidence["correct"] is True
     assert evidence["generations_built"] == [1, 2, 3]
     assert evidence["task_count_after_start"] == 2
     assert evidence["task_peak"] == 2
     assert evidence["task_count_after_stop"] == 0
-    assert evidence["price_publications_while_paused"] == 7
+    assert evidence["price_publications_while_paused"] == current_route_count
 
 
 @pytest.mark.asyncio

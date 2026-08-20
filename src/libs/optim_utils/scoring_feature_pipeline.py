@@ -12,8 +12,8 @@ import pandas as pd
 
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
-from apps.signal_app.pipeline.raw_indicators import RawIndicatorPipeline
 from libs.features.engineered.manager import EngineeredFeatureManager
+from libs.features.raw_indicator_pipeline import RawIndicatorPipeline
 
 logger = bind_logger(__name__, system_component=SystemComponent.OPTIMIZATION)
 
@@ -50,7 +50,9 @@ def _flatten_indicators(raw: dict[str, Any]) -> dict[str, Any]:
             flat["ADX_adx"] = val.get("adx")
             flat["ADX_plus_di"] = val.get("plus_di")
             flat["ADX_minus_di"] = val.get("minus_di")
-        elif key in ("BollingerBands", "KeltnerChannel") and isinstance(val, (tuple, list)):
+        elif key in ("BollingerBands", "KeltnerChannel") and isinstance(
+            val, (tuple, list)
+        ):
             if len(val) >= 3:
                 flat[f"{key}_middle"] = val[0]
                 flat[f"{key}_upper"] = val[1]

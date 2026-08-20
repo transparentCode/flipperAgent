@@ -19,39 +19,6 @@ scraper_service:
   port: 8081
   job_ttl_seconds: 3600
 
-signal:
-  runtime:
-    feature_stream_maxlen: 1000
-    feature_stream_approximate: true
-    price_update_stream_maxlen: 200
-    price_update_stream_approximate: true
-    ltf_context_ttl_seconds: 21600
-    ohlcv_sources:
-      BTCUSDT:
-        source: ingestion
-        venue: binance
-        instrument_id: BTC-USDT-PERP
-      ETHUSDT:
-        source: ingestion
-        venue: binance
-        instrument_id: ETH-USDT-PERP
-      XRPUSDT:
-        source: ingestion
-        venue: binance
-        instrument_id: XRP-USDT-PERP
-      SOLUSDT:
-        source: ingestion
-        venue: binance
-        instrument_id: SOL-USDT-PERP
-      BNBUSDT:
-        source: ingestion
-        venue: binance
-        instrument_id: BNB-USDT-PERP
-      DOGEUSDT:
-        source: ingestion
-        venue: binance
-        instrument_id: DOGE-USDT-PERP
-
 risk:
   runtime:
     order_stream_maxlen: 1000

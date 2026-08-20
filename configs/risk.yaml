@@ -1,4 +1,9 @@
 risk:
+  runtime:
+    signal_routes:
+      - BTCUSDT:1h
+      - BTCUSDT:4h
+      - ETHUSDT:4h
   account:
     initial_balance: 10000
     currency: USDT

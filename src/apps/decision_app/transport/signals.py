@@ -15,11 +15,6 @@ from apps.decision_app.transport.publication import (
     SignalPublicationEnvelope,
     signal_payload_fingerprint,
 )
-from libs.common.signal_authority import (
-    SignalAuthorityStore,
-    SignalRouteAuthority,
-    signal_route_from_stream,
-)
 from libs.contracts.serialization import valkey_decode, valkey_encode
 from libs.contracts.signal import TradeSignal
 
@@ -54,8 +49,6 @@ class ValkeySignalPublisher:
         *,
         stream_maxlen: int = 1000,
         stream_approximate: bool = True,
-        authority_store: SignalAuthorityStore | None = None,
-        authority_records: Mapping[str, SignalRouteAuthority] | None = None,
     ) -> None:
         if client is None:
             raise TypeError("client is required")
@@ -71,20 +64,6 @@ class ValkeySignalPublisher:
         self._client = client
         self._stream_maxlen = stream_maxlen
         self._stream_approximate = stream_approximate
-        if authority_store is not None and not isinstance(
-            authority_store, SignalAuthorityStore
-        ):
-            raise TypeError("authority_store must be SignalAuthorityStore or None")
-        self._authority_store = authority_store
-        if authority_records is not None:
-            if any(
-                not isinstance(record, SignalRouteAuthority)
-                for record in authority_records.values()
-            ):
-                raise TypeError("authority_records must contain authority records")
-            self._authority_records = dict(authority_records)
-        else:
-            self._authority_records = {}
 
     async def publish(
         self,
@@ -93,80 +72,7 @@ class ValkeySignalPublisher:
         if not isinstance(envelope, SignalPublicationEnvelope):
             raise TypeError("envelope must be SignalPublicationEnvelope")
         required_id = _entry_id(envelope.stream_entry_id)
-        route = None
-        if self._authority_store is not None:
-            route = signal_route_from_stream(envelope.stream_key)
         fields = valkey_encode(envelope.signal)
-        authority_record = None
-        if route is not None and self._authority_store.manages(route):
-            authority_record = self._authority_records.get(route)
-            if authority_record is None:
-                return self._ack(
-                    envelope,
-                    "FAILED",
-                    "managed Decision route has no captured authority record",
-                )
-            try:
-                effect_cutoff_ms = int(required_id.split("-", 1)[0])
-            except (TypeError, ValueError) as exc:
-                raise SignalTransportError(
-                    "managed Decision stream ID must be epoch-millisecond-0"
-                ) from exc
-            if effect_cutoff_ms <= authority_record.boundary_ms:
-                return self._ack(
-                    envelope,
-                    "FAILED",
-                    "Decision effect cutoff is not after captured authority boundary",
-                )
-            try:
-                guarded = await self._authority_store.guarded_exact_xadd(
-                    route=route,
-                    expected_owner="decision",
-                    expected_epoch=authority_record.epoch,
-                    expected_boundary_ms=authority_record.boundary_ms,
-                    effect_cutoff_ms=effect_cutoff_ms,
-                    stream_key=envelope.stream_key,
-                    fields=fields,
-                    stream_id=required_id,
-                    maxlen=self._stream_maxlen,
-                    approximate=self._stream_approximate,
-                )
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:  # noqa: BLE001
-                return await self._reconcile_managed_failure(
-                    envelope,
-                    route=route,
-                    authority_record=authority_record,
-                    effect_cutoff_ms=effect_cutoff_ms,
-                    required_id=required_id,
-                    reason=f"authority-guarded XADD failure: {exc}",
-                )
-            if not guarded.allowed:
-                return self._ack(
-                    envelope,
-                    "FAILED",
-                    guarded.reason or "Decision authority denied",
-                )
-            if guarded.outcome == "EXISTING":
-                if guarded.existing_fields is None or guarded.stream_id is None:
-                    raise SignalTransportError("existing guarded signal is incomplete")
-                return self._ack_for_existing(
-                    envelope, (guarded.stream_id, guarded.existing_fields)
-                )
-            if guarded.outcome == "CONFLICT":
-                return self._ack(
-                    envelope,
-                    "CONFLICT",
-                    guarded.reason or "stream head advanced past required explicit ID",
-                )
-            if guarded.stream_id != required_id:
-                return self._ack(
-                    envelope,
-                    "CONFLICT",
-                    "Valkey returned a different explicit stream ID",
-                )
-            return self._ack(envelope, "PUBLISHED", None)
 
         existing = await self._exact_entry(envelope.stream_key, required_id)
         if existing is not None:
@@ -212,52 +118,6 @@ class ValkeySignalPublisher:
                     "stream head advanced past required explicit ID",
                 )
             return self._ack(envelope, "FAILED", f"ambiguous XADD failure: {exc}")
-
-    async def _reconcile_managed_failure(
-        self,
-        envelope: SignalPublicationEnvelope,
-        *,
-        route: str,
-        authority_record: SignalRouteAuthority,
-        effect_cutoff_ms: int,
-        required_id: str,
-        reason: str,
-    ) -> SignalPublicationAck:
-        try:
-            guarded = await self._authority_store.guarded_exact_lookup(  # type: ignore[union-attr]
-                route=route,
-                expected_owner="decision",
-                expected_epoch=authority_record.epoch,
-                expected_boundary_ms=authority_record.boundary_ms,
-                effect_cutoff_ms=effect_cutoff_ms,
-                stream_key=envelope.stream_key,
-                stream_id=required_id,
-            )
-        except Exception as exc:  # noqa: BLE001
-            return self._ack(
-                envelope, "FAILED", f"{reason}; reconciliation failed: {exc}"
-            )
-        if not guarded.allowed:
-            return self._ack(
-                envelope,
-                "FAILED",
-                guarded.reason or "Decision authority denied during reconciliation",
-            )
-        if guarded.outcome == "EXISTING":
-            if guarded.existing_fields is None or guarded.stream_id is None:
-                return self._ack(
-                    envelope, "FAILED", "existing guarded signal is incomplete"
-                )
-            return self._ack_for_existing(
-                envelope, (guarded.stream_id, guarded.existing_fields)
-            )
-        if guarded.outcome == "CONFLICT":
-            return self._ack(
-                envelope,
-                "CONFLICT",
-                guarded.reason or "stream head advanced past required explicit ID",
-            )
-        return self._ack(envelope, "FAILED", reason)
 
     async def _exact_entry(
         self,

@@ -1,0 +1,20 @@
+decision:
+  feature_policy:
+    name: momentum-m4
+    version: "1"
+    allowed_features:
+      - MACD
+      - RSI
+  server:
+    host: 0.0.0.0
+    port: 8004
+  live_input:
+    batch_size: 10
+    block_ms: 500
+  signal_publication:
+    stream_maxlen: 1000
+    stream_approximate: true
+  price_relay:
+    stream_maxlen: 200
+    stream_approximate: true
+

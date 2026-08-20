@@ -9,8 +9,7 @@ flowchart LR
     DB[(db / Timescale)]
     VK[(broker / Valkey)]
     I[ingestion\napps.ingestion_app]
-    S[signal-worker]
-    ST[strategy-worker]
+    D[decision\napps.decision_app]
     R[risk-worker]
     E[execution-worker]
     P[portfolio-worker]
@@ -23,9 +22,7 @@ flowchart LR
     VK --> I
     I --> DB
     I --> VK
-    DB --> S
-    VK --> S
-    S --> ST --> R --> E --> P
+    I --> D --> R --> E --> P
     VK --> A
     SC --> DB
     API --> SC
@@ -39,8 +36,8 @@ flowchart LR
 | `db` | TimescaleDB canonical candles, outbox, and shared market-data tables |
 | `broker` | Valkey live streams, lifecycle projections, and application state |
 | `ingestion` | WebSocket/recovery runtime, canonical commit, HTF aggregation, outbox publisher |
-| `signal-worker` | Eight configured signal pairs; all OHLCV sources are ingestion |
-| `strategy-worker`, `risk-worker`, `execution-worker`, `portfolio-worker` | Downstream trading pipeline |
+| `decision` | Sole production signal publisher; consumes canonical ingestion and publishes exact authoritative routes |
+| `risk-worker`, `execution-worker`, `portfolio-worker` | Downstream trading pipeline |
 | `alert-worker`, `alert-api` | Lifecycle/failure/health alerting |
 | `scraper-service`, `scraper-tradingview` | Research and auxiliary market-data scraping |
 | `api-server` | Central API and scraper compatibility bridge |
@@ -54,7 +51,7 @@ removed in N3B. They are intentionally absent from Compose.
 ```text
 ingestion -> ingestion.candles
 ingestion -> ingestion.outbox -> stream:ohlcv:ingestion:*
-Timescale history + ingestion streams -> signal-worker
+canonical ingestion -> decision -> signals:{asset}:{tf} -> risk -> execution
 ```
 
 The production implementation package is `apps.ingestion_app`. Durable table names,
@@ -65,14 +62,10 @@ stream keys, and lifecycle source identity remain unchanged.
 Start the canonical data path with:
 
 ```bash
-docker compose up -d db broker ingestion signal-worker
+docker compose up -d db broker ingestion decision risk-worker execution-worker
 ```
 
-Keep trading services stopped during operational certification. See
+Keep only the services required for the intended certification or operational task
+running. See
 [`ingestion_operations.md`](ingestion_operations.md) for health,
 restart, retention, and destructive-Valkey recovery procedures.
-
-Authority-aware Decision/Strategy promotion and rollback are documented in
-[`decision_authority_operations.md`](decision_authority_operations.md). Do not
-blindly restart the default topology during a handoff; `prepare` and the
-post-stop boundary/Risk ordering are required.

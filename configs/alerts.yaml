@@ -135,7 +135,3 @@ alerts:
     scraper:
       worker_running_timeout_seconds: 1200
       success_stale_threshold_seconds: 3600
-    signal:
-      max_lag_seconds: 1200
-    strategy:
-      max_lag_seconds: 1800

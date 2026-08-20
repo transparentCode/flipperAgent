@@ -1,0 +1,19 @@
+execution:
+  mode: paper
+  paper:
+    slippage_bps: 5.0
+    slippage_jitter_bps: 0.0
+    commission_bps: 4.0
+    fill_delay_ms: 0
+    partial_fill_probability: 0.0
+  order_defaults:
+    default_type: market
+    timeout_seconds: 30
+  idempotency:
+    max_memory_keys: 10000
+    persist_to_db: true
+  runtime:
+    fill_stream_maxlen: 1000
+    fill_stream_approximate: true
+    failure_stream_maxlen: 1000
+    failure_stream_approximate: true

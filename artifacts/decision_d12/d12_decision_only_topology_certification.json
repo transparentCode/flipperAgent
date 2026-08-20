@@ -1,0 +1,1383 @@
+{
+  "cleanup": {
+    "clean": true,
+    "down_returncode": 0,
+    "leftovers": {
+      "containers": "",
+      "networks": "",
+      "volumes": ""
+    }
+  },
+  "configuration": {
+    "decision_assets_fixture_only": true,
+    "decision_authority": "authoritative",
+    "decision_routes": [
+      "BTCUSDT:1h",
+      "BTCUSDT:4h",
+      "ETHUSDT:4h"
+    ],
+    "execution_mode": "paper",
+    "legacy_route_ownership": false,
+    "models_assets": [
+      "BTCUSDT",
+      "ETHUSDT"
+    ]
+  },
+  "evidence_digest": "87e748bd396a570a4612666ecf4d367861f96d1331480b3008caa7c3ab7d3792",
+  "final": {
+    "authority": [
+      {
+        "boundary_ms": 1,
+        "epoch": 1,
+        "owner": "decision",
+        "route": "BTCUSDT:1h",
+        "schema_version": 1
+      },
+      {
+        "boundary_ms": 1,
+        "epoch": 1,
+        "owner": "decision",
+        "route": "BTCUSDT:4h",
+        "schema_version": 1
+      },
+      {
+        "boundary_ms": 1,
+        "epoch": 1,
+        "owner": "decision",
+        "route": "ETHUSDT:4h",
+        "schema_version": 1
+      }
+    ],
+    "effect_progress": [
+      {
+        "data_plan_fingerprint": "319a5247975e16d3cee74f2f03f0d474d91c850faf429f7b3578e2a0b7965f34",
+        "effective_lane_revision": "e4cf11ff4e0b40d3960606f7b00cf74e6367e82c8a4f2ef74a26e4feb9ced7e3",
+        "feature_plan_fingerprint": "792b017aba8a56d1d83a4df624e3a6b23ca5f83211a492f743b1c1c5bc10553e",
+        "lane_id": "BTCUSDT:momentum_1h",
+        "last_disposition": "published",
+        "market_as_of": "2026-08-20T04:00:00+00:00"
+      },
+      {
+        "data_plan_fingerprint": "c57192f729e2175b4ab6759ff275c8e63980e8ea417405b964bd717a85807fe6",
+        "effective_lane_revision": "205fd50e4c82beedb4515d8de28fbe91ae39dda95260a5b9c1892824cd7debd8",
+        "feature_plan_fingerprint": "3491db723cedaa3ca3fc1b89c3f3dbe0cf873a9858f3e7bb1435c70cfe633666",
+        "lane_id": "BTCUSDT:momentum_4h",
+        "last_disposition": "published",
+        "market_as_of": "2026-08-20T04:00:00+00:00"
+      },
+      {
+        "data_plan_fingerprint": "f4d9752b9ce2ba3892f333a2089ca95b3af6246918385034163ae212f62d256c",
+        "effective_lane_revision": "eb6606a6003d7a2d3ef9791d6bbba40cbf3ac2f65860d6737ca1da0ada7c32c5",
+        "feature_plan_fingerprint": "c6a9f0aa83d9da4da1f5d6bbb96c588d408e9fd259bbf464054f438847540e01",
+        "lane_id": "ETHUSDT:momentum_4h",
+        "last_disposition": "published",
+        "market_as_of": "2026-08-20T04:00:00+00:00"
+      }
+    ],
+    "groups": {
+      "orders:BTCUSDT": [
+        {
+          "lag": 0,
+          "last_delivered_id": "1787200294424-0",
+          "name": "execution_app_group",
+          "pending": 0
+        }
+      ],
+      "orders:ETHUSDT": [
+        {
+          "lag": 0,
+          "last_delivered_id": "1787200300669-0",
+          "name": "execution_app_group",
+          "pending": 0
+        }
+      ],
+      "signals:BTCUSDT:1h": [
+        {
+          "lag": 0,
+          "last_delivered_id": "1787198400000-0",
+          "name": "risk_app_group",
+          "pending": 0
+        }
+      ],
+      "signals:BTCUSDT:4h": [
+        {
+          "lag": 0,
+          "last_delivered_id": "1787198400000-0",
+          "name": "risk_app_group",
+          "pending": 0
+        }
+      ],
+      "signals:ETHUSDT:4h": [
+        {
+          "lag": 0,
+          "last_delivered_id": "1787198400000-0",
+          "name": "risk_app_group",
+          "pending": 0
+        }
+      ]
+    },
+    "no_legacy_streams": true,
+    "paper_execution_status": {
+      "BTCUSDT": {
+        "asset": "{\"asset\": \"BTCUSDT\"}",
+        "detail": "{\"phase\": \"starting\", \"mode\": \"paper\", \"last_order_stream\": \"orders:BTCUSDT\", \"last_message_id\": \"1787200294424-0\", \"last_idempotency_key\": \"4ebb688ca43f567c07e73bd1c512c1117f80a8be214e979c3bf3dff8af45f886\", \"last_fill_stream\": \"fills:BTCUSDT\", \"last_order_id\": \"8e5f08190f74\", \"last_fill_status\": \"FILLED\"}",
+        "failure_count": "0",
+        "last_error": "__NONE__",
+        "last_failure_ts": "__NONE__",
+        "last_fill_ts": "1787200294.4262052",
+        "last_order_ts": "1787198400.0",
+        "mode": "paper",
+        "processed_count": "4",
+        "state": "WARMING"
+      },
+      "ETHUSDT": {
+        "asset": "{\"asset\": \"ETHUSDT\"}",
+        "detail": "{\"phase\": \"starting\", \"mode\": \"paper\", \"last_order_stream\": \"orders:ETHUSDT\", \"last_message_id\": \"1787200300669-0\", \"last_idempotency_key\": \"e2974d703e72a67552607517c3cc54cba23a6dcd48b3de5c79dfd6e1283c776a\", \"last_fill_stream\": \"fills:ETHUSDT\", \"last_order_id\": \"ea1681dcffb6\", \"last_fill_status\": \"FILLED\"}",
+        "failure_count": "0",
+        "last_error": "__NONE__",
+        "last_failure_ts": "__NONE__",
+        "last_fill_ts": "1787200300.6825476",
+        "last_order_ts": "1787198400.0",
+        "mode": "paper",
+        "processed_count": "1",
+        "state": "WARMING"
+      }
+    },
+    "shadow_streams": [],
+    "signals": {
+      "signals:BTCUSDT:1h": {
+        "count": 3,
+        "ids": [
+          "1787191200000-0",
+          "1787194800000-0",
+          "1787198400000-0"
+        ],
+        "payloads": [
+          {
+            "asset": "BTCUSDT",
+            "conviction": "1.0",
+            "direction": "1",
+            "idempotency_key": "2e4c9a5d556ae8cb52bf208f934f67a1d08bc0430a7650dd99929d2e021f5387",
+            "metadata": "{\"timestamp_unit\": \"seconds\", \"market_as_of_utc\": \"2026-08-20T02:00:00Z\", \"decision_id\": \"BTCUSDT:momentum_1h:417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802:2026-08-20T02:00:00.000000Z\", \"decision_execution_revision\": \"417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802\", \"base_lane_revision\": \"e4cf11ff4e0b40d3960606f7b00cf74e6367e82c8a4f2ef74a26e4feb9ced7e3\", \"feature_plan_fingerprint\": \"792b017aba8a56d1d83a4df624e3a6b23ca5f83211a492f743b1c1c5bc10553e\", \"data_plan_fingerprint\": \"319a5247975e16d3cee74f2f03f0d474d91c850faf429f7b3578e2a0b7965f34\", \"risk_profile_key\": \"m4-btc-1h\", \"policy_name\": \"passthrough\", \"policy_version\": \"1\", \"selected_binding_id\": \"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\", \"selected_slot\": \"primary\", \"selected_plugin_name\": \"momentum\", \"selected_plugin_version\": \"1\", \"contributing_binding_ids\": [\"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\"], \"contributing_plugin_names\": [\"momentum\"], \"bar_high\": 166.5, \"bar_low\": 160.2}",
+            "model_name": "m4-btc-1h",
+            "price": "166.3",
+            "timeframe": "1h",
+            "timestamp": "1787191200.0"
+          },
+          {
+            "asset": "BTCUSDT",
+            "conviction": "1.0",
+            "direction": "1",
+            "idempotency_key": "9dae3930b95b1fffb9e053005ae9b771a1f5302bbc3154922c47b609a6e61a3d",
+            "metadata": "{\"timestamp_unit\": \"seconds\", \"market_as_of_utc\": \"2026-08-20T03:00:00Z\", \"decision_id\": \"BTCUSDT:momentum_1h:417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802:2026-08-20T03:00:00.000000Z\", \"decision_execution_revision\": \"417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802\", \"base_lane_revision\": \"e4cf11ff4e0b40d3960606f7b00cf74e6367e82c8a4f2ef74a26e4feb9ced7e3\", \"feature_plan_fingerprint\": \"792b017aba8a56d1d83a4df624e3a6b23ca5f83211a492f743b1c1c5bc10553e\", \"data_plan_fingerprint\": \"319a5247975e16d3cee74f2f03f0d474d91c850faf429f7b3578e2a0b7965f34\", \"risk_profile_key\": \"m4-btc-1h\", \"policy_name\": \"passthrough\", \"policy_version\": \"1\", \"selected_binding_id\": \"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\", \"selected_slot\": \"primary\", \"selected_plugin_name\": \"momentum\", \"selected_plugin_version\": \"1\", \"contributing_binding_ids\": [\"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\"], \"contributing_plugin_names\": [\"momentum\"], \"bar_high\": 172.5, \"bar_low\": 166.2}",
+            "model_name": "m4-btc-1h",
+            "price": "172.3",
+            "timeframe": "1h",
+            "timestamp": "1787194800.0"
+          },
+          {
+            "asset": "BTCUSDT",
+            "conviction": "1.0",
+            "direction": "1",
+            "idempotency_key": "e5a256857b137d73fe6dbfdb54db4f15ddf4f5113fa46cf36db977f2755a3490",
+            "metadata": "{\"timestamp_unit\": \"seconds\", \"market_as_of_utc\": \"2026-08-20T04:00:00Z\", \"decision_id\": \"BTCUSDT:momentum_1h:417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802:2026-08-20T04:00:00.000000Z\", \"decision_execution_revision\": \"417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802\", \"base_lane_revision\": \"e4cf11ff4e0b40d3960606f7b00cf74e6367e82c8a4f2ef74a26e4feb9ced7e3\", \"feature_plan_fingerprint\": \"792b017aba8a56d1d83a4df624e3a6b23ca5f83211a492f743b1c1c5bc10553e\", \"data_plan_fingerprint\": \"319a5247975e16d3cee74f2f03f0d474d91c850faf429f7b3578e2a0b7965f34\", \"risk_profile_key\": \"m4-btc-1h\", \"policy_name\": \"passthrough\", \"policy_version\": \"1\", \"selected_binding_id\": \"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\", \"selected_slot\": \"primary\", \"selected_plugin_name\": \"momentum\", \"selected_plugin_version\": \"1\", \"contributing_binding_ids\": [\"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\"], \"contributing_plugin_names\": [\"momentum\"], \"bar_high\": 178.5, \"bar_low\": 172.2}",
+            "model_name": "m4-btc-1h",
+            "price": "178.3",
+            "timeframe": "1h",
+            "timestamp": "1787198400.0"
+          }
+        ]
+      },
+      "signals:BTCUSDT:4h": {
+        "count": 1,
+        "ids": [
+          "1787198400000-0"
+        ],
+        "payloads": [
+          {
+            "asset": "BTCUSDT",
+            "conviction": "1.0",
+            "direction": "1",
+            "idempotency_key": "4ebb688ca43f567c07e73bd1c512c1117f80a8be214e979c3bf3dff8af45f886",
+            "metadata": "{\"timestamp_unit\": \"seconds\", \"market_as_of_utc\": \"2026-08-20T04:00:00Z\", \"decision_id\": \"BTCUSDT:momentum_4h:674c165df5ccd3ad51dbfd725b0c3edbcf9119fc2af3dfe872b69c87173627d3:2026-08-20T04:00:00.000000Z\", \"decision_execution_revision\": \"674c165df5ccd3ad51dbfd725b0c3edbcf9119fc2af3dfe872b69c87173627d3\", \"base_lane_revision\": \"205fd50e4c82beedb4515d8de28fbe91ae39dda95260a5b9c1892824cd7debd8\", \"feature_plan_fingerprint\": \"3491db723cedaa3ca3fc1b89c3f3dbe0cf873a9858f3e7bb1435c70cfe633666\", \"data_plan_fingerprint\": \"c57192f729e2175b4ab6759ff275c8e63980e8ea417405b964bd717a85807fe6\", \"risk_profile_key\": \"m4-btc-4h\", \"policy_name\": \"passthrough\", \"policy_version\": \"1\", \"selected_binding_id\": \"BTCUSDT:momentum_4h:primary:momentum@1:ac4fa9b1819088674b805dbff1f312487fd3b65a4060c95c63694bc31fb3afc3\", \"selected_slot\": \"primary\", \"selected_plugin_name\": \"momentum\", \"selected_plugin_version\": \"1\", \"contributing_binding_ids\": [\"BTCUSDT:momentum_4h:primary:momentum@1:ac4fa9b1819088674b805dbff1f312487fd3b65a4060c95c63694bc31fb3afc3\"], \"contributing_plugin_names\": [\"momentum\"], \"bar_high\": 178.5, \"bar_low\": 154.2}",
+            "model_name": "m4-btc-4h",
+            "price": "178.3",
+            "timeframe": "4h",
+            "timestamp": "1787198400.0"
+          }
+        ]
+      },
+      "signals:ETHUSDT:4h": {
+        "count": 1,
+        "ids": [
+          "1787198400000-0"
+        ],
+        "payloads": [
+          {
+            "asset": "ETHUSDT",
+            "conviction": "1.0",
+            "direction": "1",
+            "idempotency_key": "e2974d703e72a67552607517c3cc54cba23a6dcd48b3de5c79dfd6e1283c776a",
+            "metadata": "{\"timestamp_unit\": \"seconds\", \"market_as_of_utc\": \"2026-08-20T04:00:00Z\", \"decision_id\": \"ETHUSDT:momentum_4h:b884dfcef763ce499d70bc9ef3ef1133008c11af01fa599113078876344cbf5e:2026-08-20T04:00:00.000000Z\", \"decision_execution_revision\": \"b884dfcef763ce499d70bc9ef3ef1133008c11af01fa599113078876344cbf5e\", \"base_lane_revision\": \"eb6606a6003d7a2d3ef9791d6bbba40cbf3ac2f65860d6737ca1da0ada7c32c5\", \"feature_plan_fingerprint\": \"c6a9f0aa83d9da4da1f5d6bbb96c588d408e9fd259bbf464054f438847540e01\", \"data_plan_fingerprint\": \"f4d9752b9ce2ba3892f333a2089ca95b3af6246918385034163ae212f62d256c\", \"risk_profile_key\": \"m4-eth-4h\", \"policy_name\": \"passthrough\", \"policy_version\": \"1\", \"selected_binding_id\": \"ETHUSDT:momentum_4h:primary:momentum@1:7ee3148a8c849fd1c53b8342b2bc1e9f56cda289f70fa94383814710d9a75625\", \"selected_slot\": \"primary\", \"selected_plugin_name\": \"momentum\", \"selected_plugin_version\": \"1\", \"contributing_binding_ids\": [\"ETHUSDT:momentum_4h:primary:momentum@1:7ee3148a8c849fd1c53b8342b2bc1e9f56cda289f70fa94383814710d9a75625\"], \"contributing_plugin_names\": [\"momentum\"], \"bar_high\": 178.5, \"bar_low\": 154.2}",
+            "model_name": "m4-eth-4h",
+            "price": "178.3",
+            "timeframe": "4h",
+            "timestamp": "1787198400.0"
+          }
+        ]
+      }
+    }
+  },
+  "flow": {
+    "bucket_start": "2026-08-20T00:00:00+00:00",
+    "effect_progress": [
+      {
+        "data_plan_fingerprint": "319a5247975e16d3cee74f2f03f0d474d91c850faf429f7b3578e2a0b7965f34",
+        "effective_lane_revision": "e4cf11ff4e0b40d3960606f7b00cf74e6367e82c8a4f2ef74a26e4feb9ced7e3",
+        "feature_plan_fingerprint": "792b017aba8a56d1d83a4df624e3a6b23ca5f83211a492f743b1c1c5bc10553e",
+        "lane_id": "BTCUSDT:momentum_1h",
+        "last_disposition": "published",
+        "market_as_of": "2026-08-20T04:00:00+00:00"
+      },
+      {
+        "data_plan_fingerprint": "c57192f729e2175b4ab6759ff275c8e63980e8ea417405b964bd717a85807fe6",
+        "effective_lane_revision": "205fd50e4c82beedb4515d8de28fbe91ae39dda95260a5b9c1892824cd7debd8",
+        "feature_plan_fingerprint": "3491db723cedaa3ca3fc1b89c3f3dbe0cf873a9858f3e7bb1435c70cfe633666",
+        "lane_id": "BTCUSDT:momentum_4h",
+        "last_disposition": "published",
+        "market_as_of": "2026-08-20T04:00:00+00:00"
+      },
+      {
+        "data_plan_fingerprint": "f4d9752b9ce2ba3892f333a2089ca95b3af6246918385034163ae212f62d256c",
+        "effective_lane_revision": "eb6606a6003d7a2d3ef9791d6bbba40cbf3ac2f65860d6737ca1da0ada7c32c5",
+        "feature_plan_fingerprint": "c6a9f0aa83d9da4da1f5d6bbb96c588d408e9fd259bbf464054f438847540e01",
+        "lane_id": "ETHUSDT:momentum_4h",
+        "last_disposition": "published",
+        "market_as_of": "2026-08-20T04:00:00+00:00"
+      }
+    ],
+    "execution_status": {
+      "BTCUSDT": {
+        "asset": "{\"asset\": \"BTCUSDT\"}",
+        "detail": "{\"phase\": \"starting\", \"mode\": \"paper\", \"last_order_stream\": \"orders:BTCUSDT\", \"last_message_id\": \"1787200294424-0\", \"last_idempotency_key\": \"4ebb688ca43f567c07e73bd1c512c1117f80a8be214e979c3bf3dff8af45f886\", \"last_fill_stream\": \"fills:BTCUSDT\", \"last_order_id\": \"8e5f08190f74\", \"last_fill_status\": \"FILLED\"}",
+        "failure_count": "0",
+        "last_error": "__NONE__",
+        "last_failure_ts": "__NONE__",
+        "last_fill_ts": "1787200294.4262052",
+        "last_order_ts": "1787198400.0",
+        "mode": "paper",
+        "processed_count": "4",
+        "state": "LIVE"
+      },
+      "ETHUSDT": {
+        "asset": "{\"asset\": \"ETHUSDT\"}",
+        "detail": "{\"phase\": \"starting\", \"mode\": \"paper\", \"last_order_stream\": \"orders:ETHUSDT\", \"last_message_id\": \"1787200300669-0\", \"last_idempotency_key\": \"e2974d703e72a67552607517c3cc54cba23a6dcd48b3de5c79dfd6e1283c776a\", \"last_fill_stream\": \"fills:ETHUSDT\", \"last_order_id\": \"ea1681dcffb6\", \"last_fill_status\": \"FILLED\"}",
+        "failure_count": "0",
+        "last_error": "__NONE__",
+        "last_failure_ts": "__NONE__",
+        "last_fill_ts": "1787200300.6825476",
+        "last_order_ts": "1787198400.0",
+        "mode": "paper",
+        "processed_count": "1",
+        "state": "LIVE"
+      }
+    },
+    "fills_streams": [
+      "fills:BTCUSDT",
+      "fills:ETHUSDT"
+    ],
+    "groups": {
+      "orders:BTCUSDT": [
+        {
+          "lag": 0,
+          "last_delivered_id": "1787200294424-0",
+          "name": "execution_app_group",
+          "pending": 0
+        }
+      ],
+      "orders:ETHUSDT": [
+        {
+          "lag": 0,
+          "last_delivered_id": "1787200300669-0",
+          "name": "execution_app_group",
+          "pending": 0
+        }
+      ],
+      "signals:BTCUSDT:1h": [
+        {
+          "lag": 0,
+          "last_delivered_id": "1787198400000-0",
+          "name": "risk_app_group",
+          "pending": 0
+        }
+      ],
+      "signals:BTCUSDT:4h": [
+        {
+          "lag": 0,
+          "last_delivered_id": "1787198400000-0",
+          "name": "risk_app_group",
+          "pending": 0
+        }
+      ],
+      "signals:ETHUSDT:4h": [
+        {
+          "lag": 0,
+          "last_delivered_id": "1787198400000-0",
+          "name": "risk_app_group",
+          "pending": 0
+        }
+      ]
+    },
+    "materialized": {
+      "BTC": {
+        "base_inserted": 240
+      },
+      "ETH": {
+        "base_inserted": 240
+      }
+    },
+    "orders_streams": [
+      "orders:BTCUSDT",
+      "orders:ETHUSDT"
+    ],
+    "outbox_pending": 0,
+    "signal_count": 5,
+    "signals": {
+      "signals:BTCUSDT:1h": {
+        "count": 3,
+        "ids": [
+          "1787191200000-0",
+          "1787194800000-0",
+          "1787198400000-0"
+        ],
+        "payloads": [
+          {
+            "asset": "BTCUSDT",
+            "conviction": "1.0",
+            "direction": "1",
+            "idempotency_key": "2e4c9a5d556ae8cb52bf208f934f67a1d08bc0430a7650dd99929d2e021f5387",
+            "metadata": "{\"timestamp_unit\": \"seconds\", \"market_as_of_utc\": \"2026-08-20T02:00:00Z\", \"decision_id\": \"BTCUSDT:momentum_1h:417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802:2026-08-20T02:00:00.000000Z\", \"decision_execution_revision\": \"417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802\", \"base_lane_revision\": \"e4cf11ff4e0b40d3960606f7b00cf74e6367e82c8a4f2ef74a26e4feb9ced7e3\", \"feature_plan_fingerprint\": \"792b017aba8a56d1d83a4df624e3a6b23ca5f83211a492f743b1c1c5bc10553e\", \"data_plan_fingerprint\": \"319a5247975e16d3cee74f2f03f0d474d91c850faf429f7b3578e2a0b7965f34\", \"risk_profile_key\": \"m4-btc-1h\", \"policy_name\": \"passthrough\", \"policy_version\": \"1\", \"selected_binding_id\": \"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\", \"selected_slot\": \"primary\", \"selected_plugin_name\": \"momentum\", \"selected_plugin_version\": \"1\", \"contributing_binding_ids\": [\"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\"], \"contributing_plugin_names\": [\"momentum\"], \"bar_high\": 166.5, \"bar_low\": 160.2}",
+            "model_name": "m4-btc-1h",
+            "price": "166.3",
+            "timeframe": "1h",
+            "timestamp": "1787191200.0"
+          },
+          {
+            "asset": "BTCUSDT",
+            "conviction": "1.0",
+            "direction": "1",
+            "idempotency_key": "9dae3930b95b1fffb9e053005ae9b771a1f5302bbc3154922c47b609a6e61a3d",
+            "metadata": "{\"timestamp_unit\": \"seconds\", \"market_as_of_utc\": \"2026-08-20T03:00:00Z\", \"decision_id\": \"BTCUSDT:momentum_1h:417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802:2026-08-20T03:00:00.000000Z\", \"decision_execution_revision\": \"417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802\", \"base_lane_revision\": \"e4cf11ff4e0b40d3960606f7b00cf74e6367e82c8a4f2ef74a26e4feb9ced7e3\", \"feature_plan_fingerprint\": \"792b017aba8a56d1d83a4df624e3a6b23ca5f83211a492f743b1c1c5bc10553e\", \"data_plan_fingerprint\": \"319a5247975e16d3cee74f2f03f0d474d91c850faf429f7b3578e2a0b7965f34\", \"risk_profile_key\": \"m4-btc-1h\", \"policy_name\": \"passthrough\", \"policy_version\": \"1\", \"selected_binding_id\": \"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\", \"selected_slot\": \"primary\", \"selected_plugin_name\": \"momentum\", \"selected_plugin_version\": \"1\", \"contributing_binding_ids\": [\"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\"], \"contributing_plugin_names\": [\"momentum\"], \"bar_high\": 172.5, \"bar_low\": 166.2}",
+            "model_name": "m4-btc-1h",
+            "price": "172.3",
+            "timeframe": "1h",
+            "timestamp": "1787194800.0"
+          },
+          {
+            "asset": "BTCUSDT",
+            "conviction": "1.0",
+            "direction": "1",
+            "idempotency_key": "e5a256857b137d73fe6dbfdb54db4f15ddf4f5113fa46cf36db977f2755a3490",
+            "metadata": "{\"timestamp_unit\": \"seconds\", \"market_as_of_utc\": \"2026-08-20T04:00:00Z\", \"decision_id\": \"BTCUSDT:momentum_1h:417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802:2026-08-20T04:00:00.000000Z\", \"decision_execution_revision\": \"417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802\", \"base_lane_revision\": \"e4cf11ff4e0b40d3960606f7b00cf74e6367e82c8a4f2ef74a26e4feb9ced7e3\", \"feature_plan_fingerprint\": \"792b017aba8a56d1d83a4df624e3a6b23ca5f83211a492f743b1c1c5bc10553e\", \"data_plan_fingerprint\": \"319a5247975e16d3cee74f2f03f0d474d91c850faf429f7b3578e2a0b7965f34\", \"risk_profile_key\": \"m4-btc-1h\", \"policy_name\": \"passthrough\", \"policy_version\": \"1\", \"selected_binding_id\": \"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\", \"selected_slot\": \"primary\", \"selected_plugin_name\": \"momentum\", \"selected_plugin_version\": \"1\", \"contributing_binding_ids\": [\"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\"], \"contributing_plugin_names\": [\"momentum\"], \"bar_high\": 178.5, \"bar_low\": 172.2}",
+            "model_name": "m4-btc-1h",
+            "price": "178.3",
+            "timeframe": "1h",
+            "timestamp": "1787198400.0"
+          }
+        ]
+      },
+      "signals:BTCUSDT:4h": {
+        "count": 1,
+        "ids": [
+          "1787198400000-0"
+        ],
+        "payloads": [
+          {
+            "asset": "BTCUSDT",
+            "conviction": "1.0",
+            "direction": "1",
+            "idempotency_key": "4ebb688ca43f567c07e73bd1c512c1117f80a8be214e979c3bf3dff8af45f886",
+            "metadata": "{\"timestamp_unit\": \"seconds\", \"market_as_of_utc\": \"2026-08-20T04:00:00Z\", \"decision_id\": \"BTCUSDT:momentum_4h:674c165df5ccd3ad51dbfd725b0c3edbcf9119fc2af3dfe872b69c87173627d3:2026-08-20T04:00:00.000000Z\", \"decision_execution_revision\": \"674c165df5ccd3ad51dbfd725b0c3edbcf9119fc2af3dfe872b69c87173627d3\", \"base_lane_revision\": \"205fd50e4c82beedb4515d8de28fbe91ae39dda95260a5b9c1892824cd7debd8\", \"feature_plan_fingerprint\": \"3491db723cedaa3ca3fc1b89c3f3dbe0cf873a9858f3e7bb1435c70cfe633666\", \"data_plan_fingerprint\": \"c57192f729e2175b4ab6759ff275c8e63980e8ea417405b964bd717a85807fe6\", \"risk_profile_key\": \"m4-btc-4h\", \"policy_name\": \"passthrough\", \"policy_version\": \"1\", \"selected_binding_id\": \"BTCUSDT:momentum_4h:primary:momentum@1:ac4fa9b1819088674b805dbff1f312487fd3b65a4060c95c63694bc31fb3afc3\", \"selected_slot\": \"primary\", \"selected_plugin_name\": \"momentum\", \"selected_plugin_version\": \"1\", \"contributing_binding_ids\": [\"BTCUSDT:momentum_4h:primary:momentum@1:ac4fa9b1819088674b805dbff1f312487fd3b65a4060c95c63694bc31fb3afc3\"], \"contributing_plugin_names\": [\"momentum\"], \"bar_high\": 178.5, \"bar_low\": 154.2}",
+            "model_name": "m4-btc-4h",
+            "price": "178.3",
+            "timeframe": "4h",
+            "timestamp": "1787198400.0"
+          }
+        ]
+      },
+      "signals:ETHUSDT:4h": {
+        "count": 1,
+        "ids": [
+          "1787198400000-0"
+        ],
+        "payloads": [
+          {
+            "asset": "ETHUSDT",
+            "conviction": "1.0",
+            "direction": "1",
+            "idempotency_key": "e2974d703e72a67552607517c3cc54cba23a6dcd48b3de5c79dfd6e1283c776a",
+            "metadata": "{\"timestamp_unit\": \"seconds\", \"market_as_of_utc\": \"2026-08-20T04:00:00Z\", \"decision_id\": \"ETHUSDT:momentum_4h:b884dfcef763ce499d70bc9ef3ef1133008c11af01fa599113078876344cbf5e:2026-08-20T04:00:00.000000Z\", \"decision_execution_revision\": \"b884dfcef763ce499d70bc9ef3ef1133008c11af01fa599113078876344cbf5e\", \"base_lane_revision\": \"eb6606a6003d7a2d3ef9791d6bbba40cbf3ac2f65860d6737ca1da0ada7c32c5\", \"feature_plan_fingerprint\": \"c6a9f0aa83d9da4da1f5d6bbb96c588d408e9fd259bbf464054f438847540e01\", \"data_plan_fingerprint\": \"f4d9752b9ce2ba3892f333a2089ca95b3af6246918385034163ae212f62d256c\", \"risk_profile_key\": \"m4-eth-4h\", \"policy_name\": \"passthrough\", \"policy_version\": \"1\", \"selected_binding_id\": \"ETHUSDT:momentum_4h:primary:momentum@1:7ee3148a8c849fd1c53b8342b2bc1e9f56cda289f70fa94383814710d9a75625\", \"selected_slot\": \"primary\", \"selected_plugin_name\": \"momentum\", \"selected_plugin_version\": \"1\", \"contributing_binding_ids\": [\"ETHUSDT:momentum_4h:primary:momentum@1:7ee3148a8c849fd1c53b8342b2bc1e9f56cda289f70fa94383814710d9a75625\"], \"contributing_plugin_names\": [\"momentum\"], \"bar_high\": 178.5, \"bar_low\": 154.2}",
+            "model_name": "m4-eth-4h",
+            "price": "178.3",
+            "timeframe": "4h",
+            "timestamp": "1787198400.0"
+          }
+        ]
+      }
+    }
+  },
+  "gates": {
+    "aggregate_cpu_under_4_cores": true,
+    "aggregate_rss_under_5_gib": true,
+    "aggregate_rss_under_8_gib": true,
+    "authority_present_and_decision_owned": true,
+    "broker_restart_recovered": true,
+    "cleanup_complete": true,
+    "database_restart_recovered": true,
+    "decision_restart_recovered": true,
+    "decision_routes_exact": true,
+    "decision_signal_ids_unique": true,
+    "effect_progress_baselined": true,
+    "evidence_digest_integrity": true,
+    "execution_consumes_paper_orders": true,
+    "execution_mode_paper": true,
+    "full_topology_recovered": true,
+    "identity_digest_integrity": true,
+    "legacy_retirement_debt_recorded": true,
+    "legacy_route_ownership_absent": true,
+    "legacy_services_absent": true,
+    "no_historical_signals": true,
+    "no_required_legacy_streams": true,
+    "no_shadow_output": true,
+    "oom_killed_false": true,
+    "protected_artifacts_exact": true,
+    "real_signal_flow": true,
+    "risk_consumes_decision_signals": true,
+    "service_rss_within_limits": true,
+    "source_locks_exact": true,
+    "source_locks_present": true,
+    "source_sha_exact": true,
+    "startup_ready": true,
+    "surviving_runtime_import_boundary": true,
+    "topology_exact": true,
+    "unexpected_restart_false": true
+  },
+  "identity_digest": "130f1aff120b8a4dbca5d38a3e8f02e566224a5af9acc3ad4aca7e98a7954101",
+  "legacy_retirement_debt": [
+    "src/apps/api_app/routers/signal.py -> apps.signal_app",
+    "src/apps/api_app/routers/strategy.py -> apps.strategy_app",
+    "src/libs/optim_utils/scoring_feature_pipeline.py -> Signal raw-indicator pipeline",
+    "src/libs/regime/optimization/downstream_backtest.py -> Strategy model managers"
+  ],
+  "protected_hashes": {
+    "c4a": "c2adb97f2504ce541a0b4aa41f186a4a86c0c209dd96229e6bc4b7d121399334",
+    "c4b": "2d047346ced14a72843cc22ea9a2f5eebd9929c4d02edab6f8cadb6d19582af7",
+    "d10": "2382c92cd83bb29cbab2800c5687ec102d53fe37b213925fa174852a2caa0459",
+    "d11a": "31114ecaae17f52e1d9bdd042e5c2b4ce174c1cabb114eb89894c8f7f4f415e1",
+    "d11b": "9bf16504f114eae000fc4006712731e93f15815c0827cf18af8864aa4f74b05d",
+    "d11c": "d4e30bdd26b14750939b5132572b44888b2b7fc28e2a5ff821786f47bf6ca915",
+    "m3": "6fcd3d736524b513a63f244a3268478a658924cd571a62a72ec33958ad67972c",
+    "m4_functional": "3d1339be919e8d176dcd1053cb1c42f46bf6a2dc5f62647114b805faea1e4792",
+    "m4_resource": "e11ae8aee717764a3cca9dbfaa0f58d6b4308387ac6b5b264fb4bdf8e5f570c4"
+  },
+  "recovery": {
+    "broker_restart": {
+      "authority_preserved": true,
+      "groups_restored": true,
+      "ready": true,
+      "signals_unchanged": true
+    },
+    "database_restart": {
+      "authority_preserved": true,
+      "effect_progress_restored": true,
+      "ready": true,
+      "signals_unchanged": true
+    },
+    "decision_restart": {
+      "authority_restored": true,
+      "duplicate_free": true,
+      "effect_progress_restored": true,
+      "ready": true,
+      "signals_after": {
+        "signals:BTCUSDT:1h": {
+          "count": 3,
+          "ids": [
+            "1787191200000-0",
+            "1787194800000-0",
+            "1787198400000-0"
+          ],
+          "payloads": [
+            {
+              "asset": "BTCUSDT",
+              "conviction": "1.0",
+              "direction": "1",
+              "idempotency_key": "2e4c9a5d556ae8cb52bf208f934f67a1d08bc0430a7650dd99929d2e021f5387",
+              "metadata": "{\"timestamp_unit\": \"seconds\", \"market_as_of_utc\": \"2026-08-20T02:00:00Z\", \"decision_id\": \"BTCUSDT:momentum_1h:417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802:2026-08-20T02:00:00.000000Z\", \"decision_execution_revision\": \"417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802\", \"base_lane_revision\": \"e4cf11ff4e0b40d3960606f7b00cf74e6367e82c8a4f2ef74a26e4feb9ced7e3\", \"feature_plan_fingerprint\": \"792b017aba8a56d1d83a4df624e3a6b23ca5f83211a492f743b1c1c5bc10553e\", \"data_plan_fingerprint\": \"319a5247975e16d3cee74f2f03f0d474d91c850faf429f7b3578e2a0b7965f34\", \"risk_profile_key\": \"m4-btc-1h\", \"policy_name\": \"passthrough\", \"policy_version\": \"1\", \"selected_binding_id\": \"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\", \"selected_slot\": \"primary\", \"selected_plugin_name\": \"momentum\", \"selected_plugin_version\": \"1\", \"contributing_binding_ids\": [\"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\"], \"contributing_plugin_names\": [\"momentum\"], \"bar_high\": 166.5, \"bar_low\": 160.2}",
+              "model_name": "m4-btc-1h",
+              "price": "166.3",
+              "timeframe": "1h",
+              "timestamp": "1787191200.0"
+            },
+            {
+              "asset": "BTCUSDT",
+              "conviction": "1.0",
+              "direction": "1",
+              "idempotency_key": "9dae3930b95b1fffb9e053005ae9b771a1f5302bbc3154922c47b609a6e61a3d",
+              "metadata": "{\"timestamp_unit\": \"seconds\", \"market_as_of_utc\": \"2026-08-20T03:00:00Z\", \"decision_id\": \"BTCUSDT:momentum_1h:417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802:2026-08-20T03:00:00.000000Z\", \"decision_execution_revision\": \"417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802\", \"base_lane_revision\": \"e4cf11ff4e0b40d3960606f7b00cf74e6367e82c8a4f2ef74a26e4feb9ced7e3\", \"feature_plan_fingerprint\": \"792b017aba8a56d1d83a4df624e3a6b23ca5f83211a492f743b1c1c5bc10553e\", \"data_plan_fingerprint\": \"319a5247975e16d3cee74f2f03f0d474d91c850faf429f7b3578e2a0b7965f34\", \"risk_profile_key\": \"m4-btc-1h\", \"policy_name\": \"passthrough\", \"policy_version\": \"1\", \"selected_binding_id\": \"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\", \"selected_slot\": \"primary\", \"selected_plugin_name\": \"momentum\", \"selected_plugin_version\": \"1\", \"contributing_binding_ids\": [\"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\"], \"contributing_plugin_names\": [\"momentum\"], \"bar_high\": 172.5, \"bar_low\": 166.2}",
+              "model_name": "m4-btc-1h",
+              "price": "172.3",
+              "timeframe": "1h",
+              "timestamp": "1787194800.0"
+            },
+            {
+              "asset": "BTCUSDT",
+              "conviction": "1.0",
+              "direction": "1",
+              "idempotency_key": "e5a256857b137d73fe6dbfdb54db4f15ddf4f5113fa46cf36db977f2755a3490",
+              "metadata": "{\"timestamp_unit\": \"seconds\", \"market_as_of_utc\": \"2026-08-20T04:00:00Z\", \"decision_id\": \"BTCUSDT:momentum_1h:417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802:2026-08-20T04:00:00.000000Z\", \"decision_execution_revision\": \"417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802\", \"base_lane_revision\": \"e4cf11ff4e0b40d3960606f7b00cf74e6367e82c8a4f2ef74a26e4feb9ced7e3\", \"feature_plan_fingerprint\": \"792b017aba8a56d1d83a4df624e3a6b23ca5f83211a492f743b1c1c5bc10553e\", \"data_plan_fingerprint\": \"319a5247975e16d3cee74f2f03f0d474d91c850faf429f7b3578e2a0b7965f34\", \"risk_profile_key\": \"m4-btc-1h\", \"policy_name\": \"passthrough\", \"policy_version\": \"1\", \"selected_binding_id\": \"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\", \"selected_slot\": \"primary\", \"selected_plugin_name\": \"momentum\", \"selected_plugin_version\": \"1\", \"contributing_binding_ids\": [\"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\"], \"contributing_plugin_names\": [\"momentum\"], \"bar_high\": 178.5, \"bar_low\": 172.2}",
+              "model_name": "m4-btc-1h",
+              "price": "178.3",
+              "timeframe": "1h",
+              "timestamp": "1787198400.0"
+            }
+          ]
+        },
+        "signals:BTCUSDT:4h": {
+          "count": 1,
+          "ids": [
+            "1787198400000-0"
+          ],
+          "payloads": [
+            {
+              "asset": "BTCUSDT",
+              "conviction": "1.0",
+              "direction": "1",
+              "idempotency_key": "4ebb688ca43f567c07e73bd1c512c1117f80a8be214e979c3bf3dff8af45f886",
+              "metadata": "{\"timestamp_unit\": \"seconds\", \"market_as_of_utc\": \"2026-08-20T04:00:00Z\", \"decision_id\": \"BTCUSDT:momentum_4h:674c165df5ccd3ad51dbfd725b0c3edbcf9119fc2af3dfe872b69c87173627d3:2026-08-20T04:00:00.000000Z\", \"decision_execution_revision\": \"674c165df5ccd3ad51dbfd725b0c3edbcf9119fc2af3dfe872b69c87173627d3\", \"base_lane_revision\": \"205fd50e4c82beedb4515d8de28fbe91ae39dda95260a5b9c1892824cd7debd8\", \"feature_plan_fingerprint\": \"3491db723cedaa3ca3fc1b89c3f3dbe0cf873a9858f3e7bb1435c70cfe633666\", \"data_plan_fingerprint\": \"c57192f729e2175b4ab6759ff275c8e63980e8ea417405b964bd717a85807fe6\", \"risk_profile_key\": \"m4-btc-4h\", \"policy_name\": \"passthrough\", \"policy_version\": \"1\", \"selected_binding_id\": \"BTCUSDT:momentum_4h:primary:momentum@1:ac4fa9b1819088674b805dbff1f312487fd3b65a4060c95c63694bc31fb3afc3\", \"selected_slot\": \"primary\", \"selected_plugin_name\": \"momentum\", \"selected_plugin_version\": \"1\", \"contributing_binding_ids\": [\"BTCUSDT:momentum_4h:primary:momentum@1:ac4fa9b1819088674b805dbff1f312487fd3b65a4060c95c63694bc31fb3afc3\"], \"contributing_plugin_names\": [\"momentum\"], \"bar_high\": 178.5, \"bar_low\": 154.2}",
+              "model_name": "m4-btc-4h",
+              "price": "178.3",
+              "timeframe": "4h",
+              "timestamp": "1787198400.0"
+            }
+          ]
+        },
+        "signals:ETHUSDT:4h": {
+          "count": 1,
+          "ids": [
+            "1787198400000-0"
+          ],
+          "payloads": [
+            {
+              "asset": "ETHUSDT",
+              "conviction": "1.0",
+              "direction": "1",
+              "idempotency_key": "e2974d703e72a67552607517c3cc54cba23a6dcd48b3de5c79dfd6e1283c776a",
+              "metadata": "{\"timestamp_unit\": \"seconds\", \"market_as_of_utc\": \"2026-08-20T04:00:00Z\", \"decision_id\": \"ETHUSDT:momentum_4h:b884dfcef763ce499d70bc9ef3ef1133008c11af01fa599113078876344cbf5e:2026-08-20T04:00:00.000000Z\", \"decision_execution_revision\": \"b884dfcef763ce499d70bc9ef3ef1133008c11af01fa599113078876344cbf5e\", \"base_lane_revision\": \"eb6606a6003d7a2d3ef9791d6bbba40cbf3ac2f65860d6737ca1da0ada7c32c5\", \"feature_plan_fingerprint\": \"c6a9f0aa83d9da4da1f5d6bbb96c588d408e9fd259bbf464054f438847540e01\", \"data_plan_fingerprint\": \"f4d9752b9ce2ba3892f333a2089ca95b3af6246918385034163ae212f62d256c\", \"risk_profile_key\": \"m4-eth-4h\", \"policy_name\": \"passthrough\", \"policy_version\": \"1\", \"selected_binding_id\": \"ETHUSDT:momentum_4h:primary:momentum@1:7ee3148a8c849fd1c53b8342b2bc1e9f56cda289f70fa94383814710d9a75625\", \"selected_slot\": \"primary\", \"selected_plugin_name\": \"momentum\", \"selected_plugin_version\": \"1\", \"contributing_binding_ids\": [\"ETHUSDT:momentum_4h:primary:momentum@1:7ee3148a8c849fd1c53b8342b2bc1e9f56cda289f70fa94383814710d9a75625\"], \"contributing_plugin_names\": [\"momentum\"], \"bar_high\": 178.5, \"bar_low\": 154.2}",
+              "model_name": "m4-eth-4h",
+              "price": "178.3",
+              "timeframe": "4h",
+              "timestamp": "1787198400.0"
+            }
+          ]
+        }
+      },
+      "signals_before": {
+        "signals:BTCUSDT:1h": {
+          "count": 3,
+          "ids": [
+            "1787191200000-0",
+            "1787194800000-0",
+            "1787198400000-0"
+          ],
+          "payloads": [
+            {
+              "asset": "BTCUSDT",
+              "conviction": "1.0",
+              "direction": "1",
+              "idempotency_key": "2e4c9a5d556ae8cb52bf208f934f67a1d08bc0430a7650dd99929d2e021f5387",
+              "metadata": "{\"timestamp_unit\": \"seconds\", \"market_as_of_utc\": \"2026-08-20T02:00:00Z\", \"decision_id\": \"BTCUSDT:momentum_1h:417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802:2026-08-20T02:00:00.000000Z\", \"decision_execution_revision\": \"417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802\", \"base_lane_revision\": \"e4cf11ff4e0b40d3960606f7b00cf74e6367e82c8a4f2ef74a26e4feb9ced7e3\", \"feature_plan_fingerprint\": \"792b017aba8a56d1d83a4df624e3a6b23ca5f83211a492f743b1c1c5bc10553e\", \"data_plan_fingerprint\": \"319a5247975e16d3cee74f2f03f0d474d91c850faf429f7b3578e2a0b7965f34\", \"risk_profile_key\": \"m4-btc-1h\", \"policy_name\": \"passthrough\", \"policy_version\": \"1\", \"selected_binding_id\": \"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\", \"selected_slot\": \"primary\", \"selected_plugin_name\": \"momentum\", \"selected_plugin_version\": \"1\", \"contributing_binding_ids\": [\"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\"], \"contributing_plugin_names\": [\"momentum\"], \"bar_high\": 166.5, \"bar_low\": 160.2}",
+              "model_name": "m4-btc-1h",
+              "price": "166.3",
+              "timeframe": "1h",
+              "timestamp": "1787191200.0"
+            },
+            {
+              "asset": "BTCUSDT",
+              "conviction": "1.0",
+              "direction": "1",
+              "idempotency_key": "9dae3930b95b1fffb9e053005ae9b771a1f5302bbc3154922c47b609a6e61a3d",
+              "metadata": "{\"timestamp_unit\": \"seconds\", \"market_as_of_utc\": \"2026-08-20T03:00:00Z\", \"decision_id\": \"BTCUSDT:momentum_1h:417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802:2026-08-20T03:00:00.000000Z\", \"decision_execution_revision\": \"417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802\", \"base_lane_revision\": \"e4cf11ff4e0b40d3960606f7b00cf74e6367e82c8a4f2ef74a26e4feb9ced7e3\", \"feature_plan_fingerprint\": \"792b017aba8a56d1d83a4df624e3a6b23ca5f83211a492f743b1c1c5bc10553e\", \"data_plan_fingerprint\": \"319a5247975e16d3cee74f2f03f0d474d91c850faf429f7b3578e2a0b7965f34\", \"risk_profile_key\": \"m4-btc-1h\", \"policy_name\": \"passthrough\", \"policy_version\": \"1\", \"selected_binding_id\": \"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\", \"selected_slot\": \"primary\", \"selected_plugin_name\": \"momentum\", \"selected_plugin_version\": \"1\", \"contributing_binding_ids\": [\"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\"], \"contributing_plugin_names\": [\"momentum\"], \"bar_high\": 172.5, \"bar_low\": 166.2}",
+              "model_name": "m4-btc-1h",
+              "price": "172.3",
+              "timeframe": "1h",
+              "timestamp": "1787194800.0"
+            },
+            {
+              "asset": "BTCUSDT",
+              "conviction": "1.0",
+              "direction": "1",
+              "idempotency_key": "e5a256857b137d73fe6dbfdb54db4f15ddf4f5113fa46cf36db977f2755a3490",
+              "metadata": "{\"timestamp_unit\": \"seconds\", \"market_as_of_utc\": \"2026-08-20T04:00:00Z\", \"decision_id\": \"BTCUSDT:momentum_1h:417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802:2026-08-20T04:00:00.000000Z\", \"decision_execution_revision\": \"417a47a21a64a1ce98d781954e307e3296a0b3932b8d040cb6d5bc05d54ab802\", \"base_lane_revision\": \"e4cf11ff4e0b40d3960606f7b00cf74e6367e82c8a4f2ef74a26e4feb9ced7e3\", \"feature_plan_fingerprint\": \"792b017aba8a56d1d83a4df624e3a6b23ca5f83211a492f743b1c1c5bc10553e\", \"data_plan_fingerprint\": \"319a5247975e16d3cee74f2f03f0d474d91c850faf429f7b3578e2a0b7965f34\", \"risk_profile_key\": \"m4-btc-1h\", \"policy_name\": \"passthrough\", \"policy_version\": \"1\", \"selected_binding_id\": \"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\", \"selected_slot\": \"primary\", \"selected_plugin_name\": \"momentum\", \"selected_plugin_version\": \"1\", \"contributing_binding_ids\": [\"BTCUSDT:momentum_1h:primary:momentum@1:7d40f89449ad56177be955022c24603f4b7c542819b9f8d34f6bf1d02dec4995\"], \"contributing_plugin_names\": [\"momentum\"], \"bar_high\": 178.5, \"bar_low\": 172.2}",
+              "model_name": "m4-btc-1h",
+              "price": "178.3",
+              "timeframe": "1h",
+              "timestamp": "1787198400.0"
+            }
+          ]
+        },
+        "signals:BTCUSDT:4h": {
+          "count": 1,
+          "ids": [
+            "1787198400000-0"
+          ],
+          "payloads": [
+            {
+              "asset": "BTCUSDT",
+              "conviction": "1.0",
+              "direction": "1",
+              "idempotency_key": "4ebb688ca43f567c07e73bd1c512c1117f80a8be214e979c3bf3dff8af45f886",
+              "metadata": "{\"timestamp_unit\": \"seconds\", \"market_as_of_utc\": \"2026-08-20T04:00:00Z\", \"decision_id\": \"BTCUSDT:momentum_4h:674c165df5ccd3ad51dbfd725b0c3edbcf9119fc2af3dfe872b69c87173627d3:2026-08-20T04:00:00.000000Z\", \"decision_execution_revision\": \"674c165df5ccd3ad51dbfd725b0c3edbcf9119fc2af3dfe872b69c87173627d3\", \"base_lane_revision\": \"205fd50e4c82beedb4515d8de28fbe91ae39dda95260a5b9c1892824cd7debd8\", \"feature_plan_fingerprint\": \"3491db723cedaa3ca3fc1b89c3f3dbe0cf873a9858f3e7bb1435c70cfe633666\", \"data_plan_fingerprint\": \"c57192f729e2175b4ab6759ff275c8e63980e8ea417405b964bd717a85807fe6\", \"risk_profile_key\": \"m4-btc-4h\", \"policy_name\": \"passthrough\", \"policy_version\": \"1\", \"selected_binding_id\": \"BTCUSDT:momentum_4h:primary:momentum@1:ac4fa9b1819088674b805dbff1f312487fd3b65a4060c95c63694bc31fb3afc3\", \"selected_slot\": \"primary\", \"selected_plugin_name\": \"momentum\", \"selected_plugin_version\": \"1\", \"contributing_binding_ids\": [\"BTCUSDT:momentum_4h:primary:momentum@1:ac4fa9b1819088674b805dbff1f312487fd3b65a4060c95c63694bc31fb3afc3\"], \"contributing_plugin_names\": [\"momentum\"], \"bar_high\": 178.5, \"bar_low\": 154.2}",
+              "model_name": "m4-btc-4h",
+              "price": "178.3",
+              "timeframe": "4h",
+              "timestamp": "1787198400.0"
+            }
+          ]
+        },
+        "signals:ETHUSDT:4h": {
+          "count": 1,
+          "ids": [
+            "1787198400000-0"
+          ],
+          "payloads": [
+            {
+              "asset": "ETHUSDT",
+              "conviction": "1.0",
+              "direction": "1",
+              "idempotency_key": "e2974d703e72a67552607517c3cc54cba23a6dcd48b3de5c79dfd6e1283c776a",
+              "metadata": "{\"timestamp_unit\": \"seconds\", \"market_as_of_utc\": \"2026-08-20T04:00:00Z\", \"decision_id\": \"ETHUSDT:momentum_4h:b884dfcef763ce499d70bc9ef3ef1133008c11af01fa599113078876344cbf5e:2026-08-20T04:00:00.000000Z\", \"decision_execution_revision\": \"b884dfcef763ce499d70bc9ef3ef1133008c11af01fa599113078876344cbf5e\", \"base_lane_revision\": \"eb6606a6003d7a2d3ef9791d6bbba40cbf3ac2f65860d6737ca1da0ada7c32c5\", \"feature_plan_fingerprint\": \"c6a9f0aa83d9da4da1f5d6bbb96c588d408e9fd259bbf464054f438847540e01\", \"data_plan_fingerprint\": \"f4d9752b9ce2ba3892f333a2089ca95b3af6246918385034163ae212f62d256c\", \"risk_profile_key\": \"m4-eth-4h\", \"policy_name\": \"passthrough\", \"policy_version\": \"1\", \"selected_binding_id\": \"ETHUSDT:momentum_4h:primary:momentum@1:7ee3148a8c849fd1c53b8342b2bc1e9f56cda289f70fa94383814710d9a75625\", \"selected_slot\": \"primary\", \"selected_plugin_name\": \"momentum\", \"selected_plugin_version\": \"1\", \"contributing_binding_ids\": [\"ETHUSDT:momentum_4h:primary:momentum@1:7ee3148a8c849fd1c53b8342b2bc1e9f56cda289f70fa94383814710d9a75625\"], \"contributing_plugin_names\": [\"momentum\"], \"bar_high\": 178.5, \"bar_low\": 154.2}",
+              "model_name": "m4-eth-4h",
+              "price": "178.3",
+              "timeframe": "4h",
+              "timestamp": "1787198400.0"
+            }
+          ]
+        }
+      }
+    },
+    "full_topology_restart": {
+      "authority_preserved": true,
+      "effect_progress_restored": true,
+      "no_duplicate_signals": true,
+      "ready": true,
+      "signals_unchanged": true
+    }
+  },
+  "resource_samples": {
+    "broker_restart": {
+      "broker": {
+        "configured_cpu_nano": 0,
+        "configured_memory_bytes": 0,
+        "container_id": "1d19f28ce11800c02933624165840c59dcf20c7f6695cf4a46c92c9311cd3427",
+        "cpu_percent": 1.19,
+        "image": "sha256:3acc0687f2a2e1091fae6450d7842dd658c941338cf0a873ddd9e14b9e4ea4dd",
+        "memory_limit_bytes": 8319351652,
+        "memory_usage_bytes": 11125391,
+        "oom_killed": false,
+        "phase": "broker_restart",
+        "pids": 8,
+        "present": true,
+        "restart_count": 0
+      },
+      "db": {
+        "configured_cpu_nano": 0,
+        "configured_memory_bytes": 0,
+        "container_id": "561b0273799c7dca72f9b4060f4c7e083eca12ba8bd36cfea922bcb952608307",
+        "cpu_percent": 1.4,
+        "image": "sha256:6343bdc87ca132c6b53acb26113a6bad1821d188fa39975a745f32ddd9757634",
+        "memory_limit_bytes": 8319351652,
+        "memory_usage_bytes": 211183206,
+        "oom_killed": false,
+        "phase": "broker_restart",
+        "pids": 26,
+        "present": true,
+        "restart_count": 0
+      },
+      "decision": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "7ba59bf8e8dc4c23c3d97686e998c19e5abe2c5132a37583a71232643294a2bd",
+        "cpu_percent": 6.62,
+        "image": "sha256:f9336a5089da7af1975df2e29d169f14415036b64eee0e3204709efcfaf8291a",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 94015324,
+        "oom_killed": false,
+        "phase": "broker_restart",
+        "pids": 37,
+        "present": true,
+        "restart_count": 0
+      },
+      "execution-worker": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "eb1f9696e7c78a10a3ef5fbd4dbbc7c9ed16cadaed6b5ba3400546d29599dbf7",
+        "cpu_percent": 0.05,
+        "image": "sha256:76a8c200e98b56e6a92ad448da52cdcbddafa2ea69cc784d54c838b3753c46e4",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 70286049,
+        "oom_killed": false,
+        "phase": "broker_restart",
+        "pids": 25,
+        "present": true,
+        "restart_count": 0
+      },
+      "ingestion": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "ed33deb8715ede5ea61628d7647a42a6c132774759e0dad3163622f26a42cd71",
+        "cpu_percent": 0.19,
+        "image": "sha256:1ec9a45e66d3f68af44ebd88a9b18d6aafc735d32945e884a82b82a6720c70b1",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 207618048,
+        "oom_killed": false,
+        "phase": "broker_restart",
+        "pids": 33,
+        "present": true,
+        "restart_count": 0
+      },
+      "risk-worker": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "94b37eff40ebc3453dbbc525a2c234669db0f54cd4dfff8801a3e380f0e73d97",
+        "cpu_percent": 0.23,
+        "image": "sha256:492cec6d35bbb4c85d42bb468c807e90c4d46dfa3c9d02413ce9008e014cfd5c",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 71408025,
+        "oom_killed": false,
+        "phase": "broker_restart",
+        "pids": 27,
+        "present": true,
+        "restart_count": 0
+      }
+    },
+    "database_restart": {
+      "broker": {
+        "configured_cpu_nano": 0,
+        "configured_memory_bytes": 0,
+        "container_id": "1d19f28ce11800c02933624165840c59dcf20c7f6695cf4a46c92c9311cd3427",
+        "cpu_percent": 1.32,
+        "image": "sha256:3acc0687f2a2e1091fae6450d7842dd658c941338cf0a873ddd9e14b9e4ea4dd",
+        "memory_limit_bytes": 8319351652,
+        "memory_usage_bytes": 11177820,
+        "oom_killed": false,
+        "phase": "database_restart",
+        "pids": 8,
+        "present": true,
+        "restart_count": 0
+      },
+      "db": {
+        "configured_cpu_nano": 0,
+        "configured_memory_bytes": 0,
+        "container_id": "561b0273799c7dca72f9b4060f4c7e083eca12ba8bd36cfea922bcb952608307",
+        "cpu_percent": 0.08,
+        "image": "sha256:6343bdc87ca132c6b53acb26113a6bad1821d188fa39975a745f32ddd9757634",
+        "memory_limit_bytes": 8319351652,
+        "memory_usage_bytes": 107479040,
+        "oom_killed": false,
+        "phase": "database_restart",
+        "pids": 23,
+        "present": true,
+        "restart_count": 0
+      },
+      "decision": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "7ba59bf8e8dc4c23c3d97686e998c19e5abe2c5132a37583a71232643294a2bd",
+        "cpu_percent": 7.71,
+        "image": "sha256:f9336a5089da7af1975df2e29d169f14415036b64eee0e3204709efcfaf8291a",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 94277468,
+        "oom_killed": false,
+        "phase": "database_restart",
+        "pids": 37,
+        "present": true,
+        "restart_count": 0
+      },
+      "execution-worker": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "eb1f9696e7c78a10a3ef5fbd4dbbc7c9ed16cadaed6b5ba3400546d29599dbf7",
+        "cpu_percent": 0.02,
+        "image": "sha256:76a8c200e98b56e6a92ad448da52cdcbddafa2ea69cc784d54c838b3753c46e4",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 70590136,
+        "oom_killed": false,
+        "phase": "database_restart",
+        "pids": 25,
+        "present": true,
+        "restart_count": 0
+      },
+      "ingestion": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "ed33deb8715ede5ea61628d7647a42a6c132774759e0dad3163622f26a42cd71",
+        "cpu_percent": 0.24,
+        "image": "sha256:1ec9a45e66d3f68af44ebd88a9b18d6aafc735d32945e884a82b82a6720c70b1",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 207932620,
+        "oom_killed": false,
+        "phase": "database_restart",
+        "pids": 33,
+        "present": true,
+        "restart_count": 0
+      },
+      "risk-worker": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "94b37eff40ebc3453dbbc525a2c234669db0f54cd4dfff8801a3e380f0e73d97",
+        "cpu_percent": 0.28,
+        "image": "sha256:492cec6d35bbb4c85d42bb468c807e90c4d46dfa3c9d02413ce9008e014cfd5c",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 71124910,
+        "oom_killed": false,
+        "phase": "database_restart",
+        "pids": 28,
+        "present": true,
+        "restart_count": 0
+      }
+    },
+    "decision_restart": {
+      "broker": {
+        "configured_cpu_nano": 0,
+        "configured_memory_bytes": 0,
+        "container_id": "1d19f28ce11800c02933624165840c59dcf20c7f6695cf4a46c92c9311cd3427",
+        "cpu_percent": 1.06,
+        "image": "sha256:3acc0687f2a2e1091fae6450d7842dd658c941338cf0a873ddd9e14b9e4ea4dd",
+        "memory_limit_bytes": 8319351652,
+        "memory_usage_bytes": 49807360,
+        "oom_killed": false,
+        "phase": "decision_restart",
+        "pids": 7,
+        "present": true,
+        "restart_count": 0
+      },
+      "db": {
+        "configured_cpu_nano": 0,
+        "configured_memory_bytes": 0,
+        "container_id": "561b0273799c7dca72f9b4060f4c7e083eca12ba8bd36cfea922bcb952608307",
+        "cpu_percent": 1.64,
+        "image": "sha256:6343bdc87ca132c6b53acb26113a6bad1821d188fa39975a745f32ddd9757634",
+        "memory_limit_bytes": 8319351652,
+        "memory_usage_bytes": 211917209,
+        "oom_killed": false,
+        "phase": "decision_restart",
+        "pids": 26,
+        "present": true,
+        "restart_count": 0
+      },
+      "decision": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "7ba59bf8e8dc4c23c3d97686e998c19e5abe2c5132a37583a71232643294a2bd",
+        "cpu_percent": 5.63,
+        "image": "sha256:f9336a5089da7af1975df2e29d169f14415036b64eee0e3204709efcfaf8291a",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 93669294,
+        "oom_killed": false,
+        "phase": "decision_restart",
+        "pids": 37,
+        "present": true,
+        "restart_count": 0
+      },
+      "execution-worker": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "eb1f9696e7c78a10a3ef5fbd4dbbc7c9ed16cadaed6b5ba3400546d29599dbf7",
+        "cpu_percent": 0.08,
+        "image": "sha256:76a8c200e98b56e6a92ad448da52cdcbddafa2ea69cc784d54c838b3753c46e4",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 148897792,
+        "oom_killed": false,
+        "phase": "decision_restart",
+        "pids": 25,
+        "present": true,
+        "restart_count": 0
+      },
+      "ingestion": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "ed33deb8715ede5ea61628d7647a42a6c132774759e0dad3163622f26a42cd71",
+        "cpu_percent": 0.19,
+        "image": "sha256:1ec9a45e66d3f68af44ebd88a9b18d6aafc735d32945e884a82b82a6720c70b1",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 207932620,
+        "oom_killed": false,
+        "phase": "decision_restart",
+        "pids": 33,
+        "present": true,
+        "restart_count": 0
+      },
+      "risk-worker": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "94b37eff40ebc3453dbbc525a2c234669db0f54cd4dfff8801a3e380f0e73d97",
+        "cpu_percent": 0.32,
+        "image": "sha256:492cec6d35bbb4c85d42bb468c807e90c4d46dfa3c9d02413ce9008e014cfd5c",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 103389593,
+        "oom_killed": false,
+        "phase": "decision_restart",
+        "pids": 27,
+        "present": true,
+        "restart_count": 0
+      }
+    },
+    "full_restart": {
+      "broker": {
+        "configured_cpu_nano": 0,
+        "configured_memory_bytes": 0,
+        "container_id": "1d19f28ce11800c02933624165840c59dcf20c7f6695cf4a46c92c9311cd3427",
+        "cpu_percent": 1.48,
+        "image": "sha256:3acc0687f2a2e1091fae6450d7842dd658c941338cf0a873ddd9e14b9e4ea4dd",
+        "memory_limit_bytes": 8319351652,
+        "memory_usage_bytes": 11083448,
+        "oom_killed": false,
+        "phase": "full_restart",
+        "pids": 8,
+        "present": true,
+        "restart_count": 0
+      },
+      "db": {
+        "configured_cpu_nano": 0,
+        "configured_memory_bytes": 0,
+        "container_id": "561b0273799c7dca72f9b4060f4c7e083eca12ba8bd36cfea922bcb952608307",
+        "cpu_percent": 3.99,
+        "image": "sha256:6343bdc87ca132c6b53acb26113a6bad1821d188fa39975a745f32ddd9757634",
+        "memory_limit_bytes": 8319351652,
+        "memory_usage_bytes": 113246208,
+        "oom_killed": false,
+        "phase": "full_restart",
+        "pids": 26,
+        "present": true,
+        "restart_count": 0
+      },
+      "decision": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "7ba59bf8e8dc4c23c3d97686e998c19e5abe2c5132a37583a71232643294a2bd",
+        "cpu_percent": 5.33,
+        "image": "sha256:f9336a5089da7af1975df2e29d169f14415036b64eee0e3204709efcfaf8291a",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 97024737,
+        "oom_killed": false,
+        "phase": "full_restart",
+        "pids": 37,
+        "present": true,
+        "restart_count": 0
+      },
+      "execution-worker": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "eb1f9696e7c78a10a3ef5fbd4dbbc7c9ed16cadaed6b5ba3400546d29599dbf7",
+        "cpu_percent": 0.07,
+        "image": "sha256:76a8c200e98b56e6a92ad448da52cdcbddafa2ea69cc784d54c838b3753c46e4",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 72729231,
+        "oom_killed": false,
+        "phase": "full_restart",
+        "pids": 25,
+        "present": true,
+        "restart_count": 0
+      },
+      "ingestion": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "ed33deb8715ede5ea61628d7647a42a6c132774759e0dad3163622f26a42cd71",
+        "cpu_percent": 5.6,
+        "image": "sha256:1ec9a45e66d3f68af44ebd88a9b18d6aafc735d32945e884a82b82a6720c70b1",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 157076684,
+        "oom_killed": false,
+        "phase": "full_restart",
+        "pids": 33,
+        "present": true,
+        "restart_count": 0
+      },
+      "risk-worker": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "94b37eff40ebc3453dbbc525a2c234669db0f54cd4dfff8801a3e380f0e73d97",
+        "cpu_percent": 0.22,
+        "image": "sha256:492cec6d35bbb4c85d42bb468c807e90c4d46dfa3c9d02413ce9008e014cfd5c",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 73526149,
+        "oom_killed": false,
+        "phase": "full_restart",
+        "pids": 27,
+        "present": true,
+        "restart_count": 0
+      }
+    },
+    "live": {
+      "broker": {
+        "configured_cpu_nano": 0,
+        "configured_memory_bytes": 0,
+        "container_id": "1d19f28ce11800c02933624165840c59dcf20c7f6695cf4a46c92c9311cd3427",
+        "cpu_percent": 4.13,
+        "image": "sha256:3acc0687f2a2e1091fae6450d7842dd658c941338cf0a873ddd9e14b9e4ea4dd",
+        "memory_limit_bytes": 8319351652,
+        "memory_usage_bytes": 49733959,
+        "oom_killed": false,
+        "phase": "live",
+        "pids": 7,
+        "present": true,
+        "restart_count": 0
+      },
+      "db": {
+        "configured_cpu_nano": 0,
+        "configured_memory_bytes": 0,
+        "container_id": "561b0273799c7dca72f9b4060f4c7e083eca12ba8bd36cfea922bcb952608307",
+        "cpu_percent": 1.81,
+        "image": "sha256:6343bdc87ca132c6b53acb26113a6bad1821d188fa39975a745f32ddd9757634",
+        "memory_limit_bytes": 8319351652,
+        "memory_usage_bytes": 212022067,
+        "oom_killed": false,
+        "phase": "live",
+        "pids": 26,
+        "present": true,
+        "restart_count": 0
+      },
+      "decision": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "7ba59bf8e8dc4c23c3d97686e998c19e5abe2c5132a37583a71232643294a2bd",
+        "cpu_percent": 0.34,
+        "image": "sha256:f9336a5089da7af1975df2e29d169f14415036b64eee0e3204709efcfaf8291a",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 97349795,
+        "oom_killed": false,
+        "phase": "live",
+        "pids": 37,
+        "present": true,
+        "restart_count": 0
+      },
+      "execution-worker": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "eb1f9696e7c78a10a3ef5fbd4dbbc7c9ed16cadaed6b5ba3400546d29599dbf7",
+        "cpu_percent": 0.11,
+        "image": "sha256:76a8c200e98b56e6a92ad448da52cdcbddafa2ea69cc784d54c838b3753c46e4",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 148268646,
+        "oom_killed": false,
+        "phase": "live",
+        "pids": 25,
+        "present": true,
+        "restart_count": 0
+      },
+      "ingestion": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "ed33deb8715ede5ea61628d7647a42a6c132774759e0dad3163622f26a42cd71",
+        "cpu_percent": 0.21,
+        "image": "sha256:1ec9a45e66d3f68af44ebd88a9b18d6aafc735d32945e884a82b82a6720c70b1",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 207827763,
+        "oom_killed": false,
+        "phase": "live",
+        "pids": 33,
+        "present": true,
+        "restart_count": 0
+      },
+      "risk-worker": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "94b37eff40ebc3453dbbc525a2c234669db0f54cd4dfff8801a3e380f0e73d97",
+        "cpu_percent": 0.32,
+        "image": "sha256:492cec6d35bbb4c85d42bb468c807e90c4d46dfa3c9d02413ce9008e014cfd5c",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 103263764,
+        "oom_killed": false,
+        "phase": "live",
+        "pids": 27,
+        "present": true,
+        "restart_count": 0
+      }
+    },
+    "startup": {
+      "broker": {
+        "configured_cpu_nano": 0,
+        "configured_memory_bytes": 0,
+        "container_id": "1d19f28ce11800c02933624165840c59dcf20c7f6695cf4a46c92c9311cd3427",
+        "cpu_percent": 0.51,
+        "image": "sha256:3acc0687f2a2e1091fae6450d7842dd658c941338cf0a873ddd9e14b9e4ea4dd",
+        "memory_limit_bytes": 8319351652,
+        "memory_usage_bytes": 49576673,
+        "oom_killed": false,
+        "phase": "startup",
+        "pids": 7,
+        "present": true,
+        "restart_count": 0
+      },
+      "db": {
+        "configured_cpu_nano": 0,
+        "configured_memory_bytes": 0,
+        "container_id": "561b0273799c7dca72f9b4060f4c7e083eca12ba8bd36cfea922bcb952608307",
+        "cpu_percent": 0.33,
+        "image": "sha256:6343bdc87ca132c6b53acb26113a6bad1821d188fa39975a745f32ddd9757634",
+        "memory_limit_bytes": 8319351652,
+        "memory_usage_bytes": 210554060,
+        "oom_killed": false,
+        "phase": "startup",
+        "pids": 26,
+        "present": true,
+        "restart_count": 0
+      },
+      "decision": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "7ba59bf8e8dc4c23c3d97686e998c19e5abe2c5132a37583a71232643294a2bd",
+        "cpu_percent": 0.9,
+        "image": "sha256:f9336a5089da7af1975df2e29d169f14415036b64eee0e3204709efcfaf8291a",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 97727283,
+        "oom_killed": false,
+        "phase": "startup",
+        "pids": 37,
+        "present": true,
+        "restart_count": 0
+      },
+      "execution-worker": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "eb1f9696e7c78a10a3ef5fbd4dbbc7c9ed16cadaed6b5ba3400546d29599dbf7",
+        "cpu_percent": 5.94,
+        "image": "sha256:76a8c200e98b56e6a92ad448da52cdcbddafa2ea69cc784d54c838b3753c46e4",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 148268646,
+        "oom_killed": false,
+        "phase": "startup",
+        "pids": 25,
+        "present": true,
+        "restart_count": 0
+      },
+      "ingestion": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "ed33deb8715ede5ea61628d7647a42a6c132774759e0dad3163622f26a42cd71",
+        "cpu_percent": 0.5,
+        "image": "sha256:1ec9a45e66d3f68af44ebd88a9b18d6aafc735d32945e884a82b82a6720c70b1",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 207513190,
+        "oom_killed": false,
+        "phase": "startup",
+        "pids": 33,
+        "present": true,
+        "restart_count": 0
+      },
+      "risk-worker": {
+        "configured_cpu_nano": 500000000,
+        "configured_memory_bytes": 536870912,
+        "container_id": "94b37eff40ebc3453dbbc525a2c234669db0f54cd4dfff8801a3e380f0e73d97",
+        "cpu_percent": 0.76,
+        "image": "sha256:492cec6d35bbb4c85d42bb468c807e90c4d46dfa3c9d02413ce9008e014cfd5c",
+        "memory_limit_bytes": 536870912,
+        "memory_usage_bytes": 103075020,
+        "oom_killed": false,
+        "phase": "startup",
+        "pids": 27,
+        "present": true,
+        "restart_count": 0
+      }
+    }
+  },
+  "schema_version": 1,
+  "source_locks": {
+    "scripts/certify_decision_d12_decision_only_topology.py": "4a2ea170ec39a16d318c77e610ae523b538daad1e5faa2abbaae5add65990c8b",
+    "tests/combined/d12_harness.py": "a84c2a565b68aa1b25720362d3784020d5d40bcaf8183e6fa19574370a9dc048",
+    "tests/combined/fixtures/d12/configs/execution.yaml": "7b7637baac7d724cc720acb4a01405fdc40615b8602f446fce3112a3ca0795a0",
+    "tests/combined/fixtures/d12/configs/ingestion-decision/assets/BTC.yaml": "88e90c071087d5f933d9804fa749fcccba8540e3cd27157536eaec328ef795f1",
+    "tests/combined/fixtures/d12/configs/ingestion-decision/assets/ETH.yaml": "f9c93aab10ba5f4ac31172605ea685838a7feea3796a56ad737f5e91740c4df1",
+    "tests/combined/fixtures/d12/configs/ingestion-decision/global.yaml": "69c60d3f19bbcb3169656fcac3d4010aad5ea7595b4e14cb600242d2bbb1da7e",
+    "tests/combined/fixtures/d12/configs/ingestion-runtime/global.yaml": "69c60d3f19bbcb3169656fcac3d4010aad5ea7595b4e14cb600242d2bbb1da7e",
+    "tests/combined/fixtures/d12/configs/models.yaml": "b0e72d90e5c8a71155346992920a0558bfd2d398a35918a17814e1eb0e219a1f",
+    "tests/combined/fixtures/d12/configs/risk.yaml": "2fb217eb734533c1cc91da1dd4a449f305995c00b5f799fde260006f755b3d91",
+    "tests/combined/fixtures/d12/decision/assets/BTC.yaml": "adbd011928ce80ee028cf72db5116f55dd758f7976244469defa329be7e76cdd",
+    "tests/combined/fixtures/d12/decision/assets/ETH.yaml": "a4220a9297e93ab96642e0fda6472349efeda867266a0850a326fc8adc7ca5b3",
+    "tests/combined/fixtures/d12/decision/global.yaml": "ae659d0cc8220e1ba1aa2055bd561bd95f9df90521e832627f4256af0e05f26d",
+    "tests/combined/fixtures/d12/docker-compose.yml": "02ce007ca888cef87856c306290f87e04a634a45f424d0686c9fb66dad53e19e",
+    "tests/combined/integration/test_decision_d12_decision_only_topology.py": "3c71f4ef1a57795b38e5f06ac109bf5fb5554775049cc753b7653f552476ff2f",
+    "tests/decision/test_d12_decision_only_topology.py": "c31f200f68a3a8c54b935679d40852b78cecd6b389fe1b0865caf0749d2c0765"
+  },
+  "source_sha": "78a88f9e7db0561d49f261404fb0372de073a65d",
+  "startup": {
+    "authority": [
+      {
+        "boundary_ms": 1,
+        "epoch": 1,
+        "owner": "decision",
+        "route": "BTCUSDT:1h",
+        "schema_version": 1
+      },
+      {
+        "boundary_ms": 1,
+        "epoch": 1,
+        "owner": "decision",
+        "route": "BTCUSDT:4h",
+        "schema_version": 1
+      },
+      {
+        "boundary_ms": 1,
+        "epoch": 1,
+        "owner": "decision",
+        "route": "ETHUSDT:4h",
+        "schema_version": 1
+      }
+    ],
+    "baseline_legacy_streams": [],
+    "baseline_signals": [],
+    "decision_ready": true,
+    "effect_progress": [
+      {
+        "data_plan_fingerprint": "319a5247975e16d3cee74f2f03f0d474d91c850faf429f7b3578e2a0b7965f34",
+        "effective_lane_revision": "e4cf11ff4e0b40d3960606f7b00cf74e6367e82c8a4f2ef74a26e4feb9ced7e3",
+        "feature_plan_fingerprint": "792b017aba8a56d1d83a4df624e3a6b23ca5f83211a492f743b1c1c5bc10553e",
+        "lane_id": "BTCUSDT:momentum_1h",
+        "last_disposition": null,
+        "market_as_of": "2026-08-20T00:00:00+00:00"
+      },
+      {
+        "data_plan_fingerprint": "c57192f729e2175b4ab6759ff275c8e63980e8ea417405b964bd717a85807fe6",
+        "effective_lane_revision": "205fd50e4c82beedb4515d8de28fbe91ae39dda95260a5b9c1892824cd7debd8",
+        "feature_plan_fingerprint": "3491db723cedaa3ca3fc1b89c3f3dbe0cf873a9858f3e7bb1435c70cfe633666",
+        "lane_id": "BTCUSDT:momentum_4h",
+        "last_disposition": null,
+        "market_as_of": "2026-08-20T00:00:00+00:00"
+      },
+      {
+        "data_plan_fingerprint": "f4d9752b9ce2ba3892f333a2089ca95b3af6246918385034163ae212f62d256c",
+        "effective_lane_revision": "eb6606a6003d7a2d3ef9791d6bbba40cbf3ac2f65860d6737ca1da0ada7c32c5",
+        "feature_plan_fingerprint": "c6a9f0aa83d9da4da1f5d6bbb96c588d408e9fd259bbf464054f438847540e01",
+        "lane_id": "ETHUSDT:momentum_4h",
+        "last_disposition": null,
+        "market_as_of": "2026-08-20T00:00:00+00:00"
+      }
+    ],
+    "execution_ready": true,
+    "ingestion_ready": true,
+    "risk_ready": true,
+    "seed_authority": {
+      "decision": [
+        {
+          "boundary_ms": 1,
+          "epoch": 1,
+          "owner": "decision",
+          "route": "BTCUSDT:1h",
+          "schema_version": 1
+        },
+        {
+          "boundary_ms": 1,
+          "epoch": 1,
+          "owner": "decision",
+          "route": "BTCUSDT:4h",
+          "schema_version": 1
+        },
+        {
+          "boundary_ms": 1,
+          "epoch": 1,
+          "owner": "decision",
+          "route": "ETHUSDT:4h",
+          "schema_version": 1
+        }
+      ],
+      "seeded": [
+        {
+          "boundary_ms": 0,
+          "epoch": 0,
+          "owner": "strategy",
+          "route": "BTCUSDT:1h",
+          "schema_version": 1
+        },
+        {
+          "boundary_ms": 0,
+          "epoch": 0,
+          "owner": "strategy",
+          "route": "BTCUSDT:4h",
+          "schema_version": 1
+        },
+        {
+          "boundary_ms": 0,
+          "epoch": 0,
+          "owner": "strategy",
+          "route": "ETHUSDT:4h",
+          "schema_version": 1
+        }
+      ]
+    },
+    "seed_effect_progress": [
+      {
+        "data_plan_fingerprint": "319a5247975e16d3cee74f2f03f0d474d91c850faf429f7b3578e2a0b7965f34",
+        "effective_lane_revision": "e4cf11ff4e0b40d3960606f7b00cf74e6367e82c8a4f2ef74a26e4feb9ced7e3",
+        "feature_plan_fingerprint": "792b017aba8a56d1d83a4df624e3a6b23ca5f83211a492f743b1c1c5bc10553e",
+        "lane_id": "BTCUSDT:momentum_1h",
+        "last_disposition": null,
+        "market_as_of": "2026-08-20T00:00:00+00:00",
+        "save_result": "INSERTED"
+      },
+      {
+        "data_plan_fingerprint": "c57192f729e2175b4ab6759ff275c8e63980e8ea417405b964bd717a85807fe6",
+        "effective_lane_revision": "205fd50e4c82beedb4515d8de28fbe91ae39dda95260a5b9c1892824cd7debd8",
+        "feature_plan_fingerprint": "3491db723cedaa3ca3fc1b89c3f3dbe0cf873a9858f3e7bb1435c70cfe633666",
+        "lane_id": "BTCUSDT:momentum_4h",
+        "last_disposition": null,
+        "market_as_of": "2026-08-20T00:00:00+00:00",
+        "save_result": "INSERTED"
+      },
+      {
+        "data_plan_fingerprint": "f4d9752b9ce2ba3892f333a2089ca95b3af6246918385034163ae212f62d256c",
+        "effective_lane_revision": "eb6606a6003d7a2d3ef9791d6bbba40cbf3ac2f65860d6737ca1da0ada7c32c5",
+        "feature_plan_fingerprint": "c6a9f0aa83d9da4da1f5d6bbb96c588d408e9fd259bbf464054f438847540e01",
+        "lane_id": "ETHUSDT:momentum_4h",
+        "last_disposition": null,
+        "market_as_of": "2026-08-20T00:00:00+00:00",
+        "save_result": "INSERTED"
+      }
+    ],
+    "startup_history_bars": 544
+  },
+  "surviving_runtime_import_boundary": {
+    "apps": [
+      "src/apps/ingestion_app",
+      "src/apps/decision_app",
+      "src/apps/risk_app",
+      "src/apps/execution_app"
+    ],
+    "clean": true,
+    "forbidden_modules": [
+      "apps.signal_app",
+      "apps.strategy_app"
+    ],
+    "inspected": [
+      "src/apps/ingestion_app",
+      "src/apps/decision_app",
+      "src/apps/risk_app",
+      "src/apps/execution_app"
+    ],
+    "matches": []
+  },
+  "terminal_status": "DECISION_D12_DECISION_ONLY_TOPOLOGY_CERTIFICATION_READY_FOR_REVIEW",
+  "topology": {
+    "disposable_project": "flipper_d12_27931_trial_a",
+    "dynamic_ports": true,
+    "legacy_services_absent": true,
+    "services": [
+      "db",
+      "broker",
+      "ingestion",
+      "decision",
+      "risk-worker",
+      "execution-worker"
+    ]
+  },
+  "trial_name": "trial_a"
+}

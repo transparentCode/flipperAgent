@@ -10,9 +10,11 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from apps.strategy_app.model_manager import ModelManager
-from apps.strategy_app.scoring_model_manager import ScoringModelManager
+from libs.common.config import ConfigManager
+from libs.common.constants import CONFIG_FILE_MODELS
 from libs.models.legacy_adapter import LegacyScoringAdapter
+from libs.models.legacy_bootstrap import bootstrap_legacy_model_registries
+from libs.models.registry import ModelRegistry
 from libs.models.scoring_base import ScoringModel
 from libs.optim_utils.data_fetcher import fetch_historical_ohlcv
 from libs.optim_utils.scoring import compute_max_drawdown, compute_sharpe
@@ -27,6 +29,9 @@ from libs.regime.optimization.walk_forward import WalkForwardValidator
 from libs.regime.orchestrator import RegimeOrchestrator
 
 DEFAULT_CANDIDATES = ("no_regime", "regime_only", "breadth_gate", "breadth_blend")
+_DEFAULT = "default"
+_ASSETS = "assets"
+_TIMEFRAMES = "timeframes"
 
 
 def load_ohlcv_frame(asset: str, timeframe: str, *, days: int) -> pd.DataFrame:
@@ -74,7 +79,9 @@ def build_downstream_candidate_report(
 
     wf = _walk_forward_for_timeframe(timeframe)
     fold_rows: list[dict[str, Any]] = []
-    candidate_fold_metrics: dict[str, list[dict[str, Any]]] = {name: [] for name in candidate_names}
+    candidate_fold_metrics: dict[str, list[dict[str, Any]]] = {
+        name: [] for name in candidate_names
+    }
 
     for split, _, test_df in wf.iterate_splits(frame):
         window_df = frame.iloc[: split.test_end].copy()
@@ -88,7 +95,9 @@ def build_downstream_candidate_report(
         test_index = test_df.index
         candidates: dict[str, dict[str, Any]] = {}
         for candidate_name in candidate_names:
-            metrics = _slice_candidate_metrics(fold_eval["candidates"][candidate_name], test_index)
+            metrics = _slice_candidate_metrics(
+                fold_eval["candidates"][candidate_name], test_index
+            )
             candidates[candidate_name] = metrics
             candidate_fold_metrics[candidate_name].append(metrics)
         fold_rows.append(
@@ -134,10 +143,18 @@ def build_downstream_candidate_report(
             {
                 "candidate": name,
                 "decision": candidate_summary[name]["walk_forward"]["decision"],
-                "walk_forward_sharpe": candidate_summary[name]["walk_forward"]["sharpe"],
-                "walk_forward_cumulative_return": candidate_summary[name]["walk_forward"]["cumulative_return"],
-                "walk_forward_max_drawdown": candidate_summary[name]["walk_forward"]["max_drawdown"],
-                "sharpe_lift_vs_no_regime": candidate_summary[name]["walk_forward"]["sharpe_lift_vs_no_regime"],
+                "walk_forward_sharpe": candidate_summary[name]["walk_forward"][
+                    "sharpe"
+                ],
+                "walk_forward_cumulative_return": candidate_summary[name][
+                    "walk_forward"
+                ]["cumulative_return"],
+                "walk_forward_max_drawdown": candidate_summary[name]["walk_forward"][
+                    "max_drawdown"
+                ],
+                "sharpe_lift_vs_no_regime": candidate_summary[name]["walk_forward"][
+                    "sharpe_lift_vs_no_regime"
+                ],
             }
             for name in candidate_names
         ),
@@ -154,7 +171,7 @@ def build_downstream_candidate_report(
         "timeframe": timeframe,
         "date_from": frame.index[0].isoformat(),
         "date_to": frame.index[-1].isoformat(),
-        "bars": int(len(frame)),
+        "bars": len(frame),
         "slice_usable": _is_usable_candidates(candidate_summary),
         "model_names": full_eval["model_names"],
         "candidate_names": list(candidate_names),
@@ -171,7 +188,9 @@ def build_panel_summary(
 ) -> dict[str, Any]:
     summary: dict[str, Any] = {}
     usable_rows = [row for row in rows if "candidates" in row and _is_usable_row(row)]
-    baseline_entries = [row["candidates"]["no_regime"]["walk_forward"] for row in usable_rows]
+    baseline_entries = [
+        row["candidates"]["no_regime"]["walk_forward"] for row in usable_rows
+    ]
 
     for candidate_name in candidate_names:
         entries = [
@@ -198,11 +217,21 @@ def build_panel_summary(
                 {
                     "asset": row["asset"],
                     "timeframe": row["timeframe"],
-                    "decision": row["candidates"][candidate_name]["walk_forward"]["decision"],
-                    "sharpe": row["candidates"][candidate_name]["walk_forward"]["sharpe"],
-                    "cumulative_return": row["candidates"][candidate_name]["walk_forward"]["cumulative_return"],
-                    "max_drawdown": row["candidates"][candidate_name]["walk_forward"]["max_drawdown"],
-                    "best_model_counts": row["candidates"][candidate_name]["walk_forward"]["model_selection_counts"],
+                    "decision": row["candidates"][candidate_name]["walk_forward"][
+                        "decision"
+                    ],
+                    "sharpe": row["candidates"][candidate_name]["walk_forward"][
+                        "sharpe"
+                    ],
+                    "cumulative_return": row["candidates"][candidate_name][
+                        "walk_forward"
+                    ]["cumulative_return"],
+                    "max_drawdown": row["candidates"][candidate_name]["walk_forward"][
+                        "max_drawdown"
+                    ],
+                    "best_model_counts": row["candidates"][candidate_name][
+                        "walk_forward"
+                    ]["model_selection_counts"],
                 }
                 for row in usable_rows
                 if candidate_name in row["candidates"]
@@ -251,7 +280,9 @@ def _evaluate_window(
     for col in breadth_features.columns:
         feature_df[col] = breadth_features[col]
 
-    candidate_scales = _build_candidate_scales(frame, asset=asset, timeframe=timeframe, candidate_names=candidate_names)
+    candidate_scales = _build_candidate_scales(
+        frame, asset=asset, timeframe=timeframe, candidate_names=candidate_names
+    )
     models = _load_scoring_models(asset, timeframe)
     edge_df = _evaluate_models(feature_df, models)
     candidates: dict[str, dict[str, Any]] = {}
@@ -303,18 +334,25 @@ def _build_candidate_scales(
 
 
 def _load_scoring_models(asset: str, timeframe: str) -> list[ScoringModel]:
-    model_manager = ModelManager(asset, timeframe)
-    scoring_manager = ScoringModelManager(asset, timeframe)
+    bootstrap_legacy_model_registries()
+    manager = ConfigManager()
+    manager.register_file(CONFIG_FILE_MODELS)
     models: list[ScoringModel] = []
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
-        for model in model_manager.models:
-            models.append(LegacyScoringAdapter(model))
-
-    models.extend(model_manager.adapted_models)
-    models.extend(model_manager.scoring_models)
-    models.extend(scoring_manager.models)
+        for model_name, model_cfg in _resolve_asset_timeframe_node(
+            manager, "models", asset, timeframe
+        ).items():
+            loaded = _load_model_entry(model_name, model_cfg)
+            if loaded is not None:
+                models.append(loaded)
+        for model_name, model_cfg in _resolve_asset_timeframe_node(
+            manager, "scoring_models", asset, timeframe
+        ).items():
+            loaded = _load_scoring_entry(model_name, model_cfg)
+            if loaded is not None:
+                models.append(loaded)
 
     deduped: dict[str, ScoringModel] = {}
     for model in models:
@@ -322,12 +360,76 @@ def _load_scoring_models(asset: str, timeframe: str) -> list[ScoringModel]:
     return list(deduped.values())
 
 
-def _evaluate_models(feature_df: pd.DataFrame, models: list[ScoringModel]) -> pd.DataFrame:
+def _resolve_asset_timeframe_node(
+    config_manager: ConfigManager,
+    root_key: str,
+    asset: str,
+    timeframe: str,
+) -> dict[str, Any]:
+    config = config_manager.get(root_key, {})
+    assets_config = config.get(_ASSETS, {})
+    asset_node = assets_config.get(asset, {})
+    default_asset_node = assets_config.get(_DEFAULT, {})
+    tf_node = asset_node.get(_TIMEFRAMES, {}).get(timeframe, {})
+    asset_default_tf = asset_node.get(_TIMEFRAMES, {}).get(_DEFAULT, {})
+    default_tf_node = default_asset_node.get(_TIMEFRAMES, {}).get(timeframe, {})
+    default_default_tf = default_asset_node.get(_TIMEFRAMES, {}).get(_DEFAULT, {})
+    merged: dict[str, Any] = {}
+    for node in (default_default_tf, default_tf_node, asset_default_tf, tf_node):
+        if isinstance(node, dict):
+            merged.update(node)
+    return merged
+
+
+def _load_model_entry(model_name: str, model_cfg: Any) -> ScoringModel | None:
+    if not isinstance(model_cfg, dict) or not model_cfg.get("enabled", True):
+        return None
+    try:
+        model_cls = ModelRegistry.get(model_name)
+    except KeyError:
+        return None
+    params = model_cfg.get("params", {}) or {}
+    migration_mode = str(model_cfg.get("migration_mode", "legacy"))
+    if migration_mode == "native_scoring":
+        return None
+    instance = model_cls(params)
+    if migration_mode == "scoring" and isinstance(instance, ScoringModel):
+        return instance
+    return LegacyScoringAdapter(instance)
+
+
+def _load_scoring_entry(model_name: str, model_cfg: Any) -> ScoringModel | None:
+    if not isinstance(model_cfg, dict) or not model_cfg.get("enabled", True):
+        return None
+    try:
+        model_cls = ModelRegistry.get(model_name)
+    except KeyError:
+        return None
+    instance = model_cls(model_cfg.get("params", {}) or {})
+    if not isinstance(instance, ScoringModel):
+        raise TypeError(
+            f"configured scoring model {model_name} must extend ScoringModel"
+        )
+    return instance
+
+
+def _evaluate_models(
+    feature_df: pd.DataFrame, models: list[ScoringModel]
+) -> pd.DataFrame:
     edges: dict[str, pd.Series] = {}
     for model in models:
         try:
             series = model.batch_evaluate(feature_df).fillna(0.0).astype(float)
-        except Exception:
+        except Exception as exc:  # noqa: BLE001
+            warnings.warn(
+                (
+                    "Skipping downstream model "
+                    f"{getattr(model.meta, 'name', type(model).__name__)} "
+                    f"after batch evaluation failure: {exc}"
+                ),
+                RuntimeWarning,
+                stacklevel=2,
+            )
             continue
         if not np.isfinite(series.values).all():
             series = series.replace([np.inf, -np.inf], 0.0).fillna(0.0)
@@ -392,7 +494,9 @@ def _backtest_edge_series(
     pos_changes = np.diff(np.concatenate([[0.0], pos]))
     strategy_returns -= np.abs(pos_changes) * (cost_bps / 10_000.0)
 
-    cumulative = float(np.prod(1.0 + strategy_returns) - 1.0) if len(strategy_returns) else 0.0
+    cumulative = (
+        float(np.prod(1.0 + strategy_returns) - 1.0) if len(strategy_returns) else 0.0
+    )
     active_ratio = float(np.mean(np.abs(pos) > 1e-9)) if len(pos) else 0.0
     turnover = float(np.sum(np.abs(pos_changes)))
     trade_count = int(np.sum(np.abs(pos_changes) > 1e-9))
@@ -406,7 +510,9 @@ def _backtest_edge_series(
     }
 
 
-def _slice_candidate_metrics(candidate: dict[str, Any], index: pd.Index) -> dict[str, Any]:
+def _slice_candidate_metrics(
+    candidate: dict[str, Any], index: pd.Index
+) -> dict[str, Any]:
     edges = candidate["selected_edge_series"].reindex(index).fillna(0.0)
     models = candidate["selected_model_series"].reindex(index)
     close = candidate["close_series"].reindex(index).astype(float)
@@ -460,7 +566,9 @@ def _export_candidate_metrics(candidate: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _candidate_decision(candidate_name: str, row: dict[str, Any], baseline: dict[str, Any]) -> str:
+def _candidate_decision(
+    candidate_name: str, row: dict[str, Any], baseline: dict[str, Any]
+) -> str:
     if candidate_name == "no_regime":
         return "baseline"
     better_sharpe = row["sharpe"] > baseline["sharpe"]
@@ -473,15 +581,23 @@ def _candidate_decision(candidate_name: str, row: dict[str, Any], baseline: dict
     return "reject"
 
 
-def _panel_decision(candidate_name: str, row: dict[str, Any], baseline: dict[str, Any] | None) -> str:
+def _panel_decision(
+    candidate_name: str, row: dict[str, Any], baseline: dict[str, Any] | None
+) -> str:
     if candidate_name == "no_regime":
         return "baseline"
     if baseline is None:
         return "reject"
     improved_slices = row["positive_sharpe_lift_slices"]
-    if improved_slices >= math.ceil(row["evaluated_slices"] * 0.6) and row["median_sharpe"] > baseline["median_sharpe"]:
+    if (
+        improved_slices >= math.ceil(row["evaluated_slices"] * 0.6)
+        and row["median_sharpe"] > baseline["median_sharpe"]
+    ):
         return "promote_to_integration_design"
-    if row["median_sharpe"] > baseline["median_sharpe"] or row["median_cumulative_return"] > baseline["median_cumulative_return"]:
+    if (
+        row["median_sharpe"] > baseline["median_sharpe"]
+        or row["median_cumulative_return"] > baseline["median_cumulative_return"]
+    ):
         return "keep_research_only"
     return "reject"
 

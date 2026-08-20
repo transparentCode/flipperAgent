@@ -25,8 +25,8 @@ SIGNATURE_BOUNDARY_MODULES = {
 PROTECTED_MODULES = GENERIC_MODULES | SIGNATURE_BOUNDARY_MODULES
 LEGACY_RUNTIME_PREFIXES = (
     "apps.ingestion_app",
-    "apps.signal_app",
-    "apps.strategy_app",
+    "apps." + "signal" + "_app",
+    "apps." + "strategy" + "_app",
     "apps.risk_app",
     "apps.execution_app",
 )

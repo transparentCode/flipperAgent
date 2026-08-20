@@ -37,7 +37,6 @@ from libs.common.asset_manifest import AssetManifestStore
 from libs.common.config import ConfigManager
 from libs.common.connections import create_valkey_client, init_db_pools
 from libs.common.db.pool_manager import DBPoolManager
-from libs.common.signal_authority import SignalAuthorityStore
 
 
 def _require_production_stream_client(client: Any) -> None:
@@ -62,8 +61,6 @@ def build_generation_factory(
     shadow_progress_repository: Any | None = None,
     manifest_store: Any | None = None,
     now_fn: Callable[[], datetime] | None = None,
-    authority_store: SignalAuthorityStore | None = None,
-    enforce_authority: bool = False,
 ) -> GenerationFactory:
     """Create the explicit D9A -> D9B generation builder."""
 
@@ -79,13 +76,6 @@ def build_generation_factory(
 
     async def build(*, reason: str, generation_id: int) -> DecisionRuntimeGeneration:
         del reason
-        current_authority_store = authority_store
-        if (
-            enforce_authority
-            and current_authority_store is None
-            and callable(getattr(stream_client, "eval", None))
-        ):
-            current_authority_store = SignalAuthorityStore(stream_client)
         coordinator = DecisionStartupCoordinator(
             decision_config=config,
             plugin_catalog=composition.plugin_catalog,
@@ -101,15 +91,12 @@ def build_generation_factory(
             shadow_progress_repository=shadow_progress_repository,
             manifest_store=manifest_store,
             data_resolver=composition.data_resolver,
-            authority_store=current_authority_store,
         )
         startup = await coordinator.start()
         publisher = ValkeySignalPublisher(
             stream_client,
             stream_maxlen=config.global_settings.signal_publication.stream_maxlen,
             stream_approximate=config.global_settings.signal_publication.stream_approximate,
-            authority_store=current_authority_store,
-            authority_records=startup.snapshot.authority_records,
         )
         shadow_publisher = ValkeyShadowPublisher(
             stream_client,
@@ -191,12 +178,10 @@ def create_application(
         current_shadow_progress = shadow_progress_repository
         current_manifest_store = manifest_store
         current_lifecycle_reader = lifecycle_reader
-        production_bootstrap = False
         try:
             if service is None and generation_factory is None:
                 if config is None:
                     config = load_decision_config(config_mgr)
-                    production_bootstrap = True
                 if current_stream_client is None:
                     current_stream_client = await create_valkey_client(config_mgr)
                     owned_valkey = True
@@ -231,7 +216,6 @@ def create_application(
                     checkpoint_repository=current_checkpoints,
                     shadow_progress_repository=current_shadow_progress,
                     manifest_store=current_manifest_store,
-                    enforce_authority=production_bootstrap,
                 )
                 current_lifecycle_reader = (
                     current_lifecycle_reader

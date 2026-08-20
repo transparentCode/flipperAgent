@@ -1,16 +1,14 @@
 # Ingestion operations
 
-This runbook covers the current six-asset ingestion architecture. BTC, ETH, XRP,
-SOL, BNB, and DOGE signal history and live signal input use ingestion. The
-legacy ingestion runtime and its migration-era shadow paths were retired in
-N3B; no production source fallback remains.
+This runbook covers the current canonical ingestion runtime. Ingestion owns the
+canonical 1m feed plus derived 1h/4h publication for the retained Decision
+routes. No legacy Signal/Strategy runtime remains in production.
 
 ## Normal startup and health
 
 ```bash
 docker compose up -d db broker
 docker compose up -d ingestion
-docker compose up -d signal-worker
 curl -fsS http://127.0.0.1:8003/health/live
 curl -fsS http://127.0.0.1:8003/health/ready
 curl -fsS http://127.0.0.1:8003/runtime
@@ -20,41 +18,16 @@ The ingestion service uses port `8003`, depends on Timescale health, and does no
 a hard broker dependency. `/health/ready` reports runtime readiness; liveness
 is independent of the runtime state.
 
-The production source bindings are:
+Canonical production downstream routing is now:
 
-```yaml
-signal:
-  runtime:
-    ohlcv_sources:
-      BTCUSDT:
-        source: ingestion
-        venue: binance
-        instrument_id: BTC-USDT-PERP
-      ETHUSDT:
-        source: ingestion
-        venue: binance
-        instrument_id: ETH-USDT-PERP
-      XRPUSDT:
-        source: ingestion
-        venue: binance
-        instrument_id: XRP-USDT-PERP
-      SOLUSDT:
-        source: ingestion
-        venue: binance
-        instrument_id: SOL-USDT-PERP
-      BNBUSDT:
-        source: ingestion
-        venue: binance
-        instrument_id: BNB-USDT-PERP
-      DOGEUSDT:
-        source: ingestion
-        venue: binance
-        instrument_id: DOGE-USDT-PERP
+```text
+BTCUSDT:1h
+BTCUSDT:4h
+ETHUSDT:4h
 ```
 
-All six ingestion asset definitions are enabled and own their manifests/lifecycle.
-Automatic source fallback is disabled; an ingestion failure is a manual-remediation
-boundary.
+Those routes are owned by Decision. Automatic source fallback remains disabled;
+an ingestion failure is a manual-remediation boundary.
 
 ## Runtime control and restart
 
@@ -63,33 +36,24 @@ curl -fsS -X POST http://127.0.0.1:8003/runtime/pause
 curl -fsS -X POST http://127.0.0.1:8003/runtime/resume
 curl -fsS -X POST http://127.0.0.1:8003/runtime/reconnect
 docker compose restart ingestion
-docker compose restart signal-worker
 ```
 
-Pause before restarting the signal worker when it is important to prove that
-no new OHLCV entries were delivered. A signal restart may publish a bootstrap
-feature snapshot from Timescale history; that is not an OHLCV stream replay.
-After a restart, verify the ingestion groups have `pending=0` and no unexpected tail
-movement while ingestion is paused.
-
-The ingestion signal workers use the normalized timestamp cursor in milliseconds to
-ignore at-least-once duplicate candles. The persisted signal runtime status
-currently reports `last_input_ts` in epoch seconds; do not compare those two
-fields without converting units.
+If downstream certification is in progress, coordinate restarts with the active
+Decision/Risk/Execution procedure. Ingestion itself remains the canonical writer
+for `ingestion.candles` and `ingestion.outbox`.
 
 ## Broker outage and return
 
-Stop signal consumers first when certifying a broker outage:
+When certifying a broker outage, stop or isolate downstream consumers as required
+by the specific certification:
 
 ```bash
-docker compose stop signal-worker
 docker compose stop broker
 curl -fsS http://127.0.0.1:8003/health/live
 curl -fsS http://127.0.0.1:8003/health/ready
 # verify newly closed ingestion 1m candles and their pending outbox rows
 docker compose start broker
 curl -fsS http://127.0.0.1:8003/health/ready
-docker compose up -d signal-worker
 ```
 
 Canonical Timescale commits must continue while Valkey is absent. The durable
@@ -105,11 +69,9 @@ Valkey is non-authoritative. Automatic replay of rows already marked
 AUTOMATIC_PUBLISHED_OUTBOX_REPLAY = ABSENT
 ```
 
-If published streams are lost, stop `signal-worker`, keep or restore Timescale,
-bring up a clean Valkey, allow current pending outbox rows to drain, then start
-the signal worker. All six workers prime from `ingestion.candles`; new groups are
-created at `$`, intentionally skipping historical stream entries. Do not
-delete published outbox history or assume it can be reconstructed automatically.
+If published streams are lost, keep or restore Timescale, bring up a clean
+Valkey, and allow current pending outbox rows to drain. Do not delete published
+outbox history or assume it can be reconstructed automatically.
 
 ## Completed migration
 
@@ -118,13 +80,13 @@ operationally certified during N1/N2. The one-time preparation and cutover
 scripts are retired. Immutable evidence remains in `plans/` and
 `artifacts/`; normal operations do not repeat those migration stages.
 
-If ingestion fails, stop signal/trading services and require explicit manual
+If ingestion fails, stop downstream trading services and require explicit manual
 remediation. There is no automatic source fallback.
 
 ## Shutdown
 
 ```bash
-docker compose stop signal-worker ingestion broker
+docker compose stop ingestion broker
 ```
 
 Leave Timescale running and healthy unless a separate reviewed procedure says
@@ -154,40 +116,9 @@ provider and freeze its own artifact.
 
 ### Retention certification
 
-The guarded certification uses an isolated fixture identity and never drops a
-production chunk containing another instrument. It proves old-published,
-recent-published, and pending outbox behavior, then verifies that a normal
-production run is a no-op for currently protected data:
-
-```bash
-.venv/bin/python scripts/certify_ingestion_retention_recovery_n2c.py
-
-INGESTION_RUN_N2C_RETENTION=1 \
-.venv/bin/python scripts/certify_ingestion_retention_recovery_n2c.py --execute
-```
-
-### Destructive Valkey data-loss recovery
-
-Valkey is hot transport/state, not canonical history. Automatic replay of
-already-published outbox rows is intentionally absent:
-
-```text
-AUTOMATIC_PUBLISHED_OUTBOX_REPLAY = false
-PUBLISHED_OUTBOX_CLEANUP = N2C bounded seven-day retention
-```
-
-After total Valkey loss, stop signal/trading consumers, restore an empty
-Valkey, start/reconcile ingestion so its six current manifests are rebuilt, and then
-start signal workers. They prime all eight configured pairs from
-`ingestion.candles`, create ingestion input groups at the current stream tail, emit
-bootstrap feature/price outputs, and process future events. Do not replay
-published outbox history or flush production DB0. N2C proves this procedure in
-isolated logical Valkey DB15 (`redis://localhost:6380/15`) and flushes DB15 only.
-
-The existing bounded stream transport remains approximately `MAXLEN 1000` per
-ingestion lane. Pending outbox rows are different from historical replay: if a broker
-outage happened before publication, those pending rows publish normally after
-the broker returns.
+The historical N2C retention certification remains preserved in its immutable
+artifact set. There is no live operator script for it in the Decision-only
+runtime topology.
 
 ## Ingestion observability (N1D)
 
@@ -257,20 +188,8 @@ notification policy.
 Telemetry shutdown is best effort and nonblocking. The shared helper detaches
 the OTel log handler, removes exporter atexit callbacks, and performs provider
 shutdown on a daemon thread so an unavailable collector cannot recreate a
-container SIGTERM/SIGKILL failure. The same helper is used by `signal_app`
-and `ingestion_app`.
+container SIGTERM/SIGKILL failure.
 
-For an operational certification (no writes other than normal application
-activity, and no reset/flush/delete operation), use the guarded script:
-
-```bash
-.venv/bin/python scripts/certify_ingestion_observability_n1d.py
-
-INGESTION_RUN_N1D_OBSERVABILITY=1 \
-.venv/bin/python scripts/certify_ingestion_observability_n1d.py --execute
-```
-
-The certification checks collector-down startup and graceful shutdown,
-collector-up Prometheus/Tempo/Loki/Grafana evidence, and collector loss while
-Ingestion is live. It restores the named services to their pre-run state and leaves
-Timescale as the authoritative durable system.
+The historical N1D observability certification also remains preserved in its
+immutable artifact set. There is no live operator script for it in the
+Decision-only runtime topology.

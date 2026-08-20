@@ -63,8 +63,8 @@ from apps.decision_app.transport.price_relay import (
     price_relay_entry_id,
 )
 from libs.common.config import ConfigManager
-from libs.common.constants import CONFIG_FILE_MODELS
-from libs.common.discovery import discover_asset_timeframes
+from libs.common.constants import CONFIG_FILE_RISK
+from libs.common.signal_routes import parse_signal_routes
 from libs.contracts.decision import CausalBarView, DecisionContext, FeatureSnapshot
 
 SCHEMA_VERSION = "d10.resource_capacity.v1"
@@ -252,8 +252,10 @@ def _risk_timeframes(
     ConfigManager.reset_singleton()
     config_manager = ConfigManager(config_dir=str(root / "configs"))
     try:
-        config_manager.register_file(root / CONFIG_FILE_MODELS)
-        discovered = discover_asset_timeframes(config_manager)
+        config_manager.register_file(root / CONFIG_FILE_RISK)
+        discovered_routes = parse_signal_routes(
+            config_manager.get("risk.runtime.signal_routes", ())
+        )
     finally:
         config_manager.shutdown()
         ConfigManager.reset_singleton()
@@ -262,22 +264,23 @@ def _risk_timeframes(
         symbol: manifest for manifest, symbol in inventory.decision_symbols.items()
     }
     result: dict[str, set[str]] = {asset: set() for asset in inventory.assets}
-    for symbol, timeframes in discovered.items():
+    for route in discovered_routes:
+        symbol, timeframe = route.split(":", 1)
         manifest = by_symbol.get(symbol)
         if manifest is None:
             raise ValueError(
                 f"risk route asset is absent from canonical inventory: {symbol}"
             )
-        for timeframe in timeframes:
-            if timeframe not in inventory.timeframes:
-                raise ValueError(
-                    "risk route timeframe is absent from canonical inventory: "
-                    f"{symbol}/{timeframe}"
-                )
-            result[manifest].add(timeframe)
+        if timeframe not in inventory.timeframes:
+            raise ValueError(
+                "risk route timeframe is absent from canonical inventory: "
+                f"{symbol}/{timeframe}"
+            )
+        result[manifest].add(timeframe)
     return {
         asset: tuple(sorted(values, key=lambda item: inventory.grid.duration(item)))
         for asset, values in result.items()
+        if values
     }
 
 
@@ -293,6 +296,11 @@ def build_relay_config(
         if route_timeframes is None
         else {asset: tuple(values) for asset, values in route_timeframes.items()}
     )
+    asset_names = (
+        tuple(inventory.assets)
+        if route_timeframes is None
+        else tuple(asset for asset in inventory.assets if selected.get(asset))
+    )
     assets = {
         asset: DecisionAssetSettings(
             manifest_asset=asset,
@@ -305,7 +313,7 @@ def build_relay_config(
                 timeframes=tuple(selected.get(asset, ())),
             ),
         )
-        for asset in inventory.assets
+        for asset in asset_names
     }
     return DecisionConfig(
         global_settings=DecisionGlobalSettings(

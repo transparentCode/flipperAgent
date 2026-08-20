@@ -25,15 +25,19 @@ from libs.models.momentum.strategy_v2 import MomentumV2
 
 def _active_momentum_params() -> list[tuple[str, str, dict[str, object]]]:
     repository_root = Path(__file__).resolve().parents[3]
-    document = yaml.safe_load(
-        (repository_root / "configs/models.yaml").read_text(encoding="utf-8")
-    )
     result: list[tuple[str, str, dict[str, object]]] = []
-    for asset, asset_config in document["strategy_models"]["assets"].items():
-        for timeframe, timeframe_config in asset_config.get("timeframes", {}).items():
-            momentum = timeframe_config.get("MomentumV2")
-            if momentum and momentum.get("enabled"):
-                result.append((asset, timeframe, momentum.get("params", {})))
+    assets_root = repository_root / "configs" / "decision" / "assets"
+    for asset_file in sorted(assets_root.glob("*.yaml")):
+        document = yaml.safe_load(asset_file.read_text(encoding="utf-8")) or {}
+        decision_asset = document.get("decision_asset")
+        lanes = document.get("lanes", {})
+        for lane in lanes.values():
+            timeframe = lane.get("decision_timeframe")
+            primary = (lane.get("bindings") or {}).get("primary") or {}
+            if primary.get("plugin") != "momentum":
+                continue
+            parameters = primary.get("parameters") or {}
+            result.append((decision_asset, timeframe, parameters.get("model", {})))
     return result
 
 

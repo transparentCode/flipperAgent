@@ -342,7 +342,7 @@ async def test_d9c_generation_wires_non_default_d9b_settings(monkeypatch) -> Non
 
         async def start(self):
             return SimpleNamespace(
-                snapshot=SimpleNamespace(status="STARTUP_READY", authority_records={}),
+                snapshot=SimpleNamespace(status="STARTUP_READY"),
                 relay_plans=(),
             )
 

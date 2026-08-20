@@ -21,11 +21,15 @@ from apps.risk_app.runtime import (
 from libs.common.asset_manifest import AssetManifestStore
 from libs.common.config import ConfigManager
 from libs.common.connections import create_valkey_client, init_db_pools
-from libs.common.constants import CONFIG_FILE_MODELS, CONFIG_FILE_RISK
+from libs.common.constants import CONFIG_FILE_RISK
 from libs.common.db.pool_manager import DBPoolManager
-from libs.common.discovery import discover_asset_timeframes
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger, configure_logging
+from libs.common.signal_routes import (
+    asset_map_from_routes,
+    assets_from_routes,
+    parse_signal_routes,
+)
 from libs.risk.account_state import AccountState
 from libs.risk.engine import RiskEngine
 from libs.risk.mtf.aggregator import SignalAggregator
@@ -80,7 +84,10 @@ async def _discover_runtime_asset_map(
     manifest_store: AssetManifestStore,
 ) -> tuple[dict[str, list[str]], set[str]]:
     """Use manifests as availability gates over the configured risk graph."""
-    configured = discover_asset_timeframes(config_mgr)
+    configured_routes = parse_signal_routes(
+        config_mgr.get("risk.runtime.signal_routes", ()),
+    )
+    configured = asset_map_from_routes(configured_routes)
     manifests = await manifest_store.list_assets()
     manifest_by_symbol = {manifest.symbol: manifest for manifest in manifests}
     runtime_asset_map: dict[str, list[str]] = {}
@@ -92,13 +99,12 @@ async def _discover_runtime_asset_map(
             continue
         runtime_asset_map[asset] = list(timeframes)
     # Fill listeners remain configured for assets that may have open exposure.
-    return runtime_asset_map, set(configured)
+    return runtime_asset_map, set(assets_from_routes(configured_routes))
 
 
 async def _run() -> None:
     config_mgr = ConfigManager()
     config_mgr.register_file(CONFIG_FILE_RISK)
-    config_mgr.register_file(CONFIG_FILE_MODELS)
 
     try:
         from libs.common.telemetry.bootstrap import init_telemetry
@@ -128,7 +134,7 @@ async def _run() -> None:
         config_mgr, manifest_store
     )
     if not asset_map and not listener_assets:
-        logger.warning("No asset/timeframe pairs found in models.yaml. Exiting.")
+        logger.warning("No risk.runtime.signal_routes configured. Exiting.")
         return
 
     logger.info("Discovered %s live risk assets: %s", len(asset_map), asset_map)
@@ -151,7 +157,9 @@ async def _run() -> None:
         fill_listener_factory=FillListener,
         restart_delay_seconds=risk_config.get("consumer_restart_delay_seconds", 5),
         fill_listener_assets=listener_assets,
-        configured_timeframes=discover_asset_timeframes(config_mgr),
+        configured_timeframes=asset_map_from_routes(
+            parse_signal_routes(config_mgr.get("risk.runtime.signal_routes", ()))
+        ),
         persistence_interval_seconds=risk_config.get(
             "state_persist_interval_seconds", 60
         ),

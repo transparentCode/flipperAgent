@@ -1,0 +1,47 @@
+ingestion:
+  base_timeframe: 1m
+  calendar:
+    type: continuous
+    timezone: UTC
+    alignment_origin: "1970-01-05T00:00:00Z"
+  recovery:
+    max_concurrency: 2
+    page_limit: 500
+    max_attempts_per_provider: 2
+    retry_backoff_seconds: 1
+    rest_finalization_grace_seconds: 5
+  websocket:
+    stream_url: "wss://fstream.binance.com/market"
+    queue_maxsize: 1000
+  runtime:
+    reconnect_backoff_seconds: 5
+  server:
+    host: 0.0.0.0
+    port: 8003
+  publication:
+    batch_size: 500
+    idle_sleep_seconds: 1
+    error_backoff_seconds: 1
+    stream_maxlen: 1000
+    stream_approximate: true
+  retention:
+    candle_days: 3650
+    published_outbox_days: 7
+    cleanup_interval_seconds: 86400
+    error_backoff_seconds: 60
+    outbox_delete_batch_size: 10000
+    outbox_max_batches_per_run: 100
+  timeframes:
+    1m:
+      duration_seconds: 60
+    1h:
+      duration_seconds: 3600
+    4h:
+      duration_seconds: 14400
+  providers:
+    binance_native:
+      enabled: true
+    ccxt_binance:
+      enabled: true
+      exchange_id: binanceusdm
+  assets: {}

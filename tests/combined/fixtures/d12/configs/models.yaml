@@ -1,0 +1,9 @@
+models:
+  assets:
+    BTCUSDT:
+      timeframes:
+        1h: {}
+        4h: {}
+    ETHUSDT:
+      timeframes:
+        4h: {}

@@ -6,8 +6,8 @@ from typing import Any
 
 from libs.common.asset_manifest import AssetManifest, AssetManifestStore
 from libs.common.config import ConfigManager
-from libs.common.constants import CONFIG_FILE_MODELS
-from libs.common.discovery import discover_assets
+from libs.common.constants import CONFIG_FILE_RISK
+from libs.common.signal_routes import assets_from_routes, parse_signal_routes
 from libs.contracts.execution import OrderExecutionRequest
 from libs.contracts.serialization import valkey_decode
 from libs.risk.position_tracker import PositionTracker
@@ -28,7 +28,7 @@ class RiskObservabilityService:
         )
         if config_mgr is None:
             config_mgr = ConfigManager()
-            config_mgr.register_file(CONFIG_FILE_MODELS)
+            config_mgr.register_file(CONFIG_FILE_RISK)
         self.config_mgr = config_mgr
 
     async def health(self) -> dict[str, Any]:
@@ -41,13 +41,13 @@ class RiskObservabilityService:
             async with self.db_pool.acquire() as conn:
                 await conn.fetchrow("SELECT 1")
             db_available = True
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             db_error = str(exc)
 
         if self.redis_client is not None:
             try:
                 valkey_available = bool(await self.redis_client.ping())
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 valkey_error = str(exc)
 
         result: dict[str, Any] = {
@@ -72,7 +72,9 @@ class RiskObservabilityService:
 
         asset_list = await self._resolve_assets(assets)
         now_ms = int(time.time() * 1000)
-        items = [await self._read_latest_order(asset, now_ms=now_ms) for asset in asset_list]
+        items = [
+            await self._read_latest_order(asset, now_ms=now_ms) for asset in asset_list
+        ]
         ok_count = sum(1 for item in items if item["status"] == "ok")
         no_data_count = sum(1 for item in items if item["status"] == "no_data")
         error_count = sum(1 for item in items if item["status"] == "error")
@@ -101,7 +103,7 @@ class RiskObservabilityService:
                     LIMIT 1
                     """
                 )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             return {"status": "error", "error": str(exc)}
 
         if not row:
@@ -129,7 +131,7 @@ class RiskObservabilityService:
     async def open_positions(self, *, asset: str | None = None) -> dict[str, Any]:
         try:
             tracker = await PositionTracker.load_positions(self.db_pool)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             return {"status": "error", "error": str(exc), "count": 0, "positions": []}
 
         normalized_asset = asset.upper().strip() if asset else None
@@ -153,7 +155,7 @@ class RiskObservabilityService:
         try:
             tracker = await PositionTracker.load_positions(self.db_pool)
             positions = tracker.all_positions()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             return {
                 "status": "error",
                 "error": str(exc),
@@ -165,27 +167,38 @@ class RiskObservabilityService:
         for position in positions:
             positions_by_asset[position.asset].append(position)
 
-        order_items = {
-            item["asset"]: item
-            for item in latest_orders.get("items", [])
-        }
+        order_items = {item["asset"]: item for item in latest_orders.get("items", [])}
         manifest_by_asset = {manifest.symbol: manifest for manifest in manifests}
-        asset_names = sorted(set(manifest_by_asset) | set(positions_by_asset) | set(order_items))
+        asset_names = sorted(
+            set(manifest_by_asset) | set(positions_by_asset) | set(order_items)
+        )
 
         assets: list[dict[str, Any]] = []
         for asset in asset_names:
             manifest = manifest_by_asset.get(asset)
             asset_positions = positions_by_asset.get(asset, [])
-            gross_exposure = sum(abs(position.size * position.current_price) for position in asset_positions)
-            net_exposure = sum(position.size * position.current_price * position.direction for position in asset_positions)
+            gross_exposure = sum(
+                abs(position.size * position.current_price)
+                for position in asset_positions
+            )
+            net_exposure = sum(
+                position.size * position.current_price * position.direction
+                for position in asset_positions
+            )
             assets.append(
                 {
                     "asset": asset,
                     "enabled": manifest.enabled if manifest is not None else None,
-                    "desired_state": manifest.desired_state if manifest is not None else None,
+                    "desired_state": manifest.desired_state
+                    if manifest is not None
+                    else None,
                     "provider": manifest.provider if manifest is not None else None,
-                    "base_timeframe": manifest.base_timeframe if manifest is not None else None,
-                    "publish_timeframes": list(manifest.publish_timeframes) if manifest is not None else [],
+                    "base_timeframe": manifest.base_timeframe
+                    if manifest is not None
+                    else None,
+                    "publish_timeframes": list(manifest.publish_timeframes)
+                    if manifest is not None
+                    else [],
                     "position_count": len(asset_positions),
                     "gross_exposure": gross_exposure,
                     "net_exposure": net_exposure,
@@ -235,7 +248,10 @@ class RiskObservabilityService:
 
         seen = set()
         assets: list[str] = []
-        for asset in discover_assets(self.config_mgr):
+        routes = parse_signal_routes(
+            self.config_mgr.get("risk.runtime.signal_routes", ()),
+        )
+        for asset in assets_from_routes(routes):
             normalized = str(asset).upper().strip()
             if normalized and normalized not in seen:
                 seen.add(normalized)
@@ -247,14 +263,14 @@ class RiskObservabilityService:
             return []
         try:
             return await self.manifest_store.list_assets()
-        except Exception:
+        except Exception:  # noqa: BLE001
             return []
 
     async def _read_latest_order(self, asset: str, *, now_ms: int) -> dict[str, Any]:
         stream = f"orders:{asset}"
         try:
             messages = await self.redis_client.xrevrange(stream, count=1)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             return {
                 "asset": asset,
                 "stream": stream,
@@ -275,7 +291,9 @@ class RiskObservabilityService:
         return {
             "asset": asset,
             "stream": stream,
-            "message_id": message_id.decode() if isinstance(message_id, bytes) else str(message_id),
+            "message_id": message_id.decode()
+            if isinstance(message_id, bytes)
+            else str(message_id),
             "timestamp": decoded.timestamp,
             "lag_ms": lag_ms,
             "status": "ok",

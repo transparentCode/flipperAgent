@@ -86,34 +86,6 @@ def validate_config_alignment(config_mgr: ConfigManager) -> list[str]:
             w = f"models.yaml defines {asset}:{tf} but features.yaml has no explicit features (using defaults)"
             warnings.append(w)
 
-    # --- signal source bindings ---
-    bindings = config_mgr.get("signal.runtime.ohlcv_sources", {}) or {}
-    if not isinstance(bindings, dict):
-        warnings.append("signal.runtime.ohlcv_sources must be a mapping")
-        bindings = {}
-    normalized_bindings = {
-        str(asset).upper(): value for asset, value in bindings.items()
-    }
-    for asset in sorted(model_asset_set):
-        binding = normalized_bindings.get(str(asset).upper())
-        if not isinstance(binding, dict):
-            warnings.append(
-                f"active model asset {asset} has no explicit signal.runtime.ohlcv_sources binding"
-            )
-            continue
-        if str(binding.get("source", "")).strip() != "ingestion":
-            warnings.append(
-                f"active model asset {asset} must use signal source ingestion"
-            )
-        if not str(binding.get("venue", "")).strip():
-            warnings.append(
-                f"active model asset {asset} has an empty signal source venue"
-            )
-        if not str(binding.get("instrument_id", "")).strip():
-            warnings.append(
-                f"active model asset {asset} has an empty signal source instrument_id"
-            )
-
     # --- risk.yaml ---
     risk = config_mgr.get("risk", {})
     risk_assets = risk.get("assets", {})

@@ -90,7 +90,6 @@ from apps.decision_app.transport.price_relay import (
     compile_price_relay_plans,
     plan_series_key,
 )
-from libs.common.signal_authority import SignalAuthorityStore, SignalRouteAuthority
 from libs.contracts.decision import FrozenMapping, deep_freeze, require_utc
 
 
@@ -225,7 +224,6 @@ class DecisionStartupSnapshot:
     lane_evidence: Mapping[str, LaneStartupEvidence]
     reconstruction_evidence: Mapping[str, Mapping[str, Any]]
     no_publication: bool = True
-    authority_records: Mapping[str, SignalRouteAuthority] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.status not in {"STARTUP_READY", "STARTUP_BLOCKED"}:
@@ -268,15 +266,6 @@ class DecisionStartupSnapshot:
             if lane_id != item.lane_id:
                 raise ValueError("lane evidence map key must match lane_id")
             evidence[lane_id] = item
-        authorities: dict[str, SignalRouteAuthority] = {}
-        for route, record in self.authority_records.items():
-            if not isinstance(route, str) or not isinstance(
-                record, SignalRouteAuthority
-            ):
-                raise TypeError("authority_records must contain typed records")
-            if route != record.route:
-                raise ValueError("authority record map key must match route")
-            authorities[route] = record
         object.__setattr__(self, "configured_lane_ids", lane_ids)
         object.__setattr__(
             self, "active_manifest_assets", tuple(sorted(self.active_manifest_assets))
@@ -285,11 +274,6 @@ class DecisionStartupSnapshot:
         object.__setattr__(self, "input_cursors", FrozenMapping(cursors))
         object.__setattr__(self, "lane_watermarks", FrozenMapping(watermarks))
         object.__setattr__(self, "lane_evidence", FrozenMapping(evidence))
-        object.__setattr__(
-            self,
-            "authority_records",
-            FrozenMapping(dict(sorted(authorities.items()))),
-        )
         object.__setattr__(
             self,
             "reconstruction_evidence",
@@ -498,7 +482,6 @@ class DecisionStartupCoordinator:
         shadow_progress_repository: Any | None = None,
         manifest_store: Any | None = None,
         data_resolver: DataResolver | None = None,
-        authority_store: SignalAuthorityStore | None = None,
     ) -> None:
         if not isinstance(decision_config, DecisionConfig):
             raise TypeError("decision_config must be DecisionConfig")
@@ -542,11 +525,6 @@ class DecisionStartupCoordinator:
             )
         self._manifest_store = manifest_store
         self._data_resolver = data_resolver or DataResolver(source_catalog)
-        if authority_store is not None and not isinstance(
-            authority_store, SignalAuthorityStore
-        ):
-            raise TypeError("authority_store must be SignalAuthorityStore or None")
-        self._authority_store = authority_store
 
     async def start(self) -> DecisionStartupResult:
         """Perform one bounded startup reconstruction and return its owners."""
@@ -555,7 +533,6 @@ class DecisionStartupCoordinator:
             self._plugin_catalog,
             self._config.lane_specs(),
         )
-        authority_records = await self._validate_authoritative_owners(decision_plan)
         for lane in decision_plan.lanes:
             # D8 policy identity is part of startup compilation even though
             # D9A never evaluates a policy or publishes a result.
@@ -635,7 +612,6 @@ class DecisionStartupCoordinator:
                     capacities,
                     positions,
                     final_store,
-                    authority_records.get(f"{lane.asset}:{lane.decision_timeframe}"),
                 )
             except (StartupLaneError, RewarmError, ValueError, TypeError) as exc:
                 lane_evidence[lane.lane_id] = LaneStartupEvidence(
@@ -684,7 +660,6 @@ class DecisionStartupCoordinator:
             lane_watermarks=lane_watermarks,
             lane_evidence=lane_evidence,
             reconstruction_evidence=reconstruction_evidence,
-            authority_records=authority_records,
         )
         return DecisionStartupResult(
             snapshot=snapshot,
@@ -844,32 +819,6 @@ class DecisionStartupCoordinator:
 
         return lane_execution_identity(lane, feature_plan, data_plan)
 
-    async def _validate_authoritative_owners(
-        self,
-        plan: ResolvedDecisionPlan,
-    ) -> Mapping[str, SignalRouteAuthority]:
-        if self._authority_store is None:
-            return FrozenMapping({})
-        routes = tuple(
-            sorted(
-                {
-                    f"{lane.asset}:{lane.decision_timeframe}"
-                    for lane in plan.lanes
-                    if lane.authority == "authoritative"
-                }
-            )
-        )
-        records: dict[str, SignalRouteAuthority] = {}
-        for route in routes:
-            try:
-                record = await self._authority_store.assert_owner(route, "decision")
-            except Exception as exc:
-                raise StartupContractError(
-                    f"authoritative route {route} is not owned by decision: {exc}"
-                ) from exc
-            records[route] = record
-        return FrozenMapping(records)
-
     async def _effect_progress_for_lane(
         self,
         *,
@@ -879,15 +828,10 @@ class DecisionStartupCoordinator:
         resume_cutoff: datetime,
         ready_views: Sequence[tuple[datetime, LaneMarketView]],
         stateful_binding_ids: Sequence[str],
-        authority_record: SignalRouteAuthority | None,
     ) -> tuple[LaneEffectProgress | None, tuple[datetime, ...]]:
         """Resolve authority-neutral effect progress without rewinding input."""
 
         progress = await self._effect_progress.load(identity)
-        if authority_record is not None and progress is None:
-            raise StartupLaneError(
-                "authoritative handoff effect progress is missing at the authority boundary"
-            )
         if progress is None:
             baseline = LaneEffectProgress.create(
                 identity=identity,
@@ -908,12 +852,6 @@ class DecisionStartupCoordinator:
             raise StartupLaneError("effect progress repository returned invalid record")
         if progress.identity != identity:
             raise StartupLaneError("effect progress identity does not match lane")
-        if authority_record is not None:
-            progress_cutoff_ms = int(progress.market_as_of.timestamp() * 1000)
-            if progress_cutoff_ms < authority_record.boundary_ms:
-                raise StartupLaneError(
-                    "authoritative handoff effect progress is behind the authority boundary"
-                )
         if progress.market_as_of > resume_cutoff:
             raise StartupLaneError("effect progress is ahead of market reconstruction")
         if progress.market_as_of == resume_cutoff:
@@ -1164,7 +1102,6 @@ class DecisionStartupCoordinator:
         capacities: Mapping[MarketSeriesKey, int],
         positions: Mapping[MarketSeriesKey, SeriesStartupPosition],
         final_store: BarStore,
-        authority_record: SignalRouteAuthority | None,
     ) -> tuple[ModelRuntime, Mapping[str, Any], BarStore | None]:
         lane_requirements = compile_lane_market_requirements(
             lane, self._config.timeframe_grid
@@ -1208,7 +1145,6 @@ class DecisionStartupCoordinator:
             resume_cutoff=resume_candidate,
             ready_views=baseline_ready,
             stateful_binding_ids=lane_stateful,
-            authority_record=authority_record,
         )
         catchup_store = await self._load_effect_catchup_store(
             lane=lane,

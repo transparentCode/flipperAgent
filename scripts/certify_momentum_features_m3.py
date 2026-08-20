@@ -374,7 +374,7 @@ def _raw_runtime_resolution(
 ) -> dict[str, Any]:
     # Import at the evidence boundary: this intentionally measures the legacy
     # pipeline and is not imported by the pure Decision calculator.
-    from apps.signal_app.pipeline.raw_indicators import RawIndicatorPipeline
+    from libs.features.raw_indicator_pipeline import RawIndicatorPipeline
 
     pipeline = RawIndicatorPipeline(
         asset,
@@ -419,14 +419,22 @@ def _raw_runtime_resolution(
 
 
 def _load_momentum_params(root: Path, asset: str, timeframe: str) -> dict[str, Any]:
-    document = yaml.safe_load(
-        (root / "configs" / "models.yaml").read_text(encoding="utf-8")
-    )
-    node = document["strategy_models"]["assets"][asset]["timeframes"][timeframe]
-    momentum = node["MomentumV2"]
-    if not momentum.get("enabled", True):
-        raise ValueError(f"MomentumV2 is not enabled for {asset}/{timeframe}")
-    return MomentumConfig.from_mapping(momentum.get("params", {})).to_mapping()
+    fixtures_root = root / "tests" / "decision" / "fixtures" / "momentum_m4" / "assets"
+    for fixture_path in sorted(fixtures_root.glob("*.yaml")):
+        document = yaml.safe_load(fixture_path.read_text(encoding="utf-8")) or {}
+        if document.get("decision_asset") != asset:
+            continue
+        lanes = document.get("lanes", {})
+        for lane in lanes.values():
+            if lane.get("decision_timeframe") != timeframe:
+                continue
+            primary = (lane.get("bindings") or {}).get("primary") or {}
+            if primary.get("plugin") != "momentum":
+                continue
+            parameters = primary.get("parameters") or {}
+            model_params = parameters.get("model") or {}
+            return MomentumConfig.from_mapping(model_params).to_mapping()
+    raise ValueError(f"Momentum fixture params not found for {asset}/{timeframe}")
 
 
 def resolve_routes(root: Path = ROOT) -> tuple[Route, ...]:
