@@ -11,6 +11,7 @@ KEY_ASSETS = "assets"
 KEY_TIMEFRAMES = "timeframes"
 KEY_DEFAULT = "default"
 _TIMEFRAME_TOKEN = re.compile(r"^[0-9]+[smhdw]$")
+_MISSING = object()
 
 
 def parse_relinquished_routes(value: object) -> tuple[str, ...]:
@@ -107,6 +108,17 @@ class StrategyWorkerSettings:
     ) -> StrategyWorkerSettings:
         manager = create_strategy_config_manager(config_manager)
         blender_cfg = manager.get("blender", {}) or {}
+        raw_authority_enforced = manager.get(
+            "strategy.runtime.signal_authority_enforced", _MISSING
+        )
+        if raw_authority_enforced is _MISSING:
+            authority_enforced = cls.signal_authority_enforced
+        elif type(raw_authority_enforced) is not bool:
+            raise TypeError(
+                "strategy.runtime.signal_authority_enforced must be a YAML bool"
+            )
+        else:
+            authority_enforced = raw_authority_enforced
         return cls(
             consumer_group=str(
                 manager.get("strategy.runtime.consumer_group", cls.consumer_group),
@@ -136,10 +148,5 @@ class StrategyWorkerSettings:
             relinquished_routes=parse_relinquished_routes(
                 manager.get("strategy.runtime.relinquished_routes", ())
             ),
-            signal_authority_enforced=bool(
-                manager.get(
-                    "strategy.runtime.signal_authority_enforced",
-                    cls.signal_authority_enforced,
-                )
-            ),
+            signal_authority_enforced=authority_enforced,
         )

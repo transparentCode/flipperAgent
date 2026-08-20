@@ -483,7 +483,6 @@ services:
       - flipper-net
 
   decision:
-    profiles: [decision]
     build:
       context: .
       dockerfile: Dockerfile
@@ -507,6 +506,8 @@ services:
       db:
         condition: service_healthy
       broker:
+        condition: service_healthy
+      ingestion:
         condition: service_healthy
     healthcheck:
       test:

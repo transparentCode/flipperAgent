@@ -1,3 +1,7 @@
+strategy:
+  runtime:
+    signal_authority_enforced: true
+
 strategy_models:
   assets:
     default:

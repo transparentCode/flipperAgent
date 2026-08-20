@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import os
 from collections.abc import Mapping, Sequence
@@ -161,6 +162,39 @@ def validate_group_quiescence(*, pel_count: int, lag: int) -> bool:
     return pel_count == 0 and lag == 0
 
 
+def market_bar_identity_fingerprint(entry: Mapping[str, object]) -> str:
+    """Fingerprint only the stable market-bar identity of a feature vector."""
+
+    payload = {
+        "asset": entry.get("asset"),
+        "timeframe": entry.get("timeframe"),
+        "timestamp": entry.get("timestamp_ms", entry.get("timestamp")),
+        "bar_data": entry.get("bar_data"),
+    }
+    if any(payload[key] is None for key in payload):
+        raise ValueError("feature entry is missing market-bar identity fields")
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode()
+    ).hexdigest()
+
+
+def _entry_bar_identity(entry: Mapping[str, object]) -> str | None:
+    supplied = entry.get("bar_identity_fingerprint")
+    identity_fields = ("asset", "timeframe", "bar_data")
+    if all(key in entry for key in identity_fields):
+        derived = market_bar_identity_fingerprint(entry)
+        if supplied is not None:
+            if not isinstance(supplied, str) or not supplied:
+                raise TypeError("bar_identity_fingerprint must be non-empty text")
+            return derived if supplied == derived else None
+        return derived
+    if supplied is not None:
+        if not isinstance(supplied, str) or not supplied:
+            raise TypeError("bar_identity_fingerprint must be non-empty text")
+        return supplied
+    return None
+
+
 def cutback_fast_forward_boundary(
     feature_entries: Sequence[Mapping[str, object]],
     *,
@@ -181,12 +215,11 @@ def cutback_fast_forward_boundary(
     duration_ms = timeframe_duration_ms(timeframe)
     last_id: str | None = None
     next_unread_id: str | None = None
-    past_boundary = False
     ordered = True
-    previous_cutoff_ms: int | None = None
     previous_stream_id: tuple[int, int] | None = None
     oldest_cutoff_ms: int | None = None
     newest_cutoff_ms: int | None = None
+    prepared: list[dict[str, object]] = []
     for entry in feature_entries:
         entry_id = entry.get("id")
         timestamp_ms = entry.get("timestamp_ms")
@@ -202,34 +235,114 @@ def cutback_fast_forward_boundary(
         if oldest_cutoff_ms is None:
             oldest_cutoff_ms = cutoff_ms
         newest_cutoff_ms = cutoff_ms
-        if (
-            previous_cutoff_ms is not None
-            and cutoff_ms != previous_cutoff_ms + duration_ms
-        ):
+        if prepared and cutoff_ms < int(prepared[-1]["cutoff_ms"]):
             ordered = False
-        previous_cutoff_ms = cutoff_ms
-        if past_boundary and cutoff_ms <= progress_cutoff_ms:
-            ordered = False
-        if not past_boundary and cutoff_ms <= progress_cutoff_ms:
-            last_id = entry_id
+        prepared.append(
+            {
+                "id": entry_id,
+                "cutoff_ms": cutoff_ms,
+                "bar_identity_fingerprint": _entry_bar_identity(entry),
+            }
+        )
+
+    logical_runs: list[dict[str, object]] = []
+    for entry in prepared:
+        cutoff_ms = int(entry["cutoff_ms"])
+        if logical_runs and logical_runs[-1]["cutoff_ms"] == cutoff_ms:
+            run = logical_runs[-1]
+            run["last_id"] = entry["id"]
+            run["entry_count"] = int(run["entry_count"]) + 1
+            fingerprints = run["_fingerprints"]
+            assert isinstance(fingerprints, list)
+            fingerprints.append(entry["bar_identity_fingerprint"])
         else:
-            if not past_boundary:
-                next_unread_id = entry_id
-            past_boundary = True
+            logical_runs.append(
+                {
+                    "cutoff_ms": cutoff_ms,
+                    "first_id": entry["id"],
+                    "last_id": entry["id"],
+                    "entry_count": 1,
+                    "_fingerprints": [entry["bar_identity_fingerprint"]],
+                }
+            )
+
+    decision_owned_duplicate_runs = 0
+    decision_owned_duplicate_entry_count = 0
+    post_progress_duplicate_run_count = 0
+    post_progress_duplicate_entry_count = 0
+    progress_cutoff_present = False
+    duplicate_identity_consistent = True
+    logical_cutoff_continuity = ordered
+    for index, run in enumerate(logical_runs):
+        cutoff_ms = int(run["cutoff_ms"])
+        entry_count = int(run["entry_count"])
+        fingerprints = run.pop("_fingerprints")
+        if not isinstance(fingerprints, list):
+            duplicate_identity_consistent = False
+            fingerprints = []
+        non_null_fingerprints = [item for item in fingerprints if item is not None]
+        if entry_count > 1 and (
+            len(non_null_fingerprints) != entry_count
+            or len(set(non_null_fingerprints)) != 1
+        ):
+            duplicate_identity_consistent = False
+        if (
+            index
+            and cutoff_ms != int(logical_runs[index - 1]["cutoff_ms"]) + duration_ms
+        ):
+            logical_cutoff_continuity = False
+        if cutoff_ms == progress_cutoff_ms:
+            progress_cutoff_present = True
+            last_id = str(run["last_id"])
+        if entry_count > 1:
+            if cutoff_ms <= progress_cutoff_ms:
+                decision_owned_duplicate_runs += 1
+                decision_owned_duplicate_entry_count += entry_count
+            else:
+                post_progress_duplicate_run_count += 1
+                post_progress_duplicate_entry_count += entry_count
+        if cutoff_ms > progress_cutoff_ms and next_unread_id is None:
+            next_unread_id = str(run["first_id"])
+
     expected_next_cutoff_ms = progress_cutoff_ms + duration_ms
     first_actual_unread_cutoff_ms = None
     if next_unread_id is not None:
-        for entry in feature_entries:
-            entry_id = entry.get("id")
-            if entry_id == next_unread_id:
-                first_actual_unread_cutoff_ms = feature_close_cutoff_ms(
-                    entry["timestamp_ms"], timeframe
-                )
-                break
-    no_legacy_cutoff_skipped = ordered and (
-        first_actual_unread_cutoff_ms is None
-        or first_actual_unread_cutoff_ms == expected_next_cutoff_ms
+        first_actual_unread_cutoff_ms = next(
+            int(run["cutoff_ms"])
+            for run in logical_runs
+            if run["first_id"] == next_unread_id
+        )
+    no_legacy_cutoff_skipped = (
+        ordered
+        and logical_cutoff_continuity
+        and duplicate_identity_consistent
+        and progress_cutoff_present
+        and post_progress_duplicate_run_count == 0
+        and (
+            first_actual_unread_cutoff_ms is None
+            or first_actual_unread_cutoff_ms == expected_next_cutoff_ms
+        )
     )
+    # Derive the public run fingerprint from the prepared entries so the
+    # evidence remains bounded and stable.
+    public_runs = []
+    for run in logical_runs:
+        run_entries = [
+            entry
+            for entry in prepared
+            if int(entry["cutoff_ms"]) == int(run["cutoff_ms"])
+        ]
+        fingerprints = [entry["bar_identity_fingerprint"] for entry in run_entries]
+        public_runs.append(
+            {
+                **run,
+                "bar_identity_fingerprint": (
+                    fingerprints[0]
+                    if fingerprints and len(set(fingerprints)) == 1
+                    else None
+                ),
+            }
+        )
     return {
         "last_id_through_progress": last_id,
         "next_unread_id": next_unread_id,
@@ -238,6 +351,16 @@ def cutback_fast_forward_boundary(
         "newest_retained_cutoff_ms": newest_cutoff_ms,
         "expected_next_cutoff_ms": expected_next_cutoff_ms,
         "first_actual_unread_cutoff_ms": first_actual_unread_cutoff_ms,
+        "logical_runs": public_runs,
+        "logical_cutoff_count": len(logical_runs),
+        "transport_entry_count": len(prepared),
+        "decision_owned_duplicate_runs": decision_owned_duplicate_runs,
+        "decision_owned_duplicate_entry_count": decision_owned_duplicate_entry_count,
+        "post_progress_duplicate_run_count": post_progress_duplicate_run_count,
+        "post_progress_duplicate_entry_count": post_progress_duplicate_entry_count,
+        "progress_cutoff_present": progress_cutoff_present,
+        "logical_cutoff_continuity": logical_cutoff_continuity,
+        "market_bar_duplicate_identity_consistent": duplicate_identity_consistent,
     }
 
 
@@ -291,6 +414,14 @@ async def cutback_fast_forward_group(
     last_delivered_id = str(_group_value(group, "last-delivered-id", "0-0"))
     _numeric_stream_id(last_delivered_id)
     raw_entries = await client.xrange(stream_key, last_delivered_id, "+")
+    if not raw_entries:
+        raise RuntimeError("legacy feature retention cannot prove the group anchor")
+    first_raw_id = raw_entries[0][0]
+    first_entry_id = (
+        first_raw_id.decode() if isinstance(first_raw_id, bytes) else str(first_raw_id)
+    )
+    if first_entry_id != last_delivered_id:
+        raise RuntimeError("legacy feature retention cannot prove the group anchor")
     entries: list[dict[str, object]] = []
     for raw_id, fields in raw_entries:
         entry_id = raw_id.decode() if isinstance(raw_id, bytes) else str(raw_id)
@@ -305,7 +436,23 @@ async def cutback_fast_forward_group(
             raise RuntimeError(
                 f"legacy feature timestamp is not a non-negative epoch millisecond: {entry_id}"
             )
-        entries.append({"id": entry_id, "timestamp_ms": int(timestamp_ms)})
+        entries.append(
+            {
+                "id": entry_id,
+                "timestamp_ms": int(timestamp_ms),
+                "asset": vector.asset,
+                "timeframe": vector.timeframe,
+                "bar_data": dict(vector.bar_data),
+                "bar_identity_fingerprint": market_bar_identity_fingerprint(
+                    {
+                        "asset": vector.asset,
+                        "timeframe": vector.timeframe,
+                        "timestamp_ms": int(timestamp_ms),
+                        "bar_data": dict(vector.bar_data),
+                    }
+                ),
+            }
+        )
     selected = cutback_fast_forward_boundary(
         entries,
         progress_cutoff_ms=progress_cutoff_ms,
@@ -313,7 +460,9 @@ async def cutback_fast_forward_group(
     )
     if not selected["no_legacy_cutoff_skipped"]:
         raise RuntimeError("legacy feature retention gap crosses the cutback boundary")
-    setid = selected["last_id_through_progress"] or last_delivered_id
+    setid = selected["last_id_through_progress"]
+    if not isinstance(setid, str):
+        raise TypeError("legacy feature retention cannot prove Decision progress")
     await client.xgroup_setid(stream_key, group_name, setid)
     after_groups = await client.xinfo_groups(stream_key)
     after = next(
@@ -338,6 +487,11 @@ async def cutback_fast_forward_group(
         "before_last_delivered_id": last_delivered_id,
         "before_pending": pending,
         "before_lag": lag,
+        "anchor_id": last_delivered_id,
+        "anchor_retained": first_entry_id == last_delivered_id,
+        "anchor_cutoff_ms": feature_close_cutoff_ms(
+            entries[0]["timestamp_ms"], timeframe
+        ),
         "entries": entries,
         "after_pending": int(_group_value(after, "pending", -1)),
         "after_lag": int(_group_value(after, "lag", -1)),
@@ -547,7 +701,7 @@ class D11BAuthorityController:
 
     async def status(self) -> tuple[SignalRouteAuthority | None, ...]:
         return tuple(
-            await self.authority_store.read(route) for route in TARGET_SIGNAL_ROUTES
+            [await self.authority_store.read(route) for route in TARGET_SIGNAL_ROUTES]
         )
 
     async def cutover_to_decision(
@@ -655,6 +809,7 @@ class D11BAuthorityController:
             raise SignalAuthorityConflict(
                 "caller epoch annotations do not match current authority records"
             )
+        group_results: dict[str, dict[str, object]] = {}
         for route in TARGET_SIGNAL_ROUTES:
             cutoff = progress[route]
             timeframe = _route_timeframe(route)
@@ -671,9 +826,11 @@ class D11BAuthorityController:
                 raise SignalAuthorityConflict(
                     f"legacy feature continuity failed before cutback: {route}"
                 )
+            group_results[route] = result
         self.last_observation = {
             "decision_progress": progress_snapshot,
             "risk_groups": risk_groups,
+            "groups": group_results,
         }
         return await self.authority_store.handoff_many(
             routes=TARGET_SIGNAL_ROUTES,

@@ -99,6 +99,47 @@ SOURCE_PATHS = (
     "configs/decision/assets/ETH.yaml",
     "docker-compose.yml",
 )
+HISTORICAL_D11B_SOURCE_MAP_DIGEST = (
+    "adac68a739799eb6c29a188ddcf0586b69d4b972c51b639beb51cf5d4f0ddd3a"
+)
+HISTORICAL_D11B_SOURCE_PATHS = (
+    "configs/decision/assets/BTC.yaml",
+    "configs/decision/assets/ETH.yaml",
+    "configs/decision/global.yaml",
+    "configs/models.yaml",
+    "docker-compose.yml",
+    "scripts/certify_decision_d11b_authority_cutover.py",
+    "scripts/decision_d11b_authority_cutover.py",
+    "src/apps/decision_app/bootstrap.py",
+    "src/apps/decision_app/domain/identity.py",
+    "src/apps/decision_app/runtime/live.py",
+    "src/apps/decision_app/runtime/startup.py",
+    "src/apps/decision_app/storage/schema.sql",
+    "src/apps/decision_app/storage/shadow_progress.py",
+    "src/apps/decision_app/transport/signals.py",
+    "src/apps/strategy_app/publishing/signals.py",
+    "src/apps/strategy_app/runtime/worker.py",
+    "src/apps/strategy_app/runtime_pairs.py",
+    "src/apps/strategy_app/settings.py",
+    "src/apps/strategy_app/strategy_worker.py",
+    "src/libs/common/signal_authority.py",
+    "tests/combined/d11b_harness.py",
+    "tests/combined/d11b_real.py",
+    "tests/combined/fixtures/d11b/docker-compose.yml",
+    "tests/combined/integration/test_decision_d11b_authority_cutover.py",
+    "tests/decision/test_d11b_authority_cutover.py",
+    "tests/decision/test_d11b_certification.py",
+    "tests/decision/test_d9a_settings_and_history.py",
+)
+HISTORICAL_D11B_PRODUCTION_CONFIG_HASHES = {
+    "configs/decision/assets/BTC.yaml": "adbd011928ce80ee028cf72db5116f55dd758f7976244469defa329be7e76cdd",
+    "configs/decision/assets/ETH.yaml": "a4220a9297e93ab96642e0fda6472349efeda867266a0850a326fc8adc7ca5b3",
+    "configs/decision/global.yaml": "d313584b082de513fcc652e0307df9d5b0e119c178331f5ef6be73d6e047ca75",
+    "configs/execution.yaml": "52962515e2582aa735a1f2c58337feedbde096ce22ec012d364b1c2a298b20ee",
+    "configs/models.yaml": "cc27b2958b97ccedb1c9b4cc357b0068015ca090cd6c3f811b16a22249ef7802",
+    "configs/risk.yaml": "b70044e2a2282326d28e2b24c2b4492423847f4d8bb7de2c18e703ab92e8dc24",
+    "docker-compose.yml": "b24d6823e4a128e1a9e716772c83c50871fc89b3f3f81830b2365cebdc412df1",
+}
 ARTIFACT_PATH = (
     ROOT / "artifacts/decision_d11b/d11b_authority_cutover_certification.json"
 )
@@ -132,6 +173,20 @@ def protected_hashes() -> dict[str, str]:
 
 def current_source_hashes() -> dict[str, str]:
     return {path: file_sha256(ROOT / path) for path in SOURCE_PATHS}
+
+
+def historical_source_lock(source_hashes: object) -> bool:
+    """Validate frozen D11B source evidence, not evolved checkout bytes."""
+
+    return (
+        isinstance(source_hashes, Mapping)
+        and set(source_hashes) == set(HISTORICAL_D11B_SOURCE_PATHS)
+        and sha256_fingerprint(source_hashes) == HISTORICAL_D11B_SOURCE_MAP_DIGEST
+    )
+
+
+def historical_production_config_lock(config_hashes: object) -> bool:
+    return config_hashes == HISTORICAL_D11B_PRODUCTION_CONFIG_HASHES
 
 
 def production_config_hashes() -> dict[str, str]:
@@ -562,12 +617,13 @@ def _cutback_gate(raw: Mapping[str, object]) -> bool:
             progress_cutoff_ms=progress[route],
             timeframe="1h" if route.endswith("1h") else "4h",
         )
-        selected_core = {
-            key: selected[route].get(key)
-            for key in result
-            if isinstance(selected[route], Mapping)
-        }
-        if result != selected_core:
+        selected_item = selected[route]
+        if not isinstance(selected_item, Mapping):
+            return False
+        if any(
+            key in selected_item and selected_item[key] != value
+            for key, value in result.items()
+        ):
             return False
     return True
 
@@ -1044,8 +1100,8 @@ def evaluate_artifact(
         "measured_evidence_origin": _measured_evidence_origin(raw),
         "protected_evidence": protected == EXPECTED_PROTECTED_HASHES
         and protected_hashes() == EXPECTED_PROTECTED_HASHES,
-        "source_lock": sources == current_source_hashes(),
-        "production_config_lock": configs == production_config_hashes()
+        "source_lock": historical_source_lock(sources),
+        "production_config_lock": historical_production_config_lock(configs)
         and set(Path(ROOT / "configs/decision/assets").glob("*.yaml"))
         == {
             ROOT / "configs/decision/assets/BTC.yaml",

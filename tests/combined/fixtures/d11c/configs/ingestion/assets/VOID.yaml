@@ -1,0 +1,16 @@
+asset: VOID
+enabled: false
+owns_manifest_lifecycle: false
+instruments:
+  VOID-USDT-PERP:
+    venue: binance
+    market_type: perpetual
+    base_asset: VOID
+    quote_asset: USDT
+    settlement_asset: USDT
+    live_provider: binance_native
+    historical_providers: []
+    provider_symbols:
+      binance_native: VOIDUSDT
+    timeframes:
+      - 1m

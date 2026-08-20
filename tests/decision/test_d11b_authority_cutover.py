@@ -24,10 +24,14 @@ from libs.common.signal_authority import (
     signal_authority_key,
     signal_route_from_stream,
 )
+from libs.contracts.serialization import valkey_encode
+from libs.contracts.signal import FeatureVector
 from scripts.decision_d11b_authority_cutover import (
     D11BAuthorityController,
     cutback_fast_forward_boundary,
+    cutback_fast_forward_group,
     feature_close_cutoff_ms,
+    market_bar_identity_fingerprint,
     signal_head_preflight,
     timeframe_duration_ms,
     validate_group_quiescence,
@@ -135,6 +139,177 @@ def test_cutback_fast_forward_rejects_a_trimmed_interval() -> None:
         timeframe="1h",
     )
     assert result["no_legacy_cutoff_skipped"] is False
+
+
+def _cutback_entry(
+    entry_id: str,
+    cutoff_ms: int,
+    *,
+    bar_close: float = 100.0,
+    features: dict[str, object] | None = None,
+) -> dict[str, object]:
+    entry = {
+        "id": entry_id,
+        "timestamp_ms": cutoff_ms - 3_600_000,
+        "asset": "BTCUSDT",
+        "timeframe": "1h",
+        "bar_data": {
+            "open": bar_close,
+            "high": bar_close + 1.0,
+            "low": bar_close - 1.0,
+            "close": bar_close,
+            "volume": 10.0,
+        },
+        "features": features or {},
+    }
+    entry["bar_identity_fingerprint"] = market_bar_identity_fingerprint(entry)
+    return entry
+
+
+@pytest.mark.parametrize(
+    ("cutoffs", "progress", "expected", "expected_setid"),
+    [
+        ([0, 0, 3_600_000], 0, True, "2-0"),
+        ([0, 0, 0, 3_600_000], 0, True, "3-0"),
+        ([0, 0, 3_600_000, 7_200_000], 3_600_000, True, "3-0"),
+        ([0, 0, 7_200_000], 0, False, "2-0"),
+        ([0, 3_600_000, 0], 0, False, "3-0"),
+        ([0, 3_600_000, 3_600_000], 0, False, "1-0"),
+    ],
+)
+def test_cutback_logical_runs_validate_duplicates_and_continuity(
+    cutoffs: list[int],
+    progress: int,
+    expected: bool,
+    expected_setid: str,
+) -> None:
+    result = cutback_fast_forward_boundary(
+        [
+            _cutback_entry(f"{index}-0", 1_700_000_000_000 + cutoff)
+            for index, cutoff in enumerate(cutoffs, 1)
+        ],
+        progress_cutoff_ms=1_700_000_000_000 + progress,
+        timeframe="1h",
+    )
+    assert result["no_legacy_cutoff_skipped"] is expected
+    assert result["last_id_through_progress"] == expected_setid
+
+
+def test_cutback_requires_exact_progress_cutoff() -> None:
+    result = cutback_fast_forward_boundary(
+        [_cutback_entry("1-0", 1_700_000_000_000)],
+        progress_cutoff_ms=1_700_003_600_000,
+        timeframe="1h",
+    )
+    assert result["progress_cutoff_present"] is False
+    assert result["no_legacy_cutoff_skipped"] is False
+
+
+def test_cutback_rejects_conflicting_same_cutoff_market_bars() -> None:
+    result = cutback_fast_forward_boundary(
+        [
+            _cutback_entry("1-0", 1_700_000_000_000),
+            _cutback_entry("2-0", 1_700_000_000_000, bar_close=101.0),
+            _cutback_entry("3-0", 1_700_003_600_000),
+        ],
+        progress_cutoff_ms=1_700_000_000_000,
+        timeframe="1h",
+    )
+    assert result["market_bar_duplicate_identity_consistent"] is False
+    assert result["no_legacy_cutoff_skipped"] is False
+
+
+def test_cutback_ignores_feature_recomputation_inside_decision_owned_run() -> None:
+    first = _cutback_entry("1-0", 1_700_000_000_000, features={"rsi": 40.0})
+    second = _cutback_entry("2-0", 1_700_000_000_000, features={"rsi": 60.0})
+    result = cutback_fast_forward_boundary(
+        [first, second, _cutback_entry("3-0", 1_700_003_600_000)],
+        progress_cutoff_ms=1_700_000_000_000,
+        timeframe="1h",
+    )
+    assert result["market_bar_duplicate_identity_consistent"] is True
+    assert result["no_legacy_cutoff_skipped"] is True
+
+
+class _CutbackGroupClient:
+    def __init__(self, entries: list[tuple[str, dict[str, str]]], anchor: str):
+        self.entries = entries
+        self.group = {
+            "name": "strategy_app_group",
+            "pending": 0,
+            "lag": 0,
+            "last-delivered-id": anchor,
+        }
+        self.setid: str | None = None
+
+    async def xinfo_groups(self, _stream_key: str):
+        return [self.group]
+
+    async def xrange(self, _stream_key: str, _start: str, _end: str):
+        return self.entries
+
+    async def xgroup_setid(self, _stream_key: str, _group_name: str, value: str):
+        self.setid = value
+        self.group["last-delivered-id"] = value
+
+
+@pytest.mark.asyncio
+async def test_real_cutback_selects_last_duplicate_id_and_preserves_anchor() -> None:
+    base = 1_700_000_000_000
+    vectors = [
+        FeatureVector(
+            asset="BTCUSDT",
+            timeframe="1h",
+            timestamp=base - 3_600_000,
+            bar_data={
+                "open": 100.0,
+                "high": 101.0,
+                "low": 99.0,
+                "close": 100.0,
+                "volume": 10.0,
+            },
+        )
+        for _ in range(3)
+    ]
+    client = _CutbackGroupClient(
+        [
+            (f"{index}-0", valkey_encode(vector))
+            for index, vector in enumerate(vectors, 1)
+        ],
+        "1-0",
+    )
+    result = await cutback_fast_forward_group(
+        client,
+        stream_key="features:BTCUSDT:1h",
+        group_name="strategy_app_group",
+        progress_cutoff_ms=base,
+        timeframe="1h",
+    )
+    assert client.setid == "3-0"
+    assert result["setid"] == "3-0"
+    assert result["anchor_retained"] is True
+
+
+@pytest.mark.asyncio
+async def test_real_cutback_blocks_when_group_anchor_was_trimmed() -> None:
+    vector = FeatureVector(
+        asset="BTCUSDT",
+        timeframe="1h",
+        timestamp=1_700_000_000_000,
+        bar_data={"open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0, "volume": 1.0},
+    )
+    client = _CutbackGroupClient(
+        [("2-0", valkey_encode(vector))],
+        "1-0",
+    )
+    with pytest.raises(RuntimeError, match="cannot prove the group anchor"):
+        await cutback_fast_forward_group(
+            client,
+            stream_key="features:BTCUSDT:1h",
+            group_name="strategy_app_group",
+            progress_cutoff_ms=1_700_003_600_000,
+            timeframe="1h",
+        )
 
 
 def test_group_quiescence_is_fail_closed() -> None:

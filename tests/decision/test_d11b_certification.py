@@ -112,6 +112,29 @@ def test_d11b_stored_artifact_recomputes_to_ready() -> None:
     assert all(gates.values())
 
 
+def test_d11b_historical_source_lock_is_frozen_and_allows_evolved_cutback() -> None:
+    artifact = json.loads(d11b_harness.ARTIFACT_PATH.read_text(encoding="utf-8"))
+    assert d11b_harness.historical_source_lock(artifact["source_hashes"])
+    assert (
+        d11b_harness.current_source_hashes()[
+            "scripts/decision_d11b_authority_cutover.py"
+        ]
+        != artifact["source_hashes"]["scripts/decision_d11b_authority_cutover.py"]
+    )
+
+    tampered = copy.deepcopy(artifact)
+    tampered["source_hashes"]["scripts/decision_d11b_authority_cutover.py"] = "0" * 64
+    gates, status = evaluate_artifact(tampered)
+    assert status != SUCCESS_STATUS
+    assert gates["source_lock"] is False
+
+
+def test_d11b_protected_artifact_hash_remains_exact() -> None:
+    assert d11b_harness.file_sha256(d11b_harness.ARTIFACT_PATH) == (
+        "9bf16504f114eae000fc4006712731e93f15815c0827cf18af8864aa4f74b05d"
+    )
+
+
 def test_d11b_all_cutover_boundaries_fail_closed_when_tampered() -> None:
     cases = (
         (

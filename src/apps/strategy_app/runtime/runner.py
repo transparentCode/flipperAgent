@@ -6,9 +6,11 @@ from collections.abc import Callable
 from typing import Any
 
 from valkey.exceptions import TimeoutError as ValkeyTimeoutError
+from valkey.exceptions import ValkeyError
 
 from apps.strategy_app.control import StrategyControlStore, StrategyDesiredState
 from apps.strategy_app.observability.runtime_state import StrategyRuntimeStateStore
+from apps.strategy_app.publishing.signals import StrategyAuthorityDenied
 from apps.strategy_app.runtime.worker import StrategyWorker
 from apps.strategy_app.settings import StrategyWorkerSettings
 from apps.strategy_app.state import StrategyPair, StrategyPairState
@@ -20,6 +22,12 @@ from libs.common.asset_manifest import (
 from libs.common.enums import SystemComponent
 from libs.common.lifecycle_dedup import mark_lifecycle_event_processed
 from libs.common.logging.logger_utils import bind_logger
+from libs.common.signal_authority import (
+    TARGET_SIGNAL_ROUTES,
+    SignalAuthorityError,
+    SignalAuthorityStore,
+    signal_route_from_stream,
+)
 from libs.common.stream_consumer import ensure_consumer_group
 from libs.contracts.serialization import valkey_decode
 
@@ -34,10 +42,12 @@ class StrategyRuntimeRunner:
         worker_factory: Callable[..., StrategyWorker] | None = None,
         worker_settings: StrategyWorkerSettings | None = None,
         config_manager: Any | None = None,
+        authority_store: SignalAuthorityStore | None = None,
     ) -> None:
         self.worker_factory = worker_factory or StrategyWorker
         self.worker_settings = worker_settings or StrategyWorkerSettings()
         self.config_manager = config_manager
+        self._authority_store = authority_store
         self.redis_client: Any = None
         self._catalog_pairs_by_key: dict[str, StrategyPair] = {
             pair.key: pair for pair in pairs
@@ -53,6 +63,12 @@ class StrategyRuntimeRunner:
 
     async def connect(self, redis_client: Any) -> list[StrategyWorker]:
         self.redis_client = redis_client
+        if (
+            self._authority_store is None
+            and self.worker_settings.signal_authority_enforced
+            and callable(getattr(redis_client, "eval", None))
+        ):
+            self._authority_store = SignalAuthorityStore(redis_client)
         self._runtime_state = StrategyRuntimeStateStore(redis_client)
         self._control_state = StrategyControlStore(redis_client)
         self._manifest_store = AssetManifestStore(redis_client)
@@ -115,15 +131,119 @@ class StrategyRuntimeRunner:
     async def _ensure_pair_started(self, pair: StrategyPair) -> StrategyWorker | None:
         if not pair.enabled or self.redis_client is None:
             return None
+        if not await self._admit_pair(pair):
+            if pair.key in self._worker_tasks:
+                await self._stop_pair(
+                    pair.key,
+                    state=StrategyPairState.STOPPED,
+                    reason="authority_not_strategy_owned",
+                )
+            return None
         if pair.key in self._worker_tasks:
             self._pairs_by_key[pair.key] = pair
             return self._workers_by_key[pair.key]
         worker = self._build_worker(pair)
-        await worker.connect(self.redis_client)
+        managed_authority_pair = self._pair_requires_authority(pair)
+        try:
+            await worker.connect(self.redis_client)
+        except asyncio.CancelledError:
+            raise
+        except (SignalAuthorityError, TypeError, ValueError, ValkeyError) as exc:
+            if not managed_authority_pair:
+                raise
+            reason = f"authority_bind_failed: {exc}"
+            logger.warning("Blocking managed Strategy route %s: %s", pair.key, exc)
+            await self._record_authority_block(pair, reason)
+            await self._cleanup_unregistered_worker(worker)
+            return None
         self._pairs_by_key[pair.key] = pair
         self._workers_by_key[pair.key] = worker
-        self._worker_tasks[pair.key] = asyncio.create_task(worker.start())
+        self._worker_tasks[pair.key] = asyncio.create_task(
+            self._run_worker(pair, worker)
+        )
         return worker
+
+    async def _run_worker(self, pair: StrategyPair, worker: StrategyWorker) -> None:
+        try:
+            await worker.start()
+        except asyncio.CancelledError:
+            raise
+        except (SignalAuthorityError, StrategyAuthorityDenied, ValkeyError) as exc:
+            if not self._pair_requires_authority(pair):
+                raise
+            reason = f"authority_runtime_failed: {exc}"
+            logger.warning("Blocking managed Strategy route %s: %s", pair.key, exc)
+            await self._record_authority_block(pair, reason)
+            return
+
+    def _pair_requires_authority(self, pair: StrategyPair) -> bool:
+        if not self.worker_settings.signal_authority_enforced:
+            return False
+        route = signal_route_from_stream(f"signals:{pair.asset}:{pair.timeframe}")
+        return route in TARGET_SIGNAL_ROUTES
+
+    async def _admit_pair(self, pair: StrategyPair) -> bool:
+        """Apply authority-owned pair admission before creating a worker."""
+
+        if not self._pair_requires_authority(pair):
+            return True
+        route = signal_route_from_stream(f"signals:{pair.asset}:{pair.timeframe}")
+        if self._authority_store is None:
+            logger.warning(
+                "Blocking managed Strategy route %s: authority store unavailable",
+                route,
+            )
+            return False
+        try:
+            record = await self._authority_store.read(route)
+        except (SignalAuthorityError, TypeError, ValueError, ValkeyError) as exc:
+            logger.warning("Blocking managed Strategy route %s: %s", route, exc)
+            await self._record_authority_block(pair, f"authority_read_failed: {exc}")
+            return False
+        if record is None or record.owner != "strategy":
+            owner = None if record is None else record.owner
+            logger.info(
+                "Skipping managed Strategy route %s because owner is %s",
+                route,
+                owner or "missing",
+            )
+            await self._record_authority_block(
+                pair,
+                "authority_not_strategy_owned"
+                if record is not None
+                else "authority_missing",
+            )
+            return False
+        return True
+
+    async def _record_authority_block(self, pair: StrategyPair, reason: str) -> None:
+        if self._runtime_state is None:
+            return
+        try:
+            await self._runtime_state.update(
+                pair,
+                state=StrategyPairState.DEGRADED,
+                last_error=reason,
+                replace_last_error=True,
+                detail={"phase": "authority", "reason": reason},
+            )
+        except (ValkeyError, TypeError, ValueError) as exc:
+            logger.warning("Could not record authority block for %s: %s", pair.key, exc)
+
+    async def _cleanup_unregistered_worker(self, worker: StrategyWorker) -> None:
+        for name in ("stop", "close", "disconnect"):
+            cleanup = getattr(worker, name, None)
+            if not callable(cleanup):
+                continue
+            try:
+                result = cleanup()
+                if inspect.isawaitable(result):
+                    await result
+            except asyncio.CancelledError:
+                raise
+            except (ValkeyError, TypeError, ValueError) as exc:
+                logger.debug("Authority-blocked worker cleanup failed: %s", exc)
+            break
 
     async def _stop_pair(
         self,
@@ -284,6 +404,25 @@ class StrategyRuntimeRunner:
                     continue
                 error = task.exception()
                 if error is not None:
+                    pair = self._pairs_by_key.get(pair_key)
+                    if (
+                        pair is not None
+                        and self._pair_requires_authority(pair)
+                        and isinstance(
+                            error,
+                            (
+                                SignalAuthorityError,
+                                StrategyAuthorityDenied,
+                                ValkeyError,
+                            ),
+                        )
+                    ):
+                        reason = f"authority_runtime_failed: {error}"
+                        logger.warning(
+                            "Blocking managed Strategy route %s: %s", pair.key, error
+                        )
+                        await self._record_authority_block(pair, reason)
+                        continue
                     raise error
             await asyncio.sleep(0.1)
 
@@ -302,6 +441,12 @@ class StrategyRuntimeRunner:
             kwargs["base_timeframe"] = pair.base_timeframe
         if "allowed_model_names" in parameters:
             kwargs["allowed_model_names"] = list(pair.model_names)
+        if (
+            "authority_store" in parameters
+            and self.worker_settings.signal_authority_enforced
+            and self._authority_store is not None
+        ):
+            kwargs["authority_store"] = self._authority_store
         return self.worker_factory(pair.asset, pair.timeframe, **kwargs)
 
     def _desired_pairs_for_event(

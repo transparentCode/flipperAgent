@@ -71,3 +71,8 @@ docker compose up -d db broker ingestion signal-worker
 Keep trading services stopped during operational certification. See
 [`ingestion_operations.md`](ingestion_operations.md) for health,
 restart, retention, and destructive-Valkey recovery procedures.
+
+Authority-aware Decision/Strategy promotion and rollback are documented in
+[`decision_authority_operations.md`](decision_authority_operations.md). Do not
+blindly restart the default topology during a handoff; `prepare` and the
+post-stop boundary/Risk ordering are required.
