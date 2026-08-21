@@ -1,176 +1,142 @@
 {
-  "annotations": {
-    "list": []
-  },
+  "annotations": {"list": []},
   "editable": true,
-  "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "links": [],
   "panels": [
     {
-      "title": "Pipeline Message Rate",
-      "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": {
-        "defaults": {
-          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 },
-          "unit": "ops"
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "expr": "sum(rate(stream_message_processed_total[5m])) by (service_name)",
-          "legendFormat": "{{service_name}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "title": "Pipeline Error Rate",
-      "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": {
-        "defaults": {
-          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 },
-          "color": { "mode": "palette-classic" },
-          "unit": "ops"
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "expr": "sum(rate(stream_message_error_total[5m])) by (service_name)",
-          "legendFormat": "{{service_name}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "title": "Message Processing Latency (p50/p95/p99)",
-      "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": {
-        "defaults": {
-          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 5 },
-          "unit": "ms"
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.50, sum(rate(stream_message_duration_ms_bucket[5m])) by (le, service_name))",
-          "legendFormat": "p50 {{service_name}}",
-          "refId": "A"
-        },
-        {
-          "expr": "histogram_quantile(0.95, sum(rate(stream_message_duration_ms_bucket[5m])) by (le, service_name))",
-          "legendFormat": "p95 {{service_name}}",
-          "refId": "B"
-        },
-        {
-          "expr": "histogram_quantile(0.99, sum(rate(stream_message_duration_ms_bucket[5m])) by (le, service_name))",
-          "legendFormat": "p99 {{service_name}}",
-          "refId": "C"
-        }
-      ]
-    },
-    {
-      "title": "Stream Lag (Pending Messages)",
-      "type": "gauge",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 50 },
-              { "color": "red", "value": 200 }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "expr": "stream_lag_pending_messages",
-          "legendFormat": "{{stream}} / {{group}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "title": "Active Traces",
-      "type": "table",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
-      "datasource": { "type": "tempo", "uid": "tempo" },
-      "targets": [
-        {
-          "queryType": "nativeSearch",
-          "limit": 20,
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "title": "Recent Logs",
-      "type": "logs",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
-      "datasource": { "type": "loki", "uid": "loki" },
-      "targets": [
-        {
-          "expr": "{service_name=~\".+\"}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "title": "Per-App Processed (last 1m)",
+      "title": "Ingestion and Decision overview",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 24 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "steps": [
-              { "color": "red", "value": null },
-              { "color": "yellow", "value": 1 },
-              { "color": "green", "value": 10 }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
+      "gridPos": {"h": 6, "w": 24, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [
-        {
-          "expr": "sum(increase(stream_message_processed_total[1m])) by (service_name)",
-          "legendFormat": "{{service_name}}",
-          "refId": "A"
-        }
+        {"expr": "ingestion_runtime_live{service_name=\"ingestion\"}", "legendFormat": "ingestion live", "refId": "A"},
+        {"expr": "ingestion_websocket_connected{service_name=\"ingestion\"}", "legendFormat": "websocket", "refId": "B"},
+        {"expr": "ingestion_outbox_pending{service_name=\"ingestion\"}", "legendFormat": "outbox pending", "refId": "C"},
+        {"expr": "decision_service_state{service_name=\"decision\"}", "legendFormat": "decision {{state}}", "refId": "D"},
+        {"expr": "decision_active_lane_count{service_name=\"decision\"}", "legendFormat": "active lanes", "refId": "E"},
+        {"expr": "decision_blocked_input_count{service_name=\"decision\"}", "legendFormat": "blocked inputs", "refId": "F"}
       ],
-      "options": {
-        "reduceOptions": {
-          "calcs": ["lastNotNull"]
-        },
-        "orientation": "horizontal",
-        "textMode": "auto",
-        "colorMode": "background"
-      }
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "value"}
+    },
+    {
+      "title": "Canonical publication health",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum(rate(ingestion_outbox_publish_total{service_name=\"ingestion\"}[5m]))", "legendFormat": "published", "refId": "A"},
+        {"expr": "sum(rate(ingestion_outbox_publish_failure_total{service_name=\"ingestion\"}[5m]))", "legendFormat": "failed batches", "refId": "B"},
+        {"expr": "ingestion_outbox_pending{service_name=\"ingestion\"}", "legendFormat": "pending", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []}
+    },
+    {
+      "title": "Decision input outcomes",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum(rate(decision_input_records_total{service_name=\"decision\"}[5m])) by (outcome)", "legendFormat": "{{outcome}}", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []}
+    },
+    {
+      "title": "Decision lane state",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "decision_lane_state{service_name=\"decision\",lane=~\"$decision_lane\",asset=~\"$decision_asset\",timeframe=~\"$decision_timeframe\"}", "legendFormat": "{{lane}} {{state}}", "refId": "A"},
+        {"expr": "decision_lane_last_disposition{service_name=\"decision\",lane=~\"$decision_lane\",asset=~\"$decision_asset\",timeframe=~\"$decision_timeframe\"}", "legendFormat": "{{lane}} disposition={{outcome}}", "refId": "B"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}
+    },
+    {
+      "title": "Closed interval lag",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "decision_input_closed_interval_lag{service_name=\"decision\",asset=~\"$decision_asset\",timeframe=~\"$decision_timeframe\"}", "legendFormat": "input {{asset}} {{timeframe}}", "refId": "A"},
+        {"expr": "decision_lane_watermark_closed_interval_lag{service_name=\"decision\",lane=~\"$decision_lane\",asset=~\"$decision_asset\",timeframe=~\"$decision_timeframe\"}", "legendFormat": "watermark {{lane}}", "refId": "B"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short", "min": 0}, "overrides": []}
+    },
+    {
+      "title": "Decision market-close latency",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 22},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "histogram_quantile(0.50, sum(rate(decision_input_market_latency_ms_milliseconds_bucket{service_name=\"decision\",outcome=\"INSERTED\"}[5m])) by (le,asset,timeframe))", "legendFormat": "p50 {{asset}} {{timeframe}}", "refId": "A"},
+        {"expr": "histogram_quantile(0.95, sum(rate(decision_input_market_latency_ms_milliseconds_bucket{service_name=\"decision\",outcome=\"INSERTED\"}[5m])) by (le,asset,timeframe))", "legendFormat": "p95 {{asset}} {{timeframe}}", "refId": "B"},
+        {"expr": "histogram_quantile(0.99, sum(rate(decision_input_market_latency_ms_milliseconds_bucket{service_name=\"decision\",outcome=\"INSERTED\"}[5m])) by (le,asset,timeframe))", "legendFormat": "p99 {{asset}} {{timeframe}}", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ms"}, "overrides": []}
+    },
+    {
+      "title": "Canonical-event acceptance latency",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 22},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "histogram_quantile(0.50, sum(rate(decision_input_canonical_event_latency_ms_milliseconds_bucket{service_name=\"decision\",outcome=\"INSERTED\"}[5m])) by (le,asset,timeframe))", "legendFormat": "p50 {{asset}} {{timeframe}}", "refId": "A"},
+        {"expr": "histogram_quantile(0.95, sum(rate(decision_input_canonical_event_latency_ms_milliseconds_bucket{service_name=\"decision\",outcome=\"INSERTED\"}[5m])) by (le,asset,timeframe))", "legendFormat": "p95 {{asset}} {{timeframe}}", "refId": "B"},
+        {"expr": "histogram_quantile(0.99, sum(rate(decision_input_canonical_event_latency_ms_milliseconds_bucket{service_name=\"decision\",outcome=\"INSERTED\"}[5m])) by (le,asset,timeframe))", "legendFormat": "p99 {{asset}} {{timeframe}}", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ms"}, "overrides": []}
+    },
+    {
+      "title": "Decision evaluation and publication",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 30},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum(rate(decision_lane_evaluation_total{service_name=\"decision\"}[5m])) by (outcome)", "legendFormat": "evaluation {{outcome}}", "refId": "A"},
+        {"expr": "sum(rate(decision_publication_total{service_name=\"decision\"}[5m])) by (outcome)", "legendFormat": "publication {{outcome}}", "refId": "B"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []}
+    },
+    {
+      "title": "Rebuilds",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 30},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(decision_rebuild_total{service_name=\"decision\"}[5m])", "legendFormat": "rebuilds", "refId": "A"},
+        {"expr": "rate(decision_rebuild_duration_ms_milliseconds_sum{service_name=\"decision\"}[5m]) / rate(decision_rebuild_duration_ms_milliseconds_count{service_name=\"decision\"}[5m])", "legendFormat": "mean duration", "refId": "B"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ms"}, "overrides": []}
+    },
+    {
+      "title": "Recent pipeline logs",
+      "type": "logs",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 38},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"expr": "{service_name=~\"ingestion|decision\"}", "refId": "A"}]
+    },
+    {
+      "title": "Recent pipeline traces",
+      "type": "table",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 38},
+      "datasource": {"type": "tempo", "uid": "tempo"},
+      "targets": [{"queryType": "nativeSearch", "limit": 20, "refId": "A"}]
     }
   ],
   "schemaVersion": 39,
-  "tags": ["flipperAgent", "pipeline", "observability"],
-  "templating": { "list": [] },
-  "time": { "from": "now-1h", "to": "now" },
-  "timepicker": {},
+  "tags": ["flipperAgent", "ingestion", "decision", "observability"],
+  "templating": {
+    "list": [
+      {"name": "decision_lane", "label": "Lane", "type": "query", "query": "label_values(decision_lane_state{service_name=\"decision\"}, lane)", "includeAll": true, "multi": true, "refresh": 1, "sort": 1},
+      {"name": "decision_asset", "label": "Asset", "type": "query", "query": "label_values(decision_lane_state{service_name=\"decision\"}, asset)", "includeAll": true, "multi": true, "refresh": 1, "sort": 1},
+      {"name": "decision_timeframe", "label": "Timeframe", "type": "query", "query": "label_values(decision_lane_state{service_name=\"decision\"}, timeframe)", "includeAll": true, "multi": true, "refresh": 1, "sort": 1}
+    ]
+  },
+  "time": {"from": "now-1h", "to": "now"},
   "timezone": "browser",
   "title": "Pipeline Health",
   "uid": "flipper-pipeline-health",
-  "version": 1
+  "version": 2
 }

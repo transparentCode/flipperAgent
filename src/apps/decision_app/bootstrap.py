@@ -14,6 +14,7 @@ from apps.decision_app.composition import (
     DecisionComposition,
     build_production_composition,
 )
+from apps.decision_app.observability import DecisionObservability
 from apps.decision_app.runtime.lifecycle import (
     LifecycleNotificationReader,
     capture_lifecycle_tail,
@@ -60,6 +61,7 @@ def build_generation_factory(
     checkpoint_repository: Any,
     shadow_progress_repository: Any | None = None,
     manifest_store: Any | None = None,
+    observability: DecisionObservability | None = None,
     now_fn: Callable[[], datetime] | None = None,
 ) -> GenerationFactory:
     """Create the explicit D9A -> D9B generation builder."""
@@ -138,6 +140,7 @@ def build_generation_factory(
             batch_size=config.global_settings.live_input.batch_size,
             block_ms=config.global_settings.live_input.block_ms,
             now_fn=now_fn,
+            observability=observability,
         )
         created_at = (now_fn or (lambda: datetime.now(UTC)))()
         return DecisionRuntimeGeneration(
@@ -162,6 +165,7 @@ def create_application(
     checkpoint_repository: Any | None = None,
     shadow_progress_repository: Any | None = None,
     manifest_store: AssetManifestStore | None = None,
+    observability: DecisionObservability | None = None,
 ) -> FastAPI:
     """Build the ASGI app without performing I/O until lifespan startup."""
 
@@ -178,10 +182,15 @@ def create_application(
         current_shadow_progress = shadow_progress_repository
         current_manifest_store = manifest_store
         current_lifecycle_reader = lifecycle_reader
+        current_observability = observability
         try:
             if service is None and generation_factory is None:
                 if config is None:
                     config = load_decision_config(config_mgr)
+                if current_observability is None:
+                    current_observability = DecisionObservability(
+                        timeframe_grid=config.timeframe_grid
+                    )
                 if current_stream_client is None:
                     current_stream_client = await create_valkey_client(config_mgr)
                     owned_valkey = True
@@ -216,6 +225,7 @@ def create_application(
                     checkpoint_repository=current_checkpoints,
                     shadow_progress_repository=current_shadow_progress,
                     manifest_store=current_manifest_store,
+                    observability=current_observability,
                 )
                 current_lifecycle_reader = (
                     current_lifecycle_reader
@@ -232,6 +242,7 @@ def create_application(
                     configured_asset_count=len(config.active_assets),
                     configured_lane_count=len(config.lane_specs()),
                     block_ms=config.global_settings.live_input.block_ms,
+                    observability=current_observability,
                 )
             elif service is None:
                 if generation_factory is None:
@@ -239,6 +250,7 @@ def create_application(
                 service = DecisionService(
                     generation_factory=generation_factory,
                     lifecycle_reader=lifecycle_reader,
+                    observability=current_observability,
                     block_ms=(
                         config.global_settings.live_input.block_ms
                         if config is not None
@@ -252,6 +264,7 @@ def create_application(
             app.state.history_repository = current_history
             app.state.checkpoint_repository = current_checkpoints
             app.state.manifest_store = current_manifest_store
+            app.state.decision_observability = current_observability
             if service is not None and service.service_state in {"STARTING", "STOPPED"}:
                 await service.start()
             yield

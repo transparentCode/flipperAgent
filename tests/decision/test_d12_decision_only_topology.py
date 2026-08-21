@@ -19,11 +19,16 @@ from tests.combined.d12_harness import (
     HISTORICAL_D12A_IDENTITY_DIGEST,
     HISTORICAL_D12A_SOURCE_LOCK_COUNT,
     HISTORICAL_D12A_SUCCESS_STATUS,
+    HISTORICAL_D12B_EVIDENCE_DIGEST,
+    HISTORICAL_D12B_IDENTITY_DIGEST,
+    HISTORICAL_D12B_SOURCE_LOCK_COUNT,
+    HISTORICAL_D12B_SOURCE_SHA,
     _current_base_d12a_status,
     _current_d11c_status,
     _decision_authority_seam_scan,
     _deleted_paths_absent,
     _historical_d12a_archive_status,
+    _historical_d12b_archive_status,
     _live_reference_scan,
     _production_decision_routes,
     _production_execution_assets,
@@ -197,6 +202,26 @@ def test_historical_d12a_archive_remains_exact() -> None:
     assert artifact["evidence_digest"] == HISTORICAL_D12A_EVIDENCE_DIGEST
     assert artifact["terminal_status"] == HISTORICAL_D12A_SUCCESS_STATUS
     assert len(artifact["source_locks"]) == HISTORICAL_D12A_SOURCE_LOCK_COUNT
+
+
+def test_historical_d12b_archive_remains_exact() -> None:
+    status = _historical_d12b_archive_status()
+    assert status["valid"] is True
+    artifact = json.loads(D12B_ARTIFACT_FILE.read_text(encoding="utf-8"))
+    current = source_locks()
+    assert (
+        current["configs/alerts.yaml"]
+        != artifact["source_locks"]["configs/alerts.yaml"]
+    )
+    assert (
+        current["src/apps/decision_app/bootstrap.py"]
+        != artifact["source_locks"]["src/apps/decision_app/bootstrap.py"]
+    )
+    assert artifact["identity_digest"] == HISTORICAL_D12B_IDENTITY_DIGEST
+    assert artifact["evidence_digest"] == HISTORICAL_D12B_EVIDENCE_DIGEST
+    assert artifact["source_sha"] == HISTORICAL_D12B_SOURCE_SHA
+    assert artifact["terminal_status"] == D12B_SUCCESS_STATUS
+    assert len(artifact["source_locks"]) == HISTORICAL_D12B_SOURCE_LOCK_COUNT
 
 
 def test_current_base_d12a_archive_and_d11c_binding_are_current() -> None:
@@ -375,8 +400,4 @@ def test_build_artifact_recomputes_final_integrity_contracts() -> None:
 def test_stored_artifact_recomputes_when_present() -> None:
     if not D12B_ARTIFACT_FILE.exists():
         return
-    artifact = json.loads(D12B_ARTIFACT_FILE.read_text(encoding="utf-8"))
-    assert stored_artifact_valid(artifact) is True
-    assert artifact["identity_digest"] == recompute_identity_digest(artifact)
-    assert artifact["evidence_digest"] == recompute_evidence_digest(artifact)
-    assert artifact["terminal_status"] == D12B_SUCCESS_STATUS
+    assert _historical_d12b_archive_status()["valid"] is True

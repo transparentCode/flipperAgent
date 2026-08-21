@@ -60,6 +60,18 @@ CURRENT_BASE_D12A_ARTIFACT_FILE = (
 )
 D12B_SUCCESS_STATUS = "DECISION_D12B_COMPLETE_LEGACY_RETIREMENT_READY_FOR_REVIEW"
 D12B_BLOCKED_STATUS = "DECISION_D12B_COMPLETE_LEGACY_RETIREMENT_BLOCKED"
+HISTORICAL_D12B_SHA256 = (
+    "64621d3309240302f9aaef4c17f47bd2df9755904e12d6df8c5b1bb3435b6a74"
+)
+HISTORICAL_D12B_IDENTITY_DIGEST = (
+    "868b86753806c6c5f84bc806a482681d982ae5e4e1c043bb8d71a4f835242234"
+)
+HISTORICAL_D12B_EVIDENCE_DIGEST = (
+    "d159bdb58b09ba2508eeaee31e9bcf260eb851142fb7618a95378278a3d82f73"
+)
+HISTORICAL_D12B_SOURCE_SHA = "ad6873a258a898a55bd148ebecba51857648414a"
+HISTORICAL_D12B_SOURCE_LOCK_COUNT = 47
+HISTORICAL_D12B_GATE_COUNT = 62
 STARTUP_COUNT = 544
 EXPECTED_SERVICES = (
     "db",
@@ -1396,6 +1408,28 @@ def _historical_d12a_archive_status() -> dict[str, object]:
         and all(bool(value) for value in gates.values()),
         "source_lock_count_exact": len(artifact.get("source_locks", {}))
         == HISTORICAL_D12A_SOURCE_LOCK_COUNT,
+    }
+    status["valid"] = all(status.values())
+    return status
+
+
+def _historical_d12b_archive_status() -> dict[str, object]:
+    artifact = json.loads(D12B_ARTIFACT_FILE.read_text(encoding="utf-8"))
+    gates = artifact.get("gates", {})
+    status = {
+        "artifact_sha256_exact": file_sha256(D12B_ARTIFACT_FILE)
+        == HISTORICAL_D12B_SHA256,
+        "identity_digest_exact": artifact.get("identity_digest")
+        == HISTORICAL_D12B_IDENTITY_DIGEST,
+        "evidence_digest_exact": artifact.get("evidence_digest")
+        == HISTORICAL_D12B_EVIDENCE_DIGEST,
+        "source_sha_exact": artifact.get("source_sha") == HISTORICAL_D12B_SOURCE_SHA,
+        "terminal_status_exact": artifact.get("terminal_status") == D12B_SUCCESS_STATUS,
+        "gate_count_exact": len(gates) == HISTORICAL_D12B_GATE_COUNT,
+        "stored_gates_true": bool(gates)
+        and all(bool(value) for value in gates.values()),
+        "source_lock_count_exact": len(artifact.get("source_locks", {}))
+        == HISTORICAL_D12B_SOURCE_LOCK_COUNT,
     }
     status["valid"] = all(status.values())
     return status

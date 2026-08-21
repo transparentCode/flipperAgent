@@ -4,8 +4,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from apps.alert_app.contracts import AlertIncidentState
-from apps.alert_app.runtime.reconciler import AlertFreshnessReconciler
+from apps.alert_app.contracts import AlertIncidentState, AlertSourceApp
+from apps.alert_app.runtime.reconciler import (
+    AlertFreshnessReconciler,
+    _source_app_from_value,
+)
 from apps.scraper_app.core.models import (
     ScrapeDataset,
     ScrapeIntent,
@@ -29,6 +32,15 @@ class _FakeIncidentService:
 
     async def incident_for_dedupe(self, dedupe_key: str):
         return self.by_dedupe.get(dedupe_key)
+
+
+class _HealthIncidentService(_FakeIncidentService):
+    async def record_event(self, event, *, route_names):
+        self.events.append((event, route_names))
+        self.by_dedupe[event.dedupe_key] = SimpleNamespace(
+            state=AlertIncidentState.OPEN
+        )
+        return object(), True
 
 
 class _FakeRedis:
@@ -74,8 +86,8 @@ class _FakeRedis:
 
 
 class _FakeConfig:
-    def get(self, key: str, default=None):
-        values = {
+    def __init__(self) -> None:
+        self.values = {
             "alerts.freshness.scraper.worker_running_timeout_seconds": 50,
             "alerts.freshness.scraper.success_stale_threshold_seconds": 50,
             "alerts.freshness.signal.max_lag_seconds": 50,
@@ -89,10 +101,20 @@ class _FakeConfig:
                     "healthy_statuses": ["ready"],
                 }
             },
+            "alerts.policies": {"default": {"routes": ["system_alerts"]}},
             "alerts.policies.default": {"routes": ["system_alerts"]},
+            "alerts.routes": {
+                "system_alerts": {
+                    "enabled": True,
+                    "transport": "webhook",
+                    "destination": "system",
+                }
+            },
             "alerts.routes.system_alerts": None,
         }
-        return values.get(key, default)
+
+    def get(self, key: str, default=None):
+        return self.values.get(key, default)
 
 
 async def _healthy(_config):
@@ -168,8 +190,66 @@ async def test_probe_health_check_uses_v2_ready_status(
     }
 
 
+def test_decision_health_source_identity_normalizes_without_system_fallback() -> None:
+    assert _source_app_from_value("decision") is AlertSourceApp.DECISION
+    assert _source_app_from_value("decision_app") is AlertSourceApp.DECISION
+
+
 @pytest.mark.asyncio
-async def test_reconciler_emits_signal_strategy_scraper_and_health_events(monkeypatch) -> None:
+async def test_decision_health_breach_and_recovery_preserve_source_identity() -> None:
+    incident_service = _HealthIncidentService()
+    config = _FakeConfig()
+    config.values["alerts.health_checks"] = {
+        "decision_runtime": {
+            "enabled": True,
+            "url": "http://decision:8004/health/ready",
+            "source_app": "decision",
+            "startup_grace_seconds": 0,
+            "healthy_statuses": ["ready"],
+        }
+    }
+    reconciler = AlertFreshnessReconciler(
+        redis_client=_FakeRedis(),
+        incident_service=incident_service,
+        config_manager=config,
+        interval_seconds=1,
+    )
+    probe_results = iter(
+        (
+            {
+                "healthy": False,
+                "http_status": 503,
+                "status": "not_ready",
+                "error": None,
+            },
+            {
+                "healthy": True,
+                "http_status": 200,
+                "status": "ready",
+                "error": None,
+            },
+        )
+    )
+
+    async def probe_health_check(_config):
+        return next(probe_results)
+
+    reconciler._probe_health_check = probe_health_check
+
+    await reconciler._reconcile_health_checks(200.0)
+    await reconciler._reconcile_health_checks(201.0)
+
+    assert [event.source_app for event, _routes in incident_service.events] == [
+        AlertSourceApp.DECISION,
+        AlertSourceApp.DECISION,
+    ]
+    assert incident_service.events[0][1] == ["system_alerts"]
+
+
+@pytest.mark.asyncio
+async def test_reconciler_emits_signal_strategy_scraper_and_health_events(
+    monkeypatch,
+) -> None:
     incident_service = _FakeIncidentService()
     reconciler = AlertFreshnessReconciler(
         redis_client=_FakeRedis(),
@@ -191,7 +271,9 @@ async def test_reconciler_emits_signal_strategy_scraper_and_health_events(monkey
     assert "scraper_failure" in event_types
     assert "system_health_breach" in event_types
     health_event = next(
-        event for event, _routes in incident_service.events if event.event_type.value == "system_health_breach"
+        event
+        for event, _routes in incident_service.events
+        if event.event_type.value == "system_health_breach"
     )
     assert "ingestion:8003/health/ready" in health_event.summary
 
@@ -266,7 +348,10 @@ async def test_reconciler_emits_scraper_runtime_failure(monkeypatch) -> None:
     monkeypatch.setattr(reconciler_module.time, "time", lambda: 200.0)
     await reconciler.reconcile_once()
 
-    assert any(event.title == "Scraper runtime failed for fetch_tv_indices" for event, _ in incident_service.events)
+    assert any(
+        event.title == "Scraper runtime failed for fetch_tv_indices"
+        for event, _ in incident_service.events
+    )
 
 
 @pytest.mark.asyncio
@@ -291,4 +376,6 @@ async def test_reconciler_emits_health_recovery_for_open_incident(monkeypatch) -
     monkeypatch.setattr(reconciler_module.time, "time", lambda: 200.0)
     await reconciler.reconcile_once()
 
-    assert [event.event_type.value for event, _ in incident_service.events] == ["recovery"]
+    assert [event.event_type.value for event, _ in incident_service.events] == [
+        "recovery"
+    ]

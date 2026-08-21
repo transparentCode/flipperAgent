@@ -27,6 +27,7 @@ from apps.decision_app.domain.view import (
     MarketViewNotReadyError,
 )
 from apps.decision_app.features.engine import FeatureEngine
+from apps.decision_app.observability import DecisionObservability
 from apps.decision_app.planning.planner import ResolvedLanePlan
 from apps.decision_app.planning.readiness import (
     compile_lane_causal_history_requirements,
@@ -227,6 +228,7 @@ class LiveDecisionRuntime:
         batch_size: int = 10,
         block_ms: int = 1000,
         now_fn: Callable[[], datetime] | None = None,
+        observability: DecisionObservability | None = None,
     ) -> None:
         if not isinstance(startup, DecisionStartupResult):
             raise TypeError("startup must be DecisionStartupResult")
@@ -273,6 +275,11 @@ class LiveDecisionRuntime:
             else policy_catalog
         )
         self._now_fn = now_fn or (lambda: datetime.now(UTC))
+        if observability is not None and not isinstance(
+            observability, DecisionObservability
+        ):
+            raise TypeError("observability must be DecisionObservability or None")
+        self._observability = observability
         if price_relay is not None and not isinstance(price_relay, PriceRelay):
             raise TypeError("price_relay must be PriceRelay or None")
         self._price_relay = price_relay
@@ -367,12 +374,13 @@ class LiveDecisionRuntime:
 
         poll_evidence = {lane_id: _LanePollEvidence() for lane_id in self._lanes}
         if evaluate_lanes and not await self._drain_startup_catchup(poll_evidence):
+            lane_results = {
+                lane_id: self._lane_result(live_lane, poll_evidence[lane_id])
+                for lane_id, live_lane in sorted(self._lanes.items())
+            }
             return DecisionPollResult(
                 input_results=(),
-                lane_results={
-                    lane_id: self._lane_result(live_lane, poll_evidence[lane_id])
-                    for lane_id, live_lane in sorted(self._lanes.items())
-                },
+                lane_results=lane_results,
                 cursors=self._reader.cursors,
                 relay_results={},
             )
@@ -408,6 +416,7 @@ class LiveDecisionRuntime:
                     failure.reason or "malformed input",
                 )
                 input_results.append(failure)
+                self._record_input_result(failure, accepted_at=self._now())
                 affected_relays = self._mark_series_failure(
                     failure.series_key,
                     failure.reason or "malformed input",
@@ -455,7 +464,9 @@ class LiveDecisionRuntime:
                     if stream_key in failed_streams:
                         continue
                     result = await self._reader.accept(pending)
+                    accepted_at = self._now()
                     input_results.append(result)
+                    self._record_input_result(result, accepted_at=accepted_at)
                     if result.disposition in {
                         "RECONSTRUCTION_REQUIRED",
                         "CONFLICT",
@@ -696,6 +707,11 @@ class LiveDecisionRuntime:
             self._halt_lane(live_lane, "INVALID", reason)
             return
         evidence.policy_status = evaluation.status
+        if self._observability is not None:
+            self._observability.record_lane_evaluation(
+                lane_id=live_lane.lane_id,
+                outcome=evaluation.status,
+            )
         if evaluation.status in {"BLOCKED", "INVALID"}:
             try:
                 receipt = live_lane.finalizer.abort_policy_failure(prepared, evaluation)
@@ -727,6 +743,11 @@ class LiveDecisionRuntime:
                         "shadow publisher returned invalid acknowledgement"
                     )
                 evidence.publication_outcome = acknowledgement.outcome
+                if self._observability is not None:
+                    self._observability.record_publication(
+                        lane_id=live_lane.lane_id,
+                        outcome=acknowledgement.outcome,
+                    )
                 receipt = live_lane.finalizer.finalize_shadow(
                     prepared,
                     evaluation,
@@ -754,6 +775,11 @@ class LiveDecisionRuntime:
                 if not isinstance(acknowledgement, SignalPublicationAck):
                     raise LiveRuntimeHalt("publisher returned invalid acknowledgement")
                 evidence.publication_outcome = acknowledgement.outcome
+                if self._observability is not None:
+                    self._observability.record_publication(
+                        lane_id=live_lane.lane_id,
+                        outcome=acknowledgement.outcome,
+                    )
                 receipt = live_lane.finalizer.finalize_signal(
                     prepared,
                     evaluation,
@@ -1054,6 +1080,18 @@ class LiveDecisionRuntime:
             checkpoint_result=evidence.checkpoint_result,
             reason=live_lane.reason,
         )
+
+    def _record_input_result(
+        self,
+        result: InputRecordResult,
+        *,
+        accepted_at: datetime,
+    ) -> None:
+        if self._observability is not None:
+            self._observability.record_input_result(
+                result,
+                accepted_at=accepted_at,
+            )
 
     def _now(self) -> datetime:
         value = self._now_fn()

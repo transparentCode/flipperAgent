@@ -123,6 +123,14 @@ alerts:
       startup_grace_seconds: 60
       healthy_statuses:
         - ready
+    decision_runtime:
+      enabled: true
+      source_app: decision
+      url: http://decision:8004/health/ready
+      timeout_seconds: 5
+      startup_grace_seconds: 60
+      healthy_statuses:
+        - ready
     scraper_service:
       enabled: true
       source_app: scraper_app

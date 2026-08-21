@@ -17,6 +17,7 @@ from apps.decision_app.features.planning import (
     FeaturePolicy,
     SharedFeatureDefinition,
 )
+from apps.decision_app.observability import DecisionObservability
 from apps.decision_app.planning.catalog import PluginCatalog
 from apps.decision_app.runtime.live import LiveDecisionRuntime
 from apps.decision_app.runtime.plugins import (
@@ -81,6 +82,7 @@ from tests.decision.test_d9a_real_sr_startup import (
 from tests.decision.test_d9a_real_sr_startup import (
     _stream_fields as sr_stream_fields,
 )
+from tests.decision.test_observability import _Meter
 
 SIGNAL_BASE = datetime(2026, 2, 1, tzinfo=UTC)
 SIGNAL_GRID = TimeframeGrid(
@@ -717,6 +719,12 @@ async def test_signal_path_publishes_exact_id_then_finalizes() -> None:
     )
     startup = await _signal_coordinator(history, stream).start()
     publisher_client = _IsolatedSignalClient()
+    meter = _Meter()
+    observability = DecisionObservability(
+        meter=meter,
+        timeframe_grid=SIGNAL_GRID,
+        now_fn=lambda: datetime(2026, 2, 2, 0, 0, tzinfo=UTC),
+    )
     runtime = LiveDecisionRuntime(
         startup=startup,
         timeframe_grid=SIGNAL_GRID,
@@ -724,6 +732,11 @@ async def test_signal_path_publishes_exact_id_then_finalizes() -> None:
         history_repository=history,
         signal_publisher=ValkeySignalPublisher(publisher_client),
         now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+        observability=observability,
+    )
+    observability.replace_generation(
+        runtime=runtime,
+        input_series=startup.snapshot.series_positions,
     )
     stream.pending.append(("3-0", _signal_fields(3)))
     result = await runtime.poll_once()
@@ -745,6 +758,26 @@ async def test_signal_path_publishes_exact_id_then_finalizes() -> None:
     assert signal.timestamp == _signal_bar(3).market_as_of.timestamp()
     assert signal.model_name == "test-risk"
     assert signal.price == float(_signal_bar(3).close)
+
+    assert len(meter.instruments["decision.input.records_total"].adds) == 1
+    assert len(meter.instruments["decision.input.market_latency_ms"].records) == 1
+    assert (
+        len(meter.instruments["decision.input.canonical_event_latency_ms"].records) == 1
+    )
+    assert len(meter.instruments["decision.lane.evaluation_total"].adds) == 1
+    assert (
+        meter.instruments["decision.lane.evaluation_total"].adds[0][1]["outcome"]
+        == "SIGNAL"
+    )
+    assert len(meter.instruments["decision.publication.total"].adds) == 1
+    assert (
+        meter.instruments["decision.publication.total"].adds[0][1]["outcome"]
+        == "PUBLISHED"
+    )
+
+    await runtime.poll_once()
+    assert len(meter.instruments["decision.lane.evaluation_total"].adds) == 1
+    assert len(meter.instruments["decision.publication.total"].adds) == 1
 
 
 @pytest.mark.asyncio
@@ -1441,6 +1474,12 @@ async def test_signal_batch_processes_each_cutoff_before_capacity_eviction() -> 
     )
     startup = await _signal_coordinator(history, stream).start()
     publisher_client = _IsolatedSignalClient()
+    meter = _Meter()
+    observability = DecisionObservability(
+        meter=meter,
+        timeframe_grid=SIGNAL_GRID,
+        now_fn=lambda: datetime(2026, 2, 2, 0, 0, tzinfo=UTC),
+    )
     runtime = LiveDecisionRuntime(
         startup=startup,
         timeframe_grid=SIGNAL_GRID,
@@ -1448,6 +1487,11 @@ async def test_signal_batch_processes_each_cutoff_before_capacity_eviction() -> 
         history_repository=history,
         signal_publisher=ValkeySignalPublisher(publisher_client),
         now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+        observability=observability,
+    )
+    observability.replace_generation(
+        runtime=runtime,
+        input_series=startup.snapshot.series_positions,
     )
 
     stream.pending.extend([("3-0", _signal_fields(3)), ("4-0", _signal_fields(4))])
@@ -1464,6 +1508,22 @@ async def test_signal_batch_processes_each_cutoff_before_capacity_eviction() -> 
         _signal_bar(4).market_as_of
     )
     assert len(publisher_client.entries["signals:BTCUSDT:1h"]) == 2
+    evaluation_adds = meter.instruments["decision.lane.evaluation_total"].adds
+    publication_adds = meter.instruments["decision.publication.total"].adds
+    assert len(evaluation_adds) == 2
+    assert [attributes["outcome"] for _value, attributes in evaluation_adds] == [
+        "SIGNAL",
+        "SIGNAL",
+    ]
+    assert len(publication_adds) == 2
+    assert [attributes["outcome"] for _value, attributes in publication_adds] == [
+        "PUBLISHED",
+        "PUBLISHED",
+    ]
+
+    await runtime.poll_once()
+    assert len(meter.instruments["decision.lane.evaluation_total"].adds) == 2
+    assert len(meter.instruments["decision.publication.total"].adds) == 2
 
 
 @pytest.mark.asyncio

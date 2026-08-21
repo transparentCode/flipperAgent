@@ -7,6 +7,9 @@ from typing import ClassVar
 
 import pytest
 
+from apps.decision_app.domain.contracts import InputReadCursor, LaneCommitWatermark
+from apps.decision_app.domain.market_state import MarketSeriesKey
+from apps.decision_app.observability import DecisionObservability
 from apps.decision_app.runtime.lifecycle import LifecycleReadResult
 from apps.decision_app.runtime.live import (
     DecisionPollResult,
@@ -37,6 +40,7 @@ from tests.decision.test_d9b_live_runtime import (
     sr_bar,
     sr_stream_fields,
 )
+from tests.decision.test_observability import _Meter
 
 NOW = datetime(2026, 8, 14, tzinfo=UTC)
 
@@ -63,6 +67,63 @@ class _Runtime:
         if self.errors:
             error = self.errors.pop(0)
             raise error
+        if self.gate is not None:
+            await self.gate.wait()
+        return DecisionPollResult(input_results=(), lane_results={}, cursors={})
+
+
+class _ObservableRuntime:
+    def __init__(
+        self,
+        *,
+        lane_id: str,
+        asset: str,
+        timeframe: str,
+        gate: asyncio.Event | None = None,
+    ) -> None:
+        self.gate = gate
+        self.calls = 0
+        self.started = asyncio.Event()
+        self.configure(lane_id=lane_id, asset=asset, timeframe=timeframe)
+
+    def configure(self, *, lane_id: str, asset: str, timeframe: str) -> None:
+        key = MarketSeriesKey(
+            asset=asset,
+            venue="binance",
+            instrument_id=f"{asset}-PERP",
+            timeframe=timeframe,
+        )
+        self.key = key
+        cursor = InputReadCursor(
+            stream_key=f"stream:{asset}:{timeframe}",
+            latest_stream_id="1-0",
+            latest_market_as_of=NOW,
+        )
+        self.input = SimpleNamespace(
+            cursors={cursor.stream_key: cursor},
+            blocked_streams={},
+        )
+        self.input.cursor_for = lambda requested: cursor
+        self.lanes = {
+            lane_id: SimpleNamespace(
+                lane=SimpleNamespace(asset=asset, decision_timeframe=timeframe),
+                status="LIVE",
+                reason=None,
+                pending_trigger_cutoff=None,
+                finalizer=SimpleNamespace(
+                    watermark=LaneCommitWatermark(
+                        lane_id=lane_id,
+                        latest_market_as_of=NOW,
+                        last_disposition="published",
+                    )
+                ),
+            )
+        }
+
+    async def poll_once(self, *, evaluate_lanes: bool = True) -> DecisionPollResult:
+        del evaluate_lanes
+        self.calls += 1
+        self.started.set()
         if self.gate is not None:
             await self.gate.wait()
         return DecisionPollResult(input_results=(), lane_results={}, cursors={})
@@ -184,6 +245,26 @@ def _generation(number: int, runtime: _Runtime) -> DecisionRuntimeGeneration:
     startup = SimpleNamespace(
         snapshot=SimpleNamespace(status="STARTUP_READY", active_manifest_assets=()),
         decision_plan=SimpleNamespace(lanes=()),
+    )
+    return DecisionRuntimeGeneration(
+        generation_id=number,
+        created_at=NOW,
+        startup=startup,
+        live_runtime=runtime,
+    )
+
+
+def _observable_generation(
+    number: int,
+    runtime: _ObservableRuntime,
+) -> DecisionRuntimeGeneration:
+    startup = SimpleNamespace(
+        snapshot=SimpleNamespace(
+            status="STARTUP_READY",
+            active_manifest_assets=(runtime.key.asset,),
+            series_positions={runtime.key: object()},
+        ),
+        decision_plan=SimpleNamespace(lanes=(runtime.key,)),
     )
     return DecisionRuntimeGeneration(
         generation_id=number,
@@ -364,11 +445,103 @@ async def test_stop_waits_for_current_poll_and_starts_no_next_poll() -> None:
     await asyncio.sleep(0)
     assert stop_task.done() is False
     assert runtime.calls == 1
-
     gate.set()
     stopped = await stop_task
     assert stopped.service_state == "STOPPED"
     assert runtime.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_service_observability_hooks_record_poll_rebuild_and_generation_replace() -> (
+    None
+):
+    meter = _Meter()
+    observability = DecisionObservability(
+        meter=meter,
+        timeframe_grid=SIGNAL_GRID,
+        now_fn=lambda: NOW,
+    )
+    first_gate = asyncio.Event()
+    first = _ObservableRuntime(
+        lane_id="BTCUSDT:momentum_1h",
+        asset="BTCUSDT",
+        timeframe="1h",
+        gate=first_gate,
+    )
+    second = _ObservableRuntime(
+        lane_id="ETHUSDT:momentum_1h",
+        asset="ETHUSDT",
+        timeframe="1h",
+    )
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        assert generation_id == 2
+        return _observable_generation(generation_id, second)
+
+    service = DecisionService(
+        generation_factory=factory,
+        block_ms=1,
+        now_fn=lambda: NOW,
+        observability=observability,
+    )
+    await service.start(generation=_observable_generation(1, first))
+    await first.started.wait()
+
+    reconnect_task = asyncio.create_task(service.reconnect())
+    await asyncio.sleep(0)
+    assert reconnect_task.done() is False
+    first_gate.set()
+    reconnected = await reconnect_task
+    assert reconnected.generation_id == 2
+    await service.stop()
+
+    assert len(meter.instruments["decision.poll.duration_ms"].records) >= 1
+    assert meter.instruments["decision.rebuild.total"].adds == [
+        (1, {"outcome": "success"})
+    ]
+    assert len(meter.instruments["decision.rebuild.duration_ms"].records) == 1
+    lane_observations = tuple(
+        meter.instruments["decision.lane.state"].callbacks[0](None)
+    )
+    assert [item.attributes["lane"] for item in lane_observations] == [
+        "ETHUSDT:momentum_1h"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_service_observability_records_failed_rebuild() -> None:
+    meter = _Meter()
+    observability = DecisionObservability(
+        meter=meter,
+        timeframe_grid=SIGNAL_GRID,
+        now_fn=lambda: NOW,
+    )
+    runtime = _ObservableRuntime(
+        lane_id="BTCUSDT:momentum_1h",
+        asset="BTCUSDT",
+        timeframe="1h",
+    )
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason, generation_id
+        raise RuntimeError("rebuild unavailable")
+
+    service = DecisionService(
+        generation_factory=factory,
+        block_ms=1,
+        now_fn=lambda: NOW,
+        observability=observability,
+    )
+    await service.start(generation=_observable_generation(1, runtime))
+    failed = await service.reconnect()
+    assert failed.service_state == "ERROR"
+    await service.stop()
+
+    assert meter.instruments["decision.rebuild.total"].adds == [
+        (1, {"outcome": "failure"})
+    ]
+    assert len(meter.instruments["decision.rebuild.duration_ms"].records) == 1
 
 
 @pytest.mark.asyncio

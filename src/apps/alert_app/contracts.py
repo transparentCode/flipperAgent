@@ -23,6 +23,7 @@ class AlertIncidentState(str, Enum):
 
 class AlertSourceApp(str, Enum):
     INGESTION = "ingestion"
+    DECISION = "decision"
     SIGNAL = "signal_app"
     STRATEGY = "strategy_app"
     RISK = "risk_app"

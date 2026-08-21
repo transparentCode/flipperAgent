@@ -6,8 +6,10 @@ import asyncio
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from time import perf_counter
 from typing import Any, Literal, Protocol
 
+from apps.decision_app.observability import DecisionObservability
 from apps.decision_app.runtime.lifecycle import (
     LifecycleNotificationReader,
     LifecycleReadResult,
@@ -165,6 +167,7 @@ class DecisionService:
         configured_lane_count: int = 0,
         block_ms: int = 1000,
         now_fn: Callable[[], datetime] | None = None,
+        observability: DecisionObservability | None = None,
     ) -> None:
         if not callable(generation_factory):
             raise TypeError("generation_factory must be callable")
@@ -186,6 +189,11 @@ class DecisionService:
         self._configured_lane_count = configured_lane_count
         self._block_ms = block_ms
         self._now_fn = now_fn or (lambda: datetime.now(UTC))
+        if observability is not None and not isinstance(
+            observability, DecisionObservability
+        ):
+            raise TypeError("observability must be DecisionObservability or None")
+        self._observability = observability
         self._transition_lock = asyncio.Lock()
         self._wake_event = asyncio.Event()
         self._poll_idle = asyncio.Event()
@@ -245,6 +253,7 @@ class DecisionService:
             self._poll_idle.set()
             self._desired_state = "RUNNING"
             self._service_state = "STARTING"
+            self._sync_observability()
             self._last_error = None
             self._rebuild_requested = False
             self._rebuild_reason = None
@@ -254,6 +263,7 @@ class DecisionService:
             self._install_generation(generation)
             self._started_at = self._now()
             self._service_state = "RUNNING"
+            self._sync_observability()
             self._market_task = asyncio.create_task(
                 self._market_loop(), name="decision-market-loop"
             )
@@ -273,6 +283,7 @@ class DecisionService:
             self._service_state = "STOPPING"
             self._stop_event.set()
             self._wake_event.set()
+            self._sync_observability()
         await self._poll_idle.wait()
         lifecycle_task = self._lifecycle_task
         if lifecycle_task is not None and not lifecycle_task.done():
@@ -283,6 +294,7 @@ class DecisionService:
             self._service_state = "STOPPED"
             self._lifecycle_task = None
             self._market_task = None
+            self._sync_observability()
         return self.snapshot()
 
     async def pause(self) -> DecisionServiceSnapshot:
@@ -298,6 +310,7 @@ class DecisionService:
             await self._poll_idle.wait()
             if self._service_state not in {"STOPPING", "STOPPED"}:
                 self._service_state = "PAUSED"
+            self._sync_observability()
             return self.snapshot()
 
     async def resume(self) -> DecisionServiceSnapshot:
@@ -419,6 +432,7 @@ class DecisionService:
             self._rebuild_reason = reason
             self._rebuild_source = "MANUAL"
             self._wake_event.set()
+            self._sync_observability()
             await self._poll_idle.wait()
             await self._rebuild_locked(reason)
             return self.snapshot()
@@ -446,6 +460,15 @@ class DecisionService:
         self._generation_number = generation.generation_id
         self._last_lane_transactions.clear()
         self._last_rebuild_at = self._now()
+        if self._observability is not None:
+            self._observability.replace_generation(
+                runtime=generation.live_runtime,
+                input_series=getattr(
+                    generation.startup.snapshot,
+                    "series_positions",
+                    {},
+                ),
+            )
 
     async def _rebuild_locked(
         self,
@@ -454,6 +477,10 @@ class DecisionService:
         self._service_state = "REBUILDING"
         self._last_error = None
         self._wake_event.clear()
+        if self._observability is not None:
+            self._observability.clear_generation()
+        self._sync_observability()
+        started = perf_counter()
         try:
             generation = await self._build_generation(reason)
         except asyncio.CancelledError:
@@ -465,7 +492,19 @@ class DecisionService:
             self._rebuild_requested = False
             self._rebuild_reason = None
             self._rebuild_source = None
+            if self._observability is not None:
+                self._observability.clear_generation()
+                self._observability.record_rebuild(
+                    outcome="failure",
+                    duration_ms=(perf_counter() - started) * 1000.0,
+                )
+            self._sync_observability()
             return
+        if self._observability is not None:
+            self._observability.record_rebuild(
+                outcome="success",
+                duration_ms=(perf_counter() - started) * 1000.0,
+            )
         self._install_generation(
             generation,
         )
@@ -474,6 +513,7 @@ class DecisionService:
         self._rebuild_source = None
         self._service_state = "PAUSED" if self._desired_state == "PAUSED" else "RUNNING"
         self._wake_event.set()
+        self._sync_observability()
 
     async def _market_loop(self) -> None:
         while not self._stop_event.is_set():
@@ -499,6 +539,7 @@ class DecisionService:
                 continue
             self._poll_active = True
             self._poll_idle.clear()
+            poll_started = perf_counter()
             try:
                 result = await generation.live_runtime.poll_once(
                     evaluate_lanes=self._desired_state == "RUNNING"
@@ -509,15 +550,21 @@ class DecisionService:
                 if self._service_state not in _CONTROL_STATES:
                     self._service_state = "DEGRADED"
                 self._last_error = f"market input transport failed: {exc}"
+                self._sync_observability()
                 await self._pace_transport_error()
                 continue
             except Exception as exc:  # noqa: BLE001
                 if self._service_state not in _CONTROL_STATES:
                     self._service_state = "ERROR"
                 self._last_error = f"market poll failed: {exc}"
+                self._sync_observability()
                 await self._wait_for_wake()
                 continue
             finally:
+                if self._observability is not None:
+                    self._observability.record_poll_duration(
+                        (perf_counter() - poll_started) * 1000.0
+                    )
                 self._poll_active = False
                 self._poll_idle.set()
             self._last_poll_at = self._now()
@@ -535,6 +582,7 @@ class DecisionService:
                 ):
                     self._last_lane_transactions[lane_id] = lane_result
             self._classify_poll_result(result)
+            self._sync_observability()
             self._wake_event.set()
             # A deterministic test/runtime double may complete poll_once()
             # without transport I/O.  Always yield so controls and lifecycle
@@ -552,6 +600,7 @@ class DecisionService:
                 if self._service_state not in _CONTROL_STATES:
                     self._service_state = "DEGRADED"
                 self._last_error = f"lifecycle input failed: {exc}"
+                self._sync_observability()
                 await self._pace_transport_error()
                 continue
             self._last_lifecycle_evidence = result
@@ -566,6 +615,7 @@ class DecisionService:
                         )
                         self._rebuild_source = "LIFECYCLE_RECONCILIATION"
                 self._wake_event.set()
+                self._sync_observability()
             else:
                 await asyncio.sleep(0)
 
@@ -638,6 +688,16 @@ class DecisionService:
     def _ensure_control_available(self) -> None:
         if self._service_state in {"STOPPING", "STOPPED"}:
             raise RuntimeError("decision service is stopping or stopped")
+
+    def _sync_observability(self) -> None:
+        if self._observability is None:
+            return
+        self._observability.set_service_state(self._service_state)
+        generation = self._generation
+        if generation is None:
+            self._observability.clear_generation()
+        else:
+            self._observability.refresh_runtime(generation.live_runtime)
 
     def _now(self) -> datetime:
         value = self._now_fn()
