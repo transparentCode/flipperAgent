@@ -20,11 +20,13 @@ The remediation must make the entire `DecisionObservability` production integrat
 
 ## Baseline
 
-Create a fresh isolated worktree from current local `main`:
+Create a fresh isolated worktree from the **current local `main` HEAD at execution time**. The reviewed production-code state immediately before this handoff was:
 
 ```text
-c9dca43e721321f51d0cc8b51f2e78f363e07b73
+df3bfcc87140f507370e57bcd6958c7aa8799b3a
 ```
+
+Plan-record-only commits after that SHA are acceptable. If any production/config/runtime code has changed beyond the reviewed observability state, stop and report the drift instead of guessing.
 
 Do not work in the primary checkout. Do not merge, push, or modify `origin/main`.
 
