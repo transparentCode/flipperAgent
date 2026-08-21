@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from time import perf_counter
 from typing import Any, Literal, Protocol
 
-from apps.decision_app.observability import DecisionObservability
+from apps.decision_app.observability import DecisionObservability, observe_best_effort
 from apps.decision_app.runtime.lifecycle import (
     LifecycleNotificationReader,
     LifecycleReadResult,
@@ -461,7 +461,8 @@ class DecisionService:
         self._last_lane_transactions.clear()
         self._last_rebuild_at = self._now()
         if self._observability is not None:
-            self._observability.replace_generation(
+            observe_best_effort(
+                self._observability.replace_generation,
                 runtime=generation.live_runtime,
                 input_series=getattr(
                     generation.startup.snapshot,
@@ -478,7 +479,7 @@ class DecisionService:
         self._last_error = None
         self._wake_event.clear()
         if self._observability is not None:
-            self._observability.clear_generation()
+            observe_best_effort(self._observability.clear_generation)
         self._sync_observability()
         started = perf_counter()
         try:
@@ -493,15 +494,17 @@ class DecisionService:
             self._rebuild_reason = None
             self._rebuild_source = None
             if self._observability is not None:
-                self._observability.clear_generation()
-                self._observability.record_rebuild(
+                observe_best_effort(self._observability.clear_generation)
+                observe_best_effort(
+                    self._observability.record_rebuild,
                     outcome="failure",
                     duration_ms=(perf_counter() - started) * 1000.0,
                 )
             self._sync_observability()
             return
         if self._observability is not None:
-            self._observability.record_rebuild(
+            observe_best_effort(
+                self._observability.record_rebuild,
                 outcome="success",
                 duration_ms=(perf_counter() - started) * 1000.0,
             )
@@ -562,8 +565,9 @@ class DecisionService:
                 continue
             finally:
                 if self._observability is not None:
-                    self._observability.record_poll_duration(
-                        (perf_counter() - poll_started) * 1000.0
+                    observe_best_effort(
+                        self._observability.record_poll_duration,
+                        (perf_counter() - poll_started) * 1000.0,
                     )
                 self._poll_active = False
                 self._poll_idle.set()
@@ -692,12 +696,18 @@ class DecisionService:
     def _sync_observability(self) -> None:
         if self._observability is None:
             return
-        self._observability.set_service_state(self._service_state)
+        observe_best_effort(
+            self._observability.set_service_state,
+            self._service_state,
+        )
         generation = self._generation
         if generation is None:
-            self._observability.clear_generation()
+            observe_best_effort(self._observability.clear_generation)
         else:
-            self._observability.refresh_runtime(generation.live_runtime)
+            observe_best_effort(
+                self._observability.refresh_runtime,
+                generation.live_runtime,
+            )
 
     def _now(self) -> datetime:
         value = self._now_fn()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -38,6 +39,8 @@ from libs.common.asset_manifest import AssetManifestStore
 from libs.common.config import ConfigManager
 from libs.common.connections import create_valkey_client, init_db_pools
 from libs.common.db.pool_manager import DBPoolManager
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _require_production_stream_client(client: Any) -> None:
@@ -188,9 +191,20 @@ def create_application(
                 if config is None:
                     config = load_decision_config(config_mgr)
                 if current_observability is None:
-                    current_observability = DecisionObservability(
-                        timeframe_grid=config.timeframe_grid
-                    )
+                    try:
+                        current_observability = DecisionObservability(
+                            timeframe_grid=config.timeframe_grid
+                        )
+                    except Exception:  # noqa: BLE001
+                        try:
+                            _LOGGER.warning(
+                                "Decision observability initialization failed; "
+                                "continuing without metrics",
+                                exc_info=True,
+                            )
+                        except Exception:  # noqa: BLE001, S110
+                            pass
+                        current_observability = None
                 if current_stream_client is None:
                     current_stream_client = await create_valkey_client(config_mgr)
                     owned_valkey = True

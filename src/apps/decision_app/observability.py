@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
@@ -13,6 +14,8 @@ from opentelemetry.metrics import CallbackOptions, Observation
 
 from apps.decision_app.domain.market_state import MarketSeriesKey, TimeframeGrid
 from libs.contracts.decision import require_utc
+
+_LOGGER = logging.getLogger(__name__)
 
 ALLOWED_METRIC_LABELS = frozenset({"lane", "asset", "timeframe", "outcome", "state"})
 INPUT_DISPOSITIONS = frozenset(
@@ -26,6 +29,32 @@ INPUT_DISPOSITIONS = frozenset(
     }
 )
 LANE_EVALUATION_OUTCOMES = frozenset({"SIGNAL", "NO_SIGNAL", "BLOCKED", "INVALID"})
+PUBLICATION_OUTCOMES = frozenset(
+    {"PUBLISHED", "ALREADY_IDENTICAL", "CONFLICT", "FAILED"}
+)
+
+
+def observe_best_effort(
+    callback: Callable[..., Any], /, *args: Any, **kwargs: Any
+) -> None:
+    """Invoke one production telemetry hook without making it authoritative.
+
+    ``DecisionObservability`` remains strict when called directly.  Runtime
+    integration uses this boundary so exporter/instrument failures cannot
+    change input, evaluation, publication, or lifecycle behavior.  Catching
+    ``Exception`` deliberately leaves cancellation and other control-flow
+    exceptions untouched.
+    """
+
+    try:
+        callback(*args, **kwargs)
+    except Exception:  # noqa: BLE001
+        try:
+            _LOGGER.warning("Decision observability hook failed", exc_info=True)
+        except Exception:  # noqa: BLE001, S110
+            # Logging is also non-authoritative; a broken handler must not
+            # turn a telemetry failure into a runtime failure.
+            pass
 
 
 def _timestamp_seconds(value: datetime | None) -> float:
@@ -328,8 +357,8 @@ class DecisionObservability:
         )
 
     def record_publication(self, *, lane_id: str, outcome: str) -> None:
-        if not isinstance(outcome, str) or not outcome.strip():
-            raise ValueError("publication outcome must be non-empty")
+        if not isinstance(outcome, str) or outcome not in PUBLICATION_OUTCOMES:
+            raise ValueError(f"unsupported publication outcome: {outcome}")
         self.publication_total.add(
             1,
             _labels(**self._lane_identity_labels(lane_id), outcome=outcome),
@@ -493,5 +522,7 @@ __all__ = [
     "ALLOWED_METRIC_LABELS",
     "INPUT_DISPOSITIONS",
     "LANE_EVALUATION_OUTCOMES",
+    "PUBLICATION_OUTCOMES",
     "DecisionObservability",
+    "observe_best_effort",
 ]

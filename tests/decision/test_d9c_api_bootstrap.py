@@ -461,6 +461,84 @@ async def test_lifespan_captures_lifecycle_tail_before_generation_build(
 
 
 @pytest.mark.asyncio
+async def test_lifespan_continues_when_observability_construction_fails(
+    monkeypatch,
+) -> None:
+    valkey = _CloseResource()
+    db_calls = 0
+
+    async def close_db() -> None:
+        nonlocal db_calls
+        db_calls += 1
+
+    class ConfigManagerFake:
+        def shutdown(self) -> None:
+            return None
+
+    def fail_observability(*_args, **_kwargs):
+        raise RuntimeError("metrics unavailable")
+
+    monkeypatch.setattr(
+        "apps.decision_app.bootstrap.DecisionObservability", fail_observability
+    )
+    manager = ConfigManagerFake()
+    _patch_owned_lifespan(monkeypatch, valkey=valkey, db_close=close_db)
+    app = create_application(
+        config_manager=manager,
+        decision_config=_sr_config(),
+        lifecycle_reader=_NoopLifecycleReader(),
+    )
+
+    async with app.router.lifespan_context(app):
+        assert app.state.decision_observability is None
+        assert app.state.decision_service.service_state == "RUNNING"
+
+    assert valkey.close_calls == 1
+    assert db_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_lifespan_continues_when_observability_and_warning_fail(
+    monkeypatch,
+) -> None:
+    valkey = _CloseResource()
+    db_calls = 0
+
+    async def close_db() -> None:
+        nonlocal db_calls
+        db_calls += 1
+
+    class ConfigManagerFake:
+        def shutdown(self) -> None:
+            return None
+
+    def fail_observability(*_args, **_kwargs):
+        raise RuntimeError("metrics unavailable")
+
+    def fail_warning(*_args, **_kwargs):
+        raise RuntimeError("logging unavailable")
+
+    monkeypatch.setattr(
+        "apps.decision_app.bootstrap.DecisionObservability", fail_observability
+    )
+    monkeypatch.setattr("apps.decision_app.bootstrap._LOGGER.warning", fail_warning)
+    manager = ConfigManagerFake()
+    _patch_owned_lifespan(monkeypatch, valkey=valkey, db_close=close_db)
+    app = create_application(
+        config_manager=manager,
+        decision_config=_sr_config(),
+        lifecycle_reader=_NoopLifecycleReader(),
+    )
+
+    async with app.router.lifespan_context(app):
+        assert app.state.decision_observability is None
+        assert app.state.decision_service.service_state == "RUNNING"
+
+    assert valkey.close_calls == 1
+    assert db_calls == 1
+
+
+@pytest.mark.asyncio
 async def test_lifespan_cleanup_continues_when_generation_start_fails(
     monkeypatch,
 ) -> None:

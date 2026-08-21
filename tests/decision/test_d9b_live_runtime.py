@@ -1527,6 +1527,63 @@ async def test_signal_batch_processes_each_cutoff_before_capacity_eviction() -> 
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "failing_hook",
+    ("record_input_result", "record_lane_evaluation", "record_publication"),
+)
+async def test_observability_failure_cannot_abort_authoritative_signal(
+    failing_hook: str,
+) -> None:
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(3))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    stream = _LiveInputClient(
+        stream="stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+        tail_index=2,
+        field_factory=_signal_fields,
+    )
+    startup = await _signal_coordinator(history, stream).start()
+    publisher_client = _IsolatedSignalClient()
+    observability = DecisionObservability(
+        meter=_Meter(),
+        timeframe_grid=SIGNAL_GRID,
+        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+    )
+
+    def fail_telemetry(*_args, **_kwargs) -> None:
+        raise RuntimeError("synthetic telemetry failure")
+
+    setattr(observability, failing_hook, fail_telemetry)
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        signal_publisher=ValkeySignalPublisher(publisher_client),
+        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+        observability=observability,
+    )
+    observability.replace_generation(
+        runtime=runtime,
+        input_series=startup.snapshot.series_positions,
+    )
+    stream.pending.append(("3-0", _signal_fields(3)))
+
+    result = await runtime.poll_once()
+    lane = result.lane_results["BTCUSDT:main"]
+
+    assert result.input_results[0].disposition == "INSERTED"
+    assert lane.policy_status == "SIGNAL"
+    assert lane.publication_outcome == "PUBLISHED"
+    assert lane.finalization_status == "COMMITTED"
+    assert tuple(publisher_client.entries["signals:BTCUSDT:1h"]) == (
+        f"{int(_signal_bar(3).market_as_of.timestamp() * 1000)}-0",
+    )
+    assert runtime.input.cursor_for(SIGNAL_SERIES).latest_stream_id == "3-0"
+
+
+@pytest.mark.asyncio
 async def test_checkpoint_failure_after_commit_halts_without_rollback() -> None:
     checkpoints = _FailingLiveCheckpointRepository()
     history = InMemoryCanonicalMarketHistoryRepository(

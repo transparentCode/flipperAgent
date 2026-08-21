@@ -27,7 +27,7 @@ from apps.decision_app.domain.view import (
     MarketViewNotReadyError,
 )
 from apps.decision_app.features.engine import FeatureEngine
-from apps.decision_app.observability import DecisionObservability
+from apps.decision_app.observability import DecisionObservability, observe_best_effort
 from apps.decision_app.planning.planner import ResolvedLanePlan
 from apps.decision_app.planning.readiness import (
     compile_lane_causal_history_requirements,
@@ -708,7 +708,8 @@ class LiveDecisionRuntime:
             return
         evidence.policy_status = evaluation.status
         if self._observability is not None:
-            self._observability.record_lane_evaluation(
+            observe_best_effort(
+                self._observability.record_lane_evaluation,
                 lane_id=live_lane.lane_id,
                 outcome=evaluation.status,
             )
@@ -744,7 +745,8 @@ class LiveDecisionRuntime:
                     )
                 evidence.publication_outcome = acknowledgement.outcome
                 if self._observability is not None:
-                    self._observability.record_publication(
+                    observe_best_effort(
+                        self._observability.record_publication,
                         lane_id=live_lane.lane_id,
                         outcome=acknowledgement.outcome,
                     )
@@ -776,7 +778,8 @@ class LiveDecisionRuntime:
                     raise LiveRuntimeHalt("publisher returned invalid acknowledgement")
                 evidence.publication_outcome = acknowledgement.outcome
                 if self._observability is not None:
-                    self._observability.record_publication(
+                    observe_best_effort(
+                        self._observability.record_publication,
                         lane_id=live_lane.lane_id,
                         outcome=acknowledgement.outcome,
                     )
@@ -1088,7 +1091,8 @@ class LiveDecisionRuntime:
         accepted_at: datetime,
     ) -> None:
         if self._observability is not None:
-            self._observability.record_input_result(
+            observe_best_effort(
+                self._observability.record_input_result,
                 result,
                 accepted_at=accepted_at,
             )

@@ -620,6 +620,90 @@ async def test_transport_error_keeps_generation_and_does_not_rebuild() -> None:
 
 
 @pytest.mark.asyncio
+async def test_poll_telemetry_failure_does_not_mask_transport_error() -> None:
+    runtime = _Runtime(errors=(InputTransportError("original transport failure"),))
+    observability = DecisionObservability(
+        meter=_Meter(),
+        timeframe_grid=SIGNAL_GRID,
+        now_fn=lambda: NOW,
+    )
+
+    def fail_telemetry(*_args, **_kwargs) -> None:
+        raise RuntimeError("synthetic poll telemetry failure")
+
+    observability.record_poll_duration = fail_telemetry
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        return _generation(generation_id, runtime)
+
+    service = DecisionService(
+        generation_factory=factory,
+        block_ms=1,
+        now_fn=lambda: NOW,
+        observability=observability,
+    )
+    await service.start()
+    await _wait_until(lambda: service.service_state == "DEGRADED")
+
+    snapshot = service.snapshot()
+    assert snapshot.last_error == (
+        "market input transport failed: original transport failure"
+    )
+    assert snapshot.generation_id == 1
+    await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_service_observability_failures_do_not_change_transitions() -> None:
+    first = _ObservableRuntime(
+        lane_id="BTCUSDT:momentum_1h",
+        asset="BTCUSDT",
+        timeframe="1h",
+    )
+    second = _ObservableRuntime(
+        lane_id="ETHUSDT:momentum_1h",
+        asset="ETHUSDT",
+        timeframe="1h",
+    )
+    observability = DecisionObservability(
+        meter=_Meter(),
+        timeframe_grid=SIGNAL_GRID,
+        now_fn=lambda: NOW,
+    )
+
+    def fail_telemetry(*_args, **_kwargs) -> None:
+        raise RuntimeError("synthetic lifecycle telemetry failure")
+
+    for hook in (
+        "set_service_state",
+        "replace_generation",
+        "clear_generation",
+        "refresh_runtime",
+        "record_rebuild",
+    ):
+        setattr(observability, hook, fail_telemetry)
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        return _observable_generation(generation_id, second)
+
+    service = DecisionService(
+        generation_factory=factory,
+        block_ms=1,
+        now_fn=lambda: NOW,
+        observability=observability,
+    )
+    await service.start(generation=_observable_generation(1, first))
+    reconnected = await service.reconnect()
+    assert reconnected.service_state == "RUNNING"
+    assert reconnected.generation_id == 2
+    assert service.generation is not None
+    assert service.generation.generation_id == 2
+    await service.stop()
+
+
+@pytest.mark.asyncio
 async def test_paused_state_dominates_lifecycle_transport_degradation() -> None:
     runtime = _Runtime()
 

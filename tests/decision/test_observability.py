@@ -6,10 +6,13 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from apps.decision_app.domain.contracts import InputReadCursor, LaneCommitWatermark
 from apps.decision_app.domain.market_state import MarketSeriesKey, TimeframeGrid
 from apps.decision_app.observability import (
     ALLOWED_METRIC_LABELS,
+    PUBLICATION_OUTCOMES,
     DecisionObservability,
 )
 
@@ -295,6 +298,29 @@ def test_all_input_dispositions_and_latency_are_recorded_without_transport_label
         set(attributes) <= ALLOWED_METRIC_LABELS
         for _value, attributes in meter.instruments["decision.input.records_total"].adds
     )
+
+
+def test_publication_outcomes_are_finite_and_strict() -> None:
+    meter = _Meter()
+    observation = DecisionObservability(
+        meter=meter,
+        timeframe_grid=TimeframeGrid(
+            alignment_origin=BASE,
+            durations={"1h": timedelta(hours=1)},
+        ),
+        now_fn=lambda: BASE,
+    )
+
+    for outcome in PUBLICATION_OUTCOMES:
+        observation.record_publication(lane_id="BTCUSDT:main", outcome=outcome)
+
+    with pytest.raises(ValueError, match="unsupported publication outcome"):
+        observation.record_publication(lane_id="BTCUSDT:main", outcome="RETRY")
+
+    assert {
+        attributes["outcome"]
+        for _value, attributes in meter.instruments["decision.publication.total"].adds
+    } == PUBLICATION_OUTCOMES
 
 
 def test_callbacks_read_cache_only_after_runtime_has_been_discarded() -> None:
