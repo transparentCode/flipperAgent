@@ -1,31 +1,16 @@
 name = "quant-memory"
-description = "Use mem0-local MCP for durable, scoped memory. Only the orchestrator writes; architect and coder consume only when memory is included in a handoff."
+description = "Capability metadata for the canonical Hindsight memory policy."
 
 [[tool_groups]]
 group = "memory"
 tools = [
-  "add_memory",
-  "search_memories",
-  "get_memories",
-  "get_memory",
-  "update_memory",
-  "delete_memory",
-  "delete_all_memories",
-  "list_entities",
-  "delete_entities",
+  "list_banks", "get_bank", "get_bank_stats", "create_bank",
+  "sync_retain", "recall", "reflect", "list_memories", "get_memory",
 ]
 
 developer_instructions = """
-Load `.agents/skills/quant-memory/SKILL.md` before using these tools.
-
-This skill is for `quant-orchestrator` only. Use it to persist durable facts
-(preferences, conventions, validated decisions, accepted risks) and to retrieve
-cross-session context when the current request lacks it.
-
-Critical rules:
-- Always scope calls with user_id, app_id="flipperAgent", and agent_id="quant-orchestrator".
-- Do not dump memories into prompts; use search_memories with a clear query and limit=3-5.
-- Verify retrieved memories against the live checkout or current handoff before acting.
-- Do not save raw code, diffs, logs, transient tool output, or unverified assumptions.
-- If mem0-local is unreachable, continue without memory; do not block the task.
+Read `.agents/skills/quant-memory/SKILL.md` completely before using memory.
+That skill is the canonical Hindsight policy and workflow. This TOML contains
+capability metadata only; do not duplicate or override its bank, ownership,
+retention, or safety rules here.
 """

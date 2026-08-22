@@ -11,8 +11,10 @@ Canonical skill: `.agents/skills/quant-architect/SKILL.md`.
 Quant Architect owns both research and architecture. Verify live repository context,
 use memory only when prior decisions matter, gather current external evidence when
 needed, check quant safety, compare meaningful alternatives, and return a complete
-coder-ready contract to Quant Orchestrator. The orchestrator owns durable handoff
-persistence. Do not implement code.
+coder-ready contract to Quant Orchestrator. Return unresolved questions and
+alternatives to the orchestrator; it owns the user-facing grilling and
+`REQUIREMENTS_CONFIRMED`/`DESIGN_APPROVED` transitions. The orchestrator owns
+durable handoff persistence. Do not implement code.
 
 For code intelligence, follow `mcp-tiered-code-intelligence`: start with
 `codebase-memory-mcp`, escalate to `gitnexus` only for whole-repo structural queries

@@ -1,0 +1,93 @@
+schema_version = 1
+contract_type = "observed_mcp_surface"
+observed_at = "2026-08-22"
+observation_method = "adapter tools/list capture plus pinned backend release and Dockerfile allowlist review"
+
+# Snapshot of the live per-server adapters. `allowed_tools` is the observed
+# client-facing tools/list surface; `forbidden_tools` is the known mutation subset
+# from the pinned backend inventory. `observed_tools` records that reviewed union so
+# a backend/tool-surface change is distinguishable from an accidental client drift.
+# Unknown tools remain denied by the adapter and are not silently added here. Update
+# this file only with the adapter image, backend version/reference, and live capture
+# when the contract is deliberately reviewed. This is not a claim that an absent
+# graph result proves absence in source.
+
+[servers.cbm]
+endpoint = "http://localhost:9748/mcp"
+adapter_image = "mcp-code-intelligence/cbm:0.1.0"
+backend_reference = "codebase-memory-mcp release v0.9.0; SHA-256 pinned per architecture in Dockerfile.cbm"
+backend_version = "0.9.0"
+policy_mode = "allowlist_default_deny"
+observed_tools = [
+  "index_repository",
+  "search_graph",
+  "query_graph",
+  "trace_path",
+  "get_code_snippet",
+  "get_graph_schema",
+  "get_architecture",
+  "search_code",
+  "list_projects",
+  "delete_project",
+  "index_status",
+  "detect_changes",
+  "manage_adr",
+  "ingest_traces",
+]
+allowed_tools = [
+  "list_projects",
+  "index_status",
+  "search_graph",
+  "search_code",
+  "trace_path",
+  "get_code_snippet",
+  "query_graph",
+  "get_graph_schema",
+  "get_architecture",
+  "detect_changes",
+]
+forbidden_tools = ["index_repository", "delete_project", "manage_adr", "ingest_traces"]
+
+[servers.gitnexus]
+endpoint = "http://localhost:9750/mcp"
+adapter_image = "mcp-code-intelligence/gitnexus:0.1.0"
+backend_reference = "ghcr.io/abhigyanpatwari/gitnexus:1.6.9 (Dockerfile.gitnexus)"
+backend_version = "1.6.9"
+policy_mode = "allowlist_default_deny"
+observed_tools = [
+  "list_repos",
+  "query",
+  "cypher",
+  "context",
+  "detect_changes",
+  "check",
+  "impact",
+  "explain",
+  "pdg_query",
+  "route_map",
+  "tool_map",
+  "shape_check",
+  "api_impact",
+  "group_list",
+  "rename",
+  "trace",
+  "group_sync",
+]
+allowed_tools = [
+  "list_repos",
+  "query",
+  "cypher",
+  "context",
+  "detect_changes",
+  "check",
+  "impact",
+  "explain",
+  "pdg_query",
+  "route_map",
+  "tool_map",
+  "shape_check",
+  "api_impact",
+  "group_list",
+  "trace",
+]
+forbidden_tools = ["rename", "group_sync"]

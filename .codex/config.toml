@@ -5,30 +5,29 @@ model_reasoning_effort = "high"
 approval_policy = "on-request"
 sandbox_mode = "workspace-write"
 
-[mcp_servers.mem0-local]
-url = "http://localhost:8889/mcp"
+[mcp_servers.hindsight]
+url = "http://localhost:8888/mcp"
 required = false
 default_tools_approval_mode = "writes"
 enabled_tools = [
-  "add_memory",
-  "search_memories",
-  "get_memories",
+  "list_banks",
+  "get_bank",
+  "get_bank_stats",
+  "create_bank",
+  "sync_retain",
+  "recall",
+  "reflect",
+  "list_memories",
   "get_memory",
-  "update_memory",
-  "delete_memory",
-  "delete_all_memories",
-  "list_entities",
-  "delete_entities",
 ]
 
 [mcp_servers.codebase-memory-mcp]
-url = "http://localhost:9748/servers/cbm/mcp"
+url = "http://localhost:9748/mcp"
 required = false
 default_tools_approval_mode = "auto"
 enabled_tools = [
   "list_projects",
   "index_status",
-  "index_repository",
   "search_graph",
   "search_code",
   "trace_path",
@@ -37,9 +36,6 @@ enabled_tools = [
   "get_graph_schema",
   "get_architecture",
   "detect_changes",
-  "delete_project",
-  "manage_adr",
-  "ingest_traces",
 ]
 
 [mcp_servers.codebase-memory-mcp.tools.search_graph]
@@ -52,7 +48,7 @@ approval_mode = "approve"
 approval_mode = "approve"
 
 [mcp_servers.gitnexus]
-url = "http://localhost:9748/servers/gitnexus/mcp"
+url = "http://localhost:9750/mcp"
 required = false
 default_tools_approval_mode = "auto"
 enabled_tools = [
@@ -65,19 +61,17 @@ enabled_tools = [
   "list_repos",
   "query",
   "check",
-  "rename",
   "explain",
   "pdg_query",
   "route_map",
   "tool_map",
   "shape_check",
   "api_impact",
-  "group_sync",
 ]
 
 [sandbox_workspace_write]
 network_access = true
 
 [agents]
-max_threads = 3
+max_concurrent_threads_per_session = 2
 interrupt_message = true

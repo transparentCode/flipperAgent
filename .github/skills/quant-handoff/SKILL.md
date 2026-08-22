@@ -19,4 +19,7 @@ Active stages:
 
 The orchestrator owns durable handoff persistence under `plans/`. Always state
 non-goals, what was not changed, blockers, and whether the next owner can act without
-guessing. Preserve historical handoffs that use retired stages.
+guessing. Include the applicable gate (`DESIGN_APPROVED`, `CONTRACT_READY`, or
+`IMPLEMENTATION_AUTHORIZED`), Pass 1/Pass 2 review evidence, and research conclusion
+versus promotion decision when applicable. Preserve historical handoffs that use
+retired stages.

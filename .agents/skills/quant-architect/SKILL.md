@@ -41,7 +41,10 @@ copy static counts or paths from memory.
    risks, and rollback or compatibility needs.
 7. Return a concise coder-ready contract. The orchestrator owns durable handoff
    persistence; provide the contract content so the orchestrator can save it under
-   `plans/` when implementation will follow.
+   `plans/` when implementation will follow. Reuse the existing configuration
+   authority; externalize behavior only when it is expected to vary across assets,
+   environments, deployments, or supported runtime policy. Keep domain/model
+   invariants close to their owning module.
 8. Load `references/architecture-checklist.md` before finalizing the contract and
    confirm every gate is addressed.
 

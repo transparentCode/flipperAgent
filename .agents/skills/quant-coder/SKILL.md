@@ -7,7 +7,10 @@ description: Sole implementation skill for approved flipperAgent changes, from s
 
 ## Preconditions
 
-- Read the approved handoff or complete inline contract.
+- For delegated workspace writes, read the approved durable handoff under
+  `plans/`. An inline contract is acceptable only for read-only analysis or
+  trivial work performed by the root session itself; it does not replace a
+  durable handoff for delegated writes.
 - Confirm objective, scope, non-goals, acceptance criteria, and validation.
 - If these require design judgment, return the task to `quant-architect`.
 

@@ -1,40 +1,49 @@
 ---
 name: codebase-memory-cli
 description: Use the codebase-memory-mcp CLI for indexing, status checks, and maintenance. Use when the MCP tools are unavailable or when running batch operations.
-user-invocable: true
 ---
 
 # Codebase Memory — CLI
 
-## Installation
-The `codebase-memory-mcp` binary should be on your PATH. If not, install it from [DeusData/codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp).
+## Runtime
+
+The backend runs privately inside the external per-server container project at
+`../mcp`. Use the adapter scripts from the repository root; do not install or run a
+second raw backend locally.
 
 ## Common Commands
 
 ```bash
-# Index the current repo
-codebase-memory-mcp cli index_repository '{"repo_path": "/Users/aloobhujia/flipperAgent"}'
+# Check both adapter and backend health
+../mcp/scripts/mcp-status.sh
 
 # Check indexing status
-codebase-memory-mcp cli index_status '{"project": "flipperAgent"}'
+../mcp/scripts/mcp-stdio-call.py cbm index_status --args '{"project":"flipperAgent"}'
 
 # List indexed projects
-codebase-memory-mcp cli list_projects
+../mcp/scripts/mcp-stdio-call.py cbm list_projects
 
 # Search symbols
-codebase-memory-mcp cli search_graph '{"name_pattern": ".*Handler.*", "label": "Function"}'
+../mcp/scripts/mcp-stdio-call.py cbm search_graph --args '{"project":"flipperAgent","name_pattern":".*Handler.*","label":"Function"}'
 
 # Trace call chain
-codebase-memory-mcp cli trace_path '{"function_name": "X", "direction": "both"}'
+../mcp/scripts/mcp-stdio-call.py cbm trace_path --args '{"project":"flipperAgent","function_name":"X","direction":"both"}'
 
 # Run a Cypher-like query
-codebase-memory-mcp cli query_graph '{"query": "MATCH (f:Function) RETURN f.name LIMIT 5"}'
+../mcp/scripts/mcp-stdio-call.py cbm query_graph --args '{"project":"flipperAgent","query":"MATCH (f:Function) RETURN f.name LIMIT 5"}'
 
 # Detect changes vs git HEAD
-codebase-memory-mcp cli detect_changes
+../mcp/scripts/mcp-stdio-call.py cbm detect_changes --args '{"project":"flipperAgent"}'
 ```
 
 ## Keeping the Index Fresh
-- Re-index after large refactors: `codebase-memory-mcp cli index_repository ...`
-- The background watcher auto-syncs smaller changes.
-- If queries return stale results, run `index_repository` explicitly.
+
+Indexing is operator-only and deliberately opt-in. After reviewing the mounted
+checkout and tool arguments, an operator may run:
+
+```bash
+MCP_ALLOW_INDEX=1 ../mcp/scripts/mcp-index.sh
+```
+
+Agents must not run indexing as a routine post-change action. If results look
+stale, report the freshness evidence and fall back to direct source inspection.

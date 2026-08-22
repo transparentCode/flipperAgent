@@ -1,141 +1,131 @@
 ---
 name: quant-memory
-description: Use the mem0-local MCP server for durable, scoped memory across flipperAgent sessions. Only the quant-orchestrator should manage memory; architect and coder are consumers only.
+description: Use the local Hindsight MCP memory layer for durable, scoped flipperAgent context. Only quant-orchestrator manages memory; architect and coder receive selected context through handoffs.
 ---
 
 # Quant Memory
 
 ## Ownership
 
-This skill is owned by `quant-orchestrator`. The orchestrator may use memory to:
+This skill is owned by `quant-orchestrator`. The orchestrator may use Hindsight to:
 
 - recall durable user preferences, project conventions, and non-goals;
 - reuse validated architecture decisions and accepted risks from prior sessions;
-- disambiguate intake when the current request lacks context.
+- disambiguate intake when the current request lacks context;
+- retain concise, verified decisions after significant work.
 
-`quant-architect` and `quant-coder` are **consumers only** when the orchestrator
-explicitly includes relevant memory in their handoff. They do not call `add_memory`,
-`update_memory`, or `delete_memory` directly.
+`quant-architect` and `quant-coder` are consumers only. They do not call Hindsight
+directly; the orchestrator includes relevant context in their handoff when needed.
 
 ## MCP server
 
-The `mem0-local` MCP server is configured in:
+Hindsight is the only active durable-memory MCP server for this repository:
 
-- `.vscode/mcp.json` under `servers.mem0-local`
-- `.codex/config.toml` under `[mcp_servers.mem0-local]`
+- Codex: `.codex/config.toml` under `[mcp_servers.hindsight]`
+- VS Code: `.vscode/mcp.json` under `servers.hindsight`
+- URL: `http://localhost:8888/mcp`
 
-URL: `http://localhost:8889/mcp`
+Do not use a legacy or unregistered memory service. Hindsight is a native
+Streamable HTTP endpoint; no central MCP proxy is required.
 
-## Available tools
+## Bank and scope
 
-| Tool | Use when | Who |
-|------|----------|-----|
-| `add_memory` | A durable fact, preference, decision, or risk needs to survive this session. | orchestrator only |
-| `search_memories` | The current task may depend on a prior decision or user preference. | orchestrator, rarely delegated |
-| `get_memories` | A specific list of known memories is needed, e.g. for a checkpoint. | orchestrator only |
-| `get_memory` | A known memory ID must be verified or updated. | orchestrator only |
-| `update_memory` | A prior memory is stale or wrong. | orchestrator only |
-| `delete_memory` | A specific memory is obsolete or harmful. | orchestrator only |
-| `delete_all_memories` | Scoped purge is required (e.g., project reset). | orchestrator only, with user confirmation |
-| `list_entities` | Inspecting memory ownership / scoping. | orchestrator only |
-| `delete_entities` | Removing an entity and all its memories. | orchestrator only, with user confirmation |
+Use the dedicated project bank:
 
-## Scoping rules
-
-Always scope memory operations to prevent cross-pollution and token bloat:
-
-```
-user_id : the human user (do not invent; use the current session user)
-app_id  : flipperAgent
-agent_id: quant-orchestrator
-run_id  : per-session or per-delegation task, used only when isolation is needed
+```text
+bank_id: flipperagent-main
 ```
 
-- Use `user_id` + `app_id` for project-wide durable facts.
-- Use `agent_id` for orchestrator-specific conventions.
-- Use `run_id` only for transient task-specific notes that should not leak into the
-  global project memory.
-- Never use `agent_id: quant-architect` or `agent_id: quant-coder` from the orchestrator;
-  those agents do not own durable memory.
+Do not use `test-bank` or another application's bank. Hindsight bank isolation is
+the primary scope boundary. Add concise tags when useful, for example:
+`project:flipperAgent`, `agent:quant-orchestrator`, and `kind:decision`.
+
+Create or verify `flipperagent-main` before the first durable write. Do not create
+additional banks for individual tasks unless the user explicitly requests isolation.
+
+## Default tools
+
+The Codex configuration exposes only these tools:
+
+| Tool | Use when |
+|------|----------|
+| `list_banks` | Verify available banks during setup or migration. |
+| `get_bank` | Verify the project bank and its mission. |
+| `get_bank_stats` | Inspect bounded memory health or counts. |
+| `create_bank` | Idempotently initialize `flipperagent-main`. |
+| `sync_retain` | Store a concise durable fact and wait until it is available. |
+| `recall` | Retrieve relevant facts for the current task. |
+| `reflect` | Synthesize an answer across memories for a complex question. |
+| `list_memories` | Browse or verify stored facts with a bounded limit. |
+| `get_memory` | Inspect one known memory during verification. |
+
+Prefer `sync_retain` over asynchronous `retain` when the next step depends on the
+fact being immediately available. Use a low recall/reflect budget first and increase
+it only when the result is insufficient.
+
+Destructive or maintenance tools—including `delete_bank`, `clear_memories`,
+`delete_document`, `delete_mental_model`, `delete_directive`, `update_memory`, and
+`invalidate_memory`—are not part of the default agent surface. Do not enable or use
+them without explicit user authorization and a separately reviewed task scope.
 
 ## What to save
 
-Save only information that is **durable, validated, and likely to be reused**:
+Save only durable, validated information likely to be reused:
 
-- User preferences (e.g., preferred model risk tolerance, style of reports).
-- Project conventions (e.g., "always keep tests under `tests/`", "use Ruff for linting").
-- Architecture decisions that recur (e.g., "ingestion adapters are the boundary for
-  exchange-specific logic").
-- Accepted risks and non-goals from prior handoffs.
-- High-level blast-radius conclusions about shared modules.
+- user preferences and stable working conventions;
+- accepted architecture decisions, non-goals, and risks;
+- high-level blast-radius conclusions;
+- concise lessons that will change future routing or review.
 
-## What NOT to save
-
-Do not use memory as a log or cache:
-
-- Raw code, full diffs, or file contents.
-- Transient tool outputs, terminal logs, or stack traces.
-- Per-task implementation details that belong in a `plans/` handoff file.
-- Unverified assumptions or speculated facts.
-- Anything that can be cheaply recomputed from the live checkout.
+Do not save raw code, full diffs, logs, transient tool output, current conversation
+context, trivial operations, unverified assumptions, or task state that belongs in a
+`plans/` handoff.
 
 ## Retrieval discipline
 
-Memory is a retrieval layer, not a prompt dump. Follow these rules:
-
-1. **Search only when needed.** Before a search, ask: "Is this decision missing from the
-   request, handoff, or live checkout?"
-2. **Use `search_memories` with a clear query and a low `limit` (default 3–5).** Add
-   `app_id` and `user_id` filters.
-3. **Never inject all memories.** Token-budget memory context. If the model needs a
-   memory, prefer a single concise fact over a list.
-4. **Verify before acting.** A retrieved memory may be stale. Cross-check against the
-   live checkout, the current handoff, or the user before using it to route or decide.
-5. **Prefer handoffs for task state.** `plans/` files remain the source of truth for
-   active architect/coder contracts. Memory is only for cross-session context.
+1. Search only when the current request, handoff, or live checkout does not contain
+   the needed context and the prior decision materially affects the result.
+2. Call `recall` with a focused query, `bank_id="flipperagent-main"`, and a bounded
+   budget. Use relevant tags when the memory was tagged.
+3. For complex multi-session projects, call `reflect` with a focused question rather
+   than dumping all memories into the prompt.
+4. Verify retrieved memories against the live checkout, current handoff, or user
+   instruction before relying on them. Current user instructions win.
+5. Keep memory context concise when delegating; the handoff remains authoritative for
+   active task scope and implementation state.
 
 ## Suggested flow
 
-### On session start
+### Before a non-trivial task
 
-```
-if user asks about a recurring topic or prior decision:
-    search_memories(
-        query="relevant topic",
-        filters={"AND": [{"user_id": "<user>"}, {"app_id": "flipperAgent"}]},
-        limit=5
-    )
-```
-
-### On durable decision
-
-```
-add_memory(
-    messages=[{"role": "user", "content": "Durable decision: <concise fact>"}],
-    user_id="<user>",
-    app_id="flipperAgent",
-    agent_id="quant-orchestrator",
-    metadata={"topic": "architecture", "source": "handoff", "verified": true}
+```text
+recall(
+    bank_id="flipperagent-main",
+    query="<task and the specific prior decision needed>",
+    budget="low",
+    tags=["project:flipperAgent"],
 )
 ```
 
-### On ambiguity
+For a genuinely complex multi-session project, use `reflect` with the question
+`What durable context should inform this task?` and verify the answer before acting.
 
-1. Search memory for a prior related decision.
-2. If found, verify it is still current against the live checkout.
-3. If not found or stale, ask the user or route to `quant-architect`.
+### After significant work
 
-## Anti-patterns
+```text
+sync_retain(
+    bank_id="flipperagent-main",
+    content="Durable decision: <concise verified result>",
+    context="project decision",
+    tags=["project:flipperAgent", "agent:quant-orchestrator", "kind:decision"],
+    metadata={"source": "orchestrator", "verified": "true"},
+)
+```
 
-- **Memory loop:** repeatedly saving and retrieving the same fact instead of acting on it.
-- **Context dump:** passing a large `get_memories` result into every downstream prompt.
-- **Unscoped writes:** missing `user_id` or `app_id`, causing memory leakage.
-- **Staleness blindness:** treating a retrieved memory as ground truth without verification.
-- **Over-saving:** writing every intermediate thought to memory.
+Retain the result only after validation and only if it will affect future work.
 
-## Error handling
+## Failure handling
 
-- If `mem0-local` is unreachable, continue without memory. Do not block the task.
-- If memory retrieval returns ambiguous results, prefer asking the user over guessing.
-- If a saved memory contradicts the current handoff or user instruction, the current
-  instruction wins; update or delete the stale memory.
+If Hindsight is unavailable, continue without memory and report the missing context
+only when it materially affects the task. Never invent a memory result, block routine
+work, or silently substitute an unregistered memory provider.

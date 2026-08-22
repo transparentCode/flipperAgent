@@ -9,6 +9,13 @@ user-invocable: true
 Canonical owner: `quant-orchestrator`.
 Canonical policy: `.agents/skills/quant-orchestrator/SKILL.md`.
 
+Apply two distinct review lenses rather than running the same checklist twice:
+Pass 1 validates contract, diff, scope, tests, and evidence. Pass 2 independently
+challenges assumptions, compatibility, security, resource/concurrency behavior,
+over/under-engineering, and residual risk. For research/model changes add Quant
+Validity: causality/PIT, leakage, labels, splits, holdout, baselines, numerics,
+reproducibility, multiplicity/tuning, and sensitivity/uncertainty.
+
 1. Read the request, approved contract, actual diff, and validation evidence.
 2. Use code intelligence per `mcp-tiered-code-intelligence` to verify affected
    callers, contracts, and execution flows. Start with `codebase-memory-mcp`;

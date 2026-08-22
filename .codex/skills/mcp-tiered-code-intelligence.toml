@@ -1,32 +1,20 @@
 name = "mcp-tiered-code-intelligence"
-description = "Choose between codebase-memory-mcp and gitnexus for code intelligence based on query scope, license, and repo coverage."
+description = "Capability metadata for the canonical CBM-first, GitNexus-escalation code-intelligence skill."
 
 [[tool_groups]]
 group = "code_intelligence"
 tools = [
-  "list_projects", "index_status", "index_repository", "search_graph", "search_code",
-  "trace_path", "get_code_snippet", "query_graph", "get_graph_schema", "get_architecture",
-  "detect_changes", "mcp_gitnexus_context", "mcp_gitnexus_impact", "mcp_gitnexus_trace"
+  "list_projects", "index_status", "search_graph", "search_code",
+  "trace_path", "get_code_snippet", "query_graph", "get_graph_schema",
+  "get_architecture", "detect_changes",
+  "list_repos", "query", "cypher", "context", "check", "impact", "explain",
+  "pdg_query", "route_map", "tool_map", "shape_check", "api_impact",
+  "group_list", "trace",
 ]
 
 developer_instructions = """
-Two MCP backends are exposed by the containerized mcp-proxy on
-http://localhost:9748/servers/{backend}/mcp (Streamable HTTP):
-
-- cbm → codebase-memory-mcp (MIT): primary semantic code intelligence.
-- gitnexus → gitnexus (PolyForm Noncommercial): full-repository structural graph.
-
-Legacy SSE endpoints (/servers/{backend}/sse) are also available but are not
-used by the Codex CLI or VS Code MCP clients. Both clients use Streamable HTTP.
-
-Use codebase-memory-mcp by default for code discovery, symbol lookup, semantic search,
-reading code snippets, and tracing paths inside src/, tests/, scripts/, docs/,
-or plans/.
-
-Escalate to gitnexus only for whole-repo structural queries, cross-directory or
-cross-service flows, impact analysis, dead-code detection, route maps, cross-repo links,
-or when the relevant files sit in research/ or other directories not indexed by cbm.
-
-Keep indexes current with ./mcp/scripts/mcp-index.sh and check status with
-./mcp/scripts/mcp-status.sh before heavy analysis.
+Read `.agents/skills/mcp-tiered-code-intelligence/SKILL.md` completely before
+using code-intelligence tools. That skill and its references are the canonical
+policy and live contract. This TOML contains capability metadata only; do not
+duplicate or override its routing, evidence, or safety rules here.
 """

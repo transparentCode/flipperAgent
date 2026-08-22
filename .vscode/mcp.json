@@ -1,24 +1,16 @@
 {
   "servers": {
-    "mem0-local": {
+    "hindsight": {
       "type": "http",
-      "url": "http://localhost:8889/mcp"
+      "url": "http://localhost:8888/mcp"
     },
     "codebase-memory-mcp": {
       "type": "http",
-      "url": "http://localhost:9748/servers/cbm/mcp"
+      "url": "http://localhost:9748/mcp"
     },
     "gitnexus": {
       "type": "http",
-      "url": "http://localhost:9748/servers/gitnexus/mcp"
-    },
-    "caveman-shrink": {
-      "type": "http",
-      "url": "http://localhost:9748/servers/caveman-shrink/mcp"
-    },
-    "gitnexus-shrink": {
-      "type": "http",
-      "url": "http://localhost:9748/servers/gitnexus-shrink/mcp"
+      "url": "http://localhost:9750/mcp"
     }
   }
 }

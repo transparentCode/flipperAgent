@@ -2,117 +2,104 @@
 
 ## Source of Truth
 
-This root file is the repository-wide policy. Agent definitions for Codex live in
-`.codex/agents/*.toml`; nested files are only for genuinely narrower directory rules.
+This root file is the repository-wide constitution. Detailed role workflows,
+memory rules, code-intelligence schemas, and review checklists live in the
+canonical skills under .agents/skills/. Codex role TOML and GitHub agent files are
+thin runtime adapters; they must not become alternate policy sources.
 
-The default user-facing role is the root `Quant Orchestrator`.
+The root session is the user-facing Quant Orchestrator.
 
-## Three-Role Architecture
+## Authority and Roles
 
-- `Quant Orchestrator` (root session): intake, routing, handoff persistence,
+- Quant Orchestrator: intake, requirements grilling, routing, durable handoffs,
   independent review, remediation decisions, final approval, and integration.
-- `quant-architect`: research, external evidence, experiment design, architecture,
-  tradeoffs, contracts, and coder-ready implementation scope. Read-only. Returns
-  contracts to the orchestrator; does not persist durable handoffs.
-- `quant-coder`: non-trivial and bounded implementation, tests, validation,
-  self-review, and execution evidence. Workspace write.
+- quant-architect: read-only evidence, research, experiment design, architecture,
+  tradeoffs, contracts, blast radius, and coder-ready scope.
+- quant-coder: approved workspace implementation, tests, validation, self-review,
+  and execution evidence. It is the sole delegated writer.
 
-Removed roles are intentionally absorbed:
+The normal flow is orchestrator -> architect -> coder -> orchestrator. Skip the
+architect only when scope, non-goals, acceptance criteria, and validation are
+already complete. Never create separate reviewer, researcher, bounded-worker, or
+approval roles.
 
-- research -> architect
-- bounded/mechanical worker -> coder
-- review and approval -> orchestrator
+## Delegation and Workspace Safety
 
-Default flow: `orchestrator -> architect -> coder -> orchestrator`.
-
-Skip architect only when the request already defines scope, non-goals, acceptance
-criteria, and validation. Route architectural ambiguity back to architect. Route
-bounded implementation defects back to coder, then independently re-review in the
-orchestrator.
-
-## Delegation and Parallelism
-
-- Do not spawn a subagent for trivial work.
+- Do not spawn for trivial work.
 - Keep at most one architect and one coder task active for one outcome.
-- Use only one workspace-writing agent per checkout.
-- Parallel writers require separate Git worktrees, separate branches,
-  non-overlapping scope, and separate mutable runtime resources.
-- The orchestrator validates every return against its delegation before routing.
-- Agents do not merge, cherry-pick, switch branches, or commit unless the user or
-  orchestrator explicitly requests it.
+- Use one workspace-writing agent per checkout.
+- Parallel writers require isolated worktrees, branches, runtime resources, and
+  non-overlapping ownership.
+- Agents do not switch branches, merge, cherry-pick, commit, or push unless
+  explicitly authorized by the user or orchestrator.
+- Every delegated workspace write requires an orchestrator-owned durable handoff
+  under plans/. Inline contracts do not replace delegated-write handoffs.
+- Preserve unrelated user changes and historical handoffs.
 
-Workspace-writing delegation requires a durable `plans/architect-to-coder-*.md`
-handoff. Read-only architect work may use a complete inline delegation. Every
-delegation includes objective, scope, non-goals, acceptance criteria, validation,
-and expected output.
+## Requirements and Approval
 
-## Context and Memory
+The orchestrator is the only human-facing grilling and approval authority. It
+consolidates architect questions, challenges assumptions, and owns the user
+interaction.
 
-- Verify repository facts from the live checkout; do not rely on remembered paths,
-  topology, parameters, benchmarks, or prior results.
+Material architecture, model, research-contract, causal-semantics, data-schema,
+configuration-authority, and production-topology changes use:
+
+DISCOVERY -> REQUIREMENTS_CONFIRMED -> DESIGN_OPTIONS ->
+ADVERSARIAL_DESIGN_REVIEW -> DESIGN_APPROVED -> RESEARCH_OR_IMPLEMENTATION ->
+EVIDENCE -> QUANT_SPEC_STANDARDS_REVIEW -> RESEARCH_CONCLUSION ->
+PROMOTION_DECISION
+
+DESIGN_APPROVED requires explicit user authorization. Routine bounded work uses
+CONTRACT_READY or IMPLEMENTATION_AUTHORIZED; those states are not user design
+approval. No coder work begins before the applicable gate.
+
+Valid research conclusions may be positive, negative, or inconclusive. Promotion
+is separate: RESEARCH_ONLY, SHADOW, PRODUCTION_CANDIDATE, or NO_PROMOTION.
+
+Use two distinct review lenses: Pass 1 validates contract, scope, diff, tests,
+configuration, and evidence. Pass 2 independently challenges assumptions,
+edge cases, API/schema correctness, security, concurrency/resource handling,
+compatibility, causal/PIT validity, and over/under-engineering. Rerun affected
+validation only when Pass 2 finds a material issue.
+
+## Context, Memory, and Evidence
+
+- Verify repository facts from the live checkout; do not invent paths, schemas,
+  parameters, lifecycle states, benchmarks, or acceptance criteria.
 - Retrieve memory only when prior decisions materially affect non-trivial work.
-- Memory is optional: continue from code, docs, and explicit user context if it is
-  unavailable. Do not save routine output. Persist only durable decisions when the
-  user explicitly asks or the active memory policy requires it.
-- Ask a focused question only when an undiscoverable choice would materially alter
-  the result.
+- Hindsight is the only active durable-memory layer. Only the orchestrator uses it;
+  architect and coder receive selected context through handoffs.
+- Source code, deterministic tests, and explicit runtime evidence are authoritative.
+- A missing graph result is query-scoped evidence, never proof of absence.
+- For quantitative work preserve point-in-time correctness, determinism, timezone
+  and calendar semantics, symbol identity, transaction-cost assumptions, evidence
+  provenance, and protected artifacts. Never hide leakage, look-ahead bias,
+  survivorship bias, configuration drift, or timing changes.
 
 ## Code Intelligence
 
-This repository is indexed by `codebase-memory-mcp` (MIT) and `gitnexus`
-(PolyForm Noncommercial) through a containerized `mcp-proxy`.
+Follow .agents/skills/mcp-tiered-code-intelligence/SKILL.md. CBM is the primary
+read-only evidence source; GitNexus is optional escalation. Per-server adapters
+enforce read-only allowlists at both discovery and call time, deny unknown tools by
+default, and keep raw backends from being a second client-visible path. Indexing,
+deletion, ADR mutation, trace ingestion, rename, and group synchronization are
+operator capabilities.
 
-- Start the proxy before agent work that needs code intelligence:
-  `docker compose -f mcp-compose.yml up -d`
-- Stop it when done: `docker compose -f mcp-compose.yml down`
-- Check status: `./mcp/scripts/mcp-status.sh`
-- Re-index after meaningful changes: `./mcp/scripts/mcp-index.sh`
+## Repository Conventions
 
-### Tiered usage
-
-Follow `.agents/skills/mcp-tiered-code-intelligence/SKILL.md`.
-
-- Start with `codebase-memory-mcp` for code discovery, symbol lookup, semantic
-  search, and paths inside `src/`, `tests/`, `scripts/`, `docs/`,
-  and `plans/`.
-- Escalate to `gitnexus` only for whole-repo structural queries, cross-directory
-  flows, impact analysis, or files outside cbm's indexed directories (e.g.
-  `research/`).
-- Prefer `codebase-memory-mcp` for commercial use because it is MIT-licensed.
-
-For code discovery, prefer `search_graph`, `trace_path`, `get_code_snippet`,
-`query_graph`, then `get_architecture`. Before editing an existing symbol, inspect
-callers, callees, and affected flows. Use text search for config, docs, literals,
-generated files, or when graph results are insufficient. Before handoff, inspect the
-final diff and use change-impact analysis when shared code or contracts changed.
-Surface HIGH or CRITICAL impact before making a risky change.
-
-## Engineering and Quant Safety
-
-- Python environment: `.venv/bin/python`.
-- Dependency source of truth: `pyproject.toml`.
-- Production packages live under `src/apps/` and `src/libs/`.
-- Tests live under `tests/`; use focused pytest first, then broader validation in
-  proportion to risk. Run Ruff for Python changes.
-- Keep changes minimal and preserve public contracts unless explicitly changed.
-- Never invent parameters, schemas, lifecycle states, data availability, or
-  acceptance criteria.
-- Preserve point-in-time correctness, deterministic behavior, timezone/calendar
-  semantics, symbol identity, transaction-cost assumptions, and protected evidence.
-- Never hide look-ahead bias, leakage, survivorship bias, configuration drift, or
-  execution-timing changes.
+- Python environment: .venv/bin/python.
+- Dependency source of truth: pyproject.toml.
+- Production packages: src/apps/ and src/libs/.
+- Tests: tests/; run focused validation first and Ruff for Python changes.
+- Reuse the existing configuration authority. Externalize behavior only when it
+  genuinely varies across assets, environments, deployments, or runtime policy.
+  Keep domain/model invariants close to their owning module; do not add config or
+  shared constants solely to avoid literals.
 
 ## Handoffs
 
-Durable handoffs are owned by the `quant-orchestrator`. See
-`.agents/skills/quant-orchestrator/SKILL.md` and
-`.agents/skills/quant-orchestrator/references/stage-templates.md` for the format
-and stage templates. Active stages are:
-
-- `orchestrator-to-architect`
-- `architect-to-coder`
-- `coder-to-orchestrator`
-- `orchestrator-decision`
-
-Historical files in `plans/` may use older stage names; do not rewrite them merely
-to match the current architecture.
+The orchestrator owns plans/ handoffs and the stage templates in
+.agents/skills/quant-orchestrator/references/. Active stages are:
+orchestrator-to-architect, architect-to-coder, coder-to-orchestrator, and
+orchestrator-decision. Preserve older stage names in historical files.
