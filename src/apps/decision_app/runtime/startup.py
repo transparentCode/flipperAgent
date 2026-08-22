@@ -1027,13 +1027,13 @@ class DecisionStartupCoordinator:
         feature_plans: Mapping[str, FeaturePlan],
     ) -> set[str]:
         configured = {
-            asset.decision_asset: asset.manifest_asset
+            asset.decision_asset: asset
             for asset in self._config.assets.values()
             if asset.enabled
         }
         if self._manifest_store is None:
             return set(configured)
-        required_timeframes_by_manifest: dict[str, set[str]] = {}
+        required_timeframes_by_runtime_asset: dict[str, set[str]] = {}
         relay_plans = compile_price_relay_plans(self._config)
         for series_key in self._required_series(plan, feature_plans, relay_plans):
             for asset in self._config.assets.values():
@@ -1042,35 +1042,38 @@ class DecisionStartupCoordinator:
                     and series_key.venue == asset.venue
                     and series_key.instrument_id == asset.instrument_id
                 ):
-                    required_timeframes_by_manifest.setdefault(
-                        asset.manifest_asset,
+                    required_timeframes_by_runtime_asset.setdefault(
+                        asset.decision_asset,
                         set(),
                     ).add(series_key.timeframe)
 
         active: set[str] = set()
-        for decision_asset, manifest_asset in configured.items():
-            manifest = await self._manifest_store.read_asset(manifest_asset)
+        for decision_asset, asset in configured.items():
+            # ``asset.manifest_asset`` remains the canonical Ingestion config
+            # key. The manifest store and lifecycle stream use the validated
+            # live-provider identity in ``decision_asset``.
+            manifest = await self._manifest_store.read_asset(decision_asset)
             if manifest is None:
                 continue
             if (
-                manifest.symbol != manifest_asset
+                manifest.symbol != decision_asset
                 or manifest.source != "ingestion"
                 or not manifest.enabled
                 or str(manifest.desired_state).upper() != "LIVE"
             ):
                 continue
-            required_timeframes = required_timeframes_by_manifest.get(
-                manifest_asset,
+            required_timeframes = required_timeframes_by_runtime_asset.get(
+                decision_asset,
                 set(),
             )
             valid = True
             for timeframe in required_timeframes:
                 timeframe_manifest = await self._manifest_store.read_timeframe(
-                    manifest_asset,
+                    decision_asset,
                     timeframe,
                 )
                 if timeframe_manifest is None or (
-                    timeframe_manifest.symbol != manifest_asset
+                    timeframe_manifest.symbol != decision_asset
                     or timeframe_manifest.source != "ingestion"
                     or not timeframe_manifest.enabled
                     or str(timeframe_manifest.desired_state).upper() != "LIVE"

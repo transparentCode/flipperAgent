@@ -246,7 +246,9 @@ def create_application(
                     or LifecycleNotificationReader(
                         stream_client=current_stream_client,
                         cursor=lifecycle_cursor,
-                        configured_manifest_assets=config.assets,
+                        configured_manifest_assets=tuple(
+                            asset.decision_asset for asset in config.active_assets
+                        ),
                         block_ms=config.global_settings.live_input.block_ms,
                     )
                 )

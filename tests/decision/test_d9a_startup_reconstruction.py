@@ -499,15 +499,38 @@ class _Manifest:
 class _ManifestStore:
     def __init__(self, states: dict[str, str]) -> None:
         self.states = states
+        self.asset_reads: list[str] = []
+        self.timeframe_reads: list[tuple[str, str]] = []
 
     async def read_asset(self, symbol: str):
+        self.asset_reads.append(symbol)
         return _Manifest(symbol, "ingestion", True, "LIVE")
 
     async def read_timeframe(self, symbol: str, timeframe: str):
+        self.timeframe_reads.append((symbol, timeframe))
         state = self.states.get(timeframe)
         if state is None:
             return None
         return _Manifest(symbol, "ingestion", True, state)
+
+
+class _IdentityManifestStore:
+    def __init__(
+        self,
+        *,
+        assets: tuple[_Manifest, ...] = (),
+        timeframes: tuple[tuple[str, str, _Manifest], ...] = (),
+    ) -> None:
+        self.assets = {manifest.symbol: manifest for manifest in assets}
+        self.timeframes = {
+            (symbol, timeframe): manifest for symbol, timeframe, manifest in timeframes
+        }
+
+    async def read_asset(self, symbol: str):
+        return self.assets.get(symbol)
+
+    async def read_timeframe(self, symbol: str, timeframe: str):
+        return self.timeframes.get((symbol, timeframe))
 
 
 def _feature_plan_for_manifest_gate():
@@ -593,6 +616,7 @@ async def test_manifest_gate_uses_compiled_feature_timeframes(
     states: dict[str, str], expected_active: bool
 ) -> None:
     config, plan, feature_plans = _feature_plan_for_manifest_gate()
+    store = _ManifestStore(states)
     coordinator = DecisionStartupCoordinator(
         decision_config=config,
         plugin_catalog=PluginCatalog(
@@ -606,8 +630,115 @@ async def test_manifest_gate_uses_compiled_feature_timeframes(
         history_repository=InMemoryCanonicalMarketHistoryRepository(
             {}, timeframe_grid=config.timeframe_grid
         ),
-        manifest_store=_ManifestStore(states),
+        manifest_store=store,
     )
+
+    active = await coordinator._active_manifest_assets(plan, feature_plans)
+
+    assert ("BTCUSDT" in active) is expected_active
+    assert store.asset_reads == ["BTCUSDT"]
+    assert {symbol for symbol, _timeframe in store.timeframe_reads} == {"BTCUSDT"}
+
+
+def _manifest(
+    symbol: str,
+    *,
+    source: str = "ingestion",
+    enabled: bool = True,
+    desired_state: str = "LIVE",
+) -> _Manifest:
+    return _Manifest(symbol, source, enabled, desired_state)
+
+
+def _manifest_gate_coordinator(store: _IdentityManifestStore):
+    config, plan, feature_plans = _feature_plan_for_manifest_gate()
+    coordinator = DecisionStartupCoordinator(
+        decision_config=config,
+        plugin_catalog=PluginCatalog(
+            [next(iter(plan.lanes[0].bindings.values())).model_spec]
+        ),
+        feature_catalog=FeatureCatalog([]),
+        feature_policy=FeaturePolicy(name="operator", version="1"),
+        data_policy=DataPolicy(name="operator", version="1"),
+        source_catalog=DataSourceCatalog([]),
+        runtime_plugin_catalog=RuntimePluginCatalog([]),
+        history_repository=InMemoryCanonicalMarketHistoryRepository(
+            {}, timeframe_grid=config.timeframe_grid
+        ),
+        manifest_store=store,
+    )
+    return coordinator, plan, feature_plans
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("case", "assets", "timeframes", "expected_active"),
+    [
+        (
+            "canonical runtime manifest and timeframes",
+            (_manifest("BTCUSDT"),),
+            (
+                ("BTCUSDT", "1h", _manifest("BTCUSDT")),
+                ("BTCUSDT", "4h", _manifest("BTCUSDT")),
+            ),
+            True,
+        ),
+        ("missing runtime manifest", (), (), False),
+        (
+            "wrong source",
+            (_manifest("BTCUSDT", source="operator"),),
+            (
+                ("BTCUSDT", "1h", _manifest("BTCUSDT")),
+                ("BTCUSDT", "4h", _manifest("BTCUSDT")),
+            ),
+            False,
+        ),
+        (
+            "non-live runtime manifest",
+            (_manifest("BTCUSDT", desired_state="STOPPED"),),
+            (
+                ("BTCUSDT", "1h", _manifest("BTCUSDT")),
+                ("BTCUSDT", "4h", _manifest("BTCUSDT")),
+            ),
+            False,
+        ),
+        (
+            "missing required timeframe",
+            (_manifest("BTCUSDT"),),
+            (("BTCUSDT", "1h", _manifest("BTCUSDT")),),
+            False,
+        ),
+        (
+            "stale config key alone",
+            (_manifest("BTC"),),
+            (
+                ("BTC", "1h", _manifest("BTC")),
+                ("BTC", "4h", _manifest("BTC")),
+            ),
+            False,
+        ),
+        (
+            "canonical runtime identity wins over stale key",
+            (_manifest("BTC"), _manifest("BTCUSDT")),
+            (
+                ("BTC", "1h", _manifest("BTC")),
+                ("BTC", "4h", _manifest("BTC")),
+                ("BTCUSDT", "1h", _manifest("BTCUSDT")),
+                ("BTCUSDT", "4h", _manifest("BTCUSDT")),
+            ),
+            True,
+        ),
+    ],
+)
+async def test_manifest_gate_is_fail_closed_on_runtime_identity(
+    case: str,
+    assets: tuple[_Manifest, ...],
+    timeframes: tuple[tuple[str, str, _Manifest], ...],
+    expected_active: bool,
+) -> None:
+    del case
+    store = _IdentityManifestStore(assets=assets, timeframes=timeframes)
+    coordinator, plan, feature_plans = _manifest_gate_coordinator(store)
 
     active = await coordinator._active_manifest_assets(plan, feature_plans)
 

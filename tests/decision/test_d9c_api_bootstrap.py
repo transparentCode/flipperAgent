@@ -456,6 +456,8 @@ async def test_lifespan_captures_lifecycle_tail_before_generation_build(
         assert order[:2] == ["capture", "factory"]
         assert order[2:] == ["generation"]
         assert app.state.decision_service.snapshot().lifecycle_cursor == "9-0"
+        lifecycle_reader = app.state.decision_service._lifecycle_reader
+        assert lifecycle_reader._configured_assets == frozenset({"BTCUSDT"})
 
     assert manager.shutdown_calls == 1
 

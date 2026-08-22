@@ -25,7 +25,7 @@ class _LifecycleClient:
         return records
 
 
-def _event(symbol: str = "BTC") -> dict[str, str]:
+def _event(symbol: str = "BTCUSDT") -> dict[str, str]:
     event = AssetLifecycleEvent(
         event_id=f"event-{symbol}",
         event_type=AssetLifecycleEventType.ASSET_UPDATED,
@@ -45,7 +45,7 @@ async def test_missing_lifecycle_stream_uses_zero_cursor() -> None:
     reader = LifecycleNotificationReader(
         stream_client=client,
         cursor="0-0",
-        configured_manifest_assets=("BTC",),
+        configured_manifest_assets=("BTCUSDT",),
     )
     result = await reader.read_once()
     assert result.cursor == "0-0"
@@ -60,7 +60,10 @@ async def test_lifecycle_direct_cursor_advances_and_malformed_requests_rebuild()
         [
             (
                 "asset:lifecycle",
-                [("4-0", _event("BTC")), ("5-0", {"event_type": "bad"})],
+                [
+                    ("4-0", _event("BTCUSDT")),
+                    ("5-0", {"event_type": "bad"}),
+                ],
             )
         ],
         tail="3-0",
@@ -69,12 +72,12 @@ async def test_lifecycle_direct_cursor_advances_and_malformed_requests_rebuild()
     reader = LifecycleNotificationReader(
         stream_client=client,
         cursor="3-0",
-        configured_manifest_assets=("BTC",),
+        configured_manifest_assets=("BTCUSDT",),
     )
     result = await reader.read_once()
     assert result.cursor == "5-0"
     assert result.event_ids == ("4-0", "5-0")
-    assert [event.symbol for event in result.relevant_events] == ["BTC"]
+    assert [event.symbol for event in result.relevant_events] == ["BTCUSDT"]
     assert result.malformed_ids == ("5-0",)
     assert result.rebuild_requested is True
     assert client.xread_calls[0][0] == {"asset:lifecycle": "3-0"}
@@ -82,14 +85,21 @@ async def test_lifecycle_direct_cursor_advances_and_malformed_requests_rebuild()
 
 @pytest.mark.asyncio
 async def test_unconfigured_lifecycle_event_is_notification_only() -> None:
-    client = _LifecycleClient([("asset:lifecycle", [("1-0", _event("ETH"))])])
+    client = _LifecycleClient(
+        [
+            (
+                "asset:lifecycle",
+                [("1-0", _event("ETH")), ("2-0", _event("BTC"))],
+            )
+        ]
+    )
     reader = LifecycleNotificationReader(
         stream_client=client,
         cursor="0-0",
-        configured_manifest_assets=("BTC",),
+        configured_manifest_assets=("BTCUSDT",),
     )
     result = await reader.read_once()
-    assert result.cursor == "1-0"
+    assert result.cursor == "2-0"
     assert result.relevant_events == ()
-    assert result.ignored_symbols == ("ETH",)
+    assert result.ignored_symbols == ("BTC", "ETH")
     assert result.rebuild_requested is False
