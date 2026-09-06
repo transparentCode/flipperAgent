@@ -66,10 +66,17 @@ SOURCE_SPECS = (
     },
 )
 
+HISTORICAL_PRE_MODULARIZATION_HASHES = {
+    "core": "c92076e72891b222cf8359cba614c8ed969f04d1734a8985abdb0b68ffc9509f",
+    "root_namespace": "66ccb45f10ab0c3b530f81919ad172fdde93b51cda04d935a6ce581641d0ac61",
+    "decision_adapter": "9d65b6f1cc0d00bbd60c9f40299f47701a161eadc2d5d0ae29b28747d415e523",
+    "decision_composition": "41d9d9562e48c54042b46ce9880247b4ba23769ff80d708c2ee7c15c951ee763",
+}
+
 PROTECTED_HASHES = {
     "core": (
         ROOT / "src/libs/models/trendlines_v4/core.py",
-        "c92076e72891b222cf8359cba614c8ed969f04d1734a8985abdb0b68ffc9509f",
+        "43cd16de5f0cff3506a83c0c153df0cbec89ee8e3c679627b1f418dc7cd52f65",
     ),
     "root_namespace": (
         ROOT / "src/libs/models/trendlines_v4/__init__.py",
@@ -77,7 +84,7 @@ PROTECTED_HASHES = {
     ),
     "decision_adapter": (
         ROOT / "src/libs/models/trendlines_v4/adapters/decision_plugin.py",
-        "9d65b6f1cc0d00bbd60c9f40299f47701a161eadc2d5d0ae29b28747d415e523",
+        "be920fa709cc168bedc8ccfeae6bfd75d3001e9f11c2b338f1b191dfab8b9d76",
     ),
     "decision_composition": (
         ROOT / "src/apps/decision_app/composition.py",

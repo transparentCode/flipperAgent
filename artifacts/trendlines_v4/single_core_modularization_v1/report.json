@@ -1,0 +1,60 @@
+{
+  "base_commit": "213430517ccf4f35de8a12660f68a3d28940206a",
+  "conclusion": "SINGLE_CORE_MODULARIZATION_PARITY_PROVEN",
+  "composition_sha256": "41d9d9562e48c54042b46ce9880247b4ba23769ff80d708c2ee7c15c951ee763",
+  "engine": {
+    "pivot_window": 3,
+    "history_capacity_bars": 300,
+    "roles": [
+      "structural",
+      "current_valid",
+      "secondary"
+    ],
+    "selection_algorithm": "one shared legacy DP with unchanged strict-score and insertion-order ties"
+  },
+  "parity": {
+    "tracked_model_tests_passed": 24,
+    "decision_integration_tests_passed": 27,
+    "research_tests_passed": 146,
+    "n3a_side_observations_exact": 9276,
+    "n3b_side_memberships_exact": 1536,
+    "v1_v2_output_and_state_parity": "exact",
+    "historical_artifacts_changed": false
+  },
+  "old_production_hashes": {
+    "src/libs/models/trendlines_v4/__init__.py": "66ccb45f10ab0c3b530f81919ad172fdde93b51cda04d935a6ce581641d0ac61",
+    "src/libs/models/trendlines_v4/core.py": "c92076e72891b222cf8359cba614c8ed969f04d1734a8985abdb0b68ffc9509f",
+    "src/libs/models/trendlines_v4/adapters/decision_plugin.py": "9d65b6f1cc0d00bbd60c9f40299f47701a161eadc2d5d0ae29b28747d415e523",
+    "src/apps/decision_app/composition.py": "41d9d9562e48c54042b46ce9880247b4ba23769ff80d708c2ee7c15c951ee763"
+  },
+  "new_modular_production_hashes": {
+    "src/libs/models/trendlines_v4/__init__.py": "66ccb45f10ab0c3b530f81919ad172fdde93b51cda04d935a6ce581641d0ac61",
+    "src/libs/models/trendlines_v4/core.py": "43cd16de5f0cff3506a83c0c153df0cbec89ee8e3c679627b1f418dc7cd52f65",
+    "src/libs/models/trendlines_v4/core_v2.py": "8775b678c8ebcc64734c01976c650d61b092bed1439fcc29f1737aeee9b0221f",
+    "src/libs/models/trendlines_v4/contracts.py": "8add9e9148adb41d045103a724c0cc55f213e7e5465545bcca1a24ce6c240053",
+    "src/libs/models/trendlines_v4/engine/__init__.py": "637a1e22d3ebefbdc680a5aa2a344eb2398a44a93afecea99d45b9532d78a0d9",
+    "src/libs/models/trendlines_v4/engine/types.py": "ab55a5441dc97d431f2c22fa72340dbf32592aa436449bc47543cb75314cc9ae",
+    "src/libs/models/trendlines_v4/engine/pivots.py": "6957257c56c982a6871329d26254a0c6fb72246272dc40bf9fced6ca0d52b7c7",
+    "src/libs/models/trendlines_v4/engine/validity.py": "60250b3f81bc2b5a9d995127a29b5692a9e5a6c540b8420734d9726d9b7de7c7",
+    "src/libs/models/trendlines_v4/engine/solver.py": "28f8a2f9e151091c8c551c70386064f27b8fead979205537d89d89b82bd900d9",
+    "src/libs/models/trendlines_v4/engine/analyzer.py": "6042ea892d3494027eab99851d906c19aff35ec655e171ce8e6511655518bafe",
+    "src/libs/models/trendlines_v4/adapters/__init__.py": "4fe2b97ef481564c53fe7fbadce1b3530840f5a073def21b6852ae6f8c632c2d",
+    "src/libs/models/trendlines_v4/adapters/decision/__init__.py": "349e2f9c857819e16362b3dc9d278c07518022beb0c24cb6087238fa02899064",
+    "src/libs/models/trendlines_v4/adapters/decision/common.py": "1277ac7101f3aad161d3c181adc216edec51f5c0ce8d012210c77d2c1899e7cb",
+    "src/libs/models/trendlines_v4/adapters/decision/v1.py": "9902999bf6b18bd9f3e5a582f26fbc5527b6787a8df2629450eb9f94eb909537",
+    "src/libs/models/trendlines_v4/adapters/decision/v2.py": "abc184c6c950a81052877a4f4ee397670620bc05921266df85c081421851cc19",
+    "src/libs/models/trendlines_v4/adapters/decision_plugin.py": "be920fa709cc168bedc8ccfeae6bfd75d3001e9f11c2b338f1b191dfab8b9d76",
+    "src/libs/models/trendlines_v4/adapters/decision_plugin_v2.py": "c7c7e5c1080e7772965729bae13f67a70dd2658782e47718e64f2f31ad0b2760"
+  },
+  "schemas": {
+    "v1_geometry": "trendlines.geometry.v1",
+    "v2_geometry": "trendlines.geometry.v2",
+    "state": "trendlines.state.v1"
+  },
+  "runtime_boundaries": {
+    "v2_decision_registration": false,
+    "lane_or_yaml_change": false,
+    "research_import_from_production": false,
+    "network_or_new_data": false
+  }
+}

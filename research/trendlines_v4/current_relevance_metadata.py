@@ -65,10 +65,13 @@ N1_AUTHORITY_HASHES = {
     ),
 }
 
+N1_HISTORICAL_LOCKS = {
+    "implementation": "30e17266998b445d2fb12d75e0ede590c16ca2fec2d02f0879655f49b41e444d",
+}
 N1_LOCKS = {
     "implementation": (
         ROOT / "research/trendlines_v4/exact_geometry_identity_persistence.py",
-        "30e17266998b445d2fb12d75e0ede590c16ca2fec2d02f0879655f49b41e444d",
+        "1162045ff2719cf50c2908b61d7e33dc22ea153f9d8a028e4074e1e8a3d7daef",
     ),
     "tests": (
         ROOT

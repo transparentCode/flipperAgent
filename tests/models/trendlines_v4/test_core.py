@@ -20,6 +20,8 @@ from libs.models.trendlines_v4 import (
     analyze_trendlines,
     core,
 )
+from libs.models.trendlines_v4.engine import pivots as pivot_engine
+from libs.models.trendlines_v4.engine import solver, validity
 from research.trendlines_v4.current_valid_legacy_score_reselection import (
     reselect_side_result,
 )
@@ -357,22 +359,22 @@ def test_latest_300_bar_trimming_is_exact() -> None:
 def test_segment_body_rules_and_crossing_metadata() -> None:
     bars = list(_flat_bars(9))
     bars[4] = _bar(4, open_=10, high=12, low=1, close=11)
-    assert core._segment_is_valid(bars, 0, 8, 8, 8, "support")
-    assert core._segment_is_valid(bars, 0, 12, 8, 12, "resistance")
+    assert validity._segment_is_valid(bars, 0, 8, 8, 8, "support")
+    assert validity._segment_is_valid(bars, 0, 12, 8, 12, "resistance")
     equality_bars = list(_flat_bars(9))
     equality_bars[4] = _bar(4, open_=8, high=12, low=8, close=9)
-    assert core._segment_is_valid(equality_bars, 0, 8, 8, 8, "support")
-    assert core._segment_is_valid(equality_bars, 0, 12, 8, 12, "resistance")
+    assert validity._segment_is_valid(equality_bars, 0, 8, 8, 8, "support")
+    assert validity._segment_is_valid(equality_bars, 0, 12, 8, 12, "resistance")
     support_bad = list(_flat_bars(9))
     support_bad[4] = _bar(4, open_=9, high=12, low=8, close=10)
-    assert not core._segment_is_valid(support_bad, 0, 10, 8, 10, "support")
+    assert not validity._segment_is_valid(support_bad, 0, 10, 8, 10, "support")
     resistance_bad = list(_flat_bars(9))
     resistance_bad[4] = _bar(4, open_=10, high=12, low=8, close=11)
-    assert not core._segment_is_valid(resistance_bad, 0, 10, 8, 10, "resistance")
-    line = core._Line(1, 3, 10, 12, 1, 9, 18)
+    assert not validity._segment_is_valid(resistance_bad, 0, 10, 8, 10, "resistance")
+    line = solver._Line(1, 3, 10, 12, 1, 9, 18)
     crossing_bars = list(_flat_bars(8))
     crossing_bars[4] = _bar(4, open_=9, high=12, low=8, close=9)
-    geometry = core._geometry(crossing_bars, "support", line)
+    geometry = solver._geometry(crossing_bars, "support", line)
     assert geometry is not None
     assert geometry.post_anchor_body_crossed
     assert geometry.post_anchor_body_cross_count == 4
@@ -382,34 +384,34 @@ def test_current_valid_selection_keeps_original_scores_and_ties(monkeypatch) -> 
     bars = _flat_bars(16)
     pivots = ((3, 10.0), (5, 9.0), (7, 8.0), (10, 9.0), (12, 11.0))
     valid_pairs = {(3, 7), (3, 10), (5, 12)}
-    monkeypatch.setattr(core, "_pivots", lambda _bars, _side: pivots)
+    monkeypatch.setattr(pivot_engine, "_pivots", lambda _bars, _side: pivots)
     monkeypatch.setattr(
-        core,
+        validity,
         "_segment_is_valid",
         lambda _bars, previous, _previous_price, current, _current_price, _side: (
             (previous, current) in valid_pairs
         ),
     )
     monkeypatch.setattr(
-        core,
+        validity,
         "_crossing_count",
         lambda _bars, line, _side: 1 if line.end_index == 10 else 0,
     )
-    state = core._solve_side(bars, "support")
+    state = solver._solve_side(bars, "support")
     assert state.structural is not None and state.structural.end_index == 10
     assert state.current_valid is not None and state.current_valid.end_index == 12
-    monkeypatch.setattr(core, "_crossing_count", lambda *_args: 0)
-    tied = core._solve_side(bars, "support")
+    monkeypatch.setattr(validity, "_crossing_count", lambda *_args: 0)
+    tied = solver._solve_side(bars, "support")
     assert tied.current_valid is not None and tied.current_valid.end_index == 10
 
 
 def test_no_valid_endpoint_preserves_structural_line(monkeypatch) -> None:
     bars = _flat_bars(12)
     pivots = ((3, 10.0), (7, 8.0))
-    monkeypatch.setattr(core, "_pivots", lambda _bars, _side: pivots)
-    monkeypatch.setattr(core, "_segment_is_valid", lambda *_args: True)
-    monkeypatch.setattr(core, "_crossing_count", lambda *_args: 1)
-    state = core._solve_side(bars, "support")
+    monkeypatch.setattr(pivot_engine, "_pivots", lambda _bars, _side: pivots)
+    monkeypatch.setattr(validity, "_segment_is_valid", lambda *_args: True)
+    monkeypatch.setattr(validity, "_crossing_count", lambda *_args: 1)
+    state = solver._solve_side(bars, "support")
     assert state.structural is not None
     assert state.current_valid is None
 
