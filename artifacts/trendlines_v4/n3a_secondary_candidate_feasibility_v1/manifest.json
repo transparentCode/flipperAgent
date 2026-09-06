@@ -1,0 +1,196 @@
+{
+  "authority": {
+    "n3a_authority_hashes": {
+      "approval": {
+        "path": "/Users/kajukatli/projects/flipperAgent/plans/orchestrator-decision-trendlines-v4-n3a-secondary-candidate-feasibility-design-approval-v1.md",
+        "sha256": "cfeec114a9dd5a9c8fd6f630741d2c1e7f9e6aed2765ceec445a7fb543251904"
+      },
+      "design": {
+        "path": "/Users/kajukatli/projects/flipperAgent/plans/orchestrator-decision-trendlines-v4-n3a-secondary-candidate-feasibility-design-v1.md",
+        "sha256": "5227a0598c314811600b3bf9753d91e999744acd95090c2d3c715857f7919326"
+      },
+      "h1_decision": {
+        "path": "/Users/kajukatli/projects/flipperAgent/plans/orchestrator-decision-trendlines-v4-h1-profile-challenge-unblinded-decision-v1.md",
+        "sha256": "c7b3f670f23dbf148fbcafb355f9f50317d4e477e05e37fc5466d0e2ada182a4"
+      },
+      "handoff": {
+        "path": "/Users/kajukatli/projects/flipperAgent/plans/architect-to-coder-trendlines-v4-n3a-secondary-candidate-feasibility-v1.md",
+        "sha256": "e566f16f658e62e0b00c8cd3e6e6f3a173921556684a9ce4ff8bd724d5774b7a"
+      }
+    },
+    "prior_authority_and_locks": {
+      "h0_authority_hashes": {
+        "approval": {
+          "path": "/Users/kajukatli/projects/flipperAgent/plans/orchestrator-decision-trendlines-v4-h0-parameter-sensitivity-design-approval-v1.md",
+          "sha256": "e4844237d948a5e3b4d5ac3e31584ae38d7e92abe67376aba71e1775d8d8fa0d"
+        },
+        "design": {
+          "path": "/Users/kajukatli/projects/flipperAgent/plans/orchestrator-decision-trendlines-v4-h0-parameter-sensitivity-design-v1.md",
+          "sha256": "0bfbceaeb012cd869aa1054a8366b08e533561abcd522f967ed70bbea405bc96"
+        },
+        "handoff": {
+          "path": "/Users/kajukatli/projects/flipperAgent/plans/architect-to-coder-trendlines-v4-h0-parameter-sensitivity-v1.md",
+          "sha256": "45c86f1fa89f0498e7a0db8133c9c5a10f389d68e0ad1ea27e07ec9c43ca2981"
+        }
+      },
+      "n1_artifact": {
+        "inventory": {
+          "episode_count": 2363,
+          "measured_snapshot_count": 4800,
+          "role_slot_count": 19200,
+          "side_snapshot_pair_count": 9600,
+          "unique_geometry_count": 1159
+        },
+        "manifest_byte_length": 12257,
+        "manifest_id": "d03d0d6be2614e0b02f0e659592a1368d456077c4637890dcdfd65234d8b78fc",
+        "manifest_sha256": "9e270831b656e13b3df0e8c4cbb90e2ebeec4f24a9c5c56555c71b6d7506d464",
+        "report_byte_length": 30308,
+        "report_sha256": "30045237ff1bd763539addbf5645dadb862665512854731b1fdf3823c5499bd3"
+      },
+      "n1_authority_hashes": {
+        "approval": {
+          "path": "/Users/kajukatli/projects/flipperAgent/plans/orchestrator-decision-trendlines-v4-n1-exact-identity-persistence-approval-v1.md",
+          "sha256": "fdf50eeaa9c49653ec2bde542417ae201bf08f3776c747b43c5116e376c4c5be"
+        }
+      },
+      "n1_locks": {
+        "implementation": "30e17266998b445d2fb12d75e0ede590c16ca2fec2d02f0879655f49b41e444d",
+        "manifest": "9e270831b656e13b3df0e8c4cbb90e2ebeec4f24a9c5c56555c71b6d7506d464",
+        "report": "30045237ff1bd763539addbf5645dadb862665512854731b1fdf3823c5499bd3",
+        "tests": "f23ad57ae9bc5a958c1bdcc88675d8e0049e90fac53cc714fa4191014a59bf9e"
+      },
+      "n2_artifact": {
+        "inventory": {
+          "measured_snapshot_count": 4800,
+          "n1_episode_count": 2363,
+          "n1_unique_geometry_count": 1159,
+          "non_null_role_observation_count": 19091,
+          "role_slot_count": 19200,
+          "side_snapshot_pair_count": 9600,
+          "unique_geometry_at_cutoff_count": 13096,
+          "window_count": 16
+        },
+        "manifest_byte_length": 14443,
+        "manifest_id": "494a44fd8c7915ace90364118ed05cf670e5e24fea43349abdad47d0a2aed862",
+        "manifest_sha256": "eb1dd91fd48b9af26fe42d8650acb2b7614ce17d3758adac7abe45c1ff2d4556",
+        "report_byte_length": 81161,
+        "report_sha256": "97ca7bbd5d08004a41026ae45ae7d2437b7dba3dabdc30c70fa204c2a5636dc5"
+      },
+      "n2_authority_hashes": {
+        "approval": {
+          "path": "/Users/kajukatli/projects/flipperAgent/plans/orchestrator-decision-trendlines-v4-n2-current-relevance-metadata-approval-v1.md",
+          "sha256": "621af2c123c75f6e7c4721b53c77d869a21a5783bd3cae9624c0df6fd5b794cf"
+        }
+      },
+      "n2_locks": {
+        "implementation": "937f27420bafb5e6b01abd9bbb815d496b2af42994e055d914a8dfe2964fa4fd",
+        "manifest": "eb1dd91fd48b9af26fe42d8650acb2b7614ce17d3758adac7abe45c1ff2d4556",
+        "report": "97ca7bbd5d08004a41026ae45ae7d2437b7dba3dabdc30c70fa204c2a5636dc5",
+        "tests": "65038d1377eaa1581e30f8d8e03d709e1d526feab8094825cdf2a5c93fa90bd5"
+      },
+      "production_protected_hashes": {
+        "core": "c92076e72891b222cf8359cba614c8ed969f04d1734a8985abdb0b68ffc9509f",
+        "decision_composition": "41d9d9562e48c54042b46ce9880247b4ba23769ff80d708c2ee7c15c951ee763",
+        "decision_plugin": "9d65b6f1cc0d00bbd60c9f40299f47701a161eadc2d5d0ae29b28747d415e523",
+        "root_namespace": "66ccb45f10ab0c3b530f81919ad172fdde93b51cda04d935a6ce581641d0ac61"
+      }
+    }
+  },
+  "development_membership": {
+    "cutoff_count": 4638,
+    "membership_hash": "e3104d4cc9822abe23c45f566266b5149107b27d65088e7b4f8fa1739fe555d8",
+    "streams": [
+      {
+        "asset": "BTCUSDT",
+        "development_cutoff_count": 600,
+        "first_source_position": 7476,
+        "last_source_position": 29303,
+        "timeframe": "1h"
+      },
+      {
+        "asset": "BTCUSDT",
+        "development_cutoff_count": 600,
+        "first_source_position": 2004,
+        "last_source_position": 7415,
+        "timeframe": "4h"
+      },
+      {
+        "asset": "ETHUSDT",
+        "development_cutoff_count": 600,
+        "first_source_position": 5724,
+        "last_source_position": 22295,
+        "timeframe": "1h"
+      },
+      {
+        "asset": "ETHUSDT",
+        "development_cutoff_count": 600,
+        "first_source_position": 1566,
+        "last_source_position": 5663,
+        "timeframe": "4h"
+      },
+      {
+        "asset": "SOLUSDT",
+        "development_cutoff_count": 600,
+        "first_source_position": 5724,
+        "last_source_position": 22295,
+        "timeframe": "1h"
+      },
+      {
+        "asset": "SOLUSDT",
+        "development_cutoff_count": 600,
+        "first_source_position": 1566,
+        "last_source_position": 5663,
+        "timeframe": "4h"
+      },
+      {
+        "asset": "HYPEUSDT",
+        "development_cutoff_count": 600,
+        "first_source_position": 1498,
+        "last_source_position": 5391,
+        "timeframe": "1h"
+      },
+      {
+        "asset": "HYPEUSDT",
+        "development_cutoff_count": 438,
+        "first_source_position": 671,
+        "last_source_position": 1436,
+        "timeframe": "4h"
+      }
+    ]
+  },
+  "files": {
+    "report.json": {
+      "byte_length": 18272695,
+      "sha256": "ca7054c5892705445a83b0dbc1ca4c16e1d13ffb9bfe680a557f85aa4de557b6"
+    }
+  },
+  "h1b_membership_hash": "71bce66333b89f96d093de764f93a954add7c7e9d4f28848767ed8d67697fbda",
+  "h1b_results_published": false,
+  "manifest_id": "4ff2ef66f065ad6da0d00f1d88f209704294f11ac26bdaafad93fdc1c248fc41",
+  "n3b_membership_hash": "42042794f9db09c8120b67a8c0d70e99c2c7f867d9b87313a22a4e1365b1360c",
+  "n3b_results_published": false,
+  "parameters": {
+    "history_capacity_bars": 300,
+    "pivot_window": 3
+  },
+  "resource_observation": {
+    "first": {
+      "cpu_seconds": 63.841691000000004,
+      "peak_process_rss_bytes": 74366976,
+      "wall_seconds": 64.99579083299614
+    },
+    "rss_limit_bytes": 536870912,
+    "second": {
+      "cpu_seconds": 64.11568399999999,
+      "peak_process_rss_bytes": 93650944,
+      "wall_seconds": 65.79921304201707
+    },
+    "semantic_runs": 2,
+    "sequential": true
+  },
+  "results_published": true,
+  "schema": "trendlines.v4.n3a.secondary-candidate-feasibility-manifest.v1",
+  "scope": "development-only exact secondary feasibility; no N3B/H1B evaluation",
+  "semantic_equality": true,
+  "semantic_runs": 2
+}

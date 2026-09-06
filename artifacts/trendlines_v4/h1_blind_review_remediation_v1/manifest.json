@@ -1,0 +1,154 @@
+{
+  "authority": {
+    "h0_authority_hashes": {
+      "approval": {
+        "path": "/Users/kajukatli/projects/flipperAgent/plans/orchestrator-decision-trendlines-v4-h0-parameter-sensitivity-approval-v1.md",
+        "sha256": "12c65b91da08246de4a066cd47d3721d5424c72b7c1f820961bdbcdf34f77071"
+      },
+      "implementation": {
+        "path": "/Users/kajukatli/.devspace/worktrees/flipperAgent-cd309574/research/trendlines_v4/parameter_sensitivity.py",
+        "sha256": "8f48a0d7b889058fc6ade20ca875531f4cdd2bb7e2f09a498fad268e3d8e4791"
+      },
+      "manifest": {
+        "path": "/Users/kajukatli/.devspace/worktrees/flipperAgent-cd309574/artifacts/trendlines_v4/h0_parameter_sensitivity_v1/manifest.json",
+        "sha256": "613e164884f414df025ced5dff485ca5c48476848679beeae8cae7ab654c8437"
+      },
+      "report": {
+        "path": "/Users/kajukatli/.devspace/worktrees/flipperAgent-cd309574/artifacts/trendlines_v4/h0_parameter_sensitivity_v1/report.json",
+        "sha256": "b34019127c8167a36438a8702ca4ad04376df852784e8f5f1e12157db7ccb6cc"
+      },
+      "tests": {
+        "path": "/Users/kajukatli/.devspace/worktrees/flipperAgent-cd309574/tests/research/trendlines_v4/test_parameter_sensitivity.py",
+        "sha256": "dea327fcfa887d4293de28e777d314fe90c2cdb420c0d9ea4fb0f9322b257ae0"
+      }
+    },
+    "h1_authority_hashes": {
+      "approval": {
+        "path": "/Users/kajukatli/projects/flipperAgent/plans/orchestrator-decision-trendlines-v4-h1-conservative-profile-challenge-design-approval-v1.md",
+        "sha256": "6bfcc6554c66b37a9b19f3262058ea9e2e73f3b86f2ba275d2f29f273108e596"
+      },
+      "design": {
+        "path": "/Users/kajukatli/projects/flipperAgent/plans/orchestrator-decision-trendlines-v4-h1-conservative-profile-challenge-design-v1.md",
+        "sha256": "b14f2285ac3d4944ecba3bf9026a9b796ee925d55558d5d8c09a1d97e75d9f9b"
+      },
+      "handoff": {
+        "path": "/Users/kajukatli/projects/flipperAgent/plans/architect-to-coder-trendlines-v4-h1-profile-challenge-v1.md",
+        "sha256": "f4276aa376788367fd3351639cc39682c42d569f7680c4e86d2f819495602e7e"
+      }
+    },
+    "prior_authority_evidence": {
+      "h0_authority_hashes": {
+        "approval": {
+          "path": "/Users/kajukatli/projects/flipperAgent/plans/orchestrator-decision-trendlines-v4-h0-parameter-sensitivity-design-approval-v1.md",
+          "sha256": "e4844237d948a5e3b4d5ac3e31584ae38d7e92abe67376aba71e1775d8d8fa0d"
+        },
+        "design": {
+          "path": "/Users/kajukatli/projects/flipperAgent/plans/orchestrator-decision-trendlines-v4-h0-parameter-sensitivity-design-v1.md",
+          "sha256": "0bfbceaeb012cd869aa1054a8366b08e533561abcd522f967ed70bbea405bc96"
+        },
+        "handoff": {
+          "path": "/Users/kajukatli/projects/flipperAgent/plans/architect-to-coder-trendlines-v4-h0-parameter-sensitivity-v1.md",
+          "sha256": "45c86f1fa89f0498e7a0db8133c9c5a10f389d68e0ad1ea27e07ec9c43ca2981"
+        }
+      },
+      "n1_artifact": {
+        "inventory": {
+          "episode_count": 2363,
+          "measured_snapshot_count": 4800,
+          "role_slot_count": 19200,
+          "side_snapshot_pair_count": 9600,
+          "unique_geometry_count": 1159
+        },
+        "manifest_byte_length": 12257,
+        "manifest_id": "d03d0d6be2614e0b02f0e659592a1368d456077c4637890dcdfd65234d8b78fc",
+        "manifest_sha256": "9e270831b656e13b3df0e8c4cbb90e2ebeec4f24a9c5c56555c71b6d7506d464",
+        "report_byte_length": 30308,
+        "report_sha256": "30045237ff1bd763539addbf5645dadb862665512854731b1fdf3823c5499bd3"
+      },
+      "n1_authority_hashes": {
+        "approval": {
+          "path": "/Users/kajukatli/projects/flipperAgent/plans/orchestrator-decision-trendlines-v4-n1-exact-identity-persistence-approval-v1.md",
+          "sha256": "fdf50eeaa9c49653ec2bde542417ae201bf08f3776c747b43c5116e376c4c5be"
+        }
+      },
+      "n1_locks": {
+        "implementation": "30e17266998b445d2fb12d75e0ede590c16ca2fec2d02f0879655f49b41e444d",
+        "manifest": "9e270831b656e13b3df0e8c4cbb90e2ebeec4f24a9c5c56555c71b6d7506d464",
+        "report": "30045237ff1bd763539addbf5645dadb862665512854731b1fdf3823c5499bd3",
+        "tests": "f23ad57ae9bc5a958c1bdcc88675d8e0049e90fac53cc714fa4191014a59bf9e"
+      },
+      "n2_artifact": {
+        "inventory": {
+          "measured_snapshot_count": 4800,
+          "n1_episode_count": 2363,
+          "n1_unique_geometry_count": 1159,
+          "non_null_role_observation_count": 19091,
+          "role_slot_count": 19200,
+          "side_snapshot_pair_count": 9600,
+          "unique_geometry_at_cutoff_count": 13096,
+          "window_count": 16
+        },
+        "manifest_byte_length": 14443,
+        "manifest_id": "494a44fd8c7915ace90364118ed05cf670e5e24fea43349abdad47d0a2aed862",
+        "manifest_sha256": "eb1dd91fd48b9af26fe42d8650acb2b7614ce17d3758adac7abe45c1ff2d4556",
+        "report_byte_length": 81161,
+        "report_sha256": "97ca7bbd5d08004a41026ae45ae7d2437b7dba3dabdc30c70fa204c2a5636dc5"
+      },
+      "n2_authority_hashes": {
+        "approval": {
+          "path": "/Users/kajukatli/projects/flipperAgent/plans/orchestrator-decision-trendlines-v4-n2-current-relevance-metadata-approval-v1.md",
+          "sha256": "621af2c123c75f6e7c4721b53c77d869a21a5783bd3cae9624c0df6fd5b794cf"
+        }
+      },
+      "n2_locks": {
+        "implementation": "937f27420bafb5e6b01abd9bbb815d496b2af42994e055d914a8dfe2964fa4fd",
+        "manifest": "eb1dd91fd48b9af26fe42d8650acb2b7614ce17d3758adac7abe45c1ff2d4556",
+        "report": "97ca7bbd5d08004a41026ae45ae7d2437b7dba3dabdc30c70fa204c2a5636dc5",
+        "tests": "65038d1377eaa1581e30f8d8e03d709e1d526feab8094825cdf2a5c93fa90bd5"
+      },
+      "production_protected_hashes": {
+        "core": "c92076e72891b222cf8359cba614c8ed969f04d1734a8985abdb0b68ffc9509f",
+        "decision_composition": "41d9d9562e48c54042b46ce9880247b4ba23769ff80d708c2ee7c15c951ee763",
+        "decision_plugin": "9d65b6f1cc0d00bbd60c9f40299f47701a161eadc2d5d0ae29b28747d415e523",
+        "root_namespace": "66ccb45f10ab0c3b530f81919ad172fdde93b51cda04d935a6ce581641d0ac61"
+      }
+    }
+  },
+  "case_count": 16,
+  "case_namespace": "review2",
+  "confirmation_membership_hash": "71bce66333b89f96d093de764f93a954add7c7e9d4f28848767ed8d67697fbda",
+  "confirmation_results_published": false,
+  "files": {
+    "blind_cases.json": {
+      "byte_length": 1046302,
+      "sha256": "5ddfd45fdf66f488dcb2a8f92a1630e2c4041e50341615ed24c297dacab40d51"
+    },
+    "blind_review.html": {
+      "byte_length": 790088,
+      "sha256": "2578166becea0ffa328a283207ac3ff10dff0e8ed19c61ab75028a6d6168326b"
+    }
+  },
+  "identity_revealed": false,
+  "implementation_hashes": {
+    "research/trendlines_v4/h1_profile_challenge.py": "f975040406731f9b909854b93112b329b0e8b19bb6b8a78d709ce9af1b6b24ed",
+    "tests/research/trendlines_v4/test_h1_profile_challenge.py": "876e7c1529a071cbea029a9ab927465ad15be8971e9018c2d636c7d7d3b0ddbb"
+  },
+  "manifest_id": "418bfbf1c164f98beb9c688d36ac68042a480f2981c19059e9eb0c6101a9585e",
+  "mapping_commitment_sha256": "1a59597e492aa31d5458a1bcea280e9732a563aac8f7587f44d61b5864ea89e1",
+  "mapping_count": 16,
+  "original_h1a_artifact_hashes": {
+    "blind_cases.json": "45957cbf5486079e39922f4f471838e3197e2ebf99e730b01333e3353f828b65",
+    "blind_review.html": "9c2f5b6f2a8c5ed957aed85d0b830f36dace3cab0af787f5cb36d32089213deb",
+    "manifest.json": "1948c89e9cbb52d7db7309c15af759500160605726638fcb8eeb13b87e49d5f5",
+    "report.json": "4a71464de03f55a778a03243e799b45fad306f93473cd8d374902924da37226f"
+  },
+  "original_scope_exclusion_count": 16,
+  "panel_counts": {
+    "A": 10,
+    "B": 6
+  },
+  "results_published": true,
+  "schema": "trendlines.v4.h1a.blind-review-remediation-manifest.v1",
+  "scope": "fresh anchor-complete H1A selection-only blind review",
+  "selection_membership_hash": "16c0dc0aec55c745c63323e68009f99ed509d7140c72b7097533eca53ccb4968"
+}

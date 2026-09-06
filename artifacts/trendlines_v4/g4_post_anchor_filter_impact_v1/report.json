@@ -1,0 +1,438 @@
+{
+  "artifact": "trendlines_v4_g4_post_anchor_filter_impact_v1",
+  "baseline_resistance_lines": 1066,
+  "baseline_support_lines": 1066,
+  "conclusion": "MINIMAL_POST_ANCHOR_FILTER_IMPACT_MEASURED",
+  "final_cutoffs": [
+    {
+      "baseline_line_present": true,
+      "filtered_line_present": true,
+      "post_anchor_crossings": 0,
+      "side": "support",
+      "window": "BTCUSDT:1"
+    },
+    {
+      "baseline_line_present": true,
+      "filtered_line_present": false,
+      "post_anchor_crossings": 3,
+      "side": "resistance",
+      "window": "BTCUSDT:1"
+    },
+    {
+      "baseline_line_present": true,
+      "filtered_line_present": false,
+      "post_anchor_crossings": 14,
+      "side": "support",
+      "window": "BTCUSDT:2"
+    },
+    {
+      "baseline_line_present": true,
+      "filtered_line_present": true,
+      "post_anchor_crossings": 0,
+      "side": "resistance",
+      "window": "BTCUSDT:2"
+    },
+    {
+      "baseline_line_present": true,
+      "filtered_line_present": false,
+      "post_anchor_crossings": 1,
+      "side": "support",
+      "window": "ETHUSDT:1"
+    },
+    {
+      "baseline_line_present": true,
+      "filtered_line_present": false,
+      "post_anchor_crossings": 3,
+      "side": "resistance",
+      "window": "ETHUSDT:1"
+    },
+    {
+      "baseline_line_present": true,
+      "filtered_line_present": false,
+      "post_anchor_crossings": 1,
+      "side": "support",
+      "window": "ETHUSDT:2"
+    },
+    {
+      "baseline_line_present": true,
+      "filtered_line_present": true,
+      "post_anchor_crossings": 0,
+      "side": "resistance",
+      "window": "ETHUSDT:2"
+    },
+    {
+      "baseline_line_present": true,
+      "filtered_line_present": true,
+      "post_anchor_crossings": 0,
+      "side": "support",
+      "window": "SOLUSDT:1"
+    },
+    {
+      "baseline_line_present": true,
+      "filtered_line_present": false,
+      "post_anchor_crossings": 3,
+      "side": "resistance",
+      "window": "SOLUSDT:1"
+    },
+    {
+      "baseline_line_present": true,
+      "filtered_line_present": false,
+      "post_anchor_crossings": 3,
+      "side": "support",
+      "window": "SOLUSDT:2"
+    },
+    {
+      "baseline_line_present": true,
+      "filtered_line_present": true,
+      "post_anchor_crossings": 0,
+      "side": "resistance",
+      "window": "SOLUSDT:2"
+    }
+  ],
+  "g1_implementation_sha256": "29fcee61805265c75f4d436085511bb9764885faf582ee8bed789445ea5dfcca",
+  "g2_audit_sha256": "168dfbc56202698465c0fe852a70ecc555caff6672dbc73da77d533e6518e90a",
+  "g2_report_sha256": "9dedb3a4abcb10e002b29176beff4265de5c926bb0f64fdad451d92e67d7bee2",
+  "g3_audit_sha256": "def469a83b2c8aed608404ac366ab37cf72fb0d22554491fdabe20fb3fa9d169",
+  "g3_report_sha256": "4da943314936f6a962c315ba911d88bec7499e0df756090c43aba1ab7a905fba",
+  "manifest_sha256": "77992577e0bb40fa6bd6773630989632a1fa7e896c43bde48853f6af7e1a6b91",
+  "oracle_sha256": "758482545e43a2dbe1a0e239856ae1af02f7a4266e4b968641c56cf614eb4dd1",
+  "pivot_window": 3,
+  "post_anchor_bars_inspected": 25770,
+  "prefixes_audited": 1200,
+  "report_id": "8b7adb2489f49e888d061b1539f70a99f6a56799310c07c2c78b465cae7eb78b",
+  "retained_line_with_crossing_count": 0,
+  "retained_resistance_lines": 556,
+  "retained_support_lines": 580,
+  "schema_version": "g4_post_anchor_filter_impact_v1",
+  "suppressed_line_without_crossing_count": 0,
+  "suppressed_resistance_lines": 510,
+  "suppressed_support_lines": 486,
+  "suppression_fraction": 0.46716697936210133,
+  "total_baseline_lines": 2132,
+  "total_body_crossings": 4442,
+  "total_retained_lines": 1136,
+  "total_suppressed_lines": 996,
+  "unique_geometry_impact": {
+    "baseline_geometries": 204,
+    "both_retained_and_suppressed_geometries": 95,
+    "retained_geometries": 169,
+    "suppressed_geometries": 130
+  },
+  "window_summaries": {
+    "BTCUSDT:1": {
+      "post_anchor_bars_inspected": 2921,
+      "prefixes_audited": 200,
+      "retained_line_with_crossing_count": 0,
+      "sides": {
+        "resistance": {
+          "baseline_availability_fraction": 0.935,
+          "baseline_boundary_available_count": 187,
+          "eligible_prefix_count": 200,
+          "filtered_availability_fraction": 0.53,
+          "filtered_boundary_available_count": 106,
+          "maximum_suppression_run_length": 20,
+          "suppressed_count": 81,
+          "suppression_run_count": 11,
+          "suppression_run_lengths": [
+            20,
+            1,
+            6,
+            9,
+            2,
+            14,
+            5,
+            4,
+            12,
+            5,
+            3
+          ]
+        },
+        "support": {
+          "baseline_availability_fraction": 0.91,
+          "baseline_boundary_available_count": 182,
+          "eligible_prefix_count": 200,
+          "filtered_availability_fraction": 0.485,
+          "filtered_boundary_available_count": 97,
+          "maximum_suppression_run_length": 30,
+          "suppressed_count": 85,
+          "suppression_run_count": 10,
+          "suppression_run_lengths": [
+            4,
+            30,
+            7,
+            11,
+            4,
+            8,
+            5,
+            6,
+            8,
+            2
+          ]
+        }
+      },
+      "suppressed_line_without_crossing_count": 0,
+      "total_body_crossings": 769
+    },
+    "BTCUSDT:2": {
+      "post_anchor_bars_inspected": 3002,
+      "prefixes_audited": 200,
+      "retained_line_with_crossing_count": 0,
+      "sides": {
+        "resistance": {
+          "baseline_availability_fraction": 0.85,
+          "baseline_boundary_available_count": 170,
+          "eligible_prefix_count": 200,
+          "filtered_availability_fraction": 0.49,
+          "filtered_boundary_available_count": 98,
+          "maximum_suppression_run_length": 25,
+          "suppressed_count": 72,
+          "suppression_run_count": 9,
+          "suppression_run_lengths": [
+            6,
+            8,
+            6,
+            25,
+            3,
+            3,
+            12,
+            5,
+            4
+          ]
+        },
+        "support": {
+          "baseline_availability_fraction": 0.88,
+          "baseline_boundary_available_count": 176,
+          "eligible_prefix_count": 200,
+          "filtered_availability_fraction": 0.51,
+          "filtered_boundary_available_count": 102,
+          "maximum_suppression_run_length": 23,
+          "suppressed_count": 74,
+          "suppression_run_count": 10,
+          "suppression_run_lengths": [
+            4,
+            6,
+            6,
+            9,
+            6,
+            6,
+            3,
+            8,
+            3,
+            23
+          ]
+        }
+      },
+      "suppressed_line_without_crossing_count": 0,
+      "total_body_crossings": 640
+    },
+    "ETHUSDT:1": {
+      "post_anchor_bars_inspected": 8036,
+      "prefixes_audited": 200,
+      "retained_line_with_crossing_count": 0,
+      "suppressed_line_without_crossing_count": 0,
+      "sides": {
+        "resistance": {
+          "baseline_availability_fraction": 0.935,
+          "baseline_boundary_available_count": 187,
+          "eligible_prefix_count": 200,
+          "filtered_availability_fraction": 0.225,
+          "filtered_boundary_available_count": 45,
+          "maximum_suppression_run_length": 106,
+          "suppressed_count": 142,
+          "suppression_run_count": 7,
+          "suppression_run_lengths": [
+            14,
+            3,
+            8,
+            4,
+            106,
+            4,
+            3
+          ]
+        },
+        "support": {
+          "baseline_availability_fraction": 0.875,
+          "baseline_boundary_available_count": 175,
+          "filtered_availability_fraction": 0.375,
+          "filtered_boundary_available_count": 75,
+          "eligible_prefix_count": 200,
+          "maximum_suppression_run_length": 18,
+          "suppressed_count": 100,
+          "suppression_run_count": 11,
+          "suppression_run_lengths": [
+            4,
+            18,
+            7,
+            6,
+            17,
+            6,
+            8,
+            11,
+            5,
+            8,
+            10
+          ]
+        }
+      },
+      "total_body_crossings": 1305
+    },
+    "ETHUSDT:2": {
+      "post_anchor_bars_inspected": 3216,
+      "prefixes_audited": 200,
+      "retained_line_with_crossing_count": 0,
+      "sides": {
+        "resistance": {
+          "baseline_availability_fraction": 0.85,
+          "baseline_boundary_available_count": 170,
+          "eligible_prefix_count": 200,
+          "filtered_availability_fraction": 0.485,
+          "filtered_boundary_available_count": 97,
+          "maximum_suppression_run_length": 13,
+          "suppressed_count": 73,
+          "suppression_run_count": 10,
+          "suppression_run_lengths": [
+            4,
+            13,
+            10,
+            13,
+            13,
+            4,
+            6,
+            4,
+            3,
+            3
+          ]
+        },
+        "support": {
+          "baseline_availability_fraction": 0.895,
+          "baseline_boundary_available_count": 179,
+          "eligible_prefix_count": 200,
+          "filtered_availability_fraction": 0.525,
+          "filtered_boundary_available_count": 105,
+          "maximum_suppression_run_length": 15,
+          "suppressed_count": 74,
+          "suppression_run_count": 10,
+          "suppression_run_lengths": [
+            9,
+            5,
+            9,
+            8,
+            6,
+            15,
+            3,
+            11,
+            7,
+            1
+          ]
+        }
+      },
+      "suppressed_line_without_crossing_count": 0,
+      "total_body_crossings": 664
+    },
+    "SOLUSDT:1": {
+      "post_anchor_bars_inspected": 5032,
+      "prefixes_audited": 200,
+      "retained_line_with_crossing_count": 0,
+      "sides": {
+        "resistance": {
+          "baseline_availability_fraction": 0.935,
+          "baseline_boundary_available_count": 187,
+          "eligible_prefix_count": 200,
+          "filtered_availability_fraction": 0.765,
+          "filtered_boundary_available_count": 153,
+          "maximum_suppression_run_length": 7,
+          "suppressed_count": 34,
+          "suppression_run_count": 8,
+          "suppression_run_lengths": [
+            4,
+            7,
+            3,
+            4,
+            5,
+            3,
+            5,
+            3
+          ]
+        },
+        "support": {
+          "baseline_availability_fraction": 0.875,
+          "baseline_boundary_available_count": 175,
+          "eligible_prefix_count": 200,
+          "filtered_availability_fraction": 0.425,
+          "filtered_boundary_available_count": 85,
+          "maximum_suppression_run_length": 14,
+          "suppressed_count": 90,
+          "suppression_run_count": 12,
+          "suppression_run_lengths": [
+            4,
+            9,
+            5,
+            5,
+            4,
+            10,
+            5,
+            6,
+            7,
+            10,
+            14,
+            11
+          ]
+        }
+      },
+      "suppressed_line_without_crossing_count": 0,
+      "total_body_crossings": 490
+    },
+    "SOLUSDT:2": {
+      "post_anchor_bars_inspected": 3563,
+      "prefixes_audited": 200,
+      "retained_line_with_crossing_count": 0,
+      "sides": {
+        "resistance": {
+          "baseline_availability_fraction": 0.825,
+          "baseline_boundary_available_count": 165,
+          "eligible_prefix_count": 200,
+          "filtered_availability_fraction": 0.285,
+          "filtered_boundary_available_count": 57,
+          "maximum_suppression_run_length": 48,
+          "suppressed_count": 108,
+          "suppression_run_count": 7,
+          "suppression_run_lengths": [
+            13,
+            27,
+            48,
+            8,
+            4,
+            3,
+            5
+          ]
+        },
+        "support": {
+          "baseline_availability_fraction": 0.895,
+          "baseline_boundary_available_count": 179,
+          "eligible_prefix_count": 200,
+          "filtered_availability_fraction": 0.58,
+          "filtered_boundary_available_count": 116,
+          "maximum_suppression_run_length": 16,
+          "suppressed_count": 63,
+          "suppression_run_count": 11,
+          "suppression_run_lengths": [
+            16,
+            4,
+            3,
+            7,
+            4,
+            7,
+            4,
+            3,
+            1,
+            6,
+            8
+          ]
+        }
+      },
+      "suppressed_line_without_crossing_count": 0,
+      "total_body_crossings": 574
+    }
+  },
+  "windows_audited": 6
+}

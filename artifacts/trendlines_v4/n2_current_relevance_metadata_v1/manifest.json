@@ -1,0 +1,440 @@
+{
+  "design_scope": "N2 threshold-free current relevance metadata only",
+  "deterministic_rerun": {
+    "manifest_body_equal": true,
+    "report_bytes_equal": true,
+    "run_count": 2
+  },
+  "expected_inventory": {
+    "role_slot_count": 19200,
+    "side_snapshot_pair_count": 9600,
+    "snapshot_count": 4800,
+    "window_count": 16
+  },
+  "four_hour_aggregation_contract": "utc_four_hour_contiguous_groups_v1",
+  "manifest_id": "494a44fd8c7915ace90364118ed05cf670e5e24fea43349abdad47d0a2aed862",
+  "metric_definitions": {
+    "absolute_close_distance_bps": "abs(close - projected_line) / close * 10000",
+    "crossing_semantics": "strict P0 body crossing after the end anchor; equality and wick-only contact do not cross",
+    "percentile_definition": "R-7 linear interpolation",
+    "resistance_body_clearance_bps": "(projected_line - body_top) / close * 10000",
+    "slope_bps_per_bar": "slope_per_bar / close * 10000",
+    "support_body_clearance_bps": "(body_bottom - projected_line) / close * 10000"
+  },
+  "metric_fields": [
+    "anchor_span_bars",
+    "start_anchor_age_bars",
+    "end_anchor_age_bars",
+    "start_anchor_headroom_bars",
+    "absolute_close_distance_bps",
+    "body_clearance_bps",
+    "slope_bps_per_bar",
+    "post_anchor_bar_count",
+    "post_anchor_body_cross_count",
+    "post_anchor_body_cross_rate",
+    "bars_since_last_body_cross"
+  ],
+  "n1_authority_hashes": {
+    "approval": {
+      "path": "plans/orchestrator-decision-trendlines-v4-n1-exact-identity-persistence-approval-v1.md",
+      "sha256": "fdf50eeaa9c49653ec2bde542417ae201bf08f3776c747b43c5116e376c4c5be"
+    }
+  },
+  "n1_locks": {
+    "implementation": {
+      "path": "research/trendlines_v4/exact_geometry_identity_persistence.py",
+      "sha256": "30e17266998b445d2fb12d75e0ede590c16ca2fec2d02f0879655f49b41e444d"
+    },
+    "manifest": {
+      "path": "artifacts/trendlines_v4/n1_exact_geometry_identity_persistence_v1/manifest.json",
+      "sha256": "9e270831b656e13b3df0e8c4cbb90e2ebeec4f24a9c5c56555c71b6d7506d464"
+    },
+    "report": {
+      "path": "artifacts/trendlines_v4/n1_exact_geometry_identity_persistence_v1/report.json",
+      "sha256": "30045237ff1bd763539addbf5645dadb862665512854731b1fdf3823c5499bd3"
+    },
+    "tests": {
+      "path": "tests/research/trendlines_v4/test_exact_geometry_identity_persistence.py",
+      "sha256": "f23ad57ae9bc5a958c1bdcc88675d8e0049e90fac53cc714fa4191014a59bf9e"
+    }
+  },
+  "n2_authority_hashes": {
+    "approval": {
+      "path": "plans/orchestrator-decision-trendlines-v4-n2-current-relevance-metadata-design-approval-v1.md",
+      "sha256": "ff959581b854348f554d1e7bb14e618035d7f1bb0e545af62a17c19dc648c9bb"
+    },
+    "design": {
+      "path": "plans/orchestrator-decision-trendlines-v4-n2-current-relevance-metadata-design-v1.md",
+      "sha256": "fb5d0d336d7e7441f25f8aeab3c1c5eee4f9e822bf6919e7ded0de0a8706f12d"
+    }
+  },
+  "observed_inventory": {
+    "measured_snapshot_count": 4800,
+    "n1_episode_count": 2363,
+    "n1_unique_geometry_count": 1159,
+    "non_null_role_observation_count": 19091,
+    "role_slot_count": 19200,
+    "side_snapshot_pair_count": 9600,
+    "unique_geometry_at_cutoff_count": 13096,
+    "window_count": 16
+  },
+  "production_protected_hashes": {
+    "core": "c92076e72891b222cf8359cba614c8ed969f04d1734a8985abdb0b68ffc9509f",
+    "decision_adapter": "9d65b6f1cc0d00bbd60c9f40299f47701a161eadc2d5d0ae29b28747d415e523",
+    "decision_composition": "41d9d9562e48c54042b46ce9880247b4ba23769ff80d708c2ee7c15c951ee763",
+    "root_namespace": "66ccb45f10ab0c3b530f81919ad172fdde93b51cda04d935a6ce581641d0ac61"
+  },
+  "report_byte_length": 81161,
+  "report_schema_version": "trendlines_v4_current_relevance_metadata_report_v1",
+  "report_sha256": "97ca7bbd5d08004a41026ae45ae7d2437b7dba3dabdc30c70fa204c2a5636dc5",
+  "schema_version": "trendlines_v4_current_relevance_metadata_manifest_v1",
+  "source_metadata": [
+    {
+      "asset": "BTCUSDT",
+      "first_open_at": "2022-01-01T00:00:00.000000Z",
+      "last_close_at": "2026-03-01T00:59:59.999000Z",
+      "path": "src/libs/regime/optimization/results/BTCUSDT_1h_2022-01-01_2026-03-01.csv",
+      "row_count": 36481,
+      "sha256": "3061187fd7092131e7df221fb1c23ea4427ba9754284910d79d47872858c0f66",
+      "timeframe": "1h"
+    },
+    {
+      "asset": "ETHUSDT",
+      "first_open_at": "2023-01-01T00:00:00.000000Z",
+      "last_close_at": "2026-03-01T00:59:59.999000Z",
+      "path": "src/libs/models/trendlines/optimization/results/ETHUSDT_1h_2023-01-01_2026-03-01.csv",
+      "row_count": 27721,
+      "sha256": "96bc7f72e56a4ad70048a17caaa0013dd9ef854b11e7ba6aafc2681ce21d3e77",
+      "timeframe": "1h"
+    },
+    {
+      "asset": "SOLUSDT",
+      "first_open_at": "2023-01-01T00:00:00.000000Z",
+      "last_close_at": "2026-03-01T00:59:59.999000Z",
+      "path": "src/libs/models/trendlines/optimization/results/SOLUSDT_1h_2023-01-01_2026-03-01.csv",
+      "row_count": 27721,
+      "sha256": "0711849c9e665c8b5bdba85ffee4cda0eb16f9aa30f7b74678bf09d17bf19c46",
+      "timeframe": "1h"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "first_open_at": "2025-05-30T10:00:00.000000Z",
+      "last_close_at": "2026-03-01T00:59:59.999000Z",
+      "path": "src/libs/models/trendlines/optimization/results/HYPEUSDT_1h_2022-01-01_2026-03-01.csv",
+      "row_count": 6591,
+      "sha256": "26e7f4276c60ea4c4d3dbe196383c1ef63c1c58d6db1b6280b821490d694d050",
+      "timeframe": "1h"
+    }
+  ],
+  "source_specs": [
+    {
+      "asset": "BTCUSDT",
+      "path": "src/libs/regime/optimization/results/BTCUSDT_1h_2022-01-01_2026-03-01.csv",
+      "row_count": 36481,
+      "sha256": "3061187fd7092131e7df221fb1c23ea4427ba9754284910d79d47872858c0f66"
+    },
+    {
+      "asset": "ETHUSDT",
+      "path": "src/libs/models/trendlines/optimization/results/ETHUSDT_1h_2023-01-01_2026-03-01.csv",
+      "row_count": 27721,
+      "sha256": "96bc7f72e56a4ad70048a17caaa0013dd9ef854b11e7ba6aafc2681ce21d3e77"
+    },
+    {
+      "asset": "SOLUSDT",
+      "path": "src/libs/models/trendlines/optimization/results/SOLUSDT_1h_2023-01-01_2026-03-01.csv",
+      "row_count": 27721,
+      "sha256": "0711849c9e665c8b5bdba85ffee4cda0eb16f9aa30f7b74678bf09d17bf19c46"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "path": "src/libs/models/trendlines/optimization/results/HYPEUSDT_1h_2022-01-01_2026-03-01.csv",
+      "row_count": 6591,
+      "sha256": "26e7f4276c60ea4c4d3dbe196383c1ef63c1c58d6db1b6280b821490d694d050"
+    }
+  ],
+  "window_selection": {
+    "fractions": [
+      0.2,
+      0.8
+    ],
+    "measurement_bars": 300,
+    "measurement_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+    "rounding": "floor(fraction * (eligible_start_count - 1))",
+    "source_cutoff_positions": "start_position+300 through start_position+599",
+    "window_length": 600
+  },
+  "windows": [
+    {
+      "asset": "BTCUSDT",
+      "end_position_exclusive": 7776,
+      "first_open_at": "2022-10-27T00:00:00.000000Z",
+      "last_close_at": "2022-11-20T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          7476,
+          7775
+        ]
+      },
+      "start_position": 7176,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "BTCUSDT",
+      "end_position_exclusive": 29304,
+      "first_open_at": "2025-04-11T00:00:00.000000Z",
+      "last_close_at": "2025-05-05T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          29004,
+          29303
+        ]
+      },
+      "start_position": 28704,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "BTCUSDT",
+      "end_position_exclusive": 2304,
+      "first_open_at": "2022-10-12T00:00:00.000000Z",
+      "last_close_at": "2023-01-19T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          2004,
+          2303
+        ]
+      },
+      "start_position": 1704,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "BTCUSDT",
+      "end_position_exclusive": 7416,
+      "first_open_at": "2025-02-10T00:00:00.000000Z",
+      "last_close_at": "2025-05-20T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          7116,
+          7415
+        ]
+      },
+      "start_position": 6816,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "ETHUSDT",
+      "end_position_exclusive": 6024,
+      "first_open_at": "2023-08-15T00:00:00.000000Z",
+      "last_close_at": "2023-09-08T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          5724,
+          6023
+        ]
+      },
+      "start_position": 5424,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "ETHUSDT",
+      "end_position_exclusive": 22296,
+      "first_open_at": "2025-06-23T00:00:00.000000Z",
+      "last_close_at": "2025-07-17T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          21996,
+          22295
+        ]
+      },
+      "start_position": 21696,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "ETHUSDT",
+      "end_position_exclusive": 1866,
+      "first_open_at": "2023-07-31T00:00:00.000000Z",
+      "last_close_at": "2023-11-07T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          1566,
+          1865
+        ]
+      },
+      "start_position": 1266,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "ETHUSDT",
+      "end_position_exclusive": 5664,
+      "first_open_at": "2025-04-24T00:00:00.000000Z",
+      "last_close_at": "2025-08-01T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          5364,
+          5663
+        ]
+      },
+      "start_position": 5064,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "SOLUSDT",
+      "end_position_exclusive": 6024,
+      "first_open_at": "2023-08-15T00:00:00.000000Z",
+      "last_close_at": "2023-09-08T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          5724,
+          6023
+        ]
+      },
+      "start_position": 5424,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "SOLUSDT",
+      "end_position_exclusive": 22296,
+      "first_open_at": "2025-06-23T00:00:00.000000Z",
+      "last_close_at": "2025-07-17T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          21996,
+          22295
+        ]
+      },
+      "start_position": 21696,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "SOLUSDT",
+      "end_position_exclusive": 1866,
+      "first_open_at": "2023-07-31T00:00:00.000000Z",
+      "last_close_at": "2023-11-07T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          1566,
+          1865
+        ]
+      },
+      "start_position": 1266,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "SOLUSDT",
+      "end_position_exclusive": 5664,
+      "first_open_at": "2025-04-24T00:00:00.000000Z",
+      "last_close_at": "2025-08-01T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          5364,
+          5663
+        ]
+      },
+      "start_position": 5064,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "end_position_exclusive": 1798,
+      "first_open_at": "2025-07-19T08:00:00.000000Z",
+      "last_close_at": "2025-08-13T07:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          1498,
+          1797
+        ]
+      },
+      "start_position": 1198,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "end_position_exclusive": 5392,
+      "first_open_at": "2025-12-16T02:00:00.000000Z",
+      "last_close_at": "2026-01-10T01:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          5092,
+          5391
+        ]
+      },
+      "start_position": 4792,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "end_position_exclusive": 809,
+      "first_open_at": "2025-07-04T08:00:00.000000Z",
+      "last_close_at": "2025-10-12T07:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          509,
+          808
+        ]
+      },
+      "start_position": 209,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "end_position_exclusive": 1437,
+      "first_open_at": "2025-10-17T00:00:00.000000Z",
+      "last_close_at": "2026-01-24T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          1137,
+          1436
+        ]
+      },
+      "start_position": 837,
+      "timeframe": "4h",
+      "window": "late"
+    }
+  ]
+}

@@ -1,0 +1,159 @@
+{
+  "artifact": "trendlines_v4_g3_post_anchor_validity_audit_v1",
+  "conclusion": "POST_ANCHOR_VALIDITY_DEFECT_FOUND",
+  "emitted_lines_with_body_crossing": 996,
+  "emitted_lines_with_post_anchor_exposure": 2132,
+  "first_violation": {
+    "adverse_body_value": 41287.1,
+    "anchor_index": 19,
+    "bar_index": 20,
+    "bars_after_anchor": 1,
+    "line_value": 41210.955555555556,
+    "prefix_length": 23,
+    "side": "resistance"
+  },
+  "g1_implementation_sha256": "29fcee61805265c75f4d436085511bb9764885faf582ee8bed789445ea5dfcca",
+  "g2_audit_sha256": "168dfbc56202698465c0fe852a70ecc555caff6672dbc73da77d533e6518e90a",
+  "g2_report_sha256": "9dedb3a4abcb10e002b29176beff4265de5c926bb0f64fdad451d92e67d7bee2",
+  "manifest_sha256": "77992577e0bb40fa6bd6773630989632a1fa7e896c43bde48853f6af7e1a6b91",
+  "oracle_sha256": "758482545e43a2dbe1a0e239856ae1af02f7a4266e4b968641c56cf614eb4dd1",
+  "pivot_window": 3,
+  "post_anchor_bars_inspected": 25770,
+  "prefixes_audited": 1200,
+  "report_id": "16a3164757fb0e041746da12a9c944d24840c843a15f04b64d45957d532c46cc",
+  "resistance_emitted_lines": 1066,
+  "resistance_lines_body_broken_at_cutoff": 510,
+  "schema_version": "g3_post_anchor_validity_audit_v1",
+  "support_emitted_lines": 1066,
+  "support_lines_body_broken_at_cutoff": 486,
+  "total_body_crossings": 4442,
+  "window_summaries": {
+    "BTCUSDT:1": {
+      "emitted_lines_with_body_crossing": 166,
+      "emitted_lines_with_post_anchor_exposure": 369,
+      "first_violation": {
+        "adverse_body_value": 41287.1,
+        "anchor_index": 19,
+        "bar_index": 20,
+        "bars_after_anchor": 1,
+        "line_value": 41210.955555555556,
+        "prefix_length": 23,
+        "side": "resistance"
+      },
+      "post_anchor_bars_inspected": 2921,
+      "prefixes_audited": 200,
+      "resistance_emitted_lines": 187,
+      "resistance_lines_body_broken_at_cutoff": 81,
+      "support_emitted_lines": 182,
+      "support_lines_body_broken_at_cutoff": 85,
+      "total_body_crossings": 769,
+      "total_emitted_lines": 369
+    },
+    "BTCUSDT:2": {
+      "emitted_lines_with_body_crossing": 146,
+      "emitted_lines_with_post_anchor_exposure": 346,
+      "first_violation": {
+        "adverse_body_value": 98967.5,
+        "anchor_index": 21,
+        "bar_index": 27,
+        "bars_after_anchor": 6,
+        "line_value": 99020.06666666668,
+        "prefix_length": 28,
+        "side": "support"
+      },
+      "post_anchor_bars_inspected": 3002,
+      "prefixes_audited": 200,
+      "resistance_emitted_lines": 170,
+      "resistance_lines_body_broken_at_cutoff": 72,
+      "support_emitted_lines": 176,
+      "support_lines_body_broken_at_cutoff": 74,
+      "total_body_crossings": 640,
+      "total_emitted_lines": 346
+    },
+    "ETHUSDT:1": {
+      "emitted_lines_with_body_crossing": 242,
+      "emitted_lines_with_post_anchor_exposure": 362,
+      "first_violation": {
+        "adverse_body_value": 2468.3,
+        "anchor_index": 19,
+        "bar_index": 20,
+        "bars_after_anchor": 1,
+        "line_value": 2468.19,
+        "prefix_length": 23,
+        "side": "resistance"
+      },
+      "post_anchor_bars_inspected": 8036,
+      "prefixes_audited": 200,
+      "resistance_emitted_lines": 187,
+      "resistance_lines_body_broken_at_cutoff": 142,
+      "support_emitted_lines": 175,
+      "support_lines_body_broken_at_cutoff": 100,
+      "total_body_crossings": 1305,
+      "total_emitted_lines": 362
+    },
+    "ETHUSDT:2": {
+      "emitted_lines_with_body_crossing": 147,
+      "emitted_lines_with_post_anchor_exposure": 349,
+      "first_violation": {
+        "adverse_body_value": 2693.32,
+        "anchor_index": 18,
+        "bar_index": 22,
+        "bars_after_anchor": 4,
+        "line_value": 2697.097333333333,
+        "prefix_length": 23,
+        "side": "support"
+      },
+      "post_anchor_bars_inspected": 3216,
+      "prefixes_audited": 200,
+      "resistance_emitted_lines": 170,
+      "resistance_lines_body_broken_at_cutoff": 73,
+      "support_emitted_lines": 179,
+      "support_lines_body_broken_at_cutoff": 74,
+      "total_body_crossings": 664,
+      "total_emitted_lines": 349
+    },
+    "SOLUSDT:1": {
+      "emitted_lines_with_body_crossing": 124,
+      "emitted_lines_with_post_anchor_exposure": 362,
+      "first_violation": {
+        "adverse_body_value": 91.262,
+        "anchor_index": 22,
+        "bar_index": 34,
+        "bars_after_anchor": 12,
+        "line_value": 91.62400000000001,
+        "prefix_length": 35,
+        "side": "support"
+      },
+      "post_anchor_bars_inspected": 5032,
+      "prefixes_audited": 200,
+      "resistance_emitted_lines": 187,
+      "resistance_lines_body_broken_at_cutoff": 34,
+      "support_emitted_lines": 175,
+      "support_lines_body_broken_at_cutoff": 90,
+      "total_body_crossings": 490,
+      "total_emitted_lines": 362
+    },
+    "SOLUSDT:2": {
+      "emitted_lines_with_body_crossing": 171,
+      "emitted_lines_with_post_anchor_exposure": 344,
+      "first_violation": {
+        "adverse_body_value": 203.51,
+        "anchor_index": 18,
+        "bar_index": 21,
+        "bars_after_anchor": 3,
+        "line_value": 204.16320000000002,
+        "prefix_length": 22,
+        "side": "support"
+      },
+      "post_anchor_bars_inspected": 3563,
+      "prefixes_audited": 200,
+      "resistance_emitted_lines": 165,
+      "resistance_lines_body_broken_at_cutoff": 108,
+      "support_emitted_lines": 179,
+      "support_lines_body_broken_at_cutoff": 63,
+      "total_body_crossings": 574,
+      "total_emitted_lines": 344
+    }
+  },
+  "windows_audited": 6
+}

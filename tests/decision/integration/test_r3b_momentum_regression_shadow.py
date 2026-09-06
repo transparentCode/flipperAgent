@@ -320,6 +320,7 @@ async def test_r3b_shadow_observer_is_causal_decision_path_and_non_authoritative
         ("momentum", "1"),
         ("momentum_regression_observer", "1"),
         ("sr", "1"),
+        ("trendlines", "1"),
     }
     assert {
         (item.plugin_name, item.plugin_version)
@@ -328,7 +329,13 @@ async def test_r3b_shadow_observer_is_causal_decision_path_and_non_authoritative
         ("momentum", "1"),
         ("momentum_regression_observer", "1"),
         ("sr", "1"),
+        ("trendlines", "1"),
     }
+    assert all(
+        binding.plugin_name != "trendlines"
+        for lane_spec in fixture_config.lane_specs()
+        for binding in lane_spec.bindings
+    )
     assert REGRESSION_CONTEXT_FEATURE_NAME in {
         item.name for item in composition.feature_catalog
     }

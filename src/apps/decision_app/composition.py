@@ -2,8 +2,8 @@
 
 The service deliberately receives a small, closed catalog rather than using
 import-time discovery.  D9C only enables the reviewed SR adapter and the
-already-approved shared ATR feature; unfinished model integrations stay out of
-the production graph.
+already-approved shared ATR feature; the reviewed Trendlines adapter is
+registered for explicit future bindings but is not enabled by any lane.
 """
 
 from __future__ import annotations
@@ -36,6 +36,11 @@ from apps.decision_app.runtime.policy import (
 from apps.decision_app.settings import DecisionConfig
 from libs.models.sr.adapters.decision_plugin import SR_MODEL_SPEC, SRDecisionPlugin
 from libs.models.sr.config import SRConfigResolver
+from libs.models.trendlines_v4.adapters.decision_plugin import (
+    TRENDLINES_MODEL_SPEC,
+    TrendlinesV4DecisionPlugin,
+    trendlines_initialization_requirement,
+)
 
 EMPTY_FEATURE_POLICY_NAME = "decision-empty"
 EMPTY_FEATURE_POLICY_VERSION = "1"
@@ -192,14 +197,20 @@ def build_production_composition(config: DecisionConfig) -> DecisionComposition:
         version=EMPTY_DATA_POLICY_VERSION,
         concepts={},
     )
-    plugin_specs = [SR_MODEL_SPEC]
+    plugin_specs = [SR_MODEL_SPEC, TRENDLINES_MODEL_SPEC]
     runtime_definitions = [
         RuntimePluginDefinition(
             plugin_name=SR_MODEL_SPEC.name,
             plugin_version=SR_MODEL_SPEC.version,
             factory=SRDecisionPlugin,
             initialization_requirement=sr_initialization_requirement,
-        )
+        ),
+        RuntimePluginDefinition(
+            plugin_name=TRENDLINES_MODEL_SPEC.name,
+            plugin_version=TRENDLINES_MODEL_SPEC.version,
+            factory=TrendlinesV4DecisionPlugin,
+            initialization_requirement=trendlines_initialization_requirement,
+        ),
     ]
     feature_definitions = [SR_ATR_DEFINITION]
     if momentum_enabled:

@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Trendlines V4 · Local TVLC</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0b0e11; color: #eaecef; }
+    .shell { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
+    header { display:flex; gap:20px; flex-wrap:wrap; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid #20252b; background:#11161c; }
+    .title { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+    .title strong { font-size:16px; }
+    .muted { color:#929aa5; font-size:12px; }
+    .stats { display:flex; gap:8px; flex-wrap:wrap; }
+    .chip { padding:5px 8px; border:1px solid #2b3139; border-radius:7px; background:#161b22; font-size:12px; }
+    main { min-height:0; display:grid; grid-template-columns:minmax(0,1fr) 300px; }
+    #chart { min-height:680px; }
+    aside { border-left:1px solid #20252b; padding:14px; background:#101419; overflow:auto; }
+    h2 { font-size:13px; margin:0 0 10px; color:#cbd2da; }
+    .line-card { border:1px solid #272d35; border-radius:9px; padding:10px; margin-bottom:10px; background:#141920; }
+    .line-head { display:flex; justify-content:space-between; gap:8px; align-items:center; }
+    .role { font-weight:650; font-size:13px; }
+    .badge { font-size:10px; text-transform:uppercase; letter-spacing:.04em; padding:3px 5px; border-radius:5px; border:1px solid #343b44; color:#aeb7c2; }
+    .bad { color:#ff8a80; border-color:#5f3534; background:#231515; }
+    .good { color:#83dca8; border-color:#28503a; background:#10231a; }
+    .detail { margin-top:8px; display:grid; grid-template-columns:1fr auto; gap:5px 10px; font-size:12px; }
+    .detail span:nth-child(odd) { color:#8c96a3; }
+    .detail span:nth-child(even) { font-variant-numeric:tabular-nums; }
+    .legend-dot { width:9px; height:9px; border-radius:50%; display:inline-block; margin-right:6px; }
+    .support { background:#22c55e; }
+    .resistance { background:#ef4444; }
+    .current { outline:2px solid #60a5fa; outline-offset:1px; }
+    footer { margin-top:14px; font-size:11px; line-height:1.45; color:#737e8c; }
+    #error { color:#ff8a80; padding:16px; display:none; }
+    @media (max-width: 900px) { main { grid-template-columns:1fr; } aside { border-left:0; border-top:1px solid #20252b; } #chart { min-height:560px; } }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div class="title"><strong id="instrument">Trendlines V4</strong><span class="muted" id="cutoff">loading…</span></div>
+    <div class="stats"><span class="chip">300 causal bars</span><span class="chip">pivot window 3</span><span class="chip">geometry only</span></div>
+  </header>
+  <main>
+    <section><div id="chart"></div><div id="error"></div></section>
+    <aside>
+      <h2>Current geometry</h2>
+      <div id="line-list"></div>
+      <footer>Structural lines remain visible after later body crossings. Current-valid is the highest original-DP endpoint whose final segment has no adverse post-anchor body crossing. Wicks alone do not invalidate geometry.</footer>
+    </aside>
+  </main>
+</div>
+<script type="module">
+  import { createChart, CandlestickSeries, LineSeries, LineStyle } from '/vendor/lightweight-charts.mjs';
+
+  const chartEl = document.getElementById('chart');
+  const lineList = document.getElementById('line-list');
+  const errorEl = document.getElementById('error');
+  const price = (v) => Number(v).toLocaleString(undefined, {maximumFractionDigits: 2});
+  const dt = (seconds) => new Date(seconds * 1000).toLocaleString();
+
+  try {
+    const response = await fetch(`/data.json${location.search}`, {cache:'no-store'});
+    if (!response.ok) throw new Error(`data request failed: ${response.status}`);
+    const payload = await response.json();
+    document.getElementById('instrument').textContent = `${payload.asset} · ${payload.timeframe} · Trendlines V4`;
+    document.getElementById('cutoff').textContent = `as of ${new Date(payload.market_as_of).toLocaleString()}`;
+
+    const chart = createChart(chartEl, {
+      autoSize: true,
+      layout: { background: { color: '#0b0e11' }, textColor: '#aeb7c2' },
+      grid: { vertLines: { color: '#161b22' }, horzLines: { color: '#161b22' } },
+      rightPriceScale: { borderColor: '#29313a' },
+      timeScale: { borderColor: '#29313a', timeVisible: true, secondsVisible: false },
+      crosshair: { vertLine: { color: '#58616c' }, horzLine: { color: '#58616c' } },
+    });
+
+    const candles = chart.addSeries(CandlestickSeries, {
+      upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
+      wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+      priceLineVisible: true, lastValueVisible: true,
+    });
+    candles.setData(payload.candles);
+
+    const styles = {
+      'support:structural': { color:'#22c55e', lineWidth:2, lineStyle:LineStyle.Solid },
+      'support:current_valid': { color:'#60a5fa', lineWidth:2, lineStyle:LineStyle.Dashed },
+      'resistance:structural': { color:'#ef4444', lineWidth:2, lineStyle:LineStyle.Solid },
+      'resistance:current_valid': { color:'#a78bfa', lineWidth:2, lineStyle:LineStyle.Dashed },
+    };
+
+    for (const line of payload.lines) {
+      const key = `${line.side}:${line.role}`;
+      const style = styles[key];
+      const series = chart.addSeries(LineSeries, {
+        color: style.color, lineWidth: style.lineWidth, lineStyle: style.lineStyle,
+        priceLineVisible: false, lastValueVisible: true,
+        title: `${line.side} · ${line.role.replace('_',' ')}`,
+      });
+      series.setData([
+        { time: line.start_time, value: line.start_price },
+        { time: line.end_anchor_time, value: line.end_anchor_price },
+        { time: line.current_time, value: line.projected_price },
+      ]);
+
+      const card = document.createElement('div');
+      card.className = 'line-card';
+      const isCurrent = line.role === 'current_valid';
+      card.innerHTML = `
+        <div class="line-head">
+          <div class="role"><span class="legend-dot ${line.side} ${isCurrent ? 'current' : ''}"></span>${line.side} · ${line.role.replace('_',' ')}</div>
+          <span class="badge ${line.crossed ? 'bad' : 'good'}">${line.crossed ? `crossed ×${line.cross_count}` : 'current-valid'}</span>
+        </div>
+        <div class="detail">
+          <span>Projected now</span><span>${price(line.projected_price)}</span>
+          <span>Anchor 1</span><span>${price(line.start_price)}</span>
+          <span>Anchor 2</span><span>${price(line.end_anchor_price)}</span>
+          <span>Anchor span</span><span>${dt(line.start_time)} → ${dt(line.end_anchor_time)}</span>
+        </div>`;
+      lineList.appendChild(card);
+    }
+
+    if (payload.same_geometry_roles?.length) {
+      for (const item of payload.same_geometry_roles) {
+        const note = document.createElement('div');
+        note.className = 'line-card';
+        note.innerHTML = `<div class="line-head"><div class="role"><span class="legend-dot ${item.side}"></span>${item.side}</div><span class="badge good">structural = current-valid</span></div><div class="detail"><span>Projected now</span><span>${price(item.projected_price)}</span></div>`;
+        lineList.prepend(note);
+      }
+    }
+    chart.timeScale().fitContent();
+  } catch (error) {
+    errorEl.style.display = 'block';
+    errorEl.textContent = error instanceof Error ? error.message : String(error);
+  }
+</script>
+</body>
+</html>

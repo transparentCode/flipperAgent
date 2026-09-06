@@ -1,0 +1,37 @@
+{
+  "schema": "trendlines.v4.v2.production-promotion-manifest.v1",
+  "report": {
+    "path": "artifacts/trendlines_v4/v2_production_promotion_v1/report.json",
+    "sha256": "cd4ebc990b9cf94b5349df2b365dad83fe662564f5796b32f8dbbfc48afa5ffa",
+    "byte_length": 4118
+  },
+  "production_hashes": {
+    "v1_core": "c92076e72891b222cf8359cba614c8ed969f04d1734a8985abdb0b68ffc9509f",
+    "v1_decision_adapter": "9d65b6f1cc0d00bbd60c9f40299f47701a161eadc2d5d0ae29b28747d415e523",
+    "v1_namespace": "66ccb45f10ab0c3b530f81919ad172fdde93b51cda04d935a6ce581641d0ac61",
+    "v2_core": "c50dbd958398b6c036ae5be475a25de534c3a643d97faeafccbf7922dfc6972e",
+    "v2_decision_adapter": "a188205ef67d6fab31a2a8ffc8203512ee5edbf642bb8f06597fb3f7cd572dd2",
+    "composition": "41d9d9562e48c54042b46ce9880247b4ba23769ff80d708c2ee7c15c951ee763"
+  },
+  "authority": {
+    "secondary_production_design": "c3a9408c61917c8df1a0a0c12b1d9484b8c7296700dff6ef3177a3163348f956",
+    "secondary_production_approval": "547c2d513ab9e65e5f7ad30cf3f993e0be3160ad04644b51aef9512170ba7e1d",
+    "n4_conclusion": "557b116dfda5a39098d20ee4acd35570babf0f8bcf201c448ec3c6cb87b4208e",
+    "original_promotion_handoff": "aa5ecd4d878f149a1a4326b71cc787b9bb47874d64eb8ba2fe99fe1dcdeed195",
+    "catalog_lock_remediation_decision": "09fca8ad141f46c0b3ddb3246299356327ceb6f8f7548922cfdd2db73c636b04",
+    "catalog_lock_remediation_handoff": "2ff31367f1239068b563c81cdeb6c10e292aecbde9c17582b7f0ab80868eb1a6"
+  },
+  "evidence": {
+    "v1_structural_current_valid_parity_n3a_side_observations": 9276,
+    "v1_structural_current_valid_parity_n3b_side_memberships": 1536,
+    "v2_secondary_parity_n3a_side_observations": 9276,
+    "v2_secondary_parity_n3b_side_memberships": 1536,
+    "state_v1_cross_version_compatibility": true,
+    "h1b_evaluated_cutoff_count": 0,
+    "mtf_runtime_additions": 0,
+    "configured_trendlines_lane_count_before": 0,
+    "configured_trendlines_lane_count_after": 0,
+    "catalog_registration": "DEFERRED_UNTIL_EXPLICIT_BINDING_AUTHORITY"
+  },
+  "manifest_id": "128368bda134d90713ac79174e77b413f87f982390b826e35ceecb76fd4ebb6f"
+}

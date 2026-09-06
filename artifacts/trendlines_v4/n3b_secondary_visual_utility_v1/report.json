@@ -1,0 +1,660 @@
+{
+  "authority": {
+    "n3a": {
+      "manifest": {
+        "path": "/Users/kajukatli/.devspace/worktrees/flipperAgent-cd309574/artifacts/trendlines_v4/n3a_secondary_candidate_feasibility_v1/manifest.json",
+        "sha256": "7f89003e4a0011ae1e0a9d2064ad8513776d1bde567ad7da462882c6b91977bf"
+      },
+      "report": {
+        "path": "/Users/kajukatli/.devspace/worktrees/flipperAgent-cd309574/artifacts/trendlines_v4/n3a_secondary_candidate_feasibility_v1/report.json",
+        "sha256": "ca7054c5892705445a83b0dbc1ca4c16e1d13ffb9bfe680a557f85aa4de557b6"
+      },
+      "source": {
+        "path": "/Users/kajukatli/.devspace/worktrees/flipperAgent-cd309574/research/trendlines_v4/secondary_candidate_feasibility.py",
+        "sha256": "9ab2ed08c6f96de3201d622d272bb671794102d773ec0c6326e4b6c696dabfe9"
+      },
+      "test": {
+        "path": "/Users/kajukatli/.devspace/worktrees/flipperAgent-cd309574/tests/research/trendlines_v4/test_secondary_candidate_feasibility.py",
+        "sha256": "70a27df1d49c6950748733f6f8054dd4a1e616f466ce979afa833721d14cc0de"
+      }
+    },
+    "n3b": {
+      "approval": {
+        "path": "/Users/kajukatli/projects/flipperAgent/plans/orchestrator-decision-trendlines-v4-n3b-secondary-visual-utility-design-approval-v1.md",
+        "sha256": "b1e904534ad89b1bd7337481ffb1b3b736aeffb36a085f9fd2b6657b34ed14c7"
+      },
+      "design": {
+        "path": "/Users/kajukatli/projects/flipperAgent/plans/orchestrator-decision-trendlines-v4-n3b-secondary-visual-utility-design-v1.md",
+        "sha256": "5360f5950899f2ca8436dae67d4f7709dfd1870edd3b9d65dd0ba4949d90daae"
+      },
+      "handoff": {
+        "path": "/Users/kajukatli/projects/flipperAgent/plans/architect-to-coder-trendlines-v4-n3b-secondary-visual-utility-v1.md",
+        "sha256": "d1c2f47d6881a858349386dfb133f513feda31c04cd696395b9fa52fae0b4eaf"
+      },
+      "n3a_approval": {
+        "path": "/Users/kajukatli/projects/flipperAgent/plans/orchestrator-decision-trendlines-v4-n3a-secondary-candidate-feasibility-approval-v1.md",
+        "sha256": "5e169866ef2d4ea6a7beb6d3d5a8492bd5cebfe30805071c053abf9661276035"
+      }
+    },
+    "production": {
+      "core": {
+        "path": "/Users/kajukatli/.devspace/worktrees/flipperAgent-cd309574/src/libs/models/trendlines_v4/core.py",
+        "sha256": "c92076e72891b222cf8359cba614c8ed969f04d1734a8985abdb0b68ffc9509f"
+      },
+      "decision_adapter": {
+        "path": "/Users/kajukatli/.devspace/worktrees/flipperAgent-cd309574/src/libs/models/trendlines_v4/adapters/decision_plugin.py",
+        "sha256": "9d65b6f1cc0d00bbd60c9f40299f47701a161eadc2d5d0ae29b28747d415e523"
+      },
+      "decision_composition": {
+        "path": "/Users/kajukatli/.devspace/worktrees/flipperAgent-cd309574/src/apps/decision_app/composition.py",
+        "sha256": "41d9d9562e48c54042b46ce9880247b4ba23769ff80d708c2ee7c15c951ee763"
+      },
+      "root_namespace": {
+        "path": "/Users/kajukatli/.devspace/worktrees/flipperAgent-cd309574/src/libs/models/trendlines_v4/__init__.py",
+        "sha256": "66ccb45f10ab0c3b530f81919ad172fdde93b51cda04d935a6ce581641d0ac61"
+      }
+    }
+  },
+  "blind_review": {
+    "case_count": 16,
+    "four_hour_case_count": 8,
+    "identity_revealed": false,
+    "mapping_commitment": "92393e7b3fdafcee1af5b951121a9e0d8fbd4d3b90a62878deee662c6e34259e",
+    "mapping_count": 16,
+    "one_hour_case_count": 8,
+    "ratings_recorded": false,
+    "resistance_case_count": 8,
+    "role_permutation_distinct_count": 6,
+    "support_case_count": 8
+  },
+  "determinism": {
+    "exact_semantic_equality": true,
+    "semantic_digest": "126621d0c8d69ba4290add2ddd4c98488d0c8c345dd0a19d8f7ff0cf4dfc29dd",
+    "semantic_runs": 2
+  },
+  "disposition": "N3B_BLIND_REVIEW_READY",
+  "factual_pool_evidence": {
+    "BTCUSDT:1h:resistance": {
+      "availability_count": {
+        "current_valid": 96,
+        "secondary": 96,
+        "structural": 96
+      },
+      "current_valid_adverse_body_count": 0,
+      "current_valid_adverse_body_rate": 0.0,
+      "cutoff_count": 96,
+      "duplicate_geometry_count": 57,
+      "projection_non_positive_count": {
+        "current_valid": 0,
+        "secondary": 0,
+        "structural": 0
+      },
+      "secondary_projected_separation_bps": {
+        "count": 96,
+        "max": 417.1789149754829,
+        "median": 21.82955170095927,
+        "min": 2.1868068863960026,
+        "p90": 190.6668503049505
+      },
+      "secondary_run_facts": {
+        "observed_cutoff_count": 96,
+        "observed_run_count": 1,
+        "replacement_count": 9
+      },
+      "three_distinct_count": 39,
+      "three_distinct_rate": 0.40625
+    },
+    "BTCUSDT:1h:support": {
+      "availability_count": {
+        "current_valid": 87,
+        "secondary": 96,
+        "structural": 96
+      },
+      "current_valid_adverse_body_count": 0,
+      "current_valid_adverse_body_rate": 0.0,
+      "cutoff_count": 96,
+      "duplicate_geometry_count": 70,
+      "projection_non_positive_count": {
+        "current_valid": 0,
+        "secondary": 0,
+        "structural": 0
+      },
+      "secondary_projected_separation_bps": {
+        "count": 87,
+        "max": 186.44005184355535,
+        "median": 65.88692582949474,
+        "min": 14.880093952253008,
+        "p90": 179.6758934773484
+      },
+      "secondary_run_facts": {
+        "observed_cutoff_count": 96,
+        "observed_run_count": 1,
+        "replacement_count": 12
+      },
+      "three_distinct_count": 17,
+      "three_distinct_rate": 0.17708333333333334
+    },
+    "BTCUSDT:4h:resistance": {
+      "availability_count": {
+        "current_valid": 96,
+        "secondary": 96,
+        "structural": 96
+      },
+      "current_valid_adverse_body_count": 0,
+      "current_valid_adverse_body_rate": 0.0,
+      "cutoff_count": 96,
+      "duplicate_geometry_count": 76,
+      "projection_non_positive_count": {
+        "current_valid": 0,
+        "secondary": 0,
+        "structural": 0
+      },
+      "secondary_projected_separation_bps": {
+        "count": 96,
+        "max": 1236.5081579238588,
+        "median": 224.84722556100496,
+        "min": 6.93081564436305,
+        "p90": 1119.09843330494
+      },
+      "secondary_run_facts": {
+        "observed_cutoff_count": 96,
+        "observed_run_count": 1,
+        "replacement_count": 16
+      },
+      "three_distinct_count": 20,
+      "three_distinct_rate": 0.20833333333333334
+    },
+    "BTCUSDT:4h:support": {
+      "availability_count": {
+        "current_valid": 96,
+        "secondary": 96,
+        "structural": 96
+      },
+      "current_valid_adverse_body_count": 0,
+      "current_valid_adverse_body_rate": 0.0,
+      "cutoff_count": 96,
+      "duplicate_geometry_count": 96,
+      "projection_non_positive_count": {
+        "current_valid": 0,
+        "secondary": 0,
+        "structural": 0
+      },
+      "secondary_projected_separation_bps": {
+        "count": 96,
+        "max": 95.9678295575255,
+        "median": 80.86997336484764,
+        "min": 64.2340082580714,
+        "p90": 93.06092496909123
+      },
+      "secondary_run_facts": {
+        "observed_cutoff_count": 96,
+        "observed_run_count": 1,
+        "replacement_count": 0
+      },
+      "three_distinct_count": 0,
+      "three_distinct_rate": 0.0
+    },
+    "ETHUSDT:1h:resistance": {
+      "availability_count": {
+        "current_valid": 96,
+        "secondary": 96,
+        "structural": 96
+      },
+      "current_valid_adverse_body_count": 0,
+      "current_valid_adverse_body_rate": 0.0,
+      "cutoff_count": 96,
+      "duplicate_geometry_count": 21,
+      "projection_non_positive_count": {
+        "current_valid": 0,
+        "secondary": 0,
+        "structural": 0
+      },
+      "secondary_projected_separation_bps": {
+        "count": 96,
+        "max": 502.3549368239269,
+        "median": 215.22615152883932,
+        "min": 3.6624232439594295,
+        "p90": 356.9362322887997
+      },
+      "secondary_run_facts": {
+        "observed_cutoff_count": 96,
+        "observed_run_count": 1,
+        "replacement_count": 3
+      },
+      "three_distinct_count": 75,
+      "three_distinct_rate": 0.78125
+    },
+    "ETHUSDT:1h:support": {
+      "availability_count": {
+        "current_valid": 96,
+        "secondary": 96,
+        "structural": 96
+      },
+      "current_valid_adverse_body_count": 0,
+      "current_valid_adverse_body_rate": 0.0,
+      "cutoff_count": 96,
+      "duplicate_geometry_count": 51,
+      "projection_non_positive_count": {
+        "current_valid": 0,
+        "secondary": 0,
+        "structural": 0
+      },
+      "secondary_projected_separation_bps": {
+        "count": 96,
+        "max": 1928.4946667622016,
+        "median": 437.6207525788565,
+        "min": 23.699890057102216,
+        "p90": 1151.0400957692923
+      },
+      "secondary_run_facts": {
+        "observed_cutoff_count": 96,
+        "observed_run_count": 1,
+        "replacement_count": 13
+      },
+      "three_distinct_count": 45,
+      "three_distinct_rate": 0.46875
+    },
+    "ETHUSDT:4h:resistance": {
+      "availability_count": {
+        "current_valid": 96,
+        "secondary": 96,
+        "structural": 96
+      },
+      "current_valid_adverse_body_count": 0,
+      "current_valid_adverse_body_rate": 0.0,
+      "cutoff_count": 96,
+      "duplicate_geometry_count": 54,
+      "projection_non_positive_count": {
+        "current_valid": 0,
+        "secondary": 0,
+        "structural": 0
+      },
+      "secondary_projected_separation_bps": {
+        "count": 96,
+        "max": 1131.8390567617796,
+        "median": 93.49260241683125,
+        "min": 7.0836008676574,
+        "p90": 830.1701414211813
+      },
+      "secondary_run_facts": {
+        "observed_cutoff_count": 96,
+        "observed_run_count": 1,
+        "replacement_count": 9
+      },
+      "three_distinct_count": 42,
+      "three_distinct_rate": 0.4375
+    },
+    "ETHUSDT:4h:support": {
+      "availability_count": {
+        "current_valid": 96,
+        "secondary": 96,
+        "structural": 96
+      },
+      "current_valid_adverse_body_count": 0,
+      "current_valid_adverse_body_rate": 0.0,
+      "cutoff_count": 96,
+      "duplicate_geometry_count": 70,
+      "projection_non_positive_count": {
+        "current_valid": 0,
+        "secondary": 0,
+        "structural": 0
+      },
+      "secondary_projected_separation_bps": {
+        "count": 96,
+        "max": 1260.4297566945156,
+        "median": 213.68885127346513,
+        "min": 36.74317182054398,
+        "p90": 1201.1709002986013
+      },
+      "secondary_run_facts": {
+        "observed_cutoff_count": 96,
+        "observed_run_count": 1,
+        "replacement_count": 8
+      },
+      "three_distinct_count": 26,
+      "three_distinct_rate": 0.2708333333333333
+    },
+    "HYPEUSDT:1h:resistance": {
+      "availability_count": {
+        "current_valid": 96,
+        "secondary": 96,
+        "structural": 96
+      },
+      "current_valid_adverse_body_count": 0,
+      "current_valid_adverse_body_rate": 0.0,
+      "cutoff_count": 96,
+      "duplicate_geometry_count": 45,
+      "projection_non_positive_count": {
+        "current_valid": 0,
+        "secondary": 0,
+        "structural": 0
+      },
+      "secondary_projected_separation_bps": {
+        "count": 96,
+        "max": 2520.9270805096053,
+        "median": 622.2456066518399,
+        "min": 74.7715019919074,
+        "p90": 1959.9578717115553
+      },
+      "secondary_run_facts": {
+        "observed_cutoff_count": 96,
+        "observed_run_count": 1,
+        "replacement_count": 8
+      },
+      "three_distinct_count": 51,
+      "three_distinct_rate": 0.53125
+    },
+    "HYPEUSDT:1h:support": {
+      "availability_count": {
+        "current_valid": 96,
+        "secondary": 96,
+        "structural": 96
+      },
+      "current_valid_adverse_body_count": 0,
+      "current_valid_adverse_body_rate": 0.0,
+      "cutoff_count": 96,
+      "duplicate_geometry_count": 60,
+      "projection_non_positive_count": {
+        "current_valid": 28,
+        "secondary": 0,
+        "structural": 0
+      },
+      "secondary_projected_separation_bps": {
+        "count": 96,
+        "max": 789.4285752016649,
+        "median": 181.29690874272958,
+        "min": 54.86636442268627,
+        "p90": 774.502199150211
+      },
+      "secondary_run_facts": {
+        "observed_cutoff_count": 96,
+        "observed_run_count": 1,
+        "replacement_count": 9
+      },
+      "three_distinct_count": 36,
+      "three_distinct_rate": 0.375
+    },
+    "HYPEUSDT:4h:resistance": {
+      "availability_count": {
+        "current_valid": 96,
+        "secondary": 96,
+        "structural": 96
+      },
+      "current_valid_adverse_body_count": 0,
+      "current_valid_adverse_body_rate": 0.0,
+      "cutoff_count": 96,
+      "duplicate_geometry_count": 41,
+      "projection_non_positive_count": {
+        "current_valid": 0,
+        "secondary": 0,
+        "structural": 0
+      },
+      "secondary_projected_separation_bps": {
+        "count": 96,
+        "max": 7082.746061013959,
+        "median": 368.0560963116749,
+        "min": 26.07142554830528,
+        "p90": 4775.987290476486
+      },
+      "secondary_run_facts": {
+        "observed_cutoff_count": 96,
+        "observed_run_count": 1,
+        "replacement_count": 8
+      },
+      "three_distinct_count": 55,
+      "three_distinct_rate": 0.5729166666666666
+    },
+    "HYPEUSDT:4h:support": {
+      "availability_count": {
+        "current_valid": 96,
+        "secondary": 96,
+        "structural": 96
+      },
+      "current_valid_adverse_body_count": 0,
+      "current_valid_adverse_body_rate": 0.0,
+      "cutoff_count": 96,
+      "duplicate_geometry_count": 52,
+      "projection_non_positive_count": {
+        "current_valid": 0,
+        "secondary": 0,
+        "structural": 0
+      },
+      "secondary_projected_separation_bps": {
+        "count": 96,
+        "max": 1596.3062405704038,
+        "median": 337.62075623024384,
+        "min": 20.223721664748112,
+        "p90": 1011.3350510900004
+      },
+      "secondary_run_facts": {
+        "observed_cutoff_count": 96,
+        "observed_run_count": 1,
+        "replacement_count": 9
+      },
+      "three_distinct_count": 44,
+      "three_distinct_rate": 0.4583333333333333
+    },
+    "SOLUSDT:1h:resistance": {
+      "availability_count": {
+        "current_valid": 96,
+        "secondary": 96,
+        "structural": 96
+      },
+      "current_valid_adverse_body_count": 0,
+      "current_valid_adverse_body_rate": 0.0,
+      "cutoff_count": 96,
+      "duplicate_geometry_count": 60,
+      "projection_non_positive_count": {
+        "current_valid": 0,
+        "secondary": 0,
+        "structural": 0
+      },
+      "secondary_projected_separation_bps": {
+        "count": 96,
+        "max": 1309.5263274359631,
+        "median": 195.85210547221044,
+        "min": 10.416002703684693,
+        "p90": 1164.3258899714033
+      },
+      "secondary_run_facts": {
+        "observed_cutoff_count": 96,
+        "observed_run_count": 1,
+        "replacement_count": 8
+      },
+      "three_distinct_count": 36,
+      "three_distinct_rate": 0.375
+    },
+    "SOLUSDT:1h:support": {
+      "availability_count": {
+        "current_valid": 90,
+        "secondary": 96,
+        "structural": 96
+      },
+      "current_valid_adverse_body_count": 0,
+      "current_valid_adverse_body_rate": 0.0,
+      "cutoff_count": 96,
+      "duplicate_geometry_count": 51,
+      "projection_non_positive_count": {
+        "current_valid": 0,
+        "secondary": 0,
+        "structural": 0
+      },
+      "secondary_projected_separation_bps": {
+        "count": 90,
+        "max": 1367.0744847260742,
+        "median": 489.8399835039263,
+        "min": 124.40073278178957,
+        "p90": 1118.1168055264582
+      },
+      "secondary_run_facts": {
+        "observed_cutoff_count": 96,
+        "observed_run_count": 1,
+        "replacement_count": 12
+      },
+      "three_distinct_count": 39,
+      "three_distinct_rate": 0.40625
+    },
+    "SOLUSDT:4h:resistance": {
+      "availability_count": {
+        "current_valid": 96,
+        "secondary": 96,
+        "structural": 96
+      },
+      "current_valid_adverse_body_count": 0,
+      "current_valid_adverse_body_rate": 0.0,
+      "cutoff_count": 96,
+      "duplicate_geometry_count": 49,
+      "projection_non_positive_count": {
+        "current_valid": 0,
+        "secondary": 0,
+        "structural": 0
+      },
+      "secondary_projected_separation_bps": {
+        "count": 96,
+        "max": 1808.3573404234758,
+        "median": 439.3511908828921,
+        "min": 77.18002630659717,
+        "p90": 1387.7519435395925
+      },
+      "secondary_run_facts": {
+        "observed_cutoff_count": 96,
+        "observed_run_count": 1,
+        "replacement_count": 10
+      },
+      "three_distinct_count": 47,
+      "three_distinct_rate": 0.4895833333333333
+    },
+    "SOLUSDT:4h:support": {
+      "availability_count": {
+        "current_valid": 96,
+        "secondary": 96,
+        "structural": 96
+      },
+      "current_valid_adverse_body_count": 0,
+      "current_valid_adverse_body_rate": 0.0,
+      "cutoff_count": 96,
+      "duplicate_geometry_count": 49,
+      "projection_non_positive_count": {
+        "current_valid": 0,
+        "secondary": 0,
+        "structural": 0
+      },
+      "secondary_projected_separation_bps": {
+        "count": 96,
+        "max": 1706.1845370838614,
+        "median": 335.9367405090052,
+        "min": 20.404291921185592,
+        "p90": 1512.4545721125355
+      },
+      "secondary_run_facts": {
+        "observed_cutoff_count": 96,
+        "observed_run_count": 1,
+        "replacement_count": 7
+      },
+      "three_distinct_count": 47,
+      "three_distinct_rate": 0.4895833333333333
+    }
+  },
+  "h1b": {
+    "evaluated_cutoff_count": 0,
+    "membership_hash": "71bce66333b89f96d093de764f93a954add7c7e9d4f28848767ed8d67697fbda",
+    "results_published": false
+  },
+  "inventory": {
+    "cutoff_count": 768,
+    "eligible_three_distinct_observation_count": 619,
+    "selected_case_count": 16,
+    "side_observation_count": 1536
+  },
+  "membership": {
+    "cutoff_count": 768,
+    "membership_hash": "42042794f9db09c8120b67a8c0d70e99c2c7f867d9b87313a22a4e1365b1360c",
+    "ranges": [
+      {
+        "asset": "BTCUSDT",
+        "cutoff_count": 96,
+        "first_source_position": 18342,
+        "last_source_position": 18437,
+        "timeframe": "1h"
+      },
+      {
+        "asset": "BTCUSDT",
+        "cutoff_count": 96,
+        "first_source_position": 4662,
+        "last_source_position": 4757,
+        "timeframe": "4h"
+      },
+      {
+        "asset": "ETHUSDT",
+        "cutoff_count": 96,
+        "first_source_position": 13962,
+        "last_source_position": 14057,
+        "timeframe": "1h"
+      },
+      {
+        "asset": "ETHUSDT",
+        "cutoff_count": 96,
+        "first_source_position": 3567,
+        "last_source_position": 3662,
+        "timeframe": "4h"
+      },
+      {
+        "asset": "SOLUSDT",
+        "cutoff_count": 96,
+        "first_source_position": 13962,
+        "last_source_position": 14057,
+        "timeframe": "1h"
+      },
+      {
+        "asset": "SOLUSDT",
+        "cutoff_count": 96,
+        "first_source_position": 3567,
+        "last_source_position": 3662,
+        "timeframe": "4h"
+      },
+      {
+        "asset": "HYPEUSDT",
+        "cutoff_count": 96,
+        "first_source_position": 3397,
+        "last_source_position": 3492,
+        "timeframe": "1h"
+      },
+      {
+        "asset": "HYPEUSDT",
+        "cutoff_count": 96,
+        "first_source_position": 925,
+        "last_source_position": 1020,
+        "timeframe": "4h"
+      }
+    ],
+    "stream_count": 8
+  },
+  "parity": {
+    "current_valid_adverse_body_count": 0,
+    "cutoff_count": 768,
+    "n3a_secondary_fact_comparison_count": 1536,
+    "n3a_secondary_fact_mismatch_count": 0,
+    "n3a_secondary_selector_comparison_count": 1536,
+    "n3a_secondary_selector_mismatch_count": 0,
+    "p0_fact_mismatch_count": 0,
+    "p0_geometry_mismatch_count": 0,
+    "p0_presence_mismatch_count": 0,
+    "p0_role_comparison_count": 3072,
+    "p0_same_geometry_comparison_count": 902,
+    "side_observation_count": 1536
+  },
+  "resource_observation": {
+    "first": {
+      "cpu_seconds": 11.383471,
+      "peak_process_rss_bytes": 85590016,
+      "wall_seconds": 11.893046374985715
+    },
+    "rss_limit_bytes": 536870912,
+    "second": {
+      "cpu_seconds": 11.39802,
+      "peak_process_rss_bytes": 85590016,
+      "wall_seconds": 11.867168500000844
+    }
+  },
+  "schema": "trendlines.v4.n3b.secondary-visual-utility.v1"
+}

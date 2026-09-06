@@ -1,0 +1,122 @@
+{
+  "artifact": "trendlines_v4_g0_legacy_corpus_v1",
+  "status": "frozen_before_oracle_capture",
+  "selection_rule": {
+    "description": "For each selected source, use exactly 200 consecutive data rows. With N data rows, select starts floor((N-200)/3) and floor(2*(N-200)/3). The rule uses only source inventory and row count.",
+    "window_length": 200,
+    "start_fractions": [
+      "1/3",
+      "2/3"
+    ],
+    "index_base": 0,
+    "end_index_exclusive": true,
+    "outcome_blind": true
+  },
+  "oracle": {
+    "variant": "original_indicator",
+    "class": "PathfindingTrendline",
+    "reference_path": "/Users/kajukatli/projects/KineticAlphaBot/app/indicators/path_finding_trendline.py",
+    "pivot_window": 3,
+    "pivot_tie_behavior": "retain every candidate index whose value equals the inclusive-window max/min; no equal-pivot deduplication",
+    "geometry": "raw price and integer bar index",
+    "body_rule": "resistance line must be at or above every intervening candle body top; support line must be at or below every intervening candle body bottom",
+    "path_score": "predecessor score plus current_index minus predecessor_index",
+    "winner_tie_behavior": "dictionary insertion order with strict greater-than DP updates"
+  },
+  "reference_files": [
+    {
+      "path": "/Users/kajukatli/projects/KineticAlphaBot/app/indicators/path_finding_trendline.py",
+      "sha256": "758482545e43a2dbe1a0e239856ae1af02f7a4266e4b968641c56cf614eb4dd1"
+    },
+    {
+      "path": "/Users/kajukatli/projects/KineticAlphaBot/app/trendlines/pivots/fractal.py",
+      "sha256": "5a9d809f4657be8b5f1f0d233e9b6ed0b830d46ce2d1547f1648804875d35346"
+    },
+    {
+      "path": "/Users/kajukatli/projects/KineticAlphaBot/app/trendlines/fitting/pathfinding.py",
+      "sha256": "9a9cfb4c0b9c7e332ae875503e38201074b9094377017e607bf412f1ce168890"
+    },
+    {
+      "path": "/Users/kajukatli/projects/KineticAlphaBot/app/trendlines/contracts/contracts.py",
+      "sha256": "3725c091860ea19a3a7fee77ce799e48c421d0729024795b2a3669cc35d7c3e2"
+    }
+  ],
+  "ohlc_digest": "sha256 of the source UTF-8 CSV data-row bytes in the selected half-open window, joined with LF and without a trailing LF",
+  "sources": [
+    {
+      "asset": "BTCUSDT",
+      "timeframe": "1h",
+      "path": "/Users/kajukatli/projects/KineticAlphaBot/app/trendlines/optimization/results/BTCUSDT_1h_2023-01-01_2026-03-01.csv",
+      "sha256": "f39bb06beee9e6991840d5c74f453906bfd7a6d68051b3bc04955e819084cf38",
+      "data_row_count": 27721,
+      "windows": [
+        {
+          "window": 1,
+          "start_index": 9173,
+          "end_index_exclusive": 9373,
+          "first_open_time": "2024-01-18 05:00:00",
+          "last_close_time": "2024-01-26 12:59:59.999",
+          "ohlc_input_sha256": "336087ee2bdb021d819be76f48d799f3ee9bee48f2b9dbc49fade2805a8edaed"
+        },
+        {
+          "window": 2,
+          "start_index": 18347,
+          "end_index_exclusive": 18547,
+          "first_open_time": "2025-02-03 11:00:00",
+          "last_close_time": "2025-02-11 18:59:59.999",
+          "ohlc_input_sha256": "efa2c63a90b4e85f677442f8f449e8b3422c58e540ca1ffd2ac7851e8476b2ee"
+        }
+      ]
+    },
+    {
+      "asset": "ETHUSDT",
+      "timeframe": "1h",
+      "path": "/Users/kajukatli/projects/KineticAlphaBot/app/trendlines/optimization/results/ETHUSDT_1h_2023-01-01_2026-03-01.csv",
+      "sha256": "96bc7f72e56a4ad70048a17caaa0013dd9ef854b11e7ba6aafc2681ce21d3e77",
+      "data_row_count": 27721,
+      "windows": [
+        {
+          "window": 1,
+          "start_index": 9173,
+          "end_index_exclusive": 9373,
+          "first_open_time": "2024-01-18 05:00:00",
+          "last_close_time": "2024-01-26 12:59:59.999",
+          "ohlc_input_sha256": "84cc4bcd1f69c49b37c5a53c6f1c334c4d54e67a3895fee517a387d0e37d3de5"
+        },
+        {
+          "window": 2,
+          "start_index": 18347,
+          "end_index_exclusive": 18547,
+          "first_open_time": "2025-02-03 11:00:00",
+          "last_close_time": "2025-02-11 18:59:59.999",
+          "ohlc_input_sha256": "1c1376d597d473530c3fb9f0ca620850af864cd980181e16324ae95b32a733f4"
+        }
+      ]
+    },
+    {
+      "asset": "SOLUSDT",
+      "timeframe": "1h",
+      "path": "/Users/kajukatli/projects/KineticAlphaBot/app/trendlines/optimization/results/SOLUSDT_1h_2023-01-01_2026-03-01.csv",
+      "sha256": "0711849c9e665c8b5bdba85ffee4cda0eb16f9aa30f7b74678bf09d17bf19c46",
+      "data_row_count": 27721,
+      "windows": [
+        {
+          "window": 1,
+          "start_index": 9173,
+          "end_index_exclusive": 9373,
+          "first_open_time": "2024-01-18 05:00:00",
+          "last_close_time": "2024-01-26 12:59:59.999",
+          "ohlc_input_sha256": "92e3eb4954363a43bc8961a5b76f200a2e1ff34ee6e7441b793899690de32f0b"
+        },
+        {
+          "window": 2,
+          "start_index": 18347,
+          "end_index_exclusive": 18547,
+          "first_open_time": "2025-02-03 11:00:00",
+          "last_close_time": "2025-02-11 18:59:59.999",
+          "ohlc_input_sha256": "74c27833ae64ff7fd7d9915d8aff487a79fb783580bb8135d165cd0ffac9dc51"
+        }
+      ]
+    }
+  ]
+}

@@ -13,12 +13,18 @@ def test_d9c_production_composition_is_explicit_and_closed() -> None:
     composition = build_production_composition(_sr_config())
 
     assert [(item.name, item.version) for item in composition.plugin_catalog] == [
-        ("sr", "1")
+        ("sr", "1"),
+        ("trendlines", "1"),
     ]
     assert [
         (item.plugin_name, item.plugin_version)
         for item in composition.runtime_plugin_catalog
-    ] == [("sr", "1")]
+    ] == [("sr", "1"), ("trendlines", "1")]
+    assert all(
+        binding.plugin_name != "trendlines"
+        for lane in _sr_config().lane_specs()
+        for binding in lane.bindings
+    )
     assert [item.name for item in composition.feature_catalog] == ["ATR"]
     assert composition.policy_catalog.resolve("passthrough", "1").kind == "passthrough"
     assert composition.policy_catalog.resolve("priority", "1").kind == "priority"

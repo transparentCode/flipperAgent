@@ -387,11 +387,21 @@ def test_composition_is_conditional_and_exact(fixture_config: DecisionConfig) ->
     assert {(item.name, item.version) for item in composition.plugin_catalog} == {
         ("momentum", "1"),
         ("sr", "1"),
+        ("trendlines", "1"),
     }
     assert {
         (item.plugin_name, item.plugin_version)
         for item in composition.runtime_plugin_catalog
-    } == {("momentum", "1"), ("sr", "1")}
+    } == {
+        ("momentum", "1"),
+        ("sr", "1"),
+        ("trendlines", "1"),
+    }
+    assert all(
+        binding.plugin_name != "trendlines"
+        for lane in fixture_config.lane_specs()
+        for binding in lane.bindings
+    )
     assert {(item.name, item.version) for item in composition.feature_catalog} == {
         ("ATR", "1"),
         ("MACD", "1"),
@@ -405,7 +415,7 @@ def test_composition_is_conditional_and_exact(fixture_config: DecisionConfig) ->
     )
 
 
-def test_no_momentum_composition_keeps_sr_only_shape() -> None:
+def test_no_momentum_composition_keeps_registered_catalog_shape() -> None:
     grid = __import__(
         "apps.decision_app.domain.market_state",
         fromlist=["TimeframeGrid"],
@@ -452,11 +462,19 @@ def test_no_momentum_composition_keeps_sr_only_shape() -> None:
         },
     )
     composition = build_production_composition(config)
-    assert [item.name for item in composition.plugin_catalog] == ["sr"]
+    assert [item.name for item in composition.plugin_catalog] == [
+        "sr",
+        "trendlines",
+    ]
     assert [
         (item.plugin_name, item.plugin_version)
         for item in composition.runtime_plugin_catalog
-    ] == [("sr", "1")]
+    ] == [("sr", "1"), ("trendlines", "1")]
+    assert all(
+        binding.plugin_name != "trendlines"
+        for lane_spec in config.lane_specs()
+        for binding in lane_spec.bindings
+    )
     assert [item.name for item in composition.feature_catalog] == ["ATR"]
 
 

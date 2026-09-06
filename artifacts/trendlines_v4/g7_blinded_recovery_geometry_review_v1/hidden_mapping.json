@@ -1,0 +1,71 @@
+{
+  "case_count": 8,
+  "mapping_id": "e11f801740ceb3be9fb1a7e24be99629812b575fcbba98557b08bc7324ba382d",
+  "mappings": [
+    {
+      "case_id": "BTCUSDT|support|2|232",
+      "panel_to_variant": {
+        "A": "G5",
+        "B": "G1",
+        "C": "G4"
+      }
+    },
+    {
+      "case_id": "BTCUSDT|resistance|3|109",
+      "panel_to_variant": {
+        "A": "G4",
+        "B": "G1",
+        "C": "G5"
+      }
+    },
+    {
+      "case_id": "ETHUSDT|support|2|106",
+      "panel_to_variant": {
+        "A": "G4",
+        "B": "G5",
+        "C": "G1"
+      }
+    },
+    {
+      "case_id": "ETHUSDT|resistance|3|95",
+      "panel_to_variant": {
+        "A": "G1",
+        "B": "G4",
+        "C": "G5"
+      }
+    },
+    {
+      "case_id": "SOLUSDT|support|2|245",
+      "panel_to_variant": {
+        "A": "G5",
+        "B": "G1",
+        "C": "G4"
+      }
+    },
+    {
+      "case_id": "SOLUSDT|resistance|3|62",
+      "panel_to_variant": {
+        "A": "G1",
+        "B": "G5",
+        "C": "G4"
+      }
+    },
+    {
+      "case_id": "HYPEUSDT|support|2|147",
+      "panel_to_variant": {
+        "A": "G5",
+        "B": "G4",
+        "C": "G1"
+      }
+    },
+    {
+      "case_id": "HYPEUSDT|resistance|2|91",
+      "panel_to_variant": {
+        "A": "G5",
+        "B": "G4",
+        "C": "G1"
+      }
+    }
+  ],
+  "schema_version": "g7_hidden_panel_mapping_v1"
+}

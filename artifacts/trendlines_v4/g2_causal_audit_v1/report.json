@@ -1,0 +1,91 @@
+{
+  "artifact": "trendlines_v4_g2_causal_audit_v1",
+  "conclusion": "NO_DECISION_TIME_CAUSAL_VIOLATION_FOUND",
+  "confirmed_pivots_audited": 234,
+  "g1_implementation_sha256": "29fcee61805265c75f4d436085511bb9764885faf582ee8bed789445ea5dfcca",
+  "manifest_sha256": "77992577e0bb40fa6bd6773630989632a1fa7e896c43bde48853f6af7e1a6b91",
+  "oracle_sha256": "758482545e43a2dbe1a0e239856ae1af02f7a4266e4b968641c56cf614eb4dd1",
+  "oracle_spot_checks": {
+    "checks": 60,
+    "mismatches": 0
+  },
+  "path_pivot_references": 5784,
+  "pivot_window": 3,
+  "post_confirmation_truth_revisions": 0,
+  "prefixes_audited": 1200,
+  "report_id": "a55a146b3a393d514995db03faebb24f7ff7a3569d1080710f319aca0e65a98c",
+  "resistance_emitted_paths": 1066,
+  "schema_version": "g2_causal_audit_v1",
+  "support_emitted_paths": 1066,
+  "total_emitted_paths": 2132,
+  "unconfirmed_path_pivot_violations": 0,
+  "window_summaries": {
+    "BTCUSDT:1": {
+      "confirmed_pivots_audited": 41,
+      "first_violation": null,
+      "path_pivot_references": 1167,
+      "post_confirmation_truth_revisions": 0,
+      "prefixes_audited": 200,
+      "resistance_emitted_paths": 187,
+      "support_emitted_paths": 182,
+      "total_emitted_paths": 369,
+      "unconfirmed_path_pivot_violations": 0
+    },
+    "BTCUSDT:2": {
+      "confirmed_pivots_audited": 38,
+      "first_violation": null,
+      "path_pivot_references": 825,
+      "post_confirmation_truth_revisions": 0,
+      "prefixes_audited": 200,
+      "resistance_emitted_paths": 170,
+      "support_emitted_paths": 176,
+      "total_emitted_paths": 346,
+      "unconfirmed_path_pivot_violations": 0
+    },
+    "ETHUSDT:1": {
+      "confirmed_pivots_audited": 38,
+      "first_violation": null,
+      "path_pivot_references": 861,
+      "post_confirmation_truth_revisions": 0,
+      "prefixes_audited": 200,
+      "resistance_emitted_paths": 187,
+      "support_emitted_paths": 175,
+      "total_emitted_paths": 362,
+      "unconfirmed_path_pivot_violations": 0
+    },
+    "ETHUSDT:2": {
+      "confirmed_pivots_audited": 39,
+      "first_violation": null,
+      "path_pivot_references": 902,
+      "post_confirmation_truth_revisions": 0,
+      "prefixes_audited": 200,
+      "resistance_emitted_paths": 170,
+      "support_emitted_paths": 179,
+      "total_emitted_paths": 349,
+      "unconfirmed_path_pivot_violations": 0
+    },
+    "SOLUSDT:1": {
+      "confirmed_pivots_audited": 41,
+      "first_violation": null,
+      "path_pivot_references": 1141,
+      "post_confirmation_truth_revisions": 0,
+      "prefixes_audited": 200,
+      "resistance_emitted_paths": 187,
+      "support_emitted_paths": 175,
+      "total_emitted_paths": 362,
+      "unconfirmed_path_pivot_violations": 0
+    },
+    "SOLUSDT:2": {
+      "confirmed_pivots_audited": 37,
+      "first_violation": null,
+      "path_pivot_references": 888,
+      "post_confirmation_truth_revisions": 0,
+      "prefixes_audited": 200,
+      "resistance_emitted_paths": 165,
+      "support_emitted_paths": 179,
+      "total_emitted_paths": 344,
+      "unconfirmed_path_pivot_violations": 0
+    }
+  },
+  "windows_audited": 6
+}

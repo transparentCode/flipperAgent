@@ -1,0 +1,184 @@
+{
+  "g0_non_overlap": true,
+  "manifest_id": "e239a408f8220cb822d8f056957178a3c32c6775f9d1db63999f4c47c811d298",
+  "protected_hashes": {
+    "external_oracle": "758482545e43a2dbe1a0e239856ae1af02f7a4266e4b968641c56cf614eb4dd1",
+    "g0_baseline": "e164ba3867ed9666d90744529f400686fd56374dd1ec51c94fe4ec79c266a9ca",
+    "g0_manifest": "77992577e0bb40fa6bd6773630989632a1fa7e896c43bde48853f6af7e1a6b91",
+    "g2_report": "9dedb3a4abcb10e002b29176beff4265de5c926bb0f64fdad451d92e67d7bee2",
+    "g2_source": "168dfbc56202698465c0fe852a70ecc555caff6672dbc73da77d533e6518e90a",
+    "g3_report": "4da943314936f6a962c315ba911d88bec7499e0df756090c43aba1ab7a905fba",
+    "g3_source": "def469a83b2c8aed608404ac366ab37cf72fb0d22554491fdabe20fb3fa9d169",
+    "g4_report": "26cf4d9b9ea0b359a18bcad1b7a1b0f187c21d0279d694bd53204b810e35b0fe",
+    "g4_source": "b11942199426e74051378ee774963a0962acca9aab801f1a488b5464ea4cac33",
+    "g5_report": "674b29790e1085a1807837f956800e6b8e60b0e224a3d367b1e5078529258d89",
+    "g5_source": "32abc73bd20f3f6c3ca27352d674c34e9a74a51bab2defb3c66a76ce56ffe4c6",
+    "legacy_reference": "29fcee61805265c75f4d436085511bb9764885faf582ee8bed789445ea5dfcca"
+  },
+  "row_count": 4500,
+  "schema_version": "g6_frozen_utility_benchmark_v1",
+  "selection_rule": {
+    "outcome_blind": true,
+    "starts": "floor((N-300)/5), floor(2(N-300)/5), floor(3(N-300)/5), floor(4(N-300)/5); HYPE uses quarters",
+    "window_length": 300
+  },
+  "sources": [
+    {
+      "asset": "BTCUSDT",
+      "data_row_count": 27721,
+      "path": "/Users/kajukatli/projects/KineticAlphaBot/app/trendlines/optimization/results/BTCUSDT_1h_2023-01-01_2026-03-01.csv",
+      "sha256": "f39bb06beee9e6991840d5c74f453906bfd7a6d68051b3bc04955e819084cf38",
+      "timeframe": "1h",
+      "windows": [
+        {
+          "end_index_exclusive": 5784,
+          "first_open_time": "2023-08-17 12:00:00",
+          "last_close_time": "2023-08-29 23:59:59.999",
+          "ohlc_input_sha256": "4622907ffa2d07b69b61ee6288a9630f7a53e3f4f45b1c1a6f64d1e84e5db890",
+          "start_index": 5484,
+          "window": 1
+        },
+        {
+          "end_index_exclusive": 11268,
+          "first_open_time": "2024-04-02 00:00:00",
+          "last_close_time": "2024-04-14 11:59:59.999",
+          "ohlc_input_sha256": "fd2058a8213b0b091a3184641c706760fa1afa8da7cc515776e11f813a86bf12",
+          "start_index": 10968,
+          "window": 2
+        },
+        {
+          "end_index_exclusive": 16752,
+          "first_open_time": "2024-11-16 12:00:00",
+          "last_close_time": "2024-11-28 23:59:59.999",
+          "ohlc_input_sha256": "2f0fcbeea55a5e15fc38f8aa751a64a054761772b9bd28ec99eebcf99fae069d",
+          "start_index": 16452,
+          "window": 3
+        },
+        {
+          "end_index_exclusive": 22236,
+          "first_open_time": "2025-07-03 00:00:00",
+          "last_close_time": "2025-07-15 11:59:59.999",
+          "ohlc_input_sha256": "1fdf5627c537aa39e540d295654a2b0b1548ee4b70af57aaeb7c9a4842ea120e",
+          "start_index": 21936,
+          "window": 4
+        }
+      ]
+    },
+    {
+      "asset": "ETHUSDT",
+      "data_row_count": 27721,
+      "path": "/Users/kajukatli/projects/KineticAlphaBot/app/trendlines/optimization/results/ETHUSDT_1h_2023-01-01_2026-03-01.csv",
+      "sha256": "96bc7f72e56a4ad70048a17caaa0013dd9ef854b11e7ba6aafc2681ce21d3e77",
+      "timeframe": "1h",
+      "windows": [
+        {
+          "end_index_exclusive": 5784,
+          "first_open_time": "2023-08-17 12:00:00",
+          "last_close_time": "2023-08-29 23:59:59.999",
+          "ohlc_input_sha256": "9a6807caa9301a5e61a427e04a8a8ce524fdece6392d9a8cdffedc23265f3146",
+          "start_index": 5484,
+          "window": 1
+        },
+        {
+          "end_index_exclusive": 11268,
+          "first_open_time": "2024-04-02 00:00:00",
+          "last_close_time": "2024-04-14 11:59:59.999",
+          "ohlc_input_sha256": "0beb38d370b1735a485c4935bcb5aeeb64312c4a74d8f31f65399033ef5b1e4e",
+          "start_index": 10968,
+          "window": 2
+        },
+        {
+          "end_index_exclusive": 16752,
+          "first_open_time": "2024-11-16 12:00:00",
+          "last_close_time": "2024-11-28 23:59:59.999",
+          "ohlc_input_sha256": "40fde8dbfb7bed66a0ea34db249dc520e95c54574fa8d68f821302062cc04f08",
+          "start_index": 16452,
+          "window": 3
+        },
+        {
+          "end_index_exclusive": 22236,
+          "first_open_time": "2025-07-03 00:00:00",
+          "last_close_time": "2025-07-15 11:59:59.999",
+          "ohlc_input_sha256": "d9070ff218fa2e125ff7ab451fb5459a7e26044cf2990cd836e9df3466f6d240",
+          "start_index": 21936,
+          "window": 4
+        }
+      ]
+    },
+    {
+      "asset": "SOLUSDT",
+      "data_row_count": 27721,
+      "path": "/Users/kajukatli/projects/KineticAlphaBot/app/trendlines/optimization/results/SOLUSDT_1h_2023-01-01_2026-03-01.csv",
+      "sha256": "0711849c9e665c8b5bdba85ffee4cda0eb16f9aa30f7b74678bf09d17bf19c46",
+      "timeframe": "1h",
+      "windows": [
+        {
+          "end_index_exclusive": 5784,
+          "first_open_time": "2023-08-17 12:00:00",
+          "last_close_time": "2023-08-29 23:59:59.999",
+          "ohlc_input_sha256": "36784df9a548071753a9d3c6f79fc11a86d2c193684744a2b35b91ee05898541",
+          "start_index": 5484,
+          "window": 1
+        },
+        {
+          "end_index_exclusive": 11268,
+          "first_open_time": "2024-04-02 00:00:00",
+          "last_close_time": "2024-04-14 11:59:59.999",
+          "ohlc_input_sha256": "9b141d7385dd4cad97111f6c9831327c302ce928862ca72d6184305823c7e9ac",
+          "start_index": 10968,
+          "window": 2
+        },
+        {
+          "end_index_exclusive": 16752,
+          "first_open_time": "2024-11-16 12:00:00",
+          "last_close_time": "2024-11-28 23:59:59.999",
+          "ohlc_input_sha256": "d0b696ca9df7eccd00cd37659a19a6fbc01be59f7cd6040d86c1a169d31522aa",
+          "start_index": 16452,
+          "window": 3
+        },
+        {
+          "end_index_exclusive": 22236,
+          "first_open_time": "2025-07-03 00:00:00",
+          "last_close_time": "2025-07-15 11:59:59.999",
+          "ohlc_input_sha256": "9e77a37327988d902ab6e6ac9a647e0f96699f2947917f3d1ddb2d9c8f0cca7a",
+          "start_index": 21936,
+          "window": 4
+        }
+      ]
+    },
+    {
+      "asset": "HYPEUSDT",
+      "data_row_count": 6591,
+      "path": "/Users/kajukatli/projects/KineticAlphaBot/app/trendlines/optimization/results/HYPEUSDT_1h_2022-01-01_2026-03-01.csv",
+      "sha256": "26e7f4276c60ea4c4d3dbe196383c1ef63c1c58d6db1b6280b821490d694d050",
+      "timeframe": "1h",
+      "windows": [
+        {
+          "end_index_exclusive": 1872,
+          "first_open_time": "2025-08-03 22:00:00",
+          "last_close_time": "2025-08-16 09:59:59.999",
+          "ohlc_input_sha256": "2eaf024ea324ae26ba1193e73fba00f61883e1f78f3fb1f23a3c57291edeb0c9",
+          "start_index": 1572,
+          "window": 1
+        },
+        {
+          "end_index_exclusive": 3445,
+          "first_open_time": "2025-10-08 11:00:00",
+          "last_close_time": "2025-10-20 22:59:59.999",
+          "ohlc_input_sha256": "c8b986b3910d4fb1bcd492f861b8b27f40e9a481f720b9d9da8ce59e573c85b2",
+          "start_index": 3145,
+          "window": 2
+        },
+        {
+          "end_index_exclusive": 5018,
+          "first_open_time": "2025-12-13 00:00:00",
+          "last_close_time": "2025-12-25 11:59:59.999",
+          "ohlc_input_sha256": "44580735b38089dd6d7da26f9e135fd1241825a7dd56e9973f5050466d660ffe",
+          "start_index": 4718,
+          "window": 3
+        }
+      ]
+    }
+  ],
+  "window_count": 15
+}

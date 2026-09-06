@@ -1,0 +1,878 @@
+{
+  "conclusion": "EXACT_IDENTITY_PERSISTENCE_SUPPORTED",
+  "groups": {
+    "asset_timeframe": {
+      "BTCUSDT:1h": {
+        "aggregation_failure_count": 0,
+        "episode_lifetime_bars": {
+          "max": 65,
+          "median": 6.0,
+          "min": 1,
+          "p75": 10.0,
+          "p90": 15.0,
+          "p95": 20.0
+        },
+        "first_appearance_count": 241,
+        "first_appearance_rate_per_100_cutoffs": 40.166666666666664,
+        "identity_collision_count": 0,
+        "identity_content_mismatch_count": 0,
+        "measured_snapshot_count": 600,
+        "one_bar_episode_count": 25,
+        "one_bar_episode_fraction": 0.08503401360544217,
+        "reappearance_episode_count": 53,
+        "reappearing_geometry_count": 23,
+        "replacement_count": 284,
+        "replacement_rate_per_100_cutoffs": 11.872909698996656,
+        "role_availability_rate": 0.9966666666666667,
+        "role_episode_count": 294,
+        "role_slot_count": 2400,
+        "shared_structural_current_geometry_count": 725,
+        "shared_structural_current_geometry_rate": 0.6041666666666666,
+        "source_gap_failure_count": 0,
+        "structural_current_divergence_count": 467,
+        "structural_current_divergence_rate": 0.38916666666666666,
+        "unique_geometry_count": 140
+      },
+      "BTCUSDT:4h": {
+        "aggregation_failure_count": 0,
+        "episode_lifetime_bars": {
+          "max": 78,
+          "median": 6,
+          "min": 1,
+          "p75": 9.0,
+          "p90": 13.0,
+          "p95": 17.30000000000001
+        },
+        "first_appearance_count": 263,
+        "first_appearance_rate_per_100_cutoffs": 43.833333333333336,
+        "identity_collision_count": 0,
+        "identity_content_mismatch_count": 0,
+        "measured_snapshot_count": 600,
+        "one_bar_episode_count": 25,
+        "one_bar_episode_fraction": 0.07936507936507936,
+        "reappearance_episode_count": 52,
+        "reappearing_geometry_count": 30,
+        "replacement_count": 306,
+        "replacement_rate_per_100_cutoffs": 12.792642140468228,
+        "role_availability_rate": 0.9925,
+        "role_episode_count": 315,
+        "role_slot_count": 2400,
+        "shared_structural_current_geometry_count": 666,
+        "shared_structural_current_geometry_rate": 0.555,
+        "source_gap_failure_count": 0,
+        "structural_current_divergence_count": 516,
+        "structural_current_divergence_rate": 0.43,
+        "unique_geometry_count": 153
+      },
+      "ETHUSDT:1h": {
+        "aggregation_failure_count": 0,
+        "episode_lifetime_bars": {
+          "max": 61,
+          "median": 6,
+          "min": 1,
+          "p75": 10.0,
+          "p90": 14.0,
+          "p95": 18.0
+        },
+        "first_appearance_count": 262,
+        "first_appearance_rate_per_100_cutoffs": 43.666666666666664,
+        "identity_collision_count": 0,
+        "identity_content_mismatch_count": 0,
+        "measured_snapshot_count": 600,
+        "one_bar_episode_count": 23,
+        "one_bar_episode_fraction": 0.0744336569579288,
+        "reappearance_episode_count": 47,
+        "reappearing_geometry_count": 22,
+        "replacement_count": 300,
+        "replacement_rate_per_100_cutoffs": 12.54180602006689,
+        "role_availability_rate": 0.9979166666666667,
+        "role_episode_count": 309,
+        "role_slot_count": 2400,
+        "shared_structural_current_geometry_count": 806,
+        "shared_structural_current_geometry_rate": 0.6716666666666666,
+        "source_gap_failure_count": 0,
+        "structural_current_divergence_count": 389,
+        "structural_current_divergence_rate": 0.32416666666666666,
+        "unique_geometry_count": 153
+      },
+      "ETHUSDT:4h": {
+        "aggregation_failure_count": 0,
+        "episode_lifetime_bars": {
+          "max": 132,
+          "median": 6.0,
+          "min": 1,
+          "p75": 9.0,
+          "p90": 15.0,
+          "p95": 21.699999999999932
+        },
+        "first_appearance_count": 240,
+        "first_appearance_rate_per_100_cutoffs": 40.0,
+        "identity_collision_count": 0,
+        "identity_content_mismatch_count": 0,
+        "measured_snapshot_count": 600,
+        "one_bar_episode_count": 14,
+        "one_bar_episode_fraction": 0.04929577464788732,
+        "reappearance_episode_count": 44,
+        "reappearing_geometry_count": 26,
+        "replacement_count": 273,
+        "replacement_rate_per_100_cutoffs": 11.41304347826087,
+        "role_availability_rate": 0.9945833333333334,
+        "role_episode_count": 284,
+        "role_slot_count": 2400,
+        "shared_structural_current_geometry_count": 797,
+        "shared_structural_current_geometry_rate": 0.6641666666666667,
+        "source_gap_failure_count": 0,
+        "structural_current_divergence_count": 390,
+        "structural_current_divergence_rate": 0.325,
+        "unique_geometry_count": 140
+      },
+      "HYPEUSDT:1h": {
+        "aggregation_failure_count": 0,
+        "episode_lifetime_bars": {
+          "max": 40,
+          "median": 7,
+          "min": 1,
+          "p75": 10.0,
+          "p90": 16.0,
+          "p95": 19.80000000000001
+        },
+        "first_appearance_count": 239,
+        "first_appearance_rate_per_100_cutoffs": 39.83333333333333,
+        "identity_collision_count": 0,
+        "identity_content_mismatch_count": 0,
+        "measured_snapshot_count": 600,
+        "one_bar_episode_count": 16,
+        "one_bar_episode_fraction": 0.056140350877192984,
+        "reappearance_episode_count": 46,
+        "reappearing_geometry_count": 24,
+        "replacement_count": 274,
+        "replacement_rate_per_100_cutoffs": 11.454849498327759,
+        "role_availability_rate": 0.9920833333333333,
+        "role_episode_count": 285,
+        "role_slot_count": 2400,
+        "shared_structural_current_geometry_count": 739,
+        "shared_structural_current_geometry_rate": 0.6158333333333333,
+        "source_gap_failure_count": 0,
+        "structural_current_divergence_count": 442,
+        "structural_current_divergence_rate": 0.36833333333333335,
+        "unique_geometry_count": 139
+      },
+      "HYPEUSDT:4h": {
+        "aggregation_failure_count": 0,
+        "episode_lifetime_bars": {
+          "max": 60,
+          "median": 6,
+          "min": 1,
+          "p75": 11.0,
+          "p90": 18.0,
+          "p95": 24.0
+        },
+        "first_appearance_count": 229,
+        "first_appearance_rate_per_100_cutoffs": 38.166666666666664,
+        "identity_collision_count": 0,
+        "identity_content_mismatch_count": 0,
+        "measured_snapshot_count": 600,
+        "one_bar_episode_count": 24,
+        "one_bar_episode_fraction": 0.0898876404494382,
+        "reappearance_episode_count": 38,
+        "reappearing_geometry_count": 20,
+        "replacement_count": 258,
+        "replacement_rate_per_100_cutoffs": 10.785953177257525,
+        "role_availability_rate": 0.9983333333333333,
+        "role_episode_count": 267,
+        "role_slot_count": 2400,
+        "shared_structural_current_geometry_count": 694,
+        "shared_structural_current_geometry_rate": 0.5783333333333334,
+        "source_gap_failure_count": 0,
+        "structural_current_divergence_count": 502,
+        "structural_current_divergence_rate": 0.41833333333333333,
+        "unique_geometry_count": 134
+      },
+      "SOLUSDT:1h": {
+        "aggregation_failure_count": 0,
+        "episode_lifetime_bars": {
+          "max": 36,
+          "median": 6.0,
+          "min": 1,
+          "p75": 11.0,
+          "p90": 17.0,
+          "p95": 23.0
+        },
+        "first_appearance_count": 243,
+        "first_appearance_rate_per_100_cutoffs": 40.5,
+        "identity_collision_count": 0,
+        "identity_content_mismatch_count": 0,
+        "measured_snapshot_count": 600,
+        "one_bar_episode_count": 19,
+        "one_bar_episode_fraction": 0.06506849315068493,
+        "reappearance_episode_count": 49,
+        "reappearing_geometry_count": 28,
+        "replacement_count": 282,
+        "replacement_rate_per_100_cutoffs": 11.789297658862877,
+        "role_availability_rate": 0.9983333333333333,
+        "role_episode_count": 292,
+        "role_slot_count": 2400,
+        "shared_structural_current_geometry_count": 752,
+        "shared_structural_current_geometry_rate": 0.6266666666666667,
+        "source_gap_failure_count": 0,
+        "structural_current_divergence_count": 444,
+        "structural_current_divergence_rate": 0.37,
+        "unique_geometry_count": 142
+      },
+      "SOLUSDT:4h": {
+        "aggregation_failure_count": 0,
+        "episode_lifetime_bars": {
+          "max": 48,
+          "median": 5,
+          "min": 1,
+          "p75": 10.0,
+          "p90": 16.400000000000034,
+          "p95": 21.0
+        },
+        "first_appearance_count": 270,
+        "first_appearance_rate_per_100_cutoffs": 45.0,
+        "identity_collision_count": 0,
+        "identity_content_mismatch_count": 0,
+        "measured_snapshot_count": 600,
+        "one_bar_episode_count": 31,
+        "one_bar_episode_fraction": 0.09779179810725552,
+        "reappearance_episode_count": 47,
+        "reappearing_geometry_count": 32,
+        "replacement_count": 301,
+        "replacement_rate_per_100_cutoffs": 12.58361204013378,
+        "role_availability_rate": 0.9841666666666666,
+        "role_episode_count": 317,
+        "role_slot_count": 2400,
+        "shared_structural_current_geometry_count": 816,
+        "shared_structural_current_geometry_rate": 0.68,
+        "source_gap_failure_count": 0,
+        "structural_current_divergence_count": 346,
+        "structural_current_divergence_rate": 0.28833333333333333,
+        "unique_geometry_count": 158
+      }
+    },
+    "global": {
+      "aggregation_failure_count": 0,
+      "episode_lifetime_bars": {
+        "max": 132,
+        "median": 6,
+        "min": 1,
+        "p75": 10.0,
+        "p90": 16.0,
+        "p95": 21.0
+      },
+      "first_appearance_count": 1987,
+      "first_appearance_rate_per_100_cutoffs": 41.39583333333333,
+      "identity_collision_count": 0,
+      "identity_content_mismatch_count": 0,
+      "measured_snapshot_count": 4800,
+      "one_bar_episode_count": 177,
+      "one_bar_episode_fraction": 0.07490478205670757,
+      "reappearance_episode_count": 376,
+      "reappearing_geometry_count": 205,
+      "replacement_count": 2278,
+      "replacement_rate_per_100_cutoffs": 11.904264214046822,
+      "role_availability_rate": 0.9943229166666666,
+      "role_episode_count": 2363,
+      "role_slot_count": 19200,
+      "shared_structural_current_geometry_count": 5995,
+      "shared_structural_current_geometry_rate": 0.6244791666666667,
+      "source_gap_failure_count": 0,
+      "structural_current_divergence_count": 3496,
+      "structural_current_divergence_rate": 0.3641666666666667,
+      "unique_geometry_count": 1159
+    },
+    "side_role": {
+      "resistance.current_valid": {
+        "aggregation_failure_count": 0,
+        "episode_lifetime_bars": {
+          "max": 52,
+          "median": 4.0,
+          "min": 1,
+          "p75": 8.0,
+          "p90": 12.5,
+          "p95": 18.0
+        },
+        "first_appearance_count": 556,
+        "first_appearance_rate_per_100_cutoffs": 11.583333333333332,
+        "identity_collision_count": 0,
+        "identity_content_mismatch_count": 0,
+        "measured_snapshot_count": 4800,
+        "one_bar_episode_count": 102,
+        "one_bar_episode_fraction": 0.13672922252010725,
+        "reappearance_episode_count": 190,
+        "reappearing_geometry_count": 102,
+        "replacement_count": 711,
+        "replacement_rate_per_100_cutoffs": 14.862040133779264,
+        "role_availability_rate": 0.9785416666666666,
+        "role_episode_count": 746,
+        "role_slot_count": 4800,
+        "shared_structural_current_geometry_count": 2815,
+        "shared_structural_current_geometry_rate": 0.5864583333333333,
+        "source_gap_failure_count": 0,
+        "structural_current_divergence_count": 1882,
+        "structural_current_divergence_rate": 0.39208333333333334,
+        "unique_geometry_count": 556
+      },
+      "resistance.structural": {
+        "aggregation_failure_count": 0,
+        "episode_lifetime_bars": {
+          "max": 47,
+          "median": 8.0,
+          "min": 1,
+          "p75": 11.0,
+          "p90": 16.0,
+          "p95": 21.0
+        },
+        "first_appearance_count": 522,
+        "first_appearance_rate_per_100_cutoffs": 10.875,
+        "identity_collision_count": 0,
+        "identity_content_mismatch_count": 0,
+        "measured_snapshot_count": 4800,
+        "one_bar_episode_count": 7,
+        "one_bar_episode_fraction": 0.013409961685823755,
+        "reappearance_episode_count": 0,
+        "reappearing_geometry_count": 0,
+        "replacement_count": 506,
+        "replacement_rate_per_100_cutoffs": 10.576923076923077,
+        "role_availability_rate": 1.0,
+        "role_episode_count": 522,
+        "role_slot_count": 4800,
+        "shared_structural_current_geometry_count": 2815,
+        "shared_structural_current_geometry_rate": 0.5864583333333333,
+        "source_gap_failure_count": 0,
+        "structural_current_divergence_count": 1882,
+        "structural_current_divergence_rate": 0.39208333333333334,
+        "unique_geometry_count": 522
+      },
+      "support.current_valid": {
+        "aggregation_failure_count": 0,
+        "episode_lifetime_bars": {
+          "max": 132,
+          "median": 5,
+          "min": 1,
+          "p75": 8.0,
+          "p90": 15.0,
+          "p95": 21.0
+        },
+        "first_appearance_count": 469,
+        "first_appearance_rate_per_100_cutoffs": 9.770833333333332,
+        "identity_collision_count": 0,
+        "identity_content_mismatch_count": 0,
+        "measured_snapshot_count": 4800,
+        "one_bar_episode_count": 60,
+        "one_bar_episode_fraction": 0.0916030534351145,
+        "reappearance_episode_count": 186,
+        "reappearing_geometry_count": 103,
+        "replacement_count": 637,
+        "replacement_rate_per_100_cutoffs": 13.31521739130435,
+        "role_availability_rate": 0.99875,
+        "role_episode_count": 655,
+        "role_slot_count": 4800,
+        "shared_structural_current_geometry_count": 3180,
+        "shared_structural_current_geometry_rate": 0.6625,
+        "source_gap_failure_count": 0,
+        "structural_current_divergence_count": 1614,
+        "structural_current_divergence_rate": 0.33625,
+        "unique_geometry_count": 469
+      },
+      "support.structural": {
+        "aggregation_failure_count": 0,
+        "episode_lifetime_bars": {
+          "max": 132,
+          "median": 8.0,
+          "min": 1,
+          "p75": 12.0,
+          "p90": 19.0,
+          "p95": 24.049999999999955
+        },
+        "first_appearance_count": 440,
+        "first_appearance_rate_per_100_cutoffs": 9.166666666666666,
+        "identity_collision_count": 0,
+        "identity_content_mismatch_count": 0,
+        "measured_snapshot_count": 4800,
+        "one_bar_episode_count": 8,
+        "one_bar_episode_fraction": 0.01818181818181818,
+        "reappearance_episode_count": 0,
+        "reappearing_geometry_count": 0,
+        "replacement_count": 424,
+        "replacement_rate_per_100_cutoffs": 8.862876254180602,
+        "role_availability_rate": 1.0,
+        "role_episode_count": 440,
+        "role_slot_count": 4800,
+        "shared_structural_current_geometry_count": 3180,
+        "shared_structural_current_geometry_rate": 0.6625,
+        "source_gap_failure_count": 0,
+        "structural_current_divergence_count": 1614,
+        "structural_current_divergence_rate": 0.33625,
+        "unique_geometry_count": 440
+      }
+    },
+    "timeframe": {
+      "1h": {
+        "aggregation_failure_count": 0,
+        "episode_lifetime_bars": {
+          "max": 65,
+          "median": 6.0,
+          "min": 1,
+          "p75": 10.0,
+          "p90": 16.0,
+          "p95": 20.0
+        },
+        "first_appearance_count": 985,
+        "first_appearance_rate_per_100_cutoffs": 41.041666666666664,
+        "identity_collision_count": 0,
+        "identity_content_mismatch_count": 0,
+        "measured_snapshot_count": 2400,
+        "one_bar_episode_count": 83,
+        "one_bar_episode_fraction": 0.07033898305084746,
+        "reappearance_episode_count": 195,
+        "reappearing_geometry_count": 97,
+        "replacement_count": 1140,
+        "replacement_rate_per_100_cutoffs": 11.914715719063546,
+        "role_availability_rate": 0.99625,
+        "role_episode_count": 1180,
+        "role_slot_count": 9600,
+        "shared_structural_current_geometry_count": 3022,
+        "shared_structural_current_geometry_rate": 0.6295833333333334,
+        "source_gap_failure_count": 0,
+        "structural_current_divergence_count": 1742,
+        "structural_current_divergence_rate": 0.36291666666666667,
+        "unique_geometry_count": 574
+      },
+      "4h": {
+        "aggregation_failure_count": 0,
+        "episode_lifetime_bars": {
+          "max": 132,
+          "median": 6,
+          "min": 1,
+          "p75": 9.5,
+          "p90": 16.0,
+          "p95": 21.0
+        },
+        "first_appearance_count": 1002,
+        "first_appearance_rate_per_100_cutoffs": 41.75,
+        "identity_collision_count": 0,
+        "identity_content_mismatch_count": 0,
+        "measured_snapshot_count": 2400,
+        "one_bar_episode_count": 94,
+        "one_bar_episode_fraction": 0.07945900253592561,
+        "reappearance_episode_count": 181,
+        "reappearing_geometry_count": 108,
+        "replacement_count": 1138,
+        "replacement_rate_per_100_cutoffs": 11.893812709030101,
+        "role_availability_rate": 0.9923958333333334,
+        "role_episode_count": 1183,
+        "role_slot_count": 9600,
+        "shared_structural_current_geometry_count": 2973,
+        "shared_structural_current_geometry_rate": 0.619375,
+        "source_gap_failure_count": 0,
+        "structural_current_divergence_count": 1754,
+        "structural_current_divergence_rate": 0.36541666666666667,
+        "unique_geometry_count": 585
+      }
+    }
+  },
+  "identity_schema_version": "trendlines_v4_exact_geometry_identity_v1",
+  "inventory": {
+    "episode_count": 2363,
+    "measured_snapshot_count": 4800,
+    "role_slot_count": 19200,
+    "side_snapshot_pair_count": 9600,
+    "unique_geometry_count": 1159
+  },
+  "longest_lived_examples": [
+    {
+      "asset": "ETHUSDT",
+      "end_cutoff": 282,
+      "episode_id": "5f02fead383cc21ce07c6a878b399f5335fd0399b69d7720779f83c452d2a1dc",
+      "event": "BIRTH",
+      "geometry_id": "a361ee3cf900dc3ef99d4bc6d150a4b0241b3fc9a40352191e8f1b1f0e78938a",
+      "lifetime_bars": 132,
+      "role": "current_valid",
+      "side": "support",
+      "start_cutoff": 151,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "ETHUSDT",
+      "end_cutoff": 282,
+      "episode_id": "705d10018c45d1483254a5b6a57647242808db066207d81afa6957efa8145f28",
+      "event": "BIRTH",
+      "geometry_id": "a361ee3cf900dc3ef99d4bc6d150a4b0241b3fc9a40352191e8f1b1f0e78938a",
+      "lifetime_bars": 132,
+      "role": "structural",
+      "side": "support",
+      "start_cutoff": 151,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "BTCUSDT",
+      "end_cutoff": 299,
+      "episode_id": "7e9b7f8c5678d080aa97c193065982c402632bd935e3a6a63c0897f529be2c8c",
+      "event": "BIRTH",
+      "geometry_id": "82b3a4ac4ea3d1c9d775ba600c5bcbcfc89031dc22b240783d084f13c26012cb",
+      "lifetime_bars": 78,
+      "role": "current_valid",
+      "side": "support",
+      "start_cutoff": 222,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "BTCUSDT",
+      "end_cutoff": 75,
+      "episode_id": "695ec782fa338b9e3d22527c7eca2e567a3e1b5c60369b8c6e07189c1d89c579",
+      "event": "BIRTH",
+      "geometry_id": "bc55284594bc33d0398c63a4d8d33997db2f4233b0f2f3d2f32a89b33115fba1",
+      "lifetime_bars": 65,
+      "role": "current_valid",
+      "side": "support",
+      "start_cutoff": 11,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "BTCUSDT",
+      "end_cutoff": 75,
+      "episode_id": "91d4645383f643df793b21b1df510d8ea05f7be63b4f24c6e2e3e8a2016174c1",
+      "event": "BIRTH",
+      "geometry_id": "bc55284594bc33d0398c63a4d8d33997db2f4233b0f2f3d2f32a89b33115fba1",
+      "lifetime_bars": 65,
+      "role": "structural",
+      "side": "support",
+      "start_cutoff": 11,
+      "timeframe": "1h",
+      "window": "late"
+    }
+  ],
+  "measurement_contract": {
+    "asset_count": 4,
+    "core_history_bar_count": 300,
+    "core_input_slice": "window[cutoff+1:cutoff+301] for measurement cutoff 0..299",
+    "measured_snapshot_count": 4800,
+    "measurement_cutoffs_per_window": 300,
+    "replacement_rate_denominator": "consecutive role cutoffs per scope",
+    "role_slot_count": 19200,
+    "shared_pair_rates_denominator": "all structural/current side snapshot pairs",
+    "source_cutoff_range": "window positions 300..599 inclusive",
+    "timeframe_count": 2,
+    "window_count": 16
+  },
+  "percentile_definition": "R-7 linear interpolation",
+  "schema_version": "trendlines_v4_exact_geometry_identity_persistence_v1",
+  "source_metadata": [
+    {
+      "asset": "BTCUSDT",
+      "first_open_at": "2022-01-01T00:00:00.000000Z",
+      "last_close_at": "2026-03-01T00:59:59.999000Z",
+      "path": "src/libs/regime/optimization/results/BTCUSDT_1h_2022-01-01_2026-03-01.csv",
+      "row_count": 36481,
+      "sha256": "3061187fd7092131e7df221fb1c23ea4427ba9754284910d79d47872858c0f66",
+      "timeframe": "1h"
+    },
+    {
+      "asset": "ETHUSDT",
+      "first_open_at": "2023-01-01T00:00:00.000000Z",
+      "last_close_at": "2026-03-01T00:59:59.999000Z",
+      "path": "src/libs/models/trendlines/optimization/results/ETHUSDT_1h_2023-01-01_2026-03-01.csv",
+      "row_count": 27721,
+      "sha256": "96bc7f72e56a4ad70048a17caaa0013dd9ef854b11e7ba6aafc2681ce21d3e77",
+      "timeframe": "1h"
+    },
+    {
+      "asset": "SOLUSDT",
+      "first_open_at": "2023-01-01T00:00:00.000000Z",
+      "last_close_at": "2026-03-01T00:59:59.999000Z",
+      "path": "src/libs/models/trendlines/optimization/results/SOLUSDT_1h_2023-01-01_2026-03-01.csv",
+      "row_count": 27721,
+      "sha256": "0711849c9e665c8b5bdba85ffee4cda0eb16f9aa30f7b74678bf09d17bf19c46",
+      "timeframe": "1h"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "first_open_at": "2025-05-30T10:00:00.000000Z",
+      "last_close_at": "2026-03-01T00:59:59.999000Z",
+      "path": "src/libs/models/trendlines/optimization/results/HYPEUSDT_1h_2022-01-01_2026-03-01.csv",
+      "row_count": 6591,
+      "sha256": "26e7f4276c60ea4c4d3dbe196383c1ef63c1c58d6db1b6280b821490d694d050",
+      "timeframe": "1h"
+    }
+  ],
+  "windows": [
+    {
+      "asset": "BTCUSDT",
+      "end_position_exclusive": 7776,
+      "first_open_at": "2022-10-27T00:00:00.000000Z",
+      "last_close_at": "2022-11-20T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          7476,
+          7775
+        ]
+      },
+      "start_position": 7176,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "BTCUSDT",
+      "end_position_exclusive": 29304,
+      "first_open_at": "2025-04-11T00:00:00.000000Z",
+      "last_close_at": "2025-05-05T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          29004,
+          29303
+        ]
+      },
+      "start_position": 28704,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "BTCUSDT",
+      "end_position_exclusive": 2304,
+      "first_open_at": "2022-10-12T00:00:00.000000Z",
+      "last_close_at": "2023-01-19T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          2004,
+          2303
+        ]
+      },
+      "start_position": 1704,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "BTCUSDT",
+      "end_position_exclusive": 7416,
+      "first_open_at": "2025-02-10T00:00:00.000000Z",
+      "last_close_at": "2025-05-20T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          7116,
+          7415
+        ]
+      },
+      "start_position": 6816,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "ETHUSDT",
+      "end_position_exclusive": 6024,
+      "first_open_at": "2023-08-15T00:00:00.000000Z",
+      "last_close_at": "2023-09-08T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          5724,
+          6023
+        ]
+      },
+      "start_position": 5424,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "ETHUSDT",
+      "end_position_exclusive": 22296,
+      "first_open_at": "2025-06-23T00:00:00.000000Z",
+      "last_close_at": "2025-07-17T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          21996,
+          22295
+        ]
+      },
+      "start_position": 21696,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "ETHUSDT",
+      "end_position_exclusive": 1866,
+      "first_open_at": "2023-07-31T00:00:00.000000Z",
+      "last_close_at": "2023-11-07T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          1566,
+          1865
+        ]
+      },
+      "start_position": 1266,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "ETHUSDT",
+      "end_position_exclusive": 5664,
+      "first_open_at": "2025-04-24T00:00:00.000000Z",
+      "last_close_at": "2025-08-01T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          5364,
+          5663
+        ]
+      },
+      "start_position": 5064,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "SOLUSDT",
+      "end_position_exclusive": 6024,
+      "first_open_at": "2023-08-15T00:00:00.000000Z",
+      "last_close_at": "2023-09-08T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          5724,
+          6023
+        ]
+      },
+      "start_position": 5424,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "SOLUSDT",
+      "end_position_exclusive": 22296,
+      "first_open_at": "2025-06-23T00:00:00.000000Z",
+      "last_close_at": "2025-07-17T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          21996,
+          22295
+        ]
+      },
+      "start_position": 21696,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "SOLUSDT",
+      "end_position_exclusive": 1866,
+      "first_open_at": "2023-07-31T00:00:00.000000Z",
+      "last_close_at": "2023-11-07T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          1566,
+          1865
+        ]
+      },
+      "start_position": 1266,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "SOLUSDT",
+      "end_position_exclusive": 5664,
+      "first_open_at": "2025-04-24T00:00:00.000000Z",
+      "last_close_at": "2025-08-01T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          5364,
+          5663
+        ]
+      },
+      "start_position": 5064,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "end_position_exclusive": 1798,
+      "first_open_at": "2025-07-19T08:00:00.000000Z",
+      "last_close_at": "2025-08-13T07:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          1498,
+          1797
+        ]
+      },
+      "start_position": 1198,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "end_position_exclusive": 5392,
+      "first_open_at": "2025-12-16T02:00:00.000000Z",
+      "last_close_at": "2026-01-10T01:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          5092,
+          5391
+        ]
+      },
+      "start_position": 4792,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "end_position_exclusive": 809,
+      "first_open_at": "2025-07-04T08:00:00.000000Z",
+      "last_close_at": "2025-10-12T07:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          509,
+          808
+        ]
+      },
+      "start_position": 209,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "end_position_exclusive": 1437,
+      "first_open_at": "2025-10-17T00:00:00.000000Z",
+      "last_close_at": "2026-01-24T23:59:59.999000Z",
+      "measurement_cutoffs": {
+        "core_bar_count": 300,
+        "core_slice": "window[cutoff+1:cutoff+301] for cutoff 0..299",
+        "source_positions": [
+          1137,
+          1436
+        ]
+      },
+      "start_position": 837,
+      "timeframe": "4h",
+      "window": "late"
+    }
+  ]
+}

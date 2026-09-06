@@ -1,0 +1,1549 @@
+{
+  "allowed_conclusions": [
+    "PARAMETER_SENSITIVITY_MEASURED",
+    "PARAMETER_SENSITIVITY_MEASURED_WITH_PATHOLOGIES",
+    "PARAMETER_SENSITIVITY_NUMERICAL_SEMANTICS_BLOCKED",
+    "PARAMETER_SENSITIVITY_RESOURCE_BLOCKED",
+    "BLOCKED_SOURCE_OR_CONTRACT"
+  ],
+  "candidate_grid": {
+    "deduplicated_profile_count_per_timeframe": 15,
+    "duration_conversion": {
+      "1h": {
+        "14": 336,
+        "28": 672
+      },
+      "4h": {
+        "14": 84,
+        "28": 168
+      }
+    },
+    "fixed_bar_policies": [
+      150,
+      300,
+      600
+    ],
+    "fixed_duration_days": [
+      14,
+      28
+    ],
+    "pivot_windows": [
+      2,
+      3,
+      5
+    ],
+    "profile_count": 30,
+    "profiles_by_timeframe": {
+      "1h": [
+        {
+          "effective_history_bars": 300,
+          "effective_history_days": 12.5,
+          "effective_history_hours": 300,
+          "history_policy_kind": "fixed_bars",
+          "history_policy_value": 300,
+          "is_baseline": true,
+          "pivot_confirmation_delay_bars": 3,
+          "pivot_confirmation_delay_hours": 3,
+          "pivot_window": 3,
+          "profile_id": "a533de5098a08113a38e7a00e4b5d41049e5822ec0b7d7e98b360e4b07d46e73",
+          "timeframe": "1h"
+        },
+        {
+          "effective_history_bars": 150,
+          "effective_history_days": 6.25,
+          "effective_history_hours": 150,
+          "history_policy_kind": "fixed_bars",
+          "history_policy_value": 150,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 2,
+          "pivot_confirmation_delay_hours": 2,
+          "pivot_window": 2,
+          "profile_id": "242f7190129b4f62ee140a2418be7ad60e7678328a3191bdf87fe200dc0b0244",
+          "timeframe": "1h"
+        },
+        {
+          "effective_history_bars": 300,
+          "effective_history_days": 12.5,
+          "effective_history_hours": 300,
+          "history_policy_kind": "fixed_bars",
+          "history_policy_value": 300,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 2,
+          "pivot_confirmation_delay_hours": 2,
+          "pivot_window": 2,
+          "profile_id": "2de380de9f6b9e26fdd943fb6a3427c32dc1f6d2370229fa73e10107302f6ff2",
+          "timeframe": "1h"
+        },
+        {
+          "effective_history_bars": 600,
+          "effective_history_days": 25.0,
+          "effective_history_hours": 600,
+          "history_policy_kind": "fixed_bars",
+          "history_policy_value": 600,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 2,
+          "pivot_confirmation_delay_hours": 2,
+          "pivot_window": 2,
+          "profile_id": "d96d5d4b169816502b3ba2ed44e5f223d6f42709652d2e27ddaa4e618f760b01",
+          "timeframe": "1h"
+        },
+        {
+          "effective_history_bars": 336,
+          "effective_history_days": 14.0,
+          "effective_history_hours": 336,
+          "history_policy_kind": "fixed_duration",
+          "history_policy_value": 14,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 2,
+          "pivot_confirmation_delay_hours": 2,
+          "pivot_window": 2,
+          "profile_id": "201934ae0bef4e3c7cb156eac58f5af37cd43a1a078e930c905d02f94ce6a48f",
+          "timeframe": "1h"
+        },
+        {
+          "effective_history_bars": 672,
+          "effective_history_days": 28.0,
+          "effective_history_hours": 672,
+          "history_policy_kind": "fixed_duration",
+          "history_policy_value": 28,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 2,
+          "pivot_confirmation_delay_hours": 2,
+          "pivot_window": 2,
+          "profile_id": "22a3922135a3ae93643b9c0d29d96ce6ef188134f47caa46757e3b5900a18125",
+          "timeframe": "1h"
+        },
+        {
+          "effective_history_bars": 150,
+          "effective_history_days": 6.25,
+          "effective_history_hours": 150,
+          "history_policy_kind": "fixed_bars",
+          "history_policy_value": 150,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 3,
+          "pivot_confirmation_delay_hours": 3,
+          "pivot_window": 3,
+          "profile_id": "2b624c9c33be3b7b2d56ecebc13562e19614f0518e577a4c22d1d130c7354fe9",
+          "timeframe": "1h"
+        },
+        {
+          "effective_history_bars": 600,
+          "effective_history_days": 25.0,
+          "effective_history_hours": 600,
+          "history_policy_kind": "fixed_bars",
+          "history_policy_value": 600,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 3,
+          "pivot_confirmation_delay_hours": 3,
+          "pivot_window": 3,
+          "profile_id": "77fd0042bd46997047a6d8fad95c05658e50c50418e05bbd3951414b169ff7fa",
+          "timeframe": "1h"
+        },
+        {
+          "effective_history_bars": 336,
+          "effective_history_days": 14.0,
+          "effective_history_hours": 336,
+          "history_policy_kind": "fixed_duration",
+          "history_policy_value": 14,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 3,
+          "pivot_confirmation_delay_hours": 3,
+          "pivot_window": 3,
+          "profile_id": "e7d0f91b2289112d8b3f79144074643b310947dd9ed2269a1c16a9ccc716d811",
+          "timeframe": "1h"
+        },
+        {
+          "effective_history_bars": 672,
+          "effective_history_days": 28.0,
+          "effective_history_hours": 672,
+          "history_policy_kind": "fixed_duration",
+          "history_policy_value": 28,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 3,
+          "pivot_confirmation_delay_hours": 3,
+          "pivot_window": 3,
+          "profile_id": "6ff0ddc4dddd8d6b1b09e272fd7e1df5be9fcedd94ce920ed99b2283d0250037",
+          "timeframe": "1h"
+        },
+        {
+          "effective_history_bars": 150,
+          "effective_history_days": 6.25,
+          "effective_history_hours": 150,
+          "history_policy_kind": "fixed_bars",
+          "history_policy_value": 150,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 5,
+          "pivot_confirmation_delay_hours": 5,
+          "pivot_window": 5,
+          "profile_id": "62f48a65d2cca77d21f8065e86899c0986d541608bdb4f5c7c769dcf52dfaeb6",
+          "timeframe": "1h"
+        },
+        {
+          "effective_history_bars": 300,
+          "effective_history_days": 12.5,
+          "effective_history_hours": 300,
+          "history_policy_kind": "fixed_bars",
+          "history_policy_value": 300,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 5,
+          "pivot_confirmation_delay_hours": 5,
+          "pivot_window": 5,
+          "profile_id": "ad029c938afc58ebc634898f4a926e987b94bf2331409c51a611175bb56765d0",
+          "timeframe": "1h"
+        },
+        {
+          "effective_history_bars": 600,
+          "effective_history_days": 25.0,
+          "effective_history_hours": 600,
+          "history_policy_kind": "fixed_bars",
+          "history_policy_value": 600,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 5,
+          "pivot_confirmation_delay_hours": 5,
+          "pivot_window": 5,
+          "profile_id": "9774543b0f89b1555dd92177070244f7737d6bc41c29207a6f82b827271fd5c4",
+          "timeframe": "1h"
+        },
+        {
+          "effective_history_bars": 336,
+          "effective_history_days": 14.0,
+          "effective_history_hours": 336,
+          "history_policy_kind": "fixed_duration",
+          "history_policy_value": 14,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 5,
+          "pivot_confirmation_delay_hours": 5,
+          "pivot_window": 5,
+          "profile_id": "ee14a675866d4384eaf80fa7ed77e04851732790a00d2df88f3e20c145dcc03c",
+          "timeframe": "1h"
+        },
+        {
+          "effective_history_bars": 672,
+          "effective_history_days": 28.0,
+          "effective_history_hours": 672,
+          "history_policy_kind": "fixed_duration",
+          "history_policy_value": 28,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 5,
+          "pivot_confirmation_delay_hours": 5,
+          "pivot_window": 5,
+          "profile_id": "963d3c395bffc430171c645abe97d58aeadf311f3de0f1b43bddb285fbbe8ac3",
+          "timeframe": "1h"
+        }
+      ],
+      "4h": [
+        {
+          "effective_history_bars": 300,
+          "effective_history_days": 50.0,
+          "effective_history_hours": 1200,
+          "history_policy_kind": "fixed_bars",
+          "history_policy_value": 300,
+          "is_baseline": true,
+          "pivot_confirmation_delay_bars": 3,
+          "pivot_confirmation_delay_hours": 12,
+          "pivot_window": 3,
+          "profile_id": "16a32a78f316c1dd12e808e0df2ee8e5a920075433b1dc795e32d66987bfe142",
+          "timeframe": "4h"
+        },
+        {
+          "effective_history_bars": 150,
+          "effective_history_days": 25.0,
+          "effective_history_hours": 600,
+          "history_policy_kind": "fixed_bars",
+          "history_policy_value": 150,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 2,
+          "pivot_confirmation_delay_hours": 8,
+          "pivot_window": 2,
+          "profile_id": "354840d0673ce5616e7c31c65b62345cc728f7dd49abc7bf52a1f0fa0d52e630",
+          "timeframe": "4h"
+        },
+        {
+          "effective_history_bars": 300,
+          "effective_history_days": 50.0,
+          "effective_history_hours": 1200,
+          "history_policy_kind": "fixed_bars",
+          "history_policy_value": 300,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 2,
+          "pivot_confirmation_delay_hours": 8,
+          "pivot_window": 2,
+          "profile_id": "2874dc8c8f6dcde4682c6d9bd08c252320da69cc39774679ca7c63761a05e3f3",
+          "timeframe": "4h"
+        },
+        {
+          "effective_history_bars": 600,
+          "effective_history_days": 100.0,
+          "effective_history_hours": 2400,
+          "history_policy_kind": "fixed_bars",
+          "history_policy_value": 600,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 2,
+          "pivot_confirmation_delay_hours": 8,
+          "pivot_window": 2,
+          "profile_id": "d92df4d094a99412ccbf508ec4fed5807b95ee3693ab5922a59a2ee767cbc4a2",
+          "timeframe": "4h"
+        },
+        {
+          "effective_history_bars": 84,
+          "effective_history_days": 14.0,
+          "effective_history_hours": 336,
+          "history_policy_kind": "fixed_duration",
+          "history_policy_value": 14,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 2,
+          "pivot_confirmation_delay_hours": 8,
+          "pivot_window": 2,
+          "profile_id": "e3c6e6ccbfcf100986a8339d92414a763090c3261c7869d478acb262993b9775",
+          "timeframe": "4h"
+        },
+        {
+          "effective_history_bars": 168,
+          "effective_history_days": 28.0,
+          "effective_history_hours": 672,
+          "history_policy_kind": "fixed_duration",
+          "history_policy_value": 28,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 2,
+          "pivot_confirmation_delay_hours": 8,
+          "pivot_window": 2,
+          "profile_id": "20f514b09be9dbb9447ce553ff73eb4828cb85b546ff264cd653b6ac91191753",
+          "timeframe": "4h"
+        },
+        {
+          "effective_history_bars": 150,
+          "effective_history_days": 25.0,
+          "effective_history_hours": 600,
+          "history_policy_kind": "fixed_bars",
+          "history_policy_value": 150,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 3,
+          "pivot_confirmation_delay_hours": 12,
+          "pivot_window": 3,
+          "profile_id": "a297d1c64878bba2ce74805ad20d61931d3b669d7164840cb4a0bbfe406e45d2",
+          "timeframe": "4h"
+        },
+        {
+          "effective_history_bars": 600,
+          "effective_history_days": 100.0,
+          "effective_history_hours": 2400,
+          "history_policy_kind": "fixed_bars",
+          "history_policy_value": 600,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 3,
+          "pivot_confirmation_delay_hours": 12,
+          "pivot_window": 3,
+          "profile_id": "a21097acf8c949fc4ba164e95985ac4d49a802bb5972c0c6566f1833f8a05ecc",
+          "timeframe": "4h"
+        },
+        {
+          "effective_history_bars": 84,
+          "effective_history_days": 14.0,
+          "effective_history_hours": 336,
+          "history_policy_kind": "fixed_duration",
+          "history_policy_value": 14,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 3,
+          "pivot_confirmation_delay_hours": 12,
+          "pivot_window": 3,
+          "profile_id": "9a714d49727315ec7fe7d24d7acd17fdc555a2b1aed6a600dd11d9a5e0682a56",
+          "timeframe": "4h"
+        },
+        {
+          "effective_history_bars": 168,
+          "effective_history_days": 28.0,
+          "effective_history_hours": 672,
+          "history_policy_kind": "fixed_duration",
+          "history_policy_value": 28,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 3,
+          "pivot_confirmation_delay_hours": 12,
+          "pivot_window": 3,
+          "profile_id": "ebc442833c41d7b6ea6621b9335313e5c0b0ae20b9b23f2eba59138f75e54032",
+          "timeframe": "4h"
+        },
+        {
+          "effective_history_bars": 150,
+          "effective_history_days": 25.0,
+          "effective_history_hours": 600,
+          "history_policy_kind": "fixed_bars",
+          "history_policy_value": 150,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 5,
+          "pivot_confirmation_delay_hours": 20,
+          "pivot_window": 5,
+          "profile_id": "09b137746788bd5557fc8fcc847fe6ee6cc377ade98caca5099ea2ca2da4c835",
+          "timeframe": "4h"
+        },
+        {
+          "effective_history_bars": 300,
+          "effective_history_days": 50.0,
+          "effective_history_hours": 1200,
+          "history_policy_kind": "fixed_bars",
+          "history_policy_value": 300,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 5,
+          "pivot_confirmation_delay_hours": 20,
+          "pivot_window": 5,
+          "profile_id": "2ab4d39320644d7bb6a4256afa2d033f84751664f2291c41c7ef2dc517282be9",
+          "timeframe": "4h"
+        },
+        {
+          "effective_history_bars": 600,
+          "effective_history_days": 100.0,
+          "effective_history_hours": 2400,
+          "history_policy_kind": "fixed_bars",
+          "history_policy_value": 600,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 5,
+          "pivot_confirmation_delay_hours": 20,
+          "pivot_window": 5,
+          "profile_id": "9e67e5d5f35106f8e793c6b628d4cbc67d7d681b57728c274ed2912bcac39e99",
+          "timeframe": "4h"
+        },
+        {
+          "effective_history_bars": 84,
+          "effective_history_days": 14.0,
+          "effective_history_hours": 336,
+          "history_policy_kind": "fixed_duration",
+          "history_policy_value": 14,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 5,
+          "pivot_confirmation_delay_hours": 20,
+          "pivot_window": 5,
+          "profile_id": "d09a6649c6e8e74011be7f4e337c4fe8dbec04da39c528380ae8a52422a556fd",
+          "timeframe": "4h"
+        },
+        {
+          "effective_history_bars": 168,
+          "effective_history_days": 28.0,
+          "effective_history_hours": 672,
+          "history_policy_kind": "fixed_duration",
+          "history_policy_value": 28,
+          "is_baseline": false,
+          "pivot_confirmation_delay_bars": 5,
+          "pivot_confirmation_delay_hours": 20,
+          "pivot_window": 5,
+          "profile_id": "fdc54d711cb8292aeb7b1a17b73a70419404f174152c284ca56f83384747652c",
+          "timeframe": "4h"
+        }
+      ]
+    }
+  },
+  "common_development": {
+    "cutoff_count": 4638,
+    "membership_hash": "e3104d4cc9822abe23c45f566266b5149107b27d65088e7b4f8fa1739fe555d8",
+    "streams": [
+      {
+        "asset": "BTCUSDT",
+        "development_cutoff_count": 600,
+        "first_source_position": 7476,
+        "last_source_position": 29303,
+        "timeframe": "1h"
+      },
+      {
+        "asset": "BTCUSDT",
+        "development_cutoff_count": 600,
+        "first_source_position": 2004,
+        "last_source_position": 7415,
+        "timeframe": "4h"
+      },
+      {
+        "asset": "ETHUSDT",
+        "development_cutoff_count": 600,
+        "first_source_position": 5724,
+        "last_source_position": 22295,
+        "timeframe": "1h"
+      },
+      {
+        "asset": "ETHUSDT",
+        "development_cutoff_count": 600,
+        "first_source_position": 1566,
+        "last_source_position": 5663,
+        "timeframe": "4h"
+      },
+      {
+        "asset": "SOLUSDT",
+        "development_cutoff_count": 600,
+        "first_source_position": 5724,
+        "last_source_position": 22295,
+        "timeframe": "1h"
+      },
+      {
+        "asset": "SOLUSDT",
+        "development_cutoff_count": 600,
+        "first_source_position": 1566,
+        "last_source_position": 5663,
+        "timeframe": "4h"
+      },
+      {
+        "asset": "HYPEUSDT",
+        "development_cutoff_count": 600,
+        "first_source_position": 1498,
+        "last_source_position": 5391,
+        "timeframe": "1h"
+      },
+      {
+        "asset": "HYPEUSDT",
+        "development_cutoff_count": 438,
+        "first_source_position": 671,
+        "last_source_position": 1436,
+        "timeframe": "4h"
+      }
+    ]
+  },
+  "design_scope": "H0 parameter sensitivity measurement only; no downstream parameter choice",
+  "deterministic_rerun": {
+    "full_matrix_evaluation_count_each": 69570,
+    "numerical_diagnostics_equal": true,
+    "profile_report_values_equal": true,
+    "reported_resource_run": "first_complete_matrix_run",
+    "resource_gate_checked_on_both_runs": true,
+    "run_count": 2
+  },
+  "duration_conversion": {
+    "14_days": {
+      "1h": 336,
+      "4h": 84
+    },
+    "1h_bars_per_day": 24,
+    "28_days": {
+      "1h": 672,
+      "4h": 168
+    },
+    "4h_bars_per_day": 6
+  },
+  "h0_authority_hashes": {
+    "approval": {
+      "path": "/Users/kajukatli/projects/flipperAgent/plans/orchestrator-decision-trendlines-v4-h0-parameter-sensitivity-design-approval-v1.md",
+      "sha256": "e4844237d948a5e3b4d5ac3e31584ae38d7e92abe67376aba71e1775d8d8fa0d"
+    },
+    "design": {
+      "path": "/Users/kajukatli/projects/flipperAgent/plans/orchestrator-decision-trendlines-v4-h0-parameter-sensitivity-design-v1.md",
+      "sha256": "0bfbceaeb012cd869aa1054a8366b08e533561abcd522f967ed70bbea405bc96"
+    },
+    "handoff": {
+      "path": "/Users/kajukatli/projects/flipperAgent/plans/architect-to-coder-trendlines-v4-h0-parameter-sensitivity-v1.md",
+      "sha256": "45c86f1fa89f0498e7a0db8133c9c5a10f389d68e0ad1ea27e07ec9c43ca2981"
+    }
+  },
+  "manifest_id": "562ae97e933f1882600faad4751949cb701aed1da134fa9180cfc606680316fe",
+  "n1_artifact": {
+    "inventory": {
+      "episode_count": 2363,
+      "measured_snapshot_count": 4800,
+      "role_slot_count": 19200,
+      "side_snapshot_pair_count": 9600,
+      "unique_geometry_count": 1159
+    },
+    "manifest_byte_length": 12257,
+    "manifest_id": "d03d0d6be2614e0b02f0e659592a1368d456077c4637890dcdfd65234d8b78fc",
+    "manifest_sha256": "9e270831b656e13b3df0e8c4cbb90e2ebeec4f24a9c5c56555c71b6d7506d464",
+    "report_byte_length": 30308,
+    "report_sha256": "30045237ff1bd763539addbf5645dadb862665512854731b1fdf3823c5499bd3"
+  },
+  "n1_authority_hashes": {
+    "approval": {
+      "path": "/Users/kajukatli/projects/flipperAgent/plans/orchestrator-decision-trendlines-v4-n1-exact-identity-persistence-approval-v1.md",
+      "sha256": "fdf50eeaa9c49653ec2bde542417ae201bf08f3776c747b43c5116e376c4c5be"
+    }
+  },
+  "n1_locks": {
+    "implementation": "30e17266998b445d2fb12d75e0ede590c16ca2fec2d02f0879655f49b41e444d",
+    "manifest": "9e270831b656e13b3df0e8c4cbb90e2ebeec4f24a9c5c56555c71b6d7506d464",
+    "report": "30045237ff1bd763539addbf5645dadb862665512854731b1fdf3823c5499bd3",
+    "tests": "f23ad57ae9bc5a958c1bdcc88675d8e0049e90fac53cc714fa4191014a59bf9e"
+  },
+  "n2_artifact": {
+    "inventory": {
+      "measured_snapshot_count": 4800,
+      "n1_episode_count": 2363,
+      "n1_unique_geometry_count": 1159,
+      "non_null_role_observation_count": 19091,
+      "role_slot_count": 19200,
+      "side_snapshot_pair_count": 9600,
+      "unique_geometry_at_cutoff_count": 13096,
+      "window_count": 16
+    },
+    "manifest_byte_length": 14443,
+    "manifest_id": "494a44fd8c7915ace90364118ed05cf670e5e24fea43349abdad47d0a2aed862",
+    "manifest_sha256": "eb1dd91fd48b9af26fe42d8650acb2b7614ce17d3758adac7abe45c1ff2d4556",
+    "report_byte_length": 81161,
+    "report_sha256": "97ca7bbd5d08004a41026ae45ae7d2437b7dba3dabdc30c70fa204c2a5636dc5"
+  },
+  "n2_authority_hashes": {
+    "approval": {
+      "path": "/Users/kajukatli/projects/flipperAgent/plans/orchestrator-decision-trendlines-v4-n2-current-relevance-metadata-approval-v1.md",
+      "sha256": "621af2c123c75f6e7c4721b53c77d869a21a5783bd3cae9624c0df6fd5b794cf"
+    }
+  },
+  "n2_locks": {
+    "implementation": "937f27420bafb5e6b01abd9bbb815d496b2af42994e055d914a8dfe2964fa4fd",
+    "manifest": "eb1dd91fd48b9af26fe42d8650acb2b7614ce17d3758adac7abe45c1ff2d4556",
+    "report": "97ca7bbd5d08004a41026ae45ae7d2437b7dba3dabdc30c70fa204c2a5636dc5",
+    "tests": "65038d1377eaa1581e30f8d8e03d709e1d526feab8094825cdf2a5c93fa90bd5"
+  },
+  "pilot_cutoff_membership": [
+    {
+      "asset": "BTCUSDT",
+      "cutoff": 0,
+      "market_as_of": "2022-11-08T12:59:59.999000Z",
+      "partition": "development",
+      "source_position": 7476,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "BTCUSDT",
+      "cutoff": 1,
+      "market_as_of": "2022-11-08T13:59:59.999000Z",
+      "partition": "development",
+      "source_position": 7477,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "BTCUSDT",
+      "cutoff": 2,
+      "market_as_of": "2022-11-08T14:59:59.999000Z",
+      "partition": "development",
+      "source_position": 7478,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "BTCUSDT",
+      "cutoff": 3,
+      "market_as_of": "2022-11-08T15:59:59.999000Z",
+      "partition": "development",
+      "source_position": 7479,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "BTCUSDT",
+      "cutoff": 296,
+      "market_as_of": "2025-05-05T20:59:59.999000Z",
+      "partition": "development",
+      "source_position": 29300,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "BTCUSDT",
+      "cutoff": 297,
+      "market_as_of": "2025-05-05T21:59:59.999000Z",
+      "partition": "development",
+      "source_position": 29301,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "BTCUSDT",
+      "cutoff": 298,
+      "market_as_of": "2025-05-05T22:59:59.999000Z",
+      "partition": "development",
+      "source_position": 29302,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "BTCUSDT",
+      "cutoff": 299,
+      "market_as_of": "2025-05-05T23:59:59.999000Z",
+      "partition": "development",
+      "source_position": 29303,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "BTCUSDT",
+      "cutoff": 0,
+      "market_as_of": "2022-12-01T03:59:59.999000Z",
+      "partition": "development",
+      "source_position": 2004,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "BTCUSDT",
+      "cutoff": 1,
+      "market_as_of": "2022-12-01T07:59:59.999000Z",
+      "partition": "development",
+      "source_position": 2005,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "BTCUSDT",
+      "cutoff": 2,
+      "market_as_of": "2022-12-01T11:59:59.999000Z",
+      "partition": "development",
+      "source_position": 2006,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "BTCUSDT",
+      "cutoff": 3,
+      "market_as_of": "2022-12-01T15:59:59.999000Z",
+      "partition": "development",
+      "source_position": 2007,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "BTCUSDT",
+      "cutoff": 296,
+      "market_as_of": "2025-05-20T11:59:59.999000Z",
+      "partition": "development",
+      "source_position": 7412,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "BTCUSDT",
+      "cutoff": 297,
+      "market_as_of": "2025-05-20T15:59:59.999000Z",
+      "partition": "development",
+      "source_position": 7413,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "BTCUSDT",
+      "cutoff": 298,
+      "market_as_of": "2025-05-20T19:59:59.999000Z",
+      "partition": "development",
+      "source_position": 7414,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "BTCUSDT",
+      "cutoff": 299,
+      "market_as_of": "2025-05-20T23:59:59.999000Z",
+      "partition": "development",
+      "source_position": 7415,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "ETHUSDT",
+      "cutoff": 0,
+      "market_as_of": "2023-08-27T12:59:59.999000Z",
+      "partition": "development",
+      "source_position": 5724,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "ETHUSDT",
+      "cutoff": 1,
+      "market_as_of": "2023-08-27T13:59:59.999000Z",
+      "partition": "development",
+      "source_position": 5725,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "ETHUSDT",
+      "cutoff": 2,
+      "market_as_of": "2023-08-27T14:59:59.999000Z",
+      "partition": "development",
+      "source_position": 5726,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "ETHUSDT",
+      "cutoff": 3,
+      "market_as_of": "2023-08-27T15:59:59.999000Z",
+      "partition": "development",
+      "source_position": 5727,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "ETHUSDT",
+      "cutoff": 296,
+      "market_as_of": "2025-07-17T20:59:59.999000Z",
+      "partition": "development",
+      "source_position": 22292,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "ETHUSDT",
+      "cutoff": 297,
+      "market_as_of": "2025-07-17T21:59:59.999000Z",
+      "partition": "development",
+      "source_position": 22293,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "ETHUSDT",
+      "cutoff": 298,
+      "market_as_of": "2025-07-17T22:59:59.999000Z",
+      "partition": "development",
+      "source_position": 22294,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "ETHUSDT",
+      "cutoff": 299,
+      "market_as_of": "2025-07-17T23:59:59.999000Z",
+      "partition": "development",
+      "source_position": 22295,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "ETHUSDT",
+      "cutoff": 0,
+      "market_as_of": "2023-09-19T03:59:59.999000Z",
+      "partition": "development",
+      "source_position": 1566,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "ETHUSDT",
+      "cutoff": 1,
+      "market_as_of": "2023-09-19T07:59:59.999000Z",
+      "partition": "development",
+      "source_position": 1567,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "ETHUSDT",
+      "cutoff": 2,
+      "market_as_of": "2023-09-19T11:59:59.999000Z",
+      "partition": "development",
+      "source_position": 1568,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "ETHUSDT",
+      "cutoff": 3,
+      "market_as_of": "2023-09-19T15:59:59.999000Z",
+      "partition": "development",
+      "source_position": 1569,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "ETHUSDT",
+      "cutoff": 296,
+      "market_as_of": "2025-08-01T11:59:59.999000Z",
+      "partition": "development",
+      "source_position": 5660,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "ETHUSDT",
+      "cutoff": 297,
+      "market_as_of": "2025-08-01T15:59:59.999000Z",
+      "partition": "development",
+      "source_position": 5661,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "ETHUSDT",
+      "cutoff": 298,
+      "market_as_of": "2025-08-01T19:59:59.999000Z",
+      "partition": "development",
+      "source_position": 5662,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "ETHUSDT",
+      "cutoff": 299,
+      "market_as_of": "2025-08-01T23:59:59.999000Z",
+      "partition": "development",
+      "source_position": 5663,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "SOLUSDT",
+      "cutoff": 0,
+      "market_as_of": "2023-08-27T12:59:59.999000Z",
+      "partition": "development",
+      "source_position": 5724,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "SOLUSDT",
+      "cutoff": 1,
+      "market_as_of": "2023-08-27T13:59:59.999000Z",
+      "partition": "development",
+      "source_position": 5725,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "SOLUSDT",
+      "cutoff": 2,
+      "market_as_of": "2023-08-27T14:59:59.999000Z",
+      "partition": "development",
+      "source_position": 5726,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "SOLUSDT",
+      "cutoff": 3,
+      "market_as_of": "2023-08-27T15:59:59.999000Z",
+      "partition": "development",
+      "source_position": 5727,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "SOLUSDT",
+      "cutoff": 296,
+      "market_as_of": "2025-07-17T20:59:59.999000Z",
+      "partition": "development",
+      "source_position": 22292,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "SOLUSDT",
+      "cutoff": 297,
+      "market_as_of": "2025-07-17T21:59:59.999000Z",
+      "partition": "development",
+      "source_position": 22293,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "SOLUSDT",
+      "cutoff": 298,
+      "market_as_of": "2025-07-17T22:59:59.999000Z",
+      "partition": "development",
+      "source_position": 22294,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "SOLUSDT",
+      "cutoff": 299,
+      "market_as_of": "2025-07-17T23:59:59.999000Z",
+      "partition": "development",
+      "source_position": 22295,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "SOLUSDT",
+      "cutoff": 0,
+      "market_as_of": "2023-09-19T03:59:59.999000Z",
+      "partition": "development",
+      "source_position": 1566,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "SOLUSDT",
+      "cutoff": 1,
+      "market_as_of": "2023-09-19T07:59:59.999000Z",
+      "partition": "development",
+      "source_position": 1567,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "SOLUSDT",
+      "cutoff": 2,
+      "market_as_of": "2023-09-19T11:59:59.999000Z",
+      "partition": "development",
+      "source_position": 1568,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "SOLUSDT",
+      "cutoff": 3,
+      "market_as_of": "2023-09-19T15:59:59.999000Z",
+      "partition": "development",
+      "source_position": 1569,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "SOLUSDT",
+      "cutoff": 296,
+      "market_as_of": "2025-08-01T11:59:59.999000Z",
+      "partition": "development",
+      "source_position": 5660,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "SOLUSDT",
+      "cutoff": 297,
+      "market_as_of": "2025-08-01T15:59:59.999000Z",
+      "partition": "development",
+      "source_position": 5661,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "SOLUSDT",
+      "cutoff": 298,
+      "market_as_of": "2025-08-01T19:59:59.999000Z",
+      "partition": "development",
+      "source_position": 5662,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "SOLUSDT",
+      "cutoff": 299,
+      "market_as_of": "2025-08-01T23:59:59.999000Z",
+      "partition": "development",
+      "source_position": 5663,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "cutoff": 0,
+      "market_as_of": "2025-07-31T20:59:59.999000Z",
+      "partition": "development",
+      "source_position": 1498,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "cutoff": 1,
+      "market_as_of": "2025-07-31T21:59:59.999000Z",
+      "partition": "development",
+      "source_position": 1499,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "cutoff": 2,
+      "market_as_of": "2025-07-31T22:59:59.999000Z",
+      "partition": "development",
+      "source_position": 1500,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "cutoff": 3,
+      "market_as_of": "2025-07-31T23:59:59.999000Z",
+      "partition": "development",
+      "source_position": 1501,
+      "timeframe": "1h",
+      "window": "early"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "cutoff": 296,
+      "market_as_of": "2026-01-09T22:59:59.999000Z",
+      "partition": "development",
+      "source_position": 5388,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "cutoff": 297,
+      "market_as_of": "2026-01-09T23:59:59.999000Z",
+      "partition": "development",
+      "source_position": 5389,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "cutoff": 298,
+      "market_as_of": "2026-01-10T00:59:59.999000Z",
+      "partition": "development",
+      "source_position": 5390,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "cutoff": 299,
+      "market_as_of": "2026-01-10T01:59:59.999000Z",
+      "partition": "development",
+      "source_position": 5391,
+      "timeframe": "1h",
+      "window": "late"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "cutoff": 162,
+      "market_as_of": "2025-09-19T11:59:59.999000Z",
+      "partition": "development",
+      "source_position": 671,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "cutoff": 163,
+      "market_as_of": "2025-09-19T15:59:59.999000Z",
+      "partition": "development",
+      "source_position": 672,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "cutoff": 164,
+      "market_as_of": "2025-09-19T19:59:59.999000Z",
+      "partition": "development",
+      "source_position": 673,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "cutoff": 165,
+      "market_as_of": "2025-09-19T23:59:59.999000Z",
+      "partition": "development",
+      "source_position": 674,
+      "timeframe": "4h",
+      "window": "early"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "cutoff": 296,
+      "market_as_of": "2026-01-24T11:59:59.999000Z",
+      "partition": "development",
+      "source_position": 1433,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "cutoff": 297,
+      "market_as_of": "2026-01-24T15:59:59.999000Z",
+      "partition": "development",
+      "source_position": 1434,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "cutoff": 298,
+      "market_as_of": "2026-01-24T19:59:59.999000Z",
+      "partition": "development",
+      "source_position": 1435,
+      "timeframe": "4h",
+      "window": "late"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "cutoff": 299,
+      "market_as_of": "2026-01-24T23:59:59.999000Z",
+      "partition": "development",
+      "source_position": 1436,
+      "timeframe": "4h",
+      "window": "late"
+    }
+  ],
+  "production_protected_hashes": {
+    "core": "c92076e72891b222cf8359cba614c8ed969f04d1734a8985abdb0b68ffc9509f",
+    "decision_composition": "41d9d9562e48c54042b46ce9880247b4ba23769ff80d708c2ee7c15c951ee763",
+    "decision_plugin": "9d65b6f1cc0d00bbd60c9f40299f47701a161eadc2d5d0ae29b28747d415e523",
+    "root_namespace": "66ccb45f10ab0c3b530f81919ad172fdde93b51cda04d935a6ce581641d0ac61"
+  },
+  "report_byte_length": 3863079,
+  "report_schema_version": "trendlines_v4_h0_parameter_sensitivity_report_v1",
+  "report_sha256": "b34019127c8167a36438a8702ca4ad04376df852784e8f5f1e12157db7ccb6cc",
+  "resource_measurement": {
+    "full_matrix": {
+      "cpu_seconds": 956.298663,
+      "evaluation_count": 69570,
+      "peak_process_rss_bytes": 120881152,
+      "profile_resources": [
+        {
+          "call_count": 2400,
+          "cpu_seconds": 15.566303999999988,
+          "failure_count": 0,
+          "profile_id": "a533de5098a08113a38e7a00e4b5d41049e5822ec0b7d7e98b360e4b07d46e73",
+          "timeframe": "1h",
+          "wall_seconds": 15.819035790977068
+        },
+        {
+          "call_count": 2400,
+          "cpu_seconds": 5.855711999999997,
+          "failure_count": 0,
+          "profile_id": "242f7190129b4f62ee140a2418be7ad60e7678328a3191bdf87fe200dc0b0244",
+          "timeframe": "1h",
+          "wall_seconds": 5.898336707992712
+        },
+        {
+          "call_count": 2400,
+          "cpu_seconds": 23.582273000000015,
+          "failure_count": 0,
+          "profile_id": "2de380de9f6b9e26fdd943fb6a3427c32dc1f6d2370229fa73e10107302f6ff2",
+          "timeframe": "1h",
+          "wall_seconds": 23.79296604200499
+        },
+        {
+          "call_count": 2400,
+          "cpu_seconds": 115.87388300000003,
+          "failure_count": 0,
+          "profile_id": "d96d5d4b169816502b3ba2ed44e5f223d6f42709652d2e27ddaa4e618f760b01",
+          "timeframe": "1h",
+          "wall_seconds": 116.91900324999006
+        },
+        {
+          "call_count": 2400,
+          "cpu_seconds": 30.294246999999984,
+          "failure_count": 0,
+          "profile_id": "201934ae0bef4e3c7cb156eac58f5af37cd43a1a078e930c905d02f94ce6a48f",
+          "timeframe": "1h",
+          "wall_seconds": 30.57061762502417
+        },
+        {
+          "call_count": 2400,
+          "cpu_seconds": 154.483225,
+          "failure_count": 0,
+          "profile_id": "22a3922135a3ae93643b9c0d29d96ce6ef188134f47caa46757e3b5900a18125",
+          "timeframe": "1h",
+          "wall_seconds": 157.05720187502448
+        },
+        {
+          "call_count": 2400,
+          "cpu_seconds": 4.3916209999999865,
+          "failure_count": 0,
+          "profile_id": "2b624c9c33be3b7b2d56ecebc13562e19614f0518e577a4c22d1d130c7354fe9",
+          "timeframe": "1h",
+          "wall_seconds": 4.459885417018086
+        },
+        {
+          "call_count": 2400,
+          "cpu_seconds": 71.077159,
+          "failure_count": 0,
+          "profile_id": "77fd0042bd46997047a6d8fad95c05658e50c50418e05bbd3951414b169ff7fa",
+          "timeframe": "1h",
+          "wall_seconds": 71.53662812500261
+        },
+        {
+          "call_count": 2400,
+          "cpu_seconds": 19.675069000000008,
+          "failure_count": 0,
+          "profile_id": "e7d0f91b2289112d8b3f79144074643b310947dd9ed2269a1c16a9ccc716d811",
+          "timeframe": "1h",
+          "wall_seconds": 19.75298654200742
+        },
+        {
+          "call_count": 2400,
+          "cpu_seconds": 92.378467,
+          "failure_count": 0,
+          "profile_id": "6ff0ddc4dddd8d6b1b09e272fd7e1df5be9fcedd94ce920ed99b2283d0250037",
+          "timeframe": "1h",
+          "wall_seconds": 92.87044341600267
+        },
+        {
+          "call_count": 2400,
+          "cpu_seconds": 3.205002000000036,
+          "failure_count": 0,
+          "profile_id": "62f48a65d2cca77d21f8065e86899c0986d541608bdb4f5c7c769dcf52dfaeb6",
+          "timeframe": "1h",
+          "wall_seconds": 3.216558416985208
+        },
+        {
+          "call_count": 2400,
+          "cpu_seconds": 9.733583000000067,
+          "failure_count": 0,
+          "profile_id": "ad029c938afc58ebc634898f4a926e987b94bf2331409c51a611175bb56765d0",
+          "timeframe": "1h",
+          "wall_seconds": 9.773357124999166
+        },
+        {
+          "call_count": 2400,
+          "cpu_seconds": 39.74498100000005,
+          "failure_count": 0,
+          "profile_id": "9774543b0f89b1555dd92177070244f7737d6bc41c29207a6f82b827271fd5c4",
+          "timeframe": "1h",
+          "wall_seconds": 39.97563724999782
+        },
+        {
+          "call_count": 2400,
+          "cpu_seconds": 12.191763000000037,
+          "failure_count": 0,
+          "profile_id": "ee14a675866d4384eaf80fa7ed77e04851732790a00d2df88f3e20c145dcc03c",
+          "timeframe": "1h",
+          "wall_seconds": 12.35914479100029
+        },
+        {
+          "call_count": 2400,
+          "cpu_seconds": 50.57394700000009,
+          "failure_count": 0,
+          "profile_id": "963d3c395bffc430171c645abe97d58aeadf311f3de0f1b43bddb285fbbe8ac3",
+          "timeframe": "1h",
+          "wall_seconds": 50.765147250000155
+        },
+        {
+          "call_count": 2238,
+          "cpu_seconds": 14.615056999999979,
+          "failure_count": 0,
+          "profile_id": "16a32a78f316c1dd12e808e0df2ee8e5a920075433b1dc795e32d66987bfe142",
+          "timeframe": "4h",
+          "wall_seconds": 14.666692416009028
+        },
+        {
+          "call_count": 2238,
+          "cpu_seconds": 5.5705580000000054,
+          "failure_count": 0,
+          "profile_id": "354840d0673ce5616e7c31c65b62345cc728f7dd49abc7bf52a1f0fa0d52e630",
+          "timeframe": "4h",
+          "wall_seconds": 5.595693374983966
+        },
+        {
+          "call_count": 2238,
+          "cpu_seconds": 22.005273999999986,
+          "failure_count": 0,
+          "profile_id": "2874dc8c8f6dcde4682c6d9bd08c252320da69cc39774679ca7c63761a05e3f3",
+          "timeframe": "4h",
+          "wall_seconds": 22.103770499990787
+        },
+        {
+          "call_count": 2238,
+          "cpu_seconds": 110.26252799999997,
+          "failure_count": 0,
+          "profile_id": "d92df4d094a99412ccbf508ec4fed5807b95ee3693ab5922a59a2ee767cbc4a2",
+          "timeframe": "4h",
+          "wall_seconds": 110.9304727090057
+        },
+        {
+          "call_count": 2238,
+          "cpu_seconds": 2.161448000000064,
+          "failure_count": 0,
+          "profile_id": "e3c6e6ccbfcf100986a8339d92414a763090c3261c7869d478acb262993b9775",
+          "timeframe": "4h",
+          "wall_seconds": 2.1692824579949956
+        },
+        {
+          "call_count": 2238,
+          "cpu_seconds": 6.924209999999903,
+          "failure_count": 0,
+          "profile_id": "20f514b09be9dbb9447ce553ff73eb4828cb85b546ff264cd653b6ac91191753",
+          "timeframe": "4h",
+          "wall_seconds": 6.951791917002993
+        },
+        {
+          "call_count": 2238,
+          "cpu_seconds": 4.151442000000088,
+          "failure_count": 0,
+          "profile_id": "a297d1c64878bba2ce74805ad20d61931d3b669d7164840cb4a0bbfe406e45d2",
+          "timeframe": "4h",
+          "wall_seconds": 4.169627708004555
+        },
+        {
+          "call_count": 2238,
+          "cpu_seconds": 71.79487000000006,
+          "failure_count": 0,
+          "profile_id": "a21097acf8c949fc4ba164e95985ac4d49a802bb5972c0c6566f1833f8a05ecc",
+          "timeframe": "4h",
+          "wall_seconds": 72.18663229199592
+        },
+        {
+          "call_count": 2238,
+          "cpu_seconds": 1.7985380000000077,
+          "failure_count": 0,
+          "profile_id": "9a714d49727315ec7fe7d24d7acd17fdc555a2b1aed6a600dd11d9a5e0682a56",
+          "timeframe": "4h",
+          "wall_seconds": 1.8042704999970738
+        },
+        {
+          "call_count": 2238,
+          "cpu_seconds": 5.024643999999967,
+          "failure_count": 0,
+          "profile_id": "ebc442833c41d7b6ea6621b9335313e5c0b0ae20b9b23f2eba59138f75e54032",
+          "timeframe": "4h",
+          "wall_seconds": 5.045789333002176
+        },
+        {
+          "call_count": 2238,
+          "cpu_seconds": 2.9873139999999694,
+          "failure_count": 0,
+          "profile_id": "09b137746788bd5557fc8fcc847fe6ee6cc377ade98caca5099ea2ca2da4c835",
+          "timeframe": "4h",
+          "wall_seconds": 3.008193875022698
+        },
+        {
+          "call_count": 2238,
+          "cpu_seconds": 9.009769000000006,
+          "failure_count": 0,
+          "profile_id": "2ab4d39320644d7bb6a4256afa2d033f84751664f2291c41c7ef2dc517282be9",
+          "timeframe": "4h",
+          "wall_seconds": 9.049915958981728
+        },
+        {
+          "call_count": 2238,
+          "cpu_seconds": 39.78461899999991,
+          "failure_count": 0,
+          "profile_id": "9e67e5d5f35106f8e793c6b628d4cbc67d7d681b57728c274ed2912bcac39e99",
+          "timeframe": "4h",
+          "wall_seconds": 40.05451954199816
+        },
+        {
+          "call_count": 2238,
+          "cpu_seconds": 1.5114410000001044,
+          "failure_count": 0,
+          "profile_id": "d09a6649c6e8e74011be7f4e337c4fe8dbec04da39c528380ae8a52422a556fd",
+          "timeframe": "4h",
+          "wall_seconds": 1.516742042003898
+        },
+        {
+          "call_count": 2238,
+          "cpu_seconds": 3.505200000000059,
+          "failure_count": 0,
+          "profile_id": "fdc54d711cb8292aeb7b1a17b73a70419404f174152c284ca56f83384747652c",
+          "timeframe": "4h",
+          "wall_seconds": 3.5191140829992946
+        }
+      ],
+      "reported_run": "first_complete_matrix_run",
+      "wall_seconds": 964.1347370409931
+    },
+    "pilot": {
+      "evaluation_count": 960,
+      "median_call_time_multiplier_limit_descriptive": 10.0,
+      "median_call_time_multiplier_limit_is_gate": false,
+      "rss_limit_bytes": 536870912,
+      "semantics": {
+        "absolute_pilot_limits": {
+          "max_core_call_seconds": 0.25,
+          "median_core_call_seconds": 0.1,
+          "p90_core_call_seconds": 0.15,
+          "peak_process_rss_bytes": 536870912
+        },
+        "baseline_relative_ratio": "descriptive only; not a stop gate",
+        "cpu_seconds": "process_time elapsed process CPU time",
+        "execution": "one serial process with no concurrent profile calls",
+        "peak_process_rss_bytes": "resource.getrusage ru_maxrss; bytes on macOS, KiB converted to bytes elsewhere",
+        "wall_seconds": "perf_counter elapsed process wall time"
+      }
+    }
+  },
+  "schema_version": "trendlines_v4_h0_parameter_sensitivity_manifest_v1",
+  "source_specs": [
+    {
+      "asset": "BTCUSDT",
+      "path": "src/libs/regime/optimization/results/BTCUSDT_1h_2022-01-01_2026-03-01.csv",
+      "row_count": 36481,
+      "sha256": "3061187fd7092131e7df221fb1c23ea4427ba9754284910d79d47872858c0f66"
+    },
+    {
+      "asset": "ETHUSDT",
+      "path": "src/libs/models/trendlines/optimization/results/ETHUSDT_1h_2023-01-01_2026-03-01.csv",
+      "row_count": 27721,
+      "sha256": "96bc7f72e56a4ad70048a17caaa0013dd9ef854b11e7ba6aafc2681ce21d3e77"
+    },
+    {
+      "asset": "SOLUSDT",
+      "path": "src/libs/models/trendlines/optimization/results/SOLUSDT_1h_2023-01-01_2026-03-01.csv",
+      "row_count": 27721,
+      "sha256": "0711849c9e665c8b5bdba85ffee4cda0eb16f9aa30f7b74678bf09d17bf19c46"
+    },
+    {
+      "asset": "HYPEUSDT",
+      "path": "src/libs/models/trendlines/optimization/results/HYPEUSDT_1h_2022-01-01_2026-03-01.csv",
+      "row_count": 6591,
+      "sha256": "26e7f4276c60ea4c4d3dbe196383c1ef63c1c58d6db1b6280b821490d694d050"
+    }
+  ],
+  "unopened_h1_holdout": {
+    "cutoff_count": 1536,
+    "membership_hash": "172113788b2eb7a6e9882fb214589c924cc3571e44f33d36a22bf3bdf380d018",
+    "results_published": false,
+    "streams": [
+      {
+        "asset": "BTCUSDT",
+        "first_market_as_of": "2025-05-06T00:59:59.999000Z",
+        "first_source_position": 29304,
+        "holdout_cutoff_count": 192,
+        "last_market_as_of": "2025-05-13T23:59:59.999000Z",
+        "last_source_position": 29495,
+        "timeframe": "1h"
+      },
+      {
+        "asset": "BTCUSDT",
+        "first_market_as_of": "2025-05-21T03:59:59.999000Z",
+        "first_source_position": 7416,
+        "holdout_cutoff_count": 192,
+        "last_market_as_of": "2025-06-21T23:59:59.999000Z",
+        "last_source_position": 7607,
+        "timeframe": "4h"
+      },
+      {
+        "asset": "ETHUSDT",
+        "first_market_as_of": "2025-07-18T00:59:59.999000Z",
+        "first_source_position": 22296,
+        "holdout_cutoff_count": 192,
+        "last_market_as_of": "2025-07-25T23:59:59.999000Z",
+        "last_source_position": 22487,
+        "timeframe": "1h"
+      },
+      {
+        "asset": "ETHUSDT",
+        "first_market_as_of": "2025-08-02T03:59:59.999000Z",
+        "first_source_position": 5664,
+        "holdout_cutoff_count": 192,
+        "last_market_as_of": "2025-09-02T23:59:59.999000Z",
+        "last_source_position": 5855,
+        "timeframe": "4h"
+      },
+      {
+        "asset": "SOLUSDT",
+        "first_market_as_of": "2025-07-18T00:59:59.999000Z",
+        "first_source_position": 22296,
+        "holdout_cutoff_count": 192,
+        "last_market_as_of": "2025-07-25T23:59:59.999000Z",
+        "last_source_position": 22487,
+        "timeframe": "1h"
+      },
+      {
+        "asset": "SOLUSDT",
+        "first_market_as_of": "2025-08-02T03:59:59.999000Z",
+        "first_source_position": 5664,
+        "holdout_cutoff_count": 192,
+        "last_market_as_of": "2025-09-02T23:59:59.999000Z",
+        "last_source_position": 5855,
+        "timeframe": "4h"
+      },
+      {
+        "asset": "HYPEUSDT",
+        "first_market_as_of": "2026-01-10T02:59:59.999000Z",
+        "first_source_position": 5392,
+        "holdout_cutoff_count": 192,
+        "last_market_as_of": "2026-01-18T01:59:59.999000Z",
+        "last_source_position": 5583,
+        "timeframe": "1h"
+      },
+      {
+        "asset": "HYPEUSDT",
+        "first_market_as_of": "2026-01-25T03:59:59.999000Z",
+        "first_source_position": 1437,
+        "holdout_cutoff_count": 192,
+        "last_market_as_of": "2026-02-25T23:59:59.999000Z",
+        "last_source_position": 1628,
+        "timeframe": "4h"
+      }
+    ]
+  }
+}
