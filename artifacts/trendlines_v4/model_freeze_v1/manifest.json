@@ -1,5 +1,5 @@
 {
-  "manifest_id": "560bde250663e8db55b9f07587772745f86959f068b759681c83a772b198ce7c",
+  "manifest_id": "4c717bd73153fe35c3e771bd313a17a8845be2fa30fbddfc6d0c15ce7dd4be65",
   "schema_version": "trendlines_v4_model_freeze_manifest_v1",
   "base_commit": "72e88a6b38077b0d3c29c2d5f7518a0a072b6664",
   "closure_handoff_sha256": "9b9400bf99bd15e251637a8c494a64cff55f6986693ddc4a00d45c62de45a5fa",
@@ -47,15 +47,15 @@
     "src/libs/models/trendlines_v4/engine/validity.py": "60250b3f81bc2b5a9d995127a29b5692a9e5a6c540b8420734d9726d9b7de7c7"
   },
   "research_lab_hashes": {
-    "src/libs/models/trendlines_v4/research_lab/__init__.py": "f778b5dbbc875ca5e0b5cfa28375bdb5c2a5ccb20ad0b3c50ece132a66d4f692",
+    "src/libs/models/trendlines_v4/research_lab/__init__.py": "90371ad221db1d0528988afdda9221b2d6fa659141957bda0d95ceece6105aaf",
     "src/libs/models/trendlines_v4/research_lab/data.py": "b917cc6e3dc2ea61cf5727a02b51f0c49e2cfc5dfa2752f0ef4049762c0b7720",
-    "src/libs/models/trendlines_v4/research_lab/diagnostics.py": "0b315749aded7ee36ab032cf2d2969e835db5ac858a670e8af504a89a5bdbfe4",
+    "src/libs/models/trendlines_v4/research_lab/diagnostics.py": "36229f4ecb8ec8c167197e7569a1d8aac51c8090e8c7921591ecb735815a57f7",
     "src/libs/models/trendlines_v4/research_lab/replay.py": "542b24c330c9f07f5d8605146aa68d870b9d710c0271c8e54de5fd221b18d3d5",
-    "src/libs/models/trendlines_v4/research_lab/trendlines_v4_research_lab.ipynb": "d30397999d8035e026c8bebe1a4db8b2e7430dd8ff61ecc317f6e3d53a87ea74",
-    "src/libs/models/trendlines_v4/research_lab/tvlc.py": "fc8cfb3718f261f98530df6b9895737597037f0e1e38a9d31ddeccfbf0446c28"
+    "src/libs/models/trendlines_v4/research_lab/trendlines_v4_research_lab.ipynb": "a4b9d8bcc7ffbd6e30394ca6bf02bc8c2a6b329d9a87bf6857c4cc7bf5721766",
+    "src/libs/models/trendlines_v4/research_lab/tvlc.py": "a5e3ffc8f9228f6fc8ac546005ffc61cccd32ebb6cae87646dbae73433b50e14"
   },
   "research_test_hashes": {
-    "tests/models/trendlines_v4/test_research_lab.py": "d9acec9e6e685bb895fc88a489f6b02fa0a575b33b62bf340d696a2f5f64939f",
+    "tests/models/trendlines_v4/test_research_lab.py": "f9f8b287f486b8e92df66ab7ac87f3904bebbcf59eb45059813acbc9d18223b4",
     "tests/research/trendlines_v4/test_blinded_recovery_geometry_review.py": "16b40dc6d07fbb2b3ff45561e7c21b542bea1df4a5ddf25247873107798c3da9",
     "tests/research/trendlines_v4/test_causal_semantics_audit.py": "c10731e0b183110a0e2caafb610f3978b24382864d80bc12ff3a8208c586ca9e",
     "tests/research/trendlines_v4/test_current_relevance_metadata.py": "65038d1377eaa1581e30f8d8e03d709e1d526feab8094825cdf2a5c93fa90bd5",

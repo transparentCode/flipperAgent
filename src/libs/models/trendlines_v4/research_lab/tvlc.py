@@ -11,10 +11,14 @@ import pandas as pd
 from IPython.display import HTML, display
 
 from libs.models.trendlines_v4.contracts import TrendlineSnapshotV2
-from libs.models.trendlines_v4.core_v2 import TrendlineBar
+from libs.models.trendlines_v4.core_v2 import HISTORY_CAPACITY_BARS, TrendlineBar
 from libs.models.trendlines_v4.engine.types import TrendlineGeometry
+from research.trendlines_v4.pivot_consensus_candidate_tape import (
+    PivotConsensusCandidate,
+)
 
 from .data import _timestamp_text, normalize_native_frame
+from .diagnostics import _selected_pivot_consensus_candidates
 
 TVLC_VERSION = "5.2.1"
 TVLC_CDN_URL = (
@@ -127,6 +131,36 @@ def _line_points(
     return points
 
 
+def _candidate_line_points(
+    bars: tuple[TrendlineBar, ...],
+    candidate: PivotConsensusCandidate,
+    *,
+    reference_bars: tuple[TrendlineBar, ...],
+    market_as_of: Any,
+) -> list[dict[str, Any]]:
+    """Project a selected F1B candidate only across the model history suffix."""
+
+    positions = _bar_index(reference_bars)
+    start_index = candidate.start_pivot.index
+    end_index = candidate.end_pivot.index
+    if end_index <= start_index:
+        raise ValueError("pivot-consensus anchors must be ordered")
+    points = []
+    for bar in bars:
+        index = positions.get(bar.closed_at)
+        if index is None or index < start_index:
+            continue
+        value = (
+            candidate.projected_price_at_market_as_of
+            if bar.closed_at == market_as_of
+            else candidate.line_price_at(index)
+        )
+        points.append({"time": int(bar.closed_at.timestamp()), "value": value})
+    if not points:
+        raise ValueError("visible frame does not intersect the pivot-consensus line")
+    return points
+
+
 def _display_line_entries(
     snapshot: TrendlineSnapshotV2,
 ) -> tuple[tuple[str, str, TrendlineGeometry], ...]:
@@ -147,15 +181,13 @@ def _display_line_entries(
     return tuple(entries)
 
 
-def build_tvlc_payload(
+def _base_tvlc_payload(
     frame: pd.DataFrame,
     snapshot: TrendlineSnapshotV2,
     *,
-    timeframe: str = "",
-    view_bars: int | None = None,
-) -> dict[str, Any]:
-    """Build JSON-safe candle/line data ending exactly at snapshot cutoff."""
-
+    timeframe: str,
+    view_bars: int | None,
+) -> tuple[tuple[TrendlineBar, ...], tuple[TrendlineBar, ...], dict[str, Any]]:
     bars, normalized, cutoff_bars = _display_frame(frame, snapshot, view_bars)
     candles = [
         {
@@ -177,6 +209,33 @@ def build_tvlc_payload(
                     "color": "#16a34a" if bar.close >= bar.open else "#dc2626",
                 }
             )
+    return (
+        bars,
+        cutoff_bars,
+        {
+            "timeframe": timeframe,
+            "market_as_of": _timestamp_text(snapshot.market_as_of),
+            "history_bar_count": snapshot.history_bar_count,
+            "visible_bar_count": len(bars),
+            "visible_start_at": _timestamp_text(bars[0].closed_at),
+            "candles": candles,
+            "volume": volume,
+        },
+    )
+
+
+def build_tvlc_payload(
+    frame: pd.DataFrame,
+    snapshot: TrendlineSnapshotV2,
+    *,
+    timeframe: str = "",
+    view_bars: int | None = None,
+) -> dict[str, Any]:
+    """Build JSON-safe candle/line data ending exactly at snapshot cutoff."""
+
+    bars, cutoff_bars, payload = _base_tvlc_payload(
+        frame, snapshot, timeframe=timeframe, view_bars=view_bars
+    )
     lines = []
     for side, role, line in _display_line_entries(snapshot):
         style_role = (
@@ -202,39 +261,77 @@ def build_tvlc_payload(
                 ),
             }
         )
-    return {
-        "timeframe": timeframe,
-        "market_as_of": _timestamp_text(snapshot.market_as_of),
-        "history_bar_count": snapshot.history_bar_count,
-        "visible_bar_count": len(bars),
-        "visible_start_at": _timestamp_text(bars[0].closed_at),
-        "candles": candles,
-        "volume": volume,
-        "lines": lines,
-    }
+    payload["lines"] = lines
+    return payload
+
+
+def build_pivot_consensus_payload(
+    frame: pd.DataFrame,
+    snapshot: TrendlineSnapshotV2,
+    *,
+    timeframe: str = "",
+    view_bars: int | None = None,
+) -> dict[str, Any]:
+    """Build a chart payload from the frozen F1B span/local selections."""
+
+    bars, cutoff_bars, payload = _base_tvlc_payload(
+        frame, snapshot, timeframe=timeframe, view_bars=view_bars
+    )
+    model_bars = cutoff_bars[-HISTORY_CAPACITY_BARS:]
+    lines = []
+    for side, role, selector, candidate in _selected_pivot_consensus_candidates(
+        frame, snapshot
+    ):
+        if candidate is None:
+            continue
+        line_style, line_width = ("solid", 3) if role == "structural" else ("dashed", 2)
+        lines.append(
+            {
+                "family": "pivot_consensus",
+                "side": side,
+                "role": role,
+                "selector": selector,
+                "candidate_id": candidate.candidate_id,
+                "geometry_id": candidate.geometry_id,
+                "anchor_mode": candidate.anchor_mode,
+                "line_style": line_style,
+                "line_width": line_width,
+                "color": "#16a34a" if side == "support" else "#dc2626",
+                "start_anchor_at": _timestamp_text(candidate.start_pivot.at),
+                "end_anchor_at": _timestamp_text(candidate.end_pivot.at),
+                "projected_price_at_market_as_of": candidate.projected_price_at_market_as_of,
+                "points": _candidate_line_points(
+                    bars,
+                    candidate,
+                    reference_bars=model_bars,
+                    market_as_of=snapshot.market_as_of,
+                ),
+            }
+        )
+    payload["family"] = "pivot_consensus"
+    payload["lines"] = lines
+    return payload
 
 
 def _new_dom_id(prefix: str) -> str:
     return f"{prefix}-{uuid.uuid4().hex}"
 
 
-def build_tvlc_html(
-    frame: pd.DataFrame,
-    snapshot: TrendlineSnapshotV2,
+def _build_tvlc_html_from_payload(
+    payload_value: dict[str, Any],
     *,
-    timeframe: str = "",
-    title: str | None = None,
-    element_id: str | None = None,
-    view_bars: int | None = None,
+    title: str,
+    element_id: str | None,
+    id_prefix: str,
 ) -> str:
     payload = json.dumps(
-        build_tvlc_payload(frame, snapshot, timeframe=timeframe, view_bars=view_bars),
+        payload_value,
         separators=(",", ":"),
         allow_nan=False,
     )
-    root_id = element_id or _new_dom_id("trendlines-v4-chart")
+    root_id = element_id or _new_dom_id(id_prefix)
     chart_id = f"{root_id}-plot"
-    heading = html.escape(title or f"Trendlines V4 · {timeframe}")
+    heading = html.escape(title)
     return f"""
 <div id="{root_id}" class="trendlines-v4-inline-chart">
   <div class="trendlines-v4-chart-heading">{heading}</div>
@@ -301,6 +398,42 @@ def build_tvlc_html(
 """
 
 
+def build_tvlc_html(
+    frame: pd.DataFrame,
+    snapshot: TrendlineSnapshotV2,
+    *,
+    timeframe: str = "",
+    title: str | None = None,
+    element_id: str | None = None,
+    view_bars: int | None = None,
+) -> str:
+    return _build_tvlc_html_from_payload(
+        build_tvlc_payload(frame, snapshot, timeframe=timeframe, view_bars=view_bars),
+        title=title or f"Trendlines V4 · {timeframe}",
+        element_id=element_id,
+        id_prefix="trendlines-v4-chart",
+    )
+
+
+def build_pivot_consensus_html(
+    frame: pd.DataFrame,
+    snapshot: TrendlineSnapshotV2,
+    *,
+    timeframe: str = "",
+    title: str | None = None,
+    element_id: str | None = None,
+    view_bars: int | None = None,
+) -> str:
+    return _build_tvlc_html_from_payload(
+        build_pivot_consensus_payload(
+            frame, snapshot, timeframe=timeframe, view_bars=view_bars
+        ),
+        title=title or f"Trendlines V4 · pivot consensus · {timeframe}",
+        element_id=element_id,
+        id_prefix="trendlines-v4-pivot-consensus-chart",
+    )
+
+
 def render_tvlc_chart(
     frame: pd.DataFrame,
     snapshot: TrendlineSnapshotV2,
@@ -320,10 +453,32 @@ def render_tvlc_chart(
     return html_output
 
 
+def render_pivot_consensus_chart(
+    frame: pd.DataFrame,
+    snapshot: TrendlineSnapshotV2,
+    *,
+    timeframe: str = "",
+    title: str | None = None,
+    view_bars: int | None = None,
+) -> str:
+    html_output = build_pivot_consensus_html(
+        frame,
+        snapshot,
+        timeframe=timeframe,
+        title=title,
+        view_bars=view_bars,
+    )
+    display(HTML(html_output))
+    return html_output
+
+
 __all__ = [
     "TVLC_CDN_URL",
     "TVLC_VERSION",
+    "build_pivot_consensus_html",
+    "build_pivot_consensus_payload",
     "build_tvlc_html",
     "build_tvlc_payload",
+    "render_pivot_consensus_chart",
     "render_tvlc_chart",
 ]

@@ -14,6 +14,8 @@ from libs.models.trendlines_v4.core_v2 import (
     _pivots,
 )
 from libs.models.trendlines_v4.engine.types import TrendlineGeometry
+from research.trendlines_v4 import pivot_consensus_candidate_tape as f1a
+from research.trendlines_v4 import pivot_consensus_selector_challenge as f1b
 
 from .data import (
     _bounded_bars,
@@ -133,6 +135,124 @@ def pivot_rows(
     return tuple(rows)
 
 
+def _selected_pivot_consensus_candidates(
+    frame: pd.DataFrame,
+    snapshot: TrendlineSnapshotV2 | None = None,
+) -> tuple[tuple[str, str, str, f1a.PivotConsensusCandidate | None], ...]:
+    """Select the frozen F1B roles from the current causal model history."""
+
+    bars = (
+        _bounded_bars(frame, snapshot)
+        if snapshot is not None
+        else frame_to_trendline_bars(frame)[-HISTORY_CAPACITY_BARS:]
+    )
+    tape = f1a.build_candidate_tape(bars)
+    selected: list[tuple[str, str, str, f1a.PivotConsensusCandidate | None]] = []
+    for side in ("support", "resistance"):
+        candidates = tape.candidates_for_side(side)
+        if candidates:
+            selected.extend(
+                (
+                    (
+                        side,
+                        "structural",
+                        "span_first",
+                        f1b.select_span_first(candidates),
+                    ),
+                    (
+                        side,
+                        "local",
+                        "consensus_first",
+                        f1b.select_consensus_first(candidates),
+                    ),
+                )
+            )
+        else:
+            selected.extend(
+                (
+                    (side, "structural", "span_first", None),
+                    (side, "local", "consensus_first", None),
+                )
+            )
+    return tuple(selected)
+
+
+def pivot_consensus_rows(
+    frame: pd.DataFrame,
+    snapshot: TrendlineSnapshotV2 | None = None,
+    *,
+    timeframe: str = "",
+) -> tuple[dict[str, Any], ...]:
+    """Return descriptive rows for the frozen span/local pivot-consensus roles."""
+
+    market_as_of = (
+        _timestamp_text(snapshot.market_as_of)
+        if snapshot is not None
+        else _timestamp_text(frame_to_trendline_bars(frame)[-1].closed_at)
+    )
+    rows: list[dict[str, Any]] = []
+    for side, role, selector, candidate in _selected_pivot_consensus_candidates(
+        frame, snapshot
+    ):
+        row: dict[str, Any] = {
+            "timeframe": timeframe,
+            "market_as_of": market_as_of,
+            "family": "pivot_consensus",
+            "side": side,
+            "role": role,
+            "selector": selector,
+        }
+        if candidate is None:
+            row.update(
+                {
+                    "candidate_id": None,
+                    "geometry_id": None,
+                    "anchor_mode": None,
+                    "start_anchor_at": None,
+                    "start_anchor_price": None,
+                    "end_anchor_at": None,
+                    "end_anchor_price": None,
+                    "anchor_span_bars": None,
+                    "projected_price_at_market_as_of": None,
+                    "non_anchor_evidence_count": 0,
+                    "body_intersection_count": None,
+                    "full_range_intersection_count": None,
+                    "interaction_bar_count": None,
+                    "body_intersection_rate": None,
+                    "full_range_intersection_rate": None,
+                    "observable_from_at": None,
+                    "observable_from_index": None,
+                }
+            )
+        else:
+            interaction_bars = candidate.interaction_bar_count
+            row.update(
+                {
+                    "candidate_id": candidate.candidate_id,
+                    "geometry_id": candidate.geometry_id,
+                    "anchor_mode": candidate.anchor_mode,
+                    "start_anchor_at": _timestamp_text(candidate.start_pivot.at),
+                    "start_anchor_price": candidate.start_price,
+                    "end_anchor_at": _timestamp_text(candidate.end_pivot.at),
+                    "end_anchor_price": candidate.end_price,
+                    "anchor_span_bars": candidate.anchor_span_bars,
+                    "projected_price_at_market_as_of": candidate.projected_price_at_market_as_of,
+                    "non_anchor_evidence_count": len(candidate.non_anchor_evidence),
+                    "body_intersection_count": candidate.body_intersection_count,
+                    "full_range_intersection_count": candidate.full_range_intersection_count,
+                    "interaction_bar_count": interaction_bars,
+                    "body_intersection_rate": candidate.body_intersection_count
+                    / interaction_bars,
+                    "full_range_intersection_rate": candidate.full_range_intersection_count
+                    / interaction_bars,
+                    "observable_from_at": _timestamp_text(candidate.observable_from_at),
+                    "observable_from_index": candidate.observable_from_index,
+                }
+            )
+        rows.append(row)
+    return tuple(rows)
+
+
 def role_transition_rows(
     frame: pd.DataFrame,
     *,
@@ -205,6 +325,7 @@ def compare_asset_frames(
 __all__ = [
     "compare_asset_frames",
     "geometry_rows",
+    "pivot_consensus_rows",
     "pivot_rows",
     "role_transition_rows",
     "snapshot_summary_rows",

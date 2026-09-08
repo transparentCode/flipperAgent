@@ -14,6 +14,7 @@ from .data import (
 from .diagnostics import (
     compare_asset_frames,
     geometry_rows,
+    pivot_consensus_rows,
     pivot_rows,
     role_transition_rows,
     snapshot_summary_rows,
@@ -27,8 +28,11 @@ from .replay import (
 from .tvlc import (
     TVLC_CDN_URL,
     TVLC_VERSION,
+    build_pivot_consensus_html,
+    build_pivot_consensus_payload,
     build_tvlc_html,
     build_tvlc_payload,
+    render_pivot_consensus_chart,
     render_tvlc_chart,
 )
 
@@ -39,6 +43,8 @@ __all__ = [
     "analyze_frames",
     "build_causal_replay_payload",
     "build_causal_scrolling_html",
+    "build_pivot_consensus_html",
+    "build_pivot_consensus_payload",
     "build_tvlc_html",
     "build_tvlc_payload",
     "compare_asset_frames",
@@ -47,9 +53,11 @@ __all__ = [
     "frame_to_trendline_bars",
     "geometry_rows",
     "normalize_native_frame",
+    "pivot_consensus_rows",
     "pivot_rows",
     "render_causal_replay_viewer",
     "render_causal_scrolling_replay",
+    "render_pivot_consensus_chart",
     "render_tvlc_chart",
     "role_transition_rows",
     "snapshot_json",

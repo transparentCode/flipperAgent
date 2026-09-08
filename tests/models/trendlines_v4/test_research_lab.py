@@ -22,6 +22,8 @@ from libs.models.trendlines_v4.engine.types import TrendlineGeometry
 from libs.models.trendlines_v4.research_lab import data as data_support
 from libs.models.trendlines_v4.research_lab import replay as replay_support
 from libs.models.trendlines_v4.research_lab import tvlc as tvlc_support
+from research.trendlines_v4 import pivot_consensus_candidate_tape as f1a
+from research.trendlines_v4 import pivot_consensus_selector_challenge as f1b
 
 ROOT = Path(__file__).resolve().parents[3]
 NOTEBOOK = (
@@ -299,6 +301,108 @@ def test_analysis_is_exactly_the_public_v2_engine() -> None:
     assert support.analyze_frames({"1h": frame})["1h"] == support.analyze_frame(frame)
 
 
+def test_pivot_consensus_rows_use_frozen_selectors_for_both_sides() -> None:
+    frame = _frame()
+    snapshot = support.analyze_frame(frame)
+    bars = support.frame_to_trendline_bars(frame)[-300:]
+    tape = f1a.build_candidate_tape(bars)
+    rows = support.pivot_consensus_rows(frame, snapshot, timeframe="1h")
+
+    assert len(rows) == 4
+    assert {(row["side"], row["role"]) for row in rows} == {
+        ("support", "structural"),
+        ("support", "local"),
+        ("resistance", "structural"),
+        ("resistance", "local"),
+    }
+    for row in rows:
+        candidates = tape.candidates_for_side(row["side"])
+        expected = (
+            f1b.select_span_first(candidates)
+            if row["role"] == "structural"
+            else f1b.select_consensus_first(candidates)
+        )
+        assert row["family"] == "pivot_consensus"
+        assert row["selector"] == (
+            "span_first" if row["role"] == "structural" else "consensus_first"
+        )
+        assert row["candidate_id"] == expected.candidate_id
+        assert row["geometry_id"] == expected.geometry_id
+        assert row["start_anchor_price"] == expected.start_price
+        assert row["end_anchor_price"] == expected.end_price
+        assert row["anchor_span_bars"] == expected.anchor_span_bars
+        assert row["projected_price_at_market_as_of"] == (
+            expected.projected_price_at_market_as_of
+        )
+
+
+def test_pivot_consensus_selection_is_bounded_to_model_history_not_view_history() -> (
+    None
+):
+    frame = _frame(360)
+    snapshot = support.analyze_frame(frame)
+    full = support.build_pivot_consensus_payload(
+        frame, snapshot, timeframe="1h", view_bars=None
+    )
+    clipped = support.build_pivot_consensus_payload(
+        frame, snapshot, timeframe="1h", view_bars=20
+    )
+
+    assert full["history_bar_count"] == clipped["history_bar_count"] == 300
+    assert full["visible_bar_count"] == 360
+    assert clipped["visible_bar_count"] == 20
+    assert [
+        (line["side"], line["role"], line["candidate_id"], line["geometry_id"])
+        for line in full["lines"]
+    ] == [
+        (line["side"], line["role"], line["candidate_id"], line["geometry_id"])
+        for line in clipped["lines"]
+    ]
+    cutoff = int(snapshot.market_as_of.timestamp())
+    assert all(
+        point["time"] <= cutoff
+        for line in full["lines"] + clipped["lines"]
+        for point in line["points"]
+    )
+
+
+def test_pivot_consensus_payload_exposes_exact_selected_geometry_facts() -> None:
+    frame = _frame()
+    snapshot = support.analyze_frame(frame)
+    payload = support.build_pivot_consensus_payload(frame, snapshot, timeframe="1h")
+    rows = support.pivot_consensus_rows(frame, snapshot, timeframe="1h")
+
+    assert len(payload["lines"]) == 4
+    assert all(line["family"] == "pivot_consensus" for line in payload["lines"])
+    for line in payload["lines"]:
+        matching = next(
+            row
+            for row in rows
+            if row["side"] == line["side"] and row["role"] == line["role"]
+        )
+        assert line["candidate_id"] == matching["candidate_id"]
+        assert line["geometry_id"] == matching["geometry_id"]
+        assert line["anchor_mode"] == matching["anchor_mode"]
+        assert (
+            line["projected_price_at_market_as_of"]
+            == matching["projected_price_at_market_as_of"]
+        )
+        assert (
+            line["points"][-1]["value"] == matching["projected_price_at_market_as_of"]
+        )
+
+
+def test_pivot_consensus_missing_candidate_is_represented_safely() -> None:
+    frame = _frame(6)
+    snapshot = support.analyze_frame(frame)
+    rows = support.pivot_consensus_rows(frame, snapshot, timeframe="1h")
+    payload = support.build_pivot_consensus_payload(frame, snapshot, timeframe="1h")
+
+    assert len(rows) == 4
+    assert all(row["candidate_id"] is None for row in rows)
+    assert payload["lines"] == []
+
+
 def test_view_history_is_independent_from_fixed_model_history() -> None:
     frame = _frame(360)
     snapshot = support.analyze_frame(frame)
@@ -448,6 +552,9 @@ def test_inline_render_helpers_display_html(monkeypatch) -> None:
     support.render_tvlc_chart(frame, snapshot, timeframe="1h")
     assert displayed and displayed[0][0] == "HTML"
     displayed.clear()
+    support.render_pivot_consensus_chart(frame, snapshot, timeframe="1h")
+    assert displayed and displayed[0][0] == "HTML"
+    displayed.clear()
     monkeypatch.setattr(replay_support, "HTML", lambda value: ("HTML", value))
     monkeypatch.setattr(replay_support, "display", displayed.append)
     support.render_causal_scrolling_replay(
@@ -528,6 +635,19 @@ def test_notebook_view_window_and_inventory_source_mode_are_wired() -> None:
         in source
     )
     assert '"source_mode": "provider" if ALLOW_PROVIDER_FETCH else "injected"' in source
+    assert "render_pivot_consensus_chart" in source
+    assert "pivot_consensus_rows" in source
+    assert "span_first" in source
+    assert "consensus_first" in source
+
+
+def test_production_v4_sources_do_not_import_research_family_modules() -> None:
+    production = Path(__file__).resolve().parents[3] / "src/libs/models/trendlines_v4"
+    assert all(
+        "research.trendlines_v4" not in path.read_text()
+        for path in production.rglob("*.py")
+        if "research_lab" not in path.parts
+    )
 
 
 def test_research_lab_helpers_have_bounded_responsibilities() -> None:
