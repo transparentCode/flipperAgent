@@ -33,6 +33,18 @@ M4_RESOURCE_ARTIFACT = (
     ROOT / "artifacts" / "decision_m4" / ("m4_momentum_resource_certification.json")
 )
 HISTORICAL_M4_SOURCE_SHA = "e7bce3d5ca2ea46772447cdf003c989124ea1847"
+HISTORICAL_M4_COMPOSITION = {
+    "features": ["ATR@1", "MACD@1", "RSI@1"],
+    "lane_count": 3,
+    "plugins": ["momentum@1", "sr@1"],
+    "runtime_plugins": ["momentum@1", "sr@1"],
+}
+CURRENT_M4_COMPOSITION = {
+    "features": ["ATR@1", "MACD@1", "RSI@1"],
+    "lane_count": 3,
+    "plugins": ["momentum@1", "sr@1", "trendlines@1"],
+    "runtime_plugins": ["momentum@1", "sr@1", "trendlines@1"],
+}
 
 
 def _sha256(path: Path) -> str:
@@ -46,13 +58,35 @@ def test_protected_artifacts_remain_unchanged() -> None:
     assert _sha256(D10_ARTIFACT) == (
         "2382c92cd83bb29cbab2800c5687ec102d53fe37b213925fa174852a2caa0459"
     )
+    assert _sha256(M4_ARTIFACT) == (
+        "3d1339be919e8d176dcd1053cb1c42f46bf6a2dc5f62647114b805faea1e4792"
+    )
+    assert _sha256(M4_RESOURCE_ARTIFACT) == (
+        "e11ae8aee717764a3cca9dbfaa0f58d6b4308387ac6b5b264fb4bdf8e5f570c4"
+    )
+    assert json.loads(M4_ARTIFACT.read_text())["source_sha"] == HISTORICAL_M4_SOURCE_SHA
+    assert (
+        json.loads(M4_RESOURCE_ARTIFACT.read_text())["source_sha"]
+        == HISTORICAL_M4_SOURCE_SHA
+    )
 
 
 def test_m4_functional_artifact_is_deterministic_and_complete() -> None:
-    first = build_functional_artifact(source_sha=HISTORICAL_M4_SOURCE_SHA)
-    second = build_functional_artifact(source_sha=HISTORICAL_M4_SOURCE_SHA)
     stored = json.loads(M4_ARTIFACT.read_text())
-    assert first == second == stored
+    assert stored["source_sha"] == HISTORICAL_M4_SOURCE_SHA
+    assert stored["composition"] == HISTORICAL_M4_COMPOSITION
+    stored_measurement_payload = copy.deepcopy(stored)
+    stored_measurement_payload.pop("deterministic_identity_sha256")
+    stored_measurement_payload.pop("measurement_payload_sha256")
+    assert _digest(stored_measurement_payload) == stored["measurement_payload_sha256"]
+
+    current_source_sha = _source_sha()
+    assert current_source_sha != HISTORICAL_M4_SOURCE_SHA
+    first = build_functional_artifact()
+    second = build_functional_artifact()
+    assert first == second
+    assert first["source_sha"] == current_source_sha
+    assert first["composition"] == CURRENT_M4_COMPOSITION
     assert first["source_sha"]
     assert first["m3_artifact_sha256"] == (
         "6fcd3d736524b513a63f244a3268478a658924cd571a62a72ec33958ad67972c"

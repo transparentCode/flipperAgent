@@ -59,7 +59,11 @@ from apps.decision_app.transport.live_input import (
     DirectCursorInput,
     InputRecordResult,
 )
-from apps.decision_app.transport.price_relay import PriceRelay, PriceRelayResult
+from apps.decision_app.transport.price_relay import (
+    PriceRelay,
+    PriceRelayResult,
+    plan_series_key,
+)
 from apps.decision_app.transport.publication import (
     SignalPublicationAck,
     build_signal_envelope,
@@ -77,6 +81,8 @@ LiveLaneStatus = Literal[
     "RECONSTRUCTION_REQUIRED",
     "INVALID",
 ]
+
+_CLOCK_BEHIND_REASON = "resolver clock is behind lane market cutoff"
 
 
 @dataclass(slots=True)
@@ -200,6 +206,15 @@ class DecisionPollResult:
             FrozenMapping(dict(sorted(normalized_relays.items()))),
         )
 
+    @property
+    def clock_waiting(self) -> bool:
+        """Whether this poll is waiting for resolver time to catch up."""
+
+        return any(
+            result.status == "WAITING" and result.reason == _CLOCK_BEHIND_REASON
+            for result in self.lane_results.values()
+        )
+
 
 class LiveRuntimeError(ValueError):
     """Base D9B bounded live runtime error."""
@@ -283,6 +298,15 @@ class LiveDecisionRuntime:
         if price_relay is not None and not isinstance(price_relay, PriceRelay):
             raise TypeError("price_relay must be PriceRelay or None")
         self._price_relay = price_relay
+        self._relay_series_keys = (
+            frozenset(plan_series_key(plan) for plan in price_relay.plans.values())
+            if price_relay is not None
+            else frozenset()
+        )
+        # Keep at most one accepted candidate per configured relay series while
+        # the causal clock is behind.  The underlying input cursor remains the
+        # source of truth for newer, not-yet-accepted records.
+        self._pending_relay_bars: dict[MarketSeriesKey, Any] = {}
         self._reader = DirectCursorInput(
             stream_client=stream_client,
             startup_positions=startup.snapshot.series_positions,
@@ -390,6 +414,15 @@ class LiveDecisionRuntime:
         relay_results: dict[str, PriceRelayResult] = {}
         failed_streams: set[str] = set()
         deferred_failures: dict[str, InputRecordResult] = {}
+        if evaluate_lanes and any(
+            self._is_clock_waiting(live_lane) for live_lane in self._lanes.values()
+        ):
+            # Read first so a clock catch-up can unblock the already-buffered
+            # next cutoff in this same bounded poll.  Keep the relay ahead of
+            # this retry just as it is ahead of a newly accepted cutoff.
+            if self._price_relay is not None:
+                await self._reconcile_price_relay(relay_results)
+            await self._retry_clock_waiting_lanes(poll_evidence)
         for failure in batch.failures:
             # Keep the first parser failure for each stream.  The parser stops
             # at that point, so any later same-stream evidence is not safe to
@@ -440,10 +473,11 @@ class LiveDecisionRuntime:
             if not heads:
                 break
             cutoff = min(pending.event.bar.market_as_of for pending in heads.values())
+            if self._clock_wait_blocks_cutoff(cutoff):
+                break
 
             # Keep consuming current heads at this cutoff so every series
             # visible at one market cutoff is applied before any lane runs.
-            accepted_bars: dict[MarketSeriesKey, Any] = {}
             while True:
                 heads = current_heads()
                 same_cutoff = [
@@ -479,16 +513,18 @@ class LiveDecisionRuntime:
                         )
                         failed_streams.add(stream_key)
                     elif result.disposition == "INSERTED":
-                        accepted_bars[pending.event.series_key] = pending.event.bar
+                        self._remember_relay_bar(
+                            pending.event.series_key, pending.event.bar
+                        )
                         if evaluate_lanes:
                             self._schedule_trigger(pending.event)
                     elif result.disposition in {"DUPLICATE", "ALREADY_REPRESENTED"}:
-                        accepted_bars[pending.event.series_key] = pending.event.bar
+                        self._remember_relay_bar(
+                            pending.event.series_key, pending.event.bar
+                        )
 
             if self._price_relay is not None:
-                relay_results.update(
-                    await self._price_relay.reconcile_all(accepted_bars)
-                )
+                await self._reconcile_price_relay(relay_results)
             if evaluate_lanes:
                 await self._attempt_pending_lanes(poll_evidence)
             # A parser failure is the next ordered item only after every
@@ -503,7 +539,7 @@ class LiveDecisionRuntime:
             # cutoff even when this XREAD has no new ingestion records.  Give
             # the relay one bounded reconciliation attempt rather than
             # waiting for an unrelated market event.
-            relay_results.update(await self._price_relay.reconcile_all())
+            await self._reconcile_price_relay(relay_results)
         lane_results = {
             lane_id: self._lane_result(live_lane, poll_evidence[lane_id])
             for lane_id, live_lane in sorted(self._lanes.items())
@@ -536,9 +572,14 @@ class LiveDecisionRuntime:
                     live_lane.startup_catchup_index += 1
                     continue
                 if live_lane.pending_trigger_cutoff is not None:
-                    return False
-                live_lane.pending_trigger_cutoff = cutoff
-                live_lane.reconciliation_attempted = False
+                    if (
+                        not self._is_clock_waiting(live_lane)
+                        or live_lane.pending_trigger_cutoff != cutoff
+                    ):
+                        return False
+                else:
+                    live_lane.pending_trigger_cutoff = cutoff
+                    live_lane.reconciliation_attempted = False
                 await self._attempt_lane(live_lane, poll_evidence[lane_id])
                 if live_lane.pending_trigger_cutoff is not None:
                     return False
@@ -583,6 +624,84 @@ class LiveDecisionRuntime:
                     "RECONSTRUCTION_REQUIRED",
                     "newer trigger overtook unresolved pending cutoff",
                 )
+
+    async def _retry_clock_waiting_lanes(
+        self,
+        poll_evidence: Mapping[str, _LanePollEvidence],
+    ) -> None:
+        for lane_id in sorted(self._lanes):
+            live_lane = self._lanes[lane_id]
+            if not self._is_clock_waiting(live_lane):
+                continue
+            await self._attempt_lane(live_lane, poll_evidence[lane_id])
+
+    def _remember_relay_bar(self, series_key: MarketSeriesKey, bar: Any) -> None:
+        if self._price_relay is not None and series_key in self._relay_series_keys:
+            self._pending_relay_bars[series_key] = bar
+
+    async def _reconcile_price_relay(
+        self,
+        relay_results: dict[str, PriceRelayResult],
+    ) -> None:
+        if self._price_relay is None:
+            return
+        if not getattr(self._price_relay, "_bootstrapped", False):
+            await self._price_relay.bootstrap()
+        now = self._now()
+        plan_items = tuple(self._price_relay.plans.items())
+        eligible: list[tuple[str, MarketSeriesKey, Any | None]] = []
+        candidates: dict[MarketSeriesKey, Any] = {}
+        for plan_id, plan in plan_items:
+            series_key = plan_series_key(plan)
+            candidate = self._pending_relay_bars.get(series_key)
+            # Use the relay's public operational snapshot for its pending
+            # target.  Diagnostic gap evidence is not a scheduling source.
+            pending_target = self._price_relay.result_snapshot(
+                plan_id
+            ).target_market_as_of
+            if (candidate is not None and candidate.market_as_of > now) or (
+                isinstance(pending_target, datetime) and pending_target > now
+            ):
+                continue
+            eligible.append((plan_id, series_key, candidate))
+            if candidate is not None:
+                candidates[series_key] = candidate
+
+        if len(eligible) == len(plan_items):
+            reconciled = await self._price_relay.reconcile_all(
+                candidates if candidates else None
+            )
+            relay_results.update(reconciled)
+        else:
+            for plan_id, _series_key, candidate in eligible:
+                relay_results[plan_id] = await self._price_relay.reconcile(
+                    plan_id, candidate
+                )
+
+        for plan_id, series_key, candidate in eligible:
+            result = relay_results[plan_id]
+            if (
+                candidate is not None
+                and result.published_market_as_of is not None
+                and result.published_market_as_of >= candidate.market_as_of
+            ):
+                self._pending_relay_bars.pop(series_key, None)
+
+    def _clock_wait_blocks_cutoff(self, cutoff: datetime) -> bool:
+        waiting_cutoffs = [
+            live_lane.pending_trigger_cutoff
+            for live_lane in self._lanes.values()
+            if self._is_clock_waiting(live_lane)
+        ]
+        return bool(waiting_cutoffs and cutoff > min(waiting_cutoffs))
+
+    @staticmethod
+    def _is_clock_waiting(live_lane: LiveLane) -> bool:
+        return (
+            live_lane.status == "WAITING"
+            and live_lane.reason == _CLOCK_BEHIND_REASON
+            and live_lane.pending_trigger_cutoff is not None
+        )
 
     async def _attempt_pending_lanes(
         self,
@@ -668,9 +787,13 @@ class LiveDecisionRuntime:
         except Exception as exc:  # noqa: BLE001
             self._halt_lane(live_lane, "INVALID", f"market view failed: {exc}")
             return
+        resolver_cutoff = self._now()
+        if resolver_cutoff < view.market_as_of:
+            live_lane.status = "WAITING"
+            live_lane.reason = _CLOCK_BEHIND_REASON
+            return
         live_lane.status = "LIVE"
         live_lane.reason = None
-        resolver_cutoff = self._now()
         previous_feature_engine = None
         try:
             if catchup_active:

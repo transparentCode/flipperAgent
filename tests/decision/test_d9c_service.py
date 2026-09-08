@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import ClassVar
 
@@ -33,6 +33,7 @@ from tests.decision.test_d9b_live_runtime import (
     SR_SERIES,
     _IsolatedSignalClient,
     _LiveInputClient,
+    _RecoverableLiveInputClient,
     _signal_bar,
     _signal_coordinator,
     _signal_fields,
@@ -280,6 +281,15 @@ async def _wait_until(predicate, *, steps: int = 200) -> None:
             return
         await asyncio.sleep(0)
     raise AssertionError("condition was not reached")
+
+
+async def _wait_until_realtime(predicate, *, timeout: float = 2.0) -> None:
+    deadline = asyncio.get_running_loop().time() + timeout
+    while not predicate():
+        remaining = deadline - asyncio.get_running_loop().time()
+        if remaining <= 0:
+            raise AssertionError("condition was not reached")
+        await asyncio.sleep(min(0.01, remaining))
 
 
 @pytest.mark.asyncio
@@ -892,6 +902,187 @@ async def test_service_real_sr_no_signal_commits_and_caches_checkpoint_evidence(
     assert transaction["checkpoint_result"] == "UPDATED"
     assert snapshot.service_state == "RUNNING"
     await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_service_paces_real_clock_wait_and_catches_up() -> None:
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(3))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    stream = _RecoverableLiveInputClient(
+        stream="stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+        tail_index=2,
+        field_factory=_signal_fields,
+    )
+    stream.pending.extend([("3-0", _signal_fields(3)), ("4-0", _signal_fields(4))])
+    startup = await _signal_coordinator(history, stream).start()
+    publisher_client = _IsolatedSignalClient()
+    clock = [_signal_bar(4).market_as_of - timedelta(minutes=1)]
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        signal_publisher=ValkeySignalPublisher(publisher_client),
+        block_ms=0,
+        now_fn=lambda: clock[0],
+    )
+    generation = DecisionRuntimeGeneration(
+        generation_id=1,
+        created_at=NOW,
+        startup=startup,
+        live_runtime=runtime,
+    )
+
+    async def factory(*, reason: str, generation_id: int):
+        raise AssertionError(f"unexpected rebuild {reason} {generation_id}")
+
+    service = DecisionService(
+        generation_factory=factory,
+        block_ms=0,
+        now_fn=lambda: NOW,
+    )
+    await service.start(generation=generation)
+    try:
+        await _wait_until(lambda: runtime.lanes["BTCUSDT:main"].status == "WAITING")
+        reads_at_wait = len(stream.xread_calls)
+        await asyncio.sleep(0.05)
+        assert len(stream.xread_calls) == reads_at_wait
+        assert service.snapshot().lanes["BTCUSDT:main"]["status"] == "WAITING"
+
+        clock[0] = _signal_bar(4).market_as_of
+        await _wait_until_realtime(
+            lambda: runtime.lanes["BTCUSDT:main"].status == "LIVE",
+            timeout=1.5,
+        )
+        assert runtime.lanes[
+            "BTCUSDT:main"
+        ].finalizer.watermark.latest_market_as_of == (_signal_bar(4).market_as_of)
+        assert len(publisher_client.entries["signals:BTCUSDT:1h"]) == 2
+    finally:
+        await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_service_clock_wait_responds_to_pause_and_stop() -> None:
+    result = DecisionPollResult(
+        input_results=(),
+        lane_results={
+            "lane": LanePollResult(
+                lane_id="lane",
+                status="WAITING",
+                trigger_cutoff=NOW,
+                reason="resolver clock is behind lane market cutoff",
+            )
+        },
+        cursors={},
+    )
+    runtime = _ResultRuntime([result])
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        return _generation(generation_id, runtime)
+
+    service = DecisionService(
+        generation_factory=factory, block_ms=0, now_fn=lambda: NOW
+    )
+    await service.start()
+    try:
+        await _wait_until(lambda: runtime.calls == 1)
+        paused = await asyncio.wait_for(service.pause(), timeout=0.2)
+        assert paused.service_state == "PAUSED"
+        stopped = await asyncio.wait_for(service.stop(), timeout=0.2)
+        assert stopped.service_state == "STOPPED"
+        assert runtime.calls == 1
+    finally:
+        if service.service_state != "STOPPED":
+            await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_real_service_paces_running_and_paused_clock_waits() -> None:
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(3))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    stream = _RecoverableLiveInputClient(
+        stream="stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+        tail_index=2,
+        field_factory=_signal_fields,
+    )
+    stream.pending.extend([("3-0", _signal_fields(3)), ("4-0", _signal_fields(4))])
+    startup = await _signal_coordinator(history, stream).start()
+    clock = [_signal_bar(3).market_as_of - timedelta(minutes=1)]
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        signal_publisher=ValkeySignalPublisher(_IsolatedSignalClient()),
+        block_ms=1000,
+        now_fn=lambda: clock[0],
+    )
+
+    first = await runtime.poll_once()
+    assert first.clock_waiting is True
+    assert runtime.lanes["BTCUSDT:main"].pending_trigger_cutoff == (
+        _signal_bar(3).market_as_of
+    )
+
+    generation = DecisionRuntimeGeneration(
+        generation_id=1,
+        created_at=NOW,
+        startup=startup,
+        live_runtime=runtime,
+    )
+
+    async def factory(*, reason: str, generation_id: int):
+        raise AssertionError(f"unexpected rebuild {reason} {generation_id}")
+
+    service = DecisionService(
+        generation_factory=factory,
+        block_ms=1000,
+        now_fn=lambda: NOW,
+    )
+    await service.start(generation=generation)
+    try:
+        for _ in range(100):
+            await asyncio.sleep(0)
+        running_reads = len(stream.xread_calls)
+        assert running_reads <= 2
+
+        paused = await service.pause()
+        assert paused.service_state == "PAUSED"
+        reads_at_pause = len(stream.xread_calls)
+        for _ in range(100):
+            await asyncio.sleep(0)
+        assert len(stream.xread_calls) - reads_at_pause <= 2
+        assert service._last_poll_result is not None
+        assert service._last_poll_result.clock_waiting is True
+    finally:
+        await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_non_clock_polling_keeps_existing_nonblocking_yield() -> None:
+    runtime = _Runtime()
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        return _generation(generation_id, runtime)
+
+    service = DecisionService(
+        generation_factory=factory, block_ms=0, now_fn=lambda: NOW
+    )
+    await service.start()
+    try:
+        await runtime.started.wait()
+        calls = runtime.calls
+        await asyncio.sleep(0)
+        assert runtime.calls > calls
+    finally:
+        await service.stop()
 
 
 @pytest.mark.asyncio

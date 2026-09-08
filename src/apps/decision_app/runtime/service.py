@@ -196,6 +196,7 @@ class DecisionService:
         self._observability = observability
         self._transition_lock = asyncio.Lock()
         self._wake_event = asyncio.Event()
+        self._clock_wait_event = asyncio.Event()
         self._poll_idle = asyncio.Event()
         self._poll_idle.set()
         self._stop_event = asyncio.Event()
@@ -249,6 +250,7 @@ class DecisionService:
                 raise RuntimeError("decision service is already started")
             self._stop_event = asyncio.Event()
             self._wake_event = asyncio.Event()
+            self._clock_wait_event = asyncio.Event()
             self._poll_idle = asyncio.Event()
             self._poll_idle.set()
             self._desired_state = "RUNNING"
@@ -282,7 +284,7 @@ class DecisionService:
             self._desired_state = "PAUSED"
             self._service_state = "STOPPING"
             self._stop_event.set()
-            self._wake_event.set()
+            self._signal_control_waiters()
             self._sync_observability()
         await self._poll_idle.wait()
         lifecycle_task = self._lifecycle_task
@@ -303,7 +305,7 @@ class DecisionService:
             if self._generation is None:
                 raise RuntimeError("decision service has no safe runtime generation")
             self._desired_state = "PAUSED"
-            self._wake_event.set()
+            self._signal_control_waiters()
             # Keep the transition lock through the bounded poll boundary.  A
             # concurrent resume/reconnect must not change desired_state or
             # install a new polling generation before this pause returns.
@@ -431,7 +433,7 @@ class DecisionService:
             self._rebuild_requested = True
             self._rebuild_reason = reason
             self._rebuild_source = "MANUAL"
-            self._wake_event.set()
+            self._signal_control_waiters()
             self._sync_observability()
             await self._poll_idle.wait()
             await self._rebuild_locked(reason)
@@ -543,9 +545,10 @@ class DecisionService:
             self._poll_active = True
             self._poll_idle.clear()
             poll_started = perf_counter()
+            evaluate_lanes = self._desired_state == "RUNNING"
             try:
                 result = await generation.live_runtime.poll_once(
-                    evaluate_lanes=self._desired_state == "RUNNING"
+                    evaluate_lanes=evaluate_lanes
                 )
             except asyncio.CancelledError:
                 raise
@@ -588,10 +591,15 @@ class DecisionService:
             self._classify_poll_result(result)
             self._sync_observability()
             self._wake_event.set()
-            # A deterministic test/runtime double may complete poll_once()
-            # without transport I/O.  Always yield so controls and lifecycle
-            # notifications retain ownership of the event loop.
-            await asyncio.sleep(0)
+            if result.clock_waiting:
+                await self._wait_for_clock_catchup(
+                    allow_pause_transition=evaluate_lanes
+                )
+            else:
+                # A deterministic test/runtime double may complete poll_once()
+                # without transport I/O.  Always yield so controls and
+                # lifecycle notifications retain ownership of the event loop.
+                await asyncio.sleep(0)
 
     async def _lifecycle_loop(self) -> None:
         assert self._lifecycle_reader is not None
@@ -618,7 +626,7 @@ class DecisionService:
                             result.reason or "configured asset lifecycle changed"
                         )
                         self._rebuild_source = "LIFECYCLE_RECONCILIATION"
-                self._wake_event.set()
+                self._signal_control_waiters()
                 self._sync_observability()
             else:
                 await asyncio.sleep(0)
@@ -674,6 +682,30 @@ class DecisionService:
             await asyncio.sleep(self._block_ms / 1000)
         else:
             await asyncio.sleep(0)
+
+    async def _wait_for_clock_catchup(self, *, allow_pause_transition: bool) -> None:
+        """Bound clock-wait retries while keeping controls responsive."""
+
+        self._clock_wait_event.clear()
+        if (
+            self._stop_event.is_set()
+            or self._rebuild_requested
+            or self._service_state
+            in {"STARTING", "REBUILDING", "STOPPING", "STOPPED", "ERROR"}
+        ):
+            return
+        if allow_pause_transition and self._desired_state != "RUNNING":
+            return
+        cadence_ms = self._block_ms if self._block_ms > 0 else 1000
+        try:
+            async with asyncio.timeout(cadence_ms / 1000):
+                await self._clock_wait_event.wait()
+        except TimeoutError:
+            pass
+
+    def _signal_control_waiters(self) -> None:
+        self._wake_event.set()
+        self._clock_wait_event.set()
 
     async def _wait_for_wake(self) -> None:
         if self._stop_event.is_set():

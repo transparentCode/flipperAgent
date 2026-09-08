@@ -303,6 +303,29 @@ class _LiveInputClient:
         return [(self.stream, pending)]
 
 
+class _RecoverableLiveInputClient(_LiveInputClient):
+    """Retain unread entries so a bounded poll can defer later cutoffs."""
+
+    async def xread(
+        self,
+        streams: Mapping[str, str],
+        *,
+        count: int,
+        block: int,
+    ) -> list[tuple[str, list[tuple[str, Mapping[object, object]]]]]:
+        self.xread_calls.append((dict(streams), count, block))
+        cursor = streams[self.stream]
+        cursor_parts = tuple(int(part) for part in cursor.split("-"))
+        pending = [
+            entry
+            for entry in self.pending
+            if tuple(int(part) for part in entry[0].split("-")) > cursor_parts
+        ]
+        if not pending:
+            return []
+        return [(self.stream, pending)]
+
+
 class _MultiStreamInputClient:
     def __init__(
         self, tails: Mapping[str, tuple[str, Mapping[object, object]]]
@@ -939,6 +962,118 @@ async def test_shadow_restart_drains_exact_catchup_before_new_input() -> None:
 
 
 @pytest.mark.asyncio
+async def test_shadow_startup_catchup_retries_clock_wait_without_duplicate_effects() -> (
+    None
+):
+    progress = InMemoryShadowProgressRepository()
+    first_history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(4))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    first_stream = _LiveInputClient(
+        stream="stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+        tail_index=2,
+        field_factory=_signal_fields,
+    )
+    first = await _signal_coordinator(
+        first_history,
+        first_stream,
+        authority="shadow",
+        shadow_progress_repository=progress,
+        history_capacity=4,
+    ).start()
+    identity = next(iter(first.runtimes.values())).identity
+    baseline = await progress.load(identity)
+    assert baseline is not None
+
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(8))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    stream = _LiveInputClient(
+        stream="stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+        tail_index=6,
+        field_factory=_signal_fields,
+    )
+    startup = await _signal_coordinator(
+        history,
+        stream,
+        authority="shadow",
+        shadow_progress_repository=progress,
+        history_capacity=4,
+    ).start()
+    assert startup.lane_catchup_cutoffs["BTCUSDT:main"] == tuple(
+        _signal_bar(index).market_as_of for index in range(4, 8)
+    )
+    assert startup.snapshot.lane_watermarks["BTCUSDT:main"].latest_market_as_of == (
+        baseline.market_as_of
+    )
+
+    publisher_client = _IsolatedSignalClient()
+    clock = [_signal_bar(4).market_as_of - timedelta(minutes=1)]
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        shadow_publisher=ValkeyShadowPublisher(publisher_client),
+        shadow_progress_repository=progress,
+        now_fn=lambda: clock[0],
+    )
+
+    waiting = await runtime.poll_once()
+    waiting_lane = waiting.lane_results["BTCUSDT:main"]
+    assert waiting_lane.status == "WAITING"
+    assert waiting_lane.reason == "resolver clock is behind lane market cutoff"
+    assert runtime.lanes["BTCUSDT:main"].pending_trigger_cutoff == (
+        _signal_bar(4).market_as_of
+    )
+    assert not publisher_client.entries
+
+    retried = await runtime.poll_once()
+    retried_lane = retried.lane_results["BTCUSDT:main"]
+    assert retried_lane.status == "WAITING"
+    assert retried_lane.reason == "resolver clock is behind lane market cutoff"
+    assert runtime.lanes["BTCUSDT:main"].pending_trigger_cutoff == (
+        _signal_bar(4).market_as_of
+    )
+    assert not publisher_client.entries
+
+    clock[0] = _signal_bar(4).market_as_of
+    first_caught_up = await runtime.poll_once()
+    caught_up_lane = first_caught_up.lane_results["BTCUSDT:main"]
+    assert caught_up_lane.status == "WAITING"
+    assert caught_up_lane.reason == "resolver clock is behind lane market cutoff"
+    assert runtime.lanes["BTCUSDT:main"].pending_trigger_cutoff == (
+        _signal_bar(5).market_as_of
+    )
+    assert len(publisher_client.entries["decision:shadow:BTCUSDT:main"]) == 1
+    saved = await progress.load(identity)
+    assert saved is not None
+    assert saved.market_as_of == _signal_bar(4).market_as_of
+
+    extra_idle = await runtime.poll_once()
+    extra_idle_lane = extra_idle.lane_results["BTCUSDT:main"]
+    assert extra_idle_lane.status == "WAITING"
+    assert not extra_idle.input_results
+    assert len(publisher_client.entries["decision:shadow:BTCUSDT:main"]) == 1
+    saved = await progress.load(identity)
+    assert saved is not None
+    assert saved.market_as_of == _signal_bar(4).market_as_of
+
+    clock[0] = _signal_bar(7).market_as_of
+    completed = await runtime.poll_once()
+    completed_lane = completed.lane_results["BTCUSDT:main"]
+    assert completed_lane.status == "LIVE"
+    assert completed_lane.finalization_status == "COMMITTED"
+    assert runtime.lanes["BTCUSDT:main"].pending_trigger_cutoff is None
+    assert len(publisher_client.entries["decision:shadow:BTCUSDT:main"]) == 4
+    saved = await progress.load(identity)
+    assert saved is not None
+    assert saved.market_as_of == _signal_bar(7).market_as_of
+
+
+@pytest.mark.asyncio
 async def test_shadow_catchup_exact_id_reconciles_crash_window() -> None:
     progress = InMemoryShadowProgressRepository()
     first_history = InMemoryCanonicalMarketHistoryRepository(
@@ -1098,7 +1233,6 @@ async def test_shadow_lane_without_shadow_publisher_fails_closed() -> None:
         now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
     )
     baseline_watermark = runtime.lanes["BTCUSDT:main"].finalizer.watermark
-
     stream.pending.append(("3-0", _signal_fields(3)))
     result = await runtime.poll_once()
     lane = result.lane_results["BTCUSDT:main"]
@@ -1415,6 +1549,146 @@ async def test_pending_trigger_overrun_halts_without_skipping_state() -> None:
     assert lane.finalization_status is None
     assert not publisher_client.entries
     assert runtime.lanes["BTCUSDT:main"].finalizer.watermark == baseline_watermark
+
+
+@pytest.mark.asyncio
+async def test_clock_behind_waits_and_retries_on_idle_poll() -> None:
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(3))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    input_stream = "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h"
+    stream = _RecoverableLiveInputClient(
+        stream=input_stream,
+        tail_index=2,
+        field_factory=_signal_fields,
+    )
+    startup = await _signal_coordinator(history, stream).start()
+    publisher_client = _IsolatedSignalClient()
+    clock = [_signal_bar(3).market_as_of]
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        signal_publisher=ValkeySignalPublisher(publisher_client),
+        now_fn=lambda: clock[0],
+    )
+
+    stream.pending.append(("3-0", _signal_fields(3)))
+    initially_live = await runtime.poll_once()
+    initially_live_lane = initially_live.lane_results["BTCUSDT:main"]
+
+    assert initially_live_lane.status == "LIVE"
+    assert initially_live_lane.finalization_status == "COMMITTED"
+    assert runtime.lanes["BTCUSDT:main"].finalizer.watermark.latest_market_as_of == (
+        _signal_bar(3).market_as_of
+    )
+    assert len(publisher_client.entries["signals:BTCUSDT:1h"]) == 1
+
+    clock[0] = _signal_bar(4).market_as_of - timedelta(minutes=1)
+    stream.pending.append(("4-0", _signal_fields(4)))
+    waiting = await runtime.poll_once()
+    waiting_lane = waiting.lane_results["BTCUSDT:main"]
+
+    assert waiting_lane.status == "WAITING"
+    assert waiting_lane.reason == "resolver clock is behind lane market cutoff"
+    assert waiting_lane.policy_status is None
+    assert waiting_lane.finalization_status is None
+    assert runtime.lanes["BTCUSDT:main"].pending_trigger_cutoff == (
+        _signal_bar(4).market_as_of
+    )
+    assert runtime.lanes["BTCUSDT:main"].finalizer.watermark.latest_market_as_of == (
+        _signal_bar(3).market_as_of
+    )
+    assert len(publisher_client.entries["signals:BTCUSDT:1h"]) == 1
+
+    idle = await runtime.poll_once()
+    idle_lane = idle.lane_results["BTCUSDT:main"]
+    assert not idle.input_results
+    assert idle_lane.status == "WAITING"
+    assert idle_lane.policy_status is None
+    assert idle_lane.finalization_status is None
+    assert runtime.input.cursor_for(input_stream).latest_stream_id == "4-0"
+    assert len(publisher_client.entries["signals:BTCUSDT:1h"]) == 1
+
+    extra_idle = await runtime.poll_once()
+    extra_idle_lane = extra_idle.lane_results["BTCUSDT:main"]
+    assert not extra_idle.input_results
+    assert extra_idle_lane.status == "WAITING"
+    assert extra_idle_lane.finalization_status is None
+    assert runtime.lanes["BTCUSDT:main"].finalizer.watermark.latest_market_as_of == (
+        _signal_bar(3).market_as_of
+    )
+    assert len(publisher_client.entries["signals:BTCUSDT:1h"]) == 1
+
+    clock[0] = _signal_bar(4).market_as_of
+    ready = await runtime.poll_once()
+    ready_lane = ready.lane_results["BTCUSDT:main"]
+    assert not ready.input_results
+    assert ready_lane.status == "LIVE"
+    assert ready_lane.finalization_status == "COMMITTED"
+    assert runtime.lanes["BTCUSDT:main"].pending_trigger_cutoff is None
+    assert len(publisher_client.entries["signals:BTCUSDT:1h"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_clock_wait_defers_newer_batch_cutoff_until_catchup() -> None:
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(3))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    input_stream = "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h"
+    stream = _RecoverableLiveInputClient(
+        stream=input_stream,
+        tail_index=2,
+        field_factory=_signal_fields,
+    )
+    startup = await _signal_coordinator(history, stream).start()
+    publisher_client = _IsolatedSignalClient()
+    clock = [_signal_bar(3).market_as_of - timedelta(minutes=1)]
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        signal_publisher=ValkeySignalPublisher(publisher_client),
+        now_fn=lambda: clock[0],
+    )
+
+    stream.pending.extend([("3-0", _signal_fields(3)), ("4-0", _signal_fields(4))])
+    first = await runtime.poll_once()
+    first_lane = first.lane_results["BTCUSDT:main"]
+    assert [item.stream_id for item in first.input_results] == ["3-0"]
+    assert first_lane.status == "WAITING"
+    assert runtime.input.cursor_for(input_stream).latest_stream_id == "3-0"
+    assert not publisher_client.entries
+
+    idle = await runtime.poll_once()
+    idle_lane = idle.lane_results["BTCUSDT:main"]
+    assert not idle.input_results
+    assert idle_lane.status == "WAITING"
+    assert runtime.input.cursor_for(input_stream).latest_stream_id == "3-0"
+    assert not publisher_client.entries
+
+    clock[0] = _signal_bar(3).market_as_of
+    first_caught_up = await runtime.poll_once()
+    caught_up_lane = first_caught_up.lane_results["BTCUSDT:main"]
+    assert [item.stream_id for item in first_caught_up.input_results] == ["4-0"]
+    assert caught_up_lane.status == "WAITING"
+    assert caught_up_lane.trigger_cutoff == _signal_bar(4).market_as_of
+    assert caught_up_lane.finalization_status is None
+    assert runtime.input.cursor_for(input_stream).latest_stream_id == "4-0"
+    assert len(publisher_client.entries["signals:BTCUSDT:1h"]) == 1
+
+    clock[0] = _signal_bar(4).market_as_of
+    second_caught_up = await runtime.poll_once()
+    second_lane = second_caught_up.lane_results["BTCUSDT:main"]
+    assert not second_caught_up.input_results
+    assert second_lane.status == "LIVE"
+    assert second_lane.finalization_status == "COMMITTED"
+    assert runtime.lanes["BTCUSDT:main"].pending_trigger_cutoff is None
+    assert len(publisher_client.entries["signals:BTCUSDT:1h"]) == 2
 
 
 @pytest.mark.asyncio

@@ -230,6 +230,70 @@ async def test_relay_only_runtime_publishes_without_model_lanes() -> None:
 
 
 @pytest.mark.asyncio
+async def test_future_relay_candidate_waits_for_clock_before_publication() -> None:
+    bars = (_bar(0), _bar(1))
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SERIES: (bars[0],)},
+        timeframe_grid=GRID,
+    )
+    stream = _RelayClient(bars)
+    source_catalog = DataSourceCatalog([])
+    startup = await DecisionStartupCoordinator(
+        decision_config=_config(),
+        plugin_catalog=PluginCatalog([]),
+        feature_catalog=FeatureCatalog([]),
+        feature_policy=FeaturePolicy(name="operator", version="1"),
+        data_policy=DataPolicy(name="operator", version="1", concepts={}),
+        source_catalog=source_catalog,
+        runtime_plugin_catalog=RuntimePluginCatalog([]),
+        history_repository=history,
+        stream_client=stream,
+        data_resolver=DataResolver(source_catalog),
+    ).start()
+    plans = compile_price_relay_plans(_config())
+    relay = PriceRelay(
+        plans=plans,
+        stream_client=stream,
+        history_repository=history,
+        timeframe_grid=GRID,
+        warm_cutoffs={SERIES: bars[0].bar_close_at},
+        batch_size=1,
+    )
+    clock = [bars[1].market_as_of - timedelta(minutes=1)]
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=GRID,
+        stream_client=stream,
+        history_repository=history,
+        price_relay=relay,
+        batch_size=1,
+        block_ms=0,
+        now_fn=lambda: clock[0],
+    )
+    relay_id = plans[0].relay_plan_id
+
+    waiting = await runtime.poll_once(evaluate_lanes=False)
+    assert waiting.input_results[0].disposition == "INSERTED"
+    assert waiting.relay_results == {}
+    assert runtime.input.cursor_for(INGESTION_STREAM).latest_stream_id == "1-0"
+    assert not stream.price_entries
+    assert relay.progress[relay_id].latest_market_as_of == bars[0].bar_close_at
+
+    idle = await runtime.poll_once(evaluate_lanes=False)
+    assert not idle.input_results
+    assert idle.relay_results == {}
+    assert not stream.price_entries
+
+    clock[0] = bars[1].market_as_of
+    ready = await runtime.poll_once(evaluate_lanes=False)
+    assert not ready.input_results
+    relay_result = ready.relay_results[relay_id]
+    assert relay_result.publication_outcome == "PUBLISHED"
+    assert relay_result.published_market_as_of == bars[1].market_as_of
+    assert len(stream.price_entries[plans[0].stream_key]) == 1
+
+
+@pytest.mark.asyncio
 async def test_forward_input_gap_marks_same_series_relay_unresolved() -> None:
     bars = (_bar(0), _bar(1), _bar(2))
     history = InMemoryCanonicalMarketHistoryRepository(
