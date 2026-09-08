@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -13,7 +13,10 @@ from apps.ingestion_app.domain.candle import CandleObservation, CanonicalCandle
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
 from apps.ingestion_app.observability import IngestionObservability
-from apps.ingestion_app.providers.base import HistoricalCandleProvider
+from apps.ingestion_app.providers.base import (
+    HistoricalCandleProvider,
+    TransportDeadlineExceeded,
+)
 from apps.ingestion_app.services.candle_ingestion import CandleIngestionService
 from apps.ingestion_app.services.htf_aggregation import HTFAggregationService
 from apps.ingestion_app.services.time_alignment import aligned_bucket_start
@@ -219,15 +222,13 @@ def _page_windows(
     until: datetime,
     base_duration: timedelta,
     page_limit: int,
-) -> tuple[tuple[datetime, datetime], ...]:
+) -> Iterator[tuple[datetime, datetime]]:
     page_span = base_duration * page_limit
-    windows: list[tuple[datetime, datetime]] = []
     page_start = since
     while page_start < until:
         page_end = min(page_start + page_span, until)
-        windows.append((page_start, page_end))
+        yield page_start, page_end
         page_start = page_end
-    return tuple(windows)
 
 
 def _deduplicate_requests(
@@ -422,6 +423,11 @@ class RecoveryEngine:
                         until=page_end,
                         limit=self.page_limit,
                     )
+                except TransportDeadlineExceeded:
+                    # Ownership is unresolved at the deadline; retrying or
+                    # falling through to another provider could overlap the
+                    # still-running SDK operation.
+                    raise
                 except DataIngestionError as exc:
                     _LOGGER.warning(
                         "recovery provider attempt failed: provider=%s lane=%s "

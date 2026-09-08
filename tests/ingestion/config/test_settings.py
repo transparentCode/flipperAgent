@@ -29,10 +29,12 @@ def _global_config() -> dict:
                 "max_attempts_per_provider": 2,
                 "retry_backoff_seconds": 1,
                 "rest_finalization_grace_seconds": 5,
+                "provider_attempt_timeout_seconds": 30,
             },
             "websocket": {
                 "stream_url": "wss://fstream.binance.com/market",
                 "queue_maxsize": 1000,
+                "lifecycle_timeout_seconds": 30,
             },
             "runtime": {
                 "reconnect_backoff_seconds": 5,
@@ -131,8 +133,10 @@ def test_real_global_and_asset_configuration_load_successfully() -> None:
     assert settings.recovery.max_attempts_per_provider == 2
     assert settings.recovery.retry_backoff_seconds == 1
     assert settings.recovery.rest_finalization_grace_seconds == 5
+    assert settings.recovery.provider_attempt_timeout_seconds == 30
     assert settings.websocket.stream_url == "wss://fstream.binance.com/market"
     assert settings.websocket.queue_maxsize == 1000
+    assert settings.websocket.lifecycle_timeout_seconds == 30
     assert settings.runtime.reconnect_backoff_seconds == 5
     assert settings.server.host == "0.0.0.0"
     assert settings.server.port == 8003
@@ -149,6 +153,20 @@ def test_real_global_and_asset_configuration_load_successfully() -> None:
     assert settings.retention.outbox_max_batches_per_run == 100
     assert settings.providers["ccxt_binance"].exchange_id == "binanceusdm"
     assert settings.assets["BTC"].instruments["BTC-USDT-PERP"].base_asset == "BTC"
+
+
+def test_transport_deadline_settings_default_to_thirty_seconds(
+    temp_ingestion_manager: ConfigManager,
+) -> None:
+    global_config = _global_config()
+    global_config["ingestion"]["recovery"].pop("provider_attempt_timeout_seconds")
+    global_config["ingestion"]["websocket"].pop("lifecycle_timeout_seconds")
+    _write_yaml(Path("configs/ingestion/global.yaml"), global_config)
+
+    settings = load_ingestion_settings(temp_ingestion_manager)
+
+    assert settings.recovery.provider_attempt_timeout_seconds == 30
+    assert settings.websocket.lifecycle_timeout_seconds == 30
 
 
 def test_production_yaml_timeframes_are_authoritative() -> None:
@@ -201,6 +219,8 @@ def test_settings_model_dump_is_warning_free_and_serializable(
     assert isinstance(dumped["providers"], dict)
     assert isinstance(dumped["assets"], dict)
     assert dumped["recovery"]["page_limit"] == 500
+    assert dumped["recovery"]["provider_attempt_timeout_seconds"] == 30
+    assert dumped["websocket"]["lifecycle_timeout_seconds"] == 30
     assert dumped["retention"]["candle_days"] == 90
     assert dumped["calendar"]["alignment_origin"] == "1970-01-05T00:00:00Z"
     assert isinstance(dumped["assets"]["BTC"], dict)
@@ -224,7 +244,9 @@ def test_settings_model_dump_json_succeeds(
     assert decoded["calendar"]["alignment_origin"] == "1970-01-05T00:00:00Z"
     assert decoded["recovery"]["max_concurrency"] == 4
     assert decoded["recovery"]["rest_finalization_grace_seconds"] == 5
+    assert decoded["recovery"]["provider_attempt_timeout_seconds"] == 30
     assert decoded["websocket"]["queue_maxsize"] == 1000
+    assert decoded["websocket"]["lifecycle_timeout_seconds"] == 30
     assert decoded["runtime"]["reconnect_backoff_seconds"] == 5
     assert decoded["server"] == {"host": "0.0.0.0", "port": 8003}
     assert decoded["publication"] == {
@@ -302,6 +324,7 @@ def test_asset_enabled_rejects_scalar_coercion(
         ("max_attempts_per_provider", False),
         ("retry_backoff_seconds", -1),
         ("rest_finalization_grace_seconds", -1),
+        ("provider_attempt_timeout_seconds", 0),
     ],
 )
 def test_recovery_settings_reject_invalid_values(
@@ -325,6 +348,7 @@ def test_recovery_settings_reject_invalid_values(
         "max_attempts_per_provider",
         "retry_backoff_seconds",
         "rest_finalization_grace_seconds",
+        "provider_attempt_timeout_seconds",
     ],
 )
 def test_recovery_settings_reject_bool_coercion(
@@ -347,6 +371,9 @@ def test_recovery_settings_reject_bool_coercion(
         ("queue_maxsize", 0),
         ("queue_maxsize", False),
         ("queue_maxsize", "1000"),
+        ("lifecycle_timeout_seconds", 0),
+        ("lifecycle_timeout_seconds", False),
+        ("lifecycle_timeout_seconds", "30"),
     ],
 )
 def test_websocket_settings_reject_invalid_values(
@@ -519,6 +546,57 @@ def test_filename_and_declared_asset_must_match(
     _write_yaml(Path("configs/ingestion/assets/BTC.yaml"), asset)
 
     with pytest.raises(ValidationError, match="filename stem"):
+        load_ingestion_settings(temp_ingestion_manager)
+
+
+def test_lifecycle_owned_asset_requires_single_instrument(
+    temp_ingestion_manager: ConfigManager,
+) -> None:
+    asset = _asset_config()
+    asset["owns_manifest_lifecycle"] = True
+    asset["instruments"]["BTC-SECOND-PERP"] = deepcopy(
+        asset["instruments"]["BTC-USDT-PERP"]
+    )
+    _write_yaml(Path("configs/ingestion/assets/BTC.yaml"), asset)
+
+    with pytest.raises(ValidationError, match="exactly one instrument"):
+        load_ingestion_settings(temp_ingestion_manager)
+
+
+def test_enabled_assets_reject_duplicate_live_provider_symbol_routes(
+    temp_ingestion_manager: ConfigManager,
+) -> None:
+    asset = deepcopy(_asset_config())
+    asset["asset"] = "ADA"
+    instrument = asset["instruments"].pop("BTC-USDT-PERP")
+    instrument["base_asset"] = "ADA"
+    instrument["provider_symbols"] = {
+        "binance_native": "BTCUSDT",
+        "ccxt_binance": "BTC/USDT:USDT",
+    }
+    asset["instruments"] = {"ADA-USDT-PERP": instrument}
+    _write_yaml(Path("configs/ingestion/assets/ADA.yaml"), asset)
+
+    with pytest.raises(ValidationError, match="duplicate active live provider-symbol"):
+        load_ingestion_settings(temp_ingestion_manager)
+
+
+def test_disabled_lifecycle_owner_rejects_duplicate_manifest_symbol(
+    temp_ingestion_manager: ConfigManager,
+) -> None:
+    owner = _asset_config()
+    owner["owns_manifest_lifecycle"] = True
+    _write_yaml(Path("configs/ingestion/assets/BTC.yaml"), owner)
+
+    disabled_owner = deepcopy(owner)
+    disabled_owner["asset"] = "ADA"
+    disabled_owner["enabled"] = False
+    instrument = disabled_owner["instruments"].pop("BTC-USDT-PERP")
+    instrument["base_asset"] = "ADA"
+    disabled_owner["instruments"] = {"ADA-USDT-PERP": instrument}
+    _write_yaml(Path("configs/ingestion/assets/ADA.yaml"), disabled_owner)
+
+    with pytest.raises(ValidationError, match="duplicate lifecycle manifest symbol"):
         load_ingestion_settings(temp_ingestion_manager)
 
 

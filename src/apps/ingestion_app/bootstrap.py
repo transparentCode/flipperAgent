@@ -16,6 +16,12 @@ from apps.ingestion_app.providers.binance_native import (
     BinanceNativeHistoricalProvider,
 )
 from apps.ingestion_app.providers.ccxt import CCXTHistoricalProvider
+from apps.ingestion_app.providers.factory import (
+    SUPPORTED_PROVIDER_IDS,
+    build_historical_providers,
+    referenced_provider_ids,
+    validate_provider_configuration,
+)
 from apps.ingestion_app.publication.publisher import OutboxPublisher
 from apps.ingestion_app.runtime.controller import RuntimeController
 from apps.ingestion_app.runtime.supervisor import RuntimeSupervisor
@@ -40,73 +46,28 @@ from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
 
 _LOGGER = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_ENGINE)
-_SUPPORTED_PROVIDER_IDS = frozenset({"binance_native", "ccxt_binance"})
+_SUPPORTED_PROVIDER_IDS = SUPPORTED_PROVIDER_IDS
 
 
 def _referenced_provider_ids(settings: IngestionSettings) -> frozenset[str]:
-    referenced: set[str] = set()
-    for asset in settings.assets.values():
-        for instrument in asset.instruments.values():
-            referenced.add(instrument.live_provider)
-            referenced.update(instrument.historical_providers)
-    return frozenset(referenced)
+    return referenced_provider_ids(settings)
 
 
 def _validate_provider_configuration(settings: IngestionSettings) -> frozenset[str]:
-    referenced = _referenced_provider_ids(settings)
-    unsupported = referenced - _SUPPORTED_PROVIDER_IDS
-    if unsupported:
-        raise ValueError(
-            "unsupported ingestion provider IDs: " + ", ".join(sorted(unsupported))
-        )
-
-    for provider_id in sorted(referenced):
-        provider = settings.providers[provider_id]
-        if not provider.enabled:
-            raise ValueError(f"referenced provider '{provider_id}' is disabled")
-        if provider_id == "ccxt_binance" and not provider.exchange_id:
-            raise ValueError("ccxt_binance requires an exchange_id")
-
-    for asset in settings.assets.values():
-        if not asset.enabled:
-            continue
-        for instrument_id, instrument in asset.instruments.items():
-            if instrument.live_provider != "binance_native":
-                raise ValueError(
-                    f"enabled instrument '{instrument_id}' requires unsupported "
-                    f"live provider '{instrument.live_provider}'"
-                )
-    return referenced
+    return validate_provider_configuration(settings)
 
 
 async def _build_historical_providers(
     settings: IngestionSettings,
     referenced: frozenset[str],
 ) -> tuple[dict[str, HistoricalCandleProvider], list[Any]]:
-    providers: dict[str, HistoricalCandleProvider] = {}
-    owned_resources: list[Any] = []
-
-    if "binance_native" in referenced:
-        provider = BinanceNativeHistoricalProvider()
-        providers["binance_native"] = provider
-        owned_resources.append(provider)
-
-    try:
-        if "ccxt_binance" in referenced:
-            exchange_id = settings.providers["ccxt_binance"].exchange_id
-            if exchange_id is None:  # pragma: no cover - validated above
-                raise ValueError("ccxt_binance requires an exchange_id")
-            provider = CCXTHistoricalProvider(
-                provider_id="ccxt_binance",
-                exchange_id=exchange_id,
-            )
-            providers["ccxt_binance"] = provider
-            owned_resources.append(provider)
-    except BaseException:
-        await _close_providers(owned_resources)
-        raise
-
-    return providers, owned_resources
+    return await build_historical_providers(
+        settings,
+        referenced,
+        native_provider_factory=BinanceNativeHistoricalProvider,
+        ccxt_provider_factory=CCXTHistoricalProvider,
+        close_resources=_close_providers,
+    )
 
 
 def _supervisor_factory(
@@ -244,6 +205,7 @@ def create_application(
             live_provider = BinanceWebSocketManager(
                 stream_url=settings.websocket.stream_url,
                 queue_maxsize=settings.websocket.queue_maxsize,
+                lifecycle_timeout_seconds=settings.websocket.lifecycle_timeout_seconds,
                 observability=application_observability,
             )
 
@@ -290,6 +252,7 @@ def create_application(
             controller = RuntimeController(
                 settings=settings,
                 supervisor_factory=factory,
+                observability=application_observability,
             )
             lifecycle_reconciler = AssetLifecycleReconciler(
                 settings_provider=lambda: controller.settings,

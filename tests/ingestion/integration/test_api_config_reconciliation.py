@@ -62,6 +62,10 @@ def _test_asset(settings: IngestionSettings) -> dict[str, object]:
     raw["asset"] = "ADA"
     instrument = raw["instruments"].pop("BTC-USDT-PERP")
     instrument["base_asset"] = "ADA"
+    instrument["provider_symbols"] = {
+        "binance_native": "ADAUSDT",
+        "ccxt_binance": "ADA/USDT:USDT",
+    }
     raw["instruments"] = {"ADA-USDT-PERP": instrument}
     return raw
 

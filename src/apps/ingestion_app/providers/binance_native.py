@@ -3,25 +3,25 @@
 from __future__ import annotations
 
 import asyncio
+import math
+import time
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal, InvalidOperation
+from threading import BoundedSemaphore, Lock
 from typing import Any
 
 from binance.um_futures import UMFutures
 
 from apps.ingestion_app.domain.candle import CandleObservation
 from apps.ingestion_app.domain.instrument import MarketLane
+from apps.ingestion_app.providers.base import TransportDeadlineExceeded
+from apps.ingestion_app.providers.binance_rest import decode_binance_native_klines
+from apps.ingestion_app.runtime.blocking import (
+    _OwnedBlockingCall,
+    _OwnedCallTimeout,
+)
 from libs.common.exceptions import DataIngestionError
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
-_OPEN_TIME_INDEX = 0
-_OPEN_INDEX = 1
-_HIGH_INDEX = 2
-_LOW_INDEX = 3
-_CLOSE_INDEX = 4
-_VOLUME_INDEX = 5
-_CLOSE_TIME_INDEX = 6
-_TAKER_BUY_BASE_INDEX = 9
 
 
 def _require_non_empty_string(value: object, *, field_name: str) -> None:
@@ -73,42 +73,224 @@ def _epoch_milliseconds(value: datetime) -> int:
     )
 
 
-def _utc_from_milliseconds(value: object, *, field_name: str) -> datetime:
-    if isinstance(value, bool) or not isinstance(value, (int, str)):
-        raise DataIngestionError(
-            f"Binance {field_name} must be an integer millisecond value"
-        )
-    try:
-        milliseconds = int(value)
-        return _EPOCH + timedelta(milliseconds=milliseconds)
-    except (OverflowError, TypeError, ValueError) as exc:
-        raise DataIngestionError(
-            f"Binance {field_name} is not a valid millisecond timestamp"
-        ) from exc
-
-
-def _decimal_value(value: object, *, field_name: str) -> Decimal:
-    try:
-        parsed = Decimal(str(value))
-    except (InvalidOperation, TypeError, ValueError) as exc:
-        raise DataIngestionError(
-            f"Binance {field_name} is not a valid Decimal"
-        ) from exc
-    if not parsed.is_finite():
-        raise DataIngestionError(f"Binance {field_name} must be finite")
-    return parsed
-
-
 class BinanceNativeHistoricalProvider:
     """Fetch finalized Binance USD-M Futures klines through the native SDK."""
 
     provider_id = "binance_native"
 
-    def __init__(self, client: Any | None = None) -> None:
-        self.client = client if client is not None else UMFutures()
+    def __init__(
+        self,
+        client: Any | None = None,
+        *,
+        attempt_timeout_seconds: float = 30,
+        max_concurrency: int = 1,
+    ) -> None:
+        if isinstance(attempt_timeout_seconds, bool) or not isinstance(
+            attempt_timeout_seconds,
+            (int, float),
+        ):
+            raise TypeError("attempt_timeout_seconds must be a number")
+        if (
+            not math.isfinite(float(attempt_timeout_seconds))
+            or attempt_timeout_seconds <= 0
+        ):
+            raise ValueError("attempt_timeout_seconds must be positive")
+        if isinstance(max_concurrency, bool) or not isinstance(max_concurrency, int):
+            raise TypeError("max_concurrency must be an integer")
+        if max_concurrency <= 0:
+            raise ValueError("max_concurrency must be positive")
+        self.client = (
+            client
+            if client is not None
+            else UMFutures(timeout=float(attempt_timeout_seconds))
+        )
+        self.attempt_timeout_seconds = float(attempt_timeout_seconds)
+        self.max_concurrency = max_concurrency
+        self._owned_calls: set[_OwnedBlockingCall] = set()
+        self._owned_calls_lock = Lock()
+        self._admission = BoundedSemaphore(max_concurrency)
+        self._quarantined = False
+        self._closed = False
+        self._closing = False
+        self._close_call: _OwnedBlockingCall | None = None
+        self._close_cancelled = False
+        self._close_operation_succeeded = False
+
+    @property
+    def retained_worker_count(self) -> int:
+        with self._owned_calls_lock:
+            return sum(not call.finished for call in self._owned_calls)
+
+    @property
+    def quarantined(self) -> bool:
+        return self._quarantined
+
+    def _track_call(self, call: _OwnedBlockingCall) -> None:
+        with self._owned_calls_lock:
+            self._owned_calls.add(call)
+
+    def _forget_call(self, call: _OwnedBlockingCall) -> None:
+        with self._owned_calls_lock:
+            self._owned_calls.discard(call)
+        self._admission.release()
+
+    def _finish_close_call(self, call: _OwnedBlockingCall) -> None:
+        self._forget_call(call)
+        if self._close_call is not call:
+            return
+        self._close_call = None
+        if call.failed:
+            self._quarantine()
+            return
+        self._close_operation_succeeded = True
+        if self._close_cancelled:
+            self._closed = True
+            self._closing = False
+            self._close_cancelled = False
+
+    def _quarantine(self) -> None:
+        self._quarantined = True
+
+    def _check_available(self, operation: str, *, allow_closing: bool = False) -> None:
+        if self._quarantined:
+            raise TransportDeadlineExceeded(
+                provider_id=self.provider_id,
+                operation=f"quarantined {operation}",
+                timeout_seconds=self.attempt_timeout_seconds,
+            )
+        if self._closed:
+            raise DataIngestionError("Binance historical provider is closed")
+        if self._closing and not allow_closing:
+            raise DataIngestionError("Binance historical provider is closing")
+
+    def _admit(
+        self,
+        operation: str,
+        *,
+        exclusive: bool = False,
+        allow_closing: bool = False,
+    ) -> None:
+        self._check_available(operation, allow_closing=allow_closing)
+        if exclusive and self.retained_worker_count:
+            raise DataIngestionError(
+                f"Binance provider has active work; cannot start {operation}"
+            )
+        if not self._admission.acquire(blocking=False):
+            raise DataIngestionError(
+                f"Binance provider {operation} admission is saturated"
+            )
+
+    async def _wait_owned_call(
+        self,
+        call: _OwnedBlockingCall,
+        *,
+        operation: str,
+    ) -> Any:
+        try:
+            result = await call.wait(self.attempt_timeout_seconds)
+        except _OwnedCallTimeout as exc:
+            if (
+                call.operation_finished
+                and call.operation_finished_at is not None
+                and call.operation_finished_at <= exc.deadline
+            ):
+                try:
+                    result = call.result_or_raise()
+                except BaseException:
+                    call.adopt()
+                    raise
+                if not call.adopt():
+                    raise asyncio.CancelledError
+                return result
+            call.abandon()
+            self._quarantine()
+            raise TransportDeadlineExceeded(
+                provider_id=self.provider_id,
+                operation=operation,
+                timeout_seconds=self.attempt_timeout_seconds,
+            ) from exc
+        except asyncio.CancelledError:
+            if call.operation_finished:
+                call.adopt()
+            else:
+                call.abandon()
+            raise
+        except BaseException:
+            call.adopt()
+            raise
+        if not call.adopt():
+            raise asyncio.CancelledError
+        return result
+
+    async def _drain_owned_calls(self) -> None:
+        deadline = time.monotonic() + self.attempt_timeout_seconds
+        while True:
+            with self._owned_calls_lock:
+                retained = bool(self._owned_calls)
+            if not retained:
+                return
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                self._quarantine()
+                raise TransportDeadlineExceeded(
+                    provider_id=self.provider_id,
+                    operation="session close drain",
+                    timeout_seconds=self.attempt_timeout_seconds,
+                )
+            await asyncio.sleep(min(0.01, remaining))
 
     async def close(self) -> None:
-        await asyncio.to_thread(self.client.session.close)
+        if self._closed:
+            return
+        self._check_available("session close")
+        if self._closing:
+            raise DataIngestionError("Binance historical provider is closing")
+        self._closing = True
+        self._close_cancelled = False
+        self._close_operation_succeeded = False
+        call: _OwnedBlockingCall | None = None
+        loop = asyncio.get_running_loop()
+
+        def close_session() -> None:
+            self.client.session.close()
+
+        try:
+            await self._drain_owned_calls()
+            self._admit("session close", exclusive=True, allow_closing=True)
+            call = _OwnedBlockingCall(
+                loop=loop,
+                operation=close_session,
+                name="binance-native-session-close",
+                finished_callback=self._finish_close_call,
+            )
+            self._close_call = call
+            self._track_call(call)
+            call.start()
+            await self._wait_owned_call(call, operation="session close")
+            await self._drain_owned_calls()
+        except asyncio.CancelledError:
+            self._close_cancelled = True
+            if call is None:
+                self._closing = False
+                self._close_cancelled = False
+                self._close_operation_succeeded = False
+            elif call.finished or self._close_operation_succeeded:
+                if call.failed or self._quarantined:
+                    self._quarantine()
+                else:
+                    self._closed = True
+                    self._closing = False
+                    self._close_cancelled = False
+            raise
+        except DataIngestionError:
+            self._quarantine()
+            raise
+        except Exception as exc:
+            self._quarantine()
+            raise DataIngestionError("Binance failed to close HTTP session") from exc
+        else:
+            self._closed = True
+            self._close_cancelled = False
 
     async def fetch_closed_candles(
         self,
@@ -120,6 +302,7 @@ class BinanceNativeHistoricalProvider:
         until: datetime,
         limit: int,
     ) -> tuple[CandleObservation, ...]:
+        self._check_available("REST klines")
         request_started_at = datetime.now(UTC)
         _validate_request(
             lane=lane,
@@ -132,16 +315,29 @@ class BinanceNativeHistoricalProvider:
         closed_before = min(until, request_started_at)
         if closed_before <= since:
             return ()
-
-        try:
-            raw_rows = await asyncio.to_thread(
-                self.client.klines,
+        self._admit("REST klines")
+        loop = asyncio.get_running_loop()
+        call = _OwnedBlockingCall(
+            loop=loop,
+            operation=lambda: self.client.klines(
                 provider_symbol,
                 lane.timeframe,
                 startTime=_epoch_milliseconds(since),
                 endTime=_epoch_milliseconds(closed_before),
                 limit=limit,
+            ),
+            name="binance-native-klines",
+            finished_callback=self._forget_call,
+        )
+        self._track_call(call)
+        try:
+            call.start()
+            raw_rows = await self._wait_owned_call(
+                call,
+                operation=f"REST klines for {provider_symbol}",
             )
+        except TransportDeadlineExceeded:
+            raise
         except Exception as exc:
             raise DataIngestionError(
                 f"Binance failed to fetch klines for {provider_symbol}"
@@ -150,70 +346,18 @@ class BinanceNativeHistoricalProvider:
         if not isinstance(raw_rows, (list, tuple)):
             raise DataIngestionError("Binance returned a malformed kline response")
 
-        received_at = datetime.now(UTC)
-        observations: list[CandleObservation] = []
-        for row in raw_rows:
-            if not isinstance(row, (list, tuple)) or len(row) <= _TAKER_BUY_BASE_INDEX:
-                raise DataIngestionError("Binance returned a malformed kline row")
-            try:
-                open_time = _utc_from_milliseconds(
-                    row[_OPEN_TIME_INDEX],
-                    field_name="open timestamp",
-                )
-                provider_close_time = _utc_from_milliseconds(
-                    row[_CLOSE_TIME_INDEX],
-                    field_name="close timestamp",
-                ) + timedelta(milliseconds=1)
-                close_time = open_time + timeframe_duration
-                if provider_close_time != close_time:
-                    raise DataIngestionError(
-                        "Binance provider close timestamp disagrees with "
-                        "timeframe_duration"
-                    )
-                open_price = _decimal_value(row[_OPEN_INDEX], field_name="open")
-                high = _decimal_value(row[_HIGH_INDEX], field_name="high")
-                low = _decimal_value(row[_LOW_INDEX], field_name="low")
-                close = _decimal_value(row[_CLOSE_INDEX], field_name="close")
-                volume = _decimal_value(row[_VOLUME_INDEX], field_name="volume")
-                taker_buy_base = _decimal_value(
-                    row[_TAKER_BUY_BASE_INDEX],
-                    field_name="taker_buy_base",
-                )
-            except DataIngestionError:
-                raise
-            except (IndexError, OverflowError, TypeError, ValueError) as exc:
-                raise DataIngestionError(
-                    "Binance returned an invalid kline row"
-                ) from exc
-
-            if not (since <= open_time < until and close_time <= closed_before):
-                continue
-            try:
-                observation = CandleObservation(
-                    lane=lane,
-                    provider_id=self.provider_id,
-                    provider_symbol=provider_symbol,
-                    transport="rest",
-                    open_time=open_time,
-                    close_time=close_time,
-                    open=open_price,
-                    high=high,
-                    low=low,
-                    close=close,
-                    volume=volume,
-                    taker_buy_base=taker_buy_base,
-                    received_at=received_at,
-                    provider_close_time=provider_close_time,
-                    provider_event_id=None,
-                )
-            except (TypeError, ValueError) as exc:
-                raise DataIngestionError(
-                    "Binance returned invalid candle values"
-                ) from exc
-            observations.append(observation)
-
-        observations.sort(key=lambda observation: observation.open_time)
-        return tuple(observations[:limit])
+        return decode_binance_native_klines(
+            raw_rows,
+            lane=lane,
+            provider_id=self.provider_id,
+            provider_symbol=provider_symbol,
+            timeframe_duration=timeframe_duration,
+            since=since,
+            until=until,
+            closed_before=closed_before,
+            received_at=datetime.now(UTC),
+            limit=limit,
+        )
 
 
 __all__ = ["BinanceNativeHistoricalProvider"]

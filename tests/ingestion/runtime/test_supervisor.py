@@ -10,7 +10,10 @@ import pytest
 from apps.ingestion_app.domain.candle import CandleObservation, CanonicalCandle
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
-from apps.ingestion_app.providers.base import LiveStreamInterrupted
+from apps.ingestion_app.providers.base import (
+    LiveStreamInterrupted,
+    TransportDeadlineExceeded,
+)
 from apps.ingestion_app.runtime.supervisor import (
     DesiredRuntimeState,
     RuntimeState,
@@ -331,6 +334,13 @@ class _LiveProvider:
         return self.streams.pop(0)
 
 
+class _QuarantinedLiveProvider(_LiveProvider):
+    lifecycle_quarantined = True
+    lifecycle_quarantine_error = DataIngestionError(
+        "Binance websocket lifecycle cleanup failed; lifecycle quarantined"
+    )
+
+
 def _supervisor(
     *,
     settings=None,
@@ -580,6 +590,31 @@ async def test_live_conflict_is_fatal() -> None:
 
 
 @pytest.mark.asyncio
+async def test_plain_live_quarantine_is_error_without_fabricated_deadline() -> None:
+    supervisor, _, _, _, _, _ = _supervisor(
+        provider=_QuarantinedLiveProvider([_Stream()]),
+    )
+
+    snapshot = supervisor.snapshot()
+    assert snapshot.state is RuntimeState.ERROR
+    assert snapshot.last_error is not None
+    assert "cleanup failed" in snapshot.last_error
+    assert "exceeded" not in snapshot.last_error
+
+    request = RecoveryRequest(
+        lane=LANE,
+        since=BOUNDARY - timedelta(minutes=1),
+        until=BOUNDARY,
+        reason="manual_api",
+    )
+    with pytest.raises(DataIngestionError, match="cleanup failed"):
+        await supervisor.execute_recovery(request)
+    supervisor.pause()
+    supervisor.stop()
+    assert supervisor.snapshot().state is RuntimeState.ERROR
+
+
+@pytest.mark.asyncio
 async def test_stream_interruption_recovers_then_catches_up_before_second_stream() -> (
     None
 ):
@@ -669,6 +704,131 @@ async def test_stop_interrupts_reconnect_backoff_without_opening_next_stream() -
     assert len(provider.calls) == 1
     assert first.closed
     assert supervisor.snapshot().state is RuntimeState.STOPPED
+
+
+@pytest.mark.asyncio
+async def test_stop_during_interruption_recovery_is_controlled_cancellation() -> None:
+    interruption_request = RecoveryRequest(
+        lane=LANE,
+        since=BOUNDARY - timedelta(minutes=1),
+        until=BOUNDARY,
+        reason="websocket_error",
+    )
+    first = _Stream(
+        interruption=LiveStreamInterrupted(
+            reason="websocket_error",
+            recovery_requests=(interruption_request,),
+        )
+    )
+    provider = _LiveProvider([first])
+    recovery_started = asyncio.Event()
+    recovery_gate = asyncio.Event()
+
+    def mark_recovery_started(request: RecoveryRequest) -> None:
+        del request
+        recovery_started.set()
+
+    recovery = _Recovery(
+        gate=recovery_gate,
+        on_call=mark_recovery_started,
+    )
+    supervisor, _, _, _, _, _ = _supervisor(
+        provider=provider,
+        recovery=recovery,
+    )
+
+    task = asyncio.create_task(supervisor.run())
+    await asyncio.wait_for(recovery_started.wait(), timeout=1)
+
+    supervisor.stop()
+    await asyncio.wait_for(task, timeout=1)
+
+    assert first.closed
+    assert supervisor.snapshot().state is RuntimeState.STOPPED
+    assert supervisor.snapshot().last_error is None
+
+
+@pytest.mark.asyncio
+async def test_external_cancellation_during_interruption_recovery_propagates() -> None:
+    interruption_request = RecoveryRequest(
+        lane=LANE,
+        since=BOUNDARY - timedelta(minutes=1),
+        until=BOUNDARY,
+        reason="websocket_error",
+    )
+    first = _Stream(
+        interruption=LiveStreamInterrupted(
+            reason="websocket_error",
+            recovery_requests=(interruption_request,),
+        )
+    )
+    provider = _LiveProvider([first])
+    recovery_started = asyncio.Event()
+    recovery_gate = asyncio.Event()
+
+    def mark_recovery_started(request: RecoveryRequest) -> None:
+        del request
+        recovery_started.set()
+
+    recovery = _Recovery(
+        gate=recovery_gate,
+        on_call=mark_recovery_started,
+    )
+    supervisor, _, _, _, _, _ = _supervisor(
+        provider=provider,
+        recovery=recovery,
+    )
+
+    task = asyncio.create_task(supervisor.run())
+    await asyncio.wait_for(recovery_started.wait(), timeout=1)
+
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert first.closed
+    assert supervisor.snapshot().state is RuntimeState.STOPPED
+    assert supervisor.snapshot().last_error is None
+
+
+@pytest.mark.asyncio
+async def test_interruption_recovery_deadline_is_latched_and_propagates() -> None:
+    interruption_request = RecoveryRequest(
+        lane=LANE,
+        since=BOUNDARY - timedelta(minutes=1),
+        until=BOUNDARY,
+        reason="websocket_error",
+    )
+    first = _Stream(
+        interruption=LiveStreamInterrupted(
+            reason="websocket_error",
+            recovery_requests=(interruption_request,),
+        )
+    )
+    deadline = TransportDeadlineExceeded(
+        provider_id="binance_native",
+        operation="REST klines",
+        timeout_seconds=30,
+    )
+
+    def fail_recovery(request: RecoveryRequest) -> None:
+        del request
+        raise deadline
+
+    supervisor, _, _, _, _, _ = _supervisor(
+        provider=_LiveProvider([first]),
+        recovery=_Recovery(on_call=fail_recovery),
+    )
+
+    with pytest.raises(TransportDeadlineExceeded) as raised:
+        await supervisor.run()
+
+    assert raised.value is deadline
+    assert first.closed
+    snapshot = supervisor.snapshot()
+    assert snapshot.state is RuntimeState.ERROR
+    assert snapshot.last_error == str(deadline)
+    assert supervisor.quarantined is True
 
 
 @pytest.mark.asyncio

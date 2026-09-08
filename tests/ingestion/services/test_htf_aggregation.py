@@ -174,9 +174,9 @@ def _complete_three_minute_bucket(
 ) -> tuple[datetime, tuple[CanonicalCandle, ...]]:
     bucket_start = datetime(2026, 8, 9, 9, 0, tzinfo=UTC)
     values = (
-        (Decimal(100), Decimal(105), Decimal(99), Decimal(102), Decimal(1)),
-        (Decimal(102), Decimal(106), Decimal(101), Decimal(104), Decimal(2)),
-        (Decimal(104), Decimal(107), Decimal(103), Decimal(106), Decimal(4)),
+        (Decimal(100), Decimal(105), Decimal(99), Decimal(102), Decimal(2)),
+        (Decimal(102), Decimal(106), Decimal(101), Decimal(104), Decimal(3)),
+        (Decimal(104), Decimal(107), Decimal(103), Decimal(106), Decimal(5)),
     )
     return bucket_start, tuple(
         _candle(
@@ -216,7 +216,7 @@ async def test_complete_bucket_aggregates_exact_decimal_values_and_provenance() 
     assert derived.high == Decimal(107)
     assert derived.low == Decimal(99)
     assert derived.close == Decimal(106)
-    assert derived.volume == Decimal(7)
+    assert derived.volume == Decimal(10)
     assert derived.taker_buy_base == Decimal(10)
     assert derived.source_type == "derived"
     assert derived.source_provider is None

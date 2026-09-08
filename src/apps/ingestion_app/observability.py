@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import threading
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Any
@@ -40,6 +40,7 @@ class IngestionObservability:
         self._websocket_connected = False
         self._queue_utilization = 0.0
         self._base_last_close: dict[tuple[str, str], float] = {}
+        self._active_base_lanes: frozenset[tuple[str, str]] | None = None
         self._outbox_pending = 0
         self._outbox_oldest = 0.0
 
@@ -202,9 +203,31 @@ class IngestionObservability:
         key = (lane.venue, lane.instrument_id)
         timestamp = close_time.timestamp()
         with self._lock:
+            if (
+                self._active_base_lanes is not None
+                and key not in self._active_base_lanes
+            ):
+                return
             previous = self._base_last_close.get(key)
             if previous is None or timestamp > previous:
                 self._base_last_close[key] = timestamp
+
+    def install_active_lanes(self, lanes: Iterable[MarketLane]) -> None:
+        """Install the active snapshot and retain progress for unchanged lanes."""
+        active_keys: set[tuple[str, str]] = set()
+        for lane in lanes:
+            if not isinstance(lane, MarketLane):
+                raise TypeError("active lanes must contain MarketLane instances")
+            active_keys.add((lane.venue, lane.instrument_id))
+
+        with self._lock:
+            active = frozenset(active_keys)
+            self._active_base_lanes = active
+            self._base_last_close = {
+                key: timestamp
+                for key, timestamp in self._base_last_close.items()
+                if key in active
+            }
 
     def set_websocket_connected(self, connected: bool) -> None:
         with self._lock:

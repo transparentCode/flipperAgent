@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import asyncio
+import threading
+import time
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
 
-import apps.ingestion_app.providers.binance_native as provider_module
+import apps.ingestion_app.providers.binance_native as native_module
+import apps.ingestion_app.runtime.blocking as blocking_module
 from apps.ingestion_app.domain.instrument import MarketLane
+from apps.ingestion_app.providers.base import TransportDeadlineExceeded
 from apps.ingestion_app.providers.binance_native import (
     BinanceNativeHistoricalProvider,
 )
@@ -16,6 +21,31 @@ LANE = MarketLane("binance", "BTC-USDT-PERP", "1m")
 SINCE = datetime(2026, 1, 1, 0, 0, tzinfo=UTC)
 UNTIL = datetime(2026, 1, 1, 0, 3, tzinfo=UTC)
 MINUTE = timedelta(minutes=1)
+
+
+class _CountingDateTime(datetime):
+    calls = 0
+    values = (
+        SINCE + timedelta(minutes=10),
+        SINCE + timedelta(minutes=11),
+    )
+
+    @classmethod
+    def now(cls, tz: object = None) -> datetime:
+        value = cls.values[cls.calls]
+        cls.calls += 1
+        if tz is not None:
+            value = value.astimezone(tz)  # type: ignore[arg-type]
+        return cls(
+            value.year,
+            value.month,
+            value.day,
+            value.hour,
+            value.minute,
+            value.second,
+            value.microsecond,
+            tzinfo=value.tzinfo,
+        )
 
 
 def _epoch_milliseconds(value: datetime) -> int:
@@ -61,10 +91,12 @@ class _FakeBinanceClient:
         self.rows = rows
         self.error = error
         self.calls: list[tuple[object, ...]] = []
+        self.call_thread_ids: list[int] = []
         self.session = _FakeSession()
 
     def klines(self, *args: object, **kwargs: object) -> object:
         self.calls.append((*args, kwargs))
+        self.call_thread_ids.append(threading.get_ident())
         if self.error is not None:
             raise self.error
         return self.rows
@@ -78,6 +110,56 @@ class _FakeSession:
         self.closed = True
 
 
+class _HeldBinanceClient(_FakeBinanceClient):
+    def __init__(self, rows: object = ()) -> None:
+        super().__init__(rows)
+        self.klines_started = threading.Event()
+        self.release_klines = threading.Event()
+        self.klines_call_count = 0
+        self._count_lock = threading.Lock()
+
+    def klines(self, *args: object, **kwargs: object) -> object:
+        with self._count_lock:
+            self.klines_call_count += 1
+        self.klines_started.set()
+        self.release_klines.wait(5)
+        return super().klines(*args, **kwargs)
+
+
+async def _wait_for_retained_workers(
+    provider: BinanceNativeHistoricalProvider,
+    expected: int,
+    *,
+    timeout: float = 1.0,
+) -> None:
+    deadline = time.monotonic() + timeout
+    while provider.retained_worker_count != expected:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            pytest.fail(
+                f"retained worker count did not reach {expected}; "
+                f"got {provider.retained_worker_count}"
+            )
+        await asyncio.sleep(min(0.01, remaining))
+
+
+async def _wait_for_call_count(
+    client: _HeldBinanceClient,
+    expected: int,
+    *,
+    timeout: float = 1.0,
+) -> None:
+    deadline = time.monotonic() + timeout
+    while client.klines_call_count < expected:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            pytest.fail(
+                f"SDK call count did not reach {expected}; "
+                f"got {client.klines_call_count}"
+            )
+        await asyncio.sleep(min(0.01, remaining))
+
+
 @pytest.mark.asyncio
 async def test_binance_close_closes_http_session() -> None:
     client = _FakeBinanceClient()
@@ -88,20 +170,25 @@ async def test_binance_close_closes_http_session() -> None:
 
 
 @pytest.mark.asyncio
-async def test_binance_normalizes_decimal_utc_and_provider_close_evidence() -> None:
+async def test_binance_normalizes_decimal_utc_and_provider_close_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     client = _FakeBinanceClient(
         [
             _raw_kline(SINCE + MINUTE),
             _raw_kline(SINCE),
         ]
     )
+    monkeypatch.setattr(native_module, "datetime", _CountingDateTime)
+    since = _CountingDateTime(2026, 1, 1, tzinfo=UTC)
+    until = _CountingDateTime(2026, 1, 1, 0, 3, tzinfo=UTC)
 
     result = await BinanceNativeHistoricalProvider(client).fetch_closed_candles(
         lane=LANE,
         provider_symbol="BTCUSDT",
         timeframe_duration=MINUTE,
-        since=SINCE,
-        until=UNTIL,
+        since=since,
+        until=until,
         limit=10,
     )
 
@@ -122,6 +209,26 @@ async def test_binance_normalizes_decimal_utc_and_provider_close_evidence() -> N
     assert client.calls[0][1] == "1m"
     assert client.calls[0][2]["startTime"] == _epoch_milliseconds(SINCE)
     assert client.calls[0][2]["limit"] == 10
+    assert len({observation.received_at for observation in result}) == 1
+    assert _CountingDateTime.calls == 2  # request cutoff + one batch sample
+    assert result[0].received_at == SINCE + timedelta(minutes=11)
+
+
+@pytest.mark.asyncio
+async def test_binance_rejects_taker_buy_base_above_volume() -> None:
+    client = _FakeBinanceClient(
+        [_raw_kline(SINCE, volume_value="3.00", taker_value="4.00")]
+    )
+
+    with pytest.raises(DataIngestionError, match="invalid candle values"):
+        await BinanceNativeHistoricalProvider(client).fetch_closed_candles(
+            lane=LANE,
+            provider_symbol="BTCUSDT",
+            timeframe_duration=MINUTE,
+            since=SINCE,
+            until=UNTIL,
+            limit=10,
+        )
 
 
 @pytest.mark.asyncio
@@ -172,6 +279,26 @@ async def test_binance_filters_half_open_range_forming_rows_and_limit() -> None:
 
 
 @pytest.mark.asyncio
+async def test_binance_filters_out_of_window_invalid_values_before_candle_validation() -> (
+    None
+):
+    row = _raw_kline(SINCE - MINUTE, volume_value="-1.00", taker_value="0")
+
+    result = await BinanceNativeHistoricalProvider(
+        _FakeBinanceClient([row])
+    ).fetch_closed_candles(
+        lane=LANE,
+        provider_symbol="BTCUSDT",
+        timeframe_duration=MINUTE,
+        since=SINCE,
+        until=UNTIL,
+        limit=10,
+    )
+
+    assert result == ()
+
+
+@pytest.mark.asyncio
 async def test_binance_filters_candle_that_is_not_closed_at_request_cutoff() -> None:
     now = datetime.now(UTC)
     forming_open_time = now + timedelta(hours=1)
@@ -206,21 +333,8 @@ async def test_binance_empty_response_is_empty_tuple() -> None:
 
 
 @pytest.mark.asyncio
-async def test_binance_sync_sdk_call_is_offloaded(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+async def test_binance_sync_sdk_call_is_offloaded() -> None:
     client = _FakeBinanceClient([_raw_kline(SINCE)])
-    calls: list[tuple[object, ...]] = []
-
-    async def fake_to_thread(
-        function: object,
-        *args: object,
-        **kwargs: object,
-    ) -> object:
-        calls.append((function, *args, kwargs))
-        return function(*args, **kwargs)  # type: ignore[operator]
-
-    monkeypatch.setattr(provider_module.asyncio, "to_thread", fake_to_thread)
 
     result = await BinanceNativeHistoricalProvider(client).fetch_closed_candles(
         lane=LANE,
@@ -232,8 +346,264 @@ async def test_binance_sync_sdk_call_is_offloaded(
     )
 
     assert len(result) == 1
-    assert calls
-    assert getattr(calls[0][0], "__self__", None) is client
+    assert client.call_thread_ids
+    assert client.call_thread_ids[0] != threading.get_ident()
+
+
+@pytest.mark.asyncio
+async def test_binance_successful_fetch_then_immediate_close_drains_worker() -> None:
+    client = _FakeBinanceClient([])
+    provider = BinanceNativeHistoricalProvider(client)
+
+    result = await provider.fetch_closed_candles(
+        lane=LANE,
+        provider_symbol="BTCUSDT",
+        timeframe_duration=MINUTE,
+        since=SINCE,
+        until=UNTIL,
+        limit=10,
+    )
+    await provider.close()
+
+    assert result == ()
+    assert client.session.closed is True
+    assert provider.retained_worker_count == 0
+
+
+@pytest.mark.asyncio
+async def test_binance_deadline_retains_worker_and_quarantines_provider() -> None:
+    client = _HeldBinanceClient([])
+    provider = BinanceNativeHistoricalProvider(
+        client,
+        attempt_timeout_seconds=0.01,
+    )
+    task = asyncio.create_task(
+        provider.fetch_closed_candles(
+            lane=LANE,
+            provider_symbol="BTCUSDT",
+            timeframe_duration=MINUTE,
+            since=SINCE,
+            until=UNTIL,
+            limit=10,
+        )
+    )
+    assert await asyncio.to_thread(client.klines_started.wait, 1)
+
+    try:
+        with pytest.raises(TransportDeadlineExceeded):
+            await task
+        assert provider.retained_worker_count == 1
+        assert provider.quarantined is True
+        with pytest.raises(TransportDeadlineExceeded):
+            await provider.fetch_closed_candles(
+                lane=LANE,
+                provider_symbol="BTCUSDT",
+                timeframe_duration=MINUTE,
+                since=SINCE,
+                until=UNTIL,
+                limit=10,
+            )
+    finally:
+        client.release_klines.set()
+
+    await _wait_for_retained_workers(provider, 0)
+    assert provider.quarantined is True
+
+
+@pytest.mark.asyncio
+async def test_binance_cancellation_releases_only_after_worker_finishes() -> None:
+    client = _HeldBinanceClient([])
+    provider = BinanceNativeHistoricalProvider(
+        client,
+        attempt_timeout_seconds=1,
+    )
+    task = asyncio.create_task(
+        provider.fetch_closed_candles(
+            lane=LANE,
+            provider_symbol="BTCUSDT",
+            timeframe_duration=MINUTE,
+            since=SINCE,
+            until=UNTIL,
+            limit=10,
+        )
+    )
+    assert await asyncio.to_thread(client.klines_started.wait, 1)
+
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert provider.quarantined is False
+    assert provider.retained_worker_count == 1
+
+    client.release_klines.set()
+    await _wait_for_retained_workers(provider, 0)
+
+    result = await provider.fetch_closed_candles(
+        lane=LANE,
+        provider_symbol="BTCUSDT",
+        timeframe_duration=MINUTE,
+        since=SINCE,
+        until=UNTIL,
+        limit=10,
+    )
+    assert result == ()
+
+
+@pytest.mark.asyncio
+async def test_binance_close_timeout_does_not_close_session_concurrently() -> None:
+    class _HeldSession:
+        def __init__(self) -> None:
+            self.started = threading.Event()
+            self.release = threading.Event()
+            self.close_calls = 0
+            self.closed = False
+
+        def close(self) -> None:
+            self.close_calls += 1
+            self.started.set()
+            self.release.wait(5)
+            self.closed = True
+
+    client = _FakeBinanceClient([])
+    session = _HeldSession()
+    client.session = session
+    provider = BinanceNativeHistoricalProvider(
+        client,
+        attempt_timeout_seconds=0.01,
+    )
+
+    close_task = asyncio.create_task(provider.close())
+    assert await asyncio.to_thread(session.started.wait, 1)
+    with pytest.raises(TransportDeadlineExceeded):
+        await close_task
+    assert session.close_calls == 1
+    assert session.closed is False
+    assert provider.quarantined is True
+    assert provider.retained_worker_count == 1
+
+    session.release.set()
+    await _wait_for_retained_workers(provider, 0)
+    with pytest.raises(TransportDeadlineExceeded):
+        await provider.close()
+    assert session.close_calls == 1
+
+
+@pytest.mark.parametrize("timeout", [float("nan"), float("inf"), float("-inf")])
+def test_binance_rejects_non_finite_timeout(timeout: float) -> None:
+    with pytest.raises(ValueError, match="attempt_timeout_seconds"):
+        BinanceNativeHistoricalProvider(attempt_timeout_seconds=timeout)
+
+
+@pytest.mark.asyncio
+async def test_binance_admits_configured_capacity_without_queueing() -> None:
+    client = _HeldBinanceClient([])
+    provider = BinanceNativeHistoricalProvider(
+        client,
+        attempt_timeout_seconds=1,
+        max_concurrency=4,
+    )
+
+    async def fetch() -> tuple[object, ...]:
+        return await provider.fetch_closed_candles(
+            lane=LANE,
+            provider_symbol="BTCUSDT",
+            timeframe_duration=MINUTE,
+            since=SINCE,
+            until=UNTIL,
+            limit=10,
+        )
+
+    tasks = [asyncio.create_task(fetch()) for _ in range(4)]
+    try:
+        await _wait_for_call_count(client, 4)
+        with pytest.raises(DataIngestionError, match="saturated"):
+            await fetch()
+        client.release_klines.set()
+        results = await asyncio.wait_for(asyncio.gather(*tasks), 2)
+    finally:
+        client.release_klines.set()
+    assert results == [(), (), (), ()]
+    assert provider.quarantined is False
+    await _wait_for_retained_workers(provider, 0)
+
+
+@pytest.mark.asyncio
+async def test_binance_sdk_timeout_error_is_normal_retryable_error() -> None:
+    provider = BinanceNativeHistoricalProvider(
+        _FakeBinanceClient(error=TimeoutError("SDK timeout")),
+        attempt_timeout_seconds=1,
+    )
+
+    with pytest.raises(DataIngestionError):
+        await provider.fetch_closed_candles(
+            lane=LANE,
+            provider_symbol="BTCUSDT",
+            timeframe_duration=MINUTE,
+            since=SINCE,
+            until=UNTIL,
+            limit=10,
+        )
+
+    assert provider.quarantined is False
+    await _wait_for_retained_workers(provider, 0)
+
+
+@pytest.mark.asyncio
+async def test_binance_thread_start_failure_releases_admission_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_start(_thread: threading.Thread) -> None:
+        raise RuntimeError("thread start failed")
+
+    monkeypatch.setattr(blocking_module.Thread, "start", fail_start)
+    client = _FakeBinanceClient([])
+    provider = BinanceNativeHistoricalProvider(client)
+
+    with pytest.raises(DataIngestionError, match="failed to fetch klines"):
+        await provider.fetch_closed_candles(
+            lane=LANE,
+            provider_symbol="BTCUSDT",
+            timeframe_duration=MINUTE,
+            since=SINCE,
+            until=UNTIL,
+            limit=10,
+        )
+
+    assert provider.retained_worker_count == 0
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+async def test_binance_close_cancellation_does_not_stick_closing_state() -> None:
+    class _HeldSession:
+        def __init__(self) -> None:
+            self.started = threading.Event()
+            self.release = threading.Event()
+            self.close_calls = 0
+            self.closed = False
+
+        def close(self) -> None:
+            self.close_calls += 1
+            self.started.set()
+            self.release.wait(5)
+            self.closed = True
+
+    client = _FakeBinanceClient([])
+    session = _HeldSession()
+    client.session = session
+    provider = BinanceNativeHistoricalProvider(client, attempt_timeout_seconds=1)
+
+    close_task = asyncio.create_task(provider.close())
+    assert await asyncio.to_thread(session.started.wait, 1)
+    close_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await close_task
+
+    session.release.set()
+    await _wait_for_retained_workers(provider, 0)
+    await provider.close()
+    assert session.close_calls == 1
+    assert session.closed is True
 
 
 @pytest.mark.asyncio

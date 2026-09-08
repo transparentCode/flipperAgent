@@ -60,6 +60,18 @@ components: {
     link: "../../../src/apps/ingestion_app/settings.py"
   }
 
+  provider_factory: {
+    class: component
+    label: "provider factory\nvalidate + construct"
+    link: "../../../src/apps/ingestion_app/providers/factory.py"
+  }
+
+  rest_decoder: {
+    class: component
+    label: "Binance REST row decoders\nadapter-specific order"
+    link: "../../../src/apps/ingestion_app/providers/binance_rest.py"
+  }
+
   config_service: {
     class: component
     label: "AssetConfigService"
@@ -82,6 +94,12 @@ components: {
     class: component
     label: "BinanceWebSocketManager"
     link: "../../../src/apps/ingestion_app/runtime/websocket.py"
+  }
+
+  websocket_decoder: {
+    class: component
+    label: "Binance websocket\npayload decoder"
+    link: "../../../src/apps/ingestion_app/runtime/binance_websocket_decode.py"
   }
 
   recovery: {
@@ -263,14 +281,19 @@ sources.config_assets -> components.settings: "register directory"
 sources.control -> components.config_service: "create / patch assets"
 sources.control -> components.controller: "pause / resume / reconnect / recover"
 sources.ws -> components.websocket: "finalized base klines"
-sources.rest -> components.recovery: "historical pages"
+sources.ws -> components.websocket_decoder: "raw finalized payload"
+sources.rest -> components.rest_decoder: "historical rows"
+components.rest_decoder -> components.recovery: "provider observations"
 
+components.settings -> components.provider_factory: "validated provider refs"
+components.provider_factory -> components.recovery: "owned historical providers"
 components.settings -> components.controller: "validated runtime composition"
 components.config_service -> components.settings: "reload"
 components.config_service -> components.controller: "atomic settings replacement"
 components.config_service -> components.lifecycle: "mark dirty"
 components.controller -> components.supervisor: "start / replace / control"
-components.websocket -> contracts.observation: "emit"
+components.websocket -> components.websocket_decoder: "raw payload"
+components.websocket_decoder -> contracts.observation: "emit"
 contracts.observation -> components.supervisor: "live input"
 components.supervisor -> components.canonicalize: "base commit"
 components.supervisor -> components.htf: "base candle"

@@ -61,8 +61,11 @@ def _validate_candle_values(
         raise ValueError("close must be between low and high")
     if volume < 0:
         raise ValueError("volume must be non-negative")
-    if taker_buy_base is not None and taker_buy_base < 0:
-        raise ValueError("taker_buy_base must be non-negative")
+    if taker_buy_base is not None:
+        if taker_buy_base < 0:
+            raise ValueError("taker_buy_base must be non-negative")
+        if taker_buy_base > volume:
+            raise ValueError("taker_buy_base must be less than or equal to volume")
 
 
 @dataclass(frozen=True, slots=True)

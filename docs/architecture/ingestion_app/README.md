@@ -17,6 +17,7 @@ It answers four questions:
 - `io.d2` — detailed data, storage, stream, and API contract view
 - `lifecycle_sequence.d2` — startup, live, interruption/recovery, config mutation,
   and shutdown sequences
+- `feature_map.md` — entry point -> owner -> durable effect -> regression map
 - this file — narrative HLD and review guide
 
 ## Purpose
@@ -87,10 +88,17 @@ There is no delete endpoint.
 ### 2. Runtime controller and supervisor
 
 `RuntimeController` owns process-level desired state and replaces supervisors when
-configuration changes.
+configuration changes. Settings replacement and manual recovery take a
+`_RuntimeCheckpoint`; `_stop_for_transition(operation)` drains the old generation,
+checks post-stop quarantine, and only then detaches it. Reconnect retains its
+deliberate no-rollback behavior. Cancellation restoration is synchronous and only
+applies to the commands that already had rollback semantics.
 
-`RuntimeSupervisor` resolves enabled assets into base-timeframe `MarketLane`s and
-runs the data plane:
+`RuntimeSupervisor` uses the pure same-file
+`_resolve_lane_contexts(settings, live_provider)` helper to resolve enabled assets
+into base-timeframe `MarketLane`s, then runs the data plane.
+`_run_live_or_interruption_cycle` keeps stream-interruption conversion local while
+the run loop has one common cancellation/deadline/ordinary failure boundary:
 
 1. determine the latest closed base boundary;
 2. perform bounded startup catch-up from Timescale state;
@@ -111,10 +119,39 @@ pluggable through `HistoricalCandleProvider` and currently composes:
 - `BinanceNativeHistoricalProvider`;
 - `CCXTHistoricalProvider` for Binance USD-M futures.
 
+`providers/factory.py` owns provider-reference validation and construction while
+the bootstrap retains resource ownership and partial-construction cleanup.
+Historical SDK calls remain in their adapter modules; `providers/binance_rest.py`
+contains pure row decoders. The Native and CCXT decoders deliberately retain
+their different out-of-window invalid-value ordering and error contracts rather
+than introducing a branching shared loop. Websocket SDK lifecycle remains in
+`runtime/websocket.py`, while `runtime/binance_websocket_decode.py` owns pure
+payload decoding and receives the receive-time sampling seam only at finalized
+observation construction.
+
 `RecoveryEngine` performs bounded window paging, provider-order fallback,
 per-lane locking, global concurrency limiting, retry/backoff, closed-candle
 cutoffs, and HTF follow-up reconciliation. Recovery requests are explicit,
 UTC-aware, aligned ranges; they are not an unbounded replay mechanism.
+
+#### Transport deadlines and ownership
+
+Provider attempt and websocket lifecycle deadlines are configuration-owned and
+default to 30 seconds. A native REST attempt is executed through one owned
+daemon wrapper worker and the SDK receives the same configured timeout as a
+defense in depth. A CCXT attempt owns `load_markets`, symbol resolution, and the
+raw request together under one bounded task. Websocket factory, subscription,
+and stop operations use the same ownership boundary; native REST session close
+and CCXT exchange close are bounded provider cleanup operations.
+
+Admission is limited by `recovery.max_concurrency` without an unbounded queue.
+Caller cancellation abandons the result but does not release a slot until the
+worker or task actually finishes. A normal SDK error whose ownership is known to
+be released follows the existing retry/fallback path. If a deadline expires
+while ownership is unresolved, or cleanup fails, the provider/lifecycle is
+quarantined and the runtime remains in `ERROR`; later completion releases the
+lease but never clears the sticky quarantine. The implementation does not claim
+to hard-stop a running SDK operation or its own socket-manager thread.
 
 ### 4. Canonicalization and Timescale persistence
 
@@ -216,6 +253,18 @@ The live provider raises `LiveStreamInterrupted` with bounded recovery requests.
 The supervisor enters `RECOVERING`, closes the missing range using historical
 providers, waits the configured reconnect backoff, then starts a fresh live cycle.
 
+Control cancellation during that repair is consumed as a runtime transition;
+external cancellation propagates after the supervisor publishes `STOPPED`; a
+typed transport deadline is latched as fatal `ERROR`; ordinary failures retain
+their error log and `ERROR` state. These branches are characterized in the
+runtime supervisor tests before the common handler extraction.
+
+An unresolved websocket factory, subscription, or stop deadline, or a failed
+transport cleanup, is a fatal transport condition with an operation-specific
+diagnostic. The controller synchronizes that state before pause, resume,
+reconnect, replacement, recovery, or close gates, so a quarantined supervisor
+cannot be replaced or hidden by a late cleanup callback.
+
 ### Database unavailable
 
 Canonical writes and recovery fail closed. Readiness reflects runtime failure; the
@@ -250,6 +299,11 @@ certification-specific quiescence rule.
 - pending outbox rows survive broker failure;
 - published outbox cleanup never deletes pending rows;
 - recovery is bounded and cancellation-aware;
+- provider and websocket lifecycle deadlines are finite, configuration-owned,
+  and default to 30 seconds;
+- transport ownership and admission remain held until actual SDK/task cleanup;
+- unresolved deadline or cleanup state is sticky quarantine and keeps readiness
+  failed;
 - one lane recovery is serialized by lane lock;
 - enabled runtime assets are config driven;
 - downstream historical recovery reads Timescale rather than assuming Valkey is a

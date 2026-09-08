@@ -53,6 +53,16 @@ app: {
     label: "BinanceWebSocketManager"
     link: "../../../src/apps/ingestion_app/runtime/websocket.py"
   }
+  websocket_decoder: {
+    class: component
+    label: "Binance websocket payload decoder"
+    link: "../../../src/apps/ingestion_app/runtime/binance_websocket_decode.py"
+  }
+  owned_call: {
+    class: component
+    label: "Owned transport call\nbounded wait + retained lease"
+    link: "../../../src/apps/ingestion_app/runtime/blocking.py"
+  }
   htf: {
     class: component
     label: "HTFAggregationService"
@@ -107,7 +117,8 @@ app.htf -> persistence.candles: "derive complete buckets"
 persistence.candles -> startup.s6
 startup.s6 -> app.websocket
 actors.exchange -> app.websocket: "finalized klines"
-app.websocket -> startup.s7
+app.websocket -> app.websocket_decoder: "raw finalized payload"
+app.websocket_decoder -> startup.s7
 startup.s7 -> app.supervisor: "state=LIVE"
 
 live: {
@@ -121,7 +132,7 @@ live: {
   l7: { class: state; label: "7. signal consumer processes stream" }
 }
 
-app.websocket -> live.l1
+app.websocket_decoder -> live.l1
 live.l1 -> live.l2
 live.l2 -> app.repository
 app.repository -> persistence.candles: "candle"
@@ -147,6 +158,7 @@ interruption: {
   r5: { class: state; label: "5. reconcile affected HTFs" }
   r6: { class: state; label: "6. reconnect backoff" }
   r7: { class: state; label: "7. fresh startup/catch-up then websocket" }
+  r8: { class: state; label: "failure branch: control cancel / external cancel / typed deadline" }
 }
 
 app.websocket -> interruption.r1
@@ -161,14 +173,42 @@ interruption.r5 -> app.htf
 app.htf -> interruption.r6
 interruption.r6 -> interruption.r7
 interruption.r7 -> app.supervisor
+interruption.r3 -> interruption.r8: "recovery failure"
+interruption.r6 -> interruption.r8: "cancel or deadline"
+interruption.r8 -> app.supervisor: "STOPPED / ERROR + sticky quarantine"
+
+transport_bounds: {
+  label: "Sequence D — bounded transport lifecycle and quarantine"
+  t1: { class: state; label: "1. load configured 30s attempt/lifecycle bounds" }
+  t2: { class: state; label: "2. admit without queueing; start owned call" }
+  t3: { class: state; label: "3. factory + subscribe / load_markets + raw request" }
+  t4: { class: state; label: "4. normal SDK error -> existing retry/fallback path" }
+  t5: { class: state; label: "5. deadline while ownership remains -> ERROR + quarantine" }
+  t6: { class: state; label: "6. retain lease until actual worker cleanup finishes" }
+  t7: { class: state; label: "7. release slot; quarantine remains sticky" }
+}
+
+app.controller -> transport_bounds.t1
+transport_bounds.t1 -> app.owned_call
+app.owned_call -> transport_bounds.t2
+transport_bounds.t2 -> app.websocket: "factory / subscribe / stop"
+transport_bounds.t2 -> app.recovery: "native REST / CCXT attempt"
+app.websocket -> transport_bounds.t3
+app.recovery -> transport_bounds.t3
+transport_bounds.t3 -> transport_bounds.t4: "completed SDK error"
+transport_bounds.t3 -> transport_bounds.t5: "wait deadline expires first"
+transport_bounds.t5 -> app.supervisor: "fatal typed state"
+transport_bounds.t5 -> transport_bounds.t6: "ownership retained"
+transport_bounds.t6 -> transport_bounds.t7: "actual completion / cleanup"
+transport_bounds.t7 -> app.owned_call
 
 mutation: {
-  label: "Sequence D — asset config mutation"
+  label: "Sequence E — asset config mutation"
   m1: { class: state; label: "1. POST/PATCH asset" }
   m2: { class: state; label: "2. validate candidate + runtime compatibility" }
   m3: { class: state; label: "3. write registered asset YAML" }
   m4: { class: state; label: "4. reload and compare exact candidate" }
-  m5: { class: state; label: "5. replace supervisor settings" }
+  m5: { class: state; label: "5. checkpoint + replace supervisor settings" }
   m6: { class: state; label: "6. mark lifecycle asset dirty" }
   m7: { class: state; label: "7. sync manifests + publish lifecycle transition" }
   m8: { class: state; label: "failure/cancellation -> rollback disk + runtime" }
@@ -190,8 +230,29 @@ mutation.m2 -> mutation.m8: "invalid"
 mutation.m3 -> mutation.m8: "write/reload/replace failure"
 mutation.m5 -> mutation.m8: "cancelled / runtime failure"
 
+transition: {
+  label: "Sequence G — ordered runtime generation transition"
+  g1: { class: state; label: "1. checkpoint + pre-stop build where required" }
+  g2: { class: state; label: "2. stop old supervisor and drain its task" }
+  g3: { class: state; label: "3. sync/check post-stop quarantine" }
+  g4: { class: state; label: "4. detach only after the check" }
+  g5: { class: state; label: "5. offline repair after stop, then install/start" }
+  g6: { class: state; label: "6. settings/recovery cancellation -> restore checkpoint" }
+  g7: { class: state; label: "reconnect install failure -> no rollback" }
+}
+
+actors.operator -> transition.g1: "runtime command"
+mutation.m5 -> transition.g1: "settings replacement"
+transition.g1 -> transition.g2
+transition.g2 -> transition.g3
+transition.g3 -> transition.g4: "not quarantined"
+transition.g4 -> transition.g5
+transition.g5 -> transition.g6: "caller cancellation"
+transition.g5 -> transition.g7: "reconnect install failure"
+transition.g5 -> app.controller: "new generation/status snapshot"
+
 shutdown: {
-  label: "Sequence E — controlled pause/drain used by certification"
+  label: "Sequence F — controlled pause/drain used by certification"
   q1: { class: state; label: "1. stop signal consumer" }
   q2: { class: state; label: "2. POST runtime/pause" }
   q3: { class: state; label: "3. wait desired=paused, state=stopped" }

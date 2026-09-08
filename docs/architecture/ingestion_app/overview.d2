@@ -46,6 +46,16 @@ ingestion_app: {
     link: "../../../src/apps/ingestion_app/settings.py"
   }
 
+  provider_factory: {
+    label: "provider factory\nvalidate + construct"
+    link: "../../../src/apps/ingestion_app/providers/factory.py"
+  }
+
+  rest_decoder: {
+    label: "Binance REST row decoders\nadapter-specific order"
+    link: "../../../src/apps/ingestion_app/providers/binance_rest.py"
+  }
+
   api: {
     label: "control API"
     link: "../../../src/apps/ingestion_app/api/routes.py"
@@ -61,14 +71,39 @@ ingestion_app: {
     link: "../../../src/apps/ingestion_app/runtime/controller.py"
   }
 
+  controller_checkpoint: {
+    label: "_RuntimeCheckpoint\nsettings + intent + started + error"
+    link: "../../../src/apps/ingestion_app/runtime/controller.py"
+  }
+
+  controller_transition: {
+    label: "_stop_for_transition\nstop -> quarantine check -> detach"
+    link: "../../../src/apps/ingestion_app/runtime/controller.py"
+  }
+
   supervisor: {
     label: "RuntimeSupervisor"
+    link: "../../../src/apps/ingestion_app/runtime/supervisor.py"
+  }
+
+  lane_resolution: {
+    label: "_resolve_lane_contexts(settings, provider)\npure lane/config helper"
+    link: "../../../src/apps/ingestion_app/runtime/supervisor.py"
+  }
+
+  supervisor_cycle: {
+    label: "_run_live_or_interruption_cycle\ncommon failure boundary"
     link: "../../../src/apps/ingestion_app/runtime/supervisor.py"
   }
 
   websocket: {
     label: "BinanceWebSocketManager"
     link: "../../../src/apps/ingestion_app/runtime/websocket.py"
+  }
+
+  websocket_decoder: {
+    label: "Binance websocket\npayload decoder"
+    link: "../../../src/apps/ingestion_app/runtime/binance_websocket_decode.py"
   }
 
   recovery: {
@@ -179,9 +214,12 @@ ops: {
 inputs.config -> ingestion_app.settings: "validate"
 inputs.api_client -> ingestion_app.api: "HTTP control"
 inputs.binance_ws -> ingestion_app.websocket: "finalized 1m candles"
-inputs.historical -> ingestion_app.recovery: "bounded historical pages"
+inputs.historical -> ingestion_app.rest_decoder: "raw historical rows"
+ingestion_app.rest_decoder -> ingestion_app.recovery: "provider observations"
 
 ingestion_app.main -> ingestion_app.settings: "load"
+ingestion_app.main -> ingestion_app.provider_factory: "validate / construct"
+ingestion_app.provider_factory -> ingestion_app.recovery: "owned historical providers"
 ingestion_app.main -> ingestion_app.controller: "compose/start"
 ingestion_app.main -> ingestion_app.publisher: "background task"
 ingestion_app.main -> ingestion_app.lifecycle: "broker-bound projection"
@@ -192,9 +230,17 @@ ingestion_app.config_service -> ingestion_app.settings: "reload candidate"
 ingestion_app.config_service -> ingestion_app.controller: "replace settings"
 ingestion_app.config_service -> ingestion_app.lifecycle: "mark asset dirty"
 ingestion_app.controller -> ingestion_app.supervisor: "fresh supervisor"
+ingestion_app.controller -> ingestion_app.controller_checkpoint: "checkpoint replace/recover"
+ingestion_app.controller_checkpoint -> ingestion_app.controller_transition: "ordered transition"
+ingestion_app.controller_transition -> ingestion_app.supervisor: "stop + post-stop check; detach"
 ingestion_app.supervisor -> ingestion_app.recovery: "startup / interruption recovery"
+ingestion_app.settings -> ingestion_app.lane_resolution: "typed enabled lanes"
+ingestion_app.lane_resolution -> ingestion_app.supervisor: "contexts + subscriptions"
+ingestion_app.supervisor -> ingestion_app.supervisor_cycle: "run loop"
+ingestion_app.supervisor_cycle -> ingestion_app.supervisor: "control cancel / deadline / error"
 ingestion_app.supervisor -> ingestion_app.websocket: "live stream"
-ingestion_app.websocket -> ingestion_app.supervisor: "CandleObservation"
+ingestion_app.websocket -> ingestion_app.websocket_decoder: "raw finalized payload"
+ingestion_app.websocket_decoder -> ingestion_app.supervisor: "CandleObservation"
 ingestion_app.supervisor -> ingestion_app.ingestion_service: "commit base candle"
 ingestion_app.supervisor -> ingestion_app.htf: "derive / reconcile HTFs"
 ingestion_app.recovery -> ingestion_app.ingestion_service: "recovered base candles"

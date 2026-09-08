@@ -12,6 +12,7 @@ import apps.ingestion_app.services.recovery as recovery_module
 from apps.ingestion_app.domain.candle import CandleObservation, CanonicalCandle
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
+from apps.ingestion_app.providers.base import TransportDeadlineExceeded
 from apps.ingestion_app.services.recovery import RecoveryEngine
 from apps.ingestion_app.services.time_alignment import aligned_bucket_start
 from apps.ingestion_app.storage.repository import CandleCommitStatus
@@ -605,6 +606,52 @@ async def test_primary_failures_are_bounded_before_fallback() -> None:
     assert {candle.source_provider for candle in repository.rows.values()} == {
         "ccxt_binance"
     }
+
+
+@pytest.mark.asyncio
+async def test_transport_deadline_bypasses_retry_and_fallback() -> None:
+    since = datetime(2026, 1, 1, tzinfo=UTC)
+    until = since + 2 * MINUTE
+    primary = _ScriptedProvider(
+        "binance_native",
+        [
+            TransportDeadlineExceeded(
+                provider_id="binance_native",
+                operation="REST klines",
+                timeout_seconds=30,
+            )
+        ],
+    )
+    fallback = _ScriptedProvider(
+        "ccxt_binance",
+        [lambda **kwargs: _rows(kwargs["since"], kwargs["until"])],
+    )
+    repository = _Repository()
+    engine = _engine(
+        repository,
+        _Ingestion(repository),
+        _HTF(),
+        {"binance_native": primary, "ccxt_binance": fallback},
+        max_attempts=3,
+    )
+
+    with pytest.raises(TransportDeadlineExceeded):
+        await engine.recover(
+            _request(since, until),
+            base_timeframe="1m",
+            base_duration=MINUTE,
+            provider_order=("binance_native", "ccxt_binance"),
+            provider_symbols={
+                "binance_native": "BTCUSDT",
+                "ccxt_binance": "BTC/USDT:USDT",
+            },
+            target_durations={},
+            alignment_origin=ORIGIN,
+        )
+
+    assert len(primary.calls) == 1
+    assert fallback.calls == []
+    assert repository.rows == {}
 
 
 @pytest.mark.asyncio

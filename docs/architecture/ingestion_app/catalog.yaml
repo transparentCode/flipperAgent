@@ -19,6 +19,14 @@ canonical_naming:
     otel_service_name: ingestion
     candle_event_producer: ingestion
 
+architecture_documents:
+  readme: docs/architecture/ingestion_app/README.md
+  feature_map: docs/architecture/ingestion_app/feature_map.md
+  d2_sources:
+    - docs/architecture/ingestion_app/overview.d2
+    - docs/architecture/ingestion_app/io.d2
+    - docs/architecture/ingestion_app/lifecycle_sequence.d2
+
 entrypoints:
   process:
     path: src/apps/ingestion_app/main.py
@@ -45,6 +53,7 @@ configuration:
     - provider availability
     - recovery limits and finalization grace
     - websocket endpoint and queue bound
+    - provider attempt and websocket lifecycle deadlines
     - runtime reconnect backoff
     - server bind
     - publication batch/stream bounds
@@ -65,15 +74,38 @@ internal_components:
   - name: provider_layer
     paths:
       - src/apps/ingestion_app/providers/base.py
+      - src/apps/ingestion_app/providers/factory.py
+      - src/apps/ingestion_app/providers/binance_native.py
+      - src/apps/ingestion_app/providers/ccxt.py
+      - src/apps/ingestion_app/providers/binance_rest.py
+      - src/apps/ingestion_app/runtime/websocket.py
+      - src/apps/ingestion_app/runtime/binance_websocket_decode.py
+    responsibilities:
+      - structural historical/live provider protocols
+      - validate referenced provider IDs and construct owned historical providers
+      - Binance-native REST history
+      - CCXT Binance USD-M historical fallback
+      - preserve adapter-specific REST row validation and filtering order
+      - multiplexed finalized Binance websocket candles
+      - decode websocket payloads at finalized observation construction
+      - bounded owned-call admission for synchronous SDK and websocket lifecycle calls
+      - CCXT load-markets plus raw request ownership within one attempt deadline
+      - sticky quarantine when a deadline or cleanup leaves transport ownership uncertain
+      - interruption-to-recovery request generation
+
+  - name: transport_ownership
+    paths:
+      - src/apps/ingestion_app/runtime/blocking.py
       - src/apps/ingestion_app/providers/binance_native.py
       - src/apps/ingestion_app/providers/ccxt.py
       - src/apps/ingestion_app/runtime/websocket.py
     responsibilities:
-      - structural historical/live provider protocols
-      - Binance-native REST history
-      - CCXT Binance USD-M historical fallback
-      - multiplexed finalized Binance websocket candles
-      - interruption-to-recovery request generation
+      - admit only up to configured recovery.max_concurrency without queueing
+      - bound each provider attempt and websocket lifecycle operation at 30 seconds by default
+      - retain ownership and admission until the actual worker or task finishes
+      - classify completed SDK errors as normal retryable failures
+      - quarantine unresolved deadlines or cleanup failures with honest diagnostics
+      - release completion signals without retaining SDK result or exception payloads
 
   - name: runtime_controller
     paths:
@@ -83,18 +115,23 @@ internal_components:
       - runtime pause/resume/reconnect/manual recovery
       - validated settings replacement
       - fresh supervisor replacement after config change
+      - checkpoint cancellation restoration for settings replacement and recovery
+      - post-stop quarantine check before generation detachment or installation
+      - deliberate no-rollback reconnect transition
 
   - name: runtime_supervisor
     paths:
       - src/apps/ingestion_app/runtime/supervisor.py
     responsibilities:
       - resolve enabled base lanes from config
+      - pure same-file lane resolution from settings and the injected live provider
       - bounded startup catch-up
       - reconcile latest closed HTFs before websocket connect
       - commit finalized live base candles
       - trigger affected HTF work
       - close recovery requests before reconnect
       - fail on canonical conflict
+      - common cancellation/deadline/ordinary-failure handling for live and interruption paths
 
   - name: canonical_ingestion
     paths:
@@ -283,6 +320,7 @@ runtime_states:
 failure_contracts:
   broker_unavailable: canonical DB writes continue; outbox remains pending and publisher retries
   websocket_interrupted: close bounded recovery requests before reconnect
+  transport_deadline: unresolved provider or websocket lifecycle ownership enters fatal state; retain the lease, quarantine reopening, and keep readiness failed
   database_unavailable: canonical path fails closed; no non-durable acknowledgement
   canonical_conflict: fatal data-quality error; never silent overwrite
   config_mutation_failure: rollback config file and runtime settings
@@ -296,6 +334,10 @@ validated_invariants:
   - pending outbox survives broker outage
   - no automatic replay of already-published history after destructive Valkey loss
   - bounded recovery with per-lane locks and global concurrency limit
+  - transport admission has configured capacity and no unbounded wait queue
+  - transport leases outlive caller cancellation and deadline until actual cleanup
+  - deadline quarantine is sticky across controller pause, close, and replacement paths
+  - normal completed SDK errors retain existing retry/fallback behavior
   - dynamic asset config rollback safety
   - lifecycle manifests rebuilt after broker loss
   - signal startup/history recovery uses Timescale authority

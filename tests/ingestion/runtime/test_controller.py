@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import copy
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from apps.ingestion_app.domain.recovery import RecoveryRequest
+from apps.ingestion_app.observability import IngestionObservability
 from apps.ingestion_app.runtime.controller import (
     RuntimeControlConflictError,
     RuntimeController,
@@ -81,6 +82,23 @@ class _FakeSupervisor:
         self.recovery_requests.append(request)
 
 
+class _TraceSupervisor(_FakeSupervisor):
+    def __init__(self, trace: list[str]) -> None:
+        super().__init__()
+        self.trace = trace
+
+    def stop(self) -> None:
+        self.trace.append("stop")
+        super().stop()
+
+    async def run(self) -> None:
+        self.trace.append("run-start")
+        try:
+            await super().run()
+        finally:
+            self.trace.append("run-stop")
+
+
 class _HeldStopSupervisor(_FakeSupervisor):
     def __init__(self, *, hold_stop: bool) -> None:
         super().__init__()
@@ -124,6 +142,52 @@ class _BlockingRecoverySupervisor(_FakeSupervisor):
         del request
         self.recovery_started.set()
         await asyncio.Event().wait()
+
+
+class _ObservabilitySupervisor(_FakeSupervisor):
+    active_lanes = (LANE,)
+
+
+class _QuarantinedSupervisor(_FakeSupervisor):
+    quarantined = True
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._snapshot = RuntimeSnapshot(
+            desired_state=DesiredRuntimeState.RUNNING,
+            state=RuntimeState.ERROR,
+            last_error="lifecycle cleanup failed; lifecycle quarantined",
+        )
+
+    def pause(self) -> None:
+        return
+
+    def resume(self) -> None:
+        return
+
+
+class _QuarantinesAfterStopSupervisor(_FakeSupervisor):
+    def __init__(self) -> None:
+        super().__init__()
+        self.quarantined = False
+
+    async def run(self) -> None:
+        try:
+            await super().run()
+        finally:
+            self.quarantined = True
+
+
+class _FailsOnReplacementInstallObservability(IngestionObservability):
+    def __init__(self) -> None:
+        super().__init__()
+        self.install_calls = 0
+
+    def install_active_lanes(self, lanes) -> None:  # type: ignore[no-untyped-def]
+        self.install_calls += 1
+        if self.install_calls == 2:
+            raise RuntimeError("synthetic replacement install failure")
+        super().install_active_lanes(lanes)
 
 
 def _disabled_settings(settings: IngestionSettings) -> IngestionSettings:
@@ -276,6 +340,59 @@ async def test_reconnect_replaces_supervisor_and_rejects_paused_runtime() -> Non
 
 
 @pytest.mark.asyncio
+async def test_reconnect_builds_before_stop_and_starts_after_old_generation_stops() -> (
+    None
+):
+    trace: list[str] = []
+    created: list[_TraceSupervisor] = []
+
+    def factory(candidate: IngestionSettings) -> _TraceSupervisor:
+        del candidate
+        trace.append("build")
+        supervisor = _TraceSupervisor(trace)
+        created.append(supervisor)
+        return supervisor
+
+    controller = RuntimeController(settings=_settings(), supervisor_factory=factory)
+    await controller.start()
+    await created[0].run_started.wait()
+    trace.clear()
+
+    await controller.reconnect()
+    await created[1].run_started.wait()
+
+    assert trace == ["build", "stop", "run-stop", "run-start"]
+    await controller.close()
+
+
+@pytest.mark.asyncio
+async def test_reconnect_install_failure_does_not_restore_old_generation() -> None:
+    created: list[_ObservabilitySupervisor] = []
+
+    def factory(candidate: IngestionSettings) -> _ObservabilitySupervisor:
+        del candidate
+        supervisor = _ObservabilitySupervisor()
+        created.append(supervisor)
+        return supervisor
+
+    observability = _FailsOnReplacementInstallObservability()
+    controller = RuntimeController(
+        settings=_settings(),
+        supervisor_factory=factory,
+        observability=observability,
+    )
+    await controller.start()
+    await created[0].run_started.wait()
+
+    with pytest.raises(RuntimeError, match="replacement install failure"):
+        await controller.reconnect()
+
+    assert created[0].run_stopped.is_set()
+    assert created[1].run_calls == 0
+    await controller.close()
+
+
+@pytest.mark.asyncio
 async def test_supervisor_task_exception_is_consumed_into_snapshot() -> None:
     def factory(candidate: IngestionSettings) -> _FakeSupervisor:
         del candidate
@@ -289,6 +406,75 @@ async def test_supervisor_task_exception_is_consumed_into_snapshot() -> None:
     snapshot = controller.snapshot()
     assert snapshot.state is RuntimeState.ERROR
     assert snapshot.last_error == "synthetic supervisor failure"
+    await controller.close()
+
+
+@pytest.mark.asyncio
+async def test_quarantine_is_latched_before_control_gates_without_snapshot() -> None:
+    created: list[_QuarantinedSupervisor] = []
+
+    def factory(candidate: IngestionSettings) -> _QuarantinedSupervisor:
+        del candidate
+        supervisor = _QuarantinedSupervisor()
+        created.append(supervisor)
+        return supervisor
+
+    controller = RuntimeController(settings=_settings(), supervisor_factory=factory)
+    await controller.start()
+
+    paused = await controller.pause()
+    assert paused.state is RuntimeState.ERROR
+
+    for operation in (
+        controller.resume,
+        controller.reconnect,
+        lambda: controller.replace_settings(_settings()),
+        lambda: controller.recover(_request()),
+        controller.start,
+    ):
+        with pytest.raises(RuntimeControlConflictError, match="quarantined"):
+            await operation()
+
+    await controller.close()
+    assert len(created) == 1
+    assert controller.snapshot().state is RuntimeState.ERROR
+    assert controller.snapshot().last_error is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["reconnect", "replace", "recover"])
+async def test_quarantine_discovered_during_stop_blocks_new_supervisor(
+    operation: str,
+) -> None:
+    created: list[_QuarantinesAfterStopSupervisor] = []
+
+    def factory(candidate: IngestionSettings) -> _QuarantinesAfterStopSupervisor:
+        del candidate
+        supervisor = _QuarantinesAfterStopSupervisor()
+        created.append(supervisor)
+        return supervisor
+
+    controller = RuntimeController(settings=_settings(), supervisor_factory=factory)
+    await controller.start()
+    await created[0].run_started.wait()
+
+    if operation == "reconnect":
+        control = controller.reconnect()
+    elif operation == "replace":
+        control = controller.replace_settings(_settings())
+    else:
+        control = controller.recover(_request())
+
+    with pytest.raises(RuntimeControlConflictError, match="quarantined"):
+        await control
+
+    assert created[0].run_calls == 1
+    if operation == "recover":
+        assert len(created) == 1
+    else:
+        assert len(created) == 2
+        assert created[1].run_calls == 0
+    assert controller.snapshot().state is RuntimeState.ERROR
     await controller.close()
 
 
@@ -331,6 +517,41 @@ async def test_replace_settings_can_remove_final_asset() -> None:
 
     assert snapshot.state is RuntimeState.STOPPED
     assert snapshot.desired_state is DesiredRuntimeState.RUNNING
+    assert len(created) == 1
+    await controller.close()
+
+
+@pytest.mark.asyncio
+async def test_disabling_all_assets_prunes_observability_and_blocks_retired_lane() -> (
+    None
+):
+    observability = IngestionObservability()
+    created: list[_ObservabilitySupervisor] = []
+
+    def factory(candidate: IngestionSettings) -> _ObservabilitySupervisor:
+        del candidate
+        supervisor = _ObservabilitySupervisor()
+        created.append(supervisor)
+        return supervisor
+
+    settings = _settings()
+    controller = RuntimeController(
+        settings=settings,
+        supervisor_factory=factory,
+        observability=observability,
+    )
+    await controller.start()
+    await asyncio.sleep(0)
+
+    observed_close = datetime(2026, 8, 9, 10, 1, tzinfo=UTC)
+    observability.record_base_last_close(LANE, observed_close)
+    assert observability._base_last_close
+
+    await controller.replace_settings(_disabled_settings(settings))
+
+    assert observability._base_last_close == {}
+    observability.record_base_last_close(LANE, observed_close + timedelta(minutes=1))
+    assert observability._base_last_close == {}
     assert len(created) == 1
     await controller.close()
 

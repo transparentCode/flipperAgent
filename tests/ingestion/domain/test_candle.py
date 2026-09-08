@@ -125,6 +125,8 @@ def test_observation_taker_buy_base_is_optional_but_non_negative() -> None:
     assert _observation(taker_buy_base=Decimal(0)).taker_buy_base == Decimal(0)
     with pytest.raises(ValueError, match="taker_buy_base must be non-negative"):
         _observation(taker_buy_base=Decimal(-1))
+    with pytest.raises(ValueError, match="less than or equal to volume"):
+        _observation(taker_buy_base=Decimal(4))
 
 
 @pytest.mark.parametrize(

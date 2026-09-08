@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
 from datetime import UTC, datetime, timedelta, timezone
+from itertools import islice
 
 import pytest
 
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
+from apps.ingestion_app.services.recovery import _page_windows
 
 LANE = MarketLane("binance", "BTC-USDT-PERP", "2h")
 SINCE = datetime(2026, 1, 1, tzinfo=UTC)
@@ -72,3 +74,31 @@ def test_recovery_request_requires_positive_range(until: datetime) -> None:
 def test_recovery_request_rejects_blank_reason(reason: str) -> None:
     with pytest.raises(ValueError, match="reason must be non-empty"):
         _request(reason=reason)
+
+
+def test_page_windows_are_lazy_and_keep_half_open_grid_bounds() -> None:
+    base_duration = timedelta(minutes=1)
+    windows = _page_windows(
+        SINCE,
+        SINCE + timedelta(days=3650),
+        base_duration,
+        page_limit=1_000,
+    )
+
+    assert iter(windows) is windows
+    assert next(windows) == (SINCE, SINCE + base_duration * 1_000)
+
+    last_window = next(
+        islice(
+            _page_windows(
+                SINCE,
+                SINCE + timedelta(days=3650),
+                base_duration,
+                page_limit=1_000,
+            ),
+            5_255,
+            5_256,
+        )
+    )
+    assert last_window[1] == SINCE + timedelta(days=3650)
+    assert last_window[0] < last_window[1]

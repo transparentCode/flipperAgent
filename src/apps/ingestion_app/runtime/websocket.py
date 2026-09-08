@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import json
+import math
+from collections import deque
 from collections.abc import AsyncIterator, Callable, Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal, InvalidOperation
+from threading import Lock
 from typing import Any
 
 from binance.websocket.um_futures.websocket_client import UMFuturesWebsocketClient
@@ -15,15 +17,126 @@ from apps.ingestion_app.domain.candle import CandleObservation
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
 from apps.ingestion_app.observability import IngestionObservability
-from apps.ingestion_app.providers.base import LiveStreamInterrupted
+from apps.ingestion_app.providers.base import (
+    LiveStreamInterrupted,
+    TransportDeadlineExceeded,
+)
+from apps.ingestion_app.runtime.binance_websocket_decode import (
+    decode_binance_websocket_message,
+)
+from apps.ingestion_app.runtime.blocking import _OwnedBlockingCall, _OwnedCallTimeout
 from apps.ingestion_app.services.time_alignment import aligned_bucket_start
 from libs.common.enums import SystemComponent
 from libs.common.exceptions import DataIngestionError
 from libs.common.logging.logger_utils import bind_logger
 
 _LOGGER = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_ENGINE)
-_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 _WAKE_SENTINEL = object()
+
+
+@dataclass(frozen=True, slots=True)
+class _BridgeControl:
+    reason: str
+    detail: str | None = None
+
+
+class _ExactlyOnceStop:
+    """Serialize all stop paths for one SDK client."""
+
+    def __init__(self) -> None:
+        self._client: Any | None = None
+        self._lock = Lock()
+        self._started = False
+
+    def bind(self, client: Any) -> None:
+        with self._lock:
+            if self._client is None:
+                self._client = client
+                return
+            if self._client is not client:
+                raise RuntimeError("stop controller was bound to multiple clients")
+
+    def run(self, client: Any | None = None) -> None:
+        with self._lock:
+            if client is not None:
+                if self._client is None:
+                    self._client = client
+                elif self._client is not client:
+                    raise RuntimeError("stop controller was bound to multiple clients")
+            if self._started:
+                return
+            if self._client is None:
+                return
+            self._started = True
+            client_to_stop = self._client
+        client_to_stop.stop()
+
+
+class _LifecycleLease:
+    """Release one manager connection slot at most once."""
+
+    def __init__(self, release: Callable[[], None]) -> None:
+        self._release = release
+        self._lock = Lock()
+        self._released = False
+
+    def release(self) -> None:
+        with self._lock:
+            if self._released:
+                return
+            self._released = True
+        self._release()
+
+
+class _BoundedCallbackBridge:
+    """Admit SDK callbacks before they can enter the event-loop ready queue."""
+
+    def __init__(self, maxsize: int) -> None:
+        self._maxsize = maxsize
+        self._events: deque[object] = deque()
+        self._urgent_control: _BridgeControl | None = None
+        self._lock = Lock()
+        self._drain_scheduled = False
+        self._closed = False
+
+    def offer(
+        self,
+        event: object,
+        *,
+        overflow_control: _BridgeControl,
+    ) -> bool:
+        """Admit one event and return whether a drain callback is needed."""
+        with self._lock:
+            if self._closed:
+                return False
+            if len(self._events) < self._maxsize:
+                self._events.append(event)
+            elif self._urgent_control is None:
+                self._urgent_control = overflow_control
+
+            if self._drain_scheduled:
+                return False
+            self._drain_scheduled = True
+            return True
+
+    def take_batch(self) -> tuple[tuple[object, ...], _BridgeControl | None]:
+        with self._lock:
+            events = tuple(self._events)
+            self._events.clear()
+            urgent_control = self._urgent_control
+            self._urgent_control = None
+            self._drain_scheduled = False
+            return events, urgent_control
+
+    def cancel_scheduled_drain(self) -> None:
+        with self._lock:
+            self._drain_scheduled = False
+
+    def close(self) -> None:
+        with self._lock:
+            self._closed = True
+            self._events.clear()
+            self._urgent_control = None
 
 
 def _require_non_empty_string(value: object, *, field_name: str) -> str:
@@ -57,30 +170,12 @@ def _require_queue_maxsize(value: object) -> int:
     return value
 
 
-def _utc_from_milliseconds(value: object, *, field_name: str) -> datetime:
-    if isinstance(value, bool) or not isinstance(value, (int, str)):
-        raise DataIngestionError(
-            f"Binance websocket {field_name} must be integer milliseconds"
-        )
-    try:
-        milliseconds = int(value)
-        return _EPOCH + timedelta(milliseconds=milliseconds)
-    except (OverflowError, TypeError, ValueError) as exc:
-        raise DataIngestionError(
-            f"Binance websocket {field_name} is not a valid timestamp"
-        ) from exc
-
-
-def _decimal_value(value: object, *, field_name: str) -> Decimal:
-    try:
-        parsed = Decimal(str(value))
-    except (InvalidOperation, TypeError, ValueError) as exc:
-        raise DataIngestionError(
-            f"Binance websocket {field_name} is not a valid Decimal"
-        ) from exc
-    if not parsed.is_finite():
-        raise DataIngestionError(f"Binance websocket {field_name} must be finite")
-    return parsed
+def _require_positive_seconds(value: object, *, field_name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError(f"{field_name} must be a number")
+    if not math.isfinite(float(value)) or value <= 0:
+        raise ValueError(f"{field_name} must be positive")
+    return float(value)
 
 
 def _same_live_observation(
@@ -153,6 +248,7 @@ class BinanceWebSocketManager:
         *,
         stream_url: str,
         queue_maxsize: int,
+        lifecycle_timeout_seconds: float = 30,
         client_factory: Callable[..., Any] = UMFuturesWebsocketClient,
         observability: IngestionObservability | None = None,
     ) -> None:
@@ -163,9 +259,89 @@ class BinanceWebSocketManager:
             raise TypeError("client_factory must be callable")
         self.stream_url = stream_url
         self.queue_maxsize = _require_queue_maxsize(queue_maxsize)
+        self.lifecycle_timeout_seconds = _require_positive_seconds(
+            lifecycle_timeout_seconds,
+            field_name="lifecycle_timeout_seconds",
+        )
         self.client_factory = client_factory
         self.observability = observability or IngestionObservability()
         self._ever_connected = False
+        self._lifecycle_lock = Lock()
+        self._lifecycle_active = False
+        self._lifecycle_quarantined = False
+        self._lifecycle_quarantine_error: DataIngestionError | None = None
+        self._owned_calls: set[_OwnedBlockingCall] = set()
+
+    @property
+    def lifecycle_quarantined(self) -> bool:
+        with self._lifecycle_lock:
+            return self._lifecycle_quarantined
+
+    @property
+    def lifecycle_quarantine_error(self) -> DataIngestionError | None:
+        with self._lifecycle_lock:
+            return self._lifecycle_quarantine_error
+
+    @property
+    def retained_worker_count(self) -> int:
+        with self._lifecycle_lock:
+            return sum(not call.finished for call in self._owned_calls)
+
+    def _track_call(self, call: _OwnedBlockingCall) -> None:
+        with self._lifecycle_lock:
+            self._owned_calls.add(call)
+
+    def _forget_call(self, call: _OwnedBlockingCall) -> None:
+        with self._lifecycle_lock:
+            self._owned_calls.discard(call)
+
+    def _acquire_lifecycle(self) -> _LifecycleLease:
+        with self._lifecycle_lock:
+            if self._lifecycle_quarantined:
+                error = self._lifecycle_quarantine_error
+                if error is None:
+                    error = DataIngestionError(
+                        "Binance websocket lifecycle is quarantined"
+                    )
+                raise error
+            if self._lifecycle_active:
+                raise RuntimeError(
+                    "Binance websocket connection lifecycle is still outstanding"
+                )
+            self._lifecycle_active = True
+        return _LifecycleLease(self._release_lifecycle)
+
+    def _quarantine_lifecycle(
+        self,
+        error: DataIngestionError | None = None,
+    ) -> None:
+        with self._lifecycle_lock:
+            self._lifecycle_quarantined = True
+            if error is not None and self._lifecycle_quarantine_error is None:
+                self._lifecycle_quarantine_error = error
+
+    def _release_lifecycle(self) -> None:
+        with self._lifecycle_lock:
+            self._lifecycle_active = False
+
+    def _start_client_construction(
+        self,
+        *,
+        loop: asyncio.AbstractEventLoop,
+        kwargs: Mapping[str, Any],
+        abandoned_cleanup: Callable[[Any], None],
+        finished_callback: Callable[[_OwnedBlockingCall], None],
+    ) -> _OwnedBlockingCall:
+        call = _OwnedBlockingCall(
+            loop=loop,
+            operation=lambda: self.client_factory(**kwargs),
+            name="binance-websocket-factory",
+            abandoned_cleanup=abandoned_cleanup,
+            finished_callback=finished_callback,
+        )
+        self._track_call(call)
+        call.start()
+        return call
 
     @staticmethod
     def _validate_subscriptions(
@@ -251,115 +427,15 @@ class BinanceWebSocketManager:
         timeframe_duration: timedelta,
         alignment_origin: datetime,
     ) -> CandleObservation | None:
-        if isinstance(raw_message, (str, bytes, bytearray)):
-            try:
-                payload = json.loads(raw_message)
-            except (TypeError, ValueError) as exc:
-                raise DataIngestionError(
-                    "Binance websocket returned invalid JSON"
-                ) from exc
-        else:
-            payload = raw_message
-
-        if not isinstance(payload, Mapping):
-            raise DataIngestionError("Binance websocket payload must be a mapping")
-
-        if "data" not in payload:
-            if "result" in payload and "id" in payload:
-                return None
-            raise DataIngestionError("Binance websocket payload is missing data")
-
-        stream_name = payload.get("stream")
-        data = payload.get("data")
-        if not isinstance(stream_name, str) or not stream_name.strip():
-            raise DataIngestionError("Binance websocket stream name is malformed")
-        if not isinstance(data, Mapping):
-            raise DataIngestionError("Binance websocket data is malformed")
-        if data.get("e") != "kline":
-            raise DataIngestionError("Binance websocket event is not a kline")
-
-        kline = data.get("k")
-        if not isinstance(kline, Mapping):
-            raise DataIngestionError("Binance websocket kline is malformed")
-
-        raw_symbol = kline.get("s")
-        if not isinstance(raw_symbol, str) or not raw_symbol.strip():
-            raise DataIngestionError("Binance websocket kline symbol is malformed")
-        route = routes.get(raw_symbol.casefold())
-        if route is None:
-            raise DataIngestionError(
-                f"Binance websocket returned unknown symbol '{raw_symbol}'"
-            )
-        lane, provider_symbol = route
-        expected_stream = (
-            f"{provider_symbol.lower()}@kline_{base_timeframe}"
-        ).casefold()
-        if stream_name.casefold() != expected_stream:
-            raise DataIngestionError(
-                f"Binance websocket stream '{stream_name}' does not match "
-                f"configured symbol '{provider_symbol}'"
-            )
-
-        if kline.get("i") != base_timeframe:
-            raise DataIngestionError(
-                "Binance websocket interval does not match base timeframe"
-            )
-        closed = kline.get("x")
-        if not isinstance(closed, bool):
-            raise DataIngestionError(
-                "Binance websocket kline close flag must be a boolean"
-            )
-        if not closed:
-            return None
-
-        open_time = _utc_from_milliseconds(
-            kline.get("t"),
-            field_name="open timestamp",
+        return decode_binance_websocket_message(
+            raw_message,
+            provider_id=self.provider_id,
+            routes=routes,
+            base_timeframe=base_timeframe,
+            timeframe_duration=timeframe_duration,
+            alignment_origin=alignment_origin,
+            received_at_fn=lambda: datetime.now(UTC),
         )
-        provider_close_time = _utc_from_milliseconds(
-            kline.get("T"),
-            field_name="close timestamp",
-        ) + timedelta(milliseconds=1)
-        close_time = open_time + timeframe_duration
-        if provider_close_time != close_time:
-            raise DataIngestionError(
-                "Binance websocket provider close timestamp disagrees with "
-                "timeframe_duration"
-            )
-        if (
-            aligned_bucket_start(open_time, timeframe_duration, alignment_origin)
-            != open_time
-        ):
-            raise DataIngestionError(
-                "Binance websocket open timestamp is not base-grid aligned"
-            )
-
-        try:
-            observation = CandleObservation(
-                lane=lane,
-                provider_id=self.provider_id,
-                provider_symbol=provider_symbol,
-                transport="websocket",
-                open_time=open_time,
-                close_time=close_time,
-                open=_decimal_value(kline.get("o"), field_name="open"),
-                high=_decimal_value(kline.get("h"), field_name="high"),
-                low=_decimal_value(kline.get("l"), field_name="low"),
-                close=_decimal_value(kline.get("c"), field_name="close"),
-                volume=_decimal_value(kline.get("v"), field_name="volume"),
-                taker_buy_base=_decimal_value(
-                    kline.get("V"),
-                    field_name="taker_buy_base",
-                ),
-                received_at=datetime.now(UTC),
-                provider_close_time=provider_close_time,
-                provider_event_id=None,
-            )
-        except (TypeError, ValueError) as exc:
-            raise DataIngestionError(
-                "Binance websocket returned invalid candle values"
-            ) from exc
-        return observation
 
     async def _stream_closed_candles(
         self,
@@ -371,13 +447,30 @@ class BinanceWebSocketManager:
         connection_anchor: datetime,
     ) -> AsyncIterator[CandleObservation]:
         loop = asyncio.get_running_loop()
+        try:
+            lifecycle = self._acquire_lifecycle()
+        except RuntimeError as exc:
+            reason = (
+                "connection_lifecycle_quarantined"
+                if "quarantined" in str(exc)
+                else "connection_lifecycle_busy"
+            )
+            raise LiveStreamInterrupted(
+                reason=reason,
+                recovery_requests=(),
+            ) from exc
         queue: asyncio.Queue[object] = asyncio.Queue(maxsize=self.queue_maxsize)
+        callback_bridge = _BoundedCallbackBridge(self.queue_maxsize)
         last_consumed_close: dict[MarketLane, datetime] = {}
         last_consumed_observation: dict[MarketLane, CandleObservation] = {}
         failure: LiveStreamInterrupted | None = None
         intentional_stop = False
         stream_finished = False
         client: Any | None = None
+        factory_call: _OwnedBlockingCall | None = None
+        subscription_call: _OwnedBlockingCall | None = None
+        stop_call: _OwnedBlockingCall | None = None
+        stop_controller = _ExactlyOnceStop()
 
         def recovery_requests(reason: str) -> tuple[RecoveryRequest, ...]:
             return _build_recovery_requests(
@@ -423,17 +516,21 @@ class BinanceWebSocketManager:
                 )
             wake_consumer()
 
-        def schedule(callback: Callable[..., None], *args: object) -> None:
-            if stream_finished:
-                return
+        def request_bridge_drain() -> None:
             try:
-                loop.call_soon_threadsafe(callback, *args)
+                loop.call_soon_threadsafe(drain_callback_bridge)
             except RuntimeError:
-                pass
+                callback_bridge.cancel_scheduled_drain()
+
+        def offer_bridge_event(
+            event: object,
+            *,
+            overflow_control: _BridgeControl,
+        ) -> None:
+            if callback_bridge.offer(event, overflow_control=overflow_control):
+                request_bridge_drain()
 
         def handle_message(raw_message: object) -> None:
-            if failure is not None or stream_finished:
-                return
             try:
                 observation = self._parse_message(
                     raw_message,
@@ -450,39 +547,152 @@ class BinanceWebSocketManager:
                 TypeError,
                 ValueError,
             ) as exc:
-                interrupt("websocket_malformed_payload", str(exc))
+                control = _BridgeControl("websocket_malformed_payload", str(exc))
+                offer_bridge_event(control, overflow_control=control)
                 return
             if observation is None:
                 return
-            try:
-                queue.put_nowait(observation)
-                self.observability.set_queue_utilization(
-                    queue.qsize(),
-                    self.queue_maxsize,
-                )
-            except asyncio.QueueFull:
-                interrupt(
+            offer_bridge_event(
+                observation,
+                overflow_control=_BridgeControl(
                     "websocket_queue_overflow",
-                    "finalized candle queue is full",
-                )
+                    "finalized candle admission bridge is full",
+                ),
+            )
 
-        def handle_close() -> None:
-            interrupt("websocket_disconnected")
-
-        def handle_error(error: object) -> None:
-            interrupt("websocket_error", str(error))
+        def drain_callback_bridge() -> None:
+            events, urgent_control = callback_bridge.take_batch()
+            for event in events:
+                if failure is not None or stream_finished:
+                    return
+                if isinstance(event, _BridgeControl):
+                    interrupt(event.reason, event.detail)
+                    return
+                if not isinstance(event, CandleObservation):
+                    interrupt(
+                        "websocket_malformed_payload",
+                        "callback bridge contained an invalid item",
+                    )
+                    return
+                try:
+                    queue.put_nowait(event)
+                    self.observability.set_queue_utilization(
+                        queue.qsize(),
+                        self.queue_maxsize,
+                    )
+                except asyncio.QueueFull:
+                    interrupt(
+                        "websocket_queue_overflow",
+                        "finalized candle queue is full",
+                    )
+                    return
+            if urgent_control is not None and failure is None and not stream_finished:
+                interrupt(urgent_control.reason, urgent_control.detail)
 
         def on_open(_websocket: object, *_args: object) -> None:
             return None
 
         def on_message(_websocket: object, raw_message: object) -> None:
-            schedule(handle_message, raw_message)
+            handle_message(raw_message)
 
         def on_close(_websocket: object, *_args: object) -> None:
-            schedule(handle_close)
+            control = _BridgeControl("websocket_disconnected")
+            offer_bridge_event(control, overflow_control=control)
 
         def on_error(_websocket: object, error: object, *_args: object) -> None:
-            schedule(handle_error, error)
+            control = _BridgeControl("websocket_error", str(error))
+            offer_bridge_event(control, overflow_control=control)
+
+        def finish_abandoned_call(call: _OwnedBlockingCall) -> None:
+            if not call.adopted:
+                if call.cleanup_failed:
+                    self._quarantine_lifecycle(
+                        DataIngestionError(
+                            "Binance websocket lifecycle cleanup failed; "
+                            "lifecycle quarantined"
+                        )
+                    )
+                lifecycle.release()
+            self._forget_call(call)
+
+        def finish_stop(call: _OwnedBlockingCall) -> None:
+            if call.failed:
+                self._quarantine_lifecycle(
+                    DataIngestionError(
+                        "Binance websocket lifecycle cleanup failed; "
+                        "lifecycle quarantined"
+                    )
+                )
+            lifecycle.release()
+            self._forget_call(call)
+
+        async def wait_for_lifecycle_call(
+            call: _OwnedBlockingCall,
+            *,
+            operation: str,
+            abandon_on_error: bool = True,
+        ) -> Any:
+            try:
+                result = await call.wait(self.lifecycle_timeout_seconds)
+            except _OwnedCallTimeout as exc:
+                # A completion that won the race is known ownership; only an
+                # operation still running at the deadline is fatal.
+                if (
+                    call.operation_finished
+                    and call.operation_finished_at is not None
+                    and call.operation_finished_at <= exc.deadline
+                ):
+                    try:
+                        result = call.result_or_raise()
+                    except BaseException:
+                        if abandon_on_error:
+                            # The call completed with a known error, so it is
+                            # still eligible for the existing normal cleanup.
+                            call.abandon()
+                        else:
+                            call.adopt()
+                        raise
+                    if not call.adopt():
+                        raise asyncio.CancelledError
+                    return result
+                call.abandon()
+                error = TransportDeadlineExceeded(
+                    provider_id=self.provider_id,
+                    operation=operation,
+                    timeout_seconds=self.lifecycle_timeout_seconds,
+                )
+                self._quarantine_lifecycle(error)
+                raise error from exc
+            except asyncio.CancelledError:
+                call.abandon()
+                raise
+            except BaseException:
+                if abandon_on_error:
+                    call.abandon()
+                else:
+                    call.adopt()
+                raise
+            if not call.adopt():
+                raise asyncio.CancelledError
+            return result
+
+        async def stop_client_once(client_to_stop: Any) -> None:
+            nonlocal stop_call
+            stop_controller.bind(client_to_stop)
+            if stop_call is None:
+                stop_call = _OwnedBlockingCall(
+                    loop=loop,
+                    operation=stop_controller.run,
+                    name="binance-websocket-stop",
+                    finished_callback=finish_stop,
+                )
+                self._track_call(stop_call)
+                stop_call.start()
+            await wait_for_lifecycle_call(
+                stop_call,
+                operation="websocket stop",
+                abandon_on_error=False,
+            )
 
         stream_names = sorted(
             f"{provider_symbol.lower()}@kline_{base_timeframe}"
@@ -491,23 +701,58 @@ class BinanceWebSocketManager:
 
         try:
             try:
-                client = await asyncio.to_thread(
-                    self.client_factory,
-                    stream_url=self.stream_url,
-                    on_open=on_open,
-                    on_message=on_message,
-                    on_close=on_close,
-                    on_error=on_error,
-                    is_combined=True,
+                factory_call = self._start_client_construction(
+                    loop=loop,
+                    kwargs={
+                        "stream_url": self.stream_url,
+                        "on_open": on_open,
+                        "on_message": on_message,
+                        "on_close": on_close,
+                        "on_error": on_error,
+                        "is_combined": True,
+                    },
+                    abandoned_cleanup=stop_controller.run,
+                    finished_callback=finish_abandoned_call,
                 )
-                await asyncio.to_thread(client.subscribe, stream_names)
+                client = await wait_for_lifecycle_call(
+                    factory_call,
+                    operation="websocket factory",
+                )
+                stop_controller.bind(client)
+                subscription_call = _OwnedBlockingCall(
+                    loop=loop,
+                    operation=lambda: client.subscribe(stream_names),
+                    name="binance-websocket-subscribe",
+                    abandoned_cleanup=lambda _result: stop_controller.run(),
+                    finished_callback=finish_abandoned_call,
+                )
+                self._track_call(subscription_call)
+                subscription_call.start()
+                await wait_for_lifecycle_call(
+                    subscription_call,
+                    operation="websocket subscribe",
+                )
                 if self._ever_connected:
                     self.observability.record_websocket_reconnect()
                 self._ever_connected = True
                 self.observability.set_websocket_connected(True)
             except asyncio.CancelledError:
+                if subscription_call is not None and not subscription_call.adopted:
+                    subscription_call.abandon()
+                if factory_call is not None and not factory_call.adopted:
+                    factory_call.abandon()
+                raise
+            except TransportDeadlineExceeded:
+                if subscription_call is not None and not subscription_call.adopted:
+                    subscription_call.abandon()
+                if factory_call is not None and not factory_call.adopted:
+                    factory_call.abandon()
                 raise
             except Exception as exc:  # noqa: BLE001 - SDK failures must become typed interruptions
+                if subscription_call is not None and not subscription_call.adopted:
+                    subscription_call.abandon()
+                if factory_call is not None and not factory_call.adopted:
+                    factory_call.abandon()
                 interrupt("websocket_error", str(exc))
 
             while True:
@@ -568,21 +813,37 @@ class BinanceWebSocketManager:
         finally:
             stream_finished = True
             intentional_stop = True
+            callback_bridge.close()
             self.observability.set_websocket_connected(False)
             self.observability.set_queue_utilization(
                 queue.qsize(),
                 self.queue_maxsize,
             )
-            if client is not None:
+            if subscription_call is not None and not subscription_call.adopted:
+                subscription_call.abandon()
+            if factory_call is not None and not factory_call.adopted:
+                factory_call.abandon()
+            construction_still_owns_client = any(
+                call is not None and not call.adopted and not call.finished
+                for call in (factory_call, subscription_call)
+            )
+            if client is not None and not construction_still_owns_client:
                 try:
-                    await asyncio.to_thread(client.stop)
+                    await stop_client_once(client)
                 except asyncio.CancelledError:
+                    raise
+                except TransportDeadlineExceeded:
+                    # A stop worker still owned by its SDK at the deadline is
+                    # a fatal lifecycle state; do not turn it into a log-only
+                    # cleanup failure.
                     raise
                 except Exception as exc:  # noqa: BLE001 - cleanup must not mask stream outcome
                     _LOGGER.warning(
                         "Binance live websocket cleanup failed: %s",
                         exc,
                     )
+            elif client is None and factory_call is None:
+                lifecycle.release()
 
 
 __all__ = ["BinanceWebSocketManager"]

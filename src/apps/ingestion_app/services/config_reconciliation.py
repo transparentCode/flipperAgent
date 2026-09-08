@@ -149,6 +149,8 @@ class AssetConfigService:
             else None
         )
         contents = asset.model_dump(mode="json")
+        file_written = False
+        runtime_replace_started = False
 
         try:
             self.config_manager.write_registered_directory_yaml(
@@ -157,11 +159,13 @@ class AssetConfigService:
                 contents=contents,
                 create_only=not existed,
             )
+            file_written = True
             reloaded = self._settings_from_config_manager()
             if reloaded != candidate:
                 raise RuntimeError(
                     "reloaded asset configuration differs from the validated candidate"
                 )
+            runtime_replace_started = True
             await self.runtime_controller.replace_settings(reloaded)
         except asyncio.CancelledError:
             try:
@@ -170,6 +174,8 @@ class AssetConfigService:
                     existed=existed,
                     previous_contents=previous_contents,
                     old_settings=old_settings,
+                    restore_file=file_written,
+                    restore_runtime=runtime_replace_started,
                 )
             except BaseException as rollback_exc:
                 raise RuntimeError(
@@ -183,6 +189,8 @@ class AssetConfigService:
                     existed=existed,
                     previous_contents=previous_contents,
                     old_settings=old_settings,
+                    restore_file=file_written,
+                    restore_runtime=runtime_replace_started,
                 )
             except BaseException:  # noqa: BLE001
                 raise RuntimeError(
@@ -202,31 +210,35 @@ class AssetConfigService:
         existed: bool,
         previous_contents: dict[str, Any] | None,
         old_settings: IngestionSettings,
+        restore_file: bool,
+        restore_runtime: bool,
     ) -> None:
         """Restore disk/config state before restoring runtime settings."""
         rollback_errors: list[BaseException] = []
-        try:
-            if existed and previous_contents is not None:
-                self.config_manager.write_registered_directory_yaml(
-                    namespace=ASSET_NAMESPACE,
-                    filename=asset.asset,
-                    contents=previous_contents,
-                    create_only=False,
-                )
-            else:
-                self.config_manager._remove_registered_directory_yaml_for_rollback(
-                    namespace=ASSET_NAMESPACE,
-                    filename=asset.asset,
-                )
-        except BaseException as rollback_exc:  # noqa: BLE001
-            rollback_errors.append(rollback_exc)
+        if restore_file:
+            try:
+                if existed and previous_contents is not None:
+                    self.config_manager.write_registered_directory_yaml(
+                        namespace=ASSET_NAMESPACE,
+                        filename=asset.asset,
+                        contents=previous_contents,
+                        create_only=False,
+                    )
+                else:
+                    self.config_manager._remove_registered_directory_yaml_for_rollback(
+                        namespace=ASSET_NAMESPACE,
+                        filename=asset.asset,
+                    )
+            except BaseException as rollback_exc:  # noqa: BLE001
+                rollback_errors.append(rollback_exc)
 
-        try:
-            await _await_rollback(
-                self.runtime_controller.replace_settings(old_settings)
-            )
-        except BaseException as rollback_exc:  # noqa: BLE001
-            rollback_errors.append(rollback_exc)
+        if restore_runtime:
+            try:
+                await _await_rollback(
+                    self.runtime_controller.replace_settings(old_settings)
+                )
+            except BaseException as rollback_exc:  # noqa: BLE001
+                rollback_errors.append(rollback_exc)
 
         if rollback_errors:
             raise RuntimeError("asset mutation rollback failed") from rollback_errors[0]
@@ -277,6 +289,8 @@ class AssetConfigService:
                 raise AssetCandidateError(
                     "asset patch is semantically invalid"
                 ) from exc
+            if candidate_asset == previous:
+                return previous
             candidate = self._candidate_settings(asset=candidate_asset)
             return await self._apply_candidate(
                 asset=candidate_asset,

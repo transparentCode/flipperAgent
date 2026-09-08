@@ -96,14 +96,27 @@ def _patch_composition(
         AsyncMock(return_value=(0, None)),
     )
 
-    monkeypatch.setattr(
-        bootstrap,
-        "BinanceNativeHistoricalProvider",
-        lambda: _ProviderResource("binance_native", order),
-    )
+    def native_factory(
+        *,
+        attempt_timeout_seconds: int,
+        max_concurrency: int,
+    ) -> _ProviderResource:
+        assert attempt_timeout_seconds == 30
+        assert max_concurrency == settings.recovery.max_concurrency
+        return _ProviderResource("binance_native", order)
 
-    def ccxt_factory(*, provider_id: str, exchange_id: str) -> _ProviderResource:
+    monkeypatch.setattr(bootstrap, "BinanceNativeHistoricalProvider", native_factory)
+
+    def ccxt_factory(
+        *,
+        provider_id: str,
+        exchange_id: str,
+        attempt_timeout_seconds: int,
+        max_concurrency: int,
+    ) -> _ProviderResource:
         del exchange_id
+        assert attempt_timeout_seconds == 30
+        assert max_concurrency == settings.recovery.max_concurrency
         return _ProviderResource(provider_id, order)
 
     monkeypatch.setattr(bootstrap, "CCXTHistoricalProvider", ccxt_factory)
@@ -275,8 +288,14 @@ async def test_provider_failure_closes_already_created_resources(
         publisher_started,
     )
 
-    def fail_ccxt(*, provider_id: str, exchange_id: str):
-        del provider_id, exchange_id
+    def fail_ccxt(
+        *,
+        provider_id: str,
+        exchange_id: str,
+        attempt_timeout_seconds: int,
+        max_concurrency: int,
+    ):
+        del provider_id, exchange_id, attempt_timeout_seconds, max_concurrency
         raise RuntimeError("CCXT unavailable")
 
     monkeypatch.setattr(bootstrap, "CCXTHistoricalProvider", fail_ccxt)

@@ -12,10 +12,12 @@ ingestion:
     max_attempts_per_provider: 2
     retry_backoff_seconds: 1
     rest_finalization_grace_seconds: 5
+    provider_attempt_timeout_seconds: 30
 
   websocket:
     stream_url: "wss://fstream.binance.com/market"
     queue_maxsize: 1000
+    lifecycle_timeout_seconds: 30
 
   runtime:
     reconnect_backoff_seconds: 5

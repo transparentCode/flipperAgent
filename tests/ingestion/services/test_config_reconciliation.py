@@ -107,6 +107,10 @@ def _test_asset(settings: IngestionSettings) -> AssetSettings:
     raw["asset"] = "ADA"
     instrument = raw["instruments"].pop("BTC-USDT-PERP")
     instrument["base_asset"] = "ADA"
+    instrument["provider_symbols"] = {
+        "binance_native": "ADAUSDT",
+        "ccxt_binance": "ADA/USDT:USDT",
+    }
     raw["instruments"] = {"ADA-USDT-PERP": instrument}
     return AssetSettings.model_validate(raw)
 
@@ -126,6 +130,114 @@ async def test_patch_disable_retains_yaml_and_updates_lkg(ingestion_config) -> N
     assert controller.settings.assets["BTC"].enabled is False
     assert (Path("configs/ingestion/assets/BTC.yaml")).exists()
     assert manager.get("ingestion.assets.BTC.enabled") is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("updates", [{"enabled": True}, {}])
+async def test_equal_patch_is_a_noop_without_file_or_runtime_mutation(
+    ingestion_config,
+    monkeypatch,
+    updates,
+) -> None:
+    manager, settings = ingestion_config
+    controller, _ = _controller(settings)
+    service = AssetConfigService(
+        config_manager=manager,
+        runtime_controller=controller,
+    )
+    before = Path("configs/ingestion/assets/BTC.yaml").read_bytes()
+    writes = 0
+    replacements = 0
+
+    def fail_write(**kwargs):
+        nonlocal writes
+        writes += 1
+        raise AssertionError("equal patch must not write configuration")
+
+    async def fail_replace(candidate: IngestionSettings):
+        del candidate
+        nonlocal replacements
+        replacements += 1
+        raise AssertionError("equal patch must not replace runtime")
+
+    monkeypatch.setattr(manager, "write_registered_directory_yaml", fail_write)
+    monkeypatch.setattr(controller, "replace_settings", fail_replace)
+
+    result = await service.patch_asset("BTC", updates)
+
+    assert result == settings.assets["BTC"]
+    assert writes == 0
+    assert replacements == 0
+    assert Path("configs/ingestion/assets/BTC.yaml").read_bytes() == before
+
+
+@pytest.mark.asyncio
+async def test_post_write_reload_failure_restores_file_without_runtime_replace(
+    ingestion_config,
+    monkeypatch,
+) -> None:
+    manager, settings = ingestion_config
+    controller, _ = _controller(settings)
+    service = AssetConfigService(
+        config_manager=manager,
+        runtime_controller=controller,
+    )
+    before = Path("configs/ingestion/assets/BTC.yaml").read_bytes()
+    replacements = 0
+
+    def fail_reload() -> IngestionSettings:
+        raise RuntimeError("synthetic post-write reload failure")
+
+    async def fail_replace(candidate: IngestionSettings):
+        del candidate
+        nonlocal replacements
+        replacements += 1
+        raise AssertionError("reload failure must not replace runtime")
+
+    monkeypatch.setattr(service, "_settings_from_config_manager", fail_reload)
+    monkeypatch.setattr(controller, "replace_settings", fail_replace)
+
+    with pytest.raises(RuntimeError, match="synthetic post-write reload failure"):
+        await service.patch_asset("BTC", {"enabled": False})
+
+    assert replacements == 0
+    assert Path("configs/ingestion/assets/BTC.yaml").read_bytes() == before
+    assert manager.get("ingestion.assets.BTC.enabled") is True
+    assert controller.settings.assets["BTC"].enabled is True
+
+
+@pytest.mark.asyncio
+async def test_pre_write_failure_does_not_replace_or_restart_runtime(
+    ingestion_config,
+    monkeypatch,
+) -> None:
+    manager, settings = ingestion_config
+    controller, _ = _controller(settings)
+    service = AssetConfigService(
+        config_manager=manager,
+        runtime_controller=controller,
+    )
+    before = Path("configs/ingestion/assets/BTC.yaml").read_bytes()
+    replacements = 0
+
+    def fail_write(**kwargs):
+        raise OSError("synthetic pre-write failure")
+
+    async def fail_replace(candidate: IngestionSettings):
+        del candidate
+        nonlocal replacements
+        replacements += 1
+        raise AssertionError("pre-write failure must not replace runtime")
+
+    monkeypatch.setattr(manager, "write_registered_directory_yaml", fail_write)
+    monkeypatch.setattr(controller, "replace_settings", fail_replace)
+
+    with pytest.raises(OSError, match="synthetic pre-write failure"):
+        await service.patch_asset("BTC", {"enabled": False})
+
+    assert replacements == 0
+    assert Path("configs/ingestion/assets/BTC.yaml").read_bytes() == before
+    assert controller.settings.assets["BTC"].enabled is True
 
 
 @pytest.mark.asyncio

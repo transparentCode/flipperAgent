@@ -111,6 +111,7 @@ class RecoverySettings(BaseModel):
     max_attempts_per_provider: StrictInt = Field(gt=0)
     retry_backoff_seconds: StrictInt = Field(ge=0)
     rest_finalization_grace_seconds: StrictInt = Field(ge=0)
+    provider_attempt_timeout_seconds: StrictInt = Field(default=30, gt=0)
 
 
 class WebSocketSettings(BaseModel):
@@ -118,6 +119,7 @@ class WebSocketSettings(BaseModel):
 
     stream_url: str
     queue_maxsize: StrictInt = Field(gt=0)
+    lifecycle_timeout_seconds: StrictInt = Field(default=30, gt=0)
 
     @field_validator("stream_url", mode="before")
     @classmethod
@@ -333,11 +335,20 @@ class IngestionSettings(BaseModel):
                 f"base_timeframe '{self.base_timeframe}' is not configured in timeframes"
             )
 
+        active_live_routes: dict[tuple[str, str], tuple[str, str]] = {}
+        owned_manifest_symbols: dict[str, tuple[str, str]] = {}
         for asset_name, asset_settings in self.assets.items():
             if asset_name != asset_settings.asset:
                 raise ValueError(
                     f"asset filename stem '{asset_name}' does not match declared asset "
                     f"'{asset_settings.asset}'"
+                )
+            if (
+                asset_settings.owns_manifest_lifecycle
+                and len(asset_settings.instruments) != 1
+            ):
+                raise ValueError(
+                    f"lifecycle-owned asset '{asset_name}' requires exactly one instrument"
                 )
             for instrument_id, instrument in asset_settings.instruments.items():
                 if instrument.base_asset != asset_settings.asset:
@@ -374,6 +385,40 @@ class IngestionSettings(BaseModel):
                     raise ValueError(
                         f"instrument '{instrument_id}' does not include base timeframe "
                         f"'{self.base_timeframe}'"
+                    )
+                if asset_settings.enabled:
+                    live_route = (
+                        instrument.live_provider.casefold(),
+                        instrument.provider_symbols[
+                            instrument.live_provider
+                        ].casefold(),
+                    )
+                    previous_route = active_live_routes.get(live_route)
+                    if previous_route is not None:
+                        previous_asset, previous_instrument = previous_route
+                        raise ValueError(
+                            "duplicate active live provider-symbol route "
+                            f"'{live_route[0]}:{live_route[1]}' for "
+                            f"'{previous_asset}/{previous_instrument}' and "
+                            f"'{asset_name}/{instrument_id}'"
+                        )
+                    active_live_routes[live_route] = (asset_name, instrument_id)
+                if asset_settings.owns_manifest_lifecycle:
+                    manifest_symbol = instrument.provider_symbols[
+                        instrument.live_provider
+                    ].casefold()
+                    previous_owner = owned_manifest_symbols.get(manifest_symbol)
+                    if previous_owner is not None:
+                        previous_asset, previous_instrument = previous_owner
+                        raise ValueError(
+                            "duplicate lifecycle manifest symbol "
+                            f"'{manifest_symbol}' for "
+                            f"'{previous_asset}/{previous_instrument}' and "
+                            f"'{asset_name}/{instrument_id}'"
+                        )
+                    owned_manifest_symbols[manifest_symbol] = (
+                        asset_name,
+                        instrument_id,
                     )
         return self
 
