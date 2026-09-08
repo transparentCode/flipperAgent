@@ -6,7 +6,7 @@ import asyncio
 import inspect
 import json
 from collections.abc import Awaitable, Mapping
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from numbers import Real
 from typing import Any
 
@@ -134,6 +134,22 @@ def _filter_window(
     return normalized.loc[mask].reset_index(drop=True)
 
 
+def _merge_native_pages(pages: list[pd.DataFrame]) -> pd.DataFrame:
+    if not pages:
+        return pd.DataFrame(columns=_NORMALIZED_COLUMNS)
+
+    combined = pd.concat(pages, ignore_index=True)
+    duplicate_rows = combined.loc[combined["closed_at"].duplicated(keep=False)]
+    if not duplicate_rows.empty:
+        for _, group in duplicate_rows.groupby("closed_at", sort=False):
+            if len(group.drop_duplicates()) != 1:
+                raise ValueError("conflicting duplicate native candle")
+        combined = combined.drop_duplicates(subset=["closed_at"], keep="first")
+    return normalize_native_frame(
+        combined.sort_values("closed_at", kind="stable").reset_index(drop=True)
+    )
+
+
 async def fetch_native_window_async(
     symbol: str,
     timeframe: str,
@@ -153,10 +169,30 @@ async def fetch_native_window_async(
     if end < start:
         raise ValueError("end_at must not precede start_at")
     source = adapter if adapter is not None else BinanceNativeAdapter()
-    result = _request_native(source, symbol, timeframe, start, end)
-    if inspect.isawaitable(result):
-        result = await result
-    return _filter_window(result, start, end)
+    cursor = start
+    pages: list[pd.DataFrame] = []
+    while cursor <= end:
+        result = _request_native(source, symbol, timeframe, cursor, end)
+        if inspect.isawaitable(result):
+            result = await result
+        if not isinstance(result, pd.DataFrame):
+            raise TypeError("provider must return a pandas DataFrame")
+        if result.empty:
+            break
+
+        page = normalize_native_frame(result)
+        if page.empty:
+            break
+        pages.append(page)
+        last_close = page["closed_at"].max().to_pydatetime()
+        next_cursor = last_close + timedelta(milliseconds=1)
+        if next_cursor <= cursor:
+            raise ValueError("provider page made no cursor progress")
+        if last_close >= end:
+            break
+        cursor = next_cursor
+
+    return _filter_window(_merge_native_pages(pages), start, end)
 
 
 def fetch_native_window(

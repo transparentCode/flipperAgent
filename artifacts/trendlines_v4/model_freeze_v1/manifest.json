@@ -1,0 +1,114 @@
+{
+  "manifest_id": "560bde250663e8db55b9f07587772745f86959f068b759681c83a772b198ce7c",
+  "schema_version": "trendlines_v4_model_freeze_manifest_v1",
+  "base_commit": "72e88a6b38077b0d3c29c2d5f7518a0a072b6664",
+  "closure_handoff_sha256": "9b9400bf99bd15e251637a8c494a64cff55f6986693ddc4a00d45c62de45a5fa",
+  "authority_plan_hashes": {
+    "plans/orchestrator-decision-trendlines-v4-n1-exact-identity-persistence-approval-v1.md": "fdf50eeaa9c49653ec2bde542417ae201bf08f3776c747b43c5116e376c4c5be",
+    "plans/orchestrator-decision-trendlines-v4-n1-exact-identity-persistence-design-approval-v1.md": "6f6af736c528e5b9fd5dd44fb8f2a02e42a162eeb296e1e956464f6aa9193642",
+    "plans/orchestrator-decision-trendlines-v4-n1-exact-identity-persistence-design-v1.md": "4dd495773fa430a018e5ad3a9c5b3dd01b52c4d982278767819c482c399afa87",
+    "plans/orchestrator-decision-trendlines-v4-n2-current-relevance-metadata-design-approval-v1.md": "ff959581b854348f554d1e7bb14e618035d7f1bb0e545af62a17c19dc648c9bb",
+    "plans/orchestrator-decision-trendlines-v4-n2-current-relevance-metadata-design-v1.md": "fb5d0d336d7e7441f25f8aeab3c1c5eee4f9e822bf6919e7ded0de0a8706f12d"
+  },
+  "decision_evidence_sha256": "42a0b60dec456f7bacc3d58e228412542776c75b5d94d5e581c6fcb80d937dca",
+  "f1b_unblinded_mapping_sha256": "7ff2b80bb14ed740a1fdd8d9db1bf5c2b17550d213b0280e0088314490302fa6",
+  "accepted_model": {
+    "pathfinding_roles": [
+      "structural",
+      "current_valid",
+      "secondary"
+    ],
+    "pivot_consensus": {
+      "structural": "span_first",
+      "local": "consensus_first"
+    },
+    "pivot_window": 3,
+    "history_bars": 300
+  },
+  "model_state": "MODEL_COMPLETE_FROZEN_PENDING_INTEGRATION",
+  "production_integration_deferred": true,
+  "production_v4_hashes": {
+    "src/libs/models/trendlines_v4/__init__.py": "66ccb45f10ab0c3b530f81919ad172fdde93b51cda04d935a6ce581641d0ac61",
+    "src/libs/models/trendlines_v4/adapters/__init__.py": "4fe2b97ef481564c53fe7fbadce1b3530840f5a073def21b6852ae6f8c632c2d",
+    "src/libs/models/trendlines_v4/adapters/decision/__init__.py": "349e2f9c857819e16362b3dc9d278c07518022beb0c24cb6087238fa02899064",
+    "src/libs/models/trendlines_v4/adapters/decision/common.py": "1277ac7101f3aad161d3c181adc216edec51f5c0ce8d012210c77d2c1899e7cb",
+    "src/libs/models/trendlines_v4/adapters/decision/v1.py": "9902999bf6b18bd9f3e5a582f26fbc5527b6787a8df2629450eb9f94eb909537",
+    "src/libs/models/trendlines_v4/adapters/decision/v2.py": "abc184c6c950a81052877a4f4ee397670620bc05921266df85c081421851cc19",
+    "src/libs/models/trendlines_v4/adapters/decision_plugin.py": "be920fa709cc168bedc8ccfeae6bfd75d3001e9f11c2b338f1b191dfab8b9d76",
+    "src/libs/models/trendlines_v4/adapters/decision_plugin_v2.py": "c7c7e5c1080e7772965729bae13f67a70dd2658782e47718e64f2f31ad0b2760",
+    "src/libs/models/trendlines_v4/contracts.py": "8add9e9148adb41d045103a724c0cc55f213e7e5465545bcca1a24ce6c240053",
+    "src/libs/models/trendlines_v4/core.py": "43cd16de5f0cff3506a83c0c153df0cbec89ee8e3c679627b1f418dc7cd52f65",
+    "src/libs/models/trendlines_v4/core_v2.py": "8775b678c8ebcc64734c01976c650d61b092bed1439fcc29f1737aeee9b0221f",
+    "src/libs/models/trendlines_v4/engine/__init__.py": "637a1e22d3ebefbdc680a5aa2a344eb2398a44a93afecea99d45b9532d78a0d9",
+    "src/libs/models/trendlines_v4/engine/analyzer.py": "6042ea892d3494027eab99851d906c19aff35ec655e171ce8e6511655518bafe",
+    "src/libs/models/trendlines_v4/engine/pivots.py": "6957257c56c982a6871329d26254a0c6fb72246272dc40bf9fced6ca0d52b7c7",
+    "src/libs/models/trendlines_v4/engine/solver.py": "28f8a2f9e151091c8c551c70386064f27b8fead979205537d89d89b82bd900d9",
+    "src/libs/models/trendlines_v4/engine/types.py": "ab55a5441dc97d431f2c22fa72340dbf32592aa436449bc47543cb75314cc9ae",
+    "src/libs/models/trendlines_v4/engine/validity.py": "60250b3f81bc2b5a9d995127a29b5692a9e5a6c540b8420734d9726d9b7de7c7"
+  },
+  "research_lab_hashes": {
+    "src/libs/models/trendlines_v4/research_lab/__init__.py": "f778b5dbbc875ca5e0b5cfa28375bdb5c2a5ccb20ad0b3c50ece132a66d4f692",
+    "src/libs/models/trendlines_v4/research_lab/data.py": "b917cc6e3dc2ea61cf5727a02b51f0c49e2cfc5dfa2752f0ef4049762c0b7720",
+    "src/libs/models/trendlines_v4/research_lab/diagnostics.py": "0b315749aded7ee36ab032cf2d2969e835db5ac858a670e8af504a89a5bdbfe4",
+    "src/libs/models/trendlines_v4/research_lab/replay.py": "542b24c330c9f07f5d8605146aa68d870b9d710c0271c8e54de5fd221b18d3d5",
+    "src/libs/models/trendlines_v4/research_lab/trendlines_v4_research_lab.ipynb": "d30397999d8035e026c8bebe1a4db8b2e7430dd8ff61ecc317f6e3d53a87ea74",
+    "src/libs/models/trendlines_v4/research_lab/tvlc.py": "fc8cfb3718f261f98530df6b9895737597037f0e1e38a9d31ddeccfbf0446c28"
+  },
+  "research_test_hashes": {
+    "tests/models/trendlines_v4/test_research_lab.py": "d9acec9e6e685bb895fc88a489f6b02fa0a575b33b62bf340d696a2f5f64939f",
+    "tests/research/trendlines_v4/test_blinded_recovery_geometry_review.py": "16b40dc6d07fbb2b3ff45561e7c21b542bea1df4a5ddf25247873107798c3da9",
+    "tests/research/trendlines_v4/test_causal_semantics_audit.py": "c10731e0b183110a0e2caafb610f3978b24382864d80bc12ff3a8208c586ca9e",
+    "tests/research/trendlines_v4/test_current_relevance_metadata.py": "65038d1377eaa1581e30f8d8e03d709e1d526feab8094825cdf2a5c93fa90bd5",
+    "tests/research/trendlines_v4/test_current_valid_legacy_score_reselection.py": "bd2394a82a3b44d429d3b1c66914f7bd664a254036ea861473bd852cdcee78df",
+    "tests/research/trendlines_v4/test_exact_geometry_identity_persistence.py": "f23ad57ae9bc5a958c1bdcc88675d8e0049e90fac53cc714fa4191014a59bf9e",
+    "tests/research/trendlines_v4/test_frozen_utility_benchmark.py": "90c4c9833f21387926ad90a6ab13125ba435fd396e507ddb0de7e171b4499789",
+    "tests/research/trendlines_v4/test_h1_profile_challenge.py": "876e7c1529a071cbea029a9ab927465ad15be8971e9018c2d636c7d7d3b0ddbb",
+    "tests/research/trendlines_v4/test_legacy_pathfinding_reference.py": "aa3ed0620b3aac1a6bee1ffeee26e726a685d55968f790941d6ba845fb3d587b",
+    "tests/research/trendlines_v4/test_n3b_secondary_visual_utility.py": "b38522fa510049c5c385dbe0dcd2a5a371ac1437527d41ab8dfda04a36fec4e0",
+    "tests/research/trendlines_v4/test_n4_multitimeframe_context.py": "f205f5ae178bf7092101bbcd008dde739b4f9e1dadf976523f62100c3cc4b941",
+    "tests/research/trendlines_v4/test_parameter_sensitivity.py": "dea327fcfa887d4293de28e777d314fe90c2cdb420c0d9ea4fb0f9322b257ae0",
+    "tests/research/trendlines_v4/test_post_anchor_filter_impact.py": "5a574a530311dae842c757e8b3c460c8f14374d4ff52305c5072fd4b024956b6",
+    "tests/research/trendlines_v4/test_post_anchor_validity_audit.py": "8a85e2de5263191773422300da8eab895a4ee71b3872fcf0658a4b35a6da715c",
+    "tests/research/trendlines_v4/test_pivot_consensus_candidate_tape.py": "5e8c4f86cf65d32616e6830c986c0ba94c47b97c05ea60352c7323c0f7132952",
+    "tests/research/trendlines_v4/test_pivot_consensus_selector_challenge.py": "7b189056b0469f5cc1c27e5bdb4a1cad8fd53aa3827bf13fbc4fd5ee165833e8",
+    "tests/research/trendlines_v4/test_pivot_consensus_role_validation.py": "742e3412440ba8377d1edbb8b20bc9cb82944e0c0a0a128fd717ab35f7a9000e"
+  },
+  "research_source_hashes": {
+    "research/trendlines_v4/pivot_consensus_candidate_tape.py": "830c7390bdfc53f7bf8e588e27e4c679b12c0d3d90dd6682929bc78b4d5b0423",
+    "research/trendlines_v4/pivot_consensus_selector_challenge.py": "3a4efdfea86818e681b99d03f029c5e1219275e5ed0120a743ce1762ed426a47",
+    "research/trendlines_v4/pivot_consensus_role_validation.py": "452c0af0c5a41c8e222ac06c5052440909ca9712c932e137a93ae05cee271eeb"
+  },
+  "artifact_ids": {
+    "f1a_manifest_id": "dc7967a6bda680c168f26523779361cb7b364b7738ccfc803ecb34f35975a821",
+    "f1a_report_id": "85ad041f189fcdad34298422e930106cba0a432fc9a10b95c17efb90d0ad6376",
+    "f1a_g6_manifest_id": "e239a408f8220cb822d8f056957178a3c32c6775f9d1db63999f4c47c811d298",
+    "f1b_holdout_manifest_id": "a0190bd7c6687069280a39ac40f0b23eeac940f0f523a281cc1ba3915d6d6c11",
+    "f1b_blind_packet_id": "ed65cc698824de9cd4ac2dafa36e06dfb81093d85a31dc1abf632f1abd9d3ecc",
+    "f1c_native_manifest_id": "df0ab4c22463cce0c21f912e0afca92d067e3f34a71c8e4eb85476f3f7e4bece",
+    "f1c_report_id": "f78393d1ea4d69592e4f26d533c222f393e8920962ce06e450cdaee2ee05c95a",
+    "f1c_manifest_id": "35340dfce4ef73e785fef94a4d14618d80c505f7ba97b6ef19bd039e59688e9d"
+  },
+  "artifact_file_sha256": {
+    "artifacts/trendlines_v4/f1a_pivot_consensus_candidate_tape_v1/manifest.json": "f3d541aca2d04c551470b0fb9aca7c6446fa82e5ef3e9f590ad4397e724ab736",
+    "artifacts/trendlines_v4/f1a_pivot_consensus_candidate_tape_v1/report.json": "2b210702f9ea67cfe3d5e46bab36fdb3ba05f84ba4491507745e4aead54f0194",
+    "artifacts/trendlines_v4/f1b_pivot_consensus_selector_challenge_v1/blind_cases.json": "bed744ab3a46900b50cd1d5cebad6436e00c2edd68740273b26a0c1596913e97",
+    "artifacts/trendlines_v4/f1b_pivot_consensus_selector_challenge_v1/blind_review.html": "e3bc3625e35fa2b7cd9f8bf8537c7f9aff350ea330b432371e5671ab3bd5ef39",
+    "artifacts/trendlines_v4/f1b_pivot_consensus_selector_challenge_v1/holdout_manifest.json": "0a77ac09b9da8a72c937471539c100ae9047e6e54a467c145abd594b014ae401",
+    "artifacts/trendlines_v4/f1b_pivot_consensus_selector_challenge_v1/mapping_commitment.json": "c945d7784ebb8b7b8f2ac84d727f7c1880462b2359d02fdbe4cc98ceb2079361",
+    "artifacts/trendlines_v4/f1c_pivot_consensus_role_validation_v1/combined_cases.json": "dfe090d0c7c5aff316f927acae2e28bbb0cfb5de6ab60a304c23339f6fbf17a0",
+    "artifacts/trendlines_v4/f1c_pivot_consensus_role_validation_v1/combined_review.html": "0a50ba9271139edd64d7e22629f20bef531619cec3a2efd5956b72c1df32a7e6",
+    "artifacts/trendlines_v4/f1c_pivot_consensus_role_validation_v1/manifest.json": "654dc3f8bb50f2ea701e1cea3e3964eb746799d7091575e445e3903e554ee423",
+    "artifacts/trendlines_v4/f1c_pivot_consensus_role_validation_v1/native_4h_BTCUSDT.csv": "832f9a3defe8f419571b76cbb9546ba22d6df44b22ef75c6ba23fc73fea4ccd2",
+    "artifacts/trendlines_v4/f1c_pivot_consensus_role_validation_v1/native_4h_ETHUSDT.csv": "a7efe9fc0c27303b8bc3c778c096780d3d2d410cefbea0ca22d77b171737ae6e",
+    "artifacts/trendlines_v4/f1c_pivot_consensus_role_validation_v1/native_4h_HYPEUSDT.csv": "c00769615b89b704bf7bfad4c5241dfa3638360a6b3956cb163eee667ce47bcf",
+    "artifacts/trendlines_v4/f1c_pivot_consensus_role_validation_v1/native_4h_SOLUSDT.csv": "cd850c95452512b65f3b4fd3e1d69f4f25d1bb14d7881513070ea3e6bb9a57d5",
+    "artifacts/trendlines_v4/f1c_pivot_consensus_role_validation_v1/native_4h_manifest.json": "21dfedd1be1966918f03224ded854e66ddf70a5d1e31314137eb6b7d8e643233",
+    "artifacts/trendlines_v4/f1c_pivot_consensus_role_validation_v1/report.json": "401969dde83827530bd59f2764487ab7983bf0fb286988c02390c38d44812c05"
+  },
+  "artifact_inventory": {
+    "f1a": "artifacts/trendlines_v4/f1a_pivot_consensus_candidate_tape_v1",
+    "f1b": "artifacts/trendlines_v4/f1b_pivot_consensus_selector_challenge_v1",
+    "f1c": "artifacts/trendlines_v4/f1c_pivot_consensus_role_validation_v1",
+    "model_freeze": "artifacts/trendlines_v4/model_freeze_v1"
+  }
+}

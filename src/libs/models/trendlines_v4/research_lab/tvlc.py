@@ -14,7 +14,7 @@ from libs.models.trendlines_v4.contracts import TrendlineSnapshotV2
 from libs.models.trendlines_v4.core_v2 import TrendlineBar
 from libs.models.trendlines_v4.engine.types import TrendlineGeometry
 
-from .data import _bounded_bars, _timestamp_text, normalize_native_frame
+from .data import _timestamp_text, normalize_native_frame
 
 TVLC_VERSION = "5.2.1"
 TVLC_CDN_URL = (
@@ -33,10 +33,73 @@ def _bar_index(bars: tuple[TrendlineBar, ...]) -> dict[Any, int]:
     return {bar.closed_at: index for index, bar in enumerate(bars)}
 
 
+def _validate_view_bars(view_bars: int | None) -> None:
+    if view_bars is None:
+        return
+    if isinstance(view_bars, bool) or not isinstance(view_bars, int):
+        raise TypeError("view_bars must be a positive int or None")
+    if view_bars < 1:
+        raise ValueError("view_bars must be positive")
+
+
+def _display_frame(
+    frame: pd.DataFrame,
+    snapshot: TrendlineSnapshotV2,
+    view_bars: int | None,
+) -> tuple[
+    tuple[TrendlineBar, ...],
+    pd.DataFrame,
+    tuple[TrendlineBar, ...],
+]:
+    """Return visible bars plus the complete cutoff history for line ordinals."""
+
+    _validate_view_bars(view_bars)
+    normalized = normalize_native_frame(frame)
+    cutoff = pd.Timestamp(snapshot.market_as_of)
+    cutoff_frame = normalized.loc[normalized["closed_at"] <= cutoff].reset_index(
+        drop=True
+    )
+    if cutoff_frame.empty:
+        raise ValueError("frame has no candle at or before snapshot cutoff")
+    if cutoff_frame.iloc[-1]["closed_at"] != cutoff:
+        raise ValueError("frame and snapshot do not share the same cutoff")
+
+    visible_frame = (
+        cutoff_frame if view_bars is None else cutoff_frame.tail(view_bars)
+    ).reset_index(drop=True)
+    visible_bars = tuple(
+        TrendlineBar(
+            closed_at=row.closed_at.to_pydatetime(),
+            open=row.open,
+            high=row.high,
+            low=row.low,
+            close=row.close,
+        )
+        for row in visible_frame.itertuples(index=False)
+    )
+    cutoff_bars = tuple(
+        TrendlineBar(
+            closed_at=row.closed_at.to_pydatetime(),
+            open=row.open,
+            high=row.high,
+            low=row.low,
+            close=row.close,
+        )
+        for row in cutoff_frame.itertuples(index=False)
+    )
+    if not visible_bars or visible_bars[-1].closed_at != snapshot.market_as_of:
+        raise ValueError("visible frame must end at snapshot cutoff")
+    return visible_bars, visible_frame, cutoff_bars
+
+
 def _line_points(
-    bars: tuple[TrendlineBar, ...], line: TrendlineGeometry
+    bars: tuple[TrendlineBar, ...],
+    line: TrendlineGeometry,
+    *,
+    reference_bars: tuple[TrendlineBar, ...],
+    market_as_of: Any,
 ) -> list[dict[str, Any]]:
-    positions = _bar_index(bars)
+    positions = _bar_index(reference_bars)
     try:
         start_index = positions[line.start_anchor_at]
         end_index = positions[line.end_anchor_at]
@@ -45,14 +108,22 @@ def _line_points(
     if end_index <= start_index:
         raise ValueError("line anchors must be ordered")
     points = []
-    for index in range(start_index, len(bars)):
-        if index == len(bars) - 1:
+    for bar in bars:
+        try:
+            index = positions[bar.closed_at]
+        except KeyError as exc:
+            raise ValueError("visible bar is not in the cutoff history") from exc
+        if index < start_index:
+            continue
+        if bar.closed_at == market_as_of:
             value = line.projected_price_at_market_as_of
         elif index == end_index:
             value = line.end_anchor_price
         else:
             value = line.start_anchor_price + line.slope_per_bar * (index - start_index)
-        points.append({"time": int(bars[index].closed_at.timestamp()), "value": value})
+        points.append({"time": int(bar.closed_at.timestamp()), "value": value})
+    if not points:
+        raise ValueError("visible frame does not intersect the line")
     return points
 
 
@@ -81,11 +152,11 @@ def build_tvlc_payload(
     snapshot: TrendlineSnapshotV2,
     *,
     timeframe: str = "",
+    view_bars: int | None = None,
 ) -> dict[str, Any]:
     """Build JSON-safe candle/line data ending exactly at snapshot cutoff."""
 
-    bars = _bounded_bars(frame, snapshot)
-    normalized = normalize_native_frame(frame).iloc[-len(bars) :]
+    bars, normalized, cutoff_bars = _display_frame(frame, snapshot, view_bars)
     candles = [
         {
             "time": int(bar.closed_at.timestamp()),
@@ -123,13 +194,20 @@ def build_tvlc_payload(
                 "color": "#16a34a" if side == "support" else "#dc2626",
                 "line_style": style_name,
                 "line_width": width,
-                "points": _line_points(bars, line),
+                "points": _line_points(
+                    bars,
+                    line,
+                    reference_bars=cutoff_bars,
+                    market_as_of=snapshot.market_as_of,
+                ),
             }
         )
     return {
         "timeframe": timeframe,
         "market_as_of": _timestamp_text(snapshot.market_as_of),
         "history_bar_count": snapshot.history_bar_count,
+        "visible_bar_count": len(bars),
+        "visible_start_at": _timestamp_text(bars[0].closed_at),
         "candles": candles,
         "volume": volume,
         "lines": lines,
@@ -147,9 +225,10 @@ def build_tvlc_html(
     timeframe: str = "",
     title: str | None = None,
     element_id: str | None = None,
+    view_bars: int | None = None,
 ) -> str:
     payload = json.dumps(
-        build_tvlc_payload(frame, snapshot, timeframe=timeframe),
+        build_tvlc_payload(frame, snapshot, timeframe=timeframe, view_bars=view_bars),
         separators=(",", ":"),
         allow_nan=False,
     )
@@ -228,8 +307,15 @@ def render_tvlc_chart(
     *,
     timeframe: str = "",
     title: str | None = None,
+    view_bars: int | None = None,
 ) -> str:
-    html_output = build_tvlc_html(frame, snapshot, timeframe=timeframe, title=title)
+    html_output = build_tvlc_html(
+        frame,
+        snapshot,
+        timeframe=timeframe,
+        title=title,
+        view_bars=view_bars,
+    )
     display(HTML(html_output))
     return html_output
 

@@ -11,6 +11,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from libs.market_data import BINANCE_KLINE_PAGE_LIMIT
 from libs.models.trendlines_v4 import research_lab as support
 from libs.models.trendlines_v4.contracts import (
     SideGeometryV2,
@@ -50,6 +51,29 @@ def _frame(count: int = 36) -> pd.DataFrame:
             }
         )
     return pd.DataFrame(rows)
+
+
+class _PagedAdapter:
+    def __init__(self, pages: list[pd.DataFrame]) -> None:
+        self.pages = list(pages)
+        self.calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+    def _next_page(self) -> pd.DataFrame:
+        if not self.pages:
+            return pd.DataFrame()
+        return self.pages.pop(0)
+
+    async def get_historical_ohlcv(
+        self, *args: object, **kwargs: object
+    ) -> pd.DataFrame:
+        self.calls.append((args, kwargs))
+        return self._next_page()
+
+
+class _SynchronousPagedAdapter(_PagedAdapter):
+    def get_historical_ohlcv(self, *args: object, **kwargs: object) -> pd.DataFrame:
+        self.calls.append((args, kwargs))
+        return self._next_page()
 
 
 def _manual_snapshot(frame: pd.DataFrame) -> TrendlineSnapshotV2:
@@ -113,7 +137,7 @@ def test_notebook_is_valid_and_contains_the_required_sections() -> None:
         "Export Current Snapshot",
     ):
         assert heading in source
-    assert "ALLOW_PROVIDER_FETCH = False" in source
+    assert "ALLOW_PROVIDER_FETCH =" in source
 
 
 def test_notebook_uses_support_surface_and_avoids_forbidden_research_paths() -> None:
@@ -191,12 +215,179 @@ async def test_native_fetch_requests_close_time_and_preserves_native_timeframe()
     assert ".resample(" not in source
 
 
+@pytest.mark.asyncio
+async def test_native_fetch_paginates_from_close_time_and_deduplicates_pages() -> None:
+    full = _frame(5)
+    adapter = _PagedAdapter([full.iloc[:2], full.iloc[1:4], full.iloc[4:]])
+    start = int(full.loc[0, "close_time"])
+    end = int(full.loc[4, "close_time"])
+
+    result = await support.fetch_native_window_async(
+        "BTCUSDT", "1h", start, end, adapter=adapter
+    )
+
+    expected_closed_at = pd.to_datetime(full["close_time"], unit="ms", utc=True)
+    assert list(result["closed_at"]) == list(expected_closed_at)
+    assert result["closed_at"].is_unique
+    assert result["closed_at"].is_monotonic_increasing
+    assert len(adapter.calls) == 3
+    assert all(call[0][:2] == ("BTCUSDT", "1h") for call in adapter.calls)
+    assert all(call[1]["limit"] == BINANCE_KLINE_PAGE_LIMIT for call in adapter.calls)
+    assert all(call[1]["include_close_time"] is True for call in adapter.calls)
+    assert [call[1]["since"] for call in adapter.calls] == [
+        start,
+        int(full.loc[1, "close_time"]) + 1,
+        int(full.loc[3, "close_time"]) + 1,
+    ]
+    assert all(call[1]["until"] == end for call in adapter.calls)
+
+
+@pytest.mark.asyncio
+async def test_native_fetch_stops_cleanly_on_empty_later_page() -> None:
+    full = _frame(5)
+    adapter = _PagedAdapter([full.iloc[:2], pd.DataFrame()])
+
+    result = await support.fetch_native_window_async(
+        "BTCUSDT",
+        "4h",
+        int(full.loc[0, "close_time"]),
+        int(full.loc[4, "close_time"]),
+        adapter=adapter,
+    )
+
+    assert len(result) == 2
+    assert len(adapter.calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_native_fetch_accepts_a_synchronous_provider_page() -> None:
+    full = _frame(3)
+    adapter = _SynchronousPagedAdapter([full.iloc[:2], full.iloc[2:]])
+
+    result = await support.fetch_native_window_async(
+        "BTCUSDT",
+        "1h",
+        int(full.loc[0, "close_time"]),
+        int(full.loc[2, "close_time"]),
+        adapter=adapter,
+    )
+
+    assert len(result) == 3
+    assert len(adapter.calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_native_fetch_rejects_a_page_that_does_not_advance_cursor() -> None:
+    full = _frame(3)
+    adapter = _PagedAdapter([full.iloc[[0]]])
+
+    with pytest.raises(ValueError, match="cursor progress"):
+        await support.fetch_native_window_async(
+            "BTCUSDT",
+            "1h",
+            int(full.loc[1, "close_time"]),
+            int(full.loc[2, "close_time"]),
+            adapter=adapter,
+        )
+
+
 def test_analysis_is_exactly_the_public_v2_engine() -> None:
     frame = _frame()
     assert support.analyze_frame(frame) == analyze_trendlines_v2(
         support.frame_to_trendline_bars(frame)
     )
     assert support.analyze_frames({"1h": frame})["1h"] == support.analyze_frame(frame)
+
+
+def test_view_history_is_independent_from_fixed_model_history() -> None:
+    frame = _frame(360)
+    snapshot = support.analyze_frame(frame)
+    payload = support.build_tvlc_payload(frame, snapshot, view_bars=None)
+
+    assert snapshot.history_bar_count == 300
+    assert payload["visible_bar_count"] == 360
+    assert len(payload["candles"]) == 360
+    expected_start = (
+        datetime.fromtimestamp(frame.loc[0, "close_time"] / 1000, tz=UTC)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+    assert payload["visible_start_at"] == expected_start
+    assert payload["candles"][-1]["time"] == int(frame.loc[359, "close_time"] / 1000)
+
+
+@pytest.mark.parametrize(
+    ("view_bars", "error"),
+    (
+        (True, TypeError),
+        (0, ValueError),
+        (-1, ValueError),
+        (1.5, TypeError),
+        ("300", TypeError),
+    ),
+)
+def test_view_bars_validation_is_strict(
+    view_bars: object, error: type[Exception]
+) -> None:
+    frame = _frame(36)
+    snapshot = support.analyze_frame(frame)
+    with pytest.raises(error, match="view_bars"):
+        support.build_tvlc_payload(frame, snapshot, view_bars=view_bars)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("view_bars", (300, 1000))
+def test_view_bars_selects_trailing_visible_candles_only(view_bars: int) -> None:
+    frame = _frame(360)
+    snapshot = support.analyze_frame(frame)
+    payload = support.build_tvlc_payload(frame, snapshot, view_bars=view_bars)
+
+    expected_count = min(view_bars, 360)
+    assert payload["visible_bar_count"] == expected_count
+    assert len(payload["candles"]) == expected_count
+    assert payload["candles"][-1]["time"] == int(frame.loc[359, "close_time"] / 1000)
+    assert payload["candles"][0]["time"] == int(
+        frame.loc[360 - expected_count, "close_time"] / 1000
+    )
+
+
+def test_future_tail_is_excluded_from_full_display_window() -> None:
+    frame = _frame(360)
+    snapshot = support.analyze_frame(frame)
+    tail = _frame(4)
+    tail["timestamp"] += 360 * 3_600_000
+    tail["close_time"] += 360 * 3_600_000
+    extended = pd.concat([frame, tail], ignore_index=True)
+
+    payload = support.build_tvlc_payload(extended, snapshot, view_bars=None)
+
+    assert len(payload["candles"]) == 360
+    assert payload["candles"][-1]["time"] == int(frame.loc[359, "close_time"] / 1000)
+
+
+def test_lines_clip_off_screen_anchors_and_end_at_exact_projection() -> None:
+    frame = _frame(360)
+    snapshot = _manual_snapshot(frame)
+    payload = support.build_tvlc_payload(frame, snapshot, view_bars=20)
+    first_visible_time = payload["candles"][0]["time"]
+    cutoff = int(snapshot.market_as_of.timestamp())
+    visible_start = support.frame_to_trendline_bars(frame)[340].closed_at
+
+    assert all(
+        line is not None and line.start_anchor_at < visible_start
+        for line in (snapshot.support.structural, snapshot.support.secondary)
+    )
+    for line_payload in payload["lines"]:
+        assert line_payload["points"][0]["time"] == first_visible_time
+        assert line_payload["points"][-1]["time"] == cutoff
+        source_line = (
+            snapshot.support.secondary
+            if line_payload["role"] == "secondary"
+            else snapshot.support.structural
+        )
+        assert source_line is not None
+        assert line_payload["points"][-1]["value"] == (
+            source_line.projected_price_at_market_as_of
+        )
 
 
 def test_snapshot_projection_is_public_and_contains_no_private_dp_score() -> None:
@@ -325,6 +516,18 @@ def test_notebook_code_cells_parse_as_python() -> None:
     for cell in document["cells"]:
         if cell["cell_type"] == "code":
             ast.parse("".join(cell["source"]))
+
+
+def test_notebook_view_window_and_inventory_source_mode_are_wired() -> None:
+    document = json.loads(NOTEBOOK.read_text())
+    source = "\n".join("".join(cell.get("source", [])) for cell in document["cells"])
+    assert "VIEW_BARS = None" in source
+    assert "view_bars=VIEW_BARS" in source
+    assert (
+        "Model history is always 300 bars. VIEW_BARS changes display history only."
+        in source
+    )
+    assert '"source_mode": "provider" if ALLOW_PROVIDER_FETCH else "injected"' in source
 
 
 def test_research_lab_helpers_have_bounded_responsibilities() -> None:

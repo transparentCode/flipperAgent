@@ -1,0 +1,89 @@
+{
+  "schema_version": "trendlines_v4_model_freeze_decision_evidence_v1",
+  "final_disposition": "TWO_ROLE_RESEARCH_FAMILY_SUPPORTED",
+  "promotion_state": "RESEARCH_ONLY",
+  "accepted_model": {
+    "pathfinding_roles": [
+      "structural",
+      "current_valid",
+      "secondary"
+    ],
+    "pivot_consensus": {
+      "structural": "span_first",
+      "local": "consensus_first"
+    },
+    "pivot_window": 3,
+    "history_bars": 300
+  },
+  "f1b_visual_review": {
+    "case_count": 8,
+    "both_selector_panels_useful_count": 8,
+    "selector_preference": "none",
+    "ratings_frozen_before_unblinding": true
+  },
+  "f1c_visual_review": {
+    "case_count": 16,
+    "both_roles_useful_count": 16,
+    "clutter_acceptable_count": 16
+  },
+  "f1c_native_measurement": {
+    "assets": [
+      "BTCUSDT",
+      "ETHUSDT",
+      "SOLUSDT",
+      "HYPEUSDT"
+    ],
+    "native_timeframe": "4h",
+    "rows_per_asset": 491,
+    "stream_count": 8,
+    "cutoff_count": 1536,
+    "side_cutoff_count": 3072,
+    "role_observation_slots": 6144,
+    "eligible_terminal_close": "2026-02-28T23:59:59.999000Z",
+    "native_manifest_id": "df0ab4c22463cce0c21f912e0afca92d067e3f34a71c8e4eb85476f3f7e4bece",
+    "report_id": "f78393d1ea4d69592e4f26d533c222f393e8920962ce06e450cdaee2ee05c95a",
+    "manifest_id": "35340dfce4ef73e785fef94a4d14618d80c505f7ba97b6ef19bd039e59688e9d"
+  },
+  "authority_records": {
+    "f1c_two_role_decision_sha256": "adb18ffb3c94686a37137949a0fc2d33b81dff79e90c2e62c6f421b02138f5e7",
+    "f1c_usefulness_ratings_sha256": "0e412f6b9ea9f61c85f837eee9d38e970d41ded71c65873c0178afd951ce2ed1",
+    "f1c_clutter_ratings_sha256": "1e2a49a0972cdf87d62013fdd27d148ed9ab6e7233d49bcef7556d992df6b7c5"
+  },
+  "f1c_relocation_reproducibility": {
+    "publication_artifacts_immutable": true,
+    "stored_native_manifest_id": "df0ab4c22463cce0c21f912e0afca92d067e3f34a71c8e4eb85476f3f7e4bece",
+    "stored_report_id": "f78393d1ea4d69592e4f26d533c222f393e8920962ce06e450cdaee2ee05c95a",
+    "stored_report_sha256": "401969dde83827530bd59f2764487ab7983bf0fb286988c02390c38d44812c05",
+    "stored_manifest_id": "35340dfce4ef73e785fef94a4d14618d80c505f7ba97b6ef19bd039e59688e9d",
+    "stored_manifest_sha256": "654dc3f8bb50f2ea701e1cea3e3964eb746799d7091575e445e3903e554ee423",
+    "relocated_report_id": "18352e8533d50a7f074563302a2fabd6d6af8443618c3b61c9825e4675b9ff99",
+    "relocated_report_sha256": "1a498954ac3cb3815b1d848409ea201601ecf74ce476b78876646df40295bd77",
+    "relocated_manifest_id": "62267e91807ec4761dd82a35018f84d056a846cf3f92de7f7fa33af5041f6453",
+    "relocated_manifest_sha256": "97079ddf79d41d1f707f0e41cfdac8fec2cc0d7b798c64aa28bacff097325b7c",
+    "combined_cases_byte_exact": true,
+    "combined_review_html_byte_exact": true,
+    "analytical_drift_detected": false,
+    "native_acquisition_rerun": false,
+    "allowed_report_difference_paths": [
+      "report_id",
+      "streams[BTCUSDT,4h].source_path",
+      "streams[ETHUSDT,4h].source_path",
+      "streams[SOLUSDT,4h].source_path",
+      "streams[HYPEUSDT,4h].source_path"
+    ],
+    "allowed_manifest_difference_paths": [
+      "report_id",
+      "artifact_inventory[report.json]",
+      "manifest_id"
+    ],
+    "portability_note": "Original F1C publication source_path values are checkout-location-bound provenance metadata; repository-relative rebuild paths are deterministic.",
+    "external_1h_source_dependency": "Accepted F1B/G6 1h source provenance remains bound to externally stored legacy source files and paths; those inputs were not copied or reacquired."
+  },
+  "integration": {
+    "production_integration_deferred": true,
+    "decision_integration_deferred": true,
+    "trading_authority": "none"
+  },
+  "historical_plan_evidence_gap": true,
+  "historical_plan_evidence_gap_note": "Some older completed or superseded decision-plan records, including known N3B, H1, and H0 review or amendment references, are absent from the current primary filesystem. They were not reconstructed or represented as byte-identical originals."
+}
