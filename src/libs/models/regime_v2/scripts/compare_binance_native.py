@@ -18,10 +18,12 @@ from typing import Any
 
 import pandas as pd
 
-from libs.market_data.binance_native import BinanceNativeAdapter
-from libs.models.regime_v2.evaluation import RegimeComparisonConfig, run_regime_comparison
 from libs.common.timeframes import timeframe_to_seconds
-from libs.models.trendlines.signals.context import BarAvailabilitySource
+from libs.market_data.binance_native import BinanceNativeAdapter
+from libs.models.regime_v2.evaluation import (
+    RegimeComparisonConfig,
+    run_regime_comparison,
+)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -103,13 +105,15 @@ def normalize_binance_native_ohlcv(
     if has_close_time:
         df["close_time"] = pd.to_numeric(df["close_time"], errors="coerce")
     df = df.dropna(subset=[*required, "close_time"] if has_close_time else required)
-    df["open_time"] = pd.to_datetime(df["timestamp"].astype("int64"), unit="ms", utc=True)
+    df["open_time"] = pd.to_datetime(
+        df["timestamp"].astype("int64"), unit="ms", utc=True
+    )
     df = df.set_index("open_time").sort_index()
     if has_close_time:
         df["bar_available_at"] = pd.to_datetime(
             df["close_time"].astype("int64"), unit="ms", utc=True
         )
-        source = BarAvailabilitySource.EXCHANGE_CLOSE_TIME
+        availability_source = "exchange_close_time"
     else:
         if timeframe is None:
             raise ValueError(
@@ -118,27 +122,52 @@ def normalize_binance_native_ohlcv(
         interval_seconds = timeframe_to_seconds(timeframe, default=0)
         if interval_seconds < 1:
             raise ValueError(f"invalid timeframe for bar availability: {timeframe!r}")
-        df["bar_available_at"] = df.index + pd.to_timedelta(
-            interval_seconds, unit="s"
-        )
-        source = BarAvailabilitySource.FIXED_INTERVAL_DERIVED
+        df["bar_available_at"] = df.index + pd.to_timedelta(interval_seconds, unit="s")
+        availability_source = "fixed_interval_derived"
     result = df[["open", "high", "low", "close", "volume", "bar_available_at"]]
-    result.attrs["bar_availability_source"] = source.value
+    result.attrs["bar_availability_source"] = availability_source
     return result
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Fetch Binance candles and compare RegimeV2.")
-    parser.add_argument("--symbol", required=True, help="Binance USD-M futures symbol, e.g. BTCUSDT.")
-    parser.add_argument("--timeframe", required=True, help="Binance interval, e.g. 30m, 1h, 4h.")
-    parser.add_argument("--limit", type=int, default=1000, help="Kline limit. Binance usually caps this at 1500.")
-    parser.add_argument("--since", default=None, help="Start time: epoch ms or ISO datetime.")
-    parser.add_argument("--until", default=None, help="End time: epoch ms or ISO datetime.")
+    parser = argparse.ArgumentParser(
+        description="Fetch Binance candles and compare RegimeV2."
+    )
+    parser.add_argument(
+        "--symbol", required=True, help="Binance USD-M futures symbol, e.g. BTCUSDT."
+    )
+    parser.add_argument(
+        "--timeframe", required=True, help="Binance interval, e.g. 30m, 1h, 4h."
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=1000,
+        help="Kline limit. Binance usually caps this at 1500.",
+    )
+    parser.add_argument(
+        "--since", default=None, help="Start time: epoch ms or ISO datetime."
+    )
+    parser.add_argument(
+        "--until", default=None, help="End time: epoch ms or ISO datetime."
+    )
     parser.add_argument("--horizon-bars", type=int, default=12)
-    parser.add_argument("--skip-legacy", action="store_true", help="Do not evaluate legacy libs.regime.")
-    parser.add_argument("--skip-regime-classification", action="store_true", help="Do not evaluate RegimeClassification.")
-    parser.add_argument("--output-json", default=None, help="Optional path for summary JSON.")
-    parser.add_argument("--output-csv", default=None, help="Optional path for full comparison dataframe.")
+    parser.add_argument(
+        "--skip-legacy", action="store_true", help="Do not evaluate legacy libs.regime."
+    )
+    parser.add_argument(
+        "--skip-regime-classification",
+        action="store_true",
+        help="Do not evaluate RegimeClassification.",
+    )
+    parser.add_argument(
+        "--output-json", default=None, help="Optional path for summary JSON."
+    )
+    parser.add_argument(
+        "--output-csv",
+        default=None,
+        help="Optional path for full comparison dataframe.",
+    )
     return parser.parse_args(argv)
 
 

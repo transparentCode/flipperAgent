@@ -24,7 +24,10 @@ def test_parse_pairs_defaults_to_phase5d_rollout_pairs():
 
 
 def test_parse_pairs_normalizes_symbol():
-    assert _parse_pairs(["btcusdt:4h", "ethusdt:1h"]) == (("BTCUSDT", "4h"), ("ETHUSDT", "1h"))
+    assert _parse_pairs(["btcusdt:4h", "ethusdt:1h"]) == (
+        ("BTCUSDT", "4h"),
+        ("ETHUSDT", "1h"),
+    )
 
 
 def test_outputs_from_candidates_preserves_threshold_and_signed_scoring():
@@ -79,7 +82,9 @@ def test_feature_vector_from_regime_comparison_row_builds_nested_payload():
             "regime_v2_policy_mean_reversion_score": 0.1,
         }
     )
-    ohlcv_row = pd.Series({"open": 1, "high": 2, "low": 0.5, "close": 1.5, "volume": 10})
+    ohlcv_row = pd.Series(
+        {"open": 1, "high": 2, "low": 0.5, "close": 1.5, "volume": 10}
+    )
 
     fv = _feature_vector_from_row(
         comparison_row,
@@ -113,7 +118,9 @@ def test_feature_vector_from_row_attaches_optional_trendline_payload():
     )
 
     assert fv.features["trendline"]["trendline_valid"] == 1.0
-    assert fv.features["trendline"]["trendline_market_position_state"] == "inside_channel"
+    assert (
+        fv.features["trendline"]["trendline_market_position_state"] == "inside_channel"
+    )
 
 
 def test_force_shadow_persistence_sets_collector_log_path():
@@ -146,11 +153,6 @@ def test_collect_shadow_binance_cli_parse_args():
             "--log-path",
             "logs/custom.jsonl",
             "--reset-log",
-            "--include-trendline-context",
-            "--trendline-min-bars",
-            "40",
-            "--trendline-history-limit",
-            "3",
         ]
     )
 
@@ -160,13 +162,16 @@ def test_collect_shadow_binance_cli_parse_args():
     assert args.max_records_per_pair == 20
     assert args.log_path == "logs/custom.jsonl"
     assert args.reset_log is True
-    assert args.include_trendline_context is True
-    assert args.trendline_min_bars == 40
-    assert args.trendline_history_limit == 3
-    assert _parse_args([]).trendline_history_limit is None
 
 
-def test_collect_shadow_binance_cli_rejects_non_positive_history_limit():
-    for value in ("0", "-1"):
-        with pytest.raises(SystemExit):
-            _parse_args(["--trendline-history-limit", value])
+@pytest.mark.parametrize(
+    "argv",
+    (
+        ["--include-trendline-context"],
+        ["--trendline-min-bars", "40"],
+        ["--trendline-history-limit", "3"],
+    ),
+)
+def test_collect_shadow_binance_cli_rejects_retired_trendline_options(argv):
+    with pytest.raises(SystemExit):
+        _parse_args(argv)

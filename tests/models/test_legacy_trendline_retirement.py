@@ -1,9 +1,28 @@
+"""Regression guard for the retired legacy Trendlines model surfaces."""
+
+from __future__ import annotations
+
 import ast
+import hashlib
 import importlib.util
 import re
 from pathlib import Path
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+_MODEL_ROOT = _REPOSITORY_ROOT / "src" / "libs" / "models"
+_LEGACY_TRENDLINES_ROOT = _MODEL_ROOT / "trendlines"
+_V4_TRENDLINES_ROOT = _MODEL_ROOT / "trendlines_v4"
+_RETAINED_LEGACY_CSVS = {
+    "optimization/results/ETHUSDT_1h_2023-01-01_2026-03-01.csv": (
+        "96bc7f72e56a4ad70048a17caaa0013dd9ef854b11e7ba6aafc2681ce21d3e77"
+    ),
+    "optimization/results/SOLUSDT_1h_2023-01-01_2026-03-01.csv": (
+        "0711849c9e665c8b5bdba85ffee4cda0eb16f9aa30f7b74678bf09d17bf19c46"
+    ),
+    "optimization/results/HYPEUSDT_1h_2022-01-01_2026-03-01.csv": (
+        "26e7f4276c60ea4c4d3dbe196383c1ef63c1c58d6db1b6280b821490d694d050"
+    ),
+}
 _RETIRED_TEST_TREE = _REPOSITORY_ROOT / "tests" / "models" / "trendline_family"
 _RETIRED_PATHS = (
     _RETIRED_TEST_TREE,
@@ -14,21 +33,27 @@ _RETIRED_CONFIG_PATHS = (
     _REPOSITORY_ROOT / "configs" / "trendline_family.yaml",
     _REPOSITORY_ROOT / "configs" / "trendline",
     _REPOSITORY_ROOT / "configs" / "trendline" / "README.md",
+    _REPOSITORY_ROOT / "configs" / "trendline_v2.yaml",
 )
 _RETIRED_PACKAGE_PATHS = (
-    _REPOSITORY_ROOT / "src" / "libs" / "models" / "trendline",
-    _REPOSITORY_ROOT / "src" / "libs" / "models" / "trendline_family",
-    _REPOSITORY_ROOT / "src" / "libs" / "models" / "trendlines_old",
+    _MODEL_ROOT / "trendline",
+    _MODEL_ROOT / "trendline_v2",
+    _MODEL_ROOT / "trendlines_v3",
+    _MODEL_ROOT / "trendline_family",
+    _MODEL_ROOT / "trendlines_old",
     _REPOSITORY_ROOT / "src" / "libs" / "trendlines",
     _REPOSITORY_ROOT / "src" / "app" / "trendlines",
 )
 _RETIRED_NONSTANDARD_SURFACES = (
     _REPOSITORY_ROOT / "benchmarks" / "trendline_numba_atr.py",
     _REPOSITORY_ROOT / "research" / "trendline_family_research_lab.ipynb",
+    _REPOSITORY_ROOT / "research" / "trendlines_research_lab.ipynb",
 )
 _RETIRED_IMPORT_PREFIXES = (
     "app.trendlines",
     "libs.trendlines",
+    "libs.models.trendline_v2",
+    "libs.models.trendlines",
     "libs.models.trendline",
     "libs.models.trendline_family",
     "libs.models.trendlines_old",
@@ -50,6 +75,8 @@ _REMOVED_MODULES = (
     "libs.models.regime_v2.adapters.trendline_family_feature_producer",
     "libs.models.trendline.optimization.ablation",
     "libs.models.trendline_family.optimization.ablation",
+    "libs.models.trendline_v2",
+    "libs.models.trendlines_v3",
     "libs.models.trendline",
     "libs.models.trendline_family",
     "libs.models.trendlines_old",
@@ -136,6 +163,10 @@ def _module_is_absent(module_name: str) -> bool:
         return True
 
 
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def test_retired_test_tree_and_fixtures_are_absent() -> None:
     assert not _RETIRED_TEST_TREE.exists()
     for path in _RETIRED_PATHS:
@@ -147,12 +178,14 @@ def test_retired_configuration_contract_is_absent() -> None:
         assert not path.exists(), path
 
 
-def test_retired_singular_model_packages_are_absent() -> None:
+def test_retired_model_packages_are_absent() -> None:
     for path in _RETIRED_PACKAGE_PATHS:
         assert not path.exists(), path
 
     for module_name in (
         "libs.models.trendline",
+        "libs.models.trendline_v2",
+        "libs.models.trendlines_v3",
         "libs.models.trendline_family",
         "libs.models.trendlines_old",
     ):
@@ -172,20 +205,31 @@ def test_nonstandard_active_roots_do_not_reference_retired_trendline_namespaces(
     assert not violations, "\n".join(violations)
 
 
-def test_canonical_plural_trendlines_package_is_relocated() -> None:
-    old_path = _REPOSITORY_ROOT / "src" / "libs" / "trendlines"
-    new_path = _REPOSITORY_ROOT / "src" / "libs" / "models" / "trendlines"
+def test_legacy_plural_shell_is_data_only_and_not_executable() -> None:
+    assert _LEGACY_TRENDLINES_ROOT.is_dir()
+    actual_files = {
+        file_path.relative_to(_LEGACY_TRENDLINES_ROOT).as_posix()
+        for file_path in _LEGACY_TRENDLINES_ROOT.rglob("*")
+        if file_path.is_file()
+    }
+    assert actual_files == set(_RETAINED_LEGACY_CSVS)
+    assert not (_LEGACY_TRENDLINES_ROOT / "__init__.py").exists()
+    spec = importlib.util.find_spec("libs.models.trendlines")
+    assert spec is None or spec.origin is None
+    for relative_path, expected_sha in _RETAINED_LEGACY_CSVS.items():
+        path = _LEGACY_TRENDLINES_ROOT / relative_path
+        assert _sha256(path) == expected_sha
 
-    assert new_path.is_dir()
-    assert not old_path.exists()
-    assert importlib.util.find_spec("libs.models.trendlines") is not None
-    assert _module_is_absent("libs.trendlines")
-    assert not (_REPOSITORY_ROOT / "src" / "app" / "trendlines").exists()
-    assert _module_is_absent("app.trendlines")
 
-    import libs.models.trendlines
+def test_only_v4_remains_as_executable_trendline_model() -> None:
+    actual = {
+        path.name
+        for path in _MODEL_ROOT.iterdir()
+        if path.is_dir() and path.name.startswith("trendline")
+    }
 
-    assert Path(libs.models.trendlines.__file__).resolve().is_relative_to(new_path)
+    assert actual == {"trendlines", "trendlines_v4"}
+    assert (_V4_TRENDLINES_ROOT / "__init__.py").is_file()
 
 
 def test_no_executable_consumer_imports_retired_trendline_namespaces() -> None:
@@ -201,14 +245,3 @@ def test_no_executable_consumer_imports_retired_trendline_namespaces() -> None:
 def test_earlier_retirement_boundaries_remain_absent() -> None:
     for module_name in _REMOVED_MODULES:
         assert _module_is_absent(module_name), module_name
-
-
-def test_final_trendline_model_layout_is_exact() -> None:
-    model_root = _REPOSITORY_ROOT / "src" / "libs" / "models"
-    actual = {
-        path.name
-        for path in model_root.iterdir()
-        if path.is_dir() and path.name.startswith("trendline")
-    }
-
-    assert actual == {"trendlines", "trendline_v2"}

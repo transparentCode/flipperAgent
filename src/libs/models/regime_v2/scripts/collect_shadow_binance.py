@@ -29,19 +29,19 @@ from libs.models.regime_v2.evaluation.candidate_export import (
     TrendCandidateExportConfig,
     export_builtin_trend_candidates,
 )
-from libs.models.regime_v2.adapters.trendline_feature_producer import (
-    TrendlineFeatureConfig,
-    compute_trendline_context_features,
+from libs.models.regime_v2.evaluation.comparison import (
+    RegimeComparisonConfig,
+    run_regime_comparison,
 )
-from libs.models.regime_v2.evaluation.comparison import RegimeComparisonConfig, run_regime_comparison
-from libs.models.regime_v2.scripts.compare_binance_native import _parse_millis, fetch_binance_native_ohlcv
+from libs.models.regime_v2.scripts.compare_binance_native import (
+    _parse_millis,
+    fetch_binance_native_ohlcv,
+)
 from libs.selection.regime_v2_shadow_report import (
     render_regime_v2_shadow_report_markdown,
     run_regime_v2_shadow_report,
 )
 from libs.selection.selection_layer import SelectionLayer
-from libs.models.trendlines.boundary import TrendlineSnapshotHistory
-from libs.models.trendlines.config import load_trendlines_config
 
 _DEFAULT_PAIRS = (
     ("BTCUSDT", "4h"),
@@ -77,7 +77,9 @@ def main(argv: list[str] | None = None) -> int:
             Path(args.report_json).write_text(report_text + "\n", encoding="utf-8")
         if args.report_md:
             Path(args.report_md).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.report_md).write_text(render_regime_v2_shadow_report_markdown(report), encoding="utf-8")
+            Path(args.report_md).write_text(
+                render_regime_v2_shadow_report_markdown(report), encoding="utf-8"
+            )
 
     return 0
 
@@ -105,12 +107,9 @@ async def _run(args: argparse.Namespace) -> dict[str, Any]:
                 warmup_bars=args.warmup_bars,
                 max_records=args.max_records_per_pair,
                 models=models,
-                include_trendline_context=bool(args.include_trendline_context),
-                trendline_min_bars=int(args.trendline_min_bars),
-                trendline_history_limit=args.trendline_history_limit,
                 shadow_log_path=str(log_path),
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - preserve per-pair failure summaries
             summary = {
                 "asset": asset,
                 "timeframe": timeframe,
@@ -120,15 +119,21 @@ async def _run(args: argparse.Namespace) -> dict[str, Any]:
             }
         pair_summaries.append(summary)
 
-    total_attempted = sum(int(item.get("shadow_records_attempted", 0)) for item in pair_summaries)
+    total_attempted = sum(
+        int(item.get("shadow_records_attempted", 0)) for item in pair_summaries
+    )
     return {
         "phase": "phase_5_shadow_binance_collection",
         "log_path": str(log_path),
         "pairs": pair_summaries,
         "summary": {
             "pair_count": len(pair_summaries),
-            "successful_pair_count": sum(1 for item in pair_summaries if item.get("status") == "ok"),
-            "failed_pair_count": sum(1 for item in pair_summaries if item.get("status") == "failed"),
+            "successful_pair_count": sum(
+                1 for item in pair_summaries if item.get("status") == "ok"
+            ),
+            "failed_pair_count": sum(
+                1 for item in pair_summaries if item.get("status") == "failed"
+            ),
             "shadow_records_attempted": total_attempted,
         },
     }
@@ -145,9 +150,6 @@ async def collect_pair_shadow_logs(
     warmup_bars: int,
     max_records: int | None,
     models: tuple[str, ...],
-    include_trendline_context: bool = False,
-    trendline_min_bars: int = 80,
-    trendline_history_limit: int | None = None,
     shadow_log_path: str | None = None,
 ) -> dict[str, Any]:
     ohlcv = await fetch_binance_native_ohlcv(
@@ -181,14 +183,16 @@ async def collect_pair_shadow_logs(
         ohlcv,
         asset=asset,
         timeframe=timeframe,
-        config=TrendCandidateExportConfig(models=models, min_abs_edge=0.0, include_flat=False),
+        config=TrendCandidateExportConfig(
+            models=models, min_abs_edge=0.0, include_flat=False
+        ),
     )
     if candidates.empty:
         return {
             "asset": asset,
             "timeframe": timeframe,
             "status": "empty_candidates",
-            "ohlcv_rows": int(len(ohlcv)),
+            "ohlcv_rows": len(ohlcv),
             "candidate_rows": 0,
             "shadow_records_attempted": 0,
         }
@@ -197,14 +201,6 @@ async def collect_pair_shadow_logs(
     layer = SelectionLayer(asset, timeframe)
     if shadow_log_path:
         _force_shadow_persistence(layer, shadow_log_path)
-    trendline_history = TrendlineSnapshotHistory.from_config(load_trendlines_config())
-    trendline_config = TrendlineFeatureConfig(
-        fitter="ensemble",
-        min_bars=max(int(trendline_min_bars), 2),
-        include_native_signals=True,
-        record_snapshot=True,
-        history_limit=trendline_history_limit,
-    )
     attempted = 0
     selected_total = 0
     missing_candidate_bars = 0
@@ -220,22 +216,12 @@ async def collect_pair_shadow_logs(
         if candidate_rows is None or candidate_rows.empty:
             missing_candidate_bars += 1
             continue
-        trendline_features = None
-        if include_trendline_context:
-            trendline_features = compute_trendline_context_features(
-                ohlcv.iloc[: idx + 1],
-                asset=asset,
-                timeframe=timeframe,
-                config=trendline_config,
-                snapshot_history=trendline_history,
-            )
         feature_vec = _feature_vector_from_row(
             comparison.loc[timestamp],
             ohlcv.loc[timestamp],
             asset=asset,
             timeframe=timeframe,
             timestamp=timestamp,
-            trendline_features=trendline_features,
         )
         model_outputs, scoring_outputs = _outputs_from_candidates(candidate_rows)
         selected = layer.select(model_outputs, scoring_outputs, feature_vec)
@@ -246,16 +232,14 @@ async def collect_pair_shadow_logs(
         "asset": asset,
         "timeframe": timeframe,
         "status": "ok",
-        "ohlcv_rows": int(len(ohlcv)),
-        "candidate_rows": int(len(candidates)),
-        "comparison_rows": int(len(comparison)),
+        "ohlcv_rows": len(ohlcv),
+        "candidate_rows": len(candidates),
+        "comparison_rows": len(comparison),
         "shadow_records_attempted": int(attempted),
         "selected_total": int(selected_total),
         "missing_candidate_bars": int(missing_candidate_bars),
         "skipped_warmup_or_horizon": int(skipped_warmup_or_horizon),
         "models": list(models),
-        "trendline_context_enabled": bool(include_trendline_context),
-        "trendline_snapshots_recorded": int(trendline_history.count(asset, timeframe)) if include_trendline_context else 0,
     }
 
 
@@ -274,7 +258,9 @@ def _force_shadow_persistence(layer: SelectionLayer, shadow_log_path: str) -> No
     gate.setdefault("shadow_log_enabled", False)
 
 
-def _outputs_from_candidates(frame: pd.DataFrame) -> tuple[list[ModelOutput], list[ScoringOutput]]:
+def _outputs_from_candidates(
+    frame: pd.DataFrame,
+) -> tuple[list[ModelOutput], list[ScoringOutput]]:
     model_outputs: list[ModelOutput] = []
     scoring_outputs: list[ScoringOutput] = []
     for row in frame.to_dict(orient="records"):
@@ -319,18 +305,34 @@ def _feature_vector_from_row(
     trendline_features: dict[str, Any] | None = None,
 ) -> FeatureVector:
     evidence = {
-        "trend_direction": _string_value(comparison_row.get("regime_v2_trend_direction"), "neutral"),
+        "trend_direction": _string_value(
+            comparison_row.get("regime_v2_trend_direction"), "neutral"
+        ),
         "confidence": _float_value(comparison_row.get("regime_v2_confidence"), 0.0),
         "uncertainty": _float_value(comparison_row.get("regime_v2_uncertainty"), 1.0),
-        "breakout_direction": _string_value(comparison_row.get("regime_v2_breakout_direction"), "neutral"),
+        "breakout_direction": _string_value(
+            comparison_row.get("regime_v2_breakout_direction"), "neutral"
+        ),
     }
     policy = {
-        "allow_trend_following": _bool_value(comparison_row.get("regime_v2_policy_allow_trend_following")),
-        "allow_breakout": _bool_value(comparison_row.get("regime_v2_policy_allow_breakout")),
-        "allow_mean_reversion": _bool_value(comparison_row.get("regime_v2_policy_allow_mean_reversion")),
-        "trend_score": _float_value(comparison_row.get("regime_v2_policy_trend_score"), 0.0),
-        "breakout_score": _float_value(comparison_row.get("regime_v2_policy_breakout_score"), 0.0),
-        "mean_reversion_score": _float_value(comparison_row.get("regime_v2_policy_mean_reversion_score"), 0.0),
+        "allow_trend_following": _bool_value(
+            comparison_row.get("regime_v2_policy_allow_trend_following")
+        ),
+        "allow_breakout": _bool_value(
+            comparison_row.get("regime_v2_policy_allow_breakout")
+        ),
+        "allow_mean_reversion": _bool_value(
+            comparison_row.get("regime_v2_policy_allow_mean_reversion")
+        ),
+        "trend_score": _float_value(
+            comparison_row.get("regime_v2_policy_trend_score"), 0.0
+        ),
+        "breakout_score": _float_value(
+            comparison_row.get("regime_v2_policy_breakout_score"), 0.0
+        ),
+        "mean_reversion_score": _float_value(
+            comparison_row.get("regime_v2_policy_mean_reversion_score"), 0.0
+        ),
     }
     features: dict[str, Any] = {"regime_v2": {"evidence": evidence, "policy": policy}}
     if trendline_features:
@@ -404,38 +406,55 @@ def _string_value(value: Any, default: str) -> str:
     return text if text else default
 
 
-def _positive_history_limit(value: str) -> int:
-    try:
-        parsed = int(value)
-    except ValueError as exc:
-        raise argparse.ArgumentTypeError("history limit must be an integer") from exc
-    if parsed < 1:
-        raise argparse.ArgumentTypeError("history limit must be >= 1")
-    return parsed
-
-
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Collect RegimeV2 shadow logs from on-demand Binance candles.")
-    parser.add_argument("--pair", action="append", default=None, help="SYMBOL:TIMEFRAME pair. Repeatable. Defaults to Phase 5D rollout pairs.")
-    parser.add_argument("--limit", type=int, default=1000, help="Binance kline limit, usually capped around 1500.")
-    parser.add_argument("--since", default=None, help="Start time: epoch ms or ISO datetime.")
-    parser.add_argument("--until", default=None, help="End time: epoch ms or ISO datetime.")
+    parser = argparse.ArgumentParser(
+        description="Collect RegimeV2 shadow logs from on-demand Binance candles."
+    )
+    parser.add_argument(
+        "--pair",
+        action="append",
+        default=None,
+        help="SYMBOL:TIMEFRAME pair. Repeatable. Defaults to Phase 5D rollout pairs.",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=1000,
+        help="Binance kline limit, usually capped around 1500.",
+    )
+    parser.add_argument(
+        "--since", default=None, help="Start time: epoch ms or ISO datetime."
+    )
+    parser.add_argument(
+        "--until", default=None, help="End time: epoch ms or ISO datetime."
+    )
     parser.add_argument("--horizon-bars", type=int, default=12)
     parser.add_argument("--warmup-bars", type=int, default=120)
     parser.add_argument("--max-records-per-pair", type=int, default=None)
-    parser.add_argument("--model", action="append", default=None, help="Candidate model name. Repeatable.")
-    parser.add_argument("--log-path", default=_DEFAULT_LOG_PATH)
-    parser.add_argument("--reset-log", action="store_true", help="Delete existing log path before collection.")
-    parser.add_argument("--output-json", default=None, help="Optional collection summary JSON.")
-    parser.add_argument("--report-json", default=None, help="Optional Phase 5C report JSON after collection.")
-    parser.add_argument("--report-md", default=None, help="Optional Phase 5C report Markdown after collection.")
-    parser.add_argument("--include-trendline-context", action="store_true", help="Attach read-only trendline_* context to shadow FeatureVectors/logs.")
-    parser.add_argument("--trendline-min-bars", type=int, default=80, help="Minimum lookback bars before trendline context becomes valid.")
     parser.add_argument(
-        "--trendline-history-limit",
-        type=_positive_history_limit,
+        "--model",
+        action="append",
         default=None,
-        help="Optional trendline temporal-context limit; storage policy comes from canonical YAML.",
+        help="Candidate model name. Repeatable.",
+    )
+    parser.add_argument("--log-path", default=_DEFAULT_LOG_PATH)
+    parser.add_argument(
+        "--reset-log",
+        action="store_true",
+        help="Delete existing log path before collection.",
+    )
+    parser.add_argument(
+        "--output-json", default=None, help="Optional collection summary JSON."
+    )
+    parser.add_argument(
+        "--report-json",
+        default=None,
+        help="Optional Phase 5C report JSON after collection.",
+    )
+    parser.add_argument(
+        "--report-md",
+        default=None,
+        help="Optional Phase 5C report Markdown after collection.",
     )
     return parser.parse_args(argv)
 
