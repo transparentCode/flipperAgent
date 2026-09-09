@@ -23,6 +23,10 @@ _RETAINED_LEGACY_CSVS = {
         "26e7f4276c60ea4c4d3dbe196383c1ef63c1c58d6db1b6280b821490d694d050"
     ),
 }
+_CANONICAL_TRENDLINES_FILES = {
+    "__init__.py",
+    *_RETAINED_LEGACY_CSVS,
+}
 _RETIRED_TEST_TREE = _REPOSITORY_ROOT / "tests" / "models" / "trendline_family"
 _RETIRED_PATHS = (
     _RETIRED_TEST_TREE,
@@ -53,7 +57,6 @@ _RETIRED_IMPORT_PREFIXES = (
     "app.trendlines",
     "libs.trendlines",
     "libs.models.trendline_v2",
-    "libs.models.trendlines",
     "libs.models.trendline",
     "libs.models.trendline_family",
     "libs.models.trendlines_old",
@@ -205,17 +208,19 @@ def test_nonstandard_active_roots_do_not_reference_retired_trendline_namespaces(
     assert not violations, "\n".join(violations)
 
 
-def test_legacy_plural_shell_is_data_only_and_not_executable() -> None:
+def test_canonical_plural_shell_is_thin_and_keeps_historical_data() -> None:
     assert _LEGACY_TRENDLINES_ROOT.is_dir()
     actual_files = {
         file_path.relative_to(_LEGACY_TRENDLINES_ROOT).as_posix()
         for file_path in _LEGACY_TRENDLINES_ROOT.rglob("*")
         if file_path.is_file()
+        and "__pycache__" not in file_path.parts
+        and file_path.suffix != ".pyc"
     }
-    assert actual_files == set(_RETAINED_LEGACY_CSVS)
-    assert not (_LEGACY_TRENDLINES_ROOT / "__init__.py").exists()
+    assert actual_files == _CANONICAL_TRENDLINES_FILES
     spec = importlib.util.find_spec("libs.models.trendlines")
-    assert spec is None or spec.origin is None
+    assert spec is not None
+    assert spec.origin == str(_LEGACY_TRENDLINES_ROOT / "__init__.py")
     for relative_path, expected_sha in _RETAINED_LEGACY_CSVS.items():
         path = _LEGACY_TRENDLINES_ROOT / relative_path
         assert _sha256(path) == expected_sha
