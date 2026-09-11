@@ -1,0 +1,193 @@
+{
+  "global_params": {
+    "ensemble.structural_vs_micro_ratio": 0.49363502971184064,
+    "lifecycle.age_lambda": 0.0034014286128198324,
+    "lifecycle.min_strength": 0.49279757672456204,
+    "lifecycle.auto_promote_kernel_agreement": 3,
+    "lifecycle.dedup_proximity_atr": 0.4872223685309238,
+    "cross_asset.sector_cluster_eps_atr": 0.47799726016810135,
+    "kernels.volume_poc.hvn_prominence": 0.11452090304204987,
+    "kernels.fair_value_gap.gap_min_atr": 0.6024037288788161,
+    "kernels.fair_value_gap.fill_threshold": 0.5303345035229626,
+    "kernels.fair_value_gap.filled_penalty_multiplier": 0.6040362888980227,
+    "kernels.order_block.displacement_atr": 1.0055722226058736,
+    "kernels.order_block.imbalance_ratio": 0.6944195769869209,
+    "kernels.regression_band.band_width_sigma": 2.599465584480253,
+    "kernels.liquidity_sweep.sweep_lookback": 40,
+    "kernels.liquidity_sweep.max_pierce_atr": 0.5398560328117964,
+    "pipeline.min_emit_strength": 0.19585112746335845,
+    "pipeline.max_new_zones_per_bar": 3
+  },
+  "global_score": 0.7073397939283624,
+  "per_asset_params": {
+    "ETHUSDT": {
+      "1h": {
+        "lifecycle.min_strength": 0.49279757672456204,
+        "lifecycle.auto_promote_kernel_agreement": 3,
+        "lifecycle.dedup_proximity_atr": 0.4872223685309238,
+        "kernels.volume_poc.hvn_prominence": 0.11452090304204987,
+        "kernels.fair_value_gap.gap_min_atr": 0.6024037288788161,
+        "kernels.fair_value_gap.fill_threshold": 0.5303345035229626,
+        "kernels.fair_value_gap.filled_penalty_multiplier": 0.6040362888980227,
+        "kernels.order_block.displacement_atr": 1.0055722226058736,
+        "kernels.order_block.imbalance_ratio": 0.6944195769869209,
+        "kernels.regression_band.band_width_sigma": 2.599465584480253,
+        "kernels.liquidity_sweep.sweep_lookback": 40,
+        "kernels.liquidity_sweep.max_pierce_atr": 0.5398560328117964,
+        "pipeline.min_emit_strength": 0.19585112746335845,
+        "pipeline.max_new_zones_per_bar": 3
+      }
+    }
+  },
+  "per_asset_results": [
+    {
+      "asset": "ETHUSDT",
+      "timeframe": "1h",
+      "best_params": {
+        "lifecycle.min_strength": 0.49279757672456204,
+        "lifecycle.auto_promote_kernel_agreement": 3,
+        "lifecycle.dedup_proximity_atr": 0.4872223685309238,
+        "kernels.volume_poc.hvn_prominence": 0.11452090304204987,
+        "kernels.fair_value_gap.gap_min_atr": 0.6024037288788161,
+        "kernels.fair_value_gap.fill_threshold": 0.5303345035229626,
+        "kernels.fair_value_gap.filled_penalty_multiplier": 0.6040362888980227,
+        "kernels.order_block.displacement_atr": 1.0055722226058736,
+        "kernels.order_block.imbalance_ratio": 0.6944195769869209,
+        "kernels.regression_band.band_width_sigma": 2.599465584480253,
+        "kernels.liquidity_sweep.sweep_lookback": 40,
+        "kernels.liquidity_sweep.max_pierce_atr": 0.5398560328117964,
+        "pipeline.min_emit_strength": 0.19585112746335845,
+        "pipeline.max_new_zones_per_bar": 3
+      },
+      "train_score": 0.7400568454282183,
+      "val_score": 0.7376370407916087,
+      "accepted": true,
+      "fallback_to_global": false,
+      "n_folds": 66,
+      "fold_scores": [
+        0.6906547514340564,
+        0.6655620427333705,
+        0.7036072321165093,
+        0.74583151393918,
+        0.6847205427100856,
+        0.6729135998987289,
+        0.6671640292926666,
+        0.6576747657211847,
+        0.6649733962396395,
+        0.6645457865961707,
+        0.7096759882344464,
+        0.6827449503500379,
+        0.6261640329136239,
+        0.6821673704020977,
+        0.6472793407692841,
+        0.7195240674823514,
+        0.6569641254626696,
+        0.6554573748996132,
+        0.6990842617393412,
+        0.7248523849622411,
+        0.6981378828997109,
+        0.7040635914716042,
+        0.6509416827165045,
+        0.6919658449871295,
+        0.6822435764552252,
+        0.6075889317677597,
+        0.7336699994044539,
+        0.6730309747386124,
+        0.6925912958573278,
+        0.6988057718312943,
+        0.7184499185416159,
+        0.6663943827996147,
+        0.7050015018619121
+      ],
+      "gate_failures": 0,
+      "constraint_failures": 0,
+      "selected_kernels": [
+        "volume_poc",
+        "pivot_hl"
+      ],
+      "kernel_scores": [
+        {
+          "kernel": "fractal_channel",
+          "composite": 0.7280088434217745,
+          "survival_rate": 0.32686567164179103,
+          "touch_accuracy": 0.931095406360424,
+          "zones_created": 670,
+          "passed": true
+        },
+        {
+          "kernel": "volume_poc",
+          "composite": 0.7228305520995144,
+          "survival_rate": 0.4691848906560636,
+          "touch_accuracy": 0.9207100591715977,
+          "zones_created": 503,
+          "passed": true
+        },
+        {
+          "kernel": "order_block",
+          "composite": 0.6634873484687182,
+          "survival_rate": 0.5434782608695652,
+          "touch_accuracy": 0.8767123287671232,
+          "zones_created": 92,
+          "passed": true
+        },
+        {
+          "kernel": "pivot_hl",
+          "composite": 0.6216607249429821,
+          "survival_rate": 0.2727272727272727,
+          "touch_accuracy": 0.9038461538461539,
+          "zones_created": 88,
+          "passed": true
+        },
+        {
+          "kernel": "liquidity_sweep",
+          "composite": 0.5607154316812686,
+          "survival_rate": 0.029175784099197667,
+          "touch_accuracy": 0.9285714285714286,
+          "zones_created": 1371,
+          "passed": true
+        },
+        {
+          "kernel": "regression_band",
+          "composite": 0.5420353965827739,
+          "survival_rate": 0.01713859910581222,
+          "touch_accuracy": 0.9502262443438914,
+          "zones_created": 4026,
+          "passed": true
+        },
+        {
+          "kernel": "fair_value_gap",
+          "composite": 0.534893565377455,
+          "survival_rate": 0.011163337250293772,
+          "touch_accuracy": 0.937125748502994,
+          "zones_created": 5106,
+          "passed": true
+        },
+        {
+          "kernel": "round_number",
+          "composite": 0.5211882166750135,
+          "survival_rate": 0.005838115970710469,
+          "touch_accuracy": 0.9046454767726161,
+          "zones_created": 10106,
+          "passed": true
+        },
+        {
+          "kernel": "session_gap",
+          "composite": 0.2,
+          "survival_rate": 0.0,
+          "touch_accuracy": 0.0,
+          "zones_created": 0,
+          "passed": false
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "total_time_seconds": 3841.806270837784,
+    "stage1_n_trials": 30,
+    "stage2_assets_optimized": 1,
+    "stage2_assets_accepted": 1,
+    "stage2_assets_skipped": [],
+    "stage2_assets_total": 1
+  },
+  "timestamp": "2026-05-04T10:48:58.010805"
+}

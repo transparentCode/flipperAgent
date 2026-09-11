@@ -1,0 +1,598 @@
+services:
+  db:
+    image: timescale/timescaledb:latest-pg15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-flipper}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-flipperpass}
+      POSTGRES_DB: ${POSTGRES_DB:-flipper_db}
+    volumes:
+      - timescaledb-data:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          test "$$(head -n 1 "$${PGDATA}/postmaster.pid" 2>/dev/null)" = "1"
+          && pg_isready -U ${POSTGRES_USER:-flipper} -d ${POSTGRES_DB:-flipper_db}
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    networks:
+      - flipper-net
+
+  broker:
+    image: valkey/valkey:latest
+    command:
+      - valkey-server
+      - --maxmemory
+      - 192mb
+      - --maxmemory-policy
+      - noeviction
+    volumes:
+      - valkey-data:/data
+    ports:
+      - "127.0.0.1:6380:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    networks:
+      - flipper-net
+
+  ingestion:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m apps.ingestion_app.main
+    ports:
+      - "127.0.0.1:8003:8003"
+    volumes:
+      - ./data:/app/data
+      - ./configs:/app/configs:ro
+      - flipper-logs:/app/logs
+    tmpfs:
+      - /tmp
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
+      VALKEY_URI: redis://broker:6379/0
+      LOG_FILE: /app/logs/ingestion.log
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: ingestion
+      OTEL_RESOURCE_ATTRIBUTES: >-
+        service.instance.id=${INGESTION_OTEL_INSTANCE_ID:-ingestion-local}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8003/health/ready', timeout=2)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - flipper-net
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sleep infinity # placeholder cron dispatcher
+    volumes:
+      - ./data:/app/data
+      - ./configs:/app/configs:ro
+      - flipper-logs:/app/logs
+    tmpfs:
+      - /tmp
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
+      VALKEY_URI: redis://broker:6379/0
+      LOG_FILE: /app/logs/scheduler.log
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - flipper-net
+
+  risk-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m apps.risk_app.main
+    volumes:
+      - ./data:/app/data
+      - ./configs:/app/configs:ro
+      - flipper-logs:/app/logs
+    tmpfs:
+      - /tmp
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
+      VALKEY_URI: redis://broker:6379/0
+      LOG_FILE: /app/logs/risk.log
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: risk_app
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - flipper-net
+
+  execution-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m apps.execution_app.main
+    volumes:
+      - ./data:/app/data
+      - ./configs:/app/configs:ro
+      - flipper-logs:/app/logs
+    tmpfs:
+      - /tmp
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
+      VALKEY_URI: redis://broker:6379/0
+      LOG_FILE: /app/logs/execution.log
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: execution_app
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - flipper-net
+
+  alert-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m apps.alert_app.main
+    env_file:
+      - .env
+    volumes:
+      - ./configs:/app/configs:ro
+      - flipper-logs:/app/logs
+    tmpfs:
+      - /tmp
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
+      VALKEY_URI: redis://broker:6379/0
+      LOG_FILE: /app/logs/alert_worker.log
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: alert_app
+      ALERT_API_HOST: 0.0.0.0
+      ALERT_API_PORT: 8096
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - flipper-net
+
+  alert-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m apps.alert_app.api.main
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:8096:8096"
+    volumes:
+      - ./configs:/app/configs:ro
+      - flipper-logs:/app/logs
+    tmpfs:
+      - /tmp
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
+      VALKEY_URI: redis://broker:6379/0
+      LOG_FILE: /app/logs/alert_api.log
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: alert_api
+      ALERT_API_HOST: 0.0.0.0
+      ALERT_API_PORT: 8096
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+      alert-worker:
+        condition: service_started
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    networks:
+      - flipper-net
+
+  portfolio-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m apps.portfolio_app.main
+    volumes:
+      - ./data:/app/data
+      - ./configs:/app/configs:ro
+      - flipper-logs:/app/logs
+    tmpfs:
+      - /tmp
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
+      VALKEY_URI: redis://broker:6379/0
+      LOG_FILE: /app/logs/portfolio.log
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: portfolio_app
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - flipper-net
+
+  scraper-tradingview:
+    build:
+      context: .
+      dockerfile: Dockerfile.tv-scraper
+    init: true
+    command: arq apps.scraper_app.providers.tradingview.worker.WorkerSettings
+    volumes:
+      - ./secrets:/app/secrets:ro
+      - ./data:/app/data
+      - ./configs:/app/configs:ro
+    tmpfs:
+      - /tmp
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
+      VALKEY_URI: redis://broker:6379/0
+      TV_COOKIES_PATH: /app/secrets/tv_cookies.json
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    networks:
+      - flipper-net
+
+  scraper-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.tv-scraper
+    init: true
+    command: python -m apps.scraper_app.api.main
+    ports:
+      - "127.0.0.1:8081:8081"
+    volumes:
+      - ./secrets:/app/secrets:ro
+      - ./data:/app/data
+      - ./configs:/app/configs:ro
+      - flipper-logs:/app/logs
+    tmpfs:
+      - /tmp
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
+      VALKEY_URI: redis://broker:6379/0
+      LOG_FILE: /app/logs/scraper_service.log
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      SCRAPER_SERVICE_PORT: 8081
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: scraper_service
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    networks:
+      - flipper-net
+
+  api-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m apps.api_app.main
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./configs:/app/configs
+      - flipper-logs:/app/logs
+    tmpfs:
+      - /tmp
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
+      VALKEY_URI: redis://broker:6379/0
+      LOG_FILE: /app/logs/api.log
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: api_app
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    networks:
+      - flipper-net
+
+  decision:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m apps.decision_app.main
+    ports:
+      - "127.0.0.1:8004:8004"
+    volumes:
+      - ./data:/app/data:ro
+      - ./configs:/app/configs:ro
+      - flipper-logs:/app/logs
+    tmpfs:
+      - /tmp
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
+      VALKEY_URI: redis://broker:6379/0
+      LOG_FILE: /app/logs/decision.log
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: decision
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+      ingestion:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8004/health/ready', timeout=2)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - flipper-net
+
+  # ---- Observability Stack ----
+
+  otel-collector:
+    profiles: [prod]
+    image: otel/opentelemetry-collector-contrib:0.104.0
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./configs/observability/otel-collector.yaml:/etc/otel/config.yaml:ro
+    ports:
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+      - "127.0.0.1:8888:8888"
+    healthcheck:
+      test: ["CMD", "/otelcol-contrib", "components"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.15'
+    networks:
+      - flipper-net
+
+  tempo:
+    profiles: [prod]
+    image: grafana/tempo:2.5.0
+    command: ["-config.file=/etc/tempo/config.yaml"]
+    volumes:
+      - ./configs/observability/tempo.yaml:/etc/tempo/config.yaml:ro
+      - tempo-data:/var/tempo
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:3200/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.1'
+    networks:
+      - flipper-net
+
+  loki:
+    profiles: [prod]
+    image: grafana/loki:3.1.0
+    command: ["-config.file=/etc/loki/config.yaml"]
+    volumes:
+      - ./configs/observability/loki.yaml:/etc/loki/config.yaml:ro
+      - loki-data:/loki
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:3100/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.1'
+    networks:
+      - flipper-net
+
+  prometheus:
+    profiles: [prod]
+    image: prom/prometheus:v2.53.0
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=3d"
+      - "--storage.tsdb.retention.size=50MB"
+      - "--web.enable-remote-write-receiver"
+    volumes:
+      - ./configs/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:9090/-/healthy || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.1'
+    networks:
+      - flipper-net
+
+  grafana:
+    profiles: [prod]
+    image: grafana/grafana:11.1.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-flipper}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    ports:
+      - "127.0.0.1:3001:3000"
+    volumes:
+      - ./configs/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      tempo:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.15'
+    networks:
+      - flipper-net
+
+networks:
+  flipper-net:
+    driver: bridge
+
+volumes:
+  timescaledb-data:
+  valkey-data:
+  flipper-logs:
+  tempo-data:
+  loki-data:
+  prometheus-data:
+  grafana-data:

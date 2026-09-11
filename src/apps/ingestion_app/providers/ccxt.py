@@ -13,7 +13,10 @@ import ccxt.async_support as ccxt
 
 from apps.ingestion_app.domain.candle import CandleObservation
 from apps.ingestion_app.domain.instrument import MarketLane
-from apps.ingestion_app.providers.base import TransportDeadlineExceeded
+from apps.ingestion_app.providers.base import (
+    ProviderAvailabilityError,
+    TransportDeadlineExceeded,
+)
 from apps.ingestion_app.providers.binance_rest import decode_ccxt_ohlcv_rows
 from apps.ingestion_app.runtime.blocking import _OwnedAsyncCall, _OwnedCallTimeout
 from libs.common.exceptions import DataIngestionError
@@ -67,6 +70,13 @@ def _epoch_milliseconds(value: datetime) -> int:
         elapsed.days * 86_400_000
         + elapsed.seconds * 1_000
         + elapsed.microseconds // 1_000
+    )
+
+
+def _is_provider_availability_error(error: BaseException) -> bool:
+    return isinstance(error, (ccxt.NetworkError, TimeoutError)) and not isinstance(
+        error,
+        ccxt.InvalidNonce,
     )
 
 
@@ -273,8 +283,18 @@ class CCXTHistoricalProvider:
                 }
             )
         except ccxt.BaseError as exc:
+            if _is_provider_availability_error(exc):
+                raise ProviderAvailabilityError(
+                    f"CCXT provider unavailable while fetching Binance USD-M "
+                    f"klines for {provider_symbol}"
+                ) from exc
             raise DataIngestionError(
                 f"CCXT failed to fetch Binance USD-M klines for {provider_symbol}"
+            ) from exc
+        except TimeoutError as exc:
+            raise ProviderAvailabilityError(
+                f"CCXT provider unavailable while fetching Binance USD-M klines "
+                f"for {provider_symbol}"
             ) from exc
 
     async def fetch_closed_candles(
@@ -352,8 +372,18 @@ class CCXTHistoricalProvider:
             await self.exchange.load_markets()
             market = self.exchange.market(provider_symbol)
         except ccxt.BaseError as exc:
+            if _is_provider_availability_error(exc):
+                raise ProviderAvailabilityError(
+                    f"CCXT provider unavailable while resolving Binance USD-M "
+                    f"market {provider_symbol}"
+                ) from exc
             raise DataIngestionError(
                 f"CCXT could not resolve Binance USD-M market {provider_symbol}"
+            ) from exc
+        except TimeoutError as exc:
+            raise ProviderAvailabilityError(
+                f"CCXT provider unavailable while resolving Binance USD-M market "
+                f"{provider_symbol}"
             ) from exc
         except Exception as exc:
             raise DataIngestionError(

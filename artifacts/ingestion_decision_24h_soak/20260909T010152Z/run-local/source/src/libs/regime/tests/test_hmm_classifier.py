@@ -1,0 +1,107 @@
+"""Tests for HMMClassifier."""
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from libs.regime.hmm_classifier import HMMClassifier, HMMConfig
+from libs.regime.models import HMMState
+
+
+def _make_df(n=500, seed=42):
+    np.random.seed(seed)
+    close = 100 + np.random.randn(n).cumsum()
+    return pd.DataFrame({"close": close})
+
+
+class TestHMMClassifier:
+    def test_returns_hmm_state(self):
+        clf = HMMClassifier()
+        df = _make_df()
+        state = clf.classify(df)
+        assert isinstance(state, HMMState)
+
+    def test_probabilities_sum_to_one(self):
+        clf = HMMClassifier()
+        state = clf.classify(_make_df())
+        assert abs(state.p_trending + state.p_non_trending - 1.0) < 1e-6
+
+    def test_regime_label_consistent_with_prob(self):
+        clf = HMMClassifier()
+        state = clf.classify(_make_df())
+        expected = "TRENDING" if state.p_trending >= 0.5 else "NON_TRENDING"
+        assert state.hmm_regime == expected
+
+    def test_insufficient_data_returns_default(self):
+        clf = HMMClassifier()
+        df = _make_df(n=10)
+        state = clf.classify(df)
+        assert state.p_trending == 0.5
+
+    def test_classify_series_returns_correct_columns(self):
+        clf = HMMClassifier()
+        df = _make_df()
+        result = clf.classify_series(df)
+        assert "hmm_p_trending" in result.columns
+        assert "hmm_regime" in result.columns
+        assert len(result) == len(df)
+
+    def test_force_retrain_resets_model_age(self):
+        clf = HMMClassifier(HMMConfig(retrain_window=1000))
+        df = _make_df()
+        # Build up age > 1
+        for _ in range(5):
+            clf.classify(df)
+        age_before = clf._model_age
+        assert age_before > 1
+        clf.force_retrain()
+        clf.classify(df)
+        # After forced retrain, model_age resets to 0 then increments once → 1
+        assert clf._model_age < age_before
+
+    def test_model_age_increments(self):
+        clf = HMMClassifier()
+        df = _make_df()
+        clf.classify(df)
+        age1 = clf._model_age
+        clf.classify(df)
+        age2 = clf._model_age
+        assert age2 > age1
+
+    def test_diagnostics_have_bounded_rates(self):
+        clf = HMMClassifier()
+        clf.classify_series(_make_df())
+        diag = clf.diagnostics()
+
+        assert diag["fit_attempts"] >= 1
+        assert 0.0 <= diag["fit_failure_rate"] <= 1.0
+        assert 0.0 <= diag["unstable_fit_rate"] <= 1.0
+        assert 0.0 <= diag["zero_transition_fit_rate"] <= 1.0
+
+    def test_reset_clears_diagnostics(self):
+        clf = HMMClassifier()
+        clf.classify_series(_make_df())
+        assert clf.diagnostics()["fit_attempts"] >= 1
+        clf.reset()
+        diag = clf.diagnostics()
+        assert diag["fit_attempts"] == 0
+        assert diag["fit_failures"] == 0
+
+    @pytest.mark.parametrize("covariance_type", ["diag", "full"])
+    def test_robust_state_probs_supports_covariance_shapes(self, covariance_type):
+        clf = HMMClassifier(
+            HMMConfig(
+                hmm_n_states=3,
+                hmm_covariance_type=covariance_type,
+                hmm_robust_scoring=True,
+            )
+        )
+        X = clf._build_features(_make_df())
+        assert X is not None
+        window = X[-clf.config.retrain_window :]
+        model = clf._fit_gaussian_hmm(window, 3, covariance_type)
+
+        probs = clf._robust_state_probs(window[:50], model)
+
+        assert probs.shape == (50, 3)
+        assert np.isfinite(probs).all()

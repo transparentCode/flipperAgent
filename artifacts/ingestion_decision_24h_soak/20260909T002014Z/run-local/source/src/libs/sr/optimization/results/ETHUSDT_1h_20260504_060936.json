@@ -1,0 +1,193 @@
+{
+  "global_params": {
+    "ensemble.structural_vs_micro_ratio": 0.49363502971184064,
+    "lifecycle.age_lambda": 0.0034014286128198324,
+    "lifecycle.min_strength": 0.49279757672456204,
+    "lifecycle.auto_promote_kernel_agreement": 3,
+    "lifecycle.dedup_proximity_atr": 0.4872223685309238,
+    "cross_asset.sector_cluster_eps_atr": 0.47799726016810135,
+    "kernels.volume_poc.hvn_prominence": 0.11452090304204987,
+    "kernels.fair_value_gap.gap_min_atr": 0.6024037288788161,
+    "kernels.fair_value_gap.fill_threshold": 0.5303345035229626,
+    "kernels.fair_value_gap.filled_penalty_multiplier": 0.6040362888980227,
+    "kernels.order_block.displacement_atr": 1.0055722226058736,
+    "kernels.order_block.imbalance_ratio": 0.6944195769869209,
+    "kernels.regression_band.band_width_sigma": 2.599465584480253,
+    "kernels.liquidity_sweep.sweep_lookback": 40,
+    "kernels.liquidity_sweep.max_pierce_atr": 0.5398560328117964,
+    "pipeline.min_emit_strength": 0.19585112746335845,
+    "pipeline.max_new_zones_per_bar": 3
+  },
+  "global_score": 0.6278070096310885,
+  "per_asset_params": {
+    "ETHUSDT": {
+      "1h": {
+        "lifecycle.min_strength": 0.49279757672456204,
+        "lifecycle.auto_promote_kernel_agreement": 3,
+        "lifecycle.dedup_proximity_atr": 0.4872223685309238,
+        "kernels.volume_poc.hvn_prominence": 0.11452090304204987,
+        "kernels.fair_value_gap.gap_min_atr": 0.6024037288788161,
+        "kernels.fair_value_gap.fill_threshold": 0.5303345035229626,
+        "kernels.fair_value_gap.filled_penalty_multiplier": 0.6040362888980227,
+        "kernels.order_block.displacement_atr": 1.0055722226058736,
+        "kernels.order_block.imbalance_ratio": 0.6944195769869209,
+        "kernels.regression_band.band_width_sigma": 2.599465584480253,
+        "kernels.liquidity_sweep.sweep_lookback": 40,
+        "kernels.liquidity_sweep.max_pierce_atr": 0.5398560328117964,
+        "pipeline.min_emit_strength": 0.19585112746335845,
+        "pipeline.max_new_zones_per_bar": 3
+      }
+    }
+  },
+  "per_asset_results": [
+    {
+      "asset": "ETHUSDT",
+      "timeframe": "1h",
+      "best_params": {
+        "lifecycle.min_strength": 0.49279757672456204,
+        "lifecycle.auto_promote_kernel_agreement": 3,
+        "lifecycle.dedup_proximity_atr": 0.4872223685309238,
+        "kernels.volume_poc.hvn_prominence": 0.11452090304204987,
+        "kernels.fair_value_gap.gap_min_atr": 0.6024037288788161,
+        "kernels.fair_value_gap.fill_threshold": 0.5303345035229626,
+        "kernels.fair_value_gap.filled_penalty_multiplier": 0.6040362888980227,
+        "kernels.order_block.displacement_atr": 1.0055722226058736,
+        "kernels.order_block.imbalance_ratio": 0.6944195769869209,
+        "kernels.regression_band.band_width_sigma": 2.599465584480253,
+        "kernels.liquidity_sweep.sweep_lookback": 40,
+        "kernels.liquidity_sweep.max_pierce_atr": 0.5398560328117964,
+        "pipeline.min_emit_strength": 0.19585112746335845,
+        "pipeline.max_new_zones_per_bar": 3
+      },
+      "train_score": 0.6113852836247231,
+      "val_score": 0.6602112801380088,
+      "accepted": true,
+      "fallback_to_global": false,
+      "n_folds": 66,
+      "fold_scores": [
+        0.5612931843130461,
+        0.5223189575249558,
+        0.6214392677904381,
+        0.5727187484133368,
+        0.5491954608756923,
+        0.47905876626985167,
+        0.49585428030840095,
+        0.46193502139565557,
+        0.6121135080330031,
+        0.5601960237692115,
+        0.575708239113145,
+        0.5621431669833925,
+        0.45675645324165426,
+        0.4813391675229598,
+        0.5132857917552874,
+        0.5929497571512179,
+        0.45996695147435973,
+        0.5209049505422118,
+        0.5498852048671591,
+        0.5812405329290384,
+        0.5684101153745456,
+        0.6182300977906304,
+        0.5277725443860299,
+        0.5481002522625593,
+        0.5473739708498202,
+        0.5016773029235145,
+        0.6044289014943834,
+        0.48268378447494154,
+        0.5890249132682925,
+        0.50728125393143,
+        0.5663419036397992,
+        0.49841995792364757,
+        0.5825812932789622
+      ],
+      "gate_failures": 0,
+      "constraint_failures": 0,
+      "selected_kernels": [
+        "volume_poc",
+        "pivot_hl"
+      ],
+      "kernel_scores": [
+        {
+          "kernel": "round_number",
+          "composite": 0.7642,
+          "survival_rate": 0.8071,
+          "touch_accuracy": 0.875,
+          "zones_created": 140,
+          "passed": true
+        },
+        {
+          "kernel": "volume_poc",
+          "composite": 0.7594,
+          "survival_rate": 0.6725,
+          "touch_accuracy": 0.9293,
+          "zones_created": 284,
+          "passed": true
+        },
+        {
+          "kernel": "fair_value_gap",
+          "composite": 0.7257,
+          "survival_rate": 0.8021,
+          "touch_accuracy": 0.9025,
+          "zones_created": 96,
+          "passed": true
+        },
+        {
+          "kernel": "fractal_channel",
+          "composite": 0.6782,
+          "survival_rate": 0.0843,
+          "touch_accuracy": 0.9497,
+          "zones_created": 2217,
+          "passed": true
+        },
+        {
+          "kernel": "liquidity_sweep",
+          "composite": 0.6684,
+          "survival_rate": 0.4578,
+          "touch_accuracy": 0.9474,
+          "zones_created": 83,
+          "passed": true
+        },
+        {
+          "kernel": "order_block",
+          "composite": 0.6352,
+          "survival_rate": 0.5057,
+          "touch_accuracy": 0.8457,
+          "zones_created": 87,
+          "passed": true
+        },
+        {
+          "kernel": "pivot_hl",
+          "composite": 0.612,
+          "survival_rate": 0.2239,
+          "touch_accuracy": 0.9143,
+          "zones_created": 67,
+          "passed": true
+        },
+        {
+          "kernel": "regression_band",
+          "composite": 0.5783,
+          "survival_rate": 0.1257,
+          "touch_accuracy": 0.8784,
+          "zones_created": 1464,
+          "passed": true
+        },
+        {
+          "kernel": "session_gap",
+          "composite": 0.2,
+          "survival_rate": 0.0,
+          "touch_accuracy": 0.0,
+          "zones_created": 0,
+          "passed": false
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "total_time_seconds": 6263.832759141922,
+    "stage1_n_trials": 30,
+    "stage2_assets_optimized": 1,
+    "stage2_assets_accepted": 1,
+    "stage2_assets_skipped": [],
+    "stage2_assets_total": 1
+  },
+  "timestamp": "2026-05-04T06:09:36.720996"
+}

@@ -1,0 +1,11 @@
+version: "1"
+
+defaults:
+  atr:
+    method: wilder_rma
+    period: 14
+    seed: sma
+
+timeframes: {}
+
+assets: {}

@@ -1,0 +1,39 @@
+version: 2
+model:
+  path: ../sr_v2.yaml
+targets:
+  horizons: [24h, 72h, 168h]
+  bounce_excursion_atr: 1.00
+research:
+  data_status: PENDING_PROTECTED_MANIFEST
+  protected_manifest: null
+  protected_manifest_sha256: null
+  protected_manifest_content_id: null
+  evidence_root: null
+  train_window: [2021-01-01T00:00:00+00:00, 2022-12-24T00:00:00+00:00]
+  calibration_window: [2023-01-01T00:00:00+00:00, 2023-07-01T00:00:00+00:00]
+  validation_window: [2023-07-08T00:00:00+00:00, 2024-01-01T00:00:00+00:00]
+  holdout_window: [2024-01-08T00:00:00+00:00, 2025-01-01T00:00:00+00:00]
+  embargo: 168h
+  matching_strata: [asset, timeframe, side, width, issuance_calendar_block, normalized_distance, volatility, level_density, touch_opportunity]
+  nulls:
+    - {name: random_price, algorithm: random_price, version: "1", seed: phase1_random_price_v1, max_abs_shift_atr: 1.00}
+    - {name: shuffled_time, algorithm: shuffled_time, version: "1", seed: phase1_shuffled_time_v1, max_abs_shift_atr: null}
+  bootstrap:
+    repetitions: 2000
+    block: 7d
+    epoch: 1970-01-01T00:00:00+00:00
+    confidence: 0.95
+  calibration:
+    ece_bins: 10
+    maximum_ece: 0.05
+  support:
+    minimum_uncensored_lineages: 200
+    minimum_touched_lineages: 100
+  conclusion_gates:
+    positive_requires_all_groups: true
+    negative_requires_adequate_support: true
+    require_paired_deltas: true
+    require_ece: true
+    require_no_resolved_reversal: true
+    allow_significant_primary_aggregate_degradation: true

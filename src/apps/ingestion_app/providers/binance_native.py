@@ -9,11 +9,18 @@ from datetime import UTC, datetime, timedelta
 from threading import BoundedSemaphore, Lock
 from typing import Any
 
+from binance.error import ServerError
 from binance.um_futures import UMFutures
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import SSLError
+from requests.exceptions import Timeout as RequestsTimeout
 
 from apps.ingestion_app.domain.candle import CandleObservation
 from apps.ingestion_app.domain.instrument import MarketLane
-from apps.ingestion_app.providers.base import TransportDeadlineExceeded
+from apps.ingestion_app.providers.base import (
+    ProviderAvailabilityError,
+    TransportDeadlineExceeded,
+)
 from apps.ingestion_app.providers.binance_rest import decode_binance_native_klines
 from apps.ingestion_app.runtime.blocking import (
     _OwnedBlockingCall,
@@ -71,6 +78,13 @@ def _epoch_milliseconds(value: datetime) -> int:
         + elapsed.seconds * 1_000
         + elapsed.microseconds // 1_000
     )
+
+
+def _is_provider_availability_error(error: BaseException) -> bool:
+    return isinstance(
+        error,
+        (ServerError, RequestsConnectionError, RequestsTimeout, TimeoutError),
+    ) and not isinstance(error, SSLError)
 
 
 class BinanceNativeHistoricalProvider:
@@ -339,6 +353,11 @@ class BinanceNativeHistoricalProvider:
         except TransportDeadlineExceeded:
             raise
         except Exception as exc:
+            if _is_provider_availability_error(exc):
+                raise ProviderAvailabilityError(
+                    f"Binance provider unavailable while fetching klines for "
+                    f"{provider_symbol}"
+                ) from exc
             raise DataIngestionError(
                 f"Binance failed to fetch klines for {provider_symbol}"
             ) from exc

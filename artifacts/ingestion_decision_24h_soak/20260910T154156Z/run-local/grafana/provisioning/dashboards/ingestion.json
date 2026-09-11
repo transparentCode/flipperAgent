@@ -1,0 +1,16 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "panels": [
+    {"title": "Ingestion LIVE", "type": "stat", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "ingestion_runtime_live{service_name=\"ingestion\"}", "refId": "A"}], "gridPos": {"h": 6, "w": 8, "x": 0, "y": 0}},
+    {"title": "Outbox pending", "type": "timeseries", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "ingestion_outbox_pending{service_name=\"ingestion\"}", "refId": "A"}, {"expr": "(time() - ingestion_outbox_oldest_pending_timestamp_seconds{service_name=\"ingestion\"}) * (ingestion_outbox_pending{service_name=\"ingestion\"} > bool 0)", "refId": "B"}], "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6}},
+    {"title": "Canonical commits", "type": "timeseries", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum(rate(ingestion_candle_commit_total{service_name=\"ingestion\"}[5m])) by (outcome)", "refId": "A"}], "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6}}
+  ],
+  "schemaVersion": 39,
+  "tags": ["flipperAgent", "run3", "ingestion"],
+  "time": {"from": "now-1h", "to": "now"},
+  "timezone": "browser",
+  "title": "Ingestion Operations (Run #3)",
+  "uid": "flipper-ingestion",
+  "version": 1
+}

@@ -1,0 +1,120 @@
+direction: down
+
+title: {
+  label: "IMPLEMENTED BASE / RESEARCH ONLY\nArchitecture record · no deployment or promotion claim\nSR v2 causal data flow"
+  near: top-center
+}
+
+source: {
+  label: "[RESEARCH-ONLY · EXISTING] Authenticated source\nStrict YAML + ResearchSourceSetManifest"
+  style.fill: "#E8F1FF"
+}
+
+caller: {
+  label: "[RESEARCH-ONLY · EXISTING] Replay caller\nSRV2ResearchReplay.run wraps OfflineCompute"
+  style.fill: "#FFF2D8"
+}
+
+window: {
+  label: "[EXISTING] Exact closed-window input\nsparse independent source timeframes"
+  style.fill: "#EEF7EA"
+}
+
+request: {
+  label: "[EXISTING] SRStepRequest\nmandatory SRState · closed trigger cutoff"
+  style.fill: "#EEF7EA"
+}
+
+step: {
+  label: "[EXISTING] SRModel.step\nclosed-bar PIT · selected KernelSpec suffixes"
+  style.fill: "#EEF7EA"
+}
+
+result: {
+  label: "[EXISTING] SRStepResult\nnext SRState · transitions · schema-v4 fingerprints"
+  style.fill: "#EEF7EA"
+}
+
+scientific: {
+  label: "[RESEARCH-ONLY · NEW] Scientific compiler\neligible analysis cutoffs only\nCREATED transitions, exact source identity"
+  style.fill: "#FFF2D8"
+}
+
+target: {
+  label: "[RESEARCH-ONLY · NEW] Candidate-independent target rows\nN+1 native suffix → symmetric first-passage\nactual/null outcome fields + compiler receipt"
+  style.fill: "#FFF2D8"
+}
+
+null: {
+  label: "[RESEARCH-ONLY · NEW] Matched feasible null\ncausal kernel lows/highs · stored offsets\nexplicit unavailable evidence"
+  style.fill: "#FFF2D8"
+}
+
+evaluation: {
+  label: "[RESEARCH-ONLY · NEW] Development evaluation\nshared UTC draw receipt · exact groups\nINVALID / INSUFFICIENT / INCONCLUSIVE"
+  style.fill: "#FFF2D8"
+}
+
+optimizer: {
+  label: "[RESEARCH-ONLY · NEW] Candidate-independent target identification\nstrict target_design@1 freeze → global_geometry@1 family\nexact timeframe/kernel/side evidence only"
+  style.fill: "#FFF2D8"
+}
+
+preflight: {
+  label: "[RESEARCH-ONLY · NEW] Native-panel preflight\nsource slice + EpisodeArtifact@2 · per-asset process\nversioned @2 receipt · zero provider calls"
+  style.fill: "#FFF2D8"
+}
+
+episode: {
+  label: "[RESEARCH-ONLY · NEW] Bounded streaming evidence\nclosed replay callback · committed CREATED only\ncontent-addressed authenticated artifact"
+  style.fill: "#FFF2D8"
+}
+
+indexed: {
+  label: "[RESEARCH-ONLY · NEW] Authenticated indexed targets\ncommon-risk receipt + exact source identities\nlazy outcome rows, one tuple at a time"
+  style.fill: "#FFF2D8"
+}
+
+research: {
+  label: "[RESEARCH-ONLY · EXISTING] SRV2ResearchTrace\nbounded trace evidence · no live checkpoint"
+  style.fill: "#FFF2D8"
+}
+
+live: {
+  label: "[EXISTING] LiveRuntime.on_closed_bar\nexplicit genesis · winner-only output"
+  style.fill: "#EEF7EA"
+}
+
+checkpoint: {
+  label: "[EXISTING] CheckpointRepository\nTimescaleCheckpointRepository → sr_v2.checkpoints\nregular state-only latest row"
+  style.fill: "#E8F1FF"
+}
+
+viewer: {
+  label: "[RESEARCH-ONLY · EXISTING] Read-only viewer\nfuture-censored cutoff projection"
+  style.fill: "#FFF2D8"
+}
+
+source -> caller: "authenticated bars + provenance"
+caller -> window: "WINDOW_RELATIVE research input"
+window -> request: "exact cutoff-bounded sparse windows"
+live -> request: "caller-supplied sparse windows"
+request -> step: "mandatory state · market_as_of = closed cutoff"
+step -> result: "complete deterministic step"
+result -> caller: "caller carries next SRState"
+caller -> research: "trace aggregation"
+research -> viewer: "cutoff-local read-only inspection"
+result -> live: "structural result before CAS"
+live -> checkpoint: "canonical state generation-CAS"
+checkpoint -> live: "publish only INSERTED / UPDATED winner"
+result -> scientific: "callback after internal collection"
+result -> episode: "bounded counters, hashes, and issuance index"
+scientific -> target: "causal source suffix + future trigger grid"
+scientific -> null: "exact native kernel window + active zones"
+episode -> indexed: "authenticated compact indexes + source identity"
+indexed -> target: "common-risk verified indexed label stream"
+target -> evaluation: "actual scientific observations"
+null -> evaluation: "matched null linkage"
+evaluation -> optimizer: "development evidence and adjusted cell gates"
+preflight -> optimizer: "resource and identity receipt"
+optimizer -> caller: "sealed candidate family before evaluation"

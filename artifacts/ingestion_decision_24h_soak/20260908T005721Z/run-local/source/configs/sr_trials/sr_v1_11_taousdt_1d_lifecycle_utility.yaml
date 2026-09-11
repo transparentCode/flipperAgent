@@ -1,0 +1,103 @@
+version: "1"
+
+trial:
+  trial_name: sr-v1.11-taousdt-1d-lifecycle-utility
+  venue: binance_usdm
+  asset: TAOUSDT
+  timeframe: 1d
+
+inputs:
+  v19:
+    config_path: configs/sr_trials/sr_v1_9_taousdt_1d_baseline_adequacy.yaml
+    config_hash: ae8b290674f8c9feb3ce630910753f44dcff87a64795428f614735b0cc2dc9a9
+    bundle_path: research/tmp_sr_v1_9/evaluation/12af91cecc3582606da7c41c0c1beaf0320aa17eef8c52edf615214cf0a34df6
+    bundle_id: 12af91cecc3582606da7c41c0c1beaf0320aa17eef8c52edf615214cf0a34df6
+    study_id: ed19698fec505e2e8cf1057c41336da7c0720bcf412530244139e5c523f12c9f
+    implementation_commit: 542faeb0991617ec38a3f7cc13551a26c0f567f0
+    disposition: BASELINE_NOT_BETTER_THAN_NAIVE_NULL
+    manifest_sha256: 5e0942b7c47d1cb31aae93a1b676abf1eafb46592453ccb357801fa59ad1c9d3
+    manifest_bytes: 10528
+    study_sha256: fe80a2933b7f0ef266bbc43756e9a043515f153d6af64b50660ebe832b9c8abf
+    study_bytes: 857146
+
+  v10:
+    config_path: configs/sr_trials/sr_v1_10_taousdt_1d_context_audit.yaml
+    config_hash: 1ae6cdf31951e20540a9625a85e593e9bfbb9520364b68d6e783f05ab477207f
+    bundle_path: research/tmp_sr_v1_10/audit/a592276b9fed7c24949ad33b503a7b65474e10f4e3088fe734282401ac058a56
+    bundle_id: a592276b9fed7c24949ad33b503a7b65474e10f4e3088fe734282401ac058a56
+    audit_id: 147df6b76fea1a2d8cf5f77840f4e82af6e7d7e8207410e2c43249442ea81c07
+    implementation_commit: e52e96eb779ccc9ada0b4bef6b1082177091ebc8
+    trace_id: 5e58eeb1e3aef84a096d348779d92d76268da619ad4445dee397d56fe688047f
+    manifest_sha256: 482dc10c3a5eaa1142b1b8b7967eea39464f9975ceef14b3aaddb04c66588baf
+    manifest_bytes: 9854
+    audit_sha256: 27afe6242cc68e0222c7f93ef212b9ad87faaaf53c1b21e6edcbc5a8e2eaceb1
+    audit_bytes: 266791
+    chart_sha256: 621df3d8cbd6191567c00b31bed54848acf4a91d0f1f920d7fc1ea2f70cf0714
+    chart_bytes: 605404
+
+  frozen:
+    source_bundle_id: d210494937ebcd4347e026b8ac02bff3105065e5455752b8690d449def357925
+    source_id: fc1ba274454f277a40f005f542fdfd4e6e752e5afa2e1050f3582b21fd8b1120
+    bars_sha256: 703367048f4ed7dc432ca9dfe0ad4afdc5a56eb2a508597ef00bdc3de8b81163
+    source_row_count: 629
+    source_start: "2024-04-11T00:00:00Z"
+    source_end: "2025-12-31T00:00:00Z"
+    grid_policy: exact_utc_daily_grid_from_taousdt_development_capsule
+    frozen_sr_config_hash: cb9b4143921de95c5423899a5655fef0b186cf1f8e9a84c69427bf64df030299
+    frozen_input_hash: 5ece92803341696df06efa0dba5d7a44ee0f5451aa3ce6555d3a4ef6c59fab6d
+
+protocol:
+  atr:
+    method: wilder_rma
+    period: 14
+    seed: sma
+    contract: true_range_sma_seed_then_wilder_recursion_v1
+
+  resolution:
+    event_classes:
+      - FALSE_BREAKOUT
+      - BREAK_CONFIRMED
+    deduplicate_by_zone: true
+    effective_side_policy: false_breakout_retain_original_break_confirmed_flip
+
+  outcome:
+    anchor_policy: resolution_event_bar_close
+    start_offset_bars: 1
+    horizon_bars: 10
+    window_policy: half_open_utc_daily
+
+  folds:
+    - name: 2024_q3
+      start: "2024-07-01T00:00:00Z"
+      end: "2024-10-01T00:00:00Z"
+    - name: 2024_q4
+      start: "2024-10-01T00:00:00Z"
+      end: "2025-01-01T00:00:00Z"
+    - name: 2025_q1
+      start: "2025-01-01T00:00:00Z"
+      end: "2025-04-01T00:00:00Z"
+    - name: 2025_q2
+      start: "2025-04-01T00:00:00Z"
+      end: "2025-07-01T00:00:00Z"
+    - name: 2025_q3
+      start: "2025-07-01T00:00:00Z"
+      end: "2025-10-01T00:00:00Z"
+    - name: 2025_q4
+      start: "2025-10-01T00:00:00Z"
+      end: "2026-01-01T00:00:00Z"
+
+gates:
+  readiness:
+    minimum_completed_unique_resolutions: 16
+    minimum_comparable_folds: 4
+    minimum_completed_per_comparable_fold: 2
+    minimum_null_controls_per_compared_cell: 4
+  quality:
+    minimum_pooled_median_excess_quality_atr: 0.10
+    minimum_positive_comparable_fold_fraction: 0.60
+    minimum_worst_comparable_fold_median_excess_atr: -0.10
+    minimum_event_class_comparable_outcomes: 4
+    minimum_event_class_median_excess_atr: 0.0
+
+output:
+  root: research/tmp_sr_v1_11/lifecycle_utility

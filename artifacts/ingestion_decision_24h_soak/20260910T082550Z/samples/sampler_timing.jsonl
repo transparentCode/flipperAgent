@@ -1,0 +1,59 @@
+{"collector_duration_ms": {"gate": 3013.004, "health": 40.985, "logs": 4428.381, "pipeline": 1183.91, "resource": 6374.499, "storage": 1683.566}, "duration_ms": 18193.611, "phase": "warmup", "timestamp": "2026-09-10T13:43:05.180914+00:00"}
+{"collector_duration_ms": {"gate": 2207.456, "resource": 6370.84}, "duration_ms": 9939.125, "phase": "warmup", "timestamp": "2026-09-10T13:43:20.331145+00:00"}
+{"collector_duration_ms": {"gate": 2669.786, "health": 46.035, "resource": 6500.795}, "duration_ms": 10616.59, "phase": "warmup", "timestamp": "2026-09-10T13:43:36.149233+00:00"}
+{"collector_duration_ms": {"gate": 2553.545, "resource": 6314.962}, "duration_ms": 10168.57, "phase": "warmup", "timestamp": "2026-09-10T13:43:51.685838+00:00"}
+{"collector_duration_ms": {"health": 30.871, "pipeline": 3335.511, "resource": 5757.144}, "duration_ms": 10317.076, "phase": "warmup", "timestamp": "2026-09-10T13:44:07.220344+00:00"}
+{"collector_duration_ms": {"gate": 2222.787, "resource": 6133.06}, "duration_ms": 9720.358, "phase": "warmup", "timestamp": "2026-09-10T13:44:22.144566+00:00"}
+{"collector_duration_ms": {}, "duration_ms": 1321.86, "phase": "warmup", "timestamp": "2026-09-10T13:44:28.698847+00:00"}
+{"collector_duration_ms": {"gate": 2783.482, "health": 28.944, "resource": 6677.861}, "duration_ms": 10673.209, "phase": "warmup", "timestamp": "2026-09-10T13:44:44.582696+00:00"}
+{"collector_duration_ms": {"gate": 2316.541, "resource": 6095.488}, "duration_ms": 9785.359, "phase": "warmup", "timestamp": "2026-09-10T13:44:59.562843+00:00"}
+{"collector_duration_ms": {"gate": 2181.08, "health": 44.354, "pipeline": 1045.101, "resource": 6412.518}, "duration_ms": 11097.672, "phase": "warmup", "timestamp": "2026-09-10T13:45:15.895088+00:00"}
+{"collector_duration_ms": {"gate": 2174.076, "resource": 6247.16}, "duration_ms": 9686.344, "phase": "warmup", "timestamp": "2026-09-10T13:45:30.776984+00:00"}
+{"collector_duration_ms": {"gate": 2329.766, "health": 50.854, "resource": 5823.757}, "duration_ms": 10199.316, "phase": "warmup", "timestamp": "2026-09-10T13:45:46.195716+00:00"}
+{"collector_duration_ms": {}, "duration_ms": 1188.798, "phase": "warmup", "timestamp": "2026-09-10T13:45:52.609466+00:00"}
+{"collector_duration_ms": {"gate": 2233.571, "resource": 5884.56}, "duration_ms": 9296.963, "phase": "warmup", "timestamp": "2026-09-10T13:46:07.113746+00:00"}
+{"collector_duration_ms": {}, "duration_ms": 1331.04, "phase": "warmup", "timestamp": "2026-09-10T13:46:13.652821+00:00"}
+{"collector_duration_ms": {"gate": 2384.517, "health": 50.17, "pipeline": 1128.207, "resource": 5930.942}, "duration_ms": 10690.589, "phase": "warmup", "timestamp": "2026-09-10T13:46:29.553016+00:00"}
+{"collector_duration_ms": {"gate": 2332.77, "resource": 6300.494}, "duration_ms": 10796.975, "phase": "warmup", "timestamp": "2026-09-10T13:46:45.574214+00:00"}
+{"collector_duration_ms": {"gate": 2280.188, "health": 40.957, "resource": 6408.227}, "duration_ms": 9943.006, "phase": "warmup", "timestamp": "2026-09-10T13:47:00.738463+00:00"}
+{"collector_duration_ms": {"resource": 6160.578}, "duration_ms": 7392.002, "phase": "warmup", "timestamp": "2026-09-10T13:47:13.307229+00:00"}
+{"collector_duration_ms": {"gate": 3769.828}, "duration_ms": 5093.325, "phase": "warmup", "timestamp": "2026-09-10T13:47:23.656058+00:00"}
+{"collector_duration_ms": {"gate": 2517.74, "health": 45.061, "pipeline": 1162.365, "resource": 5700.978}, "duration_ms": 10829.048, "phase": "warmup", "timestamp": "2026-09-10T13:47:39.717716+00:00"}
+{"collector_duration_ms": {"gate": 2287.606, "resource": 6186.972}, "duration_ms": 9774.111, "phase": "warmup", "timestamp": "2026-09-10T13:47:54.685007+00:00"}
+{"collector_duration_ms": {"logs": 4139.544}, "duration_ms": 5357.573, "phase": "warmup", "timestamp": "2026-09-10T13:48:05.265228+00:00"}
+{"collector_duration_ms": {"gate": 2365.508, "health": 27.206, "resource": 6369.583}, "duration_ms": 10097.758, "phase": "warmup", "timestamp": "2026-09-10T13:48:20.590773+00:00"}
+{"collector_duration_ms": {"gate": 2368.147, "resource": 6172.938}, "duration_ms": 9838.556, "phase": "warmup", "timestamp": "2026-09-10T13:48:35.673653+00:00"}
+{"collector_duration_ms": {"gate": 2315.193, "health": 77.452, "pipeline": 910.02, "resource": 6233.964}, "duration_ms": 10870.008, "phase": "warmup", "timestamp": "2026-09-10T13:48:51.765982+00:00"}
+{"collector_duration_ms": {"gate": 2132.701, "resource": 5729.377}, "duration_ms": 9131.74, "phase": "warmup", "timestamp": "2026-09-10T13:49:06.107227+00:00"}
+{"collector_duration_ms": {}, "duration_ms": 1250.618, "phase": "warmup", "timestamp": "2026-09-10T13:49:12.549759+00:00"}
+{"collector_duration_ms": {"gate": 2281.211, "health": 28.488, "resource": 6075.41}, "duration_ms": 9649.294, "phase": "warmup", "timestamp": "2026-09-10T13:49:27.391949+00:00"}
+{"collector_duration_ms": {"gate": 2268.408, "resource": 6523.715}, "duration_ms": 10206.386, "phase": "warmup", "timestamp": "2026-09-10T13:49:42.802089+00:00"}
+{"collector_duration_ms": {"gate": 2189.195, "health": 36.149, "pipeline": 1106.166, "resource": 6229.528}, "duration_ms": 11229.513, "phase": "warmup", "timestamp": "2026-09-10T13:49:59.246330+00:00"}
+{"collector_duration_ms": {"gate": 2192.579, "resource": 6208.624}, "duration_ms": 9687.726, "phase": "warmup", "timestamp": "2026-09-10T13:50:14.156759+00:00"}
+{"collector_duration_ms": {}, "duration_ms": 1334.039, "phase": "warmup", "timestamp": "2026-09-10T13:50:20.698033+00:00"}
+{"collector_duration_ms": {"gate": 2214.237, "health": 43.763, "resource": 6320.687}, "duration_ms": 9855.337, "phase": "warmup", "timestamp": "2026-09-10T13:50:35.747440+00:00"}
+{"collector_duration_ms": {"gate": 2280.756, "resource": 6217.171}, "duration_ms": 10137.011, "phase": "warmup", "timestamp": "2026-09-10T13:50:51.099007+00:00"}
+{"collector_duration_ms": {"gate": 2220.74, "health": 35.859, "pipeline": 1245.208, "resource": 6206.874}, "duration_ms": 11022.445, "phase": "warmup", "timestamp": "2026-09-10T13:51:07.324425+00:00"}
+{"collector_duration_ms": {"gate": 2402.992, "resource": 6149.017}, "duration_ms": 10092.085, "phase": "warmup", "timestamp": "2026-09-10T13:51:22.645323+00:00"}
+{"collector_duration_ms": {"health": 35.569, "resource": 5802.142}, "duration_ms": 7095.978, "phase": "warmup", "timestamp": "2026-09-10T13:51:34.958713+00:00"}
+{"collector_duration_ms": {"gate": 3410.452}, "duration_ms": 5513.902, "phase": "warmup", "timestamp": "2026-09-10T13:51:45.663565+00:00"}
+{"collector_duration_ms": {"gate": 2813.655, "resource": 5587.524}, "duration_ms": 11578.52, "phase": "warmup", "timestamp": "2026-09-10T13:52:02.348156+00:00"}
+{"collector_duration_ms": {"health": 36.428, "pipeline": 3386.19, "resource": 4762.954}, "duration_ms": 9799.119, "phase": "warmup", "timestamp": "2026-09-10T13:52:17.310797+00:00"}
+{"collector_duration_ms": {"gate": 2843.586, "resource": 5552.852}, "duration_ms": 10341.203, "phase": "warmup", "timestamp": "2026-09-10T13:52:32.753566+00:00"}
+{"collector_duration_ms": {}, "duration_ms": 1230.025, "phase": "warmup", "timestamp": "2026-09-10T13:52:39.130974+00:00"}
+{"collector_duration_ms": {"gate": 2197.294, "health": 46.156, "resource": 5017.968}, "duration_ms": 9255.62, "phase": "warmup", "timestamp": "2026-09-10T13:52:53.523313+00:00"}
+{"collector_duration_ms": {}, "duration_ms": 1260.173, "phase": "warmup", "timestamp": "2026-09-10T13:52:59.898878+00:00"}
+{"collector_duration_ms": {"gate": 2104.735, "logs": 4444.89, "pipeline": 907.272, "resource": 5528.721, "storage": 1621.033}, "duration_ms": 15945.084, "phase": "warmup", "timestamp": "2026-09-10T13:53:20.958945+00:00"}
+{"collector_duration_ms": {"gate": 2170.162, "health": 18.29, "resource": 5409.608}, "duration_ms": 8837.029, "phase": "warmup", "timestamp": "2026-09-10T13:53:34.917700+00:00"}
+{"collector_duration_ms": {}, "duration_ms": 1343.97, "phase": "warmup", "timestamp": "2026-09-10T13:53:41.378146+00:00"}
+{"collector_duration_ms": {"gate": 1935.048, "resource": 5533.63}, "duration_ms": 8687.317, "phase": "warmup", "timestamp": "2026-09-10T13:53:55.182479+00:00"}
+{"collector_duration_ms": {}, "duration_ms": 1373.942, "phase": "warmup", "timestamp": "2026-09-10T13:54:01.727345+00:00"}
+{"collector_duration_ms": {"gate": 2304.896, "health": 41.368, "pipeline": 967.9, "resource": 5409.378}, "duration_ms": 9891.518, "phase": "warmup", "timestamp": "2026-09-10T13:54:16.715371+00:00"}
+{"collector_duration_ms": {"gate": 2056.687, "resource": 5305.125}, "duration_ms": 8700.871, "phase": "warmup", "timestamp": "2026-09-10T13:54:30.524553+00:00"}
+{"collector_duration_ms": {}, "duration_ms": 1608.114, "phase": "warmup", "timestamp": "2026-09-10T13:54:37.259516+00:00"}
+{"collector_duration_ms": {"gate": 1843.215, "health": 25.34, "resource": 5288.786}, "duration_ms": 8518.886, "phase": "warmup", "timestamp": "2026-09-10T13:54:50.892315+00:00"}
+{"collector_duration_ms": {}, "duration_ms": 1262.873, "phase": "warmup", "timestamp": "2026-09-10T13:54:57.269328+00:00"}
+{"collector_duration_ms": {"gate": 2242.347, "resource": 5235.561}, "duration_ms": 8730.586, "phase": "warmup", "timestamp": "2026-09-10T13:55:11.091742+00:00"}
+{"collector_duration_ms": {"pipeline": 2921.776}, "duration_ms": 4095.737, "phase": "warmup", "timestamp": "2026-09-10T13:55:20.305594+00:00"}
+{"collector_duration_ms": {"gate": 1768.785, "health": 32.699, "resource": 5240.842}, "duration_ms": 8412.044, "phase": "warmup", "timestamp": "2026-09-10T13:55:33.834623+00:00"}
+{"collector_duration_ms": {}, "duration_ms": 1121.693, "phase": "warmup", "timestamp": "2026-09-10T13:55:40.070814+00:00"}

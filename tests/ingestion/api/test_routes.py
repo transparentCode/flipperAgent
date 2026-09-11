@@ -116,6 +116,16 @@ async def test_health_routes_and_runtime_snapshot() -> None:
 
     controller._snapshot = RuntimeSnapshot(
         desired_state=DesiredRuntimeState.RUNNING,
+        state=RuntimeState.RECOVERING,
+        last_error="recovery exhausted; retrying",
+    )
+    recovering = await request(app, "GET", "/health/ready")
+    assert recovering.status_code == 200
+    assert recovering.body["runtime"]["state"] == "recovering"
+    assert recovering.body["runtime"]["last_error"] == "recovery exhausted; retrying"
+
+    controller._snapshot = RuntimeSnapshot(
+        desired_state=DesiredRuntimeState.RUNNING,
         state=RuntimeState.ERROR,
         last_error="fatal",
     )

@@ -10,7 +10,10 @@ import pytest
 
 import apps.ingestion_app.providers.ccxt as ccxt_module
 from apps.ingestion_app.domain.instrument import MarketLane
-from apps.ingestion_app.providers.base import TransportDeadlineExceeded
+from apps.ingestion_app.providers.base import (
+    ProviderAvailabilityError,
+    TransportDeadlineExceeded,
+)
 from apps.ingestion_app.providers.ccxt import CCXTHistoricalProvider
 from libs.common.exceptions import DataIngestionError
 
@@ -556,7 +559,7 @@ async def test_ccxt_sdk_timeout_error_is_normal_retryable_error() -> None:
         attempt_timeout_seconds=1,
     )
 
-    with pytest.raises(DataIngestionError):
+    with pytest.raises(ProviderAvailabilityError) as raised:
         await provider.fetch_closed_candles(
             lane=LANE,
             provider_symbol="BTC/USDT:USDT",
@@ -566,6 +569,7 @@ async def test_ccxt_sdk_timeout_error_is_normal_retryable_error() -> None:
             limit=10,
         )
 
+    assert isinstance(raised.value.__cause__, TimeoutError)
     assert provider.quarantined is False
     await _wait_for_retained_tasks(provider, 0)
 
@@ -635,7 +639,7 @@ async def test_ccxt_sdk_failure_preserves_cause() -> None:
         exchange=_FakeExchange(error=original),
     )
 
-    with pytest.raises(DataIngestionError) as raised:
+    with pytest.raises(ProviderAvailabilityError) as raised:
         await provider.fetch_closed_candles(
             lane=LANE,
             provider_symbol="BTC/USDT:USDT",
@@ -657,6 +661,37 @@ async def test_ccxt_raw_endpoint_failure_preserves_cause() -> None:
         exchange=_FakeExchange(raw_error=original),
     )
 
+    with pytest.raises(ProviderAvailabilityError) as raised:
+        await provider.fetch_closed_candles(
+            lane=LANE,
+            provider_symbol="BTC/USDT:USDT",
+            timeframe_duration=MINUTE,
+            since=SINCE,
+            until=UNTIL,
+            limit=10,
+        )
+
+    assert raised.value.__cause__ is original
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "original",
+    [
+        ccxt.AuthenticationError("invalid credentials"),
+        ccxt.BadRequest("invalid request"),
+        ccxt.InvalidNonce("invalid nonce"),
+    ],
+)
+async def test_ccxt_deterministic_provider_errors_remain_fatal(
+    original: BaseException,
+) -> None:
+    provider = CCXTHistoricalProvider(
+        provider_id="ccxt_binance",
+        exchange_id="binanceusdm",
+        exchange=_FakeExchange(error=original),
+    )
+
     with pytest.raises(DataIngestionError) as raised:
         await provider.fetch_closed_candles(
             lane=LANE,
@@ -667,6 +702,7 @@ async def test_ccxt_raw_endpoint_failure_preserves_cause() -> None:
             limit=10,
         )
 
+    assert not isinstance(raised.value, ProviderAvailabilityError)
     assert raised.value.__cause__ is original
 
 

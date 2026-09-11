@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0e1117">
+  <title>SR v2 research chart</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-mark" aria-hidden="true">SR</div>
+      <div class="instrument-block">
+        <div class="instrument-line">
+          <span id="market-identity" class="instrument-name">Loading market…</span>
+          <span id="venue-label" class="venue-label"></span>
+        </div>
+        <div class="instrument-subline">
+          <span id="mode-label">Formation</span>
+          <span class="dot-separator">·</span>
+          <span id="timeframe-label">—</span>
+          <span class="dot-separator">·</span>
+          <span id="pipeline-label">source formation → lifecycle</span>
+        </div>
+      </div>
+      <div class="topbar-spacer"></div>
+      <div class="status-cluster">
+        <span class="status-pill research-pill">RESEARCH ONLY</span>
+        <span class="status-pill muted-pill">STRUCTURAL ONLY</span>
+        <span id="as-of-label" class="as-of-label">UTC as-of —</span>
+      </div>
+    </header>
+
+    <main class="chart-workspace">
+      <div class="chart-toolbar" aria-label="Chart controls">
+        <div class="toolbar-group mode-switch" role="group" aria-label="Chart mode">
+          <button id="formation-button" class="tool-button active" type="button" aria-pressed="true">Formation</button>
+          <button id="lifecycle-button" class="tool-button" type="button" aria-pressed="false">Lifecycle</button>
+        </div>
+        <span class="toolbar-divider" aria-hidden="true"></span>
+        <button id="zones-button" class="tool-button tool-toggle active" type="button" aria-pressed="true"><span class="legend-swatch zones-swatch"></span>Zones</button>
+        <button id="history-button" class="tool-button tool-toggle" type="button" aria-pressed="false"><span class="legend-swatch history-swatch"></span>Historical</button>
+        <button id="candidates-button" class="tool-button tool-toggle" type="button" aria-pressed="false"><span class="legend-swatch candidates-swatch"></span>Candidates</button>
+        <button id="kernels-button" class="tool-button tool-toggle" type="button" aria-controls="inspector">Kernels <span id="kernel-count">—</span></button>
+        <button id="inspector-button" class="tool-button tool-toggle" type="button" aria-pressed="false" aria-controls="inspector" aria-expanded="false">Inspector</button>
+        <div class="toolbar-spacer"></div>
+        <button id="lineage-status" class="toolbar-note lineage-status" type="button" aria-controls="inspector active-zone-ledger" aria-live="polite" title="Open the active lineage ledger"></button>
+        <span id="candle-count" class="toolbar-note"></span>
+      </div>
+
+      <section class="chart-frame" aria-label="SR v2 price chart">
+        <div id="chart" class="chart-host" aria-label="Interactive candlestick chart"></div>
+        <div id="loading-state" class="chart-state" role="status">Loading verified chart projection…</div>
+        <div id="error-state" class="chart-state error-state" role="alert" hidden></div>
+        <aside id="inspector" class="inspector-panel" aria-label="As-of evidence inspector" aria-live="polite" hidden>
+          <div class="inspector-header">
+            <div>
+              <div class="panel-eyebrow">CAUSAL INSPECTION</div>
+              <h2>As-of evidence</h2>
+            </div>
+            <button id="close-inspector" class="close-button" type="button" aria-label="Close inspector">×</button>
+          </div>
+          <div id="inspector-body" class="inspector-body">
+            <div class="empty-state">Move the crosshair to inspect a closed candle.</div>
+          </div>
+        </aside>
+        <div class="chart-legend" aria-label="Chart legend">
+          <span><span class="legend-swatch support-swatch"></span>Support</span>
+          <span><span class="legend-swatch resistance-swatch"></span>Resistance</span>
+          <span><span class="legend-swatch history-swatch"></span>Historical</span>
+          <span><span class="legend-line"></span>Lifecycle state uses border style</span>
+          <span class="legend-disclosure">Exact lineage geometry · overlap is not consolidation · no strength/probability implied</span>
+        </div>
+      </section>
+      <footer class="chart-footer">
+        <a href="https://www.tradingview.com/" rel="noopener noreferrer" target="_blank">TradingView Lightweight Charts</a>
+        <span id="identity-label">Verified local evidence projection</span>
+      </footer>
+    </main>
+  </div>
+  <script type="module" src="/dist/main.js"></script>
+</body>
+</html>

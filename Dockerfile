@@ -1,14 +1,18 @@
-# Note: Using Python 3.13 to align with pyproject.toml requires-python = ">=3.13"
+FROM ghcr.io/astral-sh/uv:0.12.11 AS uv
+
+# Note: Using Python 3.13 to align with pyproject.toml requires-python = ">=3.12"
 FROM python:3.13-slim AS builder
 
-WORKDIR /build
+WORKDIR /app
 
-# Copy only pyproject.toml and README needed for initial dependency install
-COPY pyproject.toml README.md ./
+# Copy the project metadata and generated lock for reproducible dependency sync.
+COPY --from=uv /uv /uvx /bin/
+COPY pyproject.toml uv.lock README.md ./
 
-# Create dummy src to allow pip wheel to succeed for third-party dependencies caching
-RUN mkdir -p src/apps src/libs && touch src/apps/__init__.py src/libs/__init__.py \
-    && pip wheel --no-cache-dir --wheel-dir /build/wheels .
+# The image executes copied source through PYTHONPATH, so only the locked
+# third-party environment is installed at the same absolute path used by the
+# runtime image so console-script shebangs remain valid after the copy.
+RUN uv sync --locked --no-install-project --no-dev
 
 FROM python:3.13-slim
 
@@ -18,15 +22,15 @@ WORKDIR /app
 RUN groupadd -r flipper && useradd -r -g flipper flipper \
     && mkdir -p /app/data /app/logs && chown -R flipper:flipper /app
 
-# Copy the built wheels and install them
-COPY --from=builder /build/wheels /wheels
-RUN pip install --no-cache-dir /wheels/* && rm -rf /wheels
+# Copy the locked virtual environment.
+COPY --from=builder --chown=flipper:flipper /app/.venv /app/.venv
 
 # Finally, copy the actual source code with correct ownership
 COPY --chown=flipper:flipper ./src /app/src
 COPY --chown=flipper:flipper ./configs /app/configs
 
 USER flipper
+ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH=/app/src
 ENV NUMBA_CACHE_DIR=/tmp/numba_cache
 

@@ -1,0 +1,2 @@
+service=broker exit=0 bytes=3965 since=2026-09-10T06:55:41.498593+00:00 until=2026-09-10T13:28:32Z
+c20b062aa11c60ff73377c710e46f94ac0cf72709d38f3ca4ac1b39f27650bb2  /Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260910T062736Z/raw-docker-logs/stop.tQ6eM0/broker.log

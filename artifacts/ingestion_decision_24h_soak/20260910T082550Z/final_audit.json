@@ -1,0 +1,53 @@
+{
+  "error": "guarded launch failed closed: AC_LOST",
+  "guard_failure": {
+    "reason_code": "AC_LOST",
+    "record": {
+      "assertion_pid": 38078,
+      "child_pid": 38082,
+      "child_returncode": -9,
+      "event": "host_sleep_guard",
+      "finished_at": "2026-09-10T13:55:49.833523Z",
+      "last_successful_full_verification_at": "2026-09-10T13:55:42.546247Z",
+      "max_check_gap_seconds": 60.0,
+      "probe_diagnostic": {
+        "elapsed_monotonic_seconds": 0.15225887500855606,
+        "last_successful_full_verification_at": "2026-09-10T13:55:42.546247Z",
+        "phase": "RUNTIME",
+        "probe_kind": "AC",
+        "requested_timeout_seconds": 2.0,
+        "timing_status": "AVAILABLE"
+      },
+      "reason_code": "AC_LOST",
+      "started_at": "2026-09-10T13:29:41.594675Z",
+      "status": "FAILED"
+    }
+  },
+  "state": {
+    "guard_failure": {
+      "reason_code": "AC_LOST",
+      "record": {
+        "assertion_pid": 38078,
+        "child_pid": 38082,
+        "child_returncode": -9,
+        "event": "host_sleep_guard",
+        "finished_at": "2026-09-10T13:55:49.833523Z",
+        "last_successful_full_verification_at": "2026-09-10T13:55:42.546247Z",
+        "max_check_gap_seconds": 60.0,
+        "probe_diagnostic": {
+          "elapsed_monotonic_seconds": 0.15225887500855606,
+          "last_successful_full_verification_at": "2026-09-10T13:55:42.546247Z",
+          "phase": "RUNTIME",
+          "probe_kind": "AC",
+          "requested_timeout_seconds": 2.0,
+          "timing_status": "AVAILABLE"
+        },
+        "reason_code": "AC_LOST",
+        "started_at": "2026-09-10T13:29:41.594675Z",
+        "status": "FAILED"
+      }
+    },
+    "validity": false
+  },
+  "terminal_status": "INGESTION_DECISION_24H_SOAK_INCONCLUSIVE_EVIDENCE"
+}

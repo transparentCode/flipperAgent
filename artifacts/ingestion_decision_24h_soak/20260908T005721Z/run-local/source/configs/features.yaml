@@ -1,0 +1,209 @@
+features:
+  assets:
+    BTCUSDT:
+      timeframes:
+        1h:
+          MACD:
+            fast_period: 12
+            signal_period: 9
+            slow_period: 26
+          RSI:
+            period: 14
+          ATR:
+            period: 14
+          BollingerBands:
+            period: 20
+            num_std: 2.0
+          EMA_fast:
+            type: EMA
+            period: 12
+          EMA_slow:
+            type: EMA
+            period: 26
+          KAMA_fast:
+            type: KAMA
+            period: 5
+            fast_period: 2
+            slow_period: 10
+          KAMA_slow:
+            type: KAMA
+            period: 30
+            fast_period: 2
+            slow_period: 10
+          KeltnerChannel:
+            period: 20
+            multiplier: 1.5
+            atr_period: 14
+          LinReg:
+            period: 12
+          CCI:
+            period: 5
+          ADX:
+            period: 14
+          MFI:
+            period: 14
+          ADLine: {}
+          Momentum:
+            period: 10
+          KyleLambda:
+            smooth: 24
+            lookback: 200
+            informed_z: 1.0
+            noise_z: -0.5
+          TFI:
+            smooth: 5
+            zscore_window: 100
+          VPIN:
+            bucket_multiplier: 1.0
+            n_buckets: 50
+            zscore_window: 200
+        4h:
+          MACD:
+            fast_period: 12
+            signal_period: 9
+            slow_period: 26
+          RSI:
+            period: 14
+          ATR:
+            period: 14
+          BollingerBands:
+            period: 20
+            num_std: 2.0
+          EMA_fast:
+            type: EMA
+            period: 12
+          EMA_slow:
+            type: EMA
+            period: 26
+          KAMA_fast:
+            type: KAMA
+            period: 5
+            fast_period: 2
+            slow_period: 10
+          KAMA_slow:
+            type: KAMA
+            period: 30
+            fast_period: 2
+            slow_period: 10
+          KeltnerChannel:
+            period: 20
+            multiplier: 1.5
+            atr_period: 14
+          LinReg:
+            period: 12
+          CCI:
+            period: 5
+          ADX:
+            period: 14
+          MFI:
+            period: 14
+          ADLine: {}
+          Momentum:
+            period: 10
+    ETHUSDT:
+      # Note: ETHUSDT/1d not configured here — no model consumer for that timeframe.
+      # Only 4h has an active model consumer (MeanReversion, Momentum).
+      timeframes:
+        4h:
+          RSI:
+            period: 12
+    default:
+      timeframes:
+        default:
+          ATR:
+            period: 14
+          BollingerBands:
+            period: 20
+            num_std: 2.0
+          EMA_fast:
+            type: EMA
+            period: 12
+          EMA_slow:
+            type: EMA
+            period: 26
+          MACD:
+            fast_period: 12
+            signal_period: 9
+            slow_period: 26
+          RSI:
+            period: 14
+          KAMA_fast:
+            type: KAMA
+            period: 5
+            fast_period: 2
+            slow_period: 10
+          KAMA_slow:
+            type: KAMA
+            period: 30
+            fast_period: 2
+            slow_period: 10
+          KeltnerChannel:
+            period: 20
+            multiplier: 1.5
+            atr_period: 14
+          LinReg:
+            period: 12
+          CCI:
+            period: 5
+          ADX:
+            period: 14
+          MFI:
+            period: 14
+          ADLine: {}
+          Momentum:
+            period: 10
+
+engineered_features:
+  assets:
+    default:
+      timeframes:
+        default:
+          volume_adjusted_momentum:
+            enabled: true
+          atr_normalized_return:
+            enabled: true
+          residual_momentum:
+            enabled: true
+          squeeze_intensity:
+            enabled: true
+          regime_score:
+            enabled: true
+          mean_reversion_z:
+            enabled: true
+          btc_dominance_regime:
+            enabled: true
+          altcoin_market_momentum:
+            enabled: true
+          market_cap_breadth:
+            enabled: true
+          altcoin_beta:
+            enabled: true
+          btc_dominance_momentum:
+            enabled: true
+            params:
+              sma_period: 10
+              atr_period: 14
+          total3_momentum_z:
+            enabled: true
+            params:
+              sma_period: 20
+              z_period: 50
+              clip_range: 3.0
+          relative_strength_vs_total3:
+            enabled: true
+            params:
+              period: 20
+              clip_range: 10.0
+          cross_asset_regime_state:
+            enabled: true
+            params:
+              btc_d_threshold: 0.3
+              t3_threshold: 0.3
+          regime_alignment_score:
+            enabled: true
+            params:
+              w_btc_d: 0.3
+              w_t3: 0.3
+              w_breadth: 0.2
+              w_rs: 0.2
+              breadth_scale: 10.0

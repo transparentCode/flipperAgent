@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Trendline V2 Audit Viewer</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script type="importmap">
+      {
+        "imports": {
+          "lightweight-charts": "/vendor/lightweight-charts.mjs"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="toolbar">
+        <div>
+          <p class="eyebrow">TRENDLINE V2 / LOCAL AUDIT</p>
+          <h1>Confirmed geometry, without hindsight</h1>
+          <p id="trial-summary">Loading verified chart payload...</p>
+        </div>
+        <div class="controls" aria-label="Viewer controls">
+          <fieldset id="density-controls" class="density-controls">
+            <legend>display density</legend>
+            <label for="display-mode">mode
+              <select id="display-mode" aria-label="Display mode">
+                <option value="nearest" selected>Nearest now</option>
+                <option value="focus">Focus</option>
+                <option value="all">All raw</option>
+              </select>
+            </label>
+            <label id="nearest-budget-control" for="nearest-budget">maximum per role
+              <select id="nearest-budget" aria-label="Nearest maximum candidates per role">
+                <option value="5" selected>5</option>
+                <option value="10">10</option>
+              </select>
+            </label>
+            <label for="recent-age">recent availability
+              <select id="recent-age" aria-label="Maximum confirmation age">
+                <option value="20">20 bars</option>
+                <option value="50">50 bars</option>
+                <option value="100" selected>100 bars</option>
+                <option value="200">200 bars</option>
+                <option value="all">All</option>
+              </select>
+            </label>
+            <label for="min-span">minimum anchor span
+              <select id="min-span" aria-label="Minimum anchor span">
+                <option value="0">0 bars</option>
+                <option value="10">10 bars</option>
+                <option value="25" selected>25 bars</option>
+                <option value="50">50 bars</option>
+                <option value="100">100 bars</option>
+              </select>
+            </label>
+            <label for="max-role">maximum per role
+              <select id="max-role" aria-label="Maximum candidates per role">
+                <option value="5">5</option>
+                <option value="12" selected>12</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="all">All</option>
+              </select>
+            </label>
+            <label for="unique-anchor"><input id="unique-anchor" type="checkbox" checked> one per second anchor</label>
+            <button id="reset-focus" type="button">reset focus</button>
+          </fieldset>
+          <fieldset class="line-controls">
+            <legend>layers</legend>
+            <label for="show-support"><input id="show-support" type="checkbox" checked> support</label>
+            <label for="show-resistance"><input id="show-resistance" type="checkbox" checked> resistance</label>
+            <label for="show-anchors"><input id="show-anchors" type="checkbox"> anchors</label>
+            <button id="fit-content" type="button">fit content</button>
+          </fieldset>
+        </div>
+      </header>
+      <div id="status-banner" class="status-banner" role="status"></div>
+      <div id="display-disclaimer" class="display-disclaimer">Display-only filtering — provider output unchanged</div>
+      <div id="display-summary" class="display-summary" aria-live="polite"></div>
+      <section id="chart" class="chart" aria-label="Trendline V2 chart"></section>
+      <aside id="hover-detail" class="hover-detail" aria-live="polite">
+        Hover a finite candidate segment for evidence.
+      </aside>
+      <footer class="attribution">
+        Charts powered by
+        <a href="https://www.tradingview.com/lightweight-charts/" target="_blank" rel="noreferrer">TradingView Lightweight Charts</a>.
+      </footer>
+    </main>
+    <script type="module" src="/dist/main.js"></script>
+  </body>
+</html>

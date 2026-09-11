@@ -1,0 +1,53 @@
+{
+  "error": "guarded launch failed closed: CLEANUP_FAILED",
+  "guard_failure": {
+    "reason_code": "CLEANUP_FAILED",
+    "record": {
+      "assertion_pid": 71724,
+      "child_pid": 71728,
+      "child_returncode": null,
+      "event": "host_sleep_guard",
+      "finished_at": "2026-09-10T14:59:19.598697Z",
+      "last_successful_full_verification_at": "2026-09-10T14:59:14.525538Z",
+      "max_check_gap_seconds": 60.0,
+      "probe_diagnostic": {
+        "elapsed_monotonic_seconds": 0.03950437500316184,
+        "last_successful_full_verification_at": "2026-09-10T14:59:14.525538Z",
+        "phase": "RUNTIME",
+        "probe_kind": "AC",
+        "requested_timeout_seconds": 2.0,
+        "timing_status": "AVAILABLE"
+      },
+      "reason_code": "CLEANUP_FAILED",
+      "started_at": "2026-09-10T14:57:47.386467Z",
+      "status": "FAILED"
+    }
+  },
+  "state": {
+    "guard_failure": {
+      "reason_code": "CLEANUP_FAILED",
+      "record": {
+        "assertion_pid": 71724,
+        "child_pid": 71728,
+        "child_returncode": null,
+        "event": "host_sleep_guard",
+        "finished_at": "2026-09-10T14:59:19.598697Z",
+        "last_successful_full_verification_at": "2026-09-10T14:59:14.525538Z",
+        "max_check_gap_seconds": 60.0,
+        "probe_diagnostic": {
+          "elapsed_monotonic_seconds": 0.03950437500316184,
+          "last_successful_full_verification_at": "2026-09-10T14:59:14.525538Z",
+          "phase": "RUNTIME",
+          "probe_kind": "AC",
+          "requested_timeout_seconds": 2.0,
+          "timing_status": "AVAILABLE"
+        },
+        "reason_code": "CLEANUP_FAILED",
+        "started_at": "2026-09-10T14:57:47.386467Z",
+        "status": "FAILED"
+      }
+    },
+    "validity": false
+  },
+  "terminal_status": "INGESTION_DECISION_24H_SOAK_INCONCLUSIVE_EVIDENCE"
+}

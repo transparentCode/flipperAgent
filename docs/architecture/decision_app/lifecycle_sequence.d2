@@ -229,6 +229,35 @@ shutdown: {
   }
 }
 
+bounded: {
+  label: "7. Shared deadline and ownership envelope"
+
+  startup: {
+    class: gate
+    label: "Startup + first generation\none absolute 120s deadline"
+  }
+
+  startup_failure: {
+    class: failure
+    label: "Startup failure\none lazy cleanup budget <= 5s\ncapped by startup expiry + 5s"
+  }
+
+  control: {
+    class: gate
+    label: "Control admission + drain\n30s before cleanup begins"
+  }
+
+  final_cleanup: {
+    class: terminal
+    label: "Aggregate 5s teardown\nowned resources only"
+  }
+
+  fence: {
+    class: failure
+    label: "Unconfirmed release\nretain ownership and fence reuse\nservice STOPPED = task quiescence\nlifespan remains unclean"
+  }
+}
+
 startup.resolve -> startup.capture: "graph ready"
 startup.capture -> startup.history: "cutoff"
 startup.history -> startup.stores: "ordered bars"
@@ -285,3 +314,11 @@ progress.lane_a_degraded -> progress.lane_b: "does not block" {
 live.publish -> shutdown.stop_inputs: "operator shutdown"
 shutdown.stop_inputs -> shutdown.flush: "no new input"
 shutdown.flush -> shutdown.stop: "bounded completion"
+
+startup.resolve -> bounded.startup: "shared absolute startup budget"
+bounded.startup -> startup.capture: "resources and generation install remain bounded"
+startup.verify -> bounded.startup_failure: "failure before live install"
+shutdown.stop_inputs -> bounded.control: "admit drain"
+shutdown.flush -> bounded.final_cleanup: "activate cleanup after drain"
+bounded.final_cleanup -> shutdown.stop: "confirmed teardown"
+bounded.final_cleanup -> bounded.fence: "cleanup uncertainty"

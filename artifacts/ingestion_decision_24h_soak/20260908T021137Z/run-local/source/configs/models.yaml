@@ -1,0 +1,163 @@
+models:
+  assets:
+    BTCUSDT:
+      timeframes:
+        1h:
+          TrendFollowing:
+            enabled: false  # Deprecated: negative Sharpe even after 300-trial NSGA-II optimization
+            params:
+              ema_fast_period: 10
+              ema_slow_period: 49
+              require_macd_confirm: true
+              atr_conviction_scale: 0.9
+        4h:
+          TrendFollowing:
+            enabled: false  # Deprecated: structurally negative for crypto
+            params:
+              ema_fast_period: 14
+              ema_slow_period: 20
+              require_macd_confirm: false
+              atr_conviction_scale: 1.6
+          SqueezeBreakout:
+            enabled: false
+    ETHUSDT:
+      timeframes:
+        4h: {}
+    default:
+      timeframes:
+        default: {}
+scoring_models:
+  assets:
+    default:
+      timeframes:
+        default:
+          RegimePullbackScorer:
+            enabled: true
+            migration_mode: native_scoring
+            params:
+              regime_threshold: -0.1
+              min_z_depth: 1.0
+              rsi_oversold_gate: 40
+              rsi_overbought_gate: 60
+              squeeze_weight: 0.3
+              breadth_weight: 0.2
+              btc_dom_weight: 0.3
+              regime_overlay_weight: 0.3
+              suppress_broad_selloff: 1
+          DivergenceEdgeScorer:
+            enabled: true
+            migration_mode: native_scoring
+            params:
+              divergence_lookback: 14
+              weight_rsi: 0.4
+              weight_macd: 0.35
+              weight_mfi: 0.25
+              min_confirming_indicators: 2
+              min_divergence_magnitude: 0.1
+              regime_overlay_weight: 0.2
+              suppress_broad_selloff: 1
+          RegimeRelativeValueScorer:
+            enabled: true
+            migration_mode: native_scoring
+            params:
+              rs_underperformance_threshold: -0.5
+              rsi_oversold_gate: 35
+              regime_state_required: 0
+              min_btc_d_momentum: 0.3
+              conviction_base: 0.3
+              conviction_depth_bonus: 0.4
+    BTCUSDT:
+      timeframes:
+        1h:
+          {}
+
+blender:
+  enabled: true
+  transition:
+    entry_threshold: 0.70
+    exit_threshold: 0.30
+    floor: 0.15
+  mtf:
+    confirming_scale: 1.2
+    conflicting_scale: 0.5
+  weights:
+    # Redesigned 2026-05-31: 9→4 grouping, bull/bear split, data-derived weights
+    # MR zeroed: negative Sharpe in ALL groups across BTC+ETH 12mo backtest
+    # SB activated in TREND_BEAR (Sharpe +0.048) and CHOPPY (+0.074)
+    # See research/backtest_blender_redesign.ipynb for derivation
+    TREND_BULL:
+      mean_reversion: 0.00
+      momentum: 1.00
+      squeeze_breakout: 0.00
+    TREND_BEAR:
+      mean_reversion: 0.00
+      momentum: 0.49
+      squeeze_breakout: 0.51
+    RANGE:
+      mean_reversion: 0.00
+      momentum: 1.00
+      squeeze_breakout: 0.00
+    CHOPPY:
+      mean_reversion: 0.00
+      momentum: 0.13
+      squeeze_breakout: 0.87
+    TRANSITION:
+      mean_reversion: 0.00
+      momentum: 0.78
+      squeeze_breakout: 0.22
+
+feature_producers:
+  assets:
+    default:
+      timeframes:
+        default:
+          RegimeClassification:
+            enabled: false
+            params:
+              bcpd_hazard_lambda: 150.0
+              hurst_lookback: 100
+              hmm_student_df: 5.0
+              hilbert_min_period: 10
+              hilbert_max_period: 40
+            frozen_overrides: {}
+          RegimeV2:
+            enabled: false
+            params: {}
+    BTCUSDT:
+      timeframes:
+        4h:
+          RegimeV2:
+            enabled: false
+            params:
+              # Validated offline candidate; keep disabled until explicit shadow promotion.
+              "fusion.trend_threshold": 0.48
+              "policy.trend_min_strength": 0.48
+        1h:
+          RegimeV2:
+            enabled: false
+            params:
+              # Skeleton only; requires wider OOS proof before shadow enablement.
+              "fusion.trend_threshold": 0.48
+              "policy.trend_min_strength": 0.48
+    ETHUSDT:
+      timeframes:
+        4h:
+          RegimeV2:
+            enabled: false
+            params: {}
+    SOLUSDT:
+      timeframes:
+        4h:
+          RegimeV2:
+            enabled: false
+            params: {}
+    BNBUSDT:
+      timeframes:
+        1h:
+          RegimeV2:
+            enabled: false
+            params: {}
+        4h:
+          RegimeV2:
+            enabled: false
+            params: {}

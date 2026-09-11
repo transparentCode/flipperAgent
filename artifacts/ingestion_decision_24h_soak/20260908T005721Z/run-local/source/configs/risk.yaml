@@ -1,0 +1,149 @@
+risk:
+  runtime:
+    signal_routes:
+      - BTCUSDT:1h
+      - BTCUSDT:4h
+      - ETHUSDT:4h
+  account:
+    initial_balance: 10000
+    currency: USDT
+    leverage_limit: 5.0
+
+  global_limits:
+    max_total_exposure_pct: 80
+    max_concurrent_positions: 10
+    max_drawdown_pct: 15
+    daily_loss_limit_pct: 5
+    cooldown_after_loss_seconds: 0
+    vol_circuit_breaker:
+      enabled: true
+      # Trigger 1: Reject when vol_percentile exceeds this
+      vol_percentile_reject_threshold: 95
+      # Trigger 2: Reject when drawdown velocity exceeds this (% per hour)
+      drawdown_velocity_reject_pct: 2.0
+      drawdown_velocity_window_hours: 4
+      # Trigger 3: Scale position size by vol regime
+      vol_scaling_enabled: true
+      vol_scaling_start_percentile: 70
+      vol_scaling_floor: 0.25
+      # Trigger 4: Reject when changepoint probability spikes
+      changepoint_reject_threshold: 0.85
+      # Cooldown: minimum bars between circuit breaker resets
+      cooldown_bars: 6
+
+  rules:
+    - VolCircuitBreakerRule
+    - MaxExposureRule
+    - MaxPositionsRule
+    - MaxDrawdownRule
+    - DailyLossLimitRule
+    - CooldownAfterLossRule
+
+  position_sizing:
+    default_strategy: volatility_scaled
+    fixed_fractional:
+      risk_per_trade_pct: 2.0
+    volatility_scaled:
+      target_risk_pct: 1.0
+      atr_multiplier: 2.0
+    kelly:
+      fraction: 0.5
+    equal_weight: {}
+
+  stop_loss:
+    default_method: atr_based
+    atr_based:
+      multiplier: 2.0
+    fixed_pct:
+      pct: 2.0
+    trailing:
+      atr_multiplier: 2.0
+
+  take_profit:
+    default_method: multi_level
+    risk_reward:
+      ratio: 2.0
+    fixed_pct:
+      pct: 1.5
+    trailing:
+      atr_multiplier: 3.0
+    multi_level:
+      levels:
+        - pct: 1.5
+          portion: 0.40
+        - pct: 3.0
+          portion: 0.30
+        - pct: 5.0
+          portion: 0.30
+      trail_to_breakeven: true
+
+  mtf:
+    default_conflict_resolution: conviction_weighted
+    signal_timeout_seconds: 300
+    timeframe_weights:
+      1m: 0.25
+      5m: 0.5
+      15m: 0.75
+      1h: 1.0
+      4h: 1.5
+      1d: 2.0
+
+  model_profiles:
+    default: {}
+    MeanReversion:
+      position_sizing:
+        strategy: fixed_fractional
+      stop_loss:
+        method: fixed_pct
+      take_profit:
+        method: risk_reward
+      limits:
+        max_total_exposure_pct: 50
+    TrendFollowing:
+      position_sizing:
+        strategy: volatility_scaled
+      stop_loss:
+        method: atr_based
+      take_profit:
+        method: trailing
+      limits:
+        max_total_exposure_pct: 60
+    SqueezeBreakout:
+      position_sizing:
+        strategy: volatility_scaled
+      stop_loss:
+        method: atr_based
+      take_profit:
+        method: multi_level
+      limits:
+        max_total_exposure_pct: 70
+
+  assets:
+    BTCUSDT:
+      max_position_pct: 40
+      signal_handling: aggregate
+      position_sizing:
+        strategy: volatility_scaled
+      stop_loss:
+        method: atr_based
+      model_profiles:
+        default: {}
+        SqueezeBreakout:
+          limits:
+            max_total_exposure_pct: 65
+    ETHUSDT:
+      max_position_pct: 30
+      signal_handling: aggregate
+      model_profiles:
+        MeanReversion:
+          limits:
+            max_total_exposure_pct: 45
+    default:
+      max_position_pct: 20
+      signal_handling: aggregate
+      position_sizing:
+        strategy: volatility_scaled
+      stop_loss:
+        method: atr_based
+      take_profit:
+        method: risk_reward

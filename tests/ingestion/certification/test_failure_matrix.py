@@ -9,7 +9,10 @@ import pytest
 import apps.ingestion_app.services.recovery as recovery_module
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
-from apps.ingestion_app.providers.base import LiveStreamInterrupted
+from apps.ingestion_app.providers.base import (
+    LiveStreamInterrupted,
+    ProviderAvailabilityError,
+)
 from apps.ingestion_app.runtime.supervisor import RuntimeState, RuntimeSupervisor
 from apps.ingestion_app.services.recovery import RecoveryEngine
 from apps.ingestion_app.storage.repository import CandleCommitStatus
@@ -182,7 +185,7 @@ async def test_500_lane_primary_retry_then_fallback_is_exact_and_bounded(
     def primary_handler(lane, since, until):
         del until
         primary_counts[lane] += 1
-        return DataIngestionError("primary synthetic failure")
+        return ProviderAvailabilityError("primary synthetic failure")
 
     primary = FakeHistoricalProvider("binance_native", primary_handler, meter=meter)
     fallback = FakeHistoricalProvider(
@@ -249,7 +252,7 @@ async def test_provider_exhaustion_is_fatal_without_retry_infinite(
     repository = ControlledRepository()
     ingestion = _RecoveryIngestion(repository)
     htf = RecordingHTF()
-    failure = DataIngestionError("all providers unavailable")
+    failure = ProviderAvailabilityError("all providers unavailable")
     primary = FakeHistoricalProvider("binance_native", lambda *_args: failure)
     fallback = FakeHistoricalProvider("ccxt_binance", lambda *_args: failure)
     engine = _engine(

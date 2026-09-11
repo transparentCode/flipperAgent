@@ -1,0 +1,2 @@
+service=decision exit=0 bytes=82214 since=2026-09-11T01:50:35.231923+00:00 until=2026-09-11T01:54:30Z
+d637188fb8590793601da8a32067fa5cc71f887946adde47db94ad7c6fdeafaf  /Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260910T154156Z/raw-docker-logs/stop.vieeoO/decision.log

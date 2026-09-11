@@ -1,0 +1,213 @@
+# Standalone seven-service run-local Compose derived from the frozen source
+# export. It intentionally does not include the repository-wide Compose file:
+# unrelated services reference excluded secrets and must not enter this run.
+services:
+  db:
+    image: timescale/timescaledb:latest-pg15
+    environment:
+      POSTGRES_USER: flipper
+      POSTGRES_PASSWORD: flipperpass
+      POSTGRES_DB: flipper_db
+    volumes:
+      - soak_db_data:/var/lib/postgresql/data
+      - ./source/sql:/docker-entrypoint-initdb.d:ro
+    ports: []
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          test "$$(head -n 1 "$${PGDATA}/postmaster.pid" 2>/dev/null)" = "1"
+          && pg_isready -U flipper -d flipper_db
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "0.5"
+    restart: "no"
+    networks: [flipper-net]
+
+  broker:
+    image: valkey/valkey:latest
+    command: [valkey-server, --maxmemory, 192mb, --maxmemory-policy, noeviction]
+    volumes:
+      - soak_broker_data:/data
+    ports: []
+    healthcheck:
+      test: [CMD, valkey-cli, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    restart: "no"
+    networks: [flipper-net]
+
+  ingestion:
+    image: flipper-id-soak:afc7032-20260909
+    command: [python, -m, apps.ingestion_app.main]
+    ports: ["127.0.0.1:8003:8003"]
+    volumes:
+      - soak_ingestion_data:/app/data
+      - soak_logs:/app/logs
+    tmpfs: [/tmp]
+    environment:
+      POSTGRES_URI: postgresql://flipper:flipperpass@db:5432/flipper_db
+      VALKEY_URI: redis://broker:6379/0
+      LOG_FILE: /app/logs/ingestion.log
+      LOG_FORMAT: json
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: ingestion
+      OTEL_RESOURCE_ATTRIBUTES: service.instance.id=ingestion-local
+    depends_on:
+      db: {condition: service_healthy}
+      broker: {condition: service_healthy}
+    healthcheck:
+      test:
+        [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8003/health/ready', timeout=2)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    restart: "no"
+    networks: [flipper-net]
+
+  decision:
+    image: flipper-id-soak:afc7032-20260909
+    command: [python, -m, apps.decision_app.main]
+    ports: ["127.0.0.1:8004:8004"]
+    volumes:
+      - soak_decision_data:/app/data:ro
+      - soak_logs:/app/logs
+    tmpfs: [/tmp]
+    environment:
+      POSTGRES_URI: postgresql://flipper:flipperpass@db:5432/flipper_db
+      VALKEY_URI: redis://broker:6379/0
+      LOG_FILE: /app/logs/decision.log
+      LOG_FORMAT: json
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: decision
+    depends_on:
+      db: {condition: service_healthy}
+      broker: {condition: service_healthy}
+      ingestion: {condition: service_healthy}
+    healthcheck:
+      test:
+        [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8004/health/ready', timeout=2)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    restart: "no"
+    networks: [flipper-net]
+
+  otel-collector:
+    profiles: [prod]
+    image: otel/opentelemetry-collector-contrib:0.104.0
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./otel-collector.yaml:/etc/otel/config.yaml:ro
+    ports: ["127.0.0.1:13133:13133"]
+    healthcheck:
+      test: [CMD, /otelcol-contrib, components]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.15"
+    restart: "no"
+    networks: [flipper-net]
+
+  prometheus:
+    profiles: [prod]
+    image: prom/prometheus:v2.53.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=3d
+      - --storage.tsdb.retention.size=50MB
+      - --web.enable-remote-write-receiver
+    volumes:
+      - ./source/configs/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - soak_prometheus_data:/prometheus
+    ports: ["127.0.0.1:9090:9090"]
+    healthcheck:
+      test: [CMD-SHELL, wget --spider -q http://localhost:9090/-/healthy || exit 1]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.1"
+    restart: "no"
+    networks: [flipper-net]
+
+  grafana:
+    profiles: [prod]
+    image: grafana/grafana:11.1.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: flipper
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    ports: ["127.0.0.1:3001:3000"]
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - soak_grafana_data:/var/lib/grafana
+    depends_on:
+      prometheus: {condition: service_healthy}
+    healthcheck:
+      test: [CMD-SHELL, wget --spider -q http://localhost:3000/api/health || exit 1]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+          cpus: "0.15"
+    restart: "no"
+    networks: [flipper-net]
+
+networks:
+  flipper-net:
+    driver: bridge
+
+volumes:
+  soak_db_data:
+    name: flipper-id-soak-20260909t002014z_db_data
+  soak_broker_data:
+    name: flipper-id-soak-20260909t002014z_broker_data
+  soak_ingestion_data:
+    name: flipper-id-soak-20260909t002014z_ingestion_data
+  soak_decision_data:
+    name: flipper-id-soak-20260909t002014z_decision_data
+  soak_logs:
+    name: flipper-id-soak-20260909t002014z_logs
+  soak_prometheus_data:
+    name: flipper-id-soak-20260909t002014z_prometheus_data
+  soak_grafana_data:
+    name: flipper-id-soak-20260909t002014z_grafana_data

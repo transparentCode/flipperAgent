@@ -1,0 +1,171 @@
+{
+  "global_params": {
+    "ensemble.structural_vs_micro_ratio": 0.49363502971184064,
+    "lifecycle.age_lambda": 0.0034014286128198324,
+    "lifecycle.min_strength": 0.49279757672456204,
+    "lifecycle.auto_promote_kernel_agreement": 3,
+    "lifecycle.dedup_proximity_atr": 0.4872223685309238,
+    "pipeline.merge_threshold_pct_atr": 0.18430123423396183,
+    "cross_asset.sector_cluster_eps_atr": 0.42904180608409975,
+    "kernels.anchored_vwap.volume_spike_multiplier": 3.23235229154987,
+    "kernels.volume_poc.hvn_prominence": 0.2502787529358022,
+    "kernels.fair_value_gap.gap_min_atr": 0.5188045025465773,
+    "kernels.fair_value_gap.fill_threshold": 0.3561753482887407,
+    "kernels.fair_value_gap.filled_penalty_multiplier": 0.7349549260809971,
+    "kernels.order_block.displacement_atr": 1.2919376341287079,
+    "kernels.order_block.imbalance_ratio": 0.5898348171632446,
+    "kernels.regression_band.band_width_sigma": 2.2836402313080475,
+    "kernels.liquidity_sweep.sweep_lookback": 39,
+    "kernels.liquidity_sweep.max_pierce_atr": 0.5649557188718614,
+    "kernels.tpo_value_area.tpo_value_area_pct": 0.7311891079080595
+  },
+  "global_score": 0.5678253887711477,
+  "per_asset_params": {
+    "BTCUSDT": {
+      "1h": {
+        "lifecycle.min_strength": 0.49279757672456204,
+        "lifecycle.auto_promote_kernel_agreement": 3,
+        "lifecycle.dedup_proximity_atr": 0.4872223685309238,
+        "pipeline.merge_threshold_pct_atr": 0.18430123423396183,
+        "kernels.anchored_vwap.volume_spike_multiplier": 3.23235229154987,
+        "kernels.volume_poc.hvn_prominence": 0.2502787529358022,
+        "kernels.tpo_value_area.tpo_value_area_pct": 0.7311891079080595,
+        "pipeline.min_emit_strength": 0.25,
+        "pipeline.max_new_zones_per_bar": 3
+      }
+    }
+  },
+  "per_asset_results": [
+    {
+      "asset": "BTCUSDT",
+      "timeframe": "1h",
+      "best_params": {
+        "lifecycle.min_strength": 0.49279757672456204,
+        "lifecycle.auto_promote_kernel_agreement": 3,
+        "lifecycle.dedup_proximity_atr": 0.4872223685309238,
+        "pipeline.merge_threshold_pct_atr": 0.18430123423396183,
+        "kernels.anchored_vwap.volume_spike_multiplier": 3.23235229154987,
+        "kernels.volume_poc.hvn_prominence": 0.2502787529358022,
+        "kernels.tpo_value_area.tpo_value_area_pct": 0.7311891079080595,
+        "pipeline.min_emit_strength": 0.25,
+        "pipeline.max_new_zones_per_bar": 3
+      },
+      "train_score": 0.6452252327303136,
+      "val_score": 0.6700254762404946,
+      "accepted": true,
+      "fallback_to_global": false,
+      "n_folds": 6,
+      "fold_scores": [
+        0.6443632990571508,
+        0.6956876534238383
+      ],
+      "gate_failures": 0,
+      "constraint_failures": 0,
+      "selected_kernels": [
+        "tpo_value_area",
+        "anchored_vwap",
+        "pivot_hl",
+        "volume_poc"
+      ],
+      "kernel_scores": [
+        {
+          "kernel": "tpo_value_area",
+          "composite": 0.6719497034228942,
+          "survival_rate": 0.5172413793103449,
+          "touch_accuracy": 0.9047619047619048,
+          "zones_created": 87,
+          "passed": true
+        },
+        {
+          "kernel": "anchored_vwap",
+          "composite": 0.6653175031058853,
+          "survival_rate": 0.36082474226804123,
+          "touch_accuracy": 0.9583333333333334,
+          "zones_created": 97,
+          "passed": true
+        },
+        {
+          "kernel": "pivot_hl",
+          "composite": 0.6551390280469198,
+          "survival_rate": 0.4111111111111111,
+          "touch_accuracy": 0.925531914893617,
+          "zones_created": 90,
+          "passed": true
+        },
+        {
+          "kernel": "volume_poc",
+          "composite": 0.6551390280469198,
+          "survival_rate": 0.4111111111111111,
+          "touch_accuracy": 0.925531914893617,
+          "zones_created": 90,
+          "passed": true
+        },
+        {
+          "kernel": "session_gap",
+          "composite": 0.6551390280469198,
+          "survival_rate": 0.4111111111111111,
+          "touch_accuracy": 0.925531914893617,
+          "zones_created": 90,
+          "passed": false
+        },
+        {
+          "kernel": "round_number",
+          "composite": 0.653066836081253,
+          "survival_rate": 0.39080459770114945,
+          "touch_accuracy": 0.9090909090909091,
+          "zones_created": 87,
+          "passed": false
+        },
+        {
+          "kernel": "order_block",
+          "composite": 0.6501719595217774,
+          "survival_rate": 0.3888888888888889,
+          "touch_accuracy": 0.9247311827956989,
+          "zones_created": 90,
+          "passed": false
+        },
+        {
+          "kernel": "fair_value_gap",
+          "composite": 0.6498303732234721,
+          "survival_rate": 0.4065934065934066,
+          "touch_accuracy": 0.9111111111111111,
+          "zones_created": 91,
+          "passed": false
+        },
+        {
+          "kernel": "fractal_channel",
+          "composite": 0.0,
+          "survival_rate": 0.0,
+          "touch_accuracy": 0.0,
+          "zones_created": 0,
+          "passed": false
+        },
+        {
+          "kernel": "regression_band",
+          "composite": 0.0,
+          "survival_rate": 0.0,
+          "touch_accuracy": 0.0,
+          "zones_created": 0,
+          "passed": false
+        },
+        {
+          "kernel": "liquidity_sweep",
+          "composite": 0.0,
+          "survival_rate": 0.0,
+          "touch_accuracy": 0.0,
+          "zones_created": 0,
+          "passed": false
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "total_time_seconds": 2134.2115499973297,
+    "stage1_n_trials": 5,
+    "stage2_assets_optimized": 1,
+    "stage2_assets_accepted": 1,
+    "stage2_assets_skipped": [],
+    "stage2_assets_total": 1
+  },
+  "timestamp": "2026-05-20T06:47:39.292019"
+}

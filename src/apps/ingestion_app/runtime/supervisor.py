@@ -23,7 +23,10 @@ from apps.ingestion_app.services.candle_ingestion import (
     canonicalize_observation,
 )
 from apps.ingestion_app.services.htf_aggregation import HTFAggregationService
-from apps.ingestion_app.services.recovery import RecoveryEngine
+from apps.ingestion_app.services.recovery import (
+    RecoveryEngine,
+    RecoveryExhaustedError,
+)
 from apps.ingestion_app.services.time_alignment import aligned_bucket_start
 from apps.ingestion_app.settings import IngestionSettings
 from apps.ingestion_app.storage.repository import (
@@ -655,6 +658,20 @@ class RuntimeSupervisor:
         except LiveStreamInterrupted as interruption:
             await self._handle_stream_interruption(interruption)
 
+    async def _run_recoverable_cycle(self) -> None:
+        """Retry completed provider exhaustion without masking fatal failures."""
+        try:
+            await self._run_live_or_interruption_cycle()
+        except RecoveryExhaustedError as exc:
+            self._set_state(RuntimeState.RECOVERING)
+            self._last_error = str(exc)
+            _LOGGER.warning(
+                "ingestion recovery providers exhausted; retrying after %ss: %s",
+                self.settings.runtime.reconnect_backoff_seconds,
+                exc,
+            )
+            await self._reconnect_sleep(self.settings.runtime.reconnect_backoff_seconds)
+
     async def run(self) -> None:
         """Run until stopped, or propagate a fatal runtime error."""
         if self._active_task is not None and not self._active_task.done():
@@ -677,7 +694,7 @@ class RuntimeSupervisor:
                         self._control_event.clear()
                         await self._control_event.wait()
                         continue
-                    await self._run_live_or_interruption_cycle()
+                    await self._run_recoverable_cycle()
                 except asyncio.CancelledError:
                     if self._consume_control_cancellation():
                         if self._stop_requested:

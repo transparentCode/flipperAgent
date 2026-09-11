@@ -1,0 +1,52 @@
+schema: sr_v2.development_target_design@1
+source:
+  venue: binance_usdm
+  assets:
+    BTCUSDT: BTCUSDT
+    ETHUSDT: ETHUSDT
+    SOLUSDT: SOLUSDT
+  ladder: [1d, 6h, 4h, 1h, 30m, 15m]
+  start: "2024-06-01T00:00:00Z"
+  end: "2026-08-30T00:00:00Z"
+  acquisition_policy: CACHE_ONLY
+  source_mode: CACHE_ONLY
+  cache_root: .cache/sr_v2_research
+target_design_window:
+  start: "2024-09-20T00:00:00Z"
+  end: "2025-06-01T00:00:00Z"
+reference_volatility:
+  algorithm_id: simple_true_range_mean@1
+  selection_policy_id: first_feasible@1
+horizon:
+  unit: source_bars
+  observation_timeframe: 15m
+barrier:
+  derivation_policy_id: normalized_excursion_breakpoint@1
+  scan_lower: "0.75"
+  scan_upper: "1.25"
+  candidate_cap: 3
+identifiability:
+  tuples:
+    - {source_horizon_bars: 5, reference_lookback: 5, barrier_multiplier: "1.00"}
+    - {source_horizon_bars: 5, reference_lookback: 5, barrier_multiplier: "0.75"}
+    - {source_horizon_bars: 5, reference_lookback: 5, barrier_multiplier: "1.25"}
+    - {source_horizon_bars: 5, reference_lookback: 7, barrier_multiplier: "1.00"}
+    - {source_horizon_bars: 5, reference_lookback: 10, barrier_multiplier: "1.00"}
+  minimum_observation_coverage: 0.90
+  minimum_unique_issuance_cutoffs: 12
+  minimum_joint_utc_blocks: 8
+  minimum_uncensored_lineages: 12
+  minimum_touch_class_lineages: 3
+  minimum_reaction_class_lineages: 3
+  maximum_censoring_rate: 0.10
+  maximum_unresolved_reaction_rate: 0.50
+  maximum_ambiguity_rate: 0.15
+  maximum_null_unavailable_rate: 0.15
+  selection_policy_id: first_feasible@1
+inference:
+  joint_utc_block: 7d
+  epoch: "1970-01-01T00:00:00Z"
+resources:
+  max_workers: 1
+  receipt_dir: .cache/sr_v2_research/development_v1/target_receipts
+  artifact_root: .cache/sr_v2_research/development_v1/target_artifacts

@@ -1,0 +1,138 @@
+direction: down
+
+title: {
+  label: "IMPLEMENTED BASE / RESEARCH ONLY\nArchitecture record · no deployment or promotion claim\nSR v2 structural step LLD"
+  near: top-center
+}
+
+config: {
+  label: "[EXISTING] ResolvedSRV2Config\nYAML ladder · trigger · kernel parameters"
+  style.fill: "#E8F1FF"
+}
+
+caller: {
+  label: "[RESEARCH-ONLY · EXISTING] Caller facades\nOfflineCompute · LiveRuntime"
+  style.fill: "#FFF2D8"
+}
+
+request: {
+  label: "[EXISTING] SRStepRequest\nclosed windows · market_as_of · mandatory SRState"
+  style.fill: "#EEF7EA"
+}
+
+normalize: {
+  label: "[EXISTING] Exact window normalization\nUTC/grid/cutoff · sparse independent sources\nper-bar + aggregate fingerprints (schema-v4)"
+  style.fill: "#EEF7EA"
+}
+
+model: {
+  label: "[EXISTING] SRModel.step\nstateless computation for one closed trigger cutoff"
+  style.fill: "#EEF7EA"
+}
+
+kernels: {
+  label: "[EXISTING] Ordered selected KERNEL_CATALOG\nKernelSpec · exact suffixes · code-owned output bounds"
+  style.fill: "#EEF7EA"
+}
+
+lifecycle: {
+  label: "[EXISTING] Lifecycle + candidate replacement\ntrigger-clock transitions · no per-timeframe state"
+  style.fill: "#EEF7EA"
+}
+
+bounded: {
+  label: "[EXISTING] Bounded state assembly\nactive/tombstone caps · deterministic records"
+  style.fill: "#EEF7EA"
+}
+
+result: {
+  label: "[EXISTING] SRStepResult\ntransitions · candidates · feature evidence · next state"
+  style.fill: "#FFF2D8"
+}
+
+scientific: {
+  label: "[RESEARCH-ONLY · NEW] ScientificObservationCompiler\nCREATED-only lineage/candidate linkage\nexact resolved ladder coverage"
+  style.fill: "#FFF2D8"
+}
+
+target: {
+  label: "[RESEARCH-ONLY · NEW] ResolvedTargetSpec + target outcome rows\ncausal N+1 TR mean · 15m horizon grid\ntouch/reaction/null receipt · compiler digest"
+  style.fill: "#FFF2D8"
+}
+
+null: {
+  label: "[RESEARCH-ONLY · NEW] feasible_random_price@3\nexact causal kernel window\npreserve stored left/right offsets"
+  style.fill: "#FFF2D8"
+}
+
+optimizer: {
+  label: "[RESEARCH-ONLY · NEW] Strict optimizer boundary\ntarget_design@1 freeze · global_geometry@1 sealed family\nshared UTC draw · asset/timeframe/kernel/side cells"
+  style.fill: "#FFF2D8"
+}
+
+preflight: {
+  label: "[RESEARCH-ONLY · NEW] Native-panel preflight\nasset-pinned processes · repeated comparator @2\nsource/artifact identity · zero provider calls · resource evidence"
+  style.fill: "#FFF2D8"
+}
+
+episode: {
+  label: "[RESEARCH-ONLY · NEW] EpisodeEvidenceCollector\nbounded counters + semantic stream hash\ncompact committed CREATED index"
+  style.fill: "#FFF2D8"
+}
+
+artifact: {
+  label: "[RESEARCH-ONLY · NEW] EpisodeArtifact@2\natomic manifest + JSONL\ncontent-addressed loader verifies bytes"
+  style.fill: "#FFF2D8"
+}
+
+indexed: {
+  label: "[RESEARCH-ONLY · NEW] Authenticated indexed target plan\ncommon-risk receipt · shared native bar indexes\nlazy TargetOutcomeRow stream · one tuple at a time"
+  style.fill: "#FFF2D8"
+}
+
+state: {
+  label: "[EXISTING] Next SRState\nimmutable caller-carried state · explicit genesis only in facades"
+  style.fill: "#EEF7EA"
+}
+
+checkpoint: {
+  label: "[EXISTING] CheckpointRepository\nTimescaleCheckpointRepository → sr_v2.checkpoints\nstate-only generation-CAS"
+  style.fill: "#E8F1FF"
+}
+
+fail: {
+  label: "[EXISTING] Fail-closed boundaries\nidentity · cutoff · sparse keys · fingerprint overlap\nstate schema · kernel candidate/evidence limits"
+  style.fill: "#FCE8E8"
+  style.stroke: "#C0392B"
+}
+
+config -> caller: "resolve YAML policy"
+caller -> request: "builds closed-bar request"
+request -> normalize: "validate exact source inputs"
+normalize -> model: "normalized sparse windows + fingerprints"
+model -> kernels: "evaluate ordered KernelSpec suffixes"
+kernels -> lifecycle: "candidates + consumed evidence"
+lifecycle -> bounded: "transitions + replacements"
+bounded -> result: "bounded SRStepResult"
+result -> state: "publish next SRState"
+state -> caller: "caller carries state"
+caller -> checkpoint: "LiveRuntime proposes state"
+checkpoint -> caller: "winner-only INSERTED / UPDATED output"
+model -> fail: "reject invalid causal input" {
+  style.stroke: "#C0392B"
+  style.stroke-dash: 5
+}
+state -> fail: "reject incompatible checkpoint" {
+  style.stroke: "#C0392B"
+  style.stroke-dash: 5
+}
+result -> scientific: "eligible callback consumes step result"
+result -> episode: "on_step bounded structural receipt"
+scientific -> target: "source-bar suffix + future trigger bars"
+scientific -> null: "kernel suffix + actual active zones"
+episode -> artifact: "authenticated compact issuance records"
+artifact -> indexed: "restart-safe integer indexes"
+indexed -> target: "shared-bar indexed label path"
+config -> optimizer: "development-only policy"
+optimizer -> preflight: "baseline model/target/family identities"
+preflight -> scientific: "resource-bounded native panel"

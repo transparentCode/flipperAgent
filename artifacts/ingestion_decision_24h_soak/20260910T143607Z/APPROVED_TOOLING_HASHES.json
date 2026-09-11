@@ -1,0 +1,40 @@
+{
+  "files": {
+    "run-local/soak_harness.py": "66de53cc0d50360670b75c84e2c7a12c450ea89530726173cd94aa494419938b",
+    "run-local/legacy_sampler.py": "011a718787eb3ffdf6641b6092eca139970d958bfb5ad05bffea38bf6cd4aef0",
+    "run-local/bounded_command.py": "ad9c6b6c941fdf0df38cbcd058f7f551182670285540c5b1311bd5b83bbb144a",
+    "run-local/test_bounded_command.py": "29577207adfdf3acb06d719bcaac3dbaae518d17c4c3fc5d77cb3e197c278120",
+    "run-local/test_run3_harness.py": "3fa9125f945f134e93d0b6611eb1b4c559c6154aebcba8e443e213213fcc7066",
+    "run-local/guarded_launch.py": "b8a47e9902cc6d33dd8f860328ac4f42a242d75411b1ab6540a9ef6d507fcc17",
+    "run-local/test_guarded_launch.py": "6ed2b0e6221b9af30909185287713fc4c2d0d24fab3b09f2f29e91941a49642a",
+    "run-local/soak-compose.override.yml": "a4dc85c491f90bdcf927c873ac7d147f5bf382447ef336000d4008b6ef8d6465",
+    "run-local/otel-collector.yaml": "35f88d8b047b8a726ce26f2848ed18b1f33f8c1c097c103f8b97f0c9aaa9353e",
+    "run-local/grafana/provisioning/datasources/datasources.yaml": "72305a9fded6b40fe740ec82dac495f006990e6e37de754d1fcd01d93da4834a",
+    "run-local/grafana/provisioning/dashboards/dashboards.yaml": "821b78afd45633466cb0987099ad06cc48dc39d3d031857cb7e5d650fcddab52",
+    "run-local/grafana/provisioning/dashboards/pipeline-health.json": "ada5d3a37cccbfa667b71f022ef60f695c056cca185aa7a3ebe628f794a6e1ef",
+    "run-local/grafana/provisioning/dashboards/ingestion.json": "ff3134986bb178998d539f07f6a62c11815bc5aa8902ba193571855c5fdb27b1",
+    "run-local/launchd/run-under-launchd.sh": "576ff63dd5f13c0e89c2a95a9c5234a37a6e429c7ac86167219b68d719f580f7",
+    "run-local/launchd/run-guarded-child.sh": "87fa611f76236504e3fffef9395e58f910fe5c76f88b16a5866a25d82f3e1614",
+    "run-local/launchd/ingestion-decision-soak-run3.plist": "1d0f5f380c58514adef3d0cdd52a2d5cdad0a1761747c6d76f56076669e8def9",
+    "run-local/launchd/install-run3.sh": "1acc1cc6819fd0f93223f2b9abcbe00615327c0c3d35a9ce9a307ef8763b6724",
+    "run-local/launchd/stop-run3.sh": "e820f1e3bbf187ca628153872ebe31ced635f487cbca75448059be06e77288ab",
+    "run-local/launchd/start-run3.sh": "084a01f67d4c70454941ab3504dd7d1a15f8e1c22b98d65dd2893e36469abe0a",
+    "SOURCE_EXPORT_PROOF.json": "db3fcac02ff675bba8b5c71e301595d879d6dcedd1530002b9d8cb2b3462572b",
+    "IMAGE_PROOF.json": "88f69a83712098263fff7d5075a4d2dede1d6f3840144856f4c31599407d3eac"
+  },
+  "source": {
+    "source_sha": "f06363074511ce9eb3b9b5b8c9f145ff97a71aa7",
+    "tree_sha256": "453d951151c2255c93de3d87a716a1d843424ff8b92d98df342404265de21895",
+    "file_count": 1329,
+    "proof_sha256": "db3fcac02ff675bba8b5c71e301595d879d6dcedd1530002b9d8cb2b3462572b",
+    "proof_path": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260910T143607Z/SOURCE_EXPORT_PROOF.json"
+  },
+  "approved_at": "2026-09-10T14:57:09.275311+00:00",
+  "mode": "warmup-only",
+  "measurement_authorized": false,
+  "preparation_only": true,
+  "launch_requires_ac": true,
+  "source_identity_kind": "committed_base_plus_reviewed_patch",
+  "authority": "plans/orchestrator-decision-hostguard-standard-launchd-v1.md",
+  "scheduling_mitigation": "Standard without LowPriorityIO; timeout causation inconclusive"
+}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -8,6 +9,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from apps.decision_app.domain.market_state import MarketSeriesKey, TimeframeGrid
+from apps.decision_app.runtime.deadlines import OperationTimeout
 from apps.decision_app.settings import (
     CanonicalInstrument,
     DecisionAssetSettings,
@@ -65,14 +67,19 @@ class _Client:
     def __init__(self) -> None:
         self.entries: dict[str, dict[str, dict]] = {}
         self.calls: list[tuple[str, str]] = []
+        self.xrange_calls = 0
+        self.xrevrange_counts: list[int] = []
+        self.xadd_options: list[tuple[int, bool]] = []
         self.raise_after_insert = False
         self.fail_before_insert = False
 
     async def xrange(self, stream: str, start: str, end: str):
+        self.xrange_calls += 1
         entry = self.entries.get(stream, {}).get(start)
         return [] if entry is None else [(start, entry)]
 
     async def xrevrange(self, stream: str, _start: str, _end: str, count: int = 1):
+        self.xrevrange_counts.append(count)
         values = self.entries.get(stream, {})
         if not values:
             return []
@@ -81,6 +88,7 @@ class _Client:
 
     async def xadd(self, stream: str, fields: dict, *, id: str, **_kwargs):
         self.calls.append((stream, id))
+        self.xadd_options.append((_kwargs["maxlen"], _kwargs["approximate"]))
         if self.fail_before_insert:
             self.fail_before_insert = False
             raise RuntimeError("temporary")
@@ -89,6 +97,29 @@ class _Client:
             self.raise_after_insert = False
             raise RuntimeError("response lost")
         return id
+
+
+class _BlockedPrecheckClient(_Client):
+    def __init__(self) -> None:
+        super().__init__()
+        self.started = asyncio.Event()
+
+    async def xrange(self, stream: str, start: str, end: str):
+        self.started.set()
+        await asyncio.Event().wait()
+        return await super().xrange(stream, start, end)
+
+
+class _BlockedPublishClient(_Client):
+    def __init__(self) -> None:
+        super().__init__()
+        self.started = asyncio.Event()
+
+    async def xadd(self, stream: str, fields: dict, *, id: str, **kwargs):
+        self.started.set()
+        self.calls.append((stream, id))
+        self.xadd_options.append((kwargs["maxlen"], kwargs["approximate"]))
+        await asyncio.Event().wait()
 
 
 def _plan():
@@ -277,6 +308,51 @@ async def test_price_publisher_rejects_conflicts_and_failed_transport() -> None:
     client.xadd = AsyncMock(side_effect=RuntimeError("transport unavailable"))
     failed = await publisher.publish(plan, _bar(0))
     assert failed.outcome == "FAILED"
+
+
+@pytest.mark.asyncio
+async def test_price_precheck_timeout_never_reaches_xadd() -> None:
+    plan = _plan()
+    client = _BlockedPrecheckClient()
+    publisher = PriceRelayPublisher(client, io_timeout_seconds=0.01)
+
+    with pytest.raises(OperationTimeout, match="price-relay exact-ID"):
+        await publisher.publish(plan, _bar(0))
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+async def test_price_precheck_cancellation_never_reaches_xadd() -> None:
+    plan = _plan()
+    client = _BlockedPrecheckClient()
+    publisher = PriceRelayPublisher(client, io_timeout_seconds=1.0)
+    task = asyncio.create_task(publisher.publish(plan, _bar(0)))
+    await client.started.wait()
+    task.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+async def test_price_publication_timeout_reconciles_with_bounded_attempts() -> None:
+    plan = _plan()
+    client = _BlockedPublishClient()
+    publisher = PriceRelayPublisher(
+        client,
+        stream_maxlen=17,
+        stream_approximate=False,
+        io_timeout_seconds=0.01,
+    )
+
+    result = await publisher.publish(plan, _bar(0))
+
+    assert result.outcome == "FAILED"
+    assert len(client.calls) == 1
+    assert client.xadd_options == [(17, False)]
+    assert client.xrange_calls == 2
+    assert client.xrevrange_counts == [1, 1]
 
 
 @pytest.mark.asyncio

@@ -8,15 +8,16 @@
 #
 # pyproject.toml requires >=3.12; all application code is Python 3.12-compatible.
 
+FROM ghcr.io/astral-sh/uv:0.12.11 AS uv
+
 FROM mcr.microsoft.com/playwright/python:v1.52.0-noble
 
 WORKDIR /app
 
-# Install our Python packages
-COPY pyproject.toml README.md ./
-# Dummy src dirs so pip can resolve the package metadata without real source files
-RUN mkdir -p src/apps src/libs && touch src/apps/__init__.py src/libs/__init__.py \
-    && pip install --no-cache-dir ".[tv-scraper]"
+# Install the default and TradingView dependencies from the generated lock.
+COPY --from=uv /uv /uvx /bin/
+COPY pyproject.toml uv.lock README.md ./
+RUN uv sync --locked --no-install-project --no-dev --extra tv-scraper
 
 # Replace the bundled Playwright Chromium with patchright's stealth-patched binary.
 # No --with-deps needed — system libraries already present in the base image.
@@ -28,5 +29,6 @@ COPY configs/ ./configs/
 
 ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1
+ENV PATH="/app/.venv/bin:$PATH"
 
 CMD ["arq", "apps.tv_scraper.worker.WorkerSettings"]

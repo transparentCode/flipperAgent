@@ -1,0 +1,35 @@
+{
+  "error": "guarded launch failed closed: PROBE_TIMEOUT",
+  "guard_failure": {
+    "reason_code": "PROBE_TIMEOUT",
+    "record": {
+      "assertion_pid": 23591,
+      "child_pid": 23598,
+      "child_returncode": -9,
+      "event": "host_sleep_guard",
+      "finished_at": "2026-09-10T06:59:43.238889Z",
+      "max_check_gap_seconds": 60.0,
+      "reason_code": "PROBE_TIMEOUT",
+      "started_at": "2026-09-10T06:42:17.992670Z",
+      "status": "FAILED"
+    }
+  },
+  "state": {
+    "guard_failure": {
+      "reason_code": "PROBE_TIMEOUT",
+      "record": {
+        "assertion_pid": 23591,
+        "child_pid": 23598,
+        "child_returncode": -9,
+        "event": "host_sleep_guard",
+        "finished_at": "2026-09-10T06:59:43.238889Z",
+        "max_check_gap_seconds": 60.0,
+        "reason_code": "PROBE_TIMEOUT",
+        "started_at": "2026-09-10T06:42:17.992670Z",
+        "status": "FAILED"
+      }
+    },
+    "validity": false
+  },
+  "terminal_status": "INGESTION_DECISION_24H_SOAK_INCONCLUSIVE_EVIDENCE"
+}

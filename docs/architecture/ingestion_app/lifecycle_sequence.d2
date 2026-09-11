@@ -158,7 +158,8 @@ interruption: {
   r5: { class: state; label: "5. reconcile affected HTFs" }
   r6: { class: state; label: "6. reconnect backoff" }
   r7: { class: state; label: "7. fresh startup/catch-up then websocket" }
-  r8: { class: state; label: "failure branch: control cancel / external cancel / typed deadline" }
+  r8: { class: state; label: "providers exhausted: stay RECOVERING + bounded backoff" }
+  r9: { class: state; label: "failure branch: control cancel / external cancel / typed deadline / invariant" }
 }
 
 app.websocket -> interruption.r1
@@ -173,16 +174,18 @@ interruption.r5 -> app.htf
 app.htf -> interruption.r6
 interruption.r6 -> interruption.r7
 interruption.r7 -> app.supervisor
-interruption.r3 -> interruption.r8: "recovery failure"
-interruption.r6 -> interruption.r8: "cancel or deadline"
-interruption.r8 -> app.supervisor: "STOPPED / ERROR + sticky quarantine"
+interruption.r3 -> interruption.r8: "completed provider exhaustion"
+interruption.r8 -> interruption.r7: "retry DB-first catch-up"
+interruption.r3 -> interruption.r9: "provider contract / integrity / DB / ownership failure"
+interruption.r6 -> interruption.r9: "cancel or deadline"
+interruption.r9 -> app.supervisor: "STOPPED / ERROR + sticky quarantine when required"
 
 transport_bounds: {
   label: "Sequence D — bounded transport lifecycle and quarantine"
   t1: { class: state; label: "1. load configured 30s attempt/lifecycle bounds" }
   t2: { class: state; label: "2. admit without queueing; start owned call" }
   t3: { class: state; label: "3. factory + subscribe / load_markets + raw request" }
-  t4: { class: state; label: "4. normal SDK error -> existing retry/fallback path" }
+  t4: { class: state; label: "4. completed availability -> bounded retry/fallback" }
   t5: { class: state; label: "5. deadline while ownership remains -> ERROR + quarantine" }
   t6: { class: state; label: "6. retain lease until actual worker cleanup finishes" }
   t7: { class: state; label: "7. release slot; quarantine remains sticky" }
@@ -195,7 +198,8 @@ transport_bounds.t2 -> app.websocket: "factory / subscribe / stop"
 transport_bounds.t2 -> app.recovery: "native REST / CCXT attempt"
 app.websocket -> transport_bounds.t3
 app.recovery -> transport_bounds.t3
-transport_bounds.t3 -> transport_bounds.t4: "completed SDK error"
+transport_bounds.t3 -> transport_bounds.t4: "completed provider availability error"
+transport_bounds.t3 -> app.supervisor: "deterministic response / metadata / client / lifecycle error"
 transport_bounds.t3 -> transport_bounds.t5: "wait deadline expires first"
 transport_bounds.t5 -> app.supervisor: "fatal typed state"
 transport_bounds.t5 -> transport_bounds.t6: "ownership retained"

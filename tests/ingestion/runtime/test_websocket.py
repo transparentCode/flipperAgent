@@ -127,6 +127,30 @@ class _FakeClient:
         self.kwargs["on_error"](self, error)
 
 
+class _FakeSocketManager:
+    def __init__(self, *, alive_after_join: bool) -> None:
+        self.alive_after_join = alive_after_join
+        self.alive = True
+        self.join_timeouts: list[float | None] = []
+
+    def join(self, timeout: float | None = None) -> None:
+        self.join_timeouts.append(timeout)
+        self.alive = self.alive_after_join
+
+    def is_alive(self) -> bool:
+        return self.alive
+
+
+class _BrokenPipeClient(_FakeClient):
+    def __init__(self, *, alive_after_join: bool, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.socket_manager = _FakeSocketManager(alive_after_join=alive_after_join)
+
+    def stop(self) -> None:
+        self.stop_calls += 1
+        raise BrokenPipeError(32, "Broken pipe")
+
+
 def _manager(
     clients: list[_FakeClient],
     *,
@@ -1066,12 +1090,12 @@ async def test_stop_exception_completes_ownership_and_quarantines_reopen() -> No
     next_item.cancel()
     with pytest.raises(asyncio.CancelledError):
         await next_item
-    assert client.stop_calls == 1
-    assert len(stop_calls) == 1
     for _ in range(100):
         if manager._lifecycle_quarantined:
             break
         await asyncio.sleep(0)
+    assert client.stop_calls == 1
+    assert len(stop_calls) == 1
     assert manager._lifecycle_quarantined is True
     assert manager._lifecycle_active is False
 
@@ -1088,6 +1112,103 @@ async def test_stop_exception_completes_ownership_and_quarantines_reopen() -> No
     assert raised.value.message == (
         "Binance websocket lifecycle cleanup failed; lifecycle quarantined"
     )
+    await stream.aclose()
+    await reopened.aclose()
+    assert len(clients) == 1
+
+
+@pytest.mark.asyncio
+async def test_broken_pipe_stop_reaps_socket_manager_and_allows_reconnect() -> None:
+    clients: list[_FakeClient] = []
+
+    def factory(**kwargs: Any) -> _FakeClient:
+        client = (
+            _BrokenPipeClient(alive_after_join=False, **kwargs)
+            if not clients
+            else _FakeClient(**kwargs)
+        )
+        clients.append(client)
+        return client
+
+    manager = BinanceWebSocketManager(
+        stream_url="wss://example.test",
+        queue_maxsize=1,
+        lifecycle_timeout_seconds=0.25,
+        client_factory=factory,
+    )
+    stream, next_item, client = await _start_stream(manager, clients)
+    next_item.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await next_item
+    await _wait_for_retained_workers(manager, 0)
+
+    assert manager.lifecycle_quarantined is False
+    assert client.stop_calls == 1
+    assert client.socket_manager.join_timeouts == [0.25]  # type: ignore[attr-defined]
+    assert client.socket_manager.is_alive() is False  # type: ignore[attr-defined]
+
+    reopened = manager.stream_closed_candles(
+        {LANE: SYMBOL},
+        base_timeframe="1m",
+        timeframe_duration=DURATION,
+        alignment_origin=ORIGIN,
+        connection_anchor=_current_anchor(),
+    )
+    reopened_item = asyncio.create_task(reopened.__anext__())
+    for _ in range(100):
+        await asyncio.sleep(0)
+        if len(clients) == 2 and clients[1].subscribe_calls:
+            break
+    assert len(clients) == 2
+    assert clients[1].subscribe_calls
+    reopened_item.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await reopened_item
+    await _wait_for_retained_workers(manager, 0)
+    assert clients[1].stop_calls == 1
+    await stream.aclose()
+    await reopened.aclose()
+
+
+@pytest.mark.asyncio
+async def test_broken_pipe_stop_with_live_socket_manager_quarantines() -> None:
+    clients: list[_FakeClient] = []
+
+    def factory(**kwargs: Any) -> _FakeClient:
+        client = _BrokenPipeClient(alive_after_join=True, **kwargs)
+        clients.append(client)
+        return client
+
+    manager = BinanceWebSocketManager(
+        stream_url="wss://example.test",
+        queue_maxsize=1,
+        lifecycle_timeout_seconds=0.01,
+        client_factory=factory,
+    )
+    stream, next_item, client = await _start_stream(manager, clients)
+    next_item.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await next_item
+    await _wait_for_retained_workers(manager, 0)
+
+    assert client.stop_calls == 1
+    assert client.socket_manager.join_timeouts == [0.01]  # type: ignore[attr-defined]
+    for _ in range(100):
+        if manager.lifecycle_quarantined:
+            break
+        await asyncio.sleep(0)
+    assert manager.lifecycle_quarantined is True
+    assert manager._lifecycle_active is False
+
+    reopened = manager.stream_closed_candles(
+        {LANE: SYMBOL},
+        base_timeframe="1m",
+        timeframe_duration=DURATION,
+        alignment_origin=ORIGIN,
+        connection_anchor=_current_anchor(),
+    )
+    with pytest.raises(DataIngestionError):
+        await reopened.__anext__()
     await stream.aclose()
     await reopened.aclose()
     assert len(clients) == 1

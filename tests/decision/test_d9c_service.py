@@ -10,6 +10,7 @@ import pytest
 from apps.decision_app.domain.contracts import InputReadCursor, LaneCommitWatermark
 from apps.decision_app.domain.market_state import MarketSeriesKey
 from apps.decision_app.observability import DecisionObservability
+from apps.decision_app.runtime.deadlines import CleanupTimeout, cleanup_with_timeout
 from apps.decision_app.runtime.lifecycle import LifecycleReadResult
 from apps.decision_app.runtime.live import (
     DecisionPollResult,
@@ -238,8 +239,26 @@ class _Reader:
 class _FailingReader:
     cursor = "0-0"
 
+    def __init__(self) -> None:
+        self.reads = 0
+
     async def read_once(self) -> LifecycleReadResult:
+        self.reads += 1
         raise RuntimeError("lifecycle transport unavailable")
+
+
+class _RecoveringReader:
+    cursor = "0-0"
+
+    def __init__(self) -> None:
+        self.recover = asyncio.Event()
+        self.reads = 0
+
+    async def read_once(self) -> LifecycleReadResult:
+        self.reads += 1
+        if not self.recover.is_set():
+            raise RuntimeError("lifecycle transport unavailable")
+        return LifecycleReadResult(cursor=self.cursor)
 
 
 def _generation(number: int, runtime: _Runtime) -> DecisionRuntimeGeneration:
@@ -747,6 +766,213 @@ async def test_paused_state_dominates_lifecycle_transport_degradation() -> None:
 
 
 @pytest.mark.asyncio
+async def test_lifecycle_fault_survives_healthy_market_polls_and_rebuild() -> None:
+    runtime = _Runtime()
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        return _generation(generation_id, runtime)
+
+    service = DecisionService(
+        generation_factory=factory,
+        lifecycle_reader=_FailingReader(),
+        block_ms=1,
+        now_fn=lambda: NOW,
+    )
+    await service.start()
+    try:
+        expected_error = "lifecycle input failed: lifecycle transport unavailable"
+        await _wait_until(lambda: service.snapshot().last_error == expected_error)
+        await _wait_until(lambda: runtime.calls >= 10)
+
+        degraded = service.snapshot()
+        assert degraded.service_state == "DEGRADED"
+        assert degraded.last_error == expected_error
+
+        reconnected = await service.reconnect()
+        assert reconnected.generation_id == 2
+        assert reconnected.service_state == "DEGRADED"
+        assert reconnected.last_error == expected_error
+    finally:
+        await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_simultaneous_market_and_lifecycle_faults_are_market_first() -> None:
+    gate = asyncio.Event()
+    runtime = _Runtime(gate=gate, errors=(InputTransportError("market unavailable"),))
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        return _generation(generation_id, runtime)
+
+    service = DecisionService(
+        generation_factory=factory,
+        lifecycle_reader=_FailingReader(),
+        block_ms=1,
+        now_fn=lambda: NOW,
+    )
+    await service.start()
+    try:
+        await _wait_until(
+            lambda: (
+                service._market_error is not None
+                and service._lifecycle_error is not None
+            )
+        )
+        snapshot = service.snapshot()
+        assert snapshot.service_state == "DEGRADED"
+        assert snapshot.last_error == (
+            "market input transport failed: market unavailable"
+        )
+    finally:
+        gate.set()
+        await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_healthy_market_poll_clears_recovered_market_latch() -> None:
+    gate = asyncio.Event()
+    runtime = _Runtime(gate=gate, errors=(InputTransportError("market unavailable"),))
+    reader = _FailingReader()
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        return _generation(generation_id, runtime)
+
+    service = DecisionService(
+        generation_factory=factory,
+        lifecycle_reader=reader,
+        block_ms=1,
+        now_fn=lambda: NOW,
+    )
+    await service.start()
+    try:
+        lifecycle_error = "lifecycle input failed: lifecycle transport unavailable"
+        await _wait_until(
+            lambda: (
+                service._market_error is not None
+                and service._lifecycle_error is not None
+            )
+        )
+        gate.set()
+        await _wait_until(
+            lambda: (
+                service._market_error is None
+                and service.snapshot().last_error == lifecycle_error
+            )
+        )
+        await _wait_until(lambda: reader.reads >= 2)
+        assert service.snapshot().last_error == lifecycle_error
+    finally:
+        await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_lifecycle_failure_does_not_replace_generation_error_state() -> None:
+    runtime = _Runtime()
+    reader = _FailingReader()
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        if generation_id == 1:
+            return _generation(generation_id, runtime)
+        raise RuntimeError("rebuild unavailable")
+
+    service = DecisionService(
+        generation_factory=factory,
+        lifecycle_reader=reader,
+        block_ms=1,
+        now_fn=lambda: NOW,
+    )
+    await service.start()
+    try:
+        await _wait_until(lambda: reader.reads >= 1)
+        failed = await service.reconnect()
+        expected_error = "generation rebuild failed: rebuild unavailable"
+        assert failed.service_state == "ERROR"
+        assert failed.last_error == expected_error
+        await _wait_until(lambda: reader.reads >= 2)
+        assert service.snapshot().last_error == expected_error
+    finally:
+        await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_lifecycle_fault_recovers_after_successful_read_without_rebuild() -> None:
+    runtime = _Runtime()
+    reader = _RecoveringReader()
+    generated: list[str] = []
+
+    async def factory(*, reason: str, generation_id: int):
+        generated.append(reason)
+        return _generation(generation_id, runtime)
+
+    service = DecisionService(
+        generation_factory=factory,
+        lifecycle_reader=reader,
+        block_ms=1,
+        now_fn=lambda: NOW,
+    )
+    await service.start()
+    try:
+        expected_error = "lifecycle input failed: lifecycle transport unavailable"
+        await _wait_until(lambda: service.snapshot().last_error == expected_error)
+        reader.recover.set()
+        await _wait_until(
+            lambda: (
+                service.service_state == "RUNNING"
+                and service.snapshot().last_error is None
+            )
+        )
+
+        recovered = service.snapshot()
+        assert recovered.service_state == "RUNNING"
+        assert recovered.last_error is None
+        assert recovered.generation_id == 1
+        assert generated == ["initial"]
+        assert reader.reads >= 2
+    finally:
+        await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_successful_lifecycle_read_does_not_clear_market_failure() -> None:
+    gate = asyncio.Event()
+    runtime = _Runtime(gate=gate, errors=(InputTransportError("market unavailable"),))
+    reader = _Reader(LifecycleReadResult(cursor="1-0"))
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        return _generation(generation_id, runtime)
+
+    service = DecisionService(
+        generation_factory=factory,
+        lifecycle_reader=reader,
+        block_ms=1,
+        now_fn=lambda: NOW,
+    )
+    await service.start()
+    try:
+        await _wait_until(
+            lambda: (
+                service._last_lifecycle_evidence is not None
+                and service.snapshot().last_error
+                == "market input transport failed: market unavailable"
+            )
+        )
+        snapshot = service.snapshot()
+        assert snapshot.service_state == "DEGRADED"
+        assert (
+            snapshot.last_error == "market input transport failed: market unavailable"
+        )
+        assert snapshot.last_lifecycle_evidence["cursor"] == "1-0"
+    finally:
+        gate.set()
+        await service.stop()
+
+
+@pytest.mark.asyncio
 async def test_control_states_are_not_overwritten_by_completed_poll_results() -> None:
     runtime = _Runtime()
 
@@ -1242,3 +1468,205 @@ async def test_reconstruction_stays_degraded_but_hard_faults_do_not_loop() -> No
     assert len(halted_generations) == 1
     assert halted_service.service_state == "DEGRADED"
     await halted_service.stop()
+
+
+@pytest.mark.asyncio
+async def test_rebuild_serialization_survives_two_manual_candidates() -> None:
+    build_started = asyncio.Event()
+    release_first = asyncio.Event()
+    active = 0
+    max_active = 0
+    built: list[int] = []
+
+    async def factory(*, reason: str, generation_id: int):
+        nonlocal active, max_active
+        del reason
+        active += 1
+        max_active = max(max_active, active)
+        built.append(generation_id)
+        try:
+            if generation_id == 2:
+                build_started.set()
+                await release_first.wait()
+            return _generation(generation_id, _Runtime())
+        finally:
+            active -= 1
+
+    service = DecisionService(
+        generation_factory=factory,
+        block_ms=1,
+        generation_timeout_seconds=1,
+        control_wait_timeout_seconds=1,
+        cleanup_timeout_seconds=0.1,
+        now_fn=lambda: NOW,
+    )
+    await service.start()
+    first = asyncio.create_task(service.reconnect())
+    await build_started.wait()
+    second = asyncio.create_task(service.reconnect())
+    await asyncio.sleep(0)
+    assert second.done() is False
+    assert built == [1, 2]
+    release_first.set()
+    await first
+    await second
+    assert built == [1, 2, 3]
+    assert max_active == 1
+    assert service.generation is not None
+    assert service.generation.generation_id == 3
+    await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_rebuild_retains_request_for_market_owner() -> None:
+    build_started = asyncio.Event()
+    release_build = asyncio.Event()
+    calls: list[int] = []
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        calls.append(generation_id)
+        if generation_id == 2:
+            build_started.set()
+            await release_build.wait()
+        return _generation(generation_id, _Runtime())
+
+    service = DecisionService(
+        generation_factory=factory,
+        block_ms=1,
+        generation_timeout_seconds=1,
+        control_wait_timeout_seconds=1,
+        cleanup_timeout_seconds=0.1,
+        now_fn=lambda: NOW,
+    )
+    await service.start()
+    rebuild = asyncio.create_task(service.reconnect())
+    await build_started.wait()
+    rebuild.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await rebuild
+    assert service.service_state == "REBUILDING"
+    assert service._rebuild_requested is True
+    release_build.set()
+    await _wait_until(
+        lambda: (
+            service.generation is not None
+            and service.generation.generation_id == 2
+            and service._rebuild_requested is False
+        )
+    )
+    await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_stop_timeout_does_not_cancel_poll_until_drain_budget_expires() -> None:
+    started = asyncio.Event()
+    release = asyncio.Event()
+    cancellation_seen = asyncio.Event()
+
+    class _CancellationResistantRuntime(_Runtime):
+        async def poll_once(self, *, evaluate_lanes: bool = True) -> DecisionPollResult:
+            del evaluate_lanes
+            self.calls += 1
+            started.set()
+            try:
+                await release.wait()
+            except asyncio.CancelledError:
+                cancellation_seen.set()
+                await release.wait()
+            return DecisionPollResult(input_results=(), lane_results={}, cursors={})
+
+    runtime = _CancellationResistantRuntime()
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        return _generation(generation_id, runtime)
+
+    service = DecisionService(
+        generation_factory=factory,
+        block_ms=1,
+        control_wait_timeout_seconds=0.02,
+        cleanup_timeout_seconds=0.02,
+        now_fn=lambda: NOW,
+    )
+    await service.start()
+    await started.wait()
+    started_at = asyncio.get_running_loop().time()
+    stopping = await service.stop()
+    elapsed = asyncio.get_running_loop().time() - started_at
+    assert elapsed < 0.08
+    assert stopping.service_state == "STOPPING"
+    assert cancellation_seen.is_set()
+    assert service.market_task is not None
+    assert service.market_task.done() is False
+    release.set()
+    await _wait_until(
+        lambda: service.market_task is not None and service.market_task.done()
+    )
+    stopped = await service.stop()
+    assert stopped.service_state == "STOPPED"
+
+
+@pytest.mark.asyncio
+async def test_cleanup_timeout_retains_cancellation_resistant_task() -> None:
+    started = asyncio.Event()
+    release = asyncio.Event()
+    retained: set[asyncio.Task[object]] = set()
+
+    async def cleanup() -> None:
+        started.set()
+        try:
+            await release.wait()
+        except asyncio.CancelledError:
+            await release.wait()
+
+    task = asyncio.create_task(cleanup())
+    await started.wait()
+    with pytest.raises(CleanupTimeout):
+        await cleanup_with_timeout(
+            task,
+            0.01,
+            operation="test cleanup",
+            retained_tasks=retained,
+        )
+    assert task in retained
+    assert task.done() is False
+    release.set()
+    await task
+    await asyncio.sleep(0)
+    assert task not in retained
+
+
+@pytest.mark.asyncio
+async def test_cancelled_cleanup_retains_child_in_finite_owner_set() -> None:
+    started = asyncio.Event()
+    release = asyncio.Event()
+    retained: set[asyncio.Task[object]] = set()
+
+    async def cleanup() -> None:
+        started.set()
+        try:
+            await release.wait()
+        except asyncio.CancelledError:
+            await release.wait()
+
+    task = asyncio.create_task(cleanup())
+    await started.wait()
+    owner = asyncio.create_task(
+        cleanup_with_timeout(
+            task,
+            1,
+            operation="cancelled cleanup",
+            retained_tasks=retained,
+        )
+    )
+    await asyncio.sleep(0)
+    owner.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await owner
+    assert task in retained
+    assert task.done() is False
+    release.set()
+    await task
+    await asyncio.sleep(0)
+    assert task not in retained

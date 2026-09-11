@@ -1,0 +1,165 @@
+{
+  "universe_size": 8,
+  "results": [
+    {
+      "asset": "BNBUSDT",
+      "timeframe": "1h",
+      "tier": 1,
+      "confidence_weight": 1.0,
+      "composite_rank": 0.8095,
+      "optimization_trials": 150,
+      "metrics": {
+        "poc_stability": 0.124433,
+        "wick_body_ratio": 1.1929,
+        "quick_survival": 0.0098,
+        "bar_count": 2000
+      },
+      "metric_ranks": {
+        "poc_stability": 0.7143,
+        "wick_body_ratio": 1.0,
+        "quick_survival": 0.7143
+      },
+      "errors": null
+    },
+    {
+      "asset": "BTCUSDT",
+      "timeframe": "1h",
+      "tier": 1,
+      "confidence_weight": 1.0,
+      "composite_rank": 0.7619,
+      "optimization_trials": 150,
+      "metrics": {
+        "poc_stability": 0.102501,
+        "wick_body_ratio": 1.3665,
+        "quick_survival": 0.5714,
+        "bar_count": 2000
+      },
+      "metric_ranks": {
+        "poc_stability": 0.8571,
+        "wick_body_ratio": 0.4286,
+        "quick_survival": 1.0
+      },
+      "errors": null
+    },
+    {
+      "asset": "XRPUSDT",
+      "timeframe": "1h",
+      "tier": 1,
+      "confidence_weight": 1.0,
+      "composite_rank": 0.5238,
+      "optimization_trials": 150,
+      "metrics": {
+        "poc_stability": 0.102349,
+        "wick_body_ratio": 1.34,
+        "quick_survival": 0.0066,
+        "bar_count": 2000
+      },
+      "metric_ranks": {
+        "poc_stability": 1.0,
+        "wick_body_ratio": 0.5714,
+        "quick_survival": 0.0
+      },
+      "errors": null
+    },
+    {
+      "asset": "ETHUSDT",
+      "timeframe": "1h",
+      "tier": 2,
+      "confidence_weight": 0.7,
+      "composite_rank": 0.4762,
+      "optimization_trials": 100,
+      "metrics": {
+        "poc_stability": 0.127974,
+        "wick_body_ratio": 1.4636,
+        "quick_survival": 0.3333,
+        "bar_count": 2000
+      },
+      "metric_ranks": {
+        "poc_stability": 0.5714,
+        "wick_body_ratio": 0.0,
+        "quick_survival": 0.8571
+      },
+      "errors": null
+    },
+    {
+      "asset": "AVAXUSDT",
+      "timeframe": "1h",
+      "tier": 2,
+      "confidence_weight": 0.7,
+      "composite_rank": 0.381,
+      "optimization_trials": 100,
+      "metrics": {
+        "poc_stability": 0.205679,
+        "wick_body_ratio": 1.3333,
+        "quick_survival": 0.0075,
+        "bar_count": 2000
+      },
+      "metric_ranks": {
+        "poc_stability": 0.1429,
+        "wick_body_ratio": 0.8571,
+        "quick_survival": 0.1429
+      },
+      "errors": null
+    },
+    {
+      "asset": "DOGEUSDT",
+      "timeframe": "1h",
+      "tier": 3,
+      "confidence_weight": 0.4,
+      "composite_rank": 0.381,
+      "optimization_trials": 50,
+      "metrics": {
+        "poc_stability": 0.160618,
+        "wick_body_ratio": 1.3981,
+        "quick_survival": 0.0085,
+        "bar_count": 2000
+      },
+      "metric_ranks": {
+        "poc_stability": 0.4286,
+        "wick_body_ratio": 0.2857,
+        "quick_survival": 0.4286
+      },
+      "errors": null
+    },
+    {
+      "asset": "SOLUSDT",
+      "timeframe": "1h",
+      "tier": 3,
+      "confidence_weight": 0.4,
+      "composite_rank": 0.3333,
+      "optimization_trials": 50,
+      "metrics": {
+        "poc_stability": 0.173746,
+        "wick_body_ratio": 1.4299,
+        "quick_survival": 0.0096,
+        "bar_count": 2000
+      },
+      "metric_ranks": {
+        "poc_stability": 0.2857,
+        "wick_body_ratio": 0.1429,
+        "quick_survival": 0.5714
+      },
+      "errors": null
+    },
+    {
+      "asset": "ADAUSDT",
+      "timeframe": "1h",
+      "tier": 3,
+      "confidence_weight": 0.4,
+      "composite_rank": 0.3333,
+      "optimization_trials": 50,
+      "metrics": {
+        "poc_stability": 0.220727,
+        "wick_body_ratio": 1.3333,
+        "quick_survival": 0.0077,
+        "bar_count": 2000
+      },
+      "metric_ranks": {
+        "poc_stability": 0.0,
+        "wick_body_ratio": 0.7143,
+        "quick_survival": 0.2857
+      },
+      "errors": null
+    }
+  ]
+}

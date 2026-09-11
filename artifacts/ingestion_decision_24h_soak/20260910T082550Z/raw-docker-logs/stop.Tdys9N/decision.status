@@ -1,0 +1,2 @@
+service=decision exit=0 bytes=94302 since=2026-09-10T13:53:13.892858+00:00 until=2026-09-10T14:57:18Z
+149528bd9b0236eee364041c1584cf84c96e470fc4f411b88e73c5ec335ff1f5  /Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260910T082550Z/raw-docker-logs/stop.Tdys9N/decision.log

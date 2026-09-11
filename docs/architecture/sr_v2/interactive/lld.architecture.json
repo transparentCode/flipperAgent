@@ -1,0 +1,259 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "IMPLEMENTED BASE / RESEARCH ONLY — Architecture record · no deployment or promotion claim — SR v2 structural step LLD",
+    "output": "lld.html",
+    "quality_profile": "showcase",
+    "viewBox": [1380, 500]
+  },
+  "components": [
+    {
+      "id": "config",
+      "type": "security",
+      "label": "[EXISTING] ResolvedSRV2Config",
+      "sublabel": "YAML ladder · trigger · kernel params",
+      "tag": "configuration authority",
+      "pos": [80, 20],
+      "size": [380, 60]
+    },
+    {
+      "id": "caller",
+      "type": "external",
+      "label": "[RESEARCH-ONLY · EXISTING] Caller facades",
+      "sublabel": "OfflineCompute · LiveRuntime · closed windows",
+      "tag": "explicit genesis / checkpoint mode",
+      "pos": [80, 110],
+      "size": [380, 60]
+    },
+    {
+      "id": "request",
+      "type": "backend",
+      "label": "[EXISTING] SRStepRequest",
+      "sublabel": "market_as_of · sparse windows · mandatory SRState",
+      "tag": "closed trigger input",
+      "pos": [80, 200],
+      "size": [380, 60]
+    },
+    {
+      "id": "normalize",
+      "type": "backend",
+      "label": "[EXISTING] Exact window normalization",
+      "sublabel": "UTC/grid/cutoff · sparse source lanes · schema-v4 fingerprints",
+      "tag": "per-bar + aggregate fingerprints",
+      "pos": [80, 290],
+      "size": [380, 66]
+    },
+    {
+      "id": "model",
+      "type": "backend",
+      "label": "[EXISTING] SRModel.step",
+      "sublabel": "stateless computation for one closed trigger cutoff",
+      "tag": "PIT structural step",
+      "pos": [80, 380],
+      "size": [380, 66]
+    },
+    {
+      "id": "kernels",
+      "type": "backend",
+      "label": "[EXISTING] Ordered selected KERNEL_CATALOG",
+      "sublabel": "KernelSpec · previous_period_anchor@1 · plateau_sweep_reclaim@1",
+      "tag": "code-owned output bounds",
+      "pos": [560, 20],
+      "size": [380, 66]
+    },
+    {
+      "id": "lifecycle",
+      "type": "backend",
+      "label": "[EXISTING] Lifecycle transitions",
+      "sublabel": "candidate replacement · trigger-clock progression",
+      "tag": "no per-timeframe state",
+      "pos": [560, 110],
+      "size": [380, 60]
+    },
+    {
+      "id": "bounded",
+      "type": "backend",
+      "label": "[EXISTING] Bounded state assembly",
+      "sublabel": "active/tombstone caps · deterministic records",
+      "tag": "resource limits",
+      "pos": [560, 200],
+      "size": [380, 60]
+    },
+    {
+      "id": "result",
+      "type": "backend",
+      "label": "[EXISTING] SRStepResult",
+      "sublabel": "transitions · candidates · feature evidence · next state",
+      "tag": "bounded structural output",
+      "pos": [560, 290],
+      "size": [380, 60]
+    },
+    {
+      "id": "state",
+      "type": "backend",
+      "label": "[EXISTING] Next SRState",
+      "sublabel": "immutable bounded snapshot · caller carries forward",
+      "tag": "returned at t + trigger duration",
+      "pos": [560, 380],
+      "size": [380, 60]
+    },
+    {
+      "id": "checkpoint",
+      "type": "database",
+      "label": "[EXISTING] CheckpointRepository",
+      "sublabel": "TimescaleCheckpointRepository → sr_v2.checkpoints",
+      "tag": "state-only generation-CAS",
+      "pos": [1020, 380],
+      "size": [340, 60]
+    },
+    {
+      "id": "fail",
+      "type": "security",
+      "label": "[EXISTING] Fail-closed boundaries",
+      "sublabel": "identity · cutoff · schema · fingerprints · bounds",
+      "tag": "reject invalid input or checkpoint",
+      "pos": [1020, 20],
+      "size": [340, 66]
+    }
+  ],
+  "connections": [
+    {
+      "id": "config-caller",
+      "from": "config",
+      "to": "caller",
+      "label": "resolve YAML policy",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [320, 95]
+    },
+    {
+      "id": "caller-request",
+      "from": "caller",
+      "to": "request",
+      "label": "builds closed-bar request",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [400, 185],
+      "variant": "emphasis"
+    },
+    {
+      "id": "request-normalize",
+      "from": "request",
+      "to": "normalize",
+      "label": "validate exact source inputs",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [320, 275]
+    },
+    {
+      "id": "normalize-model",
+      "from": "normalize",
+      "to": "model",
+      "label": "normalized sparse windows + fingerprints",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [320, 368],
+      "variant": "emphasis"
+    },
+    {
+      "id": "model-kernels",
+      "from": "model",
+      "to": "kernels",
+      "label": "evaluate ordered KernelSpec suffixes",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [[500, 413], [500, 53]],
+      "labelAt": [1000, 100]
+    },
+    {
+      "id": "kernels-lifecycle",
+      "from": "kernels",
+      "to": "lifecycle",
+      "label": "candidates + consumed evidence",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [1080, 112]
+    },
+    {
+      "id": "lifecycle-bounded",
+      "from": "lifecycle",
+      "to": "bounded",
+      "label": "transitions + replacements",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [1080, 210]
+    },
+    {
+      "id": "bounded-result",
+      "from": "bounded",
+      "to": "result",
+      "label": "bounded SRStepResult",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [1080, 275]
+    },
+    {
+      "id": "result-state",
+      "from": "result",
+      "to": "state",
+      "label": "publish next SRState",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [1080, 368]
+    },
+    {
+      "id": "state-caller",
+      "from": "state",
+      "to": "caller",
+      "label": "caller carries state",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [[750, 470], [20, 470], [20, 140]],
+      "labelAt": [750, 450],
+      "variant": "dashed"
+    },
+    {
+      "id": "state-checkpoint",
+      "from": "state",
+      "to": "checkpoint",
+      "label": "LiveRuntime proposes state",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [980, 458]
+    },
+    {
+      "id": "checkpoint-caller",
+      "from": "checkpoint",
+      "to": "caller",
+      "label": "winner-only INSERTED / UPDATED output",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [[1190, 480], [40, 480], [40, 180], [270, 180]],
+      "labelAt": [1250, 300],
+      "variant": "security"
+    },
+    {
+      "id": "model-fail",
+      "from": "model",
+      "to": "fail",
+      "label": "reject invalid causal input",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [[270, 460], [520, 460], [520, 10], [1190, 10]],
+      "labelAt": [1100, 110],
+      "variant": "dashed"
+    },
+    {
+      "id": "state-fail",
+      "from": "state",
+      "to": "fail",
+      "label": "reject incompatible checkpoint",
+      "fromSide": "right",
+      "toSide": "bottom",
+      "via": [[960, 410], [960, 130], [1190, 130]],
+      "labelAt": [1000, 365],
+      "variant": "dashed"
+    }
+  ]
+}

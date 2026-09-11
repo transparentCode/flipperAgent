@@ -1,0 +1,35 @@
+{
+  "error": "guarded launch failed closed: MISSING_TOOL",
+  "guard_failure": {
+    "reason_code": "MISSING_TOOL",
+    "record": {
+      "assertion_pid": null,
+      "child_pid": null,
+      "child_returncode": null,
+      "event": "host_sleep_guard",
+      "finished_at": "2026-09-08T02:10:49.727021Z",
+      "max_check_gap_seconds": 60.0,
+      "reason_code": "MISSING_TOOL",
+      "started_at": "2026-09-08T02:10:49.726078Z",
+      "status": "FAILED"
+    }
+  },
+  "state": {
+    "guard_failure": {
+      "reason_code": "MISSING_TOOL",
+      "record": {
+        "assertion_pid": null,
+        "child_pid": null,
+        "child_returncode": null,
+        "event": "host_sleep_guard",
+        "finished_at": "2026-09-08T02:10:49.727021Z",
+        "max_check_gap_seconds": 60.0,
+        "reason_code": "MISSING_TOOL",
+        "started_at": "2026-09-08T02:10:49.726078Z",
+        "status": "FAILED"
+      }
+    },
+    "validity": false
+  },
+  "terminal_status": "INGESTION_DECISION_24H_SOAK_INCONCLUSIVE_EVIDENCE"
+}

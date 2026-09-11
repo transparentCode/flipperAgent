@@ -24,12 +24,33 @@ are not an agent workflow or a fallback for an empty result.
 
 ## Common preflight
 
-1. Call list_projects and use the returned project identifier.
+1. Call list_projects and select projects by root_path covering the task files.
 2. Call index_status before relying on graph freshness.
 3. Include project in every project-scoped request.
 4. Use the observed live schema rather than README examples when fields differ.
 5. Verify important results and negative claims against source, tests, pagination,
    skipped/excluded paths, and index generation.
+
+## Component routing and coverage
+
+Discover the catalog live rather than copying its names/count into agent prompts.
+For example, `flipperAgent-apps` covers `/workspace/src/apps`, and
+`flipperAgent-src-libs-models-sr_v2` covers that model; verify both before use.
+Tests, scripts, and configs may be separate projects.
+
+Map `/workspace` to the mounted primary checkout. Its graph does not certify an
+isolated worktree. Compare index status, HEAD, dirty changes, and actual source;
+equal HEAD alone does not imply identical working trees.
+
+For a model-to-application change, query both projects and inspect shared contracts
+and call sites directly. Cross-project Python imports/calls may be absent from
+trace results; use source or authorized GitNexus escalation. Resolve snippet names
+from search_graph within the same project.
+
+Fast mode can exclude paths even with skipped_count zero: check excluded paths
+separately. Integration/e2e tests, fixtures, docs, scripts, generated and ignored
+files may be absent. Use an existing narrower index or direct inspection; a query
+gap does not authorize indexing.
 
 ## Exploration
 
@@ -85,7 +106,7 @@ graph-maintenance operations as an editing shortcut.
 
 ## Operator CLI escape hatch
 
-Use .agents/skills/codebase-memory-cli/SKILL.md only when the MCP service is
-unavailable or an operator has explicitly authorized maintenance. Routine agent
-work must use the configured MCP adapter, and indexing requires the explicit
-MCP_ALLOW_INDEX=1 gate.
+Use `.agents/skills/codebase-memory/cli/SKILL.md` for missing client discovery/status
+tools or explicitly authorized indexing. The HTTP helper needs a reachable adapter;
+operator indexing uses container CLIs with MCP_ALLOW_INDEX=1 and does not relax
+read-only adapter permissions.

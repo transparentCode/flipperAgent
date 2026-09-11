@@ -1,0 +1,606 @@
+{
+  "captured_at": "2026-09-10T14:37:36.921290+00:00",
+  "project": "flipper-id-preflight-20260910t082550z",
+  "kind": "manual_pre_retirement_snapshot_not_measurement",
+  "http": {
+    "8003/runtime": {
+      "status": 200,
+      "body": {
+        "desired_state": "running",
+        "state": "live",
+        "last_error": null,
+        "enabled_asset_count": 6
+      }
+    },
+    "8004/runtime": {
+      "status": 200,
+      "body": {
+        "service_state": "RUNNING",
+        "desired_state": "RUNNING",
+        "generation_id": 1,
+        "started_at": "2026-09-10T13:41:48.544371+00:00",
+        "last_poll_at": "2026-09-10T14:37:36.039235+00:00",
+        "last_rebuild_at": "2026-09-10T13:41:48.544318+00:00",
+        "last_lifecycle_event_at": null,
+        "last_error": null,
+        "configured_asset_count": 2,
+        "configured_lane_count": 3,
+        "active_lane_count": 3,
+        "lane_status_counts": {
+          "LIVE": 3
+        },
+        "blocked_stream_count": 0,
+        "lifecycle_cursor": "1789046996712-0",
+        "lanes": {
+          "BTCUSDT:momentum_1h": {
+            "lane_id": "BTCUSDT:momentum_1h",
+            "status": "LIVE",
+            "reason": null,
+            "pending_trigger_cutoff": null,
+            "watermark": {
+              "latest_market_as_of": "2026-09-10T14:00:00+00:00",
+              "last_disposition": "published"
+            },
+            "last_transaction": {
+              "trigger_cutoff": "2026-09-10T14:00:00+00:00",
+              "policy_status": "SIGNAL",
+              "publication_outcome": "PUBLISHED",
+              "finalization_status": "COMMITTED",
+              "checkpoint_result": null,
+              "reason": null
+            }
+          },
+          "BTCUSDT:momentum_4h": {
+            "lane_id": "BTCUSDT:momentum_4h",
+            "status": "LIVE",
+            "reason": null,
+            "pending_trigger_cutoff": null,
+            "watermark": {
+              "latest_market_as_of": "2026-09-10T12:00:00+00:00",
+              "last_disposition": null
+            },
+            "last_transaction": null
+          },
+          "ETHUSDT:momentum_4h": {
+            "lane_id": "ETHUSDT:momentum_4h",
+            "status": "LIVE",
+            "reason": null,
+            "pending_trigger_cutoff": null,
+            "watermark": {
+              "latest_market_as_of": "2026-09-10T12:00:00+00:00",
+              "last_disposition": null
+            },
+            "last_transaction": null
+          }
+        },
+        "inputs": {
+          "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h": {
+            "latest_stream_id": "1789048800344-0",
+            "latest_market_as_of": "2026-09-10T14:00:00+00:00",
+            "blocked_reason": null
+          },
+          "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:4h": {
+            "latest_stream_id": "1789047274082-0",
+            "latest_market_as_of": "2026-09-10T12:00:00+00:00",
+            "blocked_reason": null
+          },
+          "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:4h": {
+            "latest_stream_id": "1789047549207-0",
+            "latest_market_as_of": "2026-09-10T12:00:00+00:00",
+            "blocked_reason": null
+          }
+        },
+        "last_lifecycle_evidence": {
+          "cursor": "1789046996712-0",
+          "event_ids": [],
+          "relevant_count": 0,
+          "ignored_symbols": [],
+          "malformed_ids": [],
+          "reason": null
+        }
+      }
+    },
+    "8004/runtime/lanes": {
+      "status": 200,
+      "body": {
+        "service_state": "RUNNING",
+        "generation_id": 1,
+        "active_lane_count": 3,
+        "lane_status_counts": {
+          "LIVE": 3
+        },
+        "lanes": {
+          "BTCUSDT:momentum_1h": {
+            "lane_id": "BTCUSDT:momentum_1h",
+            "status": "LIVE",
+            "reason": null,
+            "pending_trigger_cutoff": null,
+            "watermark": {
+              "latest_market_as_of": "2026-09-10T14:00:00+00:00",
+              "last_disposition": "published"
+            },
+            "last_transaction": {
+              "trigger_cutoff": "2026-09-10T14:00:00+00:00",
+              "policy_status": "SIGNAL",
+              "publication_outcome": "PUBLISHED",
+              "finalization_status": "COMMITTED",
+              "checkpoint_result": null,
+              "reason": null
+            }
+          },
+          "BTCUSDT:momentum_4h": {
+            "lane_id": "BTCUSDT:momentum_4h",
+            "status": "LIVE",
+            "reason": null,
+            "pending_trigger_cutoff": null,
+            "watermark": {
+              "latest_market_as_of": "2026-09-10T12:00:00+00:00",
+              "last_disposition": null
+            },
+            "last_transaction": null
+          },
+          "ETHUSDT:momentum_4h": {
+            "lane_id": "ETHUSDT:momentum_4h",
+            "status": "LIVE",
+            "reason": null,
+            "pending_trigger_cutoff": null,
+            "watermark": {
+              "latest_market_as_of": "2026-09-10T12:00:00+00:00",
+              "last_disposition": null
+            },
+            "last_transaction": null
+          }
+        }
+      }
+    },
+    "8004/runtime/inputs": {
+      "status": 200,
+      "body": {
+        "service_state": "RUNNING",
+        "generation_id": 1,
+        "lifecycle_cursor": "1789046996712-0",
+        "blocked_stream_count": 0,
+        "inputs": {
+          "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h": {
+            "latest_stream_id": "1789048800344-0",
+            "latest_market_as_of": "2026-09-10T14:00:00+00:00",
+            "blocked_reason": null
+          },
+          "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:4h": {
+            "latest_stream_id": "1789047274082-0",
+            "latest_market_as_of": "2026-09-10T12:00:00+00:00",
+            "blocked_reason": null
+          },
+          "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:4h": {
+            "latest_stream_id": "1789047549207-0",
+            "latest_market_as_of": "2026-09-10T12:00:00+00:00",
+            "blocked_reason": null
+          }
+        }
+      }
+    }
+  },
+  "containers": [
+    {
+      "name": "/flipper-id-preflight-20260910t082550z-grafana-1",
+      "id": "5d1101f787f8686d9bb5023cf2fcba0932096cb7e781e38dbae9ec570bc67829",
+      "image": "sha256:079600c9517b678c10cda6006b4487d3174512fd4c6cface37df7822756ed7a5",
+      "status": "running",
+      "started_at": "2026-09-10T13:41:57.471166544Z",
+      "finished_at": "0001-01-01T00:00:00Z",
+      "restarts": 0,
+      "oom": false,
+      "health": "healthy",
+      "project": "flipper-id-preflight-20260910t082550z",
+      "mounts": [
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260910T082550Z/run-local/grafana/provisioning",
+          "destination": "/etc/grafana/provisioning"
+        },
+        {
+          "type": "volume",
+          "name": "flipper-id-preflight-20260910t082550z_grafana_data",
+          "source": "/var/lib/docker/volumes/flipper-id-preflight-20260910t082550z_grafana_data/_data",
+          "destination": "/var/lib/grafana"
+        }
+      ]
+    },
+    {
+      "name": "/flipper-id-preflight-20260910t082550z-decision-1",
+      "id": "41b239929f13d0ab87e4c2071c34fbfda45ff09940cd79b4b40080946a6c601d",
+      "image": "sha256:fd1ab4e9fddf0ccb32b330c0558ab03aedfc6109426022581e805dee0e84e42e",
+      "status": "running",
+      "started_at": "2026-09-10T13:41:42.884858551Z",
+      "finished_at": "0001-01-01T00:00:00Z",
+      "restarts": 0,
+      "oom": false,
+      "health": "healthy",
+      "project": "flipper-id-preflight-20260910t082550z",
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "flipper-id-preflight-20260910t082550z_logs",
+          "source": "/var/lib/docker/volumes/flipper-id-preflight-20260910t082550z_logs/_data",
+          "destination": "/app/logs"
+        },
+        {
+          "type": "volume",
+          "name": "flipper-id-preflight-20260910t082550z_decision_data",
+          "source": "/var/lib/docker/volumes/flipper-id-preflight-20260910t082550z_decision_data/_data",
+          "destination": "/app/data"
+        }
+      ]
+    },
+    {
+      "name": "/flipper-id-preflight-20260910t082550z-prometheus-1",
+      "id": "678fd91affbfbb9355d58a46c66f57bba816e3c12879d089bc0be695e9ed2324",
+      "image": "sha256:075b1ba2c4ebb04bc3a6ab86c06ec8d8099f8fda1c96ef6d104d9bb1def1d8bc",
+      "status": "running",
+      "started_at": "2026-09-10T13:41:41.858302509Z",
+      "finished_at": "0001-01-01T00:00:00Z",
+      "restarts": 0,
+      "oom": false,
+      "health": "healthy",
+      "project": "flipper-id-preflight-20260910t082550z",
+      "mounts": [
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260910T082550Z/run-local/source/configs/observability/prometheus.yml",
+          "destination": "/etc/prometheus/prometheus.yml"
+        },
+        {
+          "type": "volume",
+          "name": "flipper-id-preflight-20260910t082550z_prometheus_data",
+          "source": "/var/lib/docker/volumes/flipper-id-preflight-20260910t082550z_prometheus_data/_data",
+          "destination": "/prometheus"
+        }
+      ]
+    },
+    {
+      "name": "/flipper-id-preflight-20260910t082550z-otel-collector-1",
+      "id": "f1711ccc0366bb481b0cebcbea748ce2c9c8a0588cdda6a9e4a6556fe9c681d4",
+      "image": "sha256:e07e325e303e86f4a87a617491e921b579a92da6d404007394757ac910bf9587",
+      "status": "running",
+      "started_at": "2026-09-10T13:41:41.947720009Z",
+      "finished_at": "0001-01-01T00:00:00Z",
+      "restarts": 0,
+      "oom": false,
+      "health": "healthy",
+      "project": "flipper-id-preflight-20260910t082550z",
+      "mounts": [
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260910T082550Z/run-local/otel-collector.yaml",
+          "destination": "/etc/otel/config.yaml"
+        }
+      ]
+    },
+    {
+      "name": "/flipper-id-preflight-20260910t082550z-ingestion-1",
+      "id": "eb5b528a37a7ae9fe622cc9d85fce011d775dc75eb1cdf982d095f5ab109621c",
+      "image": "sha256:fd1ab4e9fddf0ccb32b330c0558ab03aedfc6109426022581e805dee0e84e42e",
+      "status": "running",
+      "started_at": "2026-09-10T13:29:54.284761417Z",
+      "finished_at": "0001-01-01T00:00:00Z",
+      "restarts": 0,
+      "oom": false,
+      "health": "healthy",
+      "project": "flipper-id-preflight-20260910t082550z",
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "flipper-id-preflight-20260910t082550z_logs",
+          "source": "/var/lib/docker/volumes/flipper-id-preflight-20260910t082550z_logs/_data",
+          "destination": "/app/logs"
+        },
+        {
+          "type": "volume",
+          "name": "flipper-id-preflight-20260910t082550z_ingestion_data",
+          "source": "/var/lib/docker/volumes/flipper-id-preflight-20260910t082550z_ingestion_data/_data",
+          "destination": "/app/data"
+        }
+      ]
+    },
+    {
+      "name": "/flipper-id-preflight-20260910t082550z-db-1",
+      "id": "c72f0f90850f77eaab49dc7717c97f2abfa18d9ca41c8768c438b6a7167c37e4",
+      "image": "sha256:6343bdc87ca132c6b53acb26113a6bad1821d188fa39975a745f32ddd9757634",
+      "status": "running",
+      "started_at": "2026-09-10T13:29:43.690378635Z",
+      "finished_at": "0001-01-01T00:00:00Z",
+      "restarts": 0,
+      "oom": false,
+      "health": "healthy",
+      "project": "flipper-id-preflight-20260910t082550z",
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "flipper-id-preflight-20260910t082550z_db_data",
+          "source": "/var/lib/docker/volumes/flipper-id-preflight-20260910t082550z_db_data/_data",
+          "destination": "/var/lib/postgresql/data"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/host_mnt/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260910T082550Z/run-local/source/sql",
+          "destination": "/docker-entrypoint-initdb.d"
+        }
+      ]
+    },
+    {
+      "name": "/flipper-id-preflight-20260910t082550z-broker-1",
+      "id": "9137fbb24d276b569a28a0e8ef7a8a9383e62039bb8e23ce8bd7a5ba95778d36",
+      "image": "sha256:3acc0687f2a2e1091fae6450d7842dd658c941338cf0a873ddd9e14b9e4ea4dd",
+      "status": "running",
+      "started_at": "2026-09-10T13:29:43.606279926Z",
+      "finished_at": "0001-01-01T00:00:00Z",
+      "restarts": 0,
+      "oom": false,
+      "health": "healthy",
+      "project": "flipper-id-preflight-20260910t082550z",
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "flipper-id-preflight-20260910t082550z_broker_data",
+          "source": "/var/lib/docker/volumes/flipper-id-preflight-20260910t082550z_broker_data/_data",
+          "destination": "/data"
+        }
+      ]
+    },
+    {
+      "name": "/mcp-cbm",
+      "id": "e2329c8af97feb51bd0fef1f01051306ce3de034305a0fa8d2a1f4dc6a470011",
+      "image": "sha256:2756d8db6d1f43892357682281c6a96d602f61e54c8717d37bd32a226023efda",
+      "status": "running",
+      "started_at": "2026-09-09T10:18:52.316287878Z",
+      "finished_at": "2026-09-09T09:36:52.745411383Z",
+      "restarts": 0,
+      "oom": false,
+      "health": "healthy",
+      "project": "mcp-code-intelligence",
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "mcp-code-intelligence_cbm-cache",
+          "source": "/var/lib/docker/volumes/mcp-code-intelligence_cbm-cache/_data",
+          "destination": "/data/cbm"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/host_mnt/Users/kajukatli/projects/flipperAgent",
+          "destination": "/workspace"
+        }
+      ]
+    },
+    {
+      "name": "/mcp-gitnexus",
+      "id": "dd9595e4eff41f372e93d028b569f92c4b988ca50a3b162564e80201d2d0e6e0",
+      "image": "sha256:291f151e120b27776a09cddfe688c1a0265d5e952c8e66970db8e37f848ffc85",
+      "status": "running",
+      "started_at": "2026-09-09T10:18:52.443763211Z",
+      "finished_at": "2026-09-09T09:36:52.587723425Z",
+      "restarts": 0,
+      "oom": false,
+      "health": "healthy",
+      "project": "mcp-code-intelligence",
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "mcp-code-intelligence_gitnexus-cache",
+          "source": "/var/lib/docker/volumes/mcp-code-intelligence_gitnexus-cache/_data",
+          "destination": "/data/gitnexus"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/host_mnt/Users/kajukatli/projects/flipperAgent",
+          "destination": "/workspace"
+        }
+      ]
+    },
+    {
+      "name": "/hindsight",
+      "id": "74cedeece696cc1f9497d49ddfa1d828f1a98edcbc88b8c4f1b2a0d7993f8add",
+      "image": "sha256:a0e937366261b8a8f20ebcaf13758c689c381dcbbf01684e4375c2787c8c666d",
+      "status": "exited",
+      "started_at": "2026-09-03T03:37:44.863716209Z",
+      "finished_at": "2026-09-07T13:07:24.95130722Z",
+      "restarts": 0,
+      "oom": false,
+      "health": "unhealthy",
+      "project": "hindsight-memory",
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "hindsight-memory_hindsight_data",
+          "source": "/var/lib/docker/volumes/hindsight-memory_hindsight_data/_data",
+          "destination": "/home/hindsight/.pg0"
+        }
+      ]
+    }
+  ],
+  "stats": [
+    {
+      "BlockIO": "67.1MB / 24MB",
+      "CPUPerc": "0.05%",
+      "Container": "5d1101f787f8",
+      "ID": "5d1101f787f8",
+      "MemPerc": "20.65%",
+      "MemUsage": "79.29MiB / 384MiB",
+      "Name": "flipper-id-preflight-20260910t082550z-grafana-1",
+      "NetIO": "63.1kB / 29.8kB",
+      "PIDs": "19"
+    },
+    {
+      "BlockIO": "13MB / 0B",
+      "CPUPerc": "1.52%",
+      "Container": "41b239929f13",
+      "ID": "41b239929f13",
+      "MemPerc": "18.87%",
+      "MemUsage": "96.61MiB / 512MiB",
+      "Name": "flipper-id-preflight-20260910t082550z-decision-1",
+      "NetIO": "2.49MB / 9.17MB",
+      "PIDs": "29"
+    },
+    {
+      "BlockIO": "48.6MB / 2.06MB",
+      "CPUPerc": "0.00%",
+      "Container": "678fd91affbf",
+      "ID": "678fd91affbf",
+      "MemPerc": "25.35%",
+      "MemUsage": "64.89MiB / 256MiB",
+      "Name": "flipper-id-preflight-20260910t082550z-prometheus-1",
+      "NetIO": "5.48MB / 193kB",
+      "PIDs": "10"
+    },
+    {
+      "BlockIO": "144MB / 0B",
+      "CPUPerc": "0.00%",
+      "Container": "f1711ccc0366",
+      "ID": "f1711ccc0366",
+      "MemPerc": "24.74%",
+      "MemUsage": "126.7MiB / 512MiB",
+      "Name": "flipper-id-preflight-20260910t082550z-otel-collector-1",
+      "NetIO": "7.33MB / 5.76MB",
+      "PIDs": "9"
+    },
+    {
+      "BlockIO": "138MB / 164kB",
+      "CPUPerc": "0.73%",
+      "Container": "eb5b528a37a7",
+      "ID": "eb5b528a37a7",
+      "MemPerc": "34.54%",
+      "MemUsage": "176.9MiB / 512MiB",
+      "Name": "flipper-id-preflight-20260910t082550z-ingestion-1",
+      "NetIO": "1.34GB / 870MB",
+      "PIDs": "26"
+    },
+    {
+      "BlockIO": "114MB / 8.26GB",
+      "CPUPerc": "0.19%",
+      "Container": "c72f0f90850f",
+      "ID": "c72f0f90850f",
+      "MemPerc": "16.48%",
+      "MemUsage": "168.8MiB / 1GiB",
+      "Name": "flipper-id-preflight-20260910t082550z-db-1",
+      "NetIO": "583MB / 1.27GB",
+      "PIDs": "9"
+    },
+    {
+      "BlockIO": "34.3MB / 29.6MB",
+      "CPUPerc": "0.28%",
+      "Container": "9137fbb24d27",
+      "ID": "9137fbb24d27",
+      "MemPerc": "10.73%",
+      "MemUsage": "27.46MiB / 256MiB",
+      "Name": "flipper-id-preflight-20260910t082550z-broker-1",
+      "NetIO": "280MB / 35.1MB",
+      "PIDs": "7"
+    },
+    {
+      "BlockIO": "2.47GB / 20.2MB",
+      "CPUPerc": "0.03%",
+      "Container": "mcp-cbm",
+      "ID": "e2329c8af97f",
+      "MemPerc": "3.32%",
+      "MemUsage": "50.98MiB / 1.5GiB",
+      "Name": "mcp-cbm",
+      "NetIO": "499kB / 3.46MB",
+      "PIDs": "14"
+    },
+    {
+      "BlockIO": "766MB / 0B",
+      "CPUPerc": "0.01%",
+      "Container": "mcp-gitnexus",
+      "ID": "dd9595e4eff4",
+      "MemPerc": "6.19%",
+      "MemUsage": "158.5MiB / 2.5GiB",
+      "Name": "mcp-gitnexus",
+      "NetIO": "99.8kB / 1.15MB",
+      "PIDs": "22"
+    }
+  ],
+  "outbox": {
+    "pending": 0,
+    "oldest_pending_created_at": null,
+    "oldest_pending_age_seconds": null
+  },
+  "host_power": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=38600803)\t61%; charging; 0:32 remaining present: true",
+  "old_run": {
+    "phase": "warmup",
+    "validity": false,
+    "measurement_start_at": null,
+    "measurement_elapsed_seconds": 0.0,
+    "guard_failure": {
+      "reason_code": "AC_LOST",
+      "record": {
+        "assertion_pid": 38078,
+        "child_pid": 38082,
+        "child_returncode": -9,
+        "event": "host_sleep_guard",
+        "finished_at": "2026-09-10T13:55:49.833523Z",
+        "last_successful_full_verification_at": "2026-09-10T13:55:42.546247Z",
+        "max_check_gap_seconds": 60.0,
+        "probe_diagnostic": {
+          "elapsed_monotonic_seconds": 0.15225887500855606,
+          "last_successful_full_verification_at": "2026-09-10T13:55:42.546247Z",
+          "phase": "RUNTIME",
+          "probe_kind": "AC",
+          "requested_timeout_seconds": 2.0,
+          "timing_status": "AVAILABLE"
+        },
+        "reason_code": "AC_LOST",
+        "started_at": "2026-09-10T13:29:41.594675Z",
+        "status": "FAILED"
+      }
+    }
+  },
+  "old_terminal": {
+    "active": false,
+    "command_sha256": "1879b65521297a76b8d9c4fa15eb2c5c2dcd0183d4de0a64cd7ef3b5e4c0764c",
+    "exit_code": 70,
+    "finished_at": "2026-09-10T13:55:49.855629Z",
+    "guard": {
+      "max_check_gap_seconds": 60.0,
+      "probe_interval": 5.0,
+      "probe_timeout": 2.0,
+      "startup_timeout": 8.0,
+      "terminate_grace": 2.0
+    },
+    "guard_evidence_path": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260910T082550Z/HOST_SLEEP_GUARD.jsonl",
+    "guard_record": {
+      "assertion_pid": 38078,
+      "child_pid": 38082,
+      "child_returncode": -9,
+      "event": "host_sleep_guard",
+      "finished_at": "2026-09-10T13:55:49.833523Z",
+      "last_successful_full_verification_at": "2026-09-10T13:55:42.546247Z",
+      "max_check_gap_seconds": 60.0,
+      "probe_diagnostic": {
+        "elapsed_monotonic_seconds": 0.15225887500855606,
+        "last_successful_full_verification_at": "2026-09-10T13:55:42.546247Z",
+        "phase": "RUNTIME",
+        "probe_kind": "AC",
+        "requested_timeout_seconds": 2.0,
+        "timing_status": "AVAILABLE"
+      },
+      "reason_code": "AC_LOST",
+      "started_at": "2026-09-10T13:29:41.594675Z",
+      "status": "FAILED"
+    },
+    "harness_state_path": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260910T082550Z/RUN_STATE.json",
+    "lifecycle": "TERMINAL",
+    "pid": 38044,
+    "reason_code": "AC_LOST",
+    "run_id": "20260910T082550Z",
+    "schema_version": 1,
+    "started_at": "2026-09-10T13:29:41.481643Z",
+    "terminal": true,
+    "terminal_status": "FAILED"
+  }
+}

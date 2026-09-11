@@ -1,0 +1,43 @@
+{
+  "active": false,
+  "command_sha256": "d33c88466f7f7e3e640b1dab837e7359ac78a22f577b9f87bc9f9c80a4d8e84d",
+  "exit_code": 70,
+  "finished_at": "2026-09-10T14:59:19.603059Z",
+  "guard": {
+    "max_check_gap_seconds": 60.0,
+    "probe_interval": 5.0,
+    "probe_timeout": 2.0,
+    "startup_timeout": 8.0,
+    "terminate_grace": 2.0
+  },
+  "guard_evidence_path": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260910T143607Z/HOST_SLEEP_GUARD.jsonl",
+  "guard_record": {
+    "assertion_pid": 71724,
+    "child_pid": 71728,
+    "child_returncode": null,
+    "event": "host_sleep_guard",
+    "finished_at": "2026-09-10T14:59:19.598697Z",
+    "last_successful_full_verification_at": "2026-09-10T14:59:14.525538Z",
+    "max_check_gap_seconds": 60.0,
+    "probe_diagnostic": {
+      "elapsed_monotonic_seconds": 0.03950437500316184,
+      "last_successful_full_verification_at": "2026-09-10T14:59:14.525538Z",
+      "phase": "RUNTIME",
+      "probe_kind": "AC",
+      "requested_timeout_seconds": 2.0,
+      "timing_status": "AVAILABLE"
+    },
+    "reason_code": "CLEANUP_FAILED",
+    "started_at": "2026-09-10T14:57:47.386467Z",
+    "status": "FAILED"
+  },
+  "harness_state_path": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260910T143607Z/RUN_STATE.json",
+  "lifecycle": "TERMINAL",
+  "pid": 71695,
+  "reason_code": "CLEANUP_FAILED",
+  "run_id": "20260910T143607Z",
+  "schema_version": 1,
+  "started_at": "2026-09-10T14:57:47.375240Z",
+  "terminal": true,
+  "terminal_status": "FAILED"
+}

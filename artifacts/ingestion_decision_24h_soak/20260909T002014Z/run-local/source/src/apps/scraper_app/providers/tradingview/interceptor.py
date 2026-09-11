@@ -1,0 +1,694 @@
+"""TradingView stealth WebSocket interceptor for proprietary index data."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import re
+import time
+from typing import Any
+
+import pandas as pd
+
+from apps.scraper_app.core import BrowserScraperRuntime
+from libs.common.config import ConfigManager
+from libs.common.constants import CONFIG_FILE_TRADINGVIEW
+from libs.common.enums import SystemComponent
+from libs.common.logging.logger_utils import bind_logger
+
+logger = bind_logger(__name__, system_component=SystemComponent.MARKET_DATA)
+
+# TradingView ~m~ protocol parser
+_MSG_PATTERN = re.compile(r"~m~(\d+)~m~(.+)", re.DOTALL)
+
+
+def parse_tv_messages(raw: str) -> list[dict[str, Any]]:
+    """Parse TradingView WebSocket ~m~ framed messages into JSON dicts."""
+    results = []
+    pos = 0
+    while pos < len(raw):
+        match = _MSG_PATTERN.match(raw, pos)
+        if not match:
+            break
+        length = int(match.group(1))
+        payload = match.group(2)[:length]
+        pos = match.end(1) + 3 + length  # skip past ~m~{len}~m~{payload}
+        try:
+            parsed = json.loads(payload)
+            if isinstance(parsed, dict):
+                results.append(parsed)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return results
+
+
+def _iter_primary_series_values(
+    messages: list[dict[str, Any]],
+    allowed_series: set[str] | None = None,
+) -> list[list[Any]]:
+    """Yield values from the primary chart series only.
+
+    TradingView may send auxiliary/study series in the same WebSocket frame.
+    Keeping the default to ``sds_1`` prevents old or synthetic series from
+    being mixed into the requested symbol history.
+    """
+    values: list[list[Any]] = []
+    allowed = allowed_series or {"sds_1"}
+    for msg in messages:
+        m_type = msg.get("m")
+        if m_type not in ("timescale_update", "du"):
+            continue
+
+        params = msg.get("p", [])
+        for param in params:
+            if not isinstance(param, dict):
+                continue
+            for series_key, series_data in param.items():
+                if str(series_key) not in allowed:
+                    continue
+                s_data = series_data if isinstance(series_data, dict) else {}
+                s_list = (
+                    s_data.get("s", [])
+                    if isinstance(s_data, dict)
+                    else series_data
+                    if isinstance(series_data, list)
+                    else []
+                )
+                if not isinstance(s_list, list):
+                    continue
+                for candle in s_list:
+                    v = candle.get("v", []) if isinstance(candle, dict) else candle
+                    if isinstance(v, (list, tuple)):
+                        values.append(list(v))
+    return values
+
+
+def extract_ohlcv_from_tv_response(
+    messages: list[dict[str, Any]],
+    allowed_series: set[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Extract OHLCV bars from TradingView timescale_update or du messages."""
+    bars = []
+    for v in _iter_primary_series_values(messages, allowed_series=allowed_series):
+        if len(v) >= 6:
+            bars.append(
+                {
+                    "timestamp": int(v[0]) * 1000,  # TV sends seconds
+                    "open": float(v[1]),
+                    "high": float(v[2]),
+                    "low": float(v[3]),
+                    "close": float(v[4]),
+                    "volume": float(v[5]) if len(v) > 5 else 0.0,
+                }
+            )
+    return bars
+
+
+def extract_single_series_from_tv_response(
+    messages: list[dict[str, Any]],
+    allowed_series: set[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Extract single-value time series from TradingView messages.
+
+    Funding is usually [timestamp, value]. Some OI symbols arrive as
+    [timestamp, open, high, low, close], where the close is the usable value.
+    """
+    bars = []
+    for v in _iter_primary_series_values(messages, allowed_series=allowed_series):
+        if len(v) == 2:
+            value = float(v[1])
+        elif len(v) == 5:
+            value = float(v[4])
+        else:
+            continue
+        bars.append({"timestamp": int(v[0]) * 1000, "value": value})
+    return bars
+
+
+class TradingViewInterceptor(BrowserScraperRuntime):
+    """Stealth WebSocket interceptor for TradingView chart data.
+
+    Uses patchright to launch a headless Chromium browser, navigate to a TradingView chart,
+    intercept the WebSocket traffic, and extract OHLCV data.
+    """
+
+    def __init__(self, cookies_path: str | None = None, proxy_url: str | None = None):
+        config = ConfigManager()
+        config.register_file(CONFIG_FILE_TRADINGVIEW)
+        resolved_cookies_path = cookies_path or config.get(
+            "tradingview.cookies_path", "secrets/tv_cookies.json"
+        )
+        resolved_proxy_url = proxy_url or config.get("tradingview.proxy_url")
+        super().__init__(
+            config=config,
+            cookies_path=resolved_cookies_path,
+            proxy_url=resolved_proxy_url,
+        )
+        self._session = None
+
+    async def get_historical_ohlcv(
+        self,
+        symbol: str,
+        timeframe: str,
+        since: int | None = None,
+        until: int | None = None,
+        limit: int | None = None,
+    ) -> pd.DataFrame:
+        """Fetch historical OHLCV for a TradingView symbol.
+
+        Uses Patchright (Playwright-compatible) to launch a stealth browser,
+        navigate to a TradingView chart, and intercept WebSocket frames
+        carrying ``~m~`` encoded OHLCV data.
+
+        Args:
+            symbol: TradingView symbol (e.g., 'CRYPTOCAP:TOTAL2')
+            timeframe: Candle timeframe (e.g., '1h', '4h', '1D')
+            since: Not used yet
+            until: Not used yet
+            limit: Optional target number of rows to expand toward
+
+        Returns:
+            DataFrame with columns [timestamp, open, high, low, close, volume]
+        """
+        return (
+            await self.get_historical_ohlcv_batch([symbol], timeframe, limit=limit)
+        ).get(symbol, self._empty_frame())
+
+    async def get_historical_ohlcv_batch(
+        self, symbols: list[str], timeframe: str, limit: int | None = None
+    ) -> dict[str, pd.DataFrame]:
+        """Fetch multiple TradingView symbols through one browser session."""
+        results = {symbol: self._empty_frame() for symbol in symbols}
+        if not symbols:
+            return results
+
+        try:
+            context = await self._get_or_create_context()
+        except Exception:
+            logger.exception("TradingView browser session failed for %s", symbols)
+            await self.close()
+            return results
+
+        try:
+            fetch_delay = self._config.get("tradingview.fetch_delay_seconds", 2)
+            for idx, symbol in enumerate(symbols):
+                results[symbol] = await self._fetch_symbol_ohlcv(
+                    context, symbol, timeframe, target_rows=limit
+                )
+                if idx < len(symbols) - 1 and fetch_delay > 0:
+                    await asyncio.sleep(fetch_delay)
+        except Exception:
+            logger.exception("TradingView symbol fetch failed for %s", symbols)
+            await self.close()
+
+        return results
+
+    async def get_historical_series(
+        self,
+        symbol: str,
+        timeframe: str,
+        since: int | None = None,
+        until: int | None = None,
+        limit: int | None = None,
+    ) -> pd.DataFrame:
+        """Fetch a single-value time series (OI, funding rate, etc.) from TradingView.
+
+        Returns DataFrame with columns [timestamp, value].
+        """
+        result = await self.get_historical_series_batch(
+            [symbol], timeframe, limit=limit
+        )
+        return result.get(symbol, pd.DataFrame(columns=["timestamp", "value"]))
+
+    async def get_historical_series_batch(
+        self,
+        symbols: list[str],
+        timeframe: str,
+        limit: int | None = None,
+    ) -> dict[str, pd.DataFrame]:
+        """Fetch multiple single-value TradingView series in one browser session."""
+        results = {s: pd.DataFrame(columns=["timestamp", "value"]) for s in symbols}
+        if not symbols:
+            return results
+
+        try:
+            context = await self._get_or_create_context()
+        except Exception:
+            logger.exception(
+                "TradingView browser session failed for series %s", symbols
+            )
+            await self.close()
+            return results
+
+        try:
+            fetch_delay = self._config.get("tradingview.fetch_delay_seconds", 2)
+            for idx, symbol in enumerate(symbols):
+                df = await self._fetch_symbol_series(
+                    context, symbol, timeframe, target_rows=limit
+                )
+                if df is not None and not df.empty:
+                    results[symbol] = df
+                if idx < len(symbols) - 1 and fetch_delay > 0:
+                    await asyncio.sleep(fetch_delay)
+        except Exception:
+            logger.exception("TradingView series fetch failed for %s", symbols)
+            await self.close()
+
+        return results
+
+    def _normalize_cookie(self, cookie: dict[str, Any]) -> dict[str, Any]:
+        return super()._normalize_cookie(cookie)
+
+    async def _fetch_symbol_ohlcv(
+        self,
+        context: Any,
+        symbol: str,
+        timeframe: str,
+        target_rows: int | None = None,
+    ) -> pd.DataFrame:
+        intercepted_messages: list[str] = []
+        chart_url = self._build_chart_url(symbol, timeframe)
+        page = None
+
+        logger.info(
+            f"Fetching TV data for {symbol} ({timeframe}) via WS interception..."
+        )
+
+        try:
+            page = await context.new_page()
+            await self._apply_history_viewport(page, target_rows)
+
+            def on_websocket(ws):
+                if "tradingview.com" in ws.url:
+
+                    def on_frame(data):
+                        payload = data if isinstance(data, str) else str(data)
+                        if "~m~" in payload:
+                            intercepted_messages.append(payload)
+
+                    ws.on("framereceived", on_frame)
+
+            page.on("websocket", on_websocket)
+
+            await page.goto(
+                chart_url,
+                wait_until="domcontentloaded",
+                timeout=self._config.get("tradingview.page_load_timeout_ms", 30000),
+            )
+
+            timeout_s = self._config.get("tradingview.ws_intercept_timeout_seconds", 15)
+            poll_s = self._config.get("tradingview.ws_poll_interval_seconds", 0.5)
+            deadline = time.monotonic() + timeout_s
+            while time.monotonic() < deadline:
+                has_data = any(
+                    "timescale_update" in m or '"du"' in m for m in intercepted_messages
+                )
+                if has_data:
+                    break
+                await asyncio.sleep(poll_s)
+            await self._dismiss_overlays(page)
+            await self._expand_chart_history(
+                page=page,
+                intercepted_messages=intercepted_messages,
+                symbol=symbol,
+                target_rows=target_rows,
+                mode="ohlcv",
+            )
+        except Exception:
+            logger.exception("WS interception failed for %s", symbol)
+            return self._empty_frame()
+        finally:
+            await self._close_quietly(page, "page")
+
+        return self._messages_to_frame(symbol, intercepted_messages)
+
+    def _messages_to_frame(
+        self, symbol: str, intercepted_messages: list[str]
+    ) -> pd.DataFrame:
+        all_bars = []
+        for raw_msg in intercepted_messages:
+            parsed = parse_tv_messages(raw_msg)
+            bars = extract_ohlcv_from_tv_response(parsed)
+            all_bars.extend(bars)
+
+        if not all_bars:
+            logger.warning(f"No OHLCV data extracted for {symbol}")
+            return self._empty_frame()
+
+        df = pd.DataFrame(all_bars)
+        df = (
+            df.drop_duplicates(subset=["timestamp"])
+            .sort_values("timestamp")
+            .reset_index(drop=True)
+        )
+
+        logger.info(f"Extracted {len(df)} bars for {symbol}")
+        return df
+
+    async def _fetch_symbol_series(
+        self,
+        context: Any,
+        symbol: str,
+        timeframe: str,
+        target_rows: int | None = None,
+    ) -> pd.DataFrame:
+        """Fetch a single-value series (OI, funding rate) via WS interception."""
+        intercepted_messages: list[str] = []
+        chart_url = self._build_chart_url(symbol, timeframe)
+        page = None
+
+        logger.info(
+            f"Fetching TV series for {symbol} ({timeframe}) via WS interception..."
+        )
+
+        try:
+            page = await context.new_page()
+            await self._apply_history_viewport(page, target_rows)
+
+            def on_websocket(ws):
+                if "tradingview.com" in ws.url:
+
+                    def on_frame(data):
+                        payload = data if isinstance(data, str) else str(data)
+                        if "~m~" in payload:
+                            intercepted_messages.append(payload)
+
+                    ws.on("framereceived", on_frame)
+
+            page.on("websocket", on_websocket)
+
+            await page.goto(
+                chart_url,
+                wait_until="domcontentloaded",
+                timeout=self._config.get("tradingview.page_load_timeout_ms", 30000),
+            )
+
+            timeout_s = self._config.get("tradingview.ws_intercept_timeout_seconds", 15)
+            poll_s = self._config.get("tradingview.ws_poll_interval_seconds", 0.5)
+            deadline = time.monotonic() + timeout_s
+            while time.monotonic() < deadline:
+                has_data = any(
+                    "timescale_update" in m or '"du"' in m for m in intercepted_messages
+                )
+                if has_data:
+                    break
+                await asyncio.sleep(poll_s)
+            await self._dismiss_overlays(page)
+            await self._expand_chart_history(
+                page=page,
+                intercepted_messages=intercepted_messages,
+                symbol=symbol,
+                target_rows=target_rows,
+                mode="series",
+            )
+        except Exception:
+            logger.exception("WS interception failed for series %s", symbol)
+            return pd.DataFrame(columns=["timestamp", "value"])
+        finally:
+            await self._close_quietly(page, "page")
+
+        return self._messages_to_series_frame(symbol, intercepted_messages)
+
+    async def _apply_history_viewport(self, page: Any, target_rows: int | None) -> None:
+        if not target_rows:
+            return
+        min_target_rows = int(
+            self._config.get(
+                "tradingview.history_expansion_deep_viewport_min_target_rows",
+                1000,
+            )
+        )
+        if target_rows < min_target_rows:
+            return
+
+        set_viewport_size = getattr(page, "set_viewport_size", None)
+        if not callable(set_viewport_size):
+            return
+
+        width = int(
+            self._config.get("tradingview.history_expansion_deep_viewport_width", 3840)
+        )
+        height = int(self._config.get("tradingview.viewport_height", 1080))
+        await set_viewport_size({"width": width, "height": height})
+
+    async def _dismiss_overlays(self, page: Any) -> None:
+        evaluate = getattr(page, "evaluate", None)
+        if not callable(evaluate):
+            return
+
+        await evaluate(
+            """() => {
+                const selectors = [
+                    '[class*="wrapper-SiBYNi"]',
+                    '[class*="wrapper-TjF5"]',
+                    '[class*="container-SiBYNi"]',
+                    '[data-qa-id="overlap-manager-root"] [role="dialog"]',
+                ];
+                for (const root of document.querySelectorAll('#overlap-manager-root')) {
+                    for (const button of root.querySelectorAll('button')) {
+                        const text = (
+                            button.innerText ||
+                            button.getAttribute('aria-label') ||
+                            ''
+                        ).trim();
+                        if (/Close|Decline|Don't need|Dont need/i.test(text)) {
+                            button.click();
+                        }
+                    }
+                }
+                for (const selector of selectors) {
+                    for (const element of document.querySelectorAll(selector)) {
+                        element.remove();
+                    }
+                }
+            }"""
+        )
+
+    def _messages_to_series_frame(
+        self, symbol: str, intercepted_messages: list[str]
+    ) -> pd.DataFrame:
+        all_bars = []
+        for raw_msg in intercepted_messages:
+            parsed = parse_tv_messages(raw_msg)
+            bars = extract_single_series_from_tv_response(parsed)
+            all_bars.extend(bars)
+
+        if not all_bars:
+            logger.warning(f"No series data extracted for {symbol}")
+            return pd.DataFrame(columns=["timestamp", "value"])
+
+        df = pd.DataFrame(all_bars)
+        df = (
+            df.drop_duplicates(subset=["timestamp"])
+            .sort_values("timestamp")
+            .reset_index(drop=True)
+        )
+
+        logger.info(f"Extracted {len(df)} series points for {symbol}")
+        return df
+
+    async def _expand_chart_history(
+        self,
+        page: Any,
+        intercepted_messages: list[str],
+        symbol: str,
+        target_rows: int | None,
+        mode: str,
+    ) -> None:
+        """Pan the chart to request older history when deeper data is requested."""
+        if not target_rows or target_rows <= 0:
+            return
+        if not self._config.get("tradingview.history_expansion_enabled", True):
+            return
+
+        count_fn = (
+            self._count_ohlcv_rows if mode == "ohlcv" else self._count_series_rows
+        )
+        current_count = count_fn(intercepted_messages)
+        if current_count >= target_rows:
+            return
+
+        max_steps = self._resolve_history_expansion_steps(
+            current_count=current_count,
+            target_rows=target_rows,
+        )
+        if max_steps <= 0:
+            return
+        max_stagnant_steps = int(
+            self._config.get("tradingview.history_expansion_max_stagnant_steps", 2)
+        )
+        max_runtime_seconds = float(
+            self._config.get("tradingview.history_expansion_max_runtime_seconds", 90.0)
+        )
+        runtime_deadline = time.monotonic() + max_runtime_seconds
+        stagnant_steps = 0
+
+        for _ in range(max_steps):
+            if time.monotonic() >= runtime_deadline:
+                break
+            before_count = current_count
+            dragged = await self._drag_chart_for_history(page)
+            if not dragged:
+                break
+
+            await self._wait_for_history_growth(
+                intercepted_messages, count_fn, before_count
+            )
+            current_count = count_fn(intercepted_messages)
+            if current_count >= target_rows:
+                break
+
+            if current_count <= before_count:
+                stagnant_steps += 1
+                if stagnant_steps >= max_stagnant_steps:
+                    break
+            else:
+                stagnant_steps = 0
+
+        logger.info(
+            "Expanded TV history",
+            extra={
+                "symbol": symbol,
+                "mode": mode,
+                "rows_collected": current_count,
+                "target_rows": target_rows,
+                "max_steps": max_steps,
+            },
+        )
+
+    def _resolve_history_expansion_steps(
+        self, current_count: int, target_rows: int
+    ) -> int:
+        """Scale chart-pan attempts to the requested history depth."""
+        base_steps = int(self._config.get("tradingview.history_expansion_max_steps", 0))
+        if target_rows <= current_count:
+            return base_steps
+
+        estimated_rows_per_step = max(
+            1,
+            int(
+                self._config.get(
+                    "tradingview.history_expansion_rows_per_step_estimate", 32
+                )
+            ),
+        )
+        required_steps = (
+            target_rows - current_count + estimated_rows_per_step - 1
+        ) // (estimated_rows_per_step)
+        hard_cap = int(
+            self._config.get("tradingview.history_expansion_hard_max_steps", base_steps)
+        )
+        return min(hard_cap, max(base_steps, required_steps))
+
+    async def _drag_chart_for_history(self, page: Any) -> bool:
+        """Drag the TradingView chart to the right to reveal older candles."""
+        mouse = getattr(page, "mouse", None)
+        if mouse is None:
+            return False
+
+        move = getattr(mouse, "move", None)
+        down = getattr(mouse, "down", None)
+        up = getattr(mouse, "up", None)
+        if not callable(move) or not callable(down) or not callable(up):
+            return False
+
+        viewport = getattr(page, "viewport_size", None) or {
+            "width": int(self._config.get("tradingview.viewport_width", 1920)),
+            "height": int(self._config.get("tradingview.viewport_height", 1080)),
+        }
+        start_x = int(
+            viewport["width"]
+            * float(
+                self._config.get(
+                    "tradingview.history_expansion_drag_start_x_ratio", 0.72
+                )
+            )
+        )
+        end_x = start_x + int(
+            self._config.get("tradingview.history_expansion_drag_distance_px", 700)
+        )
+        y = int(
+            viewport["height"]
+            * float(
+                self._config.get("tradingview.history_expansion_drag_y_ratio", 0.45)
+            )
+        )
+        steps = int(
+            self._config.get("tradingview.history_expansion_drag_move_steps", 12)
+        )
+
+        await move(start_x, y)
+        await down()
+        await move(end_x, y, steps=steps)
+        await up()
+        return True
+
+    async def _wait_for_history_growth(
+        self,
+        intercepted_messages: list[str],
+        count_fn: Any,
+        before_count: int,
+    ) -> bool:
+        """Wait briefly for additional history frames to arrive after a chart pan."""
+        timeout_s = float(
+            self._config.get(
+                "tradingview.history_expansion_settle_timeout_seconds", 2.5
+            )
+        )
+        poll_s = float(
+            self._config.get("tradingview.history_expansion_settle_poll_seconds", 0.25)
+        )
+        deadline = time.monotonic() + timeout_s
+        while time.monotonic() < deadline:
+            if count_fn(intercepted_messages) > before_count:
+                return True
+            await asyncio.sleep(poll_s)
+        return False
+
+    def _count_ohlcv_rows(self, intercepted_messages: list[str]) -> int:
+        return len(self._messages_to_frame("__count__", intercepted_messages))
+
+    def _count_series_rows(self, intercepted_messages: list[str]) -> int:
+        return len(self._messages_to_series_frame("__count__", intercepted_messages))
+
+    def _build_chart_url(self, symbol: str, timeframe: str) -> str:
+        tv_resolution = self._map_timeframe(timeframe)
+        chart_base = self._config.get(
+            "tradingview.chart_base_url", "https://www.tradingview.com/chart/"
+        )
+        return f"{chart_base}?symbol={symbol}&interval={tv_resolution}"
+
+    @staticmethod
+    def _empty_frame() -> pd.DataFrame:
+        return pd.DataFrame(
+            columns=["timestamp", "open", "high", "low", "close", "volume"]
+        )
+
+    def _config_namespace(self) -> str:
+        return "tradingview"
+
+    def _log_patchright_missing(self) -> None:
+        logger.error(
+            "Patchright is not installed. Install with: pip install patchright"
+        )
+
+    def _log_cookie_load_failure(self) -> None:
+        logger.warning(f"Failed to load TV cookies from {self.cookies_path}")
+
+    @staticmethod
+    def _map_timeframe(timeframe: str) -> str:
+        """Map standard timeframe notation to TradingView resolution."""
+        mapping = {
+            "1m": "1",
+            "5m": "5",
+            "15m": "15",
+            "30m": "30",
+            "1h": "60",
+            "2h": "120",
+            "4h": "240",
+            "1d": "D",
+            "1D": "D",
+            "1w": "W",
+            "1W": "W",
+        }
+        return mapping.get(timeframe, "60")

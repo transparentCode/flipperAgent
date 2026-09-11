@@ -19,6 +19,7 @@ from apps.decision_app.features.planning import (
 )
 from apps.decision_app.observability import DecisionObservability
 from apps.decision_app.planning.catalog import PluginCatalog
+from apps.decision_app.runtime.deadlines import OperationTimeout
 from apps.decision_app.runtime.live import LiveDecisionRuntime
 from apps.decision_app.runtime.plugins import (
     RuntimePluginCatalog,
@@ -279,7 +280,7 @@ class _LiveInputClient:
         self.tail_index = tail_index
         self.field_factory = field_factory
         self.pending: list[tuple[str, Mapping[object, object]]] = []
-        self.xread_calls: list[tuple[dict[str, str], int, int]] = []
+        self.xread_calls: list[tuple[dict[str, str], int, int | None]] = []
 
     async def xrevrange(
         self, stream: str, *_args: object, count: int = 1
@@ -293,7 +294,7 @@ class _LiveInputClient:
         streams: Mapping[str, str],
         *,
         count: int,
-        block: int,
+        block: int | None = None,
     ) -> list[tuple[str, list[tuple[str, Mapping[object, object]]]]]:
         self.xread_calls.append((dict(streams), count, block))
         if not self.pending:
@@ -311,7 +312,7 @@ class _RecoverableLiveInputClient(_LiveInputClient):
         streams: Mapping[str, str],
         *,
         count: int,
-        block: int,
+        block: int | None = None,
     ) -> list[tuple[str, list[tuple[str, Mapping[object, object]]]]]:
         self.xread_calls.append((dict(streams), count, block))
         cursor = streams[self.stream]
@@ -424,6 +425,28 @@ class _FailingLiveCheckpointRepository(InMemoryCheckpointRepository):
         if self.fail_live:
             return CheckpointSaveResult.CONFLICT
         return await super().save(checkpoint)
+
+
+class _TimeoutLiveCheckpointRepository(InMemoryCheckpointRepository):
+    def __init__(self) -> None:
+        super().__init__()
+        self.fail_live = False
+
+    async def save(self, checkpoint):
+        if self.fail_live:
+            raise OperationTimeout("checkpoint SQL", 0.01, source="driver")
+        return await super().save(checkpoint)
+
+
+class _TimeoutLiveProgressRepository(InMemoryShadowProgressRepository):
+    def __init__(self) -> None:
+        super().__init__()
+        self.fail_live = False
+
+    async def save(self, progress):
+        if self.fail_live:
+            raise OperationTimeout("lane-effect progress SQL", 0.01, source="driver")
+        return await super().save(progress)
 
 
 class _RaisingPolicy:
@@ -1163,6 +1186,56 @@ async def test_shadow_catchup_exact_id_reconciles_crash_window() -> None:
     saved = await progress.load(next(iter(restarted.runtimes.values())).identity)
     assert saved is not None
     assert saved.market_as_of == _signal_bar(4).market_as_of
+
+
+@pytest.mark.asyncio
+async def test_shadow_progress_sql_timeout_after_commit_halts_without_rewind() -> None:
+    progress = _TimeoutLiveProgressRepository()
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(3))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    stream = _LiveInputClient(
+        stream="stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+        tail_index=2,
+        field_factory=_signal_fields,
+    )
+    startup = await _signal_coordinator(
+        history,
+        stream,
+        authority="shadow",
+        shadow_progress_repository=progress,
+    ).start()
+    identity = next(iter(startup.runtimes.values())).identity
+    previous_progress = await progress.load(identity)
+    assert previous_progress is not None
+
+    publisher_client = _IsolatedSignalClient()
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        shadow_publisher=ValkeyShadowPublisher(publisher_client),
+        shadow_progress_repository=progress,
+        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+    )
+    progress.fail_live = True
+    stream.pending.append(("3-0", _signal_fields(3)))
+
+    result = await runtime.poll_once()
+    lane = result.lane_results["BTCUSDT:main"]
+
+    assert lane.publication_outcome == "PUBLISHED"
+    assert lane.finalization_status == "COMMITTED"
+    assert lane.status == "HALTED"
+    assert "lane effect progress durability failed after committed finalization" in (
+        lane.reason or ""
+    )
+    assert runtime.lanes["BTCUSDT:main"].finalizer.watermark.latest_market_as_of == (
+        _signal_bar(3).market_as_of
+    )
+    assert await progress.load(identity) == previous_progress
 
 
 @pytest.mark.asyncio
@@ -1916,6 +1989,58 @@ async def test_checkpoint_failure_after_commit_halts_without_rollback() -> None:
     assert after_halt.lane_results["BTCUSDT:main"].status == "HALTED"
     assert runtime.lanes["BTCUSDT:main"].finalizer.watermark.latest_market_as_of == (
         sr_bar(50).market_as_of
+    )
+
+
+@pytest.mark.asyncio
+async def test_checkpoint_sql_timeout_after_commit_halts_without_rollback() -> None:
+    checkpoints = _TimeoutLiveCheckpointRepository()
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SR_SERIES: tuple(sr_bar(index) for index in range(50))},
+        timeframe_grid=SR_GRID,
+    )
+    stream = _LiveInputClient(
+        stream="stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+        tail_index=49,
+        field_factory=sr_stream_fields,
+    )
+    startup = await _sr_coordinator(history, checkpoints, stream).start()
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SR_GRID,
+        stream_client=stream,
+        history_repository=history,
+        checkpoint_repository=checkpoints,
+        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+    )
+    previous_checkpoint = await checkpoints.load(
+        next(iter(startup.runtimes.values())).identity
+    )
+    assert previous_checkpoint is not None
+    checkpoints.fail_live = True
+
+    stream.pending.append(("50-0", sr_stream_fields(50)))
+    result = await runtime.poll_once()
+    lane = result.lane_results["BTCUSDT:main"]
+
+    assert lane.status == "HALTED"
+    assert lane.checkpoint_result is None
+    assert "checkpoint durability failed after committed finalization" in (
+        lane.reason or ""
+    )
+    assert runtime.lanes["BTCUSDT:main"].finalizer.watermark.latest_market_as_of == (
+        sr_bar(50).market_as_of
+    )
+    assert (
+        runtime.lanes["BTCUSDT:main"]
+        .runtime.state_store.get(
+            next(iter(startup.runtimes.values())).stateful_binding_ids[0]
+        )
+        .committed_market_as_of
+        == sr_bar(50).market_as_of
+    )
+    assert await checkpoints.load(next(iter(startup.runtimes.values())).identity) == (
+        previous_checkpoint
     )
 
 

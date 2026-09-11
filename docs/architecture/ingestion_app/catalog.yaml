@@ -103,7 +103,7 @@ internal_components:
       - admit only up to configured recovery.max_concurrency without queueing
       - bound each provider attempt and websocket lifecycle operation at 30 seconds by default
       - retain ownership and admission until the actual worker or task finishes
-      - classify completed SDK errors as normal retryable failures
+      - classify only completed provider-availability errors as retryable; deterministic provider contract errors fail closed
       - quarantine unresolved deadlines or cleanup failures with honest diagnostics
       - release completion signals without retaining SDK result or exception payloads
 
@@ -130,6 +130,8 @@ internal_components:
       - commit finalized live base candles
       - trigger affected HTF work
       - close recovery requests before reconnect
+      - retry completed provider exhaustion through bounded DB-first catch-up
+      - keep recoverable availability diagnostics in RECOVERING without promoting them to ERROR
       - fail on canonical conflict
       - common cancellation/deadline/ordinary-failure handling for live and interruption paths
 
@@ -159,6 +161,7 @@ internal_components:
     responsibilities:
       - bounded provider paging
       - provider fallback and retry
+      - typed completed-provider exhaustion distinct from integrity and ownership failures
       - per-lane serialization
       - global concurrency limiting
       - closed-candle cutoff and finalization grace
@@ -274,7 +277,7 @@ api:
       purpose: process liveness
     - method: GET
       path: /health/ready
-      purpose: started and non-error runtime readiness
+      purpose: started runtime readiness; RECOVERING is non-terminal while ERROR is not ready
     - method: GET
       path: /runtime
       purpose: desired/current runtime state and enabled asset count
@@ -320,6 +323,7 @@ runtime_states:
 failure_contracts:
   broker_unavailable: canonical DB writes continue; outbox remains pending and publisher retries
   websocket_interrupted: close bounded recovery requests before reconnect
+  recovery_providers_exhausted: remain recovering and retry sequentially after the configured reconnect backoff
   transport_deadline: unresolved provider or websocket lifecycle ownership enters fatal state; retain the lease, quarantine reopening, and keep readiness failed
   database_unavailable: canonical path fails closed; no non-durable acknowledgement
   canonical_conflict: fatal data-quality error; never silent overwrite
@@ -337,7 +341,7 @@ validated_invariants:
   - transport admission has configured capacity and no unbounded wait queue
   - transport leases outlive caller cancellation and deadline until actual cleanup
   - deadline quarantine is sticky across controller pause, close, and replacement paths
-  - normal completed SDK errors retain existing retry/fallback behavior
+  - completed provider-availability errors retain bounded retry/fallback behavior; deterministic provider errors fail closed
   - dynamic asset config rollback safety
   - lifecycle manifests rebuilt after broker loss
   - signal startup/history recovery uses Timescale authority

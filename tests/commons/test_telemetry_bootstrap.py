@@ -73,6 +73,18 @@ class TelemetryBootstrapTests(unittest.TestCase):
                 )
             )
 
+    def test_public_handler_retains_logger_provider_for_shutdown(self) -> None:
+        logger_provider = bootstrap.LoggerProvider()
+        handler = bootstrap.LoggingHandler(logger_provider=logger_provider)
+        try:
+            self.assertIs(
+                getattr(handler, "_logger_provider", None),
+                logger_provider,
+            )
+        finally:
+            handler.close()
+            logger_provider.shutdown()
+
     def test_shutdown_detaches_handlers_unregisters_atexit_and_is_idempotent(
         self,
     ) -> None:

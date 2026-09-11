@@ -1,0 +1,1 @@
+{"assertion_pid":18248,"child_pid":18252,"child_returncode":-15,"event":"host_sleep_guard","finished_at":"2026-09-09T01:15:33.157543Z","max_check_gap_seconds":60.0,"reason_code":"PROBE_TIMEOUT","started_at":"2026-09-09T01:06:37.589739Z","status":"FAILED"}

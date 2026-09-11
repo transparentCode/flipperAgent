@@ -394,9 +394,13 @@ async def test_reconnect_install_failure_does_not_restore_old_generation() -> No
 
 @pytest.mark.asyncio
 async def test_supervisor_task_exception_is_consumed_into_snapshot() -> None:
+    created: list[_FakeSupervisor] = []
+
     def factory(candidate: IngestionSettings) -> _FakeSupervisor:
         del candidate
-        return _FakeSupervisor(fail_run=True)
+        supervisor = _FakeSupervisor(fail_run=True)
+        created.append(supervisor)
+        return supervisor
 
     controller = RuntimeController(settings=_settings(), supervisor_factory=factory)
     await controller.start()
@@ -406,6 +410,49 @@ async def test_supervisor_task_exception_is_consumed_into_snapshot() -> None:
     snapshot = controller.snapshot()
     assert snapshot.state is RuntimeState.ERROR
     assert snapshot.last_error == "synthetic supervisor failure"
+
+    created[0]._snapshot = RuntimeSnapshot(
+        desired_state=DesiredRuntimeState.RUNNING,
+        state=RuntimeState.LIVE,
+        last_error="stale diagnostic",
+    )
+    sticky = controller.snapshot()
+    assert sticky.state is RuntimeState.ERROR
+    assert sticky.last_error == "synthetic supervisor failure"
+    await controller.close()
+
+
+@pytest.mark.asyncio
+async def test_recovering_diagnostic_is_non_terminal_and_clears_when_live() -> None:
+    created: list[_FakeSupervisor] = []
+
+    def factory(candidate: IngestionSettings) -> _FakeSupervisor:
+        del candidate
+        supervisor = _FakeSupervisor()
+        created.append(supervisor)
+        return supervisor
+
+    controller = RuntimeController(settings=_settings(), supervisor_factory=factory)
+    await controller.start()
+    await created[0].run_started.wait()
+
+    created[0]._snapshot = RuntimeSnapshot(
+        desired_state=DesiredRuntimeState.RUNNING,
+        state=RuntimeState.RECOVERING,
+        last_error="recovery exhausted; retrying",
+    )
+    recovering = controller.snapshot()
+    assert recovering.state is RuntimeState.RECOVERING
+    assert recovering.last_error == "recovery exhausted; retrying"
+
+    created[0]._snapshot = RuntimeSnapshot(
+        desired_state=DesiredRuntimeState.RUNNING,
+        state=RuntimeState.LIVE,
+        last_error="stale diagnostic",
+    )
+    live = controller.snapshot()
+    assert live.state is RuntimeState.LIVE
+    assert live.last_error is None
     await controller.close()
 
 

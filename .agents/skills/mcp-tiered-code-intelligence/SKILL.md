@@ -35,7 +35,8 @@ configuration/operations finding, not evidence that a graph is empty.
 
 Start with CBM for all code questions:
 
-- `list_projects`, then use the returned project identifier on project-scoped calls;
+- `list_projects`, then select projects by returned `root_path`, not a presumed
+  single `flipperAgent` project. Component indexes keep indexing within memory caps;
 - `search_graph`, `search_code`, `get_code_snippet`, and `get_architecture` for
   discovery;
 - `trace_path` for callers/callees, with `direction` set to `inbound`,
@@ -45,6 +46,8 @@ Start with CBM for all code questions:
 
 All project-scoped CBM requests must include the live `project` parameter. Do not
 copy old examples that omit it or use an unrelated absolute checkout path.
+If discovery/status tools are missing from the client's catalog, use the read-only
+HTTP helper described in `../codebase-memory/cli/SKILL.md` against the same adapter.
 
 Escalate to GitNexus only when the question genuinely requires whole-repository or
 unindexed coverage, cross-directory/service flow, PDG/taint-style reasoning, route
@@ -81,6 +84,14 @@ role configuration are deliberately reviewed.
 
 `quant-coder` receives CBM only by default. GitNexus requires explicit,
 task-scoped orchestrator enablement; it is not a routine coder dependency.
+For cross-component changes, query each relevant CBM project and verify imports
+and callers in source. The coder requests orchestrator assistance when broader
+GitNexus evidence is needed. Architect/orchestrator may use that escalation.
+
+Check capabilities before interpreting advanced results: CBM fast mode filters
+paths and omits similarity/semantic edges. GitNexus FTS, embeddings, and PDG are
+separate capabilities, not implied by successful indexing. When unavailable, use
+exact symbol/structural queries plus source inspection and report the limitation.
 
 ## Evidence Discipline
 
@@ -105,9 +116,12 @@ stubs, not separate policy sources.
 ## Maintenance and Safety
 
 - Check status with `../mcp/scripts/mcp-status.sh` before heavy analysis.
-- Do not index, delete projects, mutate ADRs, ingest traces, rename symbols, or
-  synchronize groups from an agent session.
+- Routine coding/audit sessions do not index, delete projects, mutate ADRs, ingest
+  traces, rename symbols, or synchronize groups.
 - Indexing is an operator action and must be explicitly authorized:
   `MCP_ALLOW_INDEX=1 ../mcp/scripts/mcp-index.sh`.
+- Explicitly authorized indexing uses operator container CLIs as described in
+  `../codebase-memory/cli/SKILL.md`; adapters remain read-only. After an OOM, stop
+  retrying that scope, retain caps, and use smaller scopes or report coverage gaps.
 - After edits, inspect the diff and use `detect_changes` when available; do not
   make routine CI depend on a live MCP service.

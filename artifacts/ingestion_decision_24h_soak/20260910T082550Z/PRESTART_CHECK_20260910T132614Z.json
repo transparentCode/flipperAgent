@@ -1,0 +1,44 @@
+{
+  "checked_at": "2026-09-10T13:29:40.915331+00:00",
+  "status": "PRESTART_CHECKS_PASSED",
+  "approved_files_verified": 21,
+  "source_digest": "453d951151c2255c93de3d87a716a1d843424ff8b92d98df342404265de21895",
+  "source_identity_kind": "committed_base_plus_reviewed_patch",
+  "image_id": "sha256:fd1ab4e9fddf0ccb32b330c0558ab03aedfc6109426022581e805dee0e84e42e",
+  "mode": "warmup-only",
+  "measurement_authorized": false,
+  "ports_available": [
+    8765,
+    3001,
+    9090,
+    8003,
+    8004,
+    13133
+  ],
+  "old_volumes_preserved": [
+    "flipper-id-preflight-20260910t062736z_broker_data",
+    "flipper-id-preflight-20260910t062736z_db_data",
+    "flipper-id-preflight-20260910t062736z_decision_data",
+    "flipper-id-preflight-20260910t062736z_grafana_data",
+    "flipper-id-preflight-20260910t062736z_ingestion_data",
+    "flipper-id-preflight-20260910t062736z_logs",
+    "flipper-id-preflight-20260910t062736z_prometheus_data"
+  ],
+  "mcp_baseline_unchanged": true,
+  "ac_lid_verified": true,
+  "launchd_smoke": {
+    "assertion_pid": 36814,
+    "child_pid": 36818,
+    "child_returncode": 0,
+    "event": "host_sleep_guard",
+    "finished_at": "2026-09-10T13:27:47.637950Z",
+    "last_successful_full_verification_at": "2026-09-10T13:27:47.537561Z",
+    "max_check_gap_seconds": 60.0,
+    "probe_diagnostic": null,
+    "reason_code": "CHILD_EXITED",
+    "started_at": "2026-09-10T13:26:46.284511Z",
+    "status": "COMPLETED"
+  },
+  "docker_cpus": 4,
+  "docker_memory_bytes": 8320294912
+}

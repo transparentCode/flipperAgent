@@ -1,0 +1,12 @@
+{
+  "name": "sr-v2-research-viewer",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "lightweight-charts": "5.2.1"
+  }
+}

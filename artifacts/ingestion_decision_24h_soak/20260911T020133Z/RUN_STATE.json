@@ -1,0 +1,1053 @@
+{
+  "anomalies": [
+    {
+      "kind": "boundary_convergence_unresolved",
+      "reason": "window_expired",
+      "series": "BTC-USDT-PERP:1h",
+      "timestamp": "2026-09-11T06:02:09.314293+00:00"
+    },
+    {
+      "error": "RuntimeError: incomplete or invalid measurement; recovery forbidden",
+      "kind": "harness_failure",
+      "timestamp": "2026-09-11T06:02:23.481585+00:00"
+    }
+  ],
+  "boundary_episodes": {},
+  "completed_boundary_episodes": [
+    {
+      "boundary_at": "2026-09-11T06:00:00+00:00",
+      "boundary_transition_at": "2026-09-11T06:00:07.350707+00:00",
+      "deadline_at": "2026-09-11T06:02:07.350707+00:00",
+      "first_detected_at": "2026-09-11T06:00:07.350707+00:00",
+      "first_valid_observation_at": "2026-09-11T06:00:07.350707+00:00",
+      "max_input_lag": 1,
+      "max_watermark_lag": 1,
+      "observations": [
+        {
+          "blocked": false,
+          "detected_elapsed_seconds": 0.0,
+          "input_lag": 1,
+          "observed_at": "2026-09-11T06:00:07.350707+00:00",
+          "probe_status": "VALID",
+          "provenance": {
+            "canonical_history_checked_at": "2026-09-11T06:00:07.350276+00:00",
+            "canonical_history_current_at": "2026-09-11T05:00:00+00:00",
+            "decision_input_latest_market_as_of": "2026-09-11T05:00:00+00:00",
+            "expected_closed_boundary": "2026-09-11T06:00:00+00:00",
+            "lane_watermark_latest_market_as_of": "2026-09-11T05:00:00+00:00",
+            "observed_at": "2026-09-11T06:00:07.350707+00:00",
+            "outbox_oldest_age_seconds": 0.0,
+            "outbox_oldest_epoch": null
+          },
+          "watermark_lag": 1
+        },
+        {
+          "blocked": false,
+          "detected_elapsed_seconds": 17.795637,
+          "input_lag": 1,
+          "observed_at": "2026-09-11T06:00:25.146344+00:00",
+          "probe_status": "VALID",
+          "provenance": {
+            "canonical_history_checked_at": "2026-09-11T06:00:25.145732+00:00",
+            "canonical_history_current_at": "2026-09-11T05:00:00+00:00",
+            "decision_input_latest_market_as_of": "2026-09-11T05:00:00+00:00",
+            "expected_closed_boundary": "2026-09-11T06:00:00+00:00",
+            "lane_watermark_latest_market_as_of": "2026-09-11T05:00:00+00:00",
+            "observed_at": "2026-09-11T06:00:25.146344+00:00",
+            "outbox_oldest_age_seconds": 0.0,
+            "outbox_oldest_epoch": null
+          },
+          "watermark_lag": 1
+        },
+        {
+          "blocked": false,
+          "detected_elapsed_seconds": 34.394232,
+          "input_lag": 1,
+          "observed_at": "2026-09-11T06:00:41.744939+00:00",
+          "probe_status": "VALID",
+          "provenance": {
+            "canonical_history_checked_at": "2026-09-11T06:00:41.744600+00:00",
+            "canonical_history_current_at": "2026-09-11T05:00:00+00:00",
+            "decision_input_latest_market_as_of": "2026-09-11T05:00:00+00:00",
+            "expected_closed_boundary": "2026-09-11T06:00:00+00:00",
+            "lane_watermark_latest_market_as_of": "2026-09-11T05:00:00+00:00",
+            "observed_at": "2026-09-11T06:00:41.744939+00:00",
+            "outbox_oldest_age_seconds": 0.0,
+            "outbox_oldest_epoch": null
+          },
+          "watermark_lag": 1
+        },
+        {
+          "blocked": false,
+          "detected_elapsed_seconds": 52.432436,
+          "input_lag": 1,
+          "observed_at": "2026-09-11T06:00:59.783143+00:00",
+          "probe_status": "VALID",
+          "provenance": {
+            "canonical_history_checked_at": "2026-09-11T06:00:59.782727+00:00",
+            "canonical_history_current_at": "2026-09-11T05:00:00+00:00",
+            "decision_input_latest_market_as_of": "2026-09-11T05:00:00+00:00",
+            "expected_closed_boundary": "2026-09-11T06:00:00+00:00",
+            "lane_watermark_latest_market_as_of": "2026-09-11T05:00:00+00:00",
+            "observed_at": "2026-09-11T06:00:59.783143+00:00",
+            "outbox_oldest_age_seconds": 0.0,
+            "outbox_oldest_epoch": null
+          },
+          "watermark_lag": 1
+        },
+        {
+          "blocked": false,
+          "detected_elapsed_seconds": 69.724162,
+          "input_lag": 1,
+          "observed_at": "2026-09-11T06:01:17.074869+00:00",
+          "probe_status": "VALID",
+          "provenance": {
+            "canonical_history_checked_at": "2026-09-11T06:01:17.074296+00:00",
+            "canonical_history_current_at": "2026-09-11T05:00:00+00:00",
+            "decision_input_latest_market_as_of": "2026-09-11T05:00:00+00:00",
+            "expected_closed_boundary": "2026-09-11T06:00:00+00:00",
+            "lane_watermark_latest_market_as_of": "2026-09-11T05:00:00+00:00",
+            "observed_at": "2026-09-11T06:01:17.074869+00:00",
+            "outbox_oldest_age_seconds": 0.0,
+            "outbox_oldest_epoch": null
+          },
+          "watermark_lag": 1
+        },
+        {
+          "blocked": false,
+          "detected_elapsed_seconds": 87.486289,
+          "input_lag": 1,
+          "observed_at": "2026-09-11T06:01:34.836996+00:00",
+          "probe_status": "VALID",
+          "provenance": {
+            "canonical_history_checked_at": "2026-09-11T06:01:34.836627+00:00",
+            "canonical_history_current_at": "2026-09-11T05:00:00+00:00",
+            "decision_input_latest_market_as_of": "2026-09-11T05:00:00+00:00",
+            "expected_closed_boundary": "2026-09-11T06:00:00+00:00",
+            "lane_watermark_latest_market_as_of": "2026-09-11T05:00:00+00:00",
+            "observed_at": "2026-09-11T06:01:34.836996+00:00",
+            "outbox_oldest_age_seconds": 0.0,
+            "outbox_oldest_epoch": null
+          },
+          "watermark_lag": 1
+        },
+        {
+          "blocked": false,
+          "detected_elapsed_seconds": 104.524725,
+          "input_lag": 1,
+          "observed_at": "2026-09-11T06:01:51.875432+00:00",
+          "probe_status": "VALID",
+          "provenance": {
+            "canonical_history_checked_at": "2026-09-11T06:01:51.875090+00:00",
+            "canonical_history_current_at": "2026-09-11T05:00:00+00:00",
+            "decision_input_latest_market_as_of": "2026-09-11T05:00:00+00:00",
+            "expected_closed_boundary": "2026-09-11T06:00:00+00:00",
+            "lane_watermark_latest_market_as_of": "2026-09-11T05:00:00+00:00",
+            "observed_at": "2026-09-11T06:01:51.875432+00:00",
+            "outbox_oldest_age_seconds": 0.0,
+            "outbox_oldest_epoch": null
+          },
+          "watermark_lag": 1
+        },
+        {
+          "blocked": false,
+          "detected_elapsed_seconds": 121.963311,
+          "input_lag": 1,
+          "observed_at": "2026-09-11T06:02:09.314018+00:00",
+          "probe_status": "VALID",
+          "provenance": {
+            "canonical_history_checked_at": "2026-09-11T06:02:09.313666+00:00",
+            "canonical_history_current_at": "2026-09-11T05:00:00+00:00",
+            "decision_input_latest_market_as_of": "2026-09-11T05:00:00+00:00",
+            "expected_closed_boundary": "2026-09-11T06:00:00+00:00",
+            "lane_watermark_latest_market_as_of": "2026-09-11T05:00:00+00:00",
+            "observed_at": "2026-09-11T06:02:09.314018+00:00",
+            "outbox_oldest_age_seconds": 0.0,
+            "outbox_oldest_epoch": null
+          },
+          "watermark_lag": 1
+        }
+      ],
+      "probe_indeterminate_samples": 0,
+      "provenance": {
+        "canonical_history_checked_at": "2026-09-11T06:02:09.313666+00:00",
+        "canonical_history_current_at": "2026-09-11T05:00:00+00:00",
+        "decision_input_latest_market_as_of": "2026-09-11T05:00:00+00:00",
+        "expected_closed_boundary": "2026-09-11T06:00:00+00:00",
+        "lane_watermark_latest_market_as_of": "2026-09-11T05:00:00+00:00",
+        "observed_at": "2026-09-11T06:02:09.314018+00:00",
+        "outbox_oldest_age_seconds": 0.0,
+        "outbox_oldest_epoch": null
+      },
+      "series": "BTC-USDT-PERP:1h",
+      "status": "UNRESOLVED",
+      "unresolved_reason": "window_expired"
+    }
+  ],
+  "config_hashes": {
+    "configs/decision/assets/BTC.yaml": "adbd011928ce80ee028cf72db5116f55dd758f7976244469defa329be7e76cdd",
+    "configs/decision/assets/ETH.yaml": "a4220a9297e93ab96642e0fda6472349efeda867266a0850a326fc8adc7ca5b3",
+    "configs/decision/global.yaml": "7255b7861e82ffd3a7424a307e51c4745c21b2de628584f18dec02b577c22cbb",
+    "configs/ingestion/global.yaml": "b4d92eaf492b2c07082ba0a1da378085fda9968979e304ea22b9566cd617a363",
+    "configs/observability/prometheus.yml": "27816d01e8a8e0cd5599195e2ae095e43457512286dc42597e739793525af46b",
+    "docker-compose.yml": "3253bb710308cf07904171402597da6b9ec756d82e3e7f576851c07958b6e063"
+  },
+  "cotenant_baseline": {
+    "mcp-cbm": {
+      "id": "e2329c8af97feb51bd0fef1f01051306ce3de034305a0fa8d2a1f4dc6a470011",
+      "oom_killed": false,
+      "restart_count": 0,
+      "started_at": "2026-09-09T10:18:52.316287878Z"
+    },
+    "mcp-gitnexus": {
+      "id": "dd9595e4eff41f372e93d028b569f92c4b988ca50a3b162564e80201d2d0e6e0",
+      "oom_killed": false,
+      "restart_count": 0,
+      "started_at": "2026-09-09T10:18:52.443763211Z"
+    }
+  },
+  "created_at": "2026-09-11T02:33:01.051056+00:00",
+  "docker_environment": {
+    "architecture": "aarch64",
+    "mem_total_bytes": 8320294912,
+    "name": "docker-desktop",
+    "ncpu": 4,
+    "operating_system": "Docker Desktop",
+    "server_version": "29.7.2"
+  },
+  "final_prestart_gate_at": "2026-09-11T02:49:02.962501+00:00",
+  "frozen_tooling_at": "2026-09-11T02:33:08.869311+00:00",
+  "frozen_tooling_files": [
+    "run-local/soak_harness.py",
+    "run-local/legacy_sampler.py",
+    "run-local/bounded_command.py",
+    "run-local/test_bounded_command.py",
+    "run-local/test_run3_harness.py",
+    "run-local/guarded_launch.py",
+    "run-local/test_guarded_launch.py",
+    "run-local/soak-compose.override.yml",
+    "run-local/otel-collector.yaml",
+    "run-local/grafana/provisioning/datasources/datasources.yaml",
+    "run-local/grafana/provisioning/dashboards/dashboards.yaml",
+    "run-local/grafana/provisioning/dashboards/pipeline-health.json",
+    "run-local/grafana/provisioning/dashboards/ingestion.json",
+    "run-local/launchd/run-under-launchd.sh",
+    "run-local/launchd/run-guarded-child.sh",
+    "run-local/launchd/ingestion-decision-soak-run3.plist",
+    "run-local/launchd/install-run3.sh",
+    "run-local/launchd/stop-run3.sh",
+    "run-local/launchd/start-run3.sh",
+    "SOURCE_EXPORT_PROOF.json",
+    "IMAGE_PROOF.json"
+  ],
+  "frozen_tooling_hashes": {
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/IMAGE_PROOF.json": "e4dcbc8b55e896cdcdb3a1d6b5b62b87ce178dafec9d049f5633307fcadc275d",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/SOURCE_EXPORT_PROOF.json": "9b695bef6ba3c1dba9d9edae01c784777cd02ea32fa5bc44d62f878de354dab1",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/bounded_command.py": "ad9c6b6c941fdf0df38cbcd058f7f551182670285540c5b1311bd5b83bbb144a",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/grafana/provisioning/dashboards/dashboards.yaml": "821b78afd45633466cb0987099ad06cc48dc39d3d031857cb7e5d650fcddab52",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/grafana/provisioning/dashboards/ingestion.json": "ff3134986bb178998d539f07f6a62c11815bc5aa8902ba193571855c5fdb27b1",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/grafana/provisioning/dashboards/pipeline-health.json": "ada5d3a37cccbfa667b71f022ef60f695c056cca185aa7a3ebe628f794a6e1ef",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/grafana/provisioning/datasources/datasources.yaml": "72305a9fded6b40fe740ec82dac495f006990e6e37de754d1fcd01d93da4834a",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/guarded_launch.py": "b8a47e9902cc6d33dd8f860328ac4f42a242d75411b1ab6540a9ef6d507fcc17",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/launchd/ingestion-decision-soak-run3.plist": "fd449a233b4ef6087f026c6381271a037e7ab05e4bb85a3b292b260481f6d6ad",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/launchd/install-run3.sh": "5749e6dd762929ebd63eaf447ce32c1e78e0847873628d487359d1e887472b80",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/launchd/run-guarded-child.sh": "30a87dfd74f6b10098e4615ceaafa4103a6e97a4048788eabe2c49c8339cc802",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/launchd/run-under-launchd.sh": "6e455dfd589d6b2e7ea83d1d15c0165bf3bb3dcfb3b21d42e56fea3ec7149904",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/launchd/start-run3.sh": "3513acbfc3fa3959e57c89a4d69bf085aec24adf0b9f8ff3abaa37571d86be61",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/launchd/stop-run3.sh": "20c0f3847daba03975cd34325755b32ba37d895b26b4523bb73d43d2ba4bdfa8",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/legacy_sampler.py": "a0a741a758b26463c0a949af62e99ba7634be580f8b9f18c41ac6e63edd7a931",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/otel-collector.yaml": "35f88d8b047b8a726ce26f2848ed18b1f33f8c1c097c103f8b97f0c9aaa9353e",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/soak-compose.override.yml": "10f9e41a64e8f6d082d61795cf8aa36d6521414c181448c7e8ac7517cbb17a35",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/soak_harness.py": "07a08ae3fd8cb2920446aa81ab35279a5bec5de4e9a3af9046a804e0db9b9d3c",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/test_bounded_command.py": "29577207adfdf3acb06d719bcaac3dbaae518d17c4c3fc5d77cb3e197c278120",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/test_guarded_launch.py": "6ed2b0e6221b9af30909185287713fc4c2d0d24fab3b09f2f29e91941a49642a",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/test_run3_harness.py": "488a124d8c5d40d882b7a7f58c3d192fc83122d9af076ef99100dd2987803fcc",
+    "source_tree_file_count": "1329",
+    "source_tree_sha256": "a1e4e63e392ff7da1d1656278e757e32facb0cf9deb1d51744732a5fee068ffb"
+  },
+  "guard_failure": {
+    "reason_code": "GUARDED_CHILD_FAILED",
+    "record": {
+      "assertion_pid": 73799,
+      "child_pid": 73802,
+      "child_returncode": 1,
+      "cleanup_results": {
+        "assertion": {
+          "failure_code": null,
+          "group_state": "ABSENT",
+          "leader_reaped": true,
+          "success": true
+        },
+        "child": {
+          "failure_code": null,
+          "group_state": "ABSENT",
+          "leader_reaped": true,
+          "success": true
+        }
+      },
+      "event": "host_sleep_guard",
+      "finished_at": "2026-09-11T06:02:33.610803Z",
+      "last_successful_full_verification_at": "2026-09-11T06:02:33.608945Z",
+      "max_check_gap_seconds": 60.0,
+      "primary_reason_code": "CHILD_EXITED",
+      "probe_diagnostic": null,
+      "reason_code": "CHILD_EXITED",
+      "started_at": "2026-09-11T02:18:53.287509Z",
+      "status": "COMPLETED"
+    }
+  },
+  "harness_pid": 73802,
+  "history_cursors": {
+    "BTC-USDT-PERP:1h": "2026-09-11T06:00:00+00:00",
+    "BTC-USDT-PERP:4h": "2026-09-11T04:00:00+00:00",
+    "ETH-USDT-PERP:4h": "2026-09-11T04:00:00+00:00"
+  },
+  "host_environment": {
+    "disk": {
+      "error": null,
+      "exit_code": 0,
+      "output": "Filesystem   1024-blocks      Used Available Capacity iused      ifree %iused  Mounted on\n/dev/disk3s1   482797652 147193024 288069120    34%  951935 2880691200    0%   /System/Volumes/Data"
+    },
+    "load_average": [
+      4.90234375,
+      6.291015625,
+      6.6650390625
+    ],
+    "memory_pressure": {
+      "error": null,
+      "exit_code": 0,
+      "output": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                     4228.\nPages active:                                 220374.\nPages inactive:                               217087.\nPages speculative:                              2665.\nPages throttled:                                   0.\nPages wired down:                             123407.\nPages purgeable:                                2025.\n\"Translation faults\":                     1027323311.\nPages copy-on-write:                        78205403.\nPages zero filled:                         721174731.\nPages reactivated:                         149348655.\nPages purged:                               16688847.\nFile-backed pages:                            181769.\nAnonymous pages:                              258357.\nPages stored in compressor:                   787832.\nPages occupied by compressor:                 441454.\nDecompressions:                            104772785.\nCompressions:                              124448170.\nPageins:                                    41659156.\nPageouts:                                      31936.\nSwapins:                                      151998.\nSwapouts:                                     416536."
+    }
+  },
+  "image_proof": {
+    "image": "flipper-id-soak:f063630-20260911-020133",
+    "image_id": "sha256:9322d0094ffec839a5828639f51d35c3f9972bcbbca06b35e354ddb24edab988",
+    "proof_sha256": "e4dcbc8b55e896cdcdb3a1d6b5b62b87ce178dafec9d049f5633307fcadc275d",
+    "source_sha": "f06363074511ce9eb3b9b5b8c9f145ff97a71aa7"
+  },
+  "last_gate": {
+    "active_lane_count": 3,
+    "all_lanes_live": true,
+    "blocked_stream_count": 0,
+    "boundary_episodes_pending": [],
+    "boundary_episodes_unresolved": [],
+    "canonical_conflict_count": 0,
+    "configured_lane_count": 3,
+    "decision_state": "RUNNING",
+    "docker_health_ok": false,
+    "health_ok": false,
+    "history": {
+      "all_required_series_contiguous": true,
+      "all_required_series_forward_current": false,
+      "checked_at": "2026-09-11T06:02:29.843089+00:00",
+      "repair_path": "ingestion_runtime_startup_catchup_and_htf_reconcile",
+      "required_series": {
+        "BTC-USDT-PERP:1h": {
+          "expected_closed_boundary": "2026-09-11T06:00:00+00:00",
+          "first_open": "2026-06-08T00:00:00+00:00",
+          "forward_to_expected_boundary": false,
+          "gap_count": 0,
+          "instrument_id": "BTC-USDT-PERP",
+          "last_close": "2026-09-11T05:00:00+00:00",
+          "row_count": 2285,
+          "timeframe": "1h"
+        },
+        "BTC-USDT-PERP:4h": {
+          "expected_closed_boundary": "2026-09-11T04:00:00+00:00",
+          "first_open": "2026-06-08T00:00:00+00:00",
+          "forward_to_expected_boundary": true,
+          "gap_count": 0,
+          "instrument_id": "BTC-USDT-PERP",
+          "last_close": "2026-09-11T04:00:00+00:00",
+          "row_count": 571,
+          "timeframe": "4h"
+        },
+        "ETH-USDT-PERP:4h": {
+          "expected_closed_boundary": "2026-09-11T04:00:00+00:00",
+          "first_open": "2026-06-08T00:00:00+00:00",
+          "forward_to_expected_boundary": true,
+          "gap_count": 0,
+          "instrument_id": "ETH-USDT-PERP",
+          "last_close": "2026-09-11T04:00:00+00:00",
+          "row_count": 571,
+          "timeframe": "4h"
+        }
+      }
+    },
+    "history_ready": false,
+    "ingestion_state": "error",
+    "input_interval_lag": {
+      "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h": 1,
+      "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:4h": 0,
+      "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:4h": 0
+    },
+    "inputs_current": false,
+    "lag_gate_status": "PASS",
+    "lane_statuses": {
+      "BTCUSDT:momentum_1h": "LIVE",
+      "BTCUSDT:momentum_4h": "LIVE",
+      "ETHUSDT:momentum_4h": "LIVE"
+    },
+    "lane_watermark_interval_lag": {
+      "BTCUSDT:momentum_1h": 1,
+      "BTCUSDT:momentum_4h": 0,
+      "ETHUSDT:momentum_4h": 0
+    },
+    "lanes_current": false,
+    "outbox_healthy": true,
+    "outbox_oldest_age_seconds": 0.0,
+    "outbox_pending": 0,
+    "outbox_status": "DRAINED",
+    "probe_errors": {},
+    "probe_status": "VALID",
+    "provenance": {
+      "BTC-USDT-PERP:1h": {
+        "canonical_history_checked_at": "2026-09-11T06:02:29.843089+00:00",
+        "canonical_history_current_at": "2026-09-11T05:00:00+00:00",
+        "decision_input_latest_market_as_of": "2026-09-11T05:00:00+00:00",
+        "expected_closed_boundary": "2026-09-11T06:00:00+00:00",
+        "lane_watermark_latest_market_as_of": "2026-09-11T05:00:00+00:00",
+        "observed_at": "2026-09-11T06:02:29.843484+00:00",
+        "outbox_oldest_age_seconds": 0.0,
+        "outbox_oldest_epoch": null
+      },
+      "BTC-USDT-PERP:4h": {
+        "canonical_history_checked_at": "2026-09-11T06:02:29.843089+00:00",
+        "canonical_history_current_at": "2026-09-11T04:00:00+00:00",
+        "decision_input_latest_market_as_of": "2026-09-11T04:00:00+00:00",
+        "expected_closed_boundary": "2026-09-11T04:00:00+00:00",
+        "lane_watermark_latest_market_as_of": "2026-09-11T04:00:00+00:00",
+        "observed_at": "2026-09-11T06:02:29.843484+00:00",
+        "outbox_oldest_age_seconds": 0.0,
+        "outbox_oldest_epoch": null
+      },
+      "ETH-USDT-PERP:4h": {
+        "canonical_history_checked_at": "2026-09-11T06:02:29.843089+00:00",
+        "canonical_history_current_at": "2026-09-11T04:00:00+00:00",
+        "decision_input_latest_market_as_of": "2026-09-11T04:00:00+00:00",
+        "expected_closed_boundary": "2026-09-11T04:00:00+00:00",
+        "lane_watermark_latest_market_as_of": "2026-09-11T04:00:00+00:00",
+        "observed_at": "2026-09-11T06:02:29.843484+00:00",
+        "outbox_oldest_age_seconds": 0.0,
+        "outbox_oldest_epoch": null
+      }
+    },
+    "ready": false
+  },
+  "last_update_at": "2026-09-11T06:02:33.084133+00:00",
+  "max_probe_gap_seconds": 0.0,
+  "measurement_completed": false,
+  "measurement_elapsed_seconds": 11600.453,
+  "measurement_end_at": "2026-09-11T06:02:23.468831+00:00",
+  "measurement_probe_gap_open_at": null,
+  "measurement_seconds_required": 86400,
+  "measurement_start_at": "2026-09-11T02:49:02.962916+00:00",
+  "measurement_start_monotonic": 116907.073442166,
+  "outbox_episode": null,
+  "outbox_episodes": [
+    {
+      "drain_duration_seconds": 5.604,
+      "drained_at": "2026-09-11T02:49:08.299331+00:00",
+      "growth_streak": 0,
+      "healthy": true,
+      "last_oldest_age_seconds": 0.547,
+      "last_pending": 1,
+      "max_oldest_age_seconds": 0.547,
+      "max_pending": 1,
+      "persistent_growth": false,
+      "samples": 1,
+      "started_at": "2026-09-11T02:49:02.695319+00:00",
+      "status": "DRAINED"
+    },
+    {
+      "drain_duration_seconds": 16.563,
+      "drained_at": "2026-09-11T03:02:19.794614+00:00",
+      "growth_streak": 0,
+      "healthy": true,
+      "last_oldest_age_seconds": 0.464,
+      "last_pending": 1,
+      "max_oldest_age_seconds": 0.464,
+      "max_pending": 1,
+      "persistent_growth": false,
+      "samples": 1,
+      "started_at": "2026-09-11T03:02:03.231837+00:00",
+      "status": "DRAINED"
+    },
+    {
+      "drain_duration_seconds": 16.824,
+      "drained_at": "2026-09-11T03:16:19.026178+00:00",
+      "growth_streak": 0,
+      "healthy": true,
+      "last_oldest_age_seconds": 0.393,
+      "last_pending": 2,
+      "max_oldest_age_seconds": 0.393,
+      "max_pending": 2,
+      "persistent_growth": false,
+      "samples": 1,
+      "started_at": "2026-09-11T03:16:02.201855+00:00",
+      "status": "DRAINED"
+    },
+    {
+      "drain_duration_seconds": 16.774,
+      "drained_at": "2026-09-11T03:24:18.758193+00:00",
+      "growth_streak": 0,
+      "healthy": true,
+      "last_oldest_age_seconds": 0.55,
+      "last_pending": 3,
+      "max_oldest_age_seconds": 0.55,
+      "max_pending": 3,
+      "persistent_growth": false,
+      "samples": 1,
+      "started_at": "2026-09-11T03:24:01.983838+00:00",
+      "status": "DRAINED"
+    },
+    {
+      "drain_duration_seconds": 17.501,
+      "drained_at": "2026-09-11T03:26:19.721330+00:00",
+      "growth_streak": 0,
+      "healthy": true,
+      "last_oldest_age_seconds": 0.67,
+      "last_pending": 3,
+      "max_oldest_age_seconds": 0.67,
+      "max_pending": 3,
+      "persistent_growth": false,
+      "samples": 1,
+      "started_at": "2026-09-11T03:26:02.219889+00:00",
+      "status": "DRAINED"
+    },
+    {
+      "drain_duration_seconds": 16.74,
+      "drained_at": "2026-09-11T03:49:18.938443+00:00",
+      "growth_streak": 0,
+      "healthy": true,
+      "last_oldest_age_seconds": 0.562,
+      "last_pending": 4,
+      "max_oldest_age_seconds": 0.562,
+      "max_pending": 4,
+      "persistent_growth": false,
+      "samples": 1,
+      "started_at": "2026-09-11T03:49:02.198288+00:00",
+      "status": "DRAINED"
+    },
+    {
+      "drain_duration_seconds": 16.614,
+      "drained_at": "2026-09-11T03:57:18.891286+00:00",
+      "growth_streak": 0,
+      "healthy": true,
+      "last_oldest_age_seconds": 0.54,
+      "last_pending": 6,
+      "max_oldest_age_seconds": 0.54,
+      "max_pending": 6,
+      "persistent_growth": false,
+      "samples": 1,
+      "started_at": "2026-09-11T03:57:02.276924+00:00",
+      "status": "DRAINED"
+    },
+    {
+      "drain_duration_seconds": 18.139,
+      "drained_at": "2026-09-11T04:07:20.628305+00:00",
+      "growth_streak": 0,
+      "healthy": true,
+      "last_oldest_age_seconds": 0.929,
+      "last_pending": 6,
+      "max_oldest_age_seconds": 0.929,
+      "max_pending": 6,
+      "persistent_growth": false,
+      "samples": 1,
+      "started_at": "2026-09-11T04:07:02.488909+00:00",
+      "status": "DRAINED"
+    },
+    {
+      "drain_duration_seconds": 19.545,
+      "drained_at": "2026-09-11T04:19:22.660902+00:00",
+      "growth_streak": 0,
+      "healthy": true,
+      "last_oldest_age_seconds": 0.746,
+      "last_pending": 3,
+      "max_oldest_age_seconds": 0.746,
+      "max_pending": 3,
+      "persistent_growth": false,
+      "samples": 1,
+      "started_at": "2026-09-11T04:19:03.115609+00:00",
+      "status": "DRAINED"
+    },
+    {
+      "drain_duration_seconds": 18.82,
+      "drained_at": "2026-09-11T04:31:21.480297+00:00",
+      "growth_streak": 0,
+      "healthy": true,
+      "last_oldest_age_seconds": 0.328,
+      "last_pending": 1,
+      "max_oldest_age_seconds": 0.328,
+      "max_pending": 1,
+      "persistent_growth": false,
+      "samples": 1,
+      "started_at": "2026-09-11T04:31:02.660726+00:00",
+      "status": "DRAINED"
+    },
+    {
+      "drain_duration_seconds": 17.075,
+      "drained_at": "2026-09-11T04:38:20.850307+00:00",
+      "growth_streak": 0,
+      "healthy": true,
+      "last_oldest_age_seconds": 0.467,
+      "last_pending": 1,
+      "max_oldest_age_seconds": 0.467,
+      "max_pending": 1,
+      "persistent_growth": false,
+      "samples": 1,
+      "started_at": "2026-09-11T04:38:03.775381+00:00",
+      "status": "DRAINED"
+    },
+    {
+      "drain_duration_seconds": 16.15,
+      "drained_at": "2026-09-11T04:44:17.834868+00:00",
+      "growth_streak": 0,
+      "healthy": true,
+      "last_oldest_age_seconds": 0.357,
+      "last_pending": 1,
+      "max_oldest_age_seconds": 0.357,
+      "max_pending": 1,
+      "persistent_growth": false,
+      "samples": 1,
+      "started_at": "2026-09-11T04:44:01.684958+00:00",
+      "status": "DRAINED"
+    }
+  ],
+  "phase": "complete",
+  "ports": {
+    "decision": "127.0.0.1:8004",
+    "grafana": "127.0.0.1:3001",
+    "ingestion": "127.0.0.1:8003",
+    "otel_health": "127.0.0.1:13133",
+    "prometheus": "127.0.0.1:9090",
+    "status": 8765
+  },
+  "preflight_at": "2026-09-11T02:33:11.275194+00:00",
+  "prestart_image_baseline": {
+    "broker": "sha256:3acc0687f2a2e1091fae6450d7842dd658c941338cf0a873ddd9e14b9e4ea4dd",
+    "db": "sha256:6343bdc87ca132c6b53acb26113a6bad1821d188fa39975a745f32ddd9757634",
+    "decision": "sha256:9322d0094ffec839a5828639f51d35c3f9972bcbbca06b35e354ddb24edab988",
+    "grafana": "sha256:079600c9517b678c10cda6006b4487d3174512fd4c6cface37df7822756ed7a5",
+    "ingestion": "sha256:9322d0094ffec839a5828639f51d35c3f9972bcbbca06b35e354ddb24edab988",
+    "otel-collector": "sha256:e07e325e303e86f4a87a617491e921b579a92da6d404007394757ac910bf9587",
+    "prometheus": "sha256:075b1ba2c4ebb04bc3a6ab86c06ec8d8099f8fda1c96ef6d104d9bb1def1d8bc"
+  },
+  "prestart_readiness": {
+    "gate": {
+      "active_lane_count": 3,
+      "all_lanes_live": true,
+      "blocked_stream_count": 0,
+      "boundary_episodes_pending": [],
+      "boundary_episodes_unresolved": [],
+      "canonical_conflict_count": 0,
+      "configured_lane_count": 3,
+      "decision_state": "RUNNING",
+      "docker_health_ok": true,
+      "health_ok": true,
+      "history": {
+        "all_required_series_contiguous": true,
+        "all_required_series_forward_current": true,
+        "checked_at": "2026-09-11T02:33:11.270802+00:00",
+        "repair_path": "ingestion_runtime_startup_catchup_and_htf_reconcile",
+        "required_series": {
+          "BTC-USDT-PERP:1h": {
+            "expected_closed_boundary": "2026-09-11T02:00:00+00:00",
+            "first_open": "2026-06-08T00:00:00+00:00",
+            "forward_to_expected_boundary": true,
+            "gap_count": 0,
+            "instrument_id": "BTC-USDT-PERP",
+            "last_close": "2026-09-11T02:00:00+00:00",
+            "row_count": 2282,
+            "timeframe": "1h"
+          },
+          "BTC-USDT-PERP:4h": {
+            "expected_closed_boundary": "2026-09-11T00:00:00+00:00",
+            "first_open": "2026-06-08T00:00:00+00:00",
+            "forward_to_expected_boundary": true,
+            "gap_count": 0,
+            "instrument_id": "BTC-USDT-PERP",
+            "last_close": "2026-09-11T00:00:00+00:00",
+            "row_count": 570,
+            "timeframe": "4h"
+          },
+          "ETH-USDT-PERP:4h": {
+            "expected_closed_boundary": "2026-09-11T00:00:00+00:00",
+            "first_open": "2026-06-08T00:00:00+00:00",
+            "forward_to_expected_boundary": true,
+            "gap_count": 0,
+            "instrument_id": "ETH-USDT-PERP",
+            "last_close": "2026-09-11T00:00:00+00:00",
+            "row_count": 570,
+            "timeframe": "4h"
+          }
+        }
+      },
+      "history_ready": true,
+      "ingestion_state": "live",
+      "input_interval_lag": {
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h": 0,
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:4h": 0,
+        "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:4h": 0
+      },
+      "inputs_current": true,
+      "lag_gate_status": "PASS",
+      "lane_statuses": {
+        "BTCUSDT:momentum_1h": "LIVE",
+        "BTCUSDT:momentum_4h": "LIVE",
+        "ETHUSDT:momentum_4h": "LIVE"
+      },
+      "lane_watermark_interval_lag": {
+        "BTCUSDT:momentum_1h": 0,
+        "BTCUSDT:momentum_4h": 0,
+        "ETHUSDT:momentum_4h": 0
+      },
+      "lanes_current": true,
+      "outbox_healthy": true,
+      "outbox_oldest_age_seconds": 0.0,
+      "outbox_pending": 0,
+      "outbox_status": "DRAINED",
+      "probe_errors": {},
+      "probe_status": "VALID",
+      "provenance": {
+        "BTC-USDT-PERP:1h": {
+          "canonical_history_checked_at": "2026-09-11T02:33:11.270802+00:00",
+          "canonical_history_current_at": "2026-09-11T02:00:00+00:00",
+          "decision_input_latest_market_as_of": "2026-09-11T02:00:00+00:00",
+          "expected_closed_boundary": "2026-09-11T02:00:00+00:00",
+          "lane_watermark_latest_market_as_of": "2026-09-11T02:00:00+00:00",
+          "observed_at": "2026-09-11T02:33:11.271723+00:00",
+          "outbox_oldest_age_seconds": 0.0,
+          "outbox_oldest_epoch": null
+        },
+        "BTC-USDT-PERP:4h": {
+          "canonical_history_checked_at": "2026-09-11T02:33:11.270802+00:00",
+          "canonical_history_current_at": "2026-09-11T00:00:00+00:00",
+          "decision_input_latest_market_as_of": "2026-09-11T00:00:00+00:00",
+          "expected_closed_boundary": "2026-09-11T00:00:00+00:00",
+          "lane_watermark_latest_market_as_of": "2026-09-11T00:00:00+00:00",
+          "observed_at": "2026-09-11T02:33:11.271723+00:00",
+          "outbox_oldest_age_seconds": 0.0,
+          "outbox_oldest_epoch": null
+        },
+        "ETH-USDT-PERP:4h": {
+          "canonical_history_checked_at": "2026-09-11T02:33:11.270802+00:00",
+          "canonical_history_current_at": "2026-09-11T00:00:00+00:00",
+          "decision_input_latest_market_as_of": "2026-09-11T00:00:00+00:00",
+          "expected_closed_boundary": "2026-09-11T00:00:00+00:00",
+          "lane_watermark_latest_market_as_of": "2026-09-11T00:00:00+00:00",
+          "observed_at": "2026-09-11T02:33:11.271723+00:00",
+          "outbox_oldest_age_seconds": 0.0,
+          "outbox_oldest_epoch": null
+        }
+      },
+      "ready": true
+    },
+    "health": {
+      "checks": {
+        "decision": {
+          "error": null,
+          "latency_ms": 4.438,
+          "payload": {
+            "active_lane_count": 3,
+            "blocked_stream_count": 0,
+            "configured_asset_count": 2,
+            "configured_lane_count": 3,
+            "desired_state": "RUNNING",
+            "generation_id": 1,
+            "inputs": {
+              "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h": {
+                "blocked_reason": null,
+                "latest_market_as_of": "2026-09-11T02:00:00+00:00",
+                "latest_stream_id": "1789093457055-0"
+              },
+              "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:4h": {
+                "blocked_reason": null,
+                "latest_market_as_of": "2026-09-11T00:00:00+00:00",
+                "latest_stream_id": "1789093457097-1"
+              },
+              "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:4h": {
+                "blocked_reason": null,
+                "latest_market_as_of": "2026-09-11T00:00:00+00:00",
+                "latest_stream_id": "1789093789777-0"
+              }
+            },
+            "lane_status_counts": {
+              "LIVE": 3
+            },
+            "lanes": {
+              "BTCUSDT:momentum_1h": {
+                "lane_id": "BTCUSDT:momentum_1h",
+                "last_transaction": null,
+                "pending_trigger_cutoff": null,
+                "reason": null,
+                "status": "LIVE",
+                "watermark": {
+                  "last_disposition": null,
+                  "latest_market_as_of": "2026-09-11T02:00:00+00:00"
+                }
+              },
+              "BTCUSDT:momentum_4h": {
+                "lane_id": "BTCUSDT:momentum_4h",
+                "last_transaction": null,
+                "pending_trigger_cutoff": null,
+                "reason": null,
+                "status": "LIVE",
+                "watermark": {
+                  "last_disposition": null,
+                  "latest_market_as_of": "2026-09-11T00:00:00+00:00"
+                }
+              },
+              "ETHUSDT:momentum_4h": {
+                "lane_id": "ETHUSDT:momentum_4h",
+                "last_transaction": null,
+                "pending_trigger_cutoff": null,
+                "reason": null,
+                "status": "LIVE",
+                "watermark": {
+                  "last_disposition": null,
+                  "latest_market_as_of": "2026-09-11T00:00:00+00:00"
+                }
+              }
+            },
+            "last_error": null,
+            "last_lifecycle_event_at": null,
+            "last_lifecycle_evidence": {
+              "cursor": "1789093147667-0",
+              "event_ids": [],
+              "ignored_symbols": [],
+              "malformed_ids": [],
+              "reason": null,
+              "relevant_count": 0
+            },
+            "last_poll_at": "2026-09-11T02:33:08.800308+00:00",
+            "last_rebuild_at": "2026-09-11T02:32:36.094022+00:00",
+            "lifecycle_cursor": "1789093147667-0",
+            "service_state": "RUNNING",
+            "started_at": "2026-09-11T02:32:36.094067+00:00",
+            "status": "ready"
+          },
+          "status_code": 200
+        },
+        "grafana": {
+          "error": null,
+          "latency_ms": 1.869,
+          "payload": {
+            "commit": "5b85c4c2fcf5d32d4f68aaef345c53096359b2f1",
+            "database": "ok",
+            "version": "11.1.0"
+          },
+          "status_code": 200
+        },
+        "ingestion": {
+          "error": null,
+          "latency_ms": 39.534,
+          "payload": {
+            "runtime": {
+              "desired_state": "running",
+              "enabled_asset_count": 6,
+              "last_error": null,
+              "state": "live"
+            },
+            "status": "ready"
+          },
+          "status_code": 200
+        },
+        "otel-collector": {
+          "error": null,
+          "latency_ms": 1.84,
+          "payload": {
+            "status": "Server available",
+            "upSince": "2026-09-11T02:32:30.067676305Z",
+            "uptime": "38.846863017s"
+          },
+          "status_code": 200
+        },
+        "prometheus": {
+          "error": null,
+          "latency_ms": 1.381,
+          "payload": "Prometheus Server is Healthy.\n",
+          "status_code": 200
+        }
+      },
+      "phase": "preflight",
+      "timestamp": "2026-09-11T02:33:08.919467+00:00"
+    }
+  },
+  "probe_gap_threshold_seconds": 60.0,
+  "probe_indeterminate_samples": 0,
+  "project": "flipper-id-soak-20260911t020133z",
+  "raw_log_cursor": "2026-09-11T06:02:30.319370+00:00",
+  "run_id": "20260911T020133Z",
+  "sampling_continuity_detail": {
+    "checked_at": "2026-09-11T06:02:23.464093+00:00",
+    "invalid_streams": [],
+    "last_observed_at": {
+      "api_load.jsonl": "2026-09-11T06:01:56.140405+00:00",
+      "http_health.jsonl": "2026-09-11T06:02:19.246425+00:00",
+      "pipeline_gate.jsonl": "2026-09-11T06:02:20.472771+00:00",
+      "resource_samples.jsonl": "2026-09-11T06:02:19.226196+00:00",
+      "sampler_timing.jsonl": "2026-09-11T06:02:23.461657+00:00",
+      "storage_growth.jsonl": "2026-09-11T06:02:23.459734+00:00"
+    }
+  },
+  "sampling_continuity_ok": true,
+  "source_export": {
+    "file_count": 1329,
+    "proof_path": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260911T020133Z/SOURCE_EXPORT_PROOF.json",
+    "proof_sha256": "9b695bef6ba3c1dba9d9edae01c784777cd02ea32fa5bc44d62f878de354dab1",
+    "source_sha": "f06363074511ce9eb3b9b5b8c9f145ff97a71aa7",
+    "tree_sha256": "a1e4e63e392ff7da1d1656278e757e32facb0cf9deb1d51744732a5fee068ffb"
+  },
+  "source_sha": "f06363074511ce9eb3b9b5b8c9f145ff97a71aa7",
+  "sut_container_baseline": {
+    "broker": {
+      "exit_code": 0,
+      "health": "healthy",
+      "id": "2fbd82690ac9a47bc41f1dfbada1e5688b8314a77a5bf997d5b0e5aa197d007f",
+      "memory_limit_bytes": 268435456,
+      "name": "flipper-id-soak-20260911t020133z-broker-1",
+      "nano_cpus": 500000000,
+      "oom_killed": false,
+      "restart_count": 0,
+      "service": "broker",
+      "started_at": "2026-09-11T02:18:54.38128801Z",
+      "state": "running"
+    },
+    "db": {
+      "exit_code": 0,
+      "health": "healthy",
+      "id": "3e636df73c21e27af4352e755e29b10d8f867f2f55230dd86df68eee97eaa149",
+      "memory_limit_bytes": 1073741824,
+      "name": "flipper-id-soak-20260911t020133z-db-1",
+      "nano_cpus": 500000000,
+      "oom_killed": false,
+      "restart_count": 0,
+      "service": "db",
+      "started_at": "2026-09-11T02:18:54.272647677Z",
+      "state": "running"
+    },
+    "decision": {
+      "exit_code": 0,
+      "health": "healthy",
+      "id": "2a075aa27c4d36b1f0c62bd4fe75f7b3ef3c0f7cce05b34da80ac148a349744e",
+      "memory_limit_bytes": 536870912,
+      "name": "flipper-id-soak-20260911t020133z-decision-1",
+      "nano_cpus": 500000000,
+      "oom_killed": false,
+      "restart_count": 0,
+      "service": "decision",
+      "started_at": "2026-09-11T02:32:30.022439846Z",
+      "state": "running"
+    },
+    "grafana": {
+      "exit_code": 0,
+      "health": "healthy",
+      "id": "64234745b06b782987299a5a6bf73c07404423571dadf655ad2595894bbe387c",
+      "memory_limit_bytes": 402653184,
+      "name": "flipper-id-soak-20260911t020133z-grafana-1",
+      "nano_cpus": 150000000,
+      "oom_killed": false,
+      "restart_count": 0,
+      "service": "grafana",
+      "started_at": "2026-09-11T02:32:44.691260506Z",
+      "state": "running"
+    },
+    "ingestion": {
+      "exit_code": 0,
+      "health": "healthy",
+      "id": "c3070c79c92568d044970a09c3b51293f3ff9ac7348da887dda92d0215c93e40",
+      "memory_limit_bytes": 536870912,
+      "name": "flipper-id-soak-20260911t020133z-ingestion-1",
+      "nano_cpus": 500000000,
+      "oom_killed": false,
+      "restart_count": 0,
+      "service": "ingestion",
+      "started_at": "2026-09-11T02:19:05.014689168Z",
+      "state": "running"
+    },
+    "otel-collector": {
+      "exit_code": 0,
+      "health": "healthy",
+      "id": "70e26089d2e90406e35ffad959c1af65a91fbbb4e4a296466343653ff6e41fd2",
+      "memory_limit_bytes": 536870912,
+      "name": "flipper-id-soak-20260911t020133z-otel-collector-1",
+      "nano_cpus": 150000000,
+      "oom_killed": false,
+      "restart_count": 0,
+      "service": "otel-collector",
+      "started_at": "2026-09-11T02:32:29.190894429Z",
+      "state": "running"
+    },
+    "prometheus": {
+      "exit_code": 0,
+      "health": "healthy",
+      "id": "108fa3c33a078961662ee2fcaa887ce1dd84a8721ec5c1ff3edc25a308eaec6f",
+      "memory_limit_bytes": 268435456,
+      "name": "flipper-id-soak-20260911t020133z-prometheus-1",
+      "nano_cpus": 100000000,
+      "oom_killed": false,
+      "restart_count": 0,
+      "service": "prometheus",
+      "started_at": "2026-09-11T02:32:29.030933721Z",
+      "state": "running"
+    }
+  },
+  "sut_limits_preserved": true,
+  "sut_restart_baseline": {
+    "broker": 0,
+    "db": 0,
+    "decision": 0,
+    "grafana": 0,
+    "ingestion": 0,
+    "otel-collector": 0,
+    "prometheus": 0
+  },
+  "terminal_status": "INGESTION_DECISION_24H_SOAK_INCONCLUSIVE_EVIDENCE",
+  "test_only_resource_limits": {
+    "grafana": "384M",
+    "otel-collector": "512M"
+  },
+  "topology": {
+    "core_path": [
+      "db",
+      "broker",
+      "ingestion",
+      "decision"
+    ],
+    "dependencies": [
+      "db",
+      "broker"
+    ],
+    "measurement_infrastructure": [
+      "otel-collector",
+      "prometheus",
+      "grafana"
+    ],
+    "run_services": [
+      "db",
+      "broker",
+      "ingestion",
+      "decision",
+      "otel-collector",
+      "prometheus",
+      "grafana"
+    ],
+    "sut_apps": [
+      "ingestion",
+      "decision"
+    ]
+  },
+  "validity": false,
+  "warmup_seconds_required": 900,
+  "warmup_started_at": "2026-09-11T02:33:14.201944+00:00",
+  "warmup_sut_restart_baseline": {
+    "broker": 0,
+    "db": 0,
+    "decision": 0,
+    "grafana": 0,
+    "ingestion": 0,
+    "otel-collector": 0,
+    "prometheus": 0
+  }
+}

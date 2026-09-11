@@ -33,6 +33,26 @@ reconstruction run with publication suppressed. Live reads begin after the
 captured stream IDs. This prevents a live event from racing ahead of the history
 used to reconstruct state.
 
+### Bounded lifecycle ownership
+
+The approved runtime implementation uses one absolute 120-second deadline for
+initial resource construction and first-generation installation, explicit 5-second
+Valkey/acquisition budgets, one remaining 15-second SQL/transaction budget for
+canonical history and checkpoint/effect repositories, and a 30-second control
+admission/drain bound. Cleanup is one lazy aggregate 5-second budget shared
+across nested owners rather than a fresh allowance per await. These numeric
+defaults are sourced from `configs/decision/global.yaml`; this record is not a
+configuration authority.
+
+Startup failure shares that budget across candidate, partial-pool, schema/lease,
+and final teardown cleanup, with a startup-expiry cap. Successful startup creates
+a fresh lazy final-shutdown budget. Only owned resources may be closed; an
+unconfirmed release retains ownership and fences reuse. `STOPPED` means owned
+service tasks are quiescent; a clean lifespan additionally requires confirmed
+owned-resource teardown, so cleanup failure may leave the service `STOPPED` while
+application shutdown is unclean. This is an operational implementation boundary,
+not a new actor, workflow, or resource-management framework.
+
 ### Independent progress markers
 
 V1 does not let a model binding own input-consumer progress. `InputReadCursor`

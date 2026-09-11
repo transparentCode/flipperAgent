@@ -1,0 +1,158 @@
+app:
+  name: sr_v2
+  path: src/libs/models/sr_v2
+  purpose: >
+    Clean-room closed-bar support/resistance structural provider for
+    independent multi-timeframe research.
+
+review:
+  status: "IMPLEMENTED BASE / RESEARCH ONLY"
+  notice: "Architecture record — no deployment or promotion claim"
+  scientific_status: INCONCLUSIVE
+  promotion_status: "RESEARCH_ONLY / NO_PROMOTION"
+
+status_vocabulary:
+  - "[EXISTING]"
+  - "[RESEARCH-ONLY · EXISTING]"
+  - "[EXISTING GAP]"
+  - "[DEFERRED · NOT PRESENT]"
+
+authorities:
+  - path: configs/sr_v2.yaml
+    status: "[EXISTING]"
+    owns: runtime ladder, trigger, selected kernel parameters, lifecycle, state bounds
+  - path: configs/sr_v2_trials/phase1.yaml
+    status: "[RESEARCH-ONLY · EXISTING]"
+    owns: targets, chronological splits, nulls, bootstrap, protected gates
+  - path: configs/sr_v2_research_notebook.yaml
+    status: "[RESEARCH-ONLY · EXISTING]"
+    owns: source/cache mode, replay window, display policy
+
+views:
+  - id: overview
+    title: "[IMPLEMENTED BASE / RESEARCH ONLY] SR v2 structural research HLD"
+    type: architecture
+    status: "IMPLEMENTED BASE / RESEARCH ONLY"
+    canonical_d2: overview.d2
+    rendered_svg: overview.svg
+    archify_json: interactive/overview.architecture.json
+    archify_html: interactive/overview.html
+    visual_check_receipt: interactive/overview.visual-check.json
+  - id: lld
+    title: "[IMPLEMENTED BASE / RESEARCH ONLY] SR v2 structural step LLD"
+    type: architecture
+    status: "IMPLEMENTED BASE / RESEARCH ONLY"
+    canonical_d2: lld.d2
+    rendered_svg: lld.svg
+    archify_json: interactive/lld.architecture.json
+    archify_html: interactive/lld.html
+    visual_check_receipt: interactive/lld.visual-check.json
+  - id: causal-dataflow
+    title: "[IMPLEMENTED BASE / RESEARCH ONLY] SR v2 causal data flow"
+    type: dataflow
+    status: "IMPLEMENTED BASE / RESEARCH ONLY"
+    canonical_d2: causal-dataflow.d2
+    rendered_svg: causal-dataflow.svg
+    archify_json: interactive/causal-dataflow.dataflow.json
+    archify_html: interactive/causal-dataflow.html
+    visual_check_receipt: interactive/causal-dataflow.visual-check.json
+
+components:
+  - name: resolved_yaml_authorities
+    status: "[EXISTING]"
+    paths:
+      - configs/sr_v2.yaml
+      - configs/sr_v2_trials/phase1.yaml
+      - configs/sr_v2_research_notebook.yaml
+  - name: authenticated_source_set
+    status: "[RESEARCH-ONLY · EXISTING]"
+    paths:
+      - src/libs/models/sr_v2/research/source.py
+      - src/libs/models/sr_v2/research_lab/data.py
+  - name: offline_compute
+    status: "[EXISTING]"
+    path: src/libs/models/sr_v2/runtime/offline.py
+    contract: "OfflineCompute.run with caller-supplied closed windows"
+  - name: research_replay
+    status: "[RESEARCH-ONLY · EXISTING]"
+    path: src/libs/models/sr_v2/research_lab/replay.py
+    contract: "SRV2ResearchReplay.run wraps OfflineCompute"
+  - name: structural_model
+    status: "[EXISTING]"
+    path: src/libs/models/sr_v2/structural.py
+    contract: "SRModel.step(SRStepRequest) -> SRStepResult"
+  - name: state_and_codec
+    status: "[EXISTING]"
+    paths:
+      - src/libs/models/sr_v2/domain/state.py
+      - src/libs/models/sr_v2/serialization/state_codec.py
+    contract: "mandatory SRState; schema-v4 per-bar and aggregate fingerprints"
+  - name: kernel_catalog
+    status: "[EXISTING]"
+    paths:
+      - src/libs/models/sr_v2/kernels/registry.py
+      - src/libs/models/sr_v2/kernels/previous_period_anchor.py
+      - src/libs/models/sr_v2/kernels/plateau_sweep.py
+    contract: "ordered YAML-selected KERNEL_CATALOG through KernelSpec"
+  - name: live_runtime
+    status: "[EXISTING]"
+    path: src/libs/models/sr_v2/runtime/live.py
+    contract: "LiveRuntime with explicit genesis and winner-only output"
+  - name: state_repository
+    status: "[EXISTING]"
+    paths:
+      - src/libs/models/sr_v2/persistence/contracts.py
+      - src/libs/models/sr_v2/persistence/timescale.py
+      - src/libs/models/sr_v2/persistence/schema.sql
+    contract: "CheckpointRepository; state-only regular sr_v2.checkpoints row"
+  - name: research_trace_viewer
+    status: "[RESEARCH-ONLY · EXISTING]"
+    paths:
+      - src/libs/models/sr_v2/research_lab/trace.py
+      - src/libs/models/sr_v2/research_viewer/bundle.py
+      - src/libs/models/sr_v2/research_viewer/projection.py
+  - name: scientific_observation_compiler
+    status: "[RESEARCH-ONLY · NEW]"
+    path: src/libs/models/sr_v2/research_lab/scientific_compiler.py
+    contract: "CREATED-only streaming actual/null observations with exact resolved ladder"
+  - name: scientific_targets
+    status: "[RESEARCH-ONLY · NEW]"
+    path: src/libs/models/sr_v2/forecast/targets.py
+    contract: "Candidate-independent causal TR receipt and two-stage first-passage view"
+  - name: feasible_random_price_v3
+    status: "[RESEARCH-ONLY · NEW]"
+    path: src/libs/models/sr_v2/research/placebos.py
+    contract: "Causal kernel-window low/high opportunities preserving stored left/right offsets with explicit unavailable nulls"
+  - name: development_evaluation
+    status: "[RESEARCH-ONLY · NEW]"
+    path: src/libs/models/sr_v2/research/evaluation.py
+    contract: "Exact typed groups and joint UTC bootstrap; INVALID/INSUFFICIENT/INCONCLUSIVE only"
+  - name: sealed_development_optimizer
+    status: "[RESEARCH-ONLY · NEW]"
+    path: src/libs/models/sr_v2/research/optimizer.py
+    contract: "Strict development_target_design@1 target freeze, development_global_geometry@1 sealed finite family, side-aware worst-macro geometry ranking with one shared UTC draw receipt"
+  - name: native_panel_preflight
+    status: "[RESEARCH-ONLY · NEW]"
+    path: src/libs/models/sr_v2/research/preflight.py
+    contract: "Authenticated native per-asset process preflight with versioned @2 append-only receipts binding source slice, EpisodeArtifact@2 identity/bytes, zero provider calls, and measured ceilings"
+  - name: streaming_episode_evidence
+    status: "[RESEARCH-ONLY · NEW]"
+    path: src/libs/models/sr_v2/research_lab/episode_evidence.py
+    contract: "Bounded OfflineCompute callback receipt, authenticated content-addressed episode artifact, restart-safe typed loader"
+  - name: indexed_target_materialization
+    status: "[RESEARCH-ONLY · NEW]"
+    path: src/libs/models/sr_v2/research_lab/episode_evidence.py
+    contract: "Authenticated common-risk receipt and lazy TargetOutcomeRow/compiler streams over shared native bars; one target tuple at a time"
+
+exclusions:
+  - same-timeframe semantic consolidation
+  - cross-sectional features
+  - MTF top-down selection or fusion
+  - intrabar processing
+  - Decision or downstream consumer integration
+  - probability or calibration in core/live/checkpoint output
+  - authenticated production calibrator, predictor, optimizer, or promotion
+  - existing research-only scoring scaffolding remains gated/non-promoted
+  - forecast
+  - production deployment/persistence claims beyond research-only evidence
+  - production aggregation or cache layer

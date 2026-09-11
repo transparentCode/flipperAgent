@@ -1,0 +1,134 @@
+direction: down
+
+title: {
+  label: "IMPLEMENTED BASE / RESEARCH ONLY\nArchitecture record · no deployment or promotion claim\nSR v2 structural research HLD"
+  near: top-center
+}
+
+authorities: {
+  label: "[EXISTING] Resolved YAML authorities\nmodel · trial · notebook policy"
+  style.fill: "#E8F1FF"
+}
+
+source: {
+  label: "[RESEARCH-ONLY · EXISTING] Authenticated source set\nBinanceUSDMResearchLoader → SourceBarRecord\n→ ResearchSourceSetManifest"
+  style.fill: "#E8F1FF"
+}
+
+offline: {
+  label: "[EXISTING] OfflineCompute.run\ncaller-supplied closed SRBar windows"
+  style.fill: "#EEF7EA"
+}
+
+replay: {
+  label: "[RESEARCH-ONLY · EXISTING] SRV2ResearchReplay.run\nwraps OfflineCompute · research trace"
+  style.fill: "#FFF2D8"
+}
+
+model: {
+  label: "[EXISTING] SRModel.step\nSRStepRequest → SRStepResult"
+  style.fill: "#EEF7EA"
+}
+
+kernels: {
+  label: "[EXISTING] Ordered selected KERNEL_CATALOG\nKernelSpec · previous_period_anchor@1\nplateau_sweep_reclaim@1"
+  style.fill: "#EEF7EA"
+}
+
+state: {
+  label: "[EXISTING] Mandatory SRState\nimmutable caller-carried snapshot · schema-v4 fingerprints"
+  style.fill: "#EEF7EA"
+}
+
+live: {
+  label: "[EXISTING] LiveRuntime.on_closed_bar\nsparse exact windows · explicit genesis\noutput only for a winning CAS"
+  style.fill: "#EEF7EA"
+}
+
+repository: {
+  label: "[EXISTING] CheckpointRepository\ngeneration-CAS · state-only contract"
+  style.fill: "#E8F1FF"
+}
+
+checkpoint: {
+  label: "[EXISTING] TimescaleCheckpointRepository\nregular latest row: sr_v2.checkpoints\ncanonical SRState payload only"
+  style.fill: "#E8F1FF"
+}
+
+trace: {
+  label: "[RESEARCH-ONLY · EXISTING] SRV2ResearchTrace\nbounded causal research evidence"
+  style.fill: "#FFF2D8"
+}
+
+scientific: {
+  label: "[RESEARCH-ONLY · NEW] ScientificObservationCompiler\nresolved ladder ontology · CREATED linkage\nstreaming actual/null episodes"
+  style.fill: "#FFF2D8"
+}
+
+targets: {
+  label: "[RESEARCH-ONLY · NEW] Candidate-independent targets\nN+1 TR-mean receipt · 15m first-passage grid\ntwo-stage touch/reaction view"
+  style.fill: "#FFF2D8"
+}
+
+nulls: {
+  label: "[RESEARCH-ONLY · NEW] feasible_random_price@3\ncausal kernel-window opportunities\npreserve stored asymmetric offsets"
+  style.fill: "#FFF2D8"
+}
+
+evaluation: {
+  label: "[RESEARCH-ONLY · NEW] Development evaluator\nexact typed groups · joint UTC blocks\nINVALID / INSUFFICIENT / INCONCLUSIVE"
+  style.fill: "#FFF2D8"
+}
+
+optimizer: {
+  label: "[RESEARCH-ONLY · NEW] Sealed development contract\ndevelopment_target_design@1 → development_global_geometry@1\nshared UTC draw · worst timeframe/kernel/side ranking"
+  style.fill: "#FFF2D8"
+}
+
+preflight: {
+  label: "[RESEARCH-ONLY · NEW] Native-panel preflight\nEpisodeArtifact@2 + source-slice identity · process-per-asset\nversioned @2 receipt · zero provider calls · measured ceilings"
+  style.fill: "#FFF2D8"
+}
+
+episode: {
+  label: "[RESEARCH-ONLY · NEW] Bounded episode evidence\nEpisodeEvidenceCollector → EpisodeArtifact@2\nmanifest + episodes JSONL · typed authenticated loader"
+  style.fill: "#FFF2D8"
+}
+
+indexed: {
+  label: "[RESEARCH-ONLY · NEW] Indexed target materialization\nshared native bars · common risk set\none target tuple at a time"
+  style.fill: "#FFF2D8"
+}
+
+viewer: {
+  label: "[RESEARCH-ONLY · EXISTING] Read-only viewer\ncutoff-local projection · no Decision integration"
+  style.fill: "#FFF2D8"
+}
+
+authorities -> source: "source/cache policy"
+authorities -> offline: "YAML hyperparameters · code-owned safety bounds"
+authorities -> live: "resolved config + lane identity"
+source -> replay: "authenticated source set"
+replay -> offline: "wraps one bounded loop"
+offline -> model: "SRStepRequest + mandatory state"
+live -> model: "SRStepRequest + mandatory state"
+model -> kernels: "ordered KernelSpec evaluation"
+model -> state: "SRStepResult.state"
+state -> offline: "caller carries next state"
+model -> live: "SRStepResult before CAS"
+live -> repository: "propose canonical state"
+repository -> checkpoint: "load / generation-CAS"
+offline -> replay: "final result + step callback"
+replay -> trace: "SRV2ResearchTrace"
+trace -> viewer: "cutoff-local read-only projection"
+replay -> scientific: "eligible closed trigger callback"
+replay -> episode: "bounded on_step receipt + compact issuances"
+scientific -> targets: "exact issuance reference + future grid"
+scientific -> nulls: "exact kernel suffix + active zones"
+episode -> indexed: "authenticated integer indexes + shared bars"
+indexed -> targets: "one tuple at a time"
+targets -> evaluation: "actual target receipts"
+nulls -> evaluation: "matched null receipts"
+optimizer -> replay: "resolved development windows and sealed model family"
+preflight -> optimizer: "baseline resource receipt and exact identity"
+evaluation -> optimizer: "typed geometry evidence only"

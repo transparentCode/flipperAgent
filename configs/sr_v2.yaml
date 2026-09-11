@@ -1,0 +1,28 @@
+version: 2
+runtime:
+  ladder: [1d, 6h, 4h, 1h, 30m, 15m]
+  trigger_timeframe: 15m
+kernels:
+  previous_period_anchor@1:
+    timeframes:
+      1d: {enabled: true, atr_period: 14, zone_half_width_atr: 0.25}
+      6h: {enabled: true, atr_period: 14, zone_half_width_atr: 0.25}
+      4h: {enabled: true, atr_period: 14, zone_half_width_atr: 0.25}
+      1h: {enabled: true, atr_period: 14, zone_half_width_atr: 0.25}
+      30m: {enabled: true, atr_period: 14, zone_half_width_atr: 0.25}
+      15m: {enabled: true, atr_period: 14, zone_half_width_atr: 0.25}
+  plateau_sweep_reclaim@1:
+    timeframes:
+      1d: {enabled: true, atr_period: 14, lookback_bars: 20, minimum_plateau_touches: 3, equality_tolerance_atr: 0.25, minimum_sweep_atr: 0.10, zone_half_width_atr: 0.25}
+      6h: {enabled: true, atr_period: 14, lookback_bars: 20, minimum_plateau_touches: 3, equality_tolerance_atr: 0.25, minimum_sweep_atr: 0.10, zone_half_width_atr: 0.25}
+      4h: {enabled: true, atr_period: 14, lookback_bars: 20, minimum_plateau_touches: 3, equality_tolerance_atr: 0.25, minimum_sweep_atr: 0.10, zone_half_width_atr: 0.25}
+      1h: {enabled: true, atr_period: 14, lookback_bars: 20, minimum_plateau_touches: 3, equality_tolerance_atr: 0.25, minimum_sweep_atr: 0.10, zone_half_width_atr: 0.25}
+      30m: {enabled: true, atr_period: 14, lookback_bars: 20, minimum_plateau_touches: 3, equality_tolerance_atr: 0.25, minimum_sweep_atr: 0.10, zone_half_width_atr: 0.25}
+      15m: {enabled: true, atr_period: 14, lookback_bars: 20, minimum_plateau_touches: 3, equality_tolerance_atr: 0.25, minimum_sweep_atr: 0.10, zone_half_width_atr: 0.25}
+lifecycle:
+  break_buffer_atr: 0.50
+  break_confirmation_bars: 2
+  expiry: 90d
+state_bounds:
+  active_lineages: 1024
+  terminal_tombstones: 512

@@ -1,0 +1,108 @@
+schema: analysis-capabilities.catalog.v1
+package: libs.analysis_capabilities
+execution_package: libs.analysis_capabilities.execution
+invocation_package: libs.analysis_capabilities.invocation
+components:
+  - catalog
+  - invocation_spec
+  - invocation.contracts
+  - invocation.executor
+  - execution.adapters
+capabilities:
+  - model.regression
+  - model.sr
+  - model.trendlines
+  - ta.abcd_pattern_geometry
+  - ta.anchored_vwap_path
+  - ta.cypher_pattern_geometry
+  - ta.elliott_correction_wave_geometry
+  - ta.elliott_impulse_wave_geometry
+  - ta.fibonacci_geometry
+  - ta.fibonacci_trend_extension_geometry
+  - ta.gann_box_geometry
+  - ta.gann_fan_geometry
+  - ta.head_shoulders_pattern_geometry
+  - ta.parallel_channel_geometry
+  - ta.swing_anchors
+  - ta.three_drives_pattern_geometry
+  - ta.traditional_pivot_geometry
+  - ta.triangle_pattern_geometry
+  - ta.volume_profile_geometry
+  - ta.vwap_geometry
+  - ta.xabcd_pattern_geometry
+trust_boundary:
+  source_adapter: external_r3
+  source_adapter_in_scope: false
+  source_authentication_in_scope: false
+  host_attestation: true
+  native_cutoff_reconciliation: true
+execution:
+  network: false
+  database: false
+  persistence: false
+  dynamic_plugins: false
+  decision_activation: false
+r4a:
+  deterministic_kernels:
+    - ta.anchored_vwap_path
+    - ta.fibonacci_trend_extension_geometry
+    - ta.parallel_channel_geometry
+  taxonomy: docs/architecture/analysis_capabilities/tool-taxonomy.yaml
+  recommender: docs/architecture/analysis_capabilities/tool-recommender.md
+  model_training: false
+  selection_integration: false
+r4b:
+  deterministic_kernels:
+    - ta.gann_box_geometry
+    - ta.gann_fan_geometry
+    - ta.volume_profile_geometry
+  volume_profile_method: volume_profile.explicit_range_uniform_overlap.v1
+  volume_profile_range_selection: caller_owned
+  lower_timeframe_selection: false
+  hvn_lvn: false
+  recommender_change: false
+r4c:
+  deterministic_kernels:
+    - ta.abcd_pattern_geometry
+    - ta.xabcd_pattern_geometry
+    - ta.head_shoulders_pattern_geometry
+    - ta.triangle_pattern_geometry
+  anchor_selection: caller_owned_explicit_swing_anchors
+  bar_coordinate: ordinal
+  automatic_detection: false
+  named_harmonic_classification: false
+  triangle_subtype_classification: false
+  predictive_output: false
+r4d:
+  deterministic_kernels:
+    - ta.cypher_pattern_geometry
+    - ta.three_drives_pattern_geometry
+    - ta.elliott_impulse_wave_geometry
+    - ta.elliott_correction_wave_geometry
+  anchor_selection: caller_owned_explicit_swing_anchors
+  automatic_detection: false
+  named_harmonic_classification: false
+  elliott_theory_validation: false
+  predictive_output: false
+r3:
+  source_revision: analysis.canonical_market_slice.v1
+  canonical_series:
+    asset: BTCUSDT
+    venue: binance
+    instrument_id: BTC-USDT-PERP
+    timeframe: 4h
+  source_type: provider
+  source_provider: binance_native
+  source_timeframe: null
+  request_adapters:
+    - model.trendlines
+    - ta.swing_anchors
+    - ta.vwap_geometry
+    - ta.traditional_pivot_geometry
+    - ta.fibonacci_geometry
+  viewer:
+    package: research.analysis_capabilities.r3_tvlc
+    renderer: libs.models.trendlines_v4.research_lab.tvlc
+    lightweight_charts_version: 5.2.1
+  network_acquisition: false
+  real_source_execution: false

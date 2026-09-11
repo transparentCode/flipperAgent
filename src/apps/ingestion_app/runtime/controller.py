@@ -63,6 +63,7 @@ class RuntimeController:
         self._observability = observability
         self._desired_state = DesiredRuntimeState.RUNNING
         self._last_error: str | None = None
+        self._terminal_error: str | None = None
         self._fatal_error: str | None = None
         self._started = False
         self._operation_lock = asyncio.Lock()
@@ -86,23 +87,42 @@ class RuntimeController:
         self._sync_supervisor_quarantine()
         supervisor = self._supervisor or self._status_supervisor
         if supervisor is None:
-            state = RuntimeState.ERROR if self._last_error else RuntimeState.STOPPED
+            error = self._fatal_error or self._terminal_error or self._last_error
+            state = RuntimeState.ERROR if error else RuntimeState.STOPPED
             return RuntimeSnapshot(
                 desired_state=self._desired_state,
                 state=state,
-                last_error=self._last_error,
+                last_error=error,
             )
 
         supervisor_snapshot = supervisor.snapshot()
+        if (
+            self._supervisor is supervisor
+            and supervisor_snapshot.state is RuntimeState.LIVE
+            and self._fatal_error is None
+            and self._terminal_error is None
+        ):
+            self._last_error = None
+            return RuntimeSnapshot(
+                desired_state=self._desired_state,
+                state=RuntimeState.LIVE,
+                last_error=None,
+            )
         if supervisor_snapshot.last_error is not None:
             self._last_error = supervisor_snapshot.last_error
         state = supervisor_snapshot.state
-        if self._last_error is not None or self._fatal_error is not None:
+        if self._terminal_error is not None or self._fatal_error is not None:
             state = RuntimeState.ERROR
+        error = (
+            self._fatal_error
+            or self._terminal_error
+            or supervisor_snapshot.last_error
+            or self._last_error
+        )
         return RuntimeSnapshot(
             desired_state=self._desired_state,
             state=state,
-            last_error=supervisor_snapshot.last_error or self._last_error,
+            last_error=error,
         )
 
     def _sync_supervisor_quarantine(self) -> None:
@@ -172,7 +192,8 @@ class RuntimeController:
         except TransportDeadlineExceeded as exc:
             self._latch_fatal(exc)
         except Exception as exc:  # noqa: BLE001
-            self._last_error = str(exc)
+            self._terminal_error = str(exc)
+            self._last_error = self._terminal_error
             self._sync_supervisor_quarantine()
         else:
             self._sync_supervisor_quarantine()
@@ -222,6 +243,7 @@ class RuntimeController:
         self._supervisor = supervisor
         if supervisor is not None:
             self._status_supervisor = supervisor
+            self._terminal_error = None
         if self._observability is not None:
             self._observability.install_active_lanes(
                 () if supervisor is None else supervisor.active_lanes

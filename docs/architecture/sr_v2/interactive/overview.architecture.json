@@ -1,0 +1,238 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "IMPLEMENTED BASE / RESEARCH ONLY — Architecture record · no deployment or promotion claim — SR v2 structural research HLD",
+    "output": "overview.html",
+    "quality_profile": "showcase",
+    "viewBox": [1390, 750]
+  },
+  "components": [
+    {
+      "id": "authorities",
+      "type": "security",
+      "label": "[EXISTING] Resolved YAML authorities",
+      "sublabel": "model · trial · notebook",
+      "tag": "YAML hyperparameters; code owns safety bounds",
+      "pos": [40, 33],
+      "size": [300, 78]
+    },
+    {
+      "id": "source",
+      "type": "external",
+      "label": "[RESEARCH-ONLY · EXISTING] Authenticated source set",
+      "sublabel": "BinanceUSDMResearchLoader → SourceBarRecord → ResearchSourceSetManifest",
+      "tag": "source/cache policy",
+      "pos": [400, 33],
+      "size": [430, 78]
+    },
+    {
+      "id": "replay",
+      "type": "backend",
+      "label": "[RESEARCH-ONLY · EXISTING] SRV2ResearchReplay.run",
+      "sublabel": "wraps OfflineCompute · research trace",
+      "tag": "one bounded research loop",
+      "pos": [900, 33],
+      "size": [360, 78]
+    },
+    {
+      "id": "offline",
+      "type": "backend",
+      "label": "[EXISTING] OfflineCompute.run",
+      "sublabel": "caller-supplied closed SRBar windows · explicit modes",
+      "tag": "stateless facade",
+      "pos": [80, 189],
+      "size": [360, 88]
+    },
+    {
+      "id": "model",
+      "type": "backend",
+      "label": "[EXISTING] SRModel.step",
+      "sublabel": "SRStepRequest → SRStepResult · mandatory SRState",
+      "tag": "stateless closed-bar PIT computation",
+      "pos": [560, 189],
+      "size": [370, 88]
+    },
+    {
+      "id": "kernels",
+      "type": "backend",
+      "label": "[EXISTING] Ordered selected KERNEL_CATALOG",
+      "sublabel": "KernelSpec · previous_period_anchor@1 · plateau_sweep_reclaim@1",
+      "tag": "exact suffixes; bounded output",
+      "pos": [1000, 189],
+      "size": [350, 88]
+    },
+    {
+      "id": "live",
+      "type": "backend",
+      "label": "[EXISTING] LiveRuntime.on_closed_bar",
+      "sublabel": "sparse exact windows · explicit genesis · winner-only output",
+      "tag": "resolved config + lane identity · caller-carried state",
+      "pos": [80, 353],
+      "size": [400, 90]
+    },
+    {
+      "id": "state",
+      "type": "backend",
+      "label": "[EXISTING] Mandatory SRState",
+      "sublabel": "immutable caller-carried snapshot · schema-v4 fingerprints",
+      "tag": "next state",
+      "pos": [560, 353],
+      "size": [370, 82]
+    },
+    {
+      "id": "trace",
+      "type": "backend",
+      "label": "[RESEARCH-ONLY · EXISTING] SRV2ResearchTrace",
+      "sublabel": "bounded causal research evidence",
+      "tag": "research-only",
+      "pos": [1040, 353],
+      "size": [320, 78]
+    },
+    {
+      "id": "repository",
+      "type": "backend",
+      "label": "[EXISTING] CheckpointRepository",
+      "sublabel": "generation-CAS · state-only contract",
+      "tag": "injected repository",
+      "pos": [80, 517],
+      "size": [360, 78]
+    },
+    {
+      "id": "checkpoint",
+      "type": "database",
+      "label": "[EXISTING] TimescaleCheckpointRepository",
+      "sublabel": "regular latest row: sr_v2.checkpoints",
+      "tag": "canonical SRState payload only",
+      "pos": [80, 648],
+      "size": [410, 78]
+    },
+    {
+      "id": "viewer",
+      "type": "frontend",
+      "label": "[RESEARCH-ONLY · EXISTING] Read-only viewer",
+      "sublabel": "cutoff-local projection · no Decision integration",
+      "tag": "inspection",
+      "pos": [1040, 517],
+      "size": [330, 78]
+    }
+  ],
+  "connections": [
+    {
+      "id": "authority-source",
+      "from": "authorities",
+      "to": "source",
+      "label": "source/cache policy",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [370, 25]
+    },
+    {
+      "id": "authority-offline",
+      "from": "authorities",
+      "to": "offline",
+      "label": "YAML hyperparameters + safety bounds",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [370, 168]
+    },
+    {
+      "id": "source-replay",
+      "from": "source",
+      "to": "replay",
+      "label": "authenticated source set",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [865, 21]
+    },
+    {
+      "id": "replay-offline",
+      "from": "replay",
+      "to": "offline",
+      "label": "wraps one bounded loop",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [700, 135]
+    },
+    {
+      "id": "offline-model",
+      "from": "offline",
+      "to": "model",
+      "label": "SRStepRequest + mandatory state",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [500, 291]
+    },
+    {
+      "id": "model-kernels",
+      "from": "model",
+      "to": "kernels",
+      "label": "ordered KernelSpec evaluation",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [985, 176]
+    },
+    {
+      "id": "model-state",
+      "from": "model",
+      "to": "state",
+      "label": "SRStepResult.state",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [800, 320]
+    },
+    {
+      "id": "model-live",
+      "from": "model",
+      "to": "live",
+      "label": "SRStepResult before CAS",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [[745, 300], [280, 300], [280, 353]],
+      "labelAt": [400, 320]
+    },
+    {
+      "id": "live-repository",
+      "from": "live",
+      "to": "repository",
+      "label": "propose canonical state",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [500, 472]
+    },
+    {
+      "id": "repository-checkpoint",
+      "from": "repository",
+      "to": "checkpoint",
+      "label": "load / generation-CAS",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [520, 603]
+    },
+    {
+      "id": "replay-trace",
+      "from": "replay",
+      "to": "trace",
+      "label": "SRV2ResearchTrace",
+      "fromSide": "right",
+      "toSide": "right",
+      "via": [[1380, 72], [1380, 392]],
+      "labelAt": [1330, 291]
+    },
+    {
+      "id": "trace-viewer",
+      "from": "trace",
+      "to": "viewer",
+      "label": "cutoff-local read-only projection",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [980, 472]
+    }
+  ]
+}

@@ -97,6 +97,23 @@ operator capabilities.
   Keep domain/model invariants close to their owning module; do not add config or
   shared constants solely to avoid literals.
 
+## Architecture Diagram Policy
+
+- D2 is the canonical architecture source.
+- For architecture changes, update the relevant
+  `docs/architecture/<app>/*.d2`, `catalog.yaml`, and README files.
+- Render canonical SVGs with:
+  `./scripts/render_d2.sh <input.d2> <output.svg>`.
+- Use Archify when an interactive HTML diagram is requested.
+- Archify JSON/HTML must be derived from the reviewed D2 and repository evidence;
+  never maintain independent architecture facts in Archify.
+- Combined workflow:
+  update D2 -> render SVG -> create Archify artifact -> validate -> visual-check.
+- Preserve exact component names, APIs, protocols, timestamps, symbols,
+  provenance, and quant/PIT semantics.
+- Do not use network capture or `--open` without explicit approval.
+- Tasks without diagram changes do not require D2 or Archify.
+
 ## Handoffs
 
 The orchestrator owns plans/ handoffs and the stage templates in

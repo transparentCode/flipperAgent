@@ -15,6 +15,7 @@ from apps.ingestion_app.domain.recovery import RecoveryRequest
 from apps.ingestion_app.observability import IngestionObservability
 from apps.ingestion_app.providers.base import (
     HistoricalCandleProvider,
+    ProviderAvailabilityError,
     TransportDeadlineExceeded,
 )
 from apps.ingestion_app.services.candle_ingestion import CandleIngestionService
@@ -29,6 +30,10 @@ from libs.common.exceptions import DataIngestionError
 from libs.common.logging.logger_utils import bind_logger
 
 _LOGGER = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_ENGINE)
+
+
+class RecoveryExhaustedError(DataIngestionError):
+    """All configured providers completed but a recovery page is still incomplete."""
 
 
 @dataclass(slots=True)
@@ -412,6 +417,7 @@ class RecoveryEngine:
         if wait_seconds > 0:
             await self._settlement_sleep(wait_seconds)
 
+        last_provider_error: ProviderAvailabilityError | None = None
         for provider_id, provider, provider_symbol in routes:
             for attempt in range(1, self.max_attempts_per_provider + 1):
                 try:
@@ -428,16 +434,21 @@ class RecoveryEngine:
                     # falling through to another provider could overlap the
                     # still-running SDK operation.
                     raise
-                except DataIngestionError as exc:
+                except ProviderAvailabilityError as exc:
+                    last_provider_error = exc
+                    cause = exc.__cause__
                     _LOGGER.warning(
                         "recovery provider attempt failed: provider=%s lane=%s "
-                        "page=[%s,%s) attempt=%d/%d error=%s",
+                        "page=[%s,%s) attempt=%d/%d cause_type=%s error=%s",
                         provider_id,
                         request.lane,
                         page_start,
                         page_end,
                         attempt,
                         self.max_attempts_per_provider,
+                        type(cause).__name__
+                        if cause is not None
+                        else type(exc).__name__,
                         exc,
                     )
                     if attempt < self.max_attempts_per_provider:
@@ -485,10 +496,13 @@ class RecoveryEngine:
             alignment_origin=alignment_origin,
         )
         if not complete:
-            raise DataIngestionError(
+            error = RecoveryExhaustedError(
                 f"recovery exhausted for lane {request.lane} page "
                 f"[{page_start},{page_end}); missing {missing_count} candles"
             )
+            if last_provider_error is not None:
+                raise error from last_provider_error
+            raise error
 
     async def _recover_impl(
         self,
@@ -623,4 +637,4 @@ class RecoveryEngine:
                 return result
 
 
-__all__ = ["RecoveryEngine"]
+__all__ = ["RecoveryEngine", "RecoveryExhaustedError"]

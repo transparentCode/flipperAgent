@@ -1,0 +1,29 @@
+{
+  "kind": "intentional_SIGINT_negative_cleanup_smoke_not_soak",
+  "guard_sha256": "9328b717ee81b9c7554cdacd65a1e9845ff3a3b9ed355fe3367c7649f256aa67",
+  "command": ".venv/bin/python scripts/host_sleep_guard.py --max-check-gap 60 -- /bin/sleep 180",
+  "expected_exit_code": 130,
+  "observed_exit_code": 130,
+  "owned_assertion_verified": "PreventUserIdleSystemSleep from caffeinate97437 for guard97435; argv-i-w",
+  "battery_queried": false,
+  "sut_or_mcp_modified": false,
+  "guard_record": {
+    "assertion_pid": 97437,
+    "child_pid": 97440,
+    "child_returncode": -15,
+    "cleanup_results": {
+      "assertion": {"failure_code": null,"group_state": "ABSENT","leader_reaped": true,"success": true},
+      "child": {"failure_code": null,"group_state": "ABSENT","leader_reaped": true,"success": true}
+    },
+    "event": "host_sleep_guard",
+    "finished_at": "2026-09-10T16:01:53.307085Z",
+    "last_successful_full_verification_at": "2026-09-10T16:01:53.304299Z",
+    "max_check_gap_seconds": 60.0,
+    "primary_reason_code": "GUARD_SIGNAL",
+    "probe_diagnostic": null,
+    "reason_code": "GUARD_SIGNAL",
+    "started_at": "2026-09-10T16:01:38.048525Z",
+    "status": "FAILED"
+  },
+  "interpretation": "Expected fail-closed on operator signal; both owned targets reaped and absent; no claim of historical cleanup root cause."
+}

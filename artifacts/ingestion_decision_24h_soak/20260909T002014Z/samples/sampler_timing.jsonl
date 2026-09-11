@@ -1,0 +1,1 @@
+{"collector_duration_ms": {"gate": 2504.648, "health": 129.59, "logs": 4447.032, "pipeline": 1056.874, "resource": 6005.32, "storage": 1882.905}, "duration_ms": 16026.672, "phase": "finalizing", "timestamp": "2026-09-09T00:46:20.638241+00:00"}

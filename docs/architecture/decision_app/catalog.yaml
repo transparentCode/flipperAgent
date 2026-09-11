@@ -19,6 +19,19 @@ contracts:
   dependency_graph: static_acyclic
   authoritative_results: zero_or_one_per_lane_and_market_as_of
 
+# Informational mirror only; authoritative numeric defaults remain in
+# configs/decision/global.yaml.
+runtime_deadlines:
+  startup_and_first_generation_seconds: 120
+  valkey_command_and_db_acquisition_seconds: 5
+  db_operation_seconds: 15
+  control_admission_and_drain_seconds: 30
+  aggregate_cleanup_seconds: 5
+  cleanup_budget: one_lazy_budget_shared_by_one_owner
+  startup_failure_cleanup_cap: startup_expiry_plus_cleanup_budget
+  borrowed_resource_close: prohibited
+  unconfirmed_release: retain_and_fence_reuse
+
 components:
   - name: asset_runtime
     role: >-
@@ -87,11 +100,18 @@ flows:
   - name: startup
     steps:
       - resolve streams and static graph
+      - establish one absolute 120-second startup/generation deadline
       - capture stream tails and DB cutoffs
       - warm from Timescale through cutoffs
       - causal stateful re-warm with publication suppressed
       - verify cutoffs
       - consume post-cutoff live events
+  - name: shutdown
+    steps:
+      - admit control and drain effect work within 30 seconds
+      - activate one aggregate 5-second cleanup budget
+      - close owned resources after quiescence
+      - retain and fence ownership when release is unconfirmed
   - name: gap_recovery
     steps:
       - detect stream gap

@@ -1,0 +1,19 @@
+{
+  "source_sha": "72e88a6b38077b0d3c29c2d5f7518a0a072b6664",
+  "export_root": "artifacts/ingestion_decision_24h_soak/20260908T005721Z/run-local/source",
+  "export_scopes": [
+    "Dockerfile",
+    ".dockerignore",
+    "docker-compose.yml",
+    "pyproject.toml",
+    "README.md",
+    "src",
+    "configs",
+    "sql",
+    "scripts/host_sleep_guard.py"
+  ],
+  "file_count": 1793,
+  "mismatch": [],
+  "tree_sha256": "241c98d46d41a64e9257055202ae7fff107735135e83a0c7cac820c0d1c1e1dd",
+  "digest_format": "sha256 of sorted relative paths formatted as SHA256 two spaces path newline; every exported blob verified against git ls-tree"
+}

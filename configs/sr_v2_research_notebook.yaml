@@ -1,0 +1,21 @@
+version: 2
+research:
+  venue: binance_usdm
+  instrument_id: BTCUSDT
+  asset: BTCUSDT
+  analysis_start: 2025-06-01T00:00:00+00:00
+  knowledge_cutoff: 2026-08-30T00:00:00+00:00
+  source_mode: CACHE_ONLY
+  cache_root: .cache/sr_v2_research
+  max_replay_steps: 60000
+  replay_identity_mode: WINDOW_RELATIVE
+display:
+  iframe_height: 720
+  candle_limit: 50000
+  initial_mode: formation
+  show_zones: true
+  show_candidates: false
+  show_inspector: false
+  show_history: false
+  volume_pane_fraction: 0.20
+  volume_pane_min_height: 96

@@ -1,0 +1,80 @@
+version: "1"
+
+trial:
+  trial_name: sr-v1.8-1d-geometry-sensitivity
+  venue: binance_usdm
+  timeframe: 1d
+  assets: [TAOUSDT, BTCUSDT, ETHUSDT, SOLUSDT]
+
+inputs:
+  v17_config_path: configs/sr_trials/sr_v1_7_1d_cohort_readiness.yaml
+  v17_config_hash: 370d2b66e8e3031b0df8547e8b52c61288e14c5d1b858612ce9fae712e1690a7
+  source_bundle_path: research/tmp_sr_v1_7/source/6b5a0a81117ba299516fb67ca2da81b3cb6e6f35ed6a85986a27689205a565d9
+  source_bundle_id: 6b5a0a81117ba299516fb67ca2da81b3cb6e6f35ed6a85986a27689205a565d9
+  source_implementation_commit: be6459a8e06ec95b634b2cfb2b91a08cd31d9ba2
+  evaluation_bundle_path: research/tmp_sr_v1_7/evaluation/824e9265a63073ba792762a891adf52deec9677d791c40641dc0107c1f2b840d
+  evaluation_bundle_id: 824e9265a63073ba792762a891adf52deec9677d791c40641dc0107c1f2b840d
+  evaluation_id: 49a895360774ec0c46349eae2d1ec6f56e7262e5f1411ab992f9886d9040fa8d
+  evaluation_implementation_commit: 4cb069af6142dbd7dadf7a5ebef49d2da0ba26a7
+  sr_config_path: configs/sr.yaml
+  input_config_path: configs/sr_inputs.yaml
+  frozen_sr_config_hash: cb9b4143921de95c5423899a5655fef0b186cf1f8e9a84c69427bf64df030299
+  frozen_input_hash: 5ece92803341696df06efa0dba5d7a44ee0f5451aa3ce6555d3a4ef6c59fab6d
+
+protocol:
+  atr:
+    method: wilder_rma
+    period: 14
+    seed: sma
+    common_start_period: 28
+  outcome:
+    start_offset_bars: 1
+    horizon_bars: 10
+    window_policy: half_open_utc_daily
+  folds:
+    - name: 2024_q3
+      start: "2024-07-01T00:00:00Z"
+      end: "2024-10-01T00:00:00Z"
+    - name: 2024_q4
+      start: "2024-10-01T00:00:00Z"
+      end: "2025-01-01T00:00:00Z"
+    - name: 2025_q1
+      start: "2025-01-01T00:00:00Z"
+      end: "2025-04-01T00:00:00Z"
+    - name: 2025_q2
+      start: "2025-04-01T00:00:00Z"
+      end: "2025-07-01T00:00:00Z"
+    - name: 2025_q3
+      start: "2025-07-01T00:00:00Z"
+      end: "2025-10-01T00:00:00Z"
+    - name: 2025_q4
+      start: "2025-10-01T00:00:00Z"
+      end: "2026-01-01T00:00:00Z"
+  readiness:
+    minimum_completed_first_touches_per_fold: 4
+    minimum_eligible_development_folds: 4
+    minimum_development_completed_first_touches: 24
+
+candidate_grid:
+  pivot_span_bars: [3, 5, 7]
+  zone_half_width_atr: [0.15, 0.25, 0.35]
+
+selection:
+  minimum_completed_first_touches_per_fold: 4
+  minimum_eligible_development_folds: 4
+  minimum_development_completed_first_touches: 24
+  minimum_comparable_folds_per_asset: 4
+  minimum_comparable_asset_fold_units: 16
+  minimum_median_asset_delta: 0.10
+  minimum_micro_delta: 0.10
+  minimum_positive_asset_count: 3
+  minimum_worst_asset_delta: -0.10
+  minimum_asset_fold_win_fraction: 0.60
+  maximum_invalidation_rate_delta: 0.05
+  minimum_zone_creation_density_ratio: 0.50
+  maximum_zone_creation_density_ratio: 2.00
+  maximum_churn_rate_delta: 0.10
+  maximum_right_censoring_rate_delta: 0.10
+
+output:
+  root: research/tmp_sr_v1_8

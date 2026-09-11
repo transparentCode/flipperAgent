@@ -2183,3 +2183,843 @@ ValueError: Cannot invoke RPC on closed channel!
 2026-08-20 21:15:56,752 | WARNING  | opentelemetry.metrics._internal | Overriding of current MeterProvider is not allowed
 2026-08-20 21:15:56,752 | WARNING  | opentelemetry.sdk.metrics._internal | A shutdown `MeterProvider` can not provide a `Meter`
 2026-08-20 21:15:56,753 | WARNING  | opentelemetry.sdk.metrics._internal | shutdown can only be called once
+2026-09-06 16:38:44,300 | ERROR    | opentelemetry.sdk.metrics._internal.export | Exception while exporting metrics
+Traceback (most recent call last):
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/sdk/metrics/_internal/export/__init__.py", line 581, in _receive_metrics
+    self._exporter.export(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        metrics_data, timeout_millis=timeout_millis
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/metric_exporter/__init__.py", line 186, in export
+    return self._export(data=metrics_data)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/exporter.py", line 465, in _export
+    self._client.Export(
+    ~~~~~~~~~~~~~~~~~~~^
+        request=self._translate_data(data),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        metadata=self._headers,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+        timeout=deadline_sec - time(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1165, in __call__
+    state, call = self._blocking(
+                  ~~~~~~~~~~~~~~^
+        request, timeout, metadata, credentials, wait_for_ready, compression
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1136, in _blocking
+    call = self._channel.segregated_call(
+        cygrpc.PropagationConstants.GRPC_PROPAGATE_DEFAULTS,
+    ...<12 lines>...
+        self._registered_call_handle,
+    )
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+2026-09-06 16:38:44,305 | WARNING  | opentelemetry.trace | Overriding of current TracerProvider is not allowed
+2026-09-06 16:38:44,305 | WARNING  | opentelemetry.metrics._internal | Overriding of current MeterProvider is not allowed
+2026-09-06 16:38:44,305 | WARNING  | opentelemetry.sdk.metrics._internal | A shutdown `MeterProvider` can not provide a `Meter`
+2026-09-06 16:38:44,306 | WARNING  | opentelemetry.sdk.metrics._internal | shutdown can only be called once
+2026-09-06 18:50:34,652 | ERROR    | opentelemetry.sdk.metrics._internal.export | Exception while exporting metrics
+Traceback (most recent call last):
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/sdk/metrics/_internal/export/__init__.py", line 581, in _receive_metrics
+    self._exporter.export(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        metrics_data, timeout_millis=timeout_millis
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/metric_exporter/__init__.py", line 186, in export
+    return self._export(data=metrics_data)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/exporter.py", line 465, in _export
+    self._client.Export(
+    ~~~~~~~~~~~~~~~~~~~^
+        request=self._translate_data(data),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        metadata=self._headers,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+        timeout=deadline_sec - time(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1165, in __call__
+    state, call = self._blocking(
+                  ~~~~~~~~~~~~~~^
+        request, timeout, metadata, credentials, wait_for_ready, compression
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1136, in _blocking
+    call = self._channel.segregated_call(
+        cygrpc.PropagationConstants.GRPC_PROPAGATE_DEFAULTS,
+    ...<12 lines>...
+        self._registered_call_handle,
+    )
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+2026-09-06 18:50:34,658 | WARNING  | opentelemetry.trace | Overriding of current TracerProvider is not allowed
+2026-09-06 18:50:34,658 | WARNING  | opentelemetry.metrics._internal | Overriding of current MeterProvider is not allowed
+2026-09-06 18:50:34,658 | WARNING  | opentelemetry.sdk.metrics._internal | A shutdown `MeterProvider` can not provide a `Meter`
+2026-09-06 18:50:34,658 | WARNING  | opentelemetry.sdk.metrics._internal | shutdown can only be called once
+2026-09-06 18:54:01,414 | ERROR    | opentelemetry.sdk.metrics._internal.export | Exception while exporting metrics
+Traceback (most recent call last):
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/sdk/metrics/_internal/export/__init__.py", line 581, in _receive_metrics
+    self._exporter.export(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        metrics_data, timeout_millis=timeout_millis
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/metric_exporter/__init__.py", line 186, in export
+    return self._export(data=metrics_data)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/exporter.py", line 465, in _export
+    self._client.Export(
+    ~~~~~~~~~~~~~~~~~~~^
+        request=self._translate_data(data),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        metadata=self._headers,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+        timeout=deadline_sec - time(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1165, in __call__
+    state, call = self._blocking(
+                  ~~~~~~~~~~~~~~^
+        request, timeout, metadata, credentials, wait_for_ready, compression
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1136, in _blocking
+    call = self._channel.segregated_call(
+        cygrpc.PropagationConstants.GRPC_PROPAGATE_DEFAULTS,
+    ...<12 lines>...
+        self._registered_call_handle,
+    )
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+2026-09-06 18:54:01,419 | WARNING  | opentelemetry.trace | Overriding of current TracerProvider is not allowed
+2026-09-06 18:54:01,419 | WARNING  | opentelemetry.metrics._internal | Overriding of current MeterProvider is not allowed
+2026-09-06 18:54:01,419 | WARNING  | opentelemetry.sdk.metrics._internal | A shutdown `MeterProvider` can not provide a `Meter`
+2026-09-06 18:54:01,420 | WARNING  | opentelemetry.sdk.metrics._internal | shutdown can only be called once
+2026-09-06 18:55:29,317 | ERROR    | opentelemetry.sdk.metrics._internal.export | Exception while exporting metrics
+Traceback (most recent call last):
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/sdk/metrics/_internal/export/__init__.py", line 581, in _receive_metrics
+    self._exporter.export(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        metrics_data, timeout_millis=timeout_millis
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/metric_exporter/__init__.py", line 186, in export
+    return self._export(data=metrics_data)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/exporter.py", line 465, in _export
+    self._client.Export(
+    ~~~~~~~~~~~~~~~~~~~^
+        request=self._translate_data(data),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        metadata=self._headers,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+        timeout=deadline_sec - time(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1165, in __call__
+    state, call = self._blocking(
+                  ~~~~~~~~~~~~~~^
+        request, timeout, metadata, credentials, wait_for_ready, compression
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1136, in _blocking
+    call = self._channel.segregated_call(
+        cygrpc.PropagationConstants.GRPC_PROPAGATE_DEFAULTS,
+    ...<12 lines>...
+        self._registered_call_handle,
+    )
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+2026-09-06 18:55:29,322 | WARNING  | opentelemetry.trace | Overriding of current TracerProvider is not allowed
+2026-09-06 18:55:29,323 | WARNING  | opentelemetry.metrics._internal | Overriding of current MeterProvider is not allowed
+2026-09-06 18:55:29,323 | WARNING  | opentelemetry.sdk.metrics._internal | A shutdown `MeterProvider` can not provide a `Meter`
+2026-09-06 18:55:29,323 | WARNING  | opentelemetry.sdk.metrics._internal | shutdown can only be called once
+2026-09-06 18:56:05,428 | ERROR    | opentelemetry.sdk.metrics._internal.export | Exception while exporting metrics
+Traceback (most recent call last):
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/sdk/metrics/_internal/export/__init__.py", line 581, in _receive_metrics
+    self._exporter.export(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        metrics_data, timeout_millis=timeout_millis
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/metric_exporter/__init__.py", line 186, in export
+    return self._export(data=metrics_data)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/exporter.py", line 465, in _export
+    self._client.Export(
+    ~~~~~~~~~~~~~~~~~~~^
+        request=self._translate_data(data),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        metadata=self._headers,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+        timeout=deadline_sec - time(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1165, in __call__
+    state, call = self._blocking(
+                  ~~~~~~~~~~~~~~^
+        request, timeout, metadata, credentials, wait_for_ready, compression
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1136, in _blocking
+    call = self._channel.segregated_call(
+        cygrpc.PropagationConstants.GRPC_PROPAGATE_DEFAULTS,
+    ...<12 lines>...
+        self._registered_call_handle,
+    )
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+2026-09-06 18:56:05,433 | WARNING  | opentelemetry.trace | Overriding of current TracerProvider is not allowed
+2026-09-06 18:56:05,434 | WARNING  | opentelemetry.metrics._internal | Overriding of current MeterProvider is not allowed
+2026-09-06 18:56:05,434 | WARNING  | opentelemetry.sdk.metrics._internal | A shutdown `MeterProvider` can not provide a `Meter`
+2026-09-06 18:56:05,434 | WARNING  | opentelemetry.sdk.metrics._internal | shutdown can only be called once
+2026-09-07 15:36:08,263 | ERROR    | opentelemetry.sdk.metrics._internal.export | Exception while exporting metrics
+Traceback (most recent call last):
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/sdk/metrics/_internal/export/__init__.py", line 581, in _receive_metrics
+    self._exporter.export(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        metrics_data, timeout_millis=timeout_millis
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/metric_exporter/__init__.py", line 186, in export
+    return self._export(data=metrics_data)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/exporter.py", line 465, in _export
+    self._client.Export(
+    ~~~~~~~~~~~~~~~~~~~^
+        request=self._translate_data(data),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        metadata=self._headers,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+        timeout=deadline_sec - time(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1165, in __call__
+    state, call = self._blocking(
+                  ~~~~~~~~~~~~~~^
+        request, timeout, metadata, credentials, wait_for_ready, compression
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1136, in _blocking
+    call = self._channel.segregated_call(
+        cygrpc.PropagationConstants.GRPC_PROPAGATE_DEFAULTS,
+    ...<12 lines>...
+        self._registered_call_handle,
+    )
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+2026-09-07 15:36:08,268 | WARNING  | opentelemetry.trace | Overriding of current TracerProvider is not allowed
+2026-09-07 15:36:08,268 | WARNING  | opentelemetry.metrics._internal | Overriding of current MeterProvider is not allowed
+2026-09-07 15:36:08,268 | WARNING  | opentelemetry.sdk.metrics._internal | A shutdown `MeterProvider` can not provide a `Meter`
+2026-09-07 15:36:08,269 | WARNING  | opentelemetry.sdk.metrics._internal | shutdown can only be called once
+2026-09-07 15:41:01,111 | ERROR    | opentelemetry.sdk.metrics._internal.export | Exception while exporting metrics
+Traceback (most recent call last):
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/sdk/metrics/_internal/export/__init__.py", line 581, in _receive_metrics
+    self._exporter.export(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        metrics_data, timeout_millis=timeout_millis
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/metric_exporter/__init__.py", line 186, in export
+    return self._export(data=metrics_data)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/exporter.py", line 465, in _export
+    self._client.Export(
+    ~~~~~~~~~~~~~~~~~~~^
+        request=self._translate_data(data),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        metadata=self._headers,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+        timeout=deadline_sec - time(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1165, in __call__
+    state, call = self._blocking(
+                  ~~~~~~~~~~~~~~^
+        request, timeout, metadata, credentials, wait_for_ready, compression
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1136, in _blocking
+    call = self._channel.segregated_call(
+        cygrpc.PropagationConstants.GRPC_PROPAGATE_DEFAULTS,
+    ...<12 lines>...
+        self._registered_call_handle,
+    )
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+2026-09-07 15:41:01,117 | WARNING  | opentelemetry.trace | Overriding of current TracerProvider is not allowed
+2026-09-07 15:41:01,117 | WARNING  | opentelemetry.metrics._internal | Overriding of current MeterProvider is not allowed
+2026-09-07 15:41:01,117 | WARNING  | opentelemetry.sdk.metrics._internal | A shutdown `MeterProvider` can not provide a `Meter`
+2026-09-07 15:41:01,118 | WARNING  | opentelemetry.sdk.metrics._internal | shutdown can only be called once
+2026-09-07 15:41:08,546 | ERROR    | opentelemetry.sdk.metrics._internal.export | Exception while exporting metrics
+Traceback (most recent call last):
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/sdk/metrics/_internal/export/__init__.py", line 581, in _receive_metrics
+    self._exporter.export(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        metrics_data, timeout_millis=timeout_millis
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/metric_exporter/__init__.py", line 186, in export
+    return self._export(data=metrics_data)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/exporter.py", line 465, in _export
+    self._client.Export(
+    ~~~~~~~~~~~~~~~~~~~^
+        request=self._translate_data(data),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        metadata=self._headers,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+        timeout=deadline_sec - time(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1165, in __call__
+    state, call = self._blocking(
+                  ~~~~~~~~~~~~~~^
+        request, timeout, metadata, credentials, wait_for_ready, compression
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1136, in _blocking
+    call = self._channel.segregated_call(
+        cygrpc.PropagationConstants.GRPC_PROPAGATE_DEFAULTS,
+    ...<12 lines>...
+        self._registered_call_handle,
+    )
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+2026-09-07 15:41:08,550 | WARNING  | opentelemetry.trace | Overriding of current TracerProvider is not allowed
+2026-09-07 15:41:08,550 | WARNING  | opentelemetry.metrics._internal | Overriding of current MeterProvider is not allowed
+2026-09-07 15:41:08,550 | WARNING  | opentelemetry.sdk.metrics._internal | A shutdown `MeterProvider` can not provide a `Meter`
+2026-09-07 15:41:08,551 | WARNING  | opentelemetry.sdk.metrics._internal | shutdown can only be called once
+2026-09-08 06:18:51,391 | ERROR    | opentelemetry.sdk.metrics._internal.export | Exception while exporting metrics
+Traceback (most recent call last):
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/sdk/metrics/_internal/export/__init__.py", line 581, in _receive_metrics
+    self._exporter.export(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        metrics_data, timeout_millis=timeout_millis
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/metric_exporter/__init__.py", line 186, in export
+    return self._export(data=metrics_data)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/exporter.py", line 465, in _export
+    self._client.Export(
+    ~~~~~~~~~~~~~~~~~~~^
+        request=self._translate_data(data),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        metadata=self._headers,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+        timeout=deadline_sec - time(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1165, in __call__
+    state, call = self._blocking(
+                  ~~~~~~~~~~~~~~^
+        request, timeout, metadata, credentials, wait_for_ready, compression
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1136, in _blocking
+    call = self._channel.segregated_call(
+        cygrpc.PropagationConstants.GRPC_PROPAGATE_DEFAULTS,
+    ...<12 lines>...
+        self._registered_call_handle,
+    )
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+2026-09-08 06:18:51,396 | WARNING  | opentelemetry.trace | Overriding of current TracerProvider is not allowed
+2026-09-08 06:18:51,397 | WARNING  | opentelemetry.metrics._internal | Overriding of current MeterProvider is not allowed
+2026-09-08 06:18:51,397 | WARNING  | opentelemetry.sdk.metrics._internal | A shutdown `MeterProvider` can not provide a `Meter`
+2026-09-08 06:18:51,397 | WARNING  | opentelemetry.sdk.metrics._internal | shutdown can only be called once
+2026-09-11 07:42:17,150 | ERROR    | opentelemetry.sdk.metrics._internal.export | Exception while exporting metrics
+Traceback (most recent call last):
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/sdk/metrics/_internal/export/__init__.py", line 581, in _receive_metrics
+    self._exporter.export(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        metrics_data, timeout_millis=timeout_millis
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/metric_exporter/__init__.py", line 186, in export
+    return self._export(data=metrics_data)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/exporter.py", line 465, in _export
+    self._client.Export(
+    ~~~~~~~~~~~~~~~~~~~^
+        request=self._translate_data(data),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        metadata=self._headers,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+        timeout=deadline_sec - time(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1165, in __call__
+    state, call = self._blocking(
+                  ~~~~~~~~~~~~~~^
+        request, timeout, metadata, credentials, wait_for_ready, compression
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1136, in _blocking
+    call = self._channel.segregated_call(
+        cygrpc.PropagationConstants.GRPC_PROPAGATE_DEFAULTS,
+    ...<12 lines>...
+        self._registered_call_handle,
+    )
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+2026-09-11 07:42:17,157 | WARNING  | opentelemetry.trace | Overriding of current TracerProvider is not allowed
+2026-09-11 07:42:17,157 | WARNING  | opentelemetry.metrics._internal | Overriding of current MeterProvider is not allowed
+2026-09-11 07:42:17,157 | WARNING  | opentelemetry.sdk.metrics._internal | A shutdown `MeterProvider` can not provide a `Meter`
+2026-09-11 07:42:17,158 | WARNING  | opentelemetry.sdk.metrics._internal | shutdown can only be called once
+2026-09-11 16:48:19,400 | ERROR    | opentelemetry.sdk.metrics._internal.export | Exception while exporting metrics
+Traceback (most recent call last):
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/sdk/metrics/_internal/export/__init__.py", line 581, in _receive_metrics
+    self._exporter.export(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        metrics_data, timeout_millis=timeout_millis
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/metric_exporter/__init__.py", line 186, in export
+    return self._export(data=metrics_data)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/exporter.py", line 465, in _export
+    self._client.Export(
+    ~~~~~~~~~~~~~~~~~~~^
+        request=self._translate_data(data),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        metadata=self._headers,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+        timeout=deadline_sec - time(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1165, in __call__
+    state, call = self._blocking(
+                  ~~~~~~~~~~~~~~^
+        request, timeout, metadata, credentials, wait_for_ready, compression
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1136, in _blocking
+    call = self._channel.segregated_call(
+        cygrpc.PropagationConstants.GRPC_PROPAGATE_DEFAULTS,
+    ...<12 lines>...
+        self._registered_call_handle,
+    )
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+2026-09-11 16:48:19,405 | WARNING  | opentelemetry.trace | Overriding of current TracerProvider is not allowed
+2026-09-11 16:48:19,406 | WARNING  | opentelemetry.metrics._internal | Overriding of current MeterProvider is not allowed
+2026-09-11 16:48:19,406 | WARNING  | opentelemetry.sdk.metrics._internal | A shutdown `MeterProvider` can not provide a `Meter`
+2026-09-11 16:48:19,406 | WARNING  | opentelemetry.sdk.metrics._internal | shutdown can only be called once
+2026-09-11 16:50:40,042 | ERROR    | opentelemetry.sdk.metrics._internal.export | Exception while exporting metrics
+Traceback (most recent call last):
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/sdk/metrics/_internal/export/__init__.py", line 581, in _receive_metrics
+    self._exporter.export(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        metrics_data, timeout_millis=timeout_millis
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/metric_exporter/__init__.py", line 186, in export
+    return self._export(data=metrics_data)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/exporter.py", line 465, in _export
+    self._client.Export(
+    ~~~~~~~~~~~~~~~~~~~^
+        request=self._translate_data(data),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        metadata=self._headers,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+        timeout=deadline_sec - time(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1165, in __call__
+    state, call = self._blocking(
+                  ~~~~~~~~~~~~~~^
+        request, timeout, metadata, credentials, wait_for_ready, compression
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1136, in _blocking
+    call = self._channel.segregated_call(
+        cygrpc.PropagationConstants.GRPC_PROPAGATE_DEFAULTS,
+    ...<12 lines>...
+        self._registered_call_handle,
+    )
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+2026-09-11 16:50:40,048 | WARNING  | opentelemetry.trace | Overriding of current TracerProvider is not allowed
+2026-09-11 16:50:40,048 | WARNING  | opentelemetry.metrics._internal | Overriding of current MeterProvider is not allowed
+2026-09-11 16:50:40,048 | WARNING  | opentelemetry.sdk.metrics._internal | A shutdown `MeterProvider` can not provide a `Meter`
+2026-09-11 16:50:40,049 | WARNING  | opentelemetry.sdk.metrics._internal | shutdown can only be called once
+2026-09-11 16:53:03,731 | ERROR    | opentelemetry.sdk.metrics._internal.export | Exception while exporting metrics
+Traceback (most recent call last):
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/sdk/metrics/_internal/export/__init__.py", line 581, in _receive_metrics
+    self._exporter.export(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        metrics_data, timeout_millis=timeout_millis
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/metric_exporter/__init__.py", line 186, in export
+    return self._export(data=metrics_data)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/exporter.py", line 465, in _export
+    self._client.Export(
+    ~~~~~~~~~~~~~~~~~~~^
+        request=self._translate_data(data),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        metadata=self._headers,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+        timeout=deadline_sec - time(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1165, in __call__
+    state, call = self._blocking(
+                  ~~~~~~~~~~~~~~^
+        request, timeout, metadata, credentials, wait_for_ready, compression
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1136, in _blocking
+    call = self._channel.segregated_call(
+        cygrpc.PropagationConstants.GRPC_PROPAGATE_DEFAULTS,
+    ...<12 lines>...
+        self._registered_call_handle,
+    )
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+2026-09-11 16:53:03,737 | WARNING  | opentelemetry.trace | Overriding of current TracerProvider is not allowed
+2026-09-11 16:53:03,737 | WARNING  | opentelemetry.metrics._internal | Overriding of current MeterProvider is not allowed
+2026-09-11 16:53:03,737 | WARNING  | opentelemetry.sdk.metrics._internal | A shutdown `MeterProvider` can not provide a `Meter`
+2026-09-11 16:53:03,738 | WARNING  | opentelemetry.sdk.metrics._internal | shutdown can only be called once
+2026-09-11 21:46:14,210 | ERROR    | opentelemetry.sdk.metrics._internal.export | Exception while exporting metrics
+Traceback (most recent call last):
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/sdk/metrics/_internal/export/__init__.py", line 581, in _receive_metrics
+    self._exporter.export(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        metrics_data, timeout_millis=timeout_millis
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/metric_exporter/__init__.py", line 186, in export
+    return self._export(data=metrics_data)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/exporter.py", line 465, in _export
+    self._client.Export(
+    ~~~~~~~~~~~~~~~~~~~^
+        request=self._translate_data(data),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        metadata=self._headers,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+        timeout=deadline_sec - time(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1165, in __call__
+    state, call = self._blocking(
+                  ~~~~~~~~~~~~~~^
+        request, timeout, metadata, credentials, wait_for_ready, compression
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1136, in _blocking
+    call = self._channel.segregated_call(
+        cygrpc.PropagationConstants.GRPC_PROPAGATE_DEFAULTS,
+    ...<12 lines>...
+        self._registered_call_handle,
+    )
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+2026-09-11 21:46:14,215 | WARNING  | opentelemetry.trace | Overriding of current TracerProvider is not allowed
+2026-09-11 21:46:14,216 | WARNING  | opentelemetry.metrics._internal | Overriding of current MeterProvider is not allowed
+2026-09-11 21:46:14,216 | WARNING  | opentelemetry.sdk.metrics._internal | A shutdown `MeterProvider` can not provide a `Meter`
+2026-09-11 21:46:14,216 | WARNING  | opentelemetry.sdk.metrics._internal | shutdown can only be called once
+2026-09-11 21:47:40,674 | ERROR    | opentelemetry.sdk.metrics._internal.export | Exception while exporting metrics
+Traceback (most recent call last):
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/sdk/metrics/_internal/export/__init__.py", line 581, in _receive_metrics
+    self._exporter.export(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        metrics_data, timeout_millis=timeout_millis
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/metric_exporter/__init__.py", line 186, in export
+    return self._export(data=metrics_data)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/exporter.py", line 465, in _export
+    self._client.Export(
+    ~~~~~~~~~~~~~~~~~~~^
+        request=self._translate_data(data),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        metadata=self._headers,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+        timeout=deadline_sec - time(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1165, in __call__
+    state, call = self._blocking(
+                  ~~~~~~~~~~~~~~^
+        request, timeout, metadata, credentials, wait_for_ready, compression
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1136, in _blocking
+    call = self._channel.segregated_call(
+        cygrpc.PropagationConstants.GRPC_PROPAGATE_DEFAULTS,
+    ...<12 lines>...
+        self._registered_call_handle,
+    )
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+2026-09-11 21:47:40,680 | WARNING  | opentelemetry.trace | Overriding of current TracerProvider is not allowed
+2026-09-11 21:47:40,680 | WARNING  | opentelemetry.metrics._internal | Overriding of current MeterProvider is not allowed
+2026-09-11 21:47:40,680 | WARNING  | opentelemetry.sdk.metrics._internal | A shutdown `MeterProvider` can not provide a `Meter`
+2026-09-11 21:47:40,681 | WARNING  | opentelemetry.sdk.metrics._internal | shutdown can only be called once
+2026-09-11 21:51:11,931 | ERROR    | opentelemetry.sdk.metrics._internal.export | Exception while exporting metrics
+Traceback (most recent call last):
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/sdk/metrics/_internal/export/__init__.py", line 581, in _receive_metrics
+    self._exporter.export(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        metrics_data, timeout_millis=timeout_millis
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/metric_exporter/__init__.py", line 186, in export
+    return self._export(data=metrics_data)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/exporter.py", line 465, in _export
+    self._client.Export(
+    ~~~~~~~~~~~~~~~~~~~^
+        request=self._translate_data(data),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        metadata=self._headers,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+        timeout=deadline_sec - time(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1165, in __call__
+    state, call = self._blocking(
+                  ~~~~~~~~~~~~~~^
+        request, timeout, metadata, credentials, wait_for_ready, compression
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1136, in _blocking
+    call = self._channel.segregated_call(
+        cygrpc.PropagationConstants.GRPC_PROPAGATE_DEFAULTS,
+    ...<12 lines>...
+        self._registered_call_handle,
+    )
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+2026-09-11 21:51:11,936 | WARNING  | opentelemetry.trace | Overriding of current TracerProvider is not allowed
+2026-09-11 21:51:11,936 | WARNING  | opentelemetry.metrics._internal | Overriding of current MeterProvider is not allowed
+2026-09-11 21:51:11,936 | WARNING  | opentelemetry.sdk.metrics._internal | A shutdown `MeterProvider` can not provide a `Meter`
+2026-09-11 21:51:11,937 | WARNING  | opentelemetry.sdk.metrics._internal | shutdown can only be called once
+2026-09-12 03:59:26,184 | ERROR    | opentelemetry.sdk.metrics._internal.export | Exception while exporting metrics
+Traceback (most recent call last):
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/sdk/metrics/_internal/export/__init__.py", line 581, in _receive_metrics
+    self._exporter.export(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        metrics_data, timeout_millis=timeout_millis
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/metric_exporter/__init__.py", line 186, in export
+    return self._export(data=metrics_data)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/exporter.py", line 465, in _export
+    self._client.Export(
+    ~~~~~~~~~~~~~~~~~~~^
+        request=self._translate_data(data),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        metadata=self._headers,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+        timeout=deadline_sec - time(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1165, in __call__
+    state, call = self._blocking(
+                  ~~~~~~~~~~~~~~^
+        request, timeout, metadata, credentials, wait_for_ready, compression
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1136, in _blocking
+    call = self._channel.segregated_call(
+        cygrpc.PropagationConstants.GRPC_PROPAGATE_DEFAULTS,
+    ...<12 lines>...
+        self._registered_call_handle,
+    )
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+2026-09-12 03:59:26,190 | WARNING  | opentelemetry.trace | Overriding of current TracerProvider is not allowed
+2026-09-12 03:59:26,190 | WARNING  | opentelemetry.metrics._internal | Overriding of current MeterProvider is not allowed
+2026-09-12 03:59:26,190 | WARNING  | opentelemetry.sdk.metrics._internal | A shutdown `MeterProvider` can not provide a `Meter`
+2026-09-12 03:59:26,190 | WARNING  | opentelemetry.sdk.metrics._internal | shutdown can only be called once
+2026-09-12 04:26:04,262 | ERROR    | opentelemetry.sdk.metrics._internal.export | Exception while exporting metrics
+Traceback (most recent call last):
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/sdk/metrics/_internal/export/__init__.py", line 581, in _receive_metrics
+    self._exporter.export(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        metrics_data, timeout_millis=timeout_millis
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/metric_exporter/__init__.py", line 186, in export
+    return self._export(data=metrics_data)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/exporter.py", line 465, in _export
+    self._client.Export(
+    ~~~~~~~~~~~~~~~~~~~^
+        request=self._translate_data(data),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        metadata=self._headers,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+        timeout=deadline_sec - time(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1165, in __call__
+    state, call = self._blocking(
+                  ~~~~~~~~~~~~~~^
+        request, timeout, metadata, credentials, wait_for_ready, compression
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1136, in _blocking
+    call = self._channel.segregated_call(
+        cygrpc.PropagationConstants.GRPC_PROPAGATE_DEFAULTS,
+    ...<12 lines>...
+        self._registered_call_handle,
+    )
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+2026-09-12 04:26:04,267 | WARNING  | opentelemetry.trace | Overriding of current TracerProvider is not allowed
+2026-09-12 04:26:04,267 | WARNING  | opentelemetry.metrics._internal | Overriding of current MeterProvider is not allowed
+2026-09-12 04:26:04,267 | WARNING  | opentelemetry.sdk.metrics._internal | A shutdown `MeterProvider` can not provide a `Meter`
+2026-09-12 04:26:04,268 | WARNING  | opentelemetry.sdk.metrics._internal | shutdown can only be called once
+2026-09-12 04:34:19,624 | ERROR    | opentelemetry.sdk.metrics._internal.export | Exception while exporting metrics
+Traceback (most recent call last):
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/sdk/metrics/_internal/export/__init__.py", line 581, in _receive_metrics
+    self._exporter.export(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        metrics_data, timeout_millis=timeout_millis
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/metric_exporter/__init__.py", line 186, in export
+    return self._export(data=metrics_data)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/opentelemetry/exporter/otlp/proto/grpc/exporter.py", line 465, in _export
+    self._client.Export(
+    ~~~~~~~~~~~~~~~~~~~^
+        request=self._translate_data(data),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        metadata=self._headers,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+        timeout=deadline_sec - time(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1165, in __call__
+    state, call = self._blocking(
+                  ~~~~~~~~~~~~~~^
+        request, timeout, metadata, credentials, wait_for_ready, compression
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kajukatli/projects/flipperAgent/.venv/lib/python3.13/site-packages/grpc/_channel.py", line 1136, in _blocking
+    call = self._channel.segregated_call(
+        cygrpc.PropagationConstants.GRPC_PROPAGATE_DEFAULTS,
+    ...<12 lines>...
+        self._registered_call_handle,
+    )
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 565, in grpc._cython.cygrpc.Channel.segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 403, in grpc._cython.cygrpc._segregated_call
+  File "src/python/grpcio/grpc/_cython/_cygrpc/channel.pyx.pxi", line 407, in grpc._cython.cygrpc._segregated_call
+ValueError: Cannot invoke RPC on closed channel!
+2026-09-12 04:34:19,629 | WARNING  | opentelemetry.trace | Overriding of current TracerProvider is not allowed
+2026-09-12 04:34:19,629 | WARNING  | opentelemetry.metrics._internal | Overriding of current MeterProvider is not allowed
+2026-09-12 04:34:19,629 | WARNING  | opentelemetry.sdk.metrics._internal | A shutdown `MeterProvider` can not provide a `Meter`
+2026-09-12 04:34:19,630 | WARNING  | opentelemetry.sdk.metrics._internal | shutdown can only be called once
+2026-09-12 04:36:20,795 | WARNING  | opentelemetry.trace | Overriding of current TracerProvider is not allowed
+2026-09-12 04:36:20,795 | WARNING  | opentelemetry.metrics._internal | Overriding of current MeterProvider is not allowed
+2026-09-12 04:36:20,796 | WARNING  | opentelemetry.sdk.metrics._internal | A shutdown `MeterProvider` can not provide a `Meter`
+2026-09-12 04:36:20,796 | WARNING  | opentelemetry.sdk.metrics._internal | shutdown can only be called once

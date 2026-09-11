@@ -142,6 +142,13 @@ def test_minimal_decision_global_namespace_is_strict_and_has_no_asset_graph() ->
         },
         "server": {"host": "0.0.0.0", "port": 8004},
         "live_input": {"batch_size": 10, "block_ms": 1000},
+        "dependency_io": {
+            "io_timeout_seconds": 5,
+            "db_operation_timeout_seconds": 15,
+            "generation_timeout_seconds": 120,
+            "control_wait_timeout_seconds": 30,
+            "cleanup_timeout_seconds": 5,
+        },
         "signal_publication": {
             "stream_maxlen": 1000,
             "stream_approximate": True,

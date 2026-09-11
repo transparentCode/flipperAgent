@@ -1,0 +1,52 @@
+{
+  "source_sha": "f06363074511ce9eb3b9b5b8c9f145ff97a71aa7",
+  "base_source_sha": "f06363074511ce9eb3b9b5b8c9f145ff97a71aa7",
+  "source_identity_kind": "committed_base_plus_reviewed_patch",
+  "patch_is_committed": false,
+  "source_tree_sha256": "e9cb4ee173c4b02952d39b3c424437dd24218ec215152fa2f98f8600c61b9ca6",
+  "image": "flipper-id-preflight:f063630-20260910-062736",
+  "image_id": "sha256:fd1ab4e9fddf0ccb32b330c0558ab03aedfc6109426022581e805dee0e84e42e",
+  "platform": "linux/arm64",
+  "build": "docker build --pull=false --tag flipper-id-preflight:f063630-20260910-062736 artifacts/ingestion_decision_24h_soak/20260910T062736Z/run-local/source",
+  "production_Dockerfile_unchanged": true,
+  "verification": "Image src/configs digest independently equals exported src/configs digest; dependency and imports checked in network-disabled temporary container, automatically removed.",
+  "dependency_check": "No broken requirements found.",
+  "imports": "PASS",
+  "runtime_file_count": 1317,
+  "runtime_tree_sha256": "ddbc0c0aba46cd993e30faa1db11bc139ff32fa3f852b1693138c1ade8c240d9",
+  "packages": {
+    "asyncpg": "0.31.0",
+    "valkey": "6.1.1",
+    "fastapi": "0.141.1",
+    "uvicorn": "0.52.4",
+    "numpy": "2.5.3",
+    "pandas": "3.0.5"
+  },
+  "candidate_export_tree_sha256": "c1e0a55284a91c4631f080c12aff6fd0872a0aa8911718fdd00d192289bad1a4",
+  "reuse": true,
+  "new_build_performed": false,
+  "original_image_proof_path": "artifacts/ingestion_decision_24h_soak/20260910T062736Z/IMAGE_PROOF.json",
+  "original_image_proof_sha256": "b5ce97d69079fc2e7e8d7fdfed447a41622801306193777a26499cad56bd5372",
+  "runtime_verification_this_preparation": "Offline candidate src/configs bytes remain identical to the frozen template and the previously verified image runtime inputs; no Docker commands or new image inspection performed.",
+  "builder_inputs_byte_identical": [
+    "Dockerfile",
+    ".dockerignore",
+    "pyproject.toml",
+    "README.md"
+  ],
+  "provenance_note": "Image tag, ID, build command, source_tree_sha256 and original verification fields describe the original build and historical verification. They are retained as provenance, not a new build or live verification. candidate_export_tree_sha256 differs solely in the host guard, which Dockerfile does not COPY. Runtime src/configs bytes and builder inputs are unchanged.",
+  "retry_preparation": {
+    "authority": "plans/architect-to-coder-power-independent-soak-20260910T154156Z.md",
+    "template_run_dir": "artifacts/ingestion_decision_24h_soak/20260910T143607Z",
+    "template_approved_manifest_sha256": "d71e5320925b8876019aa0a892f8a3e79b62a33bad02e6f3a66f709101cf6a2d",
+    "template_source_proof_sha256": "db3fcac02ff675bba8b5c71e301595d879d6dcedd1530002b9d8cb2b3462572b",
+    "template_image_proof_sha256": "88f69a83712098263fff7d5075a4d2dede1d6f3840144856f4c31599407d3eac",
+    "same_source_file_set": true,
+    "byte_identical_source_files": 1328,
+    "changed_source_files": [
+      "scripts/host_sleep_guard.py"
+    ],
+    "new_build_performed": false,
+    "runtime_operations_performed": false
+  }
+}

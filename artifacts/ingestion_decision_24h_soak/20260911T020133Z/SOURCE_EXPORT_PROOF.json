@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "source_sha": "f06363074511ce9eb3b9b5b8c9f145ff97a71aa7",
+  "base_source_sha": "f06363074511ce9eb3b9b5b8c9f145ff97a71aa7",
+  "source_identity_kind": "committed_base_plus_reviewed_patch",
+  "patch_is_committed": false,
+  "export_root": "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/source",
+  "parent_source_proof_path": "artifacts/ingestion_decision_24h_soak/20260910T154156Z/SOURCE_EXPORT_PROOF.json",
+  "parent_source_proof_sha256": "19d8c93154be8abc35b25f397360997b89bf2e701a384ec0e22d0da10d280ed0",
+  "parent_tree_sha256": "c1e0a55284a91c4631f080c12aff6fd0872a0aa8911718fdd00d192289bad1a4",
+  "runtime_overlay_sha256": {
+    "src/apps/ingestion_app/runtime/websocket.py": "2bcaa5c387050fed40383580047423a0e81c4d9ffd40669fae8a8acacc87372a"
+  },
+  "runtime_overlay_authority": "plans/architect-to-coder-ingestion-websocket-recovery-soak-gate-v1.md",
+  "runtime_overlay_matches_live_checkout": true,
+  "file_count": 1329,
+  "tree_sha256": "a1e4e63e392ff7da1d1656278e757e32facb0cf9deb1d51744732a5fee068ffb",
+  "digest_format": "sha256 of sorted relative paths formatted as SHA256 two spaces path newline",
+  "symlink_count": 0,
+  "mismatch": [],
+  "verification": "Copied the stopped run source export without changing its 1329-file set, then overlaid only the independently reviewed Binance websocket recovery file. The exported overlay is byte-identical to the live checkout. source_sha labels the committed base; tree_sha256 identifies the complete composite source actually built."
+}

@@ -1,0 +1,15 @@
+{
+  "name": "trendlines-research-viewer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "lightweight-charts": "5.2.0"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}

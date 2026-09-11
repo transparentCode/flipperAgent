@@ -1,0 +1,2 @@
+service=ingestion exit=0 bytes=354924 since=2026-09-10T06:55:41.498593+00:00 until=2026-09-10T13:28:32Z
+bd867c73d292dc14d784ce2e1c65f72e5ce10461f19d816b49c15799f0222381  /Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260910T062736Z/raw-docker-logs/stop.tQ6eM0/ingestion.log

@@ -317,7 +317,7 @@ def _new_dom_id(prefix: str) -> str:
     return f"{prefix}-{uuid.uuid4().hex}"
 
 
-def _build_tvlc_html_from_payload(
+def build_tvlc_html_from_payload(
     payload_value: dict[str, Any],
     *,
     title: str,
@@ -407,7 +407,7 @@ def build_tvlc_html(
     element_id: str | None = None,
     view_bars: int | None = None,
 ) -> str:
-    return _build_tvlc_html_from_payload(
+    return build_tvlc_html_from_payload(
         build_tvlc_payload(frame, snapshot, timeframe=timeframe, view_bars=view_bars),
         title=title or f"Trendlines V4 · {timeframe}",
         element_id=element_id,
@@ -424,7 +424,7 @@ def build_pivot_consensus_html(
     element_id: str | None = None,
     view_bars: int | None = None,
 ) -> str:
-    return _build_tvlc_html_from_payload(
+    return build_tvlc_html_from_payload(
         build_pivot_consensus_payload(
             frame, snapshot, timeframe=timeframe, view_bars=view_bars
         ),
@@ -478,6 +478,7 @@ __all__ = [
     "build_pivot_consensus_html",
     "build_pivot_consensus_payload",
     "build_tvlc_html",
+    "build_tvlc_html_from_payload",
     "build_tvlc_payload",
     "render_pivot_consensus_chart",
     "render_tvlc_chart",

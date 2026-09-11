@@ -1,0 +1,25 @@
+{
+  "source_sha": "f06363074511ce9eb3b9b5b8c9f145ff97a71aa7",
+  "base_source_sha": "f06363074511ce9eb3b9b5b8c9f145ff97a71aa7",
+  "source_identity_kind": "committed_base_plus_reviewed_patch",
+  "patch_is_committed": false,
+  "source_tree_sha256": "e9cb4ee173c4b02952d39b3c424437dd24218ec215152fa2f98f8600c61b9ca6",
+  "image": "flipper-id-preflight:f063630-20260910-062736",
+  "image_id": "sha256:fd1ab4e9fddf0ccb32b330c0558ab03aedfc6109426022581e805dee0e84e42e",
+  "platform": "linux/arm64",
+  "build": "docker build --pull=false --tag flipper-id-preflight:f063630-20260910-062736 artifacts/ingestion_decision_24h_soak/20260910T062736Z/run-local/source",
+  "production_Dockerfile_unchanged": true,
+  "verification": "Image src/configs digest independently equals exported src/configs digest; dependency and imports checked in network-disabled temporary container, automatically removed.",
+  "dependency_check": "No broken requirements found.",
+  "imports": "PASS",
+  "runtime_file_count": 1317,
+  "runtime_tree_sha256": "ddbc0c0aba46cd993e30faa1db11bc139ff32fa3f852b1693138c1ade8c240d9",
+  "packages": {
+    "asyncpg": "0.31.0",
+    "valkey": "6.1.1",
+    "fastapi": "0.141.1",
+    "uvicorn": "0.52.4",
+    "numpy": "2.5.3",
+    "pandas": "3.0.5"
+  }
+}

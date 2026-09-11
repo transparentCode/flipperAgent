@@ -146,12 +146,14 @@ and CCXT exchange close are bounded provider cleanup operations.
 
 Admission is limited by `recovery.max_concurrency` without an unbounded queue.
 Caller cancellation abandons the result but does not release a slot until the
-worker or task actually finishes. A normal SDK error whose ownership is known to
-be released follows the existing retry/fallback path. If a deadline expires
-while ownership is unresolved, or cleanup fails, the provider/lifecycle is
-quarantined and the runtime remains in `ERROR`; later completion releases the
-lease but never clears the sticky quarantine. The implementation does not claim
-to hard-stop a running SDK operation or its own socket-manager thread.
+worker or task actually finishes. A completed `ProviderAvailabilityError` whose
+ownership is known to be released follows the existing retry/fallback path;
+malformed responses, invalid metadata or symbols, authentication/client errors,
+and lifecycle errors fail closed. If a deadline expires while ownership is
+unresolved, or cleanup fails, the provider/lifecycle is quarantined and the
+runtime remains in `ERROR`; later completion releases the lease but never
+clears the sticky quarantine. The implementation does not claim to hard-stop a
+running SDK operation or its own socket-manager thread.
 
 ### 4. Canonicalization and Timescale persistence
 
@@ -252,12 +254,20 @@ available again.
 The live provider raises `LiveStreamInterrupted` with bounded recovery requests.
 The supervisor enters `RECOVERING`, closes the missing range using historical
 providers, waits the configured reconnect backoff, then starts a fresh live cycle.
+If every configured provider completes its bounded attempts but the page remains
+incomplete, `RecoveryExhaustedError` keeps the supervisor in `RECOVERING`. It waits
+the same reconnect backoff and retries through normal DB-first startup catch-up;
+only one bounded recovery cycle is active, so retries do not accumulate work.
+Only completed provider-availability failures enter the bounded provider
+retry/fallback path. Deterministic provider contract, market-data validation,
+authentication/client, canonical, database, and lifecycle failures fail closed.
 
 Control cancellation during that repair is consumed as a runtime transition;
 external cancellation propagates after the supervisor publishes `STOPPED`; a
-typed transport deadline is latched as fatal `ERROR`; ordinary failures retain
-their error log and `ERROR` state. These branches are characterized in the
-runtime supervisor tests before the common handler extraction.
+typed transport deadline is latched as fatal `ERROR`; canonical conflicts,
+invalid contracts, database failures, and other non-exhaustion errors retain their
+error log and `ERROR` state. These branches are characterized in the runtime
+supervisor tests.
 
 An unresolved websocket factory, subscription, or stop deadline, or a failed
 transport cleanup, is a fatal transport condition with an operation-specific
@@ -304,6 +314,8 @@ certification-specific quiescence rule.
 - transport ownership and admission remain held until actual SDK/task cleanup;
 - unresolved deadline or cleanup state is sticky quarantine and keeps readiness
   failed;
+- completed provider-availability failures alone use bounded retry/fallback;
+  deterministic provider contract failures fail closed;
 - one lane recovery is serialized by lane lock;
 - enabled runtime assets are config driven;
 - downstream historical recovery reads Timescale rather than assuming Valkey is a

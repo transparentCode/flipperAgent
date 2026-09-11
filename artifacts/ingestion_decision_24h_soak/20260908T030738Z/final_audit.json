@@ -1,0 +1,35 @@
+{
+  "error": "guarded launch failed closed: AC_LOST",
+  "guard_failure": {
+    "reason_code": "AC_LOST",
+    "record": {
+      "assertion_pid": 11836,
+      "child_pid": 11843,
+      "child_returncode": -9,
+      "event": "host_sleep_guard",
+      "finished_at": "2026-09-08T03:40:46.971104Z",
+      "max_check_gap_seconds": 60.0,
+      "reason_code": "AC_LOST",
+      "started_at": "2026-09-08T03:15:56.029974Z",
+      "status": "FAILED"
+    }
+  },
+  "state": {
+    "guard_failure": {
+      "reason_code": "AC_LOST",
+      "record": {
+        "assertion_pid": 11836,
+        "child_pid": 11843,
+        "child_returncode": -9,
+        "event": "host_sleep_guard",
+        "finished_at": "2026-09-08T03:40:46.971104Z",
+        "max_check_gap_seconds": 60.0,
+        "reason_code": "AC_LOST",
+        "started_at": "2026-09-08T03:15:56.029974Z",
+        "status": "FAILED"
+      }
+    },
+    "validity": false
+  },
+  "terminal_status": "INGESTION_DECISION_24H_SOAK_INCONCLUSIVE_EVIDENCE"
+}

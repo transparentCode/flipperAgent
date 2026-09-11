@@ -1,0 +1,2 @@
+service=broker exit=0 bytes=2268 since=2026-09-10T13:53:13.892858+00:00 until=2026-09-10T14:57:18Z
+bd10fbfebda92b3862993bc85819293135ce7837dea8c7d191405c4ef7286caa  /Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260910T082550Z/raw-docker-logs/stop.Tdys9N/broker.log

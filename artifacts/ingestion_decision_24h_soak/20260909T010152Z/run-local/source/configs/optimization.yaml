@@ -1,0 +1,314 @@
+optimization:
+  defaults:
+    n_trials: 200
+    write_back: false
+    walk_forward:
+      train_ratio: 0.60
+      val_ratio: 0.20
+      oos_ratio: 0.20
+      purge_bars: 24
+    convergence_patience: 50
+    two_stage:
+      screening_trials: 50
+      importance_threshold: 0.05
+      oos_sharpe_ratio: 0.50
+      seed: 42
+
+  schedules:
+    MeanReversion:
+      cron: "0 2 * * 1"           # weekly Monday 2am UTC
+      assets: ["BTCUSDT", "ETHUSDT"]
+      timeframes: ["1h", "4h"]
+      write_back: true
+    TrendFollowing:
+      cron: "0 3 1 * *"           # monthly 1st 3am UTC
+      assets: ["BTCUSDT"]
+      timeframes: ["4h"]
+      write_back: true
+    Momentum:
+      cron: "0 2 */14 * *"        # biweekly
+      assets: ["BTCUSDT", "ETHUSDT"]
+      timeframes: ["4h"]
+      write_back: true
+    RegimePullbackScorer:
+      cron: "0 4 1 * *"           # monthly 1st 4am UTC
+      assets: ["BTCUSDT"]
+      timeframes: ["1h"]
+      write_back: false
+    RegimeClassification:
+      cron: "0 6 1 * *"           # monthly 1st 6am UTC
+      assets: ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
+      timeframes: ["1h", "4h"]
+      write_back: false
+    DivergenceEdgeScorer:
+      cron: "0 5 1 * *"           # monthly 1st 5am UTC
+      assets: ["BTCUSDT"]
+      timeframes: ["1h"]
+      write_back: false
+
+  regime_classification:
+    study:
+      screening_trials: 50
+      main_trials: 150
+      convergence_patience: 50
+      seed: 42
+      direction: maximize
+      sampler: TPE
+      pruner: NopPruner
+    quality:
+      weights:
+        ch_score: 0.25
+        avg_run_length: 0.20
+        return_spread: 0.20
+        hurst_fwd_corr: 0.20
+        vol_calibration: 0.15
+      normalizers:
+        ch_score: 100.0
+        avg_run_length: 20.0
+        return_spread_bps: 5.0
+      forward_return_horizon_short: 10
+      forward_return_horizon_long: 20
+      rolling_vol_window: 5
+      min_samples_for_metric: 50
+      min_samples_per_state: 10
+      min_bars_for_quality: 200
+      oos_quality_ratio: 0.70
+    calibration:
+      vol_lookback: 168
+      vol_quantile: 0.95
+      cp_min_distance: 10
+      cp_penalty: l2
+      cp_model: rbf
+    kernel_search:
+      retrain_window:
+        low: 200
+        high: 1000
+        step: 50
+        default: 500
+      vol_lookback:
+        low: 72
+        high: 480
+        step: 24
+        default: 168
+      trend_lookback:
+        low: 10
+        high: 60
+        step: 5
+        default: 20
+    benchmark_ladder:
+      cost_bps: 10.0
+      train_ratio: 0.60
+      val_ratio: 0.20
+      purge_bars: 24
+      shuffle_seed: 42
+      min_bars: 500
+      sma_fast: 20
+      sma_slow: 50
+      ema_fast: 20
+      ema_slow: 50
+      trend_strength_threshold: 0.35
+      max_vol_percentile: 85.0
+      max_changepoint_prob: 0.65
+      max_crisis_prob: 0.50
+      min_sharpe_lift: 0.10
+      min_calmar_lift: 0.05
+      min_total_return_lift: 0.0
+      min_oos_sharpe: 0.0
+      min_oos_total_return: 0.0
+      min_avg_position: 0.05
+    alpha_ladder:
+      n_trials: 80
+      seed: 42
+      min_bars: 500
+      shuffle_seed: 42
+      null_controls: ["circular_shift", "block_shuffle"]
+      null_shift_bars: 720
+      null_block_bars: 96
+      turnover_penalty: 0.05
+      policy_regularization: 0.0
+      policy_kinds:
+        - risk_filtered
+        - trend_scaled
+        - confidence_scaled
+        - combined
+        - soft_scaled
+      max_vol_percentile_low: 55.0
+      max_vol_percentile_high: 100.0
+      max_changepoint_prob_low: 0.05
+      max_changepoint_prob_high: 0.95
+      max_crisis_prob_low: 0.0
+      max_crisis_prob_high: 0.95
+      min_trend_strength_low: 0.0
+      min_trend_strength_high: 0.80
+      min_confidence_low: 0.0
+      min_confidence_high: 0.95
+      trend_power_low: 0.50
+      trend_power_high: 3.0
+      min_position_scale_low: 0.0
+      min_position_scale_high: 0.50
+    descriptor_ladder:
+      min_bars: 500
+      train_ratio: 0.60
+      val_ratio: 0.20
+      purge_bars: 24
+      shuffle_seed: 42
+      null_controls: ["circular_shift", "block_shuffle"]
+      null_shift_bars: 720
+      null_block_bars: 96
+      min_abs_oos_ic: 0.03
+      min_ic_lift_vs_null: 0.0
+      min_stable_descriptor_pairs: 2
+      min_median_abs_oos_ic: 0.02
+      min_median_ic_lift_vs_null: 0.0
+      descriptor_targets:
+        - descriptor: trend_strength
+          target: fwd_abs_return_5
+        - descriptor: vol_percentile
+          target: fwd_vol_5
+        - descriptor: fwd_vol_ewma
+          target: fwd_vol_5
+        - descriptor: changepoint_prob
+          target: fwd_abs_return_1
+        - descriptor: hmm_crisis_prob
+          target: fwd_abs_return_5
+        - descriptor: cp_entropy
+          target: fwd_abs_return_5
+        - descriptor: hurst
+          target: fwd_abs_return_10
+    rolling_descriptor_ladder:
+      fold_bars: 2160
+      step_bars: 720
+      min_folds: 2
+      min_pass_rate: 0.60
+      min_promoted_folds: 2
+      min_median_abs_oos_ic: 0.02
+      min_median_ic_lift_vs_null: 0.0
+    volatility_ladder:
+      min_bars: 500
+      train_ratio: 0.60
+      val_ratio: 0.20
+      purge_bars: 24
+      forecast_column: fwd_vol_ewma
+      shuffle_seed: 42
+      null_controls: ["circular_shift", "block_shuffle"]
+      null_shift_bars: 720
+      null_block_bars: 96
+      policy_kinds:
+        - inverse_vol
+        - high_vol_throttle
+        - vol_rank_scaled
+      target_vol_multipliers: [0.75, 1.0, 1.25]
+      min_position_scales: [0.25, 0.50]
+      high_vol_quantiles: [0.60, 0.75, 0.90]
+      high_vol_scales: [0.25, 0.50]
+      rank_powers: [1.0, 2.0]
+      turnover_penalty: 0.05
+      drawdown_improvement_weight: 1.0
+      min_sharpe_lift: 0.05
+      min_calmar_lift: 0.0
+      min_drawdown_improvement: 0.0
+      min_avg_position: 0.05
+    rolling_volatility_ladder:
+      fold_bars: 2160
+      step_bars: 720
+      min_folds: 2
+      min_pass_rate: 0.60
+      min_promoted_folds: 2
+      min_median_sharpe_lift: 0.05
+      min_median_null_sharpe_lift: 0.0
+      min_median_drawdown_improvement: 0.0
+    probability_ladder:
+      min_bars: 500
+      train_ratio: 0.60
+      val_ratio: 0.20
+      purge_bars: 24
+      forecast_column: fwd_vol_ewma
+      feature_sets:
+        - [fwd_vol_ewma]
+        - [fwd_vol_ewma, vol_percentile]
+        - [fwd_vol_ewma, vol_percentile, changepoint_prob]
+        - [fwd_vol_ewma, vol_percentile, changepoint_prob, cp_entropy]
+        - [fwd_vol_ewma, vol_percentile, changepoint_prob, hurst]
+      target_kind: vol_expansion
+      target_kinds: [vol_expansion]
+      target_horizon: 5
+      target_horizons: [3, 5, 10]
+      target_vol_lookback: 20
+      shuffle_seed: 42
+      null_controls: ["circular_shift", "block_shuffle"]
+      null_shift_bars: 720
+      null_block_bars: 96
+      event_quantiles: [0.70, 0.75, 0.80]
+      n_bins_grid: [4, 5, 8]
+      risk_budgets: [0.25, 0.50, 0.75]
+      min_position_scales: [0.25, 0.50]
+      smoothing: 2.0
+      brier_weight: 2.0
+      null_lift_weight: 1.0
+      null_brier_weight: 1.0
+      bucket_spread_weight: 0.5
+      null_bucket_spread_weight: 0.5
+      min_oos_auc: 0.55
+      min_auc_lift_vs_null: 0.0
+      min_brier_lift_vs_null: 0.0
+      min_bucket_spread_lift_vs_null: 0.0
+      min_sharpe_lift: 0.05
+      min_null_sharpe_lift: 0.0
+      min_drawdown_improvement: 0.0
+      min_avg_position: 0.05
+    rolling_probability_ladder:
+      fold_bars: 2160
+      step_bars: 720
+      min_folds: 2
+      min_promoted_folds: 2
+      min_probability_pass_rate: 0.60
+      min_median_auc: 0.55
+      min_median_auc_lift: 0.0
+      min_median_brier_lift: 0.0
+      min_median_bucket_spread_lift: 0.0
+    model_selection_ladder:
+      min_bars: 500
+      base_models: [sma_cross, ema_cross, buy_and_hold]
+      calmar_weight: 0.25
+      return_weight: 1.0
+      turnover_penalty: 0.0
+      probability_validation_weight: 0.25
+      probability_policies:
+        - throttle_high_vol
+        - rank_throttle
+        - prefer_high_vol
+        - rank_prefer_high_vol
+        - confidence_scaled
+      min_sharpe_lift: 0.0
+      min_null_sharpe_lift: 0.0
+      min_total_return_lift: 0.0
+      min_drawdown_improvement: 0.0
+      min_risk_drawdown_improvement: 0.0
+      min_risk_null_drawdown_improvement: 0.0
+      min_risk_total_return_lift: 0.0
+      min_risk_null_total_return_lift: 0.0
+      min_avg_position: 0.05
+    rolling_model_selection_ladder:
+      fold_bars: 2160
+      step_bars: 720
+      min_folds: 2
+      min_promoted_folds: 2
+      min_pass_rate: 0.60
+      min_median_sharpe_lift: 0.0
+      min_median_null_sharpe_lift: 0.0
+      min_median_auc_lift: 0.0
+      min_risk_promoted_folds: 2
+      min_risk_pass_rate: 0.60
+      min_median_risk_drawdown_improvement: 0.0
+      min_median_risk_null_drawdown_improvement: 0.0
+      min_median_risk_total_return_lift: 0.0
+      min_median_risk_null_total_return_lift: 0.0
+    rolling_alpha_ladder:
+      fold_bars: 2160
+      step_bars: 720
+      min_folds: 2
+      min_pass_rate: 0.60
+      min_promoted_folds: 2
+      min_median_oos_sharpe: 0.0
+      min_median_oos_return: 0.0
+      min_median_sharpe_lift: 0.10

@@ -1,0 +1,2 @@
+service=grafana exit=0 bytes=0 since=1970-01-01T00:00:00Z until=2026-09-08T03:12:22Z
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  /Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260908T021137Z/raw-docker-logs/stop.7b4bmM/grafana.log

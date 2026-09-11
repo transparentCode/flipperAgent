@@ -1,0 +1,2 @@
+service=prometheus exit=0 bytes=0 since=2026-09-11T01:50:35.231923+00:00 until=2026-09-11T01:54:30Z
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  /Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260910T154156Z/raw-docker-logs/stop.vieeoO/prometheus.log

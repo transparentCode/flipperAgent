@@ -1,0 +1,36 @@
+{
+  "files": {
+    "run-local/soak_harness.py": "66de53cc0d50360670b75c84e2c7a12c450ea89530726173cd94aa494419938b",
+    "run-local/legacy_sampler.py": "011a718787eb3ffdf6641b6092eca139970d958bfb5ad05bffea38bf6cd4aef0",
+    "run-local/bounded_command.py": "ad9c6b6c941fdf0df38cbcd058f7f551182670285540c5b1311bd5b83bbb144a",
+    "run-local/test_bounded_command.py": "29577207adfdf3acb06d719bcaac3dbaae518d17c4c3fc5d77cb3e197c278120",
+    "run-local/test_run3_harness.py": "aacbf6ce015d38ab51773f11be66f60826ed115d5541cf8e040c2144da7befc2",
+    "run-local/guarded_launch.py": "b8a47e9902cc6d33dd8f860328ac4f42a242d75411b1ab6540a9ef6d507fcc17",
+    "run-local/test_guarded_launch.py": "1303b9898b3b42db1c2a53d65fbf25f553eb74bad51c8d58090c0174a810492e",
+    "run-local/soak-compose.override.yml": "7c845fba99ad49100bb532d5c1b238680ff66f0696d087e064e86964c80c1d04",
+    "run-local/otel-collector.yaml": "35f88d8b047b8a726ce26f2848ed18b1f33f8c1c097c103f8b97f0c9aaa9353e",
+    "run-local/grafana/provisioning/datasources/datasources.yaml": "72305a9fded6b40fe740ec82dac495f006990e6e37de754d1fcd01d93da4834a",
+    "run-local/grafana/provisioning/dashboards/dashboards.yaml": "821b78afd45633466cb0987099ad06cc48dc39d3d031857cb7e5d650fcddab52",
+    "run-local/grafana/provisioning/dashboards/pipeline-health.json": "ada5d3a37cccbfa667b71f022ef60f695c056cca185aa7a3ebe628f794a6e1ef",
+    "run-local/grafana/provisioning/dashboards/ingestion.json": "ff3134986bb178998d539f07f6a62c11815bc5aa8902ba193571855c5fdb27b1",
+    "run-local/launchd/run-under-launchd.sh": "194bb3f7545cc14c8adb022ec255ce6f8da7be2ad86d97bbe917fde7ec4ec5f3",
+    "run-local/launchd/run-guarded-child.sh": "199a0aa73212f10d1327c8b618a8341bb847e6f9754df244ee1ffa0d064d3c37",
+    "run-local/launchd/ingestion-decision-soak-run3.plist": "f80595dfd2cf75844297ab232a2fe26e25815e53e83cf8e269fc08c5530cf2f7",
+    "run-local/launchd/install-run3.sh": "a4aa8db9d7531a28363008d161365d2913f2d4acdb3ebe2e080aa562dcc4f4d3",
+    "run-local/launchd/stop-run3.sh": "0e781ef4ab255dbffa8936382196438f49098451482acd2d1c983f4577f22417",
+    "run-local/launchd/start-run3.sh": "ee555ced691e3415441040badeb8fecc3ceac461d429e810085ad084d9825890",
+    "SOURCE_EXPORT_PROOF.json": "d7c0249dad6570343f4dc4d8eea84ecdf3f36060f113520ac110a81b135d24d0",
+    "IMAGE_PROOF.json": "806f81cdee042192d49ce8a15262e3cdc7dd1a4b974cf4b8bee8f7690a07b909"
+  },
+  "source": {
+    "source_sha": "afc70323f04445a5a08c085d0b54cb5a4b381c66",
+    "tree_sha256": "e00f82ab33d4785ab652b390d5de41b601a773419effc10240784b228a2bc0f0",
+    "file_count": 1793,
+    "proof_sha256": "d7c0249dad6570343f4dc4d8eea84ecdf3f36060f113520ac110a81b135d24d0",
+    "proof_path": "artifacts/ingestion_decision_24h_soak/20260909T002014Z/SOURCE_EXPORT_PROOF.json"
+  },
+  "run_id": "20260909T002014Z",
+  "project": "flipper-id-soak-20260909t002014z",
+  "review": "APPROVED_FOR_GUARDED_STARTUP_AND_CADENCE_GATED_MEASUREMENT",
+  "approved_at": "2026-09-09T00:34:03.805972+00:00"
+}

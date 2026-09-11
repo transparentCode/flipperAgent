@@ -1,0 +1,41 @@
+{
+  "algorithm": "sha256",
+  "files": {
+    "artifacts/ingestion_decision_24h_soak/20260910T154156Z/IMAGE_PROOF.json": "825825952d49d96ebafcfa7bf01980030652b5dc40b0579b0d27c23b2156014f",
+    "artifacts/ingestion_decision_24h_soak/20260910T154156Z/SOURCE_EXPORT_PROOF.json": "19d8c93154be8abc35b25f397360997b89bf2e701a384ec0e22d0da10d280ed0",
+    "artifacts/ingestion_decision_24h_soak/20260910T154156Z/run-local/bounded_command.py": "ad9c6b6c941fdf0df38cbcd058f7f551182670285540c5b1311bd5b83bbb144a",
+    "artifacts/ingestion_decision_24h_soak/20260910T154156Z/run-local/grafana/provisioning/dashboards/dashboards.yaml": "821b78afd45633466cb0987099ad06cc48dc39d3d031857cb7e5d650fcddab52",
+    "artifacts/ingestion_decision_24h_soak/20260910T154156Z/run-local/grafana/provisioning/dashboards/ingestion.json": "ff3134986bb178998d539f07f6a62c11815bc5aa8902ba193571855c5fdb27b1",
+    "artifacts/ingestion_decision_24h_soak/20260910T154156Z/run-local/grafana/provisioning/dashboards/pipeline-health.json": "ada5d3a37cccbfa667b71f022ef60f695c056cca185aa7a3ebe628f794a6e1ef",
+    "artifacts/ingestion_decision_24h_soak/20260910T154156Z/run-local/grafana/provisioning/datasources/datasources.yaml": "72305a9fded6b40fe740ec82dac495f006990e6e37de754d1fcd01d93da4834a",
+    "artifacts/ingestion_decision_24h_soak/20260910T154156Z/run-local/guarded_launch.py": "b8a47e9902cc6d33dd8f860328ac4f42a242d75411b1ab6540a9ef6d507fcc17",
+    "artifacts/ingestion_decision_24h_soak/20260910T154156Z/run-local/launchd/ingestion-decision-soak-run3.plist": "f45735da5870d01edd6a481dec3ca92b76d41491c7b1ca64511f7b9565ef20f2",
+    "artifacts/ingestion_decision_24h_soak/20260910T154156Z/run-local/launchd/install-run3.sh": "31927f9c9554717431f444b644c6f0dbba9c3c8a4a8a89743339173461e831e9",
+    "artifacts/ingestion_decision_24h_soak/20260910T154156Z/run-local/launchd/run-guarded-child.sh": "4c9d33e8e230a42e5a6931e5d5dd5fcc9add392250656f85d09d372d79516b7b",
+    "artifacts/ingestion_decision_24h_soak/20260910T154156Z/run-local/launchd/run-under-launchd.sh": "eea5cc793696d0d4405a4101ded7cea160be76f26d93b31a430c34bfbaa1b3d1",
+    "artifacts/ingestion_decision_24h_soak/20260910T154156Z/run-local/launchd/start-run3.sh": "a972d422c11870cf390527efa44446be5ffa3ce2cdcf4b63fcf3fa144cf00f99",
+    "artifacts/ingestion_decision_24h_soak/20260910T154156Z/run-local/launchd/stop-run3.sh": "029fdf734577867c69c9ed4e8bb2d200e635b30ecafd91531215d0131ad2f3af",
+    "artifacts/ingestion_decision_24h_soak/20260910T154156Z/run-local/legacy_sampler.py": "a0a741a758b26463c0a949af62e99ba7634be580f8b9f18c41ac6e63edd7a931",
+    "artifacts/ingestion_decision_24h_soak/20260910T154156Z/run-local/otel-collector.yaml": "35f88d8b047b8a726ce26f2848ed18b1f33f8c1c097c103f8b97f0c9aaa9353e",
+    "artifacts/ingestion_decision_24h_soak/20260910T154156Z/run-local/soak-compose.override.yml": "da1a5ee26e307c056d93239eda43c08da1b4d2b1135b6e877d58163eec496bc5",
+    "artifacts/ingestion_decision_24h_soak/20260910T154156Z/run-local/soak_harness.py": "66de53cc0d50360670b75c84e2c7a12c450ea89530726173cd94aa494419938b",
+    "artifacts/ingestion_decision_24h_soak/20260910T154156Z/run-local/test_bounded_command.py": "29577207adfdf3acb06d719bcaac3dbaae518d17c4c3fc5d77cb3e197c278120",
+    "artifacts/ingestion_decision_24h_soak/20260910T154156Z/run-local/test_guarded_launch.py": "6ed2b0e6221b9af30909185287713fc4c2d0d24fab3b09f2f29e91941a49642a",
+    "artifacts/ingestion_decision_24h_soak/20260910T154156Z/run-local/test_run3_harness.py": "220c94460710fa91bcda79f940f4db04e9e3c6e450736a44f9baada1bd0dec82",
+    "source_tree_file_count": "1329",
+    "source_tree_sha256": "c1e0a55284a91c4631f080c12aff6fd0872a0aa8911718fdd00d192289bad1a4"
+  },
+  "frozen_at": "2026-09-10T16:30:05.504726+00:00",
+  "source_export": {
+    "file_count": 1329,
+    "proof_path": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260910T154156Z/SOURCE_EXPORT_PROOF.json",
+    "proof_sha256": "19d8c93154be8abc35b25f397360997b89bf2e701a384ec0e22d0da10d280ed0",
+    "source_sha": "f06363074511ce9eb3b9b5b8c9f145ff97a71aa7",
+    "tree_sha256": "c1e0a55284a91c4631f080c12aff6fd0872a0aa8911718fdd00d192289bad1a4"
+  },
+  "sut_limits_preserved": true,
+  "test_only_resource_limits": {
+    "grafana": "384M",
+    "otel-collector": "512M"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "source_sha": "f06363074511ce9eb3b9b5b8c9f145ff97a71aa7",
+  "base_source_sha": "f06363074511ce9eb3b9b5b8c9f145ff97a71aa7",
+  "source_identity_kind": "committed_base_plus_reviewed_patch",
+  "patch_is_committed": false,
+  "source_tree_sha256": "a1e4e63e392ff7da1d1656278e757e32facb0cf9deb1d51744732a5fee068ffb",
+  "image": "flipper-id-soak:f063630-20260911-020133",
+  "image_id": "sha256:9322d0094ffec839a5828639f51d35c3f9972bcbbca06b35e354ddb24edab988",
+  "platform": "linux/arm64",
+  "build": "docker build --pull=false --tag flipper-id-soak:f063630-20260911-020133 artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/source",
+  "new_build_performed": true,
+  "network_disabled_runtime_verification": true,
+  "runtime_file_count": 1317,
+  "runtime_tree_sha256": "72126f2c6cc2ff1771382a595d8d5ab5cb06f84735d83fbcca4c6f59515b096d",
+  "exported_src_configs_tree_sha256": "72126f2c6cc2ff1771382a595d8d5ab5cb06f84735d83fbcca4c6f59515b096d",
+  "runtime_matches_exported_src_configs": true,
+  "dependency_check": "No broken requirements found.",
+  "imports": "PASS",
+  "packages": {
+    "asyncpg": "0.31.0",
+    "valkey": "6.1.1",
+    "fastapi": "0.141.1",
+    "uvicorn": "0.52.4",
+    "numpy": "2.5.3",
+    "pandas": "3.0.5"
+  },
+  "verification": "Built a fresh linux/arm64 image from the verified composite export. A temporary network-disabled, read-only, 512 MiB, 1 CPU, 128 PID container imported Ingestion and Decision, passed pip check, and produced an exact src/configs digest match."
+}

@@ -1,0 +1,172 @@
+schema: analysis-tool-taxonomy.v1
+tools:
+  - tool_id: abcd_pattern
+    family: pattern
+    kind: quant_kernel
+    status: available
+    capability_id: ta.abcd_pattern_geometry
+  - tool_id: anchored_volume_profile
+    family: volume
+    kind: quant_kernel
+    status: available
+    capability_id: ta.volume_profile_geometry
+  - tool_id: anchored_vwap_path
+    family: volume
+    kind: quant_kernel
+    status: available
+    capability_id: ta.anchored_vwap_path
+  - tool_id: arc
+    family: viewer_shape
+    kind: viewer_primitive
+    status: deferred
+    capability_id: null
+  - tool_id: arrow
+    family: viewer_shape
+    kind: viewer_primitive
+    status: deferred
+    capability_id: null
+  - tool_id: brush_highlighter
+    family: viewer_shape
+    kind: viewer_primitive
+    status: deferred
+    capability_id: null
+  - tool_id: cypher_pattern
+    family: pattern
+    kind: quant_kernel
+    status: available
+    capability_id: ta.cypher_pattern_geometry
+  - tool_id: elliott_correction_wave
+    family: pattern
+    kind: quant_kernel
+    status: available
+    capability_id: ta.elliott_correction_wave_geometry
+  - tool_id: elliott_double_combo_wave
+    family: pattern
+    kind: quant_kernel
+    status: planned
+    capability_id: null
+  - tool_id: elliott_impulse_wave
+    family: pattern
+    kind: quant_kernel
+    status: available
+    capability_id: ta.elliott_impulse_wave_geometry
+  - tool_id: elliott_triangle_wave
+    family: pattern
+    kind: quant_kernel
+    status: planned
+    capability_id: null
+  - tool_id: elliott_triple_combo_wave
+    family: pattern
+    kind: quant_kernel
+    status: planned
+    capability_id: null
+  - tool_id: ellipse
+    family: viewer_shape
+    kind: viewer_primitive
+    status: deferred
+    capability_id: null
+  - tool_id: fib_three_point_extension
+    family: fibonacci
+    kind: quant_kernel
+    status: available
+    capability_id: ta.fibonacci_trend_extension_geometry
+  - tool_id: fib_two_point
+    family: fibonacci
+    kind: quant_kernel
+    status: available
+    capability_id: ta.fibonacci_geometry
+  - tool_id: fixed_range_volume_profile
+    family: volume
+    kind: quant_kernel
+    status: available
+    capability_id: ta.volume_profile_geometry
+  - tool_id: flag_pennant_pattern
+    family: pattern
+    kind: quant_kernel
+    status: planned
+    capability_id: null
+  - tool_id: gann_box
+    family: gann
+    kind: quant_kernel
+    status: available
+    capability_id: ta.gann_box_geometry
+  - tool_id: gann_fan
+    family: gann
+    kind: quant_kernel
+    status: available
+    capability_id: ta.gann_fan_geometry
+  - tool_id: gann_square
+    family: gann
+    kind: quant_kernel
+    status: planned
+    capability_id: null
+  - tool_id: head_shoulders_pattern
+    family: pattern
+    kind: quant_kernel
+    status: available
+    capability_id: ta.head_shoulders_pattern_geometry
+  - tool_id: parallel_channel
+    family: trend
+    kind: quant_kernel
+    status: available
+    capability_id: ta.parallel_channel_geometry
+  - tool_id: polyline
+    family: viewer_shape
+    kind: viewer_primitive
+    status: deferred
+    capability_id: null
+  - tool_id: rectangle
+    family: viewer_shape
+    kind: viewer_primitive
+    status: deferred
+    capability_id: null
+  - tool_id: regression
+    family: model
+    kind: quant_kernel
+    status: available
+    capability_id: model.regression
+  - tool_id: support_resistance
+    family: reference
+    kind: quant_kernel
+    status: available
+    capability_id: model.sr
+  - tool_id: swing_anchors
+    family: trend
+    kind: quant_kernel
+    status: available
+    capability_id: ta.swing_anchors
+  - tool_id: three_drives_pattern
+    family: pattern
+    kind: quant_kernel
+    status: available
+    capability_id: ta.three_drives_pattern_geometry
+  - tool_id: traditional_pivots
+    family: reference
+    kind: quant_kernel
+    status: available
+    capability_id: ta.traditional_pivot_geometry
+  - tool_id: trendlines
+    family: trend
+    kind: quant_kernel
+    status: available
+    capability_id: model.trendlines
+  - tool_id: triangle_pattern
+    family: pattern
+    kind: quant_kernel
+    status: available
+    capability_id: ta.triangle_pattern_geometry
+  - tool_id: vwap_final
+    family: volume
+    kind: quant_kernel
+    status: available
+    capability_id: ta.vwap_geometry
+  - tool_id: wedge_pattern
+    family: pattern
+    kind: quant_kernel
+    status: planned
+    capability_id: null
+  - tool_id: xabcd_harmonic_pattern
+    family: pattern
+    kind: quant_kernel
+    status: available
+    capability_id: ta.xabcd_pattern_geometry

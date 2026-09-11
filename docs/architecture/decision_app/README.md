@@ -333,6 +333,39 @@ dependency failures, state transitions, publication conflicts, and price-relay
 health. Controls are bounded and auditable; there is no hot graph mutation or live
 training control surface.
 
+## Runtime deadlines and ownership
+
+The approved implementation carries one explicit bounded envelope around
+resource construction, live control, and teardown. These bounds constrain
+waiting and ownership; they do not change the causal identity, lane progress,
+publication, or downstream risk contracts above.
+
+The numeric defaults in this table are approved values sourced from
+`configs/decision/global.yaml`; the architecture catalog mirrors them for
+discovery and is not a configuration authority.
+
+| Phase | Bound | Ownership rule |
+| --- | --- | --- |
+| Initial resources and first generation | One absolute 120-second deadline | A late candidate is not installed. |
+| Valkey commands and DB acquisition | 5 seconds | Native driver budgets remain explicit. |
+| Canonical history and checkpoint/effect SQL | One remaining 15-second operation budget | Each statement/transaction phase cannot restart the operation clock. |
+| Control admission and effect-task drain | 30 seconds | HTTP disconnect/caller cancellation does not prematurely cancel admitted publication work. |
+| Cleanup and teardown | One lazy aggregate budget of 5 seconds | The clock starts when cleanup begins, including after the 30-second drain. |
+
+Startup failure shares its lazy cleanup budget across candidate cleanup, partial
+DB construction, schema/lease release, and final owned-resource teardown; its
+expiry is capped by the startup deadline plus the cleanup allowance. Successful
+startup establishes a fresh lazy final-shutdown budget rather than reusing a
+consumed startup-failure budget.
+
+Decision closes only resources it owns. Borrowed pools/clients are not closed by
+the application. If release or cleanup cannot be confirmed within the aggregate
+budget, ownership is retained and reuse is fenced. `STOPPED` describes quiescent
+owned service tasks; a clean lifespan additionally requires confirmed teardown of
+owned resources, so a resource cleanup failure may leave the service `STOPPED`
+while application shutdown is unclean. This section describes the implementation
+envelope, not final certification or soak readiness.
+
 ## Resource envelope
 
 The core target is an 8 GiB RAM / 4 CPU host. Normal core trading operation

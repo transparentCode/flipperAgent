@@ -1,0 +1,17 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "panels": [
+    {"title": "SUT runtime", "type": "stat", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "ingestion_runtime_live{service_name=\"ingestion\"}", "refId": "A"}, {"expr": "decision_active_lane_count{service_name=\"decision\"}", "refId": "B"}], "gridPos": {"h": 6, "w": 24, "x": 0, "y": 0}},
+    {"title": "Outbox pending", "type": "timeseries", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "ingestion_outbox_pending{service_name=\"ingestion\"}", "refId": "A"}], "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6}},
+    {"title": "Decision closed interval lag", "type": "timeseries", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "decision_input_closed_interval_lag{service_name=\"decision\"}", "refId": "A"}, {"expr": "decision_lane_watermark_closed_interval_lag{service_name=\"decision\"}", "refId": "B"}], "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6}},
+    {"title": "Decision inputs and publication", "type": "timeseries", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum(rate(decision_input_records_total{service_name=\"decision\"}[5m])) by (outcome)", "refId": "A"}, {"expr": "sum(rate(decision_publication_total{service_name=\"decision\"}[5m])) by (outcome)", "refId": "B"}], "gridPos": {"h": 8, "w": 24, "x": 0, "y": 14}}
+  ],
+  "schemaVersion": 39,
+  "tags": ["flipperAgent", "run3", "ingestion", "decision"],
+  "time": {"from": "now-1h", "to": "now"},
+  "timezone": "browser",
+  "title": "Pipeline Health (Run #3)",
+  "uid": "flipper-pipeline-health",
+  "version": 1
+}

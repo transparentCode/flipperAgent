@@ -1,0 +1,108 @@
+{
+  "global_params": {
+    "ensemble.structural_vs_micro_ratio": 0.6081106602001054,
+    "lifecycle.age_lambda": 0.0019246782213565524,
+    "cross_asset.sector_cluster_eps_atr": 0.49091248360355033,
+    "kernels.volume_poc.hvn_prominence": 0.14585112746335846,
+    "kernels.fair_value_gap.gap_min_atr": 0.5173332336277457,
+    "kernels.fair_value_gap.fill_threshold": 0.5074269294896714,
+    "kernels.fair_value_gap.filled_penalty_multiplier": 0.4659725093210579,
+    "kernels.order_block.displacement_atr": 1.3494749682376503,
+    "kernels.order_block.imbalance_ratio": 0.7335558684167138,
+    "kernels.regression_band.band_width_sigma": 1.6743673258150522,
+    "kernels.liquidity_sweep.sweep_lookback": 44,
+    "kernels.liquidity_sweep.max_pierce_atr": 0.8297256589643225
+  },
+  "global_score": 0.46601369103382284,
+  "per_asset_params": {
+    "BTCUSDT": {
+      "1h": {
+        "kernels.volume_poc.hvn_prominence": 0.1367018949045929,
+        "kernels.fair_value_gap.gap_min_atr": 0.6339179784164101,
+        "kernels.fair_value_gap.fill_threshold": 0.5662869162664548,
+        "kernels.fair_value_gap.filled_penalty_multiplier": 0.4889585800446104,
+        "kernels.order_block.displacement_atr": 1.1173778511060068,
+        "kernels.order_block.imbalance_ratio": 0.5969392217232038,
+        "kernels.regression_band.band_width_sigma": 1.5344412097223843,
+        "kernels.liquidity_sweep.sweep_lookback": 52,
+        "kernels.liquidity_sweep.max_pierce_atr": 0.8716745188392321
+      }
+    }
+  },
+  "per_asset_results": [
+    {
+      "asset": "BTCUSDT",
+      "timeframe": "1h",
+      "best_params": {
+        "kernels.volume_poc.hvn_prominence": 0.1367018949045929,
+        "kernels.fair_value_gap.gap_min_atr": 0.6339179784164101,
+        "kernels.fair_value_gap.fill_threshold": 0.5662869162664548,
+        "kernels.fair_value_gap.filled_penalty_multiplier": 0.4889585800446104,
+        "kernels.order_block.displacement_atr": 1.1173778511060068,
+        "kernels.order_block.imbalance_ratio": 0.5969392217232038,
+        "kernels.regression_band.band_width_sigma": 1.5344412097223843,
+        "kernels.liquidity_sweep.sweep_lookback": 52,
+        "kernels.liquidity_sweep.max_pierce_atr": 0.8716745188392321
+      },
+      "train_score": 0.302192371911888,
+      "val_score": 0.38535678938161366,
+      "accepted": true,
+      "fallback_to_global": false,
+      "n_folds": 41,
+      "fold_scores": [
+        0.13557007384333775,
+        0.35911311527040063,
+        0.22426260504296447,
+        0.2979856931343341,
+        0.5466070784146561,
+        0.348459235202923,
+        0.18035525758822502,
+        0.23682034940290064,
+        0.17909318134852226,
+        0.29403584255668563,
+        0.3696955276169101,
+        0.3659434812362124,
+        0.21539990933859277,
+        0.18173866523119442,
+        0.16692009050599238,
+        0.33239113546301224,
+        0.3693438437801239,
+        0.1415588613458055,
+        0.4646937924527089,
+        0.3908442996488811,
+        0.49715729808417675,
+        0.41120328124291344,
+        0.17763702653767782,
+        0.13014417619600036,
+        0.21946925501487619,
+        0.35654117883194913,
+        0.2509528897343458,
+        0.4673859721949325,
+        0.3635092505042967,
+        0.18187210179925012,
+        0.23022931711652378,
+        0.23005727655590769,
+        0.30361002917887814,
+        0.2742321851038846,
+        0.3278203760403514,
+        0.35407177946587415,
+        0.35031021454032724,
+        0.16703487567573988,
+        0.22844682006387157,
+        0.3586823337756712,
+        0.4861669990846297
+      ],
+      "gate_failures": 0,
+      "constraint_failures": 28
+    }
+  ],
+  "metadata": {
+    "total_time_seconds": 238.64175295829773,
+    "stage1_n_trials": 5,
+    "stage2_assets_optimized": 1,
+    "stage2_assets_accepted": 1,
+    "stage2_assets_skipped": [],
+    "stage2_assets_total": 1
+  },
+  "timestamp": "2026-04-30T13:38:50.452008"
+}

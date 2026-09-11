@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.flipperagent.ingestion-decision-soak-09010152</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260909T010152Z/run-local/launchd/run-under-launchd.sh</string>
+  </array>
+  <key>WorkingDirectory</key>
+    <string>/Users/kajukatli/projects/flipperAgent</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>LowPriorityIO</key>
+  <true/>
+  <key>LimitLoadToSessionType</key>
+  <string>Aqua</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>PYTHONUNBUFFERED</key>
+    <string>1</string>
+    <key>PYTHONDONTWRITEBYTECODE</key>
+    <string>1</string>
+  </dict>
+  <key>StandardOutPath</key>
+    <string>/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260909T010152Z/run-local/launchd/stdout.log</string>
+  <key>StandardErrorPath</key>
+    <string>/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260909T010152Z/run-local/launchd/stderr.log</string>
+</dict>
+</plist>

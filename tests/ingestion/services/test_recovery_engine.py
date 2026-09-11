@@ -12,8 +12,14 @@ import apps.ingestion_app.services.recovery as recovery_module
 from apps.ingestion_app.domain.candle import CandleObservation, CanonicalCandle
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
-from apps.ingestion_app.providers.base import TransportDeadlineExceeded
-from apps.ingestion_app.services.recovery import RecoveryEngine
+from apps.ingestion_app.providers.base import (
+    ProviderAvailabilityError,
+    TransportDeadlineExceeded,
+)
+from apps.ingestion_app.services.recovery import (
+    RecoveryEngine,
+    RecoveryExhaustedError,
+)
 from apps.ingestion_app.services.time_alignment import aligned_bucket_start
 from apps.ingestion_app.storage.repository import CandleCommitStatus
 from libs.common.exceptions import DataIngestionError
@@ -571,7 +577,10 @@ async def test_primary_failures_are_bounded_before_fallback() -> None:
     until = since + 2 * MINUTE
     primary = _ScriptedProvider(
         "binance_native",
-        [DataIngestionError("primary failure"), DataIngestionError("primary failure")],
+        [
+            ProviderAvailabilityError("primary failure"),
+            ProviderAvailabilityError("primary failure"),
+        ],
     )
     fallback = _ScriptedProvider(
         "ccxt_binance",
@@ -710,7 +719,7 @@ async def test_provider_exhaustion_raises_with_missing_count() -> None:
         {"binance_native": primary, "ccxt_binance": fallback},
     )
 
-    with pytest.raises(DataIngestionError, match="missing 2 candles"):
+    with pytest.raises(RecoveryExhaustedError, match="missing 2 candles"):
         await engine.recover(
             _request(since, until),
             base_timeframe="1m",
@@ -724,6 +733,40 @@ async def test_provider_exhaustion_raises_with_missing_count() -> None:
             alignment_origin=ORIGIN,
         )
     assert engine._lane_locks == {}
+
+
+@pytest.mark.asyncio
+async def test_provider_exhaustion_retains_last_provider_failure_as_cause() -> None:
+    since = datetime(2026, 1, 1, tzinfo=UTC)
+    until = since + MINUTE
+    primary_error = ProviderAvailabilityError("primary unavailable")
+    fallback_error = ProviderAvailabilityError("fallback unavailable")
+    primary = _ScriptedProvider("binance_native", [primary_error])
+    fallback = _ScriptedProvider("ccxt_binance", [fallback_error])
+    repository = _Repository()
+    engine = _engine(
+        repository,
+        _Ingestion(repository),
+        _HTF(),
+        {"binance_native": primary, "ccxt_binance": fallback},
+        max_attempts=1,
+    )
+
+    with pytest.raises(RecoveryExhaustedError) as raised:
+        await engine.recover(
+            _request(since, until),
+            base_timeframe="1m",
+            base_duration=MINUTE,
+            provider_order=("binance_native", "ccxt_binance"),
+            provider_symbols={
+                "binance_native": "BTCUSDT",
+                "ccxt_binance": "BTC/USDT:USDT",
+            },
+            target_durations={},
+            alignment_origin=ORIGIN,
+        )
+
+    assert raised.value.__cause__ is fallback_error
 
 
 @pytest.mark.asyncio
@@ -756,6 +799,40 @@ async def test_canonical_conflict_stops_without_fallback() -> None:
             target_durations={},
             alignment_origin=ORIGIN,
         )
+    assert fallback.calls == []
+    assert engine._lane_locks == {}
+
+
+@pytest.mark.asyncio
+async def test_deterministic_provider_error_stops_without_fallback() -> None:
+    since = datetime(2026, 1, 1, tzinfo=UTC)
+    until = since + MINUTE
+    primary_error = DataIngestionError("invalid provider metadata")
+    primary = _ScriptedProvider("binance_native", [primary_error])
+    fallback = _ScriptedProvider("ccxt_binance", [])
+    repository = _Repository()
+    engine = _engine(
+        repository,
+        _Ingestion(repository),
+        _HTF(),
+        {"binance_native": primary, "ccxt_binance": fallback},
+    )
+
+    with pytest.raises(DataIngestionError, match="invalid provider metadata") as raised:
+        await engine.recover(
+            _request(since, until),
+            base_timeframe="1m",
+            base_duration=MINUTE,
+            provider_order=("binance_native", "ccxt_binance"),
+            provider_symbols={
+                "binance_native": "BTCUSDT",
+                "ccxt_binance": "BTC/USDT:USDT",
+            },
+            target_durations={},
+            alignment_origin=ORIGIN,
+        )
+
+    assert raised.value is primary_error
     assert fallback.calls == []
     assert engine._lane_locks == {}
 
@@ -960,7 +1037,7 @@ async def test_provider_failure_reclaims_lane_lock_entry() -> None:
     until = since + MINUTE
     provider = _ScriptedProvider(
         "binance_native",
-        [DataIngestionError("provider failed")],
+        [ProviderAvailabilityError("provider failed")],
     )
     repository = _Repository()
     engine = _engine(

@@ -1,0 +1,2 @@
+service=db exit=0 bytes=49341 since=1970-01-01T00:00:00Z until=2026-09-08T03:12:22Z
+a57b487eb95f184de935d22aec993a587cead8be032d0d557b8b3940437199bb  /Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260908T021137Z/raw-docker-logs/stop.7b4bmM/db.log

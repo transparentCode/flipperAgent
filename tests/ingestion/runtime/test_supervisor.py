@@ -19,6 +19,7 @@ from apps.ingestion_app.runtime.supervisor import (
     RuntimeState,
     RuntimeSupervisor,
 )
+from apps.ingestion_app.services.recovery import RecoveryExhaustedError
 from apps.ingestion_app.services.time_alignment import aligned_bucket_start
 from apps.ingestion_app.storage.repository import CandleCommitStatus
 from libs.common.exceptions import DataIngestionError
@@ -666,6 +667,132 @@ async def test_stream_interruption_recovers_then_catches_up_before_second_stream
     )
     assert first.closed
     assert second.closed
+
+
+@pytest.mark.asyncio
+async def test_interruption_provider_exhaustion_retries_catchup_then_stream() -> None:
+    attempts = 0
+    retry_started = asyncio.Event()
+    release_retry = asyncio.Event()
+    interruption_request = RecoveryRequest(
+        lane=LANE,
+        since=BOUNDARY - timedelta(minutes=1),
+        until=BOUNDARY,
+        reason="websocket_error",
+    )
+
+    def fail_once(request: RecoveryRequest) -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise RecoveryExhaustedError(
+                f"temporary provider outage for {request.lane}"
+            )
+
+    async def reconnect_sleep(seconds: float) -> None:
+        assert seconds == 0
+        retry_started.set()
+        await release_retry.wait()
+
+    first = _Stream(
+        interruption=LiveStreamInterrupted(
+            reason="websocket_error",
+            recovery_requests=(interruption_request,),
+        )
+    )
+    second = _Stream()
+    provider = _LiveProvider([first, second])
+    times = iter((NOW, NOW, NOW + timedelta(minutes=1), NOW + timedelta(minutes=1)))
+    supervisor, _, _, _, recovery, _ = _supervisor(
+        repository=_Repository({LANE: _canonical()}),
+        provider=provider,
+        recovery=_Recovery(on_call=fail_once),
+        now_fn=lambda: next(times),
+        reconnect_sleep_fn=reconnect_sleep,
+    )
+
+    task = asyncio.create_task(supervisor.run())
+    await asyncio.wait_for(retry_started.wait(), timeout=1)
+    snapshot = supervisor.snapshot()
+    assert snapshot.state is RuntimeState.RECOVERING
+    assert snapshot.last_error is not None
+    assert "temporary provider outage" in snapshot.last_error
+
+    release_retry.set()
+    while len(provider.calls) < 2:
+        await asyncio.sleep(0)
+    supervisor.stop()
+    await asyncio.wait_for(task, timeout=1)
+
+    assert attempts == 2
+    assert recovery.calls == [
+        interruption_request,
+        RecoveryRequest(
+            lane=LANE,
+            since=BOUNDARY,
+            until=BOUNDARY + timedelta(minutes=1),
+            reason="runtime_catchup",
+        ),
+    ]
+    assert len(provider.calls) == 2
+    assert first.closed
+    assert second.closed
+    assert supervisor.snapshot().state is RuntimeState.STOPPED
+
+
+@pytest.mark.asyncio
+async def test_stop_interrupts_provider_exhaustion_retry_backoff() -> None:
+    retry_started = asyncio.Event()
+    never_release = asyncio.Event()
+
+    def exhaust_provider(request: RecoveryRequest) -> None:
+        raise RecoveryExhaustedError(f"temporary provider outage for {request.lane}")
+
+    async def reconnect_sleep(seconds: float) -> None:
+        assert seconds == 0
+        retry_started.set()
+        await never_release.wait()
+
+    provider = _LiveProvider([_Stream()])
+    supervisor, _, _, _, recovery, _ = _supervisor(
+        repository=_Repository(),
+        provider=provider,
+        recovery=_Recovery(on_call=exhaust_provider),
+        reconnect_sleep_fn=reconnect_sleep,
+    )
+
+    task = asyncio.create_task(supervisor.run())
+    await asyncio.wait_for(retry_started.wait(), timeout=1)
+    supervisor.stop()
+    await asyncio.wait_for(task, timeout=1)
+
+    assert len(recovery.calls) == 1
+    assert provider.calls == []
+    snapshot = supervisor.snapshot()
+    assert snapshot.state is RuntimeState.STOPPED
+    assert snapshot.last_error is not None
+
+
+@pytest.mark.asyncio
+async def test_non_exhaustion_recovery_error_remains_fatal() -> None:
+    failure = DataIngestionError("canonical recovery invariant failed")
+
+    def fail_recovery(request: RecoveryRequest) -> None:
+        del request
+        raise failure
+
+    supervisor, _, _, _, _, _ = _supervisor(
+        repository=_Repository(),
+        recovery=_Recovery(on_call=fail_recovery),
+    )
+
+    with pytest.raises(DataIngestionError) as raised:
+        await supervisor.run()
+
+    assert raised.value is failure
+    snapshot = supervisor.snapshot()
+    assert snapshot.state is RuntimeState.ERROR
+    assert snapshot.last_error == str(failure)
 
 
 @pytest.mark.asyncio

@@ -1,0 +1,395 @@
+{
+  "approved_cotenant_baseline": {
+    "mcp-cbm": {
+      "id": "e2329c8af97feb51bd0fef1f01051306ce3de034305a0fa8d2a1f4dc6a470011",
+      "oom_killed": false,
+      "restart_count": 0,
+      "started_at": "2026-09-09T10:18:52.316287878Z"
+    },
+    "mcp-gitnexus": {
+      "id": "dd9595e4eff41f372e93d028b569f92c4b988ca50a3b162564e80201d2d0e6e0",
+      "oom_killed": false,
+      "restart_count": 0,
+      "started_at": "2026-09-09T10:18:52.443763211Z"
+    }
+  },
+  "compose_files": [
+    "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/source/docker-compose.yml",
+    "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/soak-compose.override.yml"
+  ],
+  "compose_project": "flipper-id-soak-20260911t020133z",
+  "config_hashes": {
+    "configs/decision/assets/BTC.yaml": "adbd011928ce80ee028cf72db5116f55dd758f7976244469defa329be7e76cdd",
+    "configs/decision/assets/ETH.yaml": "a4220a9297e93ab96642e0fda6472349efeda867266a0850a326fc8adc7ca5b3",
+    "configs/decision/global.yaml": "7255b7861e82ffd3a7424a307e51c4745c21b2de628584f18dec02b577c22cbb",
+    "configs/ingestion/global.yaml": "b4d92eaf492b2c07082ba0a1da378085fda9968979e304ea22b9566cd617a363",
+    "configs/observability/prometheus.yml": "27816d01e8a8e0cd5599195e2ae095e43457512286dc42597e739793525af46b",
+    "docker-compose.yml": "3253bb710308cf07904171402597da6b9ec756d82e3e7f576851c07958b6e063"
+  },
+  "core_services": [
+    "db",
+    "broker",
+    "ingestion",
+    "decision"
+  ],
+  "created_at": "2026-09-11T02:33:01.051056+00:00",
+  "docker_environment": {
+    "architecture": "aarch64",
+    "mem_total_bytes": 8320294912,
+    "name": "docker-desktop",
+    "ncpu": 4,
+    "operating_system": "Docker Desktop",
+    "server_version": "29.7.2"
+  },
+  "frozen_tooling_hashes": {
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/IMAGE_PROOF.json": "e4dcbc8b55e896cdcdb3a1d6b5b62b87ce178dafec9d049f5633307fcadc275d",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/SOURCE_EXPORT_PROOF.json": "9b695bef6ba3c1dba9d9edae01c784777cd02ea32fa5bc44d62f878de354dab1",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/bounded_command.py": "ad9c6b6c941fdf0df38cbcd058f7f551182670285540c5b1311bd5b83bbb144a",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/grafana/provisioning/dashboards/dashboards.yaml": "821b78afd45633466cb0987099ad06cc48dc39d3d031857cb7e5d650fcddab52",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/grafana/provisioning/dashboards/ingestion.json": "ff3134986bb178998d539f07f6a62c11815bc5aa8902ba193571855c5fdb27b1",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/grafana/provisioning/dashboards/pipeline-health.json": "ada5d3a37cccbfa667b71f022ef60f695c056cca185aa7a3ebe628f794a6e1ef",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/grafana/provisioning/datasources/datasources.yaml": "72305a9fded6b40fe740ec82dac495f006990e6e37de754d1fcd01d93da4834a",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/guarded_launch.py": "b8a47e9902cc6d33dd8f860328ac4f42a242d75411b1ab6540a9ef6d507fcc17",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/launchd/ingestion-decision-soak-run3.plist": "fd449a233b4ef6087f026c6381271a037e7ab05e4bb85a3b292b260481f6d6ad",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/launchd/install-run3.sh": "5749e6dd762929ebd63eaf447ce32c1e78e0847873628d487359d1e887472b80",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/launchd/run-guarded-child.sh": "30a87dfd74f6b10098e4615ceaafa4103a6e97a4048788eabe2c49c8339cc802",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/launchd/run-under-launchd.sh": "6e455dfd589d6b2e7ea83d1d15c0165bf3bb3dcfb3b21d42e56fea3ec7149904",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/launchd/start-run3.sh": "3513acbfc3fa3959e57c89a4d69bf085aec24adf0b9f8ff3abaa37571d86be61",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/launchd/stop-run3.sh": "20c0f3847daba03975cd34325755b32ba37d895b26b4523bb73d43d2ba4bdfa8",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/legacy_sampler.py": "a0a741a758b26463c0a949af62e99ba7634be580f8b9f18c41ac6e63edd7a931",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/otel-collector.yaml": "35f88d8b047b8a726ce26f2848ed18b1f33f8c1c097c103f8b97f0c9aaa9353e",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/soak-compose.override.yml": "10f9e41a64e8f6d082d61795cf8aa36d6521414c181448c7e8ac7517cbb17a35",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/soak_harness.py": "07a08ae3fd8cb2920446aa81ab35279a5bec5de4e9a3af9046a804e0db9b9d3c",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/test_bounded_command.py": "29577207adfdf3acb06d719bcaac3dbaae518d17c4c3fc5d77cb3e197c278120",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/test_guarded_launch.py": "6ed2b0e6221b9af30909185287713fc4c2d0d24fab3b09f2f29e91941a49642a",
+    "artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/test_run3_harness.py": "488a124d8c5d40d882b7a7f58c3d192fc83122d9af076ef99100dd2987803fcc",
+    "source_tree_file_count": "1329",
+    "source_tree_sha256": "a1e4e63e392ff7da1d1656278e757e32facb0cf9deb1d51744732a5fee068ffb"
+  },
+  "history_repair_path": "ingestion-owned runtime startup catch-up and HTF reconciliation",
+  "host_environment": {
+    "disk": {
+      "error": null,
+      "exit_code": 0,
+      "output": "Filesystem   1024-blocks      Used Available Capacity iused      ifree %iused  Mounted on\n/dev/disk3s1   482797652 147193024 288069120    34%  951935 2880691200    0%   /System/Volumes/Data"
+    },
+    "load_average": [
+      4.90234375,
+      6.291015625,
+      6.6650390625
+    ],
+    "memory_pressure": {
+      "error": null,
+      "exit_code": 0,
+      "output": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                     4228.\nPages active:                                 220374.\nPages inactive:                               217087.\nPages speculative:                              2665.\nPages throttled:                                   0.\nPages wired down:                             123407.\nPages purgeable:                                2025.\n\"Translation faults\":                     1027323311.\nPages copy-on-write:                        78205403.\nPages zero filled:                         721174731.\nPages reactivated:                         149348655.\nPages purged:                               16688847.\nFile-backed pages:                            181769.\nAnonymous pages:                              258357.\nPages stored in compressor:                   787832.\nPages occupied by compressor:                 441454.\nDecompressions:                            104772785.\nCompressions:                              124448170.\nPageins:                                    41659156.\nPageouts:                                      31936.\nSwapins:                                      151998.\nSwapouts:                                     416536."
+    }
+  },
+  "image_proof": {
+    "image": "flipper-id-soak:f063630-20260911-020133",
+    "image_id": "sha256:9322d0094ffec839a5828639f51d35c3f9972bcbbca06b35e354ddb24edab988",
+    "proof_sha256": "e4dcbc8b55e896cdcdb3a1d6b5b62b87ce178dafec9d049f5633307fcadc275d",
+    "source_sha": "f06363074511ce9eb3b9b5b8c9f145ff97a71aa7"
+  },
+  "measurement_seconds_required": 86400,
+  "measurement_services": [
+    "otel-collector",
+    "prometheus",
+    "grafana"
+  ],
+  "ports": {
+    "decision": "127.0.0.1:8004",
+    "grafana": "127.0.0.1:3001",
+    "ingestion": "127.0.0.1:8003",
+    "otel_health": "127.0.0.1:13133",
+    "prometheus": "127.0.0.1:9090",
+    "status": 8765
+  },
+  "prestart_readiness": {
+    "gate": {
+      "active_lane_count": 3,
+      "all_lanes_live": true,
+      "blocked_stream_count": 0,
+      "boundary_episodes_pending": [],
+      "boundary_episodes_unresolved": [],
+      "canonical_conflict_count": 0,
+      "configured_lane_count": 3,
+      "decision_state": "RUNNING",
+      "docker_health_ok": true,
+      "health_ok": true,
+      "history": {
+        "all_required_series_contiguous": true,
+        "all_required_series_forward_current": true,
+        "checked_at": "2026-09-11T02:33:11.270802+00:00",
+        "repair_path": "ingestion_runtime_startup_catchup_and_htf_reconcile",
+        "required_series": {
+          "BTC-USDT-PERP:1h": {
+            "expected_closed_boundary": "2026-09-11T02:00:00+00:00",
+            "first_open": "2026-06-08T00:00:00+00:00",
+            "forward_to_expected_boundary": true,
+            "gap_count": 0,
+            "instrument_id": "BTC-USDT-PERP",
+            "last_close": "2026-09-11T02:00:00+00:00",
+            "row_count": 2282,
+            "timeframe": "1h"
+          },
+          "BTC-USDT-PERP:4h": {
+            "expected_closed_boundary": "2026-09-11T00:00:00+00:00",
+            "first_open": "2026-06-08T00:00:00+00:00",
+            "forward_to_expected_boundary": true,
+            "gap_count": 0,
+            "instrument_id": "BTC-USDT-PERP",
+            "last_close": "2026-09-11T00:00:00+00:00",
+            "row_count": 570,
+            "timeframe": "4h"
+          },
+          "ETH-USDT-PERP:4h": {
+            "expected_closed_boundary": "2026-09-11T00:00:00+00:00",
+            "first_open": "2026-06-08T00:00:00+00:00",
+            "forward_to_expected_boundary": true,
+            "gap_count": 0,
+            "instrument_id": "ETH-USDT-PERP",
+            "last_close": "2026-09-11T00:00:00+00:00",
+            "row_count": 570,
+            "timeframe": "4h"
+          }
+        }
+      },
+      "history_ready": true,
+      "ingestion_state": "live",
+      "input_interval_lag": {
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h": 0,
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:4h": 0,
+        "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:4h": 0
+      },
+      "inputs_current": true,
+      "lag_gate_status": "PASS",
+      "lane_statuses": {
+        "BTCUSDT:momentum_1h": "LIVE",
+        "BTCUSDT:momentum_4h": "LIVE",
+        "ETHUSDT:momentum_4h": "LIVE"
+      },
+      "lane_watermark_interval_lag": {
+        "BTCUSDT:momentum_1h": 0,
+        "BTCUSDT:momentum_4h": 0,
+        "ETHUSDT:momentum_4h": 0
+      },
+      "lanes_current": true,
+      "outbox_healthy": true,
+      "outbox_oldest_age_seconds": 0.0,
+      "outbox_pending": 0,
+      "outbox_status": "DRAINED",
+      "probe_errors": {},
+      "probe_status": "VALID",
+      "provenance": {
+        "BTC-USDT-PERP:1h": {
+          "canonical_history_checked_at": "2026-09-11T02:33:11.270802+00:00",
+          "canonical_history_current_at": "2026-09-11T02:00:00+00:00",
+          "decision_input_latest_market_as_of": "2026-09-11T02:00:00+00:00",
+          "expected_closed_boundary": "2026-09-11T02:00:00+00:00",
+          "lane_watermark_latest_market_as_of": "2026-09-11T02:00:00+00:00",
+          "observed_at": "2026-09-11T02:33:11.271723+00:00",
+          "outbox_oldest_age_seconds": 0.0,
+          "outbox_oldest_epoch": null
+        },
+        "BTC-USDT-PERP:4h": {
+          "canonical_history_checked_at": "2026-09-11T02:33:11.270802+00:00",
+          "canonical_history_current_at": "2026-09-11T00:00:00+00:00",
+          "decision_input_latest_market_as_of": "2026-09-11T00:00:00+00:00",
+          "expected_closed_boundary": "2026-09-11T00:00:00+00:00",
+          "lane_watermark_latest_market_as_of": "2026-09-11T00:00:00+00:00",
+          "observed_at": "2026-09-11T02:33:11.271723+00:00",
+          "outbox_oldest_age_seconds": 0.0,
+          "outbox_oldest_epoch": null
+        },
+        "ETH-USDT-PERP:4h": {
+          "canonical_history_checked_at": "2026-09-11T02:33:11.270802+00:00",
+          "canonical_history_current_at": "2026-09-11T00:00:00+00:00",
+          "decision_input_latest_market_as_of": "2026-09-11T00:00:00+00:00",
+          "expected_closed_boundary": "2026-09-11T00:00:00+00:00",
+          "lane_watermark_latest_market_as_of": "2026-09-11T00:00:00+00:00",
+          "observed_at": "2026-09-11T02:33:11.271723+00:00",
+          "outbox_oldest_age_seconds": 0.0,
+          "outbox_oldest_epoch": null
+        }
+      },
+      "ready": true
+    },
+    "health": {
+      "checks": {
+        "decision": {
+          "error": null,
+          "latency_ms": 4.438,
+          "payload": {
+            "active_lane_count": 3,
+            "blocked_stream_count": 0,
+            "configured_asset_count": 2,
+            "configured_lane_count": 3,
+            "desired_state": "RUNNING",
+            "generation_id": 1,
+            "inputs": {
+              "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h": {
+                "blocked_reason": null,
+                "latest_market_as_of": "2026-09-11T02:00:00+00:00",
+                "latest_stream_id": "1789093457055-0"
+              },
+              "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:4h": {
+                "blocked_reason": null,
+                "latest_market_as_of": "2026-09-11T00:00:00+00:00",
+                "latest_stream_id": "1789093457097-1"
+              },
+              "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:4h": {
+                "blocked_reason": null,
+                "latest_market_as_of": "2026-09-11T00:00:00+00:00",
+                "latest_stream_id": "1789093789777-0"
+              }
+            },
+            "lane_status_counts": {
+              "LIVE": 3
+            },
+            "lanes": {
+              "BTCUSDT:momentum_1h": {
+                "lane_id": "BTCUSDT:momentum_1h",
+                "last_transaction": null,
+                "pending_trigger_cutoff": null,
+                "reason": null,
+                "status": "LIVE",
+                "watermark": {
+                  "last_disposition": null,
+                  "latest_market_as_of": "2026-09-11T02:00:00+00:00"
+                }
+              },
+              "BTCUSDT:momentum_4h": {
+                "lane_id": "BTCUSDT:momentum_4h",
+                "last_transaction": null,
+                "pending_trigger_cutoff": null,
+                "reason": null,
+                "status": "LIVE",
+                "watermark": {
+                  "last_disposition": null,
+                  "latest_market_as_of": "2026-09-11T00:00:00+00:00"
+                }
+              },
+              "ETHUSDT:momentum_4h": {
+                "lane_id": "ETHUSDT:momentum_4h",
+                "last_transaction": null,
+                "pending_trigger_cutoff": null,
+                "reason": null,
+                "status": "LIVE",
+                "watermark": {
+                  "last_disposition": null,
+                  "latest_market_as_of": "2026-09-11T00:00:00+00:00"
+                }
+              }
+            },
+            "last_error": null,
+            "last_lifecycle_event_at": null,
+            "last_lifecycle_evidence": {
+              "cursor": "1789093147667-0",
+              "event_ids": [],
+              "ignored_symbols": [],
+              "malformed_ids": [],
+              "reason": null,
+              "relevant_count": 0
+            },
+            "last_poll_at": "2026-09-11T02:33:08.800308+00:00",
+            "last_rebuild_at": "2026-09-11T02:32:36.094022+00:00",
+            "lifecycle_cursor": "1789093147667-0",
+            "service_state": "RUNNING",
+            "started_at": "2026-09-11T02:32:36.094067+00:00",
+            "status": "ready"
+          },
+          "status_code": 200
+        },
+        "grafana": {
+          "error": null,
+          "latency_ms": 1.869,
+          "payload": {
+            "commit": "5b85c4c2fcf5d32d4f68aaef345c53096359b2f1",
+            "database": "ok",
+            "version": "11.1.0"
+          },
+          "status_code": 200
+        },
+        "ingestion": {
+          "error": null,
+          "latency_ms": 39.534,
+          "payload": {
+            "runtime": {
+              "desired_state": "running",
+              "enabled_asset_count": 6,
+              "last_error": null,
+              "state": "live"
+            },
+            "status": "ready"
+          },
+          "status_code": 200
+        },
+        "otel-collector": {
+          "error": null,
+          "latency_ms": 1.84,
+          "payload": {
+            "status": "Server available",
+            "upSince": "2026-09-11T02:32:30.067676305Z",
+            "uptime": "38.846863017s"
+          },
+          "status_code": 200
+        },
+        "prometheus": {
+          "error": null,
+          "latency_ms": 1.381,
+          "payload": "Prometheus Server is Healthy.\n",
+          "status_code": 200
+        }
+      },
+      "phase": "preflight",
+      "timestamp": "2026-09-11T02:33:08.919467+00:00"
+    }
+  },
+  "required_history": [
+    {
+      "instrument_id": "BTC-USDT-PERP",
+      "timeframe": "1h",
+      "venue": "binance"
+    },
+    {
+      "instrument_id": "BTC-USDT-PERP",
+      "timeframe": "4h",
+      "venue": "binance"
+    },
+    {
+      "instrument_id": "ETH-USDT-PERP",
+      "timeframe": "4h",
+      "venue": "binance"
+    }
+  ],
+  "run_id": "20260911T020133Z",
+  "run_services": [
+    "db",
+    "broker",
+    "ingestion",
+    "decision",
+    "otel-collector",
+    "prometheus",
+    "grafana"
+  ],
+  "source_export": {
+    "file_count": 1329,
+    "proof_path": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260911T020133Z/SOURCE_EXPORT_PROOF.json",
+    "proof_sha256": "9b695bef6ba3c1dba9d9edae01c784777cd02ea32fa5bc44d62f878de354dab1",
+    "source_sha": "f06363074511ce9eb3b9b5b8c9f145ff97a71aa7",
+    "tree_sha256": "a1e4e63e392ff7da1d1656278e757e32facb0cf9deb1d51744732a5fee068ffb"
+  },
+  "source_export_root": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260911T020133Z/run-local/source",
+  "source_sha": "f06363074511ce9eb3b9b5b8c9f145ff97a71aa7",
+  "sut_apps": [
+    "ingestion",
+    "decision"
+  ],
+  "sut_limits_preserved": true,
+  "test_only_resource_limits": {
+    "grafana": "384M",
+    "otel-collector": "512M"
+  },
+  "warmup_seconds_required": 900,
+  "worktree": "/Users/kajukatli/projects/flipperAgent"
+}

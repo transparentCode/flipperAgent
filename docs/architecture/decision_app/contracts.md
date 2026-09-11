@@ -468,6 +468,36 @@ affected `BarStore` views and lanes from Timescale, with new input and lane
 progress positions. Full restart reconstructs state and resumes input reading; stale
 historical decisions are not republished from a persistent PEL in V1.
 
+## Bounded runtime and resource ownership
+
+The D9 implementation adds an operational envelope without changing the D0
+causal, identity, progress, publication, or downstream ownership contracts:
+
+```text
+initial resources + first generation: one absolute 120s deadline
+Valkey command + DB acquisition: <= 5s native I/O budget
+canonical history + checkpoint/effect SQL / transaction: one remaining 15s budget
+control admission + effect-task drain: <= 30s
+owned cleanup: one lazy aggregate <= 5s budget
+```
+
+These numeric defaults are approved configuration values sourced from
+`configs/decision/global.yaml`; this document and the architecture catalog do
+not define a second configuration authority.
+
+The cleanup budget is shared across nested owners. A startup failure may cap its
+cleanup expiry at the startup deadline plus the cleanup allowance; successful
+startup starts a fresh lazy budget for final shutdown. Normal shutdown activates
+cleanup only after the control/drain phase.
+
+Only Decision-owned resources may be closed. Borrowed resources remain borrowed.
+An unconfirmed lease or resource release retains ownership and fences reuse. The
+service `STOPPED` state means owned service tasks are quiescent; a clean lifespan
+also requires confirmed owned-resource teardown, so cleanup failure may leave the
+service `STOPPED` while application shutdown is unclean. These rules describe
+bounded implementation behavior and do not certify a deployment, backend
+leak-freedom, or soak.
+
 ## PriceRelay
 
 ```text

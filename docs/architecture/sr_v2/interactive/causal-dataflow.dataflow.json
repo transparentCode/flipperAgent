@@ -1,0 +1,246 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "IMPLEMENTED BASE / RESEARCH ONLY — Architecture record · no deployment or promotion claim — SR v2 causal data flow",
+    "output": "causal-dataflow.html",
+    "quality_profile": "showcase",
+    "viewBox": [1080, 510]
+  },
+  "stages": [
+    { "label": "Authority & Source" },
+    { "label": "PIT Window" },
+    { "label": "Structural Step" },
+    { "label": "Research Evidence" },
+    { "label": "Inspect / Persist" }
+  ],
+  "nodes": [
+    {
+      "id": "source",
+      "type": "external",
+      "label": "[RESEARCH-ONLY] Source",
+      "sublabel": "manifest + closed bars",
+      "tag": "authenticated",
+      "stage": 0,
+      "row": 0,
+      "width": 150,
+      "height": 78
+    },
+    {
+      "id": "caller",
+      "type": "external",
+      "label": "[RESEARCH-ONLY] Replay",
+      "sublabel": "SRV2ResearchReplay.run",
+      "tag": "wraps OfflineCompute",
+      "stage": 0,
+      "row": 1,
+      "width": 150,
+      "height": 78
+    },
+    {
+      "id": "window",
+      "type": "security",
+      "label": "[EXISTING] Closed window",
+      "sublabel": "sparse independent TFs",
+      "tag": "cutoff-bounded",
+      "stage": 1,
+      "row": 0,
+      "width": 150,
+      "height": 78
+    },
+    {
+      "id": "request",
+      "type": "backend",
+      "label": "[EXISTING] SRStepRequest",
+      "sublabel": "mandatory SRState",
+      "tag": "market_as_of = cutoff",
+      "stage": 1,
+      "row": 1,
+      "width": 150,
+      "height": 78
+    },
+    {
+      "id": "step",
+      "type": "backend",
+      "label": "[EXISTING] SRModel.step",
+      "sublabel": "closed-bar PIT",
+      "tag": "selected KernelSpec",
+      "stage": 2,
+      "row": 1,
+      "width": 150,
+      "height": 78
+    },
+    {
+      "id": "result",
+      "type": "backend",
+      "label": "[EXISTING] SRStepResult",
+      "sublabel": "next SRState + transitions",
+      "tag": "schema-v4 fingerprints",
+      "stage": 3,
+      "row": 1,
+      "width": 150,
+      "height": 78
+    },
+    {
+      "id": "research",
+      "type": "backend",
+      "label": "[RESEARCH-ONLY] Trace",
+      "sublabel": "SRV2ResearchTrace",
+      "tag": "bounded evidence",
+      "stage": 3,
+      "row": 0,
+      "width": 150,
+      "height": 78
+    },
+    {
+      "id": "live",
+      "type": "backend",
+      "label": "[EXISTING] LiveRuntime",
+      "sublabel": "explicit genesis",
+      "tag": "winner-only CAS output",
+      "stage": 4,
+      "row": 1,
+      "width": 150,
+      "height": 78
+    },
+    {
+      "id": "checkpoint",
+      "type": "database",
+      "label": "[EXISTING] Checkpoint",
+      "sublabel": "sr_v2.checkpoints",
+      "tag": "state-only row",
+      "stage": 4,
+      "row": 2,
+      "width": 150,
+      "height": 78
+    },
+    {
+      "id": "viewer",
+      "type": "frontend",
+      "label": "[RESEARCH-ONLY] Viewer",
+      "sublabel": "future-censored projection",
+      "tag": "read-only",
+      "stage": 4,
+      "row": 0,
+      "width": 150,
+      "height": 78
+    }
+  ],
+  "flows": [
+    {
+      "id": "source-window",
+      "from": "source",
+      "to": "window",
+      "label": "authenticated bars",
+      "classification": "close ≤ cutoff · manifest",
+      "variant": "security",
+      "route": "straight",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [230, 220]
+    },
+    {
+      "id": "source-caller",
+      "from": "source",
+      "to": "caller",
+      "label": "source provenance",
+      "classification": "caller provenance",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [100, 224]
+    },
+    {
+      "id": "caller-request",
+      "from": "caller",
+      "to": "request",
+      "label": "WINDOW_RELATIVE input",
+      "classification": "research-only",
+      "route": "straight",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [208, 335]
+    },
+    {
+      "id": "window-request",
+      "from": "window",
+      "to": "request",
+      "label": "exact cutoff input",
+      "classification": "closed trigger",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [350, 220]
+    },
+    {
+      "id": "request-step",
+      "from": "request",
+      "to": "step",
+      "label": "SRStepRequest",
+      "classification": "mandatory SRState",
+      "variant": "emphasis",
+      "route": "straight",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [470, 220]
+    },
+    {
+      "id": "step-result",
+      "from": "step",
+      "to": "result",
+      "label": "deterministic step",
+      "classification": "no future bars",
+      "variant": "emphasis",
+      "route": "straight",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [638, 224]
+    },
+    {
+      "id": "step-research",
+      "from": "step",
+      "to": "research",
+      "label": "trace evidence",
+      "classification": "SRV2ResearchTrace",
+      "variant": "dashed",
+      "route": "top-channel",
+      "channelY": 100,
+      "fromSide": "top",
+      "toSide": "top",
+      "labelAt": [638, 92]
+    },
+    {
+      "id": "research-viewer",
+      "from": "research",
+      "to": "viewer",
+      "label": "cutoff-local inspect",
+      "classification": "future-censored",
+      "route": "straight",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [853, 220]
+    },
+    {
+      "id": "result-live",
+      "from": "result",
+      "to": "live",
+      "label": "result before CAS",
+      "classification": "publish candidate",
+      "variant": "emphasis",
+      "route": "straight",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [853, 335]
+    },
+    {
+      "id": "live-checkpoint",
+      "from": "live",
+      "to": "checkpoint",
+      "label": "generation-CAS",
+      "classification": "state-only row",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [1000, 335]
+    }
+  ]
+}

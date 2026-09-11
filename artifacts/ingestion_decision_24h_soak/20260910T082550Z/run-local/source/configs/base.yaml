@@ -1,0 +1,32 @@
+logging:
+  level: INFO
+  console_format: json
+
+postgres:
+  database: flipper_db
+  host: localhost
+  password: flipperpass
+  pool:
+    max_size: 10
+    min_size: 2
+  port: 5432
+  user: flipper
+valkey:
+  uri: redis://localhost:6379/0
+
+scraper_service:
+  host: 0.0.0.0
+  port: 8081
+  job_ttl_seconds: 3600
+
+risk:
+  runtime:
+    order_stream_maxlen: 1000
+    order_stream_approximate: true
+
+execution:
+  runtime:
+    fill_stream_maxlen: 1000
+    fill_stream_approximate: true
+    failure_stream_maxlen: 1000
+    failure_stream_approximate: true

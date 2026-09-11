@@ -1,0 +1,2 @@
+service=decision exit=0 bytes=333987 since=2026-09-10T06:55:41.498593+00:00 until=2026-09-10T13:28:32Z
+bc54c7b9bb5f61a036040a5cff07bc552b9717e0a3e51259ab6a99d30ee63fbb  /Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260910T062736Z/raw-docker-logs/stop.tQ6eM0/decision.log

@@ -1,0 +1,19 @@
+{
+  "active": true,
+  "command_sha256": "b6a386c261f72035703d5cf35de43076f323d7bbfcd53274388665b659d074c4",
+  "guard": {
+    "max_check_gap_seconds": 60.0,
+    "probe_interval": 5.0,
+    "probe_timeout": 2.0,
+    "startup_timeout": 8.0,
+    "terminate_grace": 2.0
+  },
+  "guard_evidence_path": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260910T154156Z/HOST_SLEEP_GUARD.jsonl",
+  "harness_state_path": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260910T154156Z/RUN_STATE.json",
+  "lifecycle": "ACTIVE",
+  "pid": 4217,
+  "run_id": "20260910T154156Z",
+  "schema_version": 1,
+  "started_at": "2026-09-10T16:15:19.568720Z",
+  "terminal": false
+}

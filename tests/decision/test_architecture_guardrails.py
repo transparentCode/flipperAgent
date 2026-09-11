@@ -7,6 +7,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = ROOT / "src" / "apps" / "decision_app"
+SHARED_FACTORY_MODULES = (
+    ROOT / "src" / "libs" / "common" / "connections.py",
+    ROOT / "src" / "libs" / "common" / "db" / "pool_manager.py",
+)
 GENERIC_MODULES = {
     "data/resolver.py",
     "runtime/live.py",
@@ -70,6 +74,16 @@ def test_decision_app_does_not_import_legacy_runtime_apps() -> None:
     for path, _, tree in _parsed_sources():
         for name in _import_names(tree):
             if name == "apps" or name.startswith(LEGACY_RUNTIME_PREFIXES):
+                offenders.append(f"{path}: {name}")
+    assert offenders == []
+
+
+def test_changed_shared_factory_modules_do_not_import_application_modules() -> None:
+    offenders: list[str] = []
+    for path in SHARED_FACTORY_MODULES:
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for name in _import_names(tree):
+            if name == "apps" or name.startswith("apps."):
                 offenders.append(f"{path}: {name}")
     assert offenders == []
 

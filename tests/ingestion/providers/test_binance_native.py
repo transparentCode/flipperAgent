@@ -7,11 +7,17 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+from binance.error import ClientError, ServerError
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import SSLError
 
 import apps.ingestion_app.providers.binance_native as native_module
 import apps.ingestion_app.runtime.blocking as blocking_module
 from apps.ingestion_app.domain.instrument import MarketLane
-from apps.ingestion_app.providers.base import TransportDeadlineExceeded
+from apps.ingestion_app.providers.base import (
+    ProviderAvailabilityError,
+    TransportDeadlineExceeded,
+)
 from apps.ingestion_app.providers.binance_native import (
     BinanceNativeHistoricalProvider,
 )
@@ -534,7 +540,7 @@ async def test_binance_sdk_timeout_error_is_normal_retryable_error() -> None:
         attempt_timeout_seconds=1,
     )
 
-    with pytest.raises(DataIngestionError):
+    with pytest.raises(ProviderAvailabilityError) as raised:
         await provider.fetch_closed_candles(
             lane=LANE,
             provider_symbol="BTCUSDT",
@@ -544,7 +550,100 @@ async def test_binance_sdk_timeout_error_is_normal_retryable_error() -> None:
             limit=10,
         )
 
+    assert isinstance(raised.value.__cause__, TimeoutError)
     assert provider.quarantined is False
+    await _wait_for_retained_workers(provider, 0)
+
+
+@pytest.mark.asyncio
+async def test_binance_server_error_is_provider_availability_failure() -> None:
+    original = ServerError(503, "server unavailable")
+    provider = BinanceNativeHistoricalProvider(
+        _FakeBinanceClient(error=original),
+        attempt_timeout_seconds=1,
+    )
+
+    with pytest.raises(ProviderAvailabilityError) as raised:
+        await provider.fetch_closed_candles(
+            lane=LANE,
+            provider_symbol="BTCUSDT",
+            timeframe_duration=MINUTE,
+            since=SINCE,
+            until=UNTIL,
+            limit=10,
+        )
+
+    assert raised.value.__cause__ is original
+    assert provider.quarantined is False
+    await _wait_for_retained_workers(provider, 0)
+
+
+@pytest.mark.asyncio
+async def test_binance_requests_connection_error_is_retryable() -> None:
+    original = RequestsConnectionError("connection reset")
+    provider = BinanceNativeHistoricalProvider(
+        _FakeBinanceClient(error=original),
+        attempt_timeout_seconds=1,
+    )
+
+    with pytest.raises(ProviderAvailabilityError) as raised:
+        await provider.fetch_closed_candles(
+            lane=LANE,
+            provider_symbol="BTCUSDT",
+            timeframe_duration=MINUTE,
+            since=SINCE,
+            until=UNTIL,
+            limit=10,
+        )
+
+    assert raised.value.__cause__ is original
+    assert provider.quarantined is False
+    await _wait_for_retained_workers(provider, 0)
+    assert provider.retained_worker_count == 0
+
+
+@pytest.mark.asyncio
+async def test_binance_requests_ssl_error_remains_fatal() -> None:
+    original = SSLError("certificate verification failed")
+    provider = BinanceNativeHistoricalProvider(
+        _FakeBinanceClient(error=original),
+        attempt_timeout_seconds=1,
+    )
+
+    with pytest.raises(DataIngestionError) as raised:
+        await provider.fetch_closed_candles(
+            lane=LANE,
+            provider_symbol="BTCUSDT",
+            timeframe_duration=MINUTE,
+            since=SINCE,
+            until=UNTIL,
+            limit=10,
+        )
+
+    assert not isinstance(raised.value, ProviderAvailabilityError)
+    assert raised.value.__cause__ is original
+    assert provider.quarantined is False
+    await _wait_for_retained_workers(provider, 0)
+    assert provider.retained_worker_count == 0
+
+
+@pytest.mark.asyncio
+async def test_binance_client_error_remains_fatal() -> None:
+    original = ClientError(401, -2015, "invalid api-key", {})
+    provider = BinanceNativeHistoricalProvider(_FakeBinanceClient(error=original))
+
+    with pytest.raises(DataIngestionError) as raised:
+        await provider.fetch_closed_candles(
+            lane=LANE,
+            provider_symbol="BTCUSDT",
+            timeframe_duration=MINUTE,
+            since=SINCE,
+            until=UNTIL,
+            limit=10,
+        )
+
+    assert not isinstance(raised.value, ProviderAvailabilityError)
+    assert raised.value.__cause__ is original
     await _wait_for_retained_workers(provider, 0)
 
 

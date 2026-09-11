@@ -38,6 +38,10 @@ yarn-error.log*
 package-lock.json
 !src/libs/models/sr/tools/zone_viewer/package-lock.json
 !src/apps/trendline_v2_viewer/web/package-lock.json
+!src/libs/models/sr_v2/research_viewer/web/package-lock.json
+!src/libs/models/sr_v2/research_viewer/web/dist/
+!src/libs/models/sr_v2/research_viewer/web/dist/main.js
+!src/libs/models/sr_v2/research_viewer/web/dist/payload_utils.js
 # If you use yarn, uncomment the line below and comment out package-lock.json
 # yarn.lock
 
@@ -59,6 +63,11 @@ _charts/
 # Generated research scratch artifacts
 research/tmp_*
 research/tl*/
+.cache/sr_v2_research/
+
+# Keep the SR v2 Python research package visible despite operator scratch excludes.
+!src/libs/models/sr_v2/research/
+!src/libs/models/sr_v2/research/**/*.py
 
 # MCP runtime indexes and caches
 .mcp/
@@ -78,3 +87,4 @@ plans/
 .agents/
 .codex/
 .github/
+.artifacts/

@@ -1,0 +1,4 @@
+<!doctype html><meta charset=utf-8><title>flipperAgent Ingestion + Decision soak</title>
+<style>body{font:14px ui-monospace,monospace;background:#111;color:#eee;padding:1rem}pre{white-space:pre-wrap}</style>
+<h1>flipperAgent Ingestion + Decision 24h soak</h1><pre id=x>loading</pre>
+<script>async function r(){let x=await fetch('status.json?'+Date.now());document.querySelector('#x').textContent=JSON.stringify(await x.json(),null,2)}r();setInterval(r,5000)</script>

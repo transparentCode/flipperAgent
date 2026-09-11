@@ -1,0 +1,106 @@
+{
+  "global_params": {
+    "ensemble.structural_vs_micro_ratio": 0.48578115198527705,
+    "lifecycle.age_lambda": 0.0028713278790921206,
+    "cross_asset.sector_cluster_eps_atr": 0.44850455413155677,
+    "kernels.volume_poc.hvn_prominence": 0.2755363874276428,
+    "kernels.fair_value_gap.gap_min_atr": 0.4148114145812785,
+    "kernels.fair_value_gap.fill_threshold": 0.5737222300538822,
+    "kernels.fair_value_gap.filled_penalty_multiplier": 0.5557972595922268,
+    "kernels.order_block.displacement_atr": 1.0458284875313588,
+    "kernels.order_block.imbalance_ratio": 0.6318896970119517,
+    "kernels.regression_band.band_width_sigma": 2.606102886695263,
+    "kernels.liquidity_sweep.sweep_lookback": 50,
+    "kernels.liquidity_sweep.max_pierce_atr": 0.5470776654046796,
+    "pipeline.min_emit_strength": 0.37012079073994436,
+    "pipeline.max_new_zones_per_bar": 3
+  },
+  "global_score": 0.7427491722796101,
+  "per_asset_params": {
+    "ETHUSDT": {
+      "1h": {
+        "kernels.volume_poc.hvn_prominence": 0.2755363874276428,
+        "kernels.fair_value_gap.gap_min_atr": 0.4148114145812785,
+        "kernels.fair_value_gap.fill_threshold": 0.5737222300538822,
+        "kernels.fair_value_gap.filled_penalty_multiplier": 0.5557972595922268,
+        "kernels.order_block.displacement_atr": 1.0458284875313588,
+        "kernels.order_block.imbalance_ratio": 0.6318896970119517,
+        "kernels.regression_band.band_width_sigma": 2.606102886695263,
+        "kernels.liquidity_sweep.sweep_lookback": 50,
+        "kernels.liquidity_sweep.max_pierce_atr": 0.5470776654046796,
+        "pipeline.min_emit_strength": 0.37012079073994436,
+        "pipeline.max_new_zones_per_bar": 3
+      }
+    }
+  },
+  "per_asset_results": [
+    {
+      "asset": "ETHUSDT",
+      "timeframe": "1h",
+      "best_params": {
+        "kernels.volume_poc.hvn_prominence": 0.2755363874276428,
+        "kernels.fair_value_gap.gap_min_atr": 0.4148114145812785,
+        "kernels.fair_value_gap.fill_threshold": 0.5737222300538822,
+        "kernels.fair_value_gap.filled_penalty_multiplier": 0.5557972595922268,
+        "kernels.order_block.displacement_atr": 1.0458284875313588,
+        "kernels.order_block.imbalance_ratio": 0.6318896970119517,
+        "kernels.regression_band.band_width_sigma": 2.606102886695263,
+        "kernels.liquidity_sweep.sweep_lookback": 50,
+        "kernels.liquidity_sweep.max_pierce_atr": 0.5470776654046796,
+        "pipeline.min_emit_strength": 0.37012079073994436,
+        "pipeline.max_new_zones_per_bar": 3
+      },
+      "train_score": 0.6480441345930941,
+      "val_score": 0.6547207747745031,
+      "accepted": true,
+      "fallback_to_global": false,
+      "n_folds": 66,
+      "fold_scores": [
+        0.6490831014163665,
+        0.5475811904623569,
+        0.5875211186841249,
+        0.618876504051247,
+        0.5809616678661838,
+        0.5131357596613697,
+        0.5736714915557695,
+        0.5414424787956851,
+        0.6330059476182177,
+        0.5869706085409292,
+        0.5745802142657568,
+        0.5417143096155501,
+        0.5211733286771911,
+        0.5532809629315691,
+        0.5623329233383225,
+        0.6420004270492969,
+        0.4909789999013195,
+        0.5561780642107135,
+        0.5966265273129054,
+        0.5774559383450208,
+        0.6051893497450234,
+        0.5687758269303973,
+        0.5643404267938485,
+        0.5608900493023223,
+        0.6210410082000548,
+        0.4852610842399943,
+        0.5907942041632619,
+        0.5109275885255073,
+        0.5799163694909653,
+        0.5138911650634888,
+        0.6040685156228955,
+        0.5380581963601574,
+        0.643777057324763
+      ],
+      "gate_failures": 0,
+      "constraint_failures": 5
+    }
+  ],
+  "metadata": {
+    "total_time_seconds": 5316.742399930954,
+    "stage1_n_trials": 30,
+    "stage2_assets_optimized": 1,
+    "stage2_assets_accepted": 1,
+    "stage2_assets_skipped": [],
+    "stage2_assets_total": 1
+  },
+  "timestamp": "2026-05-02T17:59:50.586555"
+}

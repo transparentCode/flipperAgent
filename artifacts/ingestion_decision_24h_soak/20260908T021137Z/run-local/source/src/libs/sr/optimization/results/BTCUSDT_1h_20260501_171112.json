@@ -1,0 +1,106 @@
+{
+  "global_params": {
+    "ensemble.structural_vs_micro_ratio": 0.49113192295579716,
+    "lifecycle.age_lambda": 0.0027200012117510036,
+    "cross_asset.sector_cluster_eps_atr": 0.6602076404294848,
+    "kernels.volume_poc.hvn_prominence": 0.20875123318354388,
+    "kernels.fair_value_gap.gap_min_atr": 0.4784550803569849,
+    "kernels.fair_value_gap.fill_threshold": 0.6003188195997762,
+    "kernels.fair_value_gap.filled_penalty_multiplier": 0.38138448672123615,
+    "kernels.order_block.displacement_atr": 1.2720038411689623,
+    "kernels.order_block.imbalance_ratio": 0.6949064911636033,
+    "kernels.regression_band.band_width_sigma": 2.547780322675032,
+    "kernels.liquidity_sweep.sweep_lookback": 54,
+    "kernels.liquidity_sweep.max_pierce_atr": 0.5103076982876876,
+    "pipeline.min_emit_strength": 0.174237946530771,
+    "pipeline.max_new_zones_per_bar": 3
+  },
+  "global_score": 0.7275518039903999,
+  "per_asset_params": {
+    "BTCUSDT": {
+      "1h": {
+        "kernels.volume_poc.hvn_prominence": 0.20875123318354388,
+        "kernels.fair_value_gap.gap_min_atr": 0.4784550803569849,
+        "kernels.fair_value_gap.fill_threshold": 0.6003188195997762,
+        "kernels.fair_value_gap.filled_penalty_multiplier": 0.38138448672123615,
+        "kernels.order_block.displacement_atr": 1.2720038411689623,
+        "kernels.order_block.imbalance_ratio": 0.6949064911636033,
+        "kernels.regression_band.band_width_sigma": 2.547780322675032,
+        "kernels.liquidity_sweep.sweep_lookback": 54,
+        "kernels.liquidity_sweep.max_pierce_atr": 0.5103076982876876,
+        "pipeline.min_emit_strength": 0.174237946530771,
+        "pipeline.max_new_zones_per_bar": 3
+      }
+    }
+  },
+  "per_asset_results": [
+    {
+      "asset": "BTCUSDT",
+      "timeframe": "1h",
+      "best_params": {
+        "kernels.volume_poc.hvn_prominence": 0.20875123318354388,
+        "kernels.fair_value_gap.gap_min_atr": 0.4784550803569849,
+        "kernels.fair_value_gap.fill_threshold": 0.6003188195997762,
+        "kernels.fair_value_gap.filled_penalty_multiplier": 0.38138448672123615,
+        "kernels.order_block.displacement_atr": 1.2720038411689623,
+        "kernels.order_block.imbalance_ratio": 0.6949064911636033,
+        "kernels.regression_band.band_width_sigma": 2.547780322675032,
+        "kernels.liquidity_sweep.sweep_lookback": 54,
+        "kernels.liquidity_sweep.max_pierce_atr": 0.5103076982876876,
+        "pipeline.min_emit_strength": 0.174237946530771,
+        "pipeline.max_new_zones_per_bar": 3
+      },
+      "train_score": 0.5707869303834214,
+      "val_score": 0.601112221638328,
+      "accepted": true,
+      "fallback_to_global": false,
+      "n_folds": 66,
+      "fold_scores": [
+        0.3185094957367338,
+        0.5146042678183381,
+        0.4163329906558586,
+        0.5415820127835163,
+        0.45508896284202016,
+        0.4325162961966287,
+        0.5047633802061792,
+        0.46579099163712245,
+        0.5280190639706777,
+        0.38967288716220105,
+        0.6034873428539771,
+        0.5350796290267964,
+        0.4416624317775436,
+        0.3085472060060773,
+        0.5208262397535732,
+        0.42208370845144805,
+        0.5012655968334234,
+        0.5508125243226322,
+        0.4566797128200202,
+        0.6143711825319312,
+        0.4146825008742957,
+        0.5762427296961281,
+        0.4405830742087311,
+        0.4998762113852494,
+        0.40509445217427864,
+        0.38346375517616627,
+        0.4604584250984347,
+        0.5464674543086913,
+        0.5724990968378354,
+        0.5562313216417525,
+        0.46992008751117076,
+        0.4922547696021069,
+        0.42101433445470526
+      ],
+      "gate_failures": 0,
+      "constraint_failures": 3
+    }
+  ],
+  "metadata": {
+    "total_time_seconds": 4673.804951906204,
+    "stage1_n_trials": 30,
+    "stage2_assets_optimized": 1,
+    "stage2_assets_accepted": 1,
+    "stage2_assets_skipped": [],
+    "stage2_assets_total": 1
+  },
+  "timestamp": "2026-05-01T17:11:12.980966"
+}

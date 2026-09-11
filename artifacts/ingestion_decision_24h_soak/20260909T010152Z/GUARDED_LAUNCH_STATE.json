@@ -1,0 +1,34 @@
+{
+  "active": false,
+  "command_sha256": "0bd18bd7e92b47114182b9b4181fd31e5b217457baa07690401312fb6b4aea4e",
+  "exit_code": 70,
+  "finished_at": "2026-09-09T01:15:33.165875Z",
+  "guard": {
+    "max_check_gap_seconds": 60.0,
+    "probe_interval": 5.0,
+    "probe_timeout": 2.0,
+    "startup_timeout": 8.0,
+    "terminate_grace": 2.0
+  },
+  "guard_evidence_path": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260909T010152Z/HOST_SLEEP_GUARD.jsonl",
+  "guard_record": {
+    "assertion_pid": 18248,
+    "child_pid": 18252,
+    "child_returncode": -15,
+    "event": "host_sleep_guard",
+    "finished_at": "2026-09-09T01:15:33.157543Z",
+    "max_check_gap_seconds": 60.0,
+    "reason_code": "PROBE_TIMEOUT",
+    "started_at": "2026-09-09T01:06:37.589739Z",
+    "status": "FAILED"
+  },
+  "harness_state_path": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260909T010152Z/RUN_STATE.json",
+  "lifecycle": "TERMINAL",
+  "pid": 18215,
+  "reason_code": "PROBE_TIMEOUT",
+  "run_id": "20260909T010152Z",
+  "schema_version": 1,
+  "started_at": "2026-09-09T01:06:37.539364Z",
+  "terminal": true,
+  "terminal_status": "FAILED"
+}

@@ -1,0 +1,164 @@
+# Regression V2 — Reference Configuration
+# All tiers populated with defaults extracted from v1 hardcoded values.
+
+orchestrator:
+  mtf_timeframes: [4h, 1h, 30m]
+  tf_weights:
+    4h: 0.5
+    1h: 0.3
+    30m: 0.2
+
+structural_channel:
+  inner_coverage: 0.68
+  outer_coverage: 0.95
+
+# ── Tier 1: Global Defaults ──
+global:
+  # Feature stack
+  features:
+    - name: log_price
+    - name: volume_weighted
+      params:
+        volume_clip_pct: 95.0
+        weight_method: sqrt           # sqrt | log | linear
+
+  # Method stack
+  methods:
+    theil_sen:
+      enabled: true
+      params:
+        max_pairs: 300               # deterministic compute cap for subsampling
+    vwr:
+      enabled: true
+      params:
+        weight_strategy: volume_weighted
+
+  # Ensemble
+  ensemble:
+    name: simple_weighted
+    params:
+      neutral_slope_atr_fraction: 0.04
+
+  # Uncertainty
+  uncertainty:
+    name: percentile_bands
+    params:
+      mad_scale_factor: 1.4826
+
+  # Pipeline parameters
+  atr_period: 14
+  band_multiplier: 1.95
+
+  # Window bounds
+  min_window: 15
+  max_window: 300
+  default_window_size: 100
+
+# ── Tier 2: Per-Timeframe Defaults ──
+timeframes:
+  4h:
+    window_size: 150
+    methods:
+      theil_sen:
+        enabled: true
+      vwr:
+        enabled: true
+    ensemble:
+      name: confidence_weighted
+      params:
+        neutral_slope_atr_fraction: 0.04
+        min_confidence: 0.05
+        max_method_weight: 0.40
+  1h:
+    window_size: 73
+    methods:
+      theil_sen:
+        enabled: true
+      vwr:
+        enabled: true
+  30m:
+    window_size: 50
+    ensemble:
+      name: confidence_weighted
+      params:
+        neutral_slope_atr_fraction: 0.04
+        min_confidence: 0.05
+        max_method_weight: 0.40
+
+# ── Tier 3: Per-Asset-Class Overrides ──
+asset_classes:
+  crypto:
+    volume_profile: continuous
+    session_gap_handling: false
+    low_liquidity_window_handling: false
+  stock:
+    volume_profile: session
+    session_gap_handling: true
+    low_liquidity_window_handling: false
+    features:
+      - name: log_price
+      - name: volume_weighted
+        params:
+          volume_clip_pct: 95.0
+          weight_method: sqrt
+      - name: session_aware
+  fx:
+    volume_profile: proxy
+    session_gap_handling: false
+    low_liquidity_window_handling: true
+    features:
+      - name: log_price
+      - name: volume_weighted
+        params:
+          volume_clip_pct: 90.0
+          weight_method: log
+      - name: session_aware
+
+# ── Tier 4: Per-Asset Overrides ──
+assets:
+  BTCUSDT:
+    asset_class: crypto
+    mtf_enabled: true
+    mtf_timeframes: [4h, 1h, 30m]
+    timeframes:
+      1h:
+        window_size: 73
+        band_multiplier: 1.952
+      4h:
+        window_size: 113
+        band_multiplier: 2.257
+      1d:
+        window_size: 76
+        band_multiplier: 1.500
+  ETHUSDT:
+    asset_class: crypto
+    mtf_enabled: true
+    mtf_timeframes: [4h, 1h, 30m]
+    timeframes:
+      1h:
+        window_size: 74
+        band_multiplier: 2.207
+      4h:
+        window_size: 180
+        band_multiplier: 2.293
+  SOLUSDT:
+    asset_class: crypto
+    mtf_enabled: false
+    mtf_timeframes: [1h]
+  # Example stock asset:
+  # AAPL:
+  #   asset_class: stock
+  #   mtf_enabled: false
+  #   mtf_timeframes: [1h]
+  #   timeframes:
+  #     1h:
+  #       window_size: 120
+
+# ── Optimization Metadata ──
+optimization:
+  global_tunable:
+    - band_multiplier
+  per_tf_tunable:
+    - window_size
+  per_asset_tunable:
+    - window_size

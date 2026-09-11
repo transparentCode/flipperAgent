@@ -1,0 +1,81 @@
+tradingview:
+  indices:
+    - "CRYPTOCAP:TOTAL2"
+    - "CRYPTOCAP:TOTAL3"
+    - "CRYPTOCAP:TOTAL3ES"
+    - "CRYPTOCAP:BTC.D"
+  timeframe: "1h"
+  staleness_ttl_seconds: 1800   # 30 minutes — matches fetch cadence (fetch at :00:30 and :30:30)
+  fetch_delay_seconds: 2         # delay between sequential index fetches
+  cookies_path: "secrets/tv_cookies.json"
+
+  # Browser stealth settings
+  chart_base_url: "https://www.tradingview.com/chart/"
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+  viewport_width: 1920
+  viewport_height: 1080
+  history_expansion_deep_viewport_width: 3840
+  history_expansion_deep_viewport_min_target_rows: 1000
+
+  # Timing / interception settings
+  page_load_timeout_ms: 30000
+  ws_intercept_timeout_seconds: 30
+  ws_poll_interval_seconds: 0.5
+  history_expansion_enabled: true
+  history_expansion_max_steps: 40
+  history_expansion_hard_max_steps: 320
+  history_expansion_max_stagnant_steps: 2
+  history_expansion_rows_per_step_estimate: 32
+  history_expansion_max_runtime_seconds: 90
+  history_expansion_drag_distance_px: 700
+  history_expansion_drag_start_x_ratio: 0.72
+  history_expansion_drag_y_ratio: 0.45
+  history_expansion_drag_move_steps: 12
+  history_expansion_settle_timeout_seconds: 2.5
+  history_expansion_settle_poll_seconds: 0.25
+
+  # ARQ worker schedule & limits
+  # cron_minutes: list of minute-of-hour values to fire at (set semantics)
+  # Covers: 30m closes (:30), 1h closes (:00), 4h closes (:00)
+  cron_minutes:
+    - 0
+    - 30
+  cron_second: 30
+  run_at_startup: false
+  max_concurrent_jobs: 1
+  job_timeout_seconds: 300
+
+  # Derivatives data symbols (OI, funding rate)
+  derivatives:
+    - symbol: "BINANCE:BTCUSDTPERP_OI"
+      short_name: "BTCUSDT_OI"
+      data_type: "open_interest"
+      asset: "BTCUSDT"
+    - symbol: "BINANCE:ETHUSDTPERP_OI"
+      short_name: "ETHUSDT_OI"
+      data_type: "open_interest"
+      asset: "ETHUSDT"
+    - symbol: "BINANCE:BNBUSDTPERP_OI"
+      short_name: "BNBUSDT_OI"
+      data_type: "open_interest"
+      asset: "BNBUSDT"
+    - symbol: "BINANCE:SOLUSDTPERP_OI"
+      short_name: "SOLUSDT_OI"
+      data_type: "open_interest"
+      asset: "SOLUSDT"
+    - symbol: "BINANCE:BTCUSDT.P_FR"
+      short_name: "BTCUSDT_FR"
+      data_type: "funding_rate"
+      asset: "BTCUSDT"
+    - symbol: "BINANCE:ETHUSDT.P_FR"
+      short_name: "ETHUSDT_FR"
+      data_type: "funding_rate"
+      asset: "ETHUSDT"
+    - symbol: "BINANCE:BNBUSDT.P_FR"
+      short_name: "BNBUSDT_FR"
+      data_type: "funding_rate"
+      asset: "BNBUSDT"
+    - symbol: "BINANCE:SOLUSDT.P_FR"
+      short_name: "SOLUSDT_FR"
+      data_type: "funding_rate"
+      asset: "SOLUSDT"

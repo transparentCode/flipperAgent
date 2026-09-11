@@ -1,0 +1,23 @@
+defaults:
+  hmm_retrain_window: 1000
+  vol_lookback: 168
+  vol_high_percentile: 70
+  bcpd_hazard_lambda: 150
+  bcpd_signal_threshold: 0.35
+  hurst_lookback: 100
+  min_dwell_bars: 5
+assets:
+  BTCUSDT:
+    1h:
+      bcpd_hazard_lambda: 154.34881048913712
+      bcpd_signal_threshold: 0.5059276865467072
+      vol_high_percentile: 80.50988989792624
+      vol_lookback: 145
+      hmm_retrain_window: 725
+      hurst_lookback: 57
+      min_dwell_bars: 4
+  SUIUSDT:
+    1h:
+      vol_high_percentile: 75
+  TAOUSDT:
+    1h: {}

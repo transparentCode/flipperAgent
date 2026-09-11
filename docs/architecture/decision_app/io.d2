@@ -158,6 +158,40 @@ downstream: {
   }
 }
 
+bounds: {
+  label: "Runtime deadline and ownership envelope"
+
+  startup: {
+    class: gate
+    label: "Initial resources + first generation\none absolute 120s deadline"
+  }
+
+  wire: {
+    class: rule
+    label: "Valkey commands + DB acquisition\nnative I/O budget <= 5s"
+  }
+
+  database: {
+    class: rule
+    label: "Canonical history + checkpoint/effect repositories\nSQL / transaction operation\none remaining 15s budget"
+  }
+
+  control: {
+    class: gate
+    label: "Control admission + effect-task drain\nbounded by 30s"
+  }
+
+  cleanup: {
+    class: rule
+    label: "One lazy aggregate cleanup budget <= 5s\nstartup failure or final teardown"
+  }
+
+  ownership: {
+    class: boundary
+    label: "Service STOPPED = owned task quiescence\nclean lifespan = owned resource teardown\nunconfirmed release is retained/fenced"
+  }
+}
+
 inputs.candle -> runtime.input_cursor: "observed canonical candle"
 inputs.lifecycle -> runtime.context: "asset availability"
 inputs.config -> runtime.context: "resolved lane/binding"
@@ -185,6 +219,18 @@ runtime.price -> runtime.price_progress: "handled / published"
 runtime.signal -> runtime.lane_commit: "publication success / no-signal + state commit"
 physical.streams -> downstream.risk: "live transport"
 downstream.risk -> downstream.execution: "orders"
+
+inputs.config -> bounds.startup: "approved defaults from configs/decision/global.yaml"
+bounds.startup -> runtime.input_cursor: "install after bounded startup"
+physical.streams -> bounds.wire: "Valkey command"
+physical.timescale -> bounds.wire: "DB acquisition"
+bounds.wire -> bounds.database: "remaining operation budget"
+physical.timescale -> bounds.database: "canonical history SQL / transaction phase"
+runtime.lane_commit -> bounds.database: "checkpoint/effect SQL / transaction phase"
+bounds.startup -> bounds.cleanup: "startup failure path"
+bounds.database -> bounds.cleanup: "rollback / release on expiry"
+bounds.control -> bounds.cleanup: "drain before cleanup clock"
+bounds.cleanup -> bounds.ownership: "confirmed release or fail-closed fence"
 
 rules: {
   label: "Non-negotiable semantics"

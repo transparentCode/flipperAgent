@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+import valkey.asyncio as valkey
+from valkey.connection import Connection
 
 from apps.decision_app.domain.market_state import (
     BarStore,
@@ -95,9 +98,25 @@ class _XRead:
         self.responses = list(responses)
         self.calls = []
 
-    async def xread(self, streams, *, count, block):
+    async def xread(self, streams, *, count, block=None):
         self.calls.append((dict(streams), count, block))
         return self.responses.pop(0) if self.responses else []
+
+
+class _EncodedXRead(valkey.Valkey):
+    def __init__(self, response):
+        super().__init__()
+        self.response = response
+        self.commands = []
+
+    async def execute_command(self, *args, **kwargs):
+        del kwargs
+        self.commands.append(args)
+        return self.response
+
+
+def _wire_command(command) -> bytes:
+    return b"".join(Connection().pack_command(*command))
 
 
 def _position(
@@ -124,6 +143,7 @@ def _reader(
     tail: str | None = "9-0",
     warm_index: int = 0,
     history_indices: tuple[int, ...] = (0,),
+    block_ms: int = 1000,
 ) -> DirectCursorInput:
     history = InMemoryCanonicalMarketHistoryRepository(
         {key: tuple(_bar(key, index) for index in history_indices)},
@@ -138,6 +158,7 @@ def _reader(
         bar_store=store,
         history_repository=history,
         timeframe_grid=GRID,
+        block_ms=block_ms,
     )
 
 
@@ -161,6 +182,63 @@ async def test_none_tail_uses_zero_zero_and_accepts_forward_record() -> None:
     result = await reader.accept(batch.records[0])
     assert result.disposition == "INSERTED"
     assert reader.cursor_for(stream).latest_stream_id == "10-0"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("block_ms", (0, 17))
+async def test_direct_cursor_uses_valkey_nonblocking_encoding_for_zero(
+    block_ms: int,
+) -> None:
+    key = _key()
+    stream = canonical_ingestion_stream_key(key)
+    client = _EncodedXRead([])
+    reader = _reader(key, client, block_ms=block_ms)
+    before = reader.cursor_for(stream)
+
+    batch = await reader.read_once()
+
+    assert not batch.records
+    assert not batch.failures
+    assert reader.cursor_for(stream) == before
+    command = client.commands[0]
+    expected_args = (
+        ("XREAD", "COUNT", "10", "STREAMS", stream, "9-0")
+        if block_ms == 0
+        else ("XREAD", "BLOCK", "17", "COUNT", "10", "STREAMS", stream, "9-0")
+    )
+    wire = _wire_command(command)
+    assert wire == _wire_command(expected_args)
+    assert (b"$5\r\nBLOCK\r\n" in wire) is (block_ms > 0)
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_direct_cursor_zero_delay_still_processes_events() -> None:
+    key = _key()
+    stream = canonical_ingestion_stream_key(key)
+    client = _EncodedXRead([(stream, [("10-0", _fields(key, 1))])])
+    reader = _reader(key, client, block_ms=0)
+
+    batch = await reader.read_once()
+    result = await reader.accept(batch.records[0])
+
+    assert result.disposition == "INSERTED"
+    assert reader.cursor_for(stream).latest_stream_id == "10-0"
+    assert b"$5\r\nBLOCK\r\n" not in _wire_command(client.commands[0])
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_direct_cursor_cancellation_is_propagated() -> None:
+    class _CancelledClient:
+        async def xread(self, *_args, **_kwargs):
+            raise asyncio.CancelledError
+
+    key = _key()
+    reader = _reader(key, _CancelledClient(), block_ms=0)
+
+    with pytest.raises(asyncio.CancelledError):
+        await reader.read_once()
 
 
 @pytest.mark.asyncio

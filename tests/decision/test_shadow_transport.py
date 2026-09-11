@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 
 import pytest
 
+from apps.decision_app.runtime.deadlines import OperationTimeout
 from apps.decision_app.transport.shadow import (
     ShadowDecisionObservation,
     ShadowPublicationEnvelope,
@@ -18,8 +20,13 @@ from libs.contracts.serialization import valkey_encode
 class _Broker:
     def __init__(self) -> None:
         self.entries: dict[str, list[tuple[str, dict[str, str]]]] = {}
+        self.xrange_calls = 0
+        self.xrevrange_counts: list[int] = []
+        self.xadd_calls = 0
+        self.xadd_options: list[tuple[int, bool]] = []
 
     async def xrange(self, stream: str, minimum: str, maximum: str):
+        self.xrange_calls += 1
         return [
             entry
             for entry in self.entries.get(stream, ())
@@ -27,16 +34,44 @@ class _Broker:
         ]
 
     async def xrevrange(self, stream: str, *_args: object, count: int = 1):
+        self.xrevrange_counts.append(count)
         return list(reversed(self.entries.get(stream, ())))[:count]
 
     async def xadd(
         self, stream: str, fields, *, id: str, maxlen: int, approximate: bool
     ):
+        self.xadd_calls += 1
+        self.xadd_options.append((maxlen, approximate))
         del maxlen, approximate
         if any(existing == id for existing, _ in self.entries.get(stream, ())):
             raise RuntimeError("duplicate explicit ID")
         self.entries.setdefault(stream, []).append((id, dict(fields)))
         return id
+
+
+class _BlockedPrecheckBroker(_Broker):
+    def __init__(self) -> None:
+        super().__init__()
+        self.started = asyncio.Event()
+
+    async def xrange(self, stream: str, minimum: str, maximum: str):
+        self.started.set()
+        await asyncio.Event().wait()
+        return await super().xrange(stream, minimum, maximum)
+
+
+class _BlockedPublishBroker(_Broker):
+    def __init__(self) -> None:
+        super().__init__()
+        self.started = asyncio.Event()
+
+    async def xadd(
+        self, stream: str, fields, *, id: str, maxlen: int, approximate: bool
+    ):
+        self.started.set()
+        self.xadd_calls += 1
+        self.xadd_options.append((maxlen, approximate))
+        await asyncio.Event().wait()
 
 
 def _observation() -> ShadowDecisionObservation:
@@ -169,3 +204,45 @@ async def test_shadow_exact_retry_under_active_trace_has_no_trace_fields() -> No
     assert second.outcome == "ALREADY_IDENTICAL"
     assert "_traceparent" not in fields
     assert "_tracestate" not in fields
+
+
+@pytest.mark.asyncio
+async def test_shadow_precheck_timeout_never_reaches_xadd() -> None:
+    broker = _BlockedPrecheckBroker()
+    publisher = ValkeyShadowPublisher(broker, io_timeout_seconds=0.01)
+
+    with pytest.raises(OperationTimeout, match="shadow exact-ID"):
+        await publisher.publish(_envelope(_observation()))
+    assert broker.entries == {}
+
+
+@pytest.mark.asyncio
+async def test_shadow_precheck_cancellation_never_reaches_xadd() -> None:
+    broker = _BlockedPrecheckBroker()
+    publisher = ValkeyShadowPublisher(broker, io_timeout_seconds=1.0)
+    task = asyncio.create_task(publisher.publish(_envelope(_observation())))
+    await broker.started.wait()
+    task.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert broker.entries == {}
+
+
+@pytest.mark.asyncio
+async def test_shadow_publication_timeout_reconciles_with_bounded_attempts() -> None:
+    broker = _BlockedPublishBroker()
+    publisher = ValkeyShadowPublisher(
+        broker,
+        stream_maxlen=17,
+        stream_approximate=False,
+        io_timeout_seconds=0.01,
+    )
+
+    result = await publisher.publish(_envelope(_observation()))
+
+    assert result.outcome == "FAILED"
+    assert broker.xadd_calls == 1
+    assert broker.xadd_options == [(17, False)]
+    assert broker.xrange_calls == 2
+    assert broker.xrevrange_counts == [1, 1]

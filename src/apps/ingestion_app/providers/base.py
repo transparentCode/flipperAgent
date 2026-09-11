@@ -62,6 +62,10 @@ class TransportDeadlineExceeded(DataIngestionError):
         )
 
 
+class ProviderAvailabilityError(DataIngestionError):
+    """A completed provider-availability failure safe for bounded recovery."""
+
+
 class HistoricalCandleProvider(Protocol):
     @property
     def provider_id(self) -> str: ...
@@ -97,5 +101,6 @@ __all__ = [
     "HistoricalCandleProvider",
     "LiveCandleProvider",
     "LiveStreamInterrupted",
+    "ProviderAvailabilityError",
     "TransportDeadlineExceeded",
 ]

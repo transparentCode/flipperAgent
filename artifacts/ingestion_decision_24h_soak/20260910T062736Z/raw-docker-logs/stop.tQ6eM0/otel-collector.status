@@ -1,0 +1,2 @@
+service=otel-collector exit=0 bytes=0 since=2026-09-10T06:55:41.498593+00:00 until=2026-09-10T13:28:32Z
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  /Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260910T062736Z/raw-docker-logs/stop.tQ6eM0/otel-collector.log

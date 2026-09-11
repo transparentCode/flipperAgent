@@ -1,0 +1,523 @@
+{
+  "approved_cotenant_baseline": {},
+  "convergence_distribution": {
+    "count": 0,
+    "is_production_slo": false,
+    "max_seconds": null,
+    "p50_seconds": null,
+    "p95_seconds": null,
+    "window_seconds": 120.0,
+    "worst_episode": null
+  },
+  "core_path_resource_summary": {
+    "cpu_max_core_equivalent": null,
+    "cpu_p50_core_equivalent": null,
+    "cpu_p95_core_equivalent": null,
+    "rss_max_bytes": null,
+    "rss_p50_bytes": null,
+    "rss_p95_bytes": null,
+    "rss_p99_bytes": null,
+    "rss_robust_slope_bytes_per_second": null,
+    "sample_count": 0
+  },
+  "correctness_gates": {
+    "history_forward_and_contiguous_observed": true,
+    "indeterminate_probe_samples": 0,
+    "measurement_gate_samples": 0,
+    "measurement_probe_gaps_within_threshold": true,
+    "measurement_sampling_gaps_within_threshold": false,
+    "no_blocked_inputs_observed": true,
+    "no_canonical_conflicts_observed": true,
+    "no_open_boundary_episodes": true,
+    "no_open_outbox_episode": true,
+    "no_unresolved_boundary_episodes": true,
+    "three_live_lanes_observed": true,
+    "valid_measurement_gate_samples": 0
+  },
+  "error": "guarded launch failed closed: GUARDED_CHILD_FAILED",
+  "evidence_paths": {
+    "api_load": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260909T002014Z/samples/api_load.jsonl",
+    "container_state": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260909T002014Z/samples/container_state.jsonl",
+    "cotenants": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260909T002014Z/samples/cotenant_resource_samples.jsonl",
+    "db_valkey": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260909T002014Z/samples/db_valkey.jsonl",
+    "events": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260909T002014Z/events.jsonl",
+    "health": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260909T002014Z/samples/http_health.jsonl",
+    "history_preparation": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260909T002014Z/samples/history_preparation.jsonl",
+    "manifest": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260909T002014Z/manifest.json",
+    "pipeline": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260909T002014Z/samples/pipeline_metrics.jsonl",
+    "pipeline_gate": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260909T002014Z/samples/pipeline_gate.jsonl",
+    "resource_samples": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260909T002014Z/samples/resource_samples.jsonl",
+    "run_state": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260909T002014Z/RUN_STATE.json",
+    "sampler_timing": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260909T002014Z/samples/sampler_timing.jsonl",
+    "storage_growth": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260909T002014Z/samples/storage_growth.jsonl"
+  },
+  "guard_failure": {
+    "reason_code": "GUARDED_CHILD_FAILED",
+    "record": {
+      "assertion_pid": 11569,
+      "child_pid": 11573,
+      "child_returncode": 1,
+      "event": "host_sleep_guard",
+      "finished_at": "2026-09-09T00:46:21.534170Z",
+      "max_check_gap_seconds": 60.0,
+      "reason_code": "CHILD_EXITED",
+      "started_at": "2026-09-09T00:34:17.861455Z",
+      "status": "COMPLETED"
+    }
+  },
+  "history_preparation": {
+    "path": "/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260909T002014Z/samples/history_preparation.jsonl",
+    "repair_path": "canonical Ingestion runtime startup catch-up and HTF reconciliation",
+    "required_series": [
+      "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+      "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:4h",
+      "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:4h"
+    ]
+  },
+  "measurement_tooling_integrity": {
+    "frozen_tooling_at": null,
+    "frozen_tooling_hashes": null,
+    "no_harness_changes_after_measurement_start": true
+  },
+  "measurement_window": {
+    "effective_required_seconds": 86400,
+    "extension_seconds": 0,
+    "measurement_end_at": null,
+    "measurement_start_at": null,
+    "original_required_seconds": 86400
+  },
+  "outbox_episodes": [],
+  "post_measurement_recovery": {
+    "reason": "run did not reach post-measurement finalization",
+    "status": "NOT_RECORDED"
+  },
+  "probe_gap_summary": {
+    "exceeds_threshold": false,
+    "indeterminate_samples": 0,
+    "max_gap_seconds": 0.0,
+    "threshold_seconds": 60.0
+  },
+  "project": "flipper-id-soak-20260909t002014z",
+  "resource_gates": {
+    "all_expected_measurement_samples_present": false,
+    "all_run_services_sampled": false,
+    "core_path_cpu_observed_within_4_core_envelope": true,
+    "ingestion_decision_no_oom_or_restart": true,
+    "measurement_completed": false,
+    "per_service_memory_below_limit": false
+  },
+  "run_id": "20260909T002014Z",
+  "sampling_gap_summary": {
+    "api_load.jsonl": {
+      "exceeds_threshold": true,
+      "max_gap_seconds": 0.0,
+      "missing_or_invalid_evidence": true,
+      "sample_count": 0,
+      "threshold_seconds": 60.0
+    },
+    "http_health.jsonl": {
+      "exceeds_threshold": true,
+      "max_gap_seconds": 0.0,
+      "missing_or_invalid_evidence": true,
+      "sample_count": 0,
+      "threshold_seconds": 60.0
+    },
+    "pipeline_gate.jsonl": {
+      "exceeds_threshold": true,
+      "max_gap_seconds": 0.0,
+      "missing_or_invalid_evidence": true,
+      "sample_count": 0,
+      "threshold_seconds": 60.0
+    },
+    "resource_samples.jsonl": {
+      "exceeds_threshold": true,
+      "max_gap_seconds": 0.0,
+      "missing_or_invalid_evidence": true,
+      "sample_count": 0,
+      "threshold_seconds": 60.0
+    },
+    "sampler_timing.jsonl": {
+      "exceeds_threshold": true,
+      "max_gap_seconds": 0.0,
+      "missing_or_invalid_evidence": true,
+      "sample_count": 0,
+      "threshold_seconds": 60.0
+    },
+    "storage_growth.jsonl": {
+      "exceeds_threshold": true,
+      "max_gap_seconds": 0.0,
+      "missing_or_invalid_evidence": true,
+      "sample_count": 0,
+      "threshold_seconds": 1200.0
+    }
+  },
+  "scope": {
+    "dependencies": [
+      "db",
+      "broker"
+    ],
+    "external_cotenants": [
+      "mcp-cbm",
+      "mcp-gitnexus"
+    ],
+    "measurement_infrastructure": [
+      "otel-collector",
+      "prometheus",
+      "grafana"
+    ],
+    "run_services": [
+      "db",
+      "broker",
+      "ingestion",
+      "decision",
+      "otel-collector",
+      "prometheus",
+      "grafana"
+    ],
+    "sut_apps": [
+      "ingestion",
+      "decision"
+    ]
+  },
+  "service_summary": {
+    "broker": {
+      "cpu_max_core_equivalent": null,
+      "cpu_p95_core_equivalent": null,
+      "memory_limit_utilization_max": null,
+      "rss_max_bytes": null,
+      "rss_p50_bytes": null,
+      "rss_p95_bytes": null,
+      "rss_p99_bytes": null,
+      "sample_count": 0
+    },
+    "db": {
+      "cpu_max_core_equivalent": null,
+      "cpu_p95_core_equivalent": null,
+      "memory_limit_utilization_max": null,
+      "rss_max_bytes": null,
+      "rss_p50_bytes": null,
+      "rss_p95_bytes": null,
+      "rss_p99_bytes": null,
+      "sample_count": 0
+    },
+    "decision": {
+      "cpu_max_core_equivalent": null,
+      "cpu_p95_core_equivalent": null,
+      "memory_limit_utilization_max": null,
+      "rss_max_bytes": null,
+      "rss_p50_bytes": null,
+      "rss_p95_bytes": null,
+      "rss_p99_bytes": null,
+      "sample_count": 0
+    },
+    "grafana": {
+      "cpu_max_core_equivalent": null,
+      "cpu_p95_core_equivalent": null,
+      "memory_limit_utilization_max": null,
+      "rss_max_bytes": null,
+      "rss_p50_bytes": null,
+      "rss_p95_bytes": null,
+      "rss_p99_bytes": null,
+      "sample_count": 0
+    },
+    "ingestion": {
+      "cpu_max_core_equivalent": null,
+      "cpu_p95_core_equivalent": null,
+      "memory_limit_utilization_max": null,
+      "rss_max_bytes": null,
+      "rss_p50_bytes": null,
+      "rss_p95_bytes": null,
+      "rss_p99_bytes": null,
+      "sample_count": 0
+    },
+    "otel-collector": {
+      "cpu_max_core_equivalent": null,
+      "cpu_p95_core_equivalent": null,
+      "memory_limit_utilization_max": null,
+      "rss_max_bytes": null,
+      "rss_p50_bytes": null,
+      "rss_p95_bytes": null,
+      "rss_p99_bytes": null,
+      "sample_count": 0
+    },
+    "prometheus": {
+      "cpu_max_core_equivalent": null,
+      "cpu_p95_core_equivalent": null,
+      "memory_limit_utilization_max": null,
+      "rss_max_bytes": null,
+      "rss_p50_bytes": null,
+      "rss_p95_bytes": null,
+      "rss_p99_bytes": null,
+      "sample_count": 0
+    }
+  },
+  "source_sha": "afc70323f04445a5a08c085d0b54cb5a4b381c66",
+  "state": {
+    "anomalies": [
+      {
+        "kind": "run3_topology_not_ready",
+        "missing_services": [],
+        "timestamp": "2026-09-09T00:46:04.598694+00:00",
+        "unexpected_services": [],
+        "unhealthy_services": [
+          "grafana",
+          "otel-collector"
+        ]
+      },
+      {
+        "error": "RuntimeError: run #3 seven-container topology is not fully healthy",
+        "kind": "harness_failure",
+        "timestamp": "2026-09-09T00:46:04.603131+00:00"
+      },
+      {
+        "gaps": {
+          "api_load.jsonl": {
+            "exceeds_threshold": true,
+            "max_gap_seconds": 0.0,
+            "missing_or_invalid_evidence": true,
+            "sample_count": 0,
+            "threshold_seconds": 60.0
+          },
+          "http_health.jsonl": {
+            "exceeds_threshold": true,
+            "max_gap_seconds": 0.0,
+            "missing_or_invalid_evidence": true,
+            "sample_count": 0,
+            "threshold_seconds": 60.0
+          },
+          "pipeline_gate.jsonl": {
+            "exceeds_threshold": true,
+            "max_gap_seconds": 0.0,
+            "missing_or_invalid_evidence": true,
+            "sample_count": 0,
+            "threshold_seconds": 60.0
+          },
+          "resource_samples.jsonl": {
+            "exceeds_threshold": true,
+            "max_gap_seconds": 0.0,
+            "missing_or_invalid_evidence": true,
+            "sample_count": 0,
+            "threshold_seconds": 60.0
+          },
+          "sampler_timing.jsonl": {
+            "exceeds_threshold": true,
+            "max_gap_seconds": 0.0,
+            "missing_or_invalid_evidence": true,
+            "sample_count": 0,
+            "threshold_seconds": 60.0
+          },
+          "storage_growth.jsonl": {
+            "exceeds_threshold": true,
+            "max_gap_seconds": 0.0,
+            "missing_or_invalid_evidence": true,
+            "sample_count": 0,
+            "threshold_seconds": 1200.0
+          }
+        },
+        "kind": "measurement_sampling_gap_over_threshold",
+        "threshold_seconds": 60.0,
+        "timestamp": "2026-09-09T00:46:20.680957+00:00"
+      }
+    ],
+    "boundary_episodes": {},
+    "completed_boundary_episodes": [],
+    "created_at": "2026-09-09T00:45:54.236920+00:00",
+    "docker_environment": {
+      "architecture": "aarch64",
+      "mem_total_bytes": 8320294912,
+      "name": "docker-desktop",
+      "ncpu": 4,
+      "operating_system": "Docker Desktop",
+      "server_version": "29.7.2"
+    },
+    "guard_failure": {
+      "reason_code": "GUARDED_CHILD_FAILED",
+      "record": {
+        "assertion_pid": 11569,
+        "child_pid": 11573,
+        "child_returncode": 1,
+        "event": "host_sleep_guard",
+        "finished_at": "2026-09-09T00:46:21.534170Z",
+        "max_check_gap_seconds": 60.0,
+        "reason_code": "CHILD_EXITED",
+        "started_at": "2026-09-09T00:34:17.861455Z",
+        "status": "COMPLETED"
+      }
+    },
+    "harness_pid": 11573,
+    "history_cursors": {
+      "BTC-USDT-PERP:1h": "2026-09-09T00:00:00+00:00",
+      "BTC-USDT-PERP:4h": "2026-09-09T00:00:00+00:00",
+      "ETH-USDT-PERP:4h": "2026-09-09T00:00:00+00:00"
+    },
+    "host_environment": {
+      "disk": {
+        "error": null,
+        "exit_code": 0,
+        "output": "Filesystem   1024-blocks      Used Available Capacity iused      ifree %iused  Mounted on\n/dev/disk3s1   482797652 158812892 294179696    36%  947738 2941796960    0%   /System/Volumes/Data"
+      },
+      "load_average": [
+        4.55712890625,
+        3.95849609375,
+        4.12939453125
+      ],
+      "memory_pressure": {
+        "error": null,
+        "exit_code": 0,
+        "output": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                     4550.\nPages active:                                 220287.\nPages inactive:                               216742.\nPages speculative:                              2863.\nPages throttled:                                   0.\nPages wired down:                             161391.\nPages purgeable:                                 174.\n\"Translation faults\":                     2699232429.\nPages copy-on-write:                       147909293.\nPages zero filled:                        2136642697.\nPages reactivated:                         489979984.\nPages purged:                               58620612.\nFile-backed pages:                            190473.\nAnonymous pages:                              249419.\nPages stored in compressor:                   717589.\nPages occupied by compressor:                 403384.\nDecompressions:                            381821525.\nCompressions:                              444394649.\nPageins:                                    87176555.\nPageouts:                                     196137.\nSwapins:                                     1149101.\nSwapouts:                                    1852120."
+      },
+      "power": {
+        "error": null,
+        "exit_code": 0,
+        "output": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=36175971)\t66%; charging; 0:31 remaining present: true"
+      }
+    },
+    "image_proof": {
+      "image": "flipper-id-soak:afc7032-20260909",
+      "image_id": "sha256:086d5aea0819a078656ca0873974a71871ac89ab1e052c0019d09f65c608c700",
+      "proof_sha256": "806f81cdee042192d49ce8a15262e3cdc7dd1a4b974cf4b8bee8f7690a07b909",
+      "source_sha": "afc70323f04445a5a08c085d0b54cb5a4b381c66"
+    },
+    "last_gate": {
+      "active_lane_count": 3,
+      "all_lanes_live": true,
+      "blocked_stream_count": 0,
+      "boundary_episodes_pending": [],
+      "boundary_episodes_unresolved": [],
+      "canonical_conflict_count": 0,
+      "configured_lane_count": 3,
+      "decision_state": "RUNNING",
+      "docker_health_ok": false,
+      "health_ok": true,
+      "history": {
+        "all_required_series_contiguous": true,
+        "all_required_series_forward_current": true,
+        "checked_at": "2026-09-09T00:46:13.246184+00:00",
+        "repair_path": "ingestion_runtime_startup_catchup_and_htf_reconcile",
+        "required_series": {
+          "BTC-USDT-PERP:1h": {
+            "expected_closed_boundary": "2026-09-09T00:00:00+00:00",
+            "first_open": "2026-06-08T00:00:00+00:00",
+            "forward_to_expected_boundary": true,
+            "gap_count": 0,
+            "instrument_id": "BTC-USDT-PERP",
+            "last_close": "2026-09-09T00:00:00+00:00",
+            "row_count": 2232,
+            "timeframe": "1h"
+          },
+          "BTC-USDT-PERP:4h": {
+            "expected_closed_boundary": "2026-09-09T00:00:00+00:00",
+            "first_open": "2026-06-08T00:00:00+00:00",
+            "forward_to_expected_boundary": true,
+            "gap_count": 0,
+            "instrument_id": "BTC-USDT-PERP",
+            "last_close": "2026-09-09T00:00:00+00:00",
+            "row_count": 558,
+            "timeframe": "4h"
+          },
+          "ETH-USDT-PERP:4h": {
+            "expected_closed_boundary": "2026-09-09T00:00:00+00:00",
+            "first_open": "2026-06-08T00:00:00+00:00",
+            "forward_to_expected_boundary": true,
+            "gap_count": 0,
+            "instrument_id": "ETH-USDT-PERP",
+            "last_close": "2026-09-09T00:00:00+00:00",
+            "row_count": 558,
+            "timeframe": "4h"
+          }
+        }
+      },
+      "history_ready": true,
+      "ingestion_state": "live",
+      "input_interval_lag": {
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h": 0,
+        "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:4h": 0,
+        "stream:ohlcv:ingestion:binance:ETH-USDT-PERP:4h": 0
+      },
+      "inputs_current": true,
+      "lag_gate_status": "PASS",
+      "lane_statuses": {
+        "BTCUSDT:momentum_1h": "LIVE",
+        "BTCUSDT:momentum_4h": "LIVE",
+        "ETHUSDT:momentum_4h": "LIVE"
+      },
+      "lane_watermark_interval_lag": {
+        "BTCUSDT:momentum_1h": 0,
+        "BTCUSDT:momentum_4h": 0,
+        "ETHUSDT:momentum_4h": 0
+      },
+      "lanes_current": true,
+      "outbox_healthy": true,
+      "outbox_oldest_age_seconds": 0.0,
+      "outbox_pending": 0,
+      "outbox_status": "DRAINED",
+      "probe_errors": {},
+      "probe_status": "VALID",
+      "provenance": {
+        "BTC-USDT-PERP:1h": {
+          "canonical_history_checked_at": "2026-09-09T00:46:13.246184+00:00",
+          "canonical_history_current_at": "2026-09-09T00:00:00+00:00",
+          "decision_input_latest_market_as_of": "2026-09-09T00:00:00+00:00",
+          "lane_watermark_latest_market_as_of": "2026-09-09T00:00:00+00:00",
+          "observed_at": "2026-09-09T00:46:13.246663+00:00",
+          "outbox_oldest_age_seconds": 0.0,
+          "outbox_oldest_epoch": null
+        },
+        "BTC-USDT-PERP:4h": {
+          "canonical_history_checked_at": "2026-09-09T00:46:13.246184+00:00",
+          "canonical_history_current_at": "2026-09-09T00:00:00+00:00",
+          "decision_input_latest_market_as_of": "2026-09-09T00:00:00+00:00",
+          "lane_watermark_latest_market_as_of": "2026-09-09T00:00:00+00:00",
+          "observed_at": "2026-09-09T00:46:13.246663+00:00",
+          "outbox_oldest_age_seconds": 0.0,
+          "outbox_oldest_epoch": null
+        },
+        "ETH-USDT-PERP:4h": {
+          "canonical_history_checked_at": "2026-09-09T00:46:13.246184+00:00",
+          "canonical_history_current_at": "2026-09-09T00:00:00+00:00",
+          "decision_input_latest_market_as_of": "2026-09-09T00:00:00+00:00",
+          "lane_watermark_latest_market_as_of": "2026-09-09T00:00:00+00:00",
+          "observed_at": "2026-09-09T00:46:13.246663+00:00",
+          "outbox_oldest_age_seconds": 0.0,
+          "outbox_oldest_epoch": null
+        }
+      },
+      "ready": false
+    },
+    "last_update_at": "2026-09-09T00:46:20.694178+00:00",
+    "max_probe_gap_seconds": 0.0,
+    "measurement_elapsed_seconds": 0.0,
+    "measurement_probe_gap_open_at": null,
+    "measurement_sampling_gap_reported": true,
+    "measurement_seconds_required": 86400,
+    "outbox_episode": null,
+    "outbox_episodes": [],
+    "phase": "finalizing",
+    "ports": {
+      "otel_health": 13133,
+      "prometheus": 9090,
+      "status": 8765
+    },
+    "probe_gap_threshold_seconds": 60.0,
+    "probe_indeterminate_samples": 0,
+    "project": "flipper-id-soak-20260909t002014z",
+    "raw_log_cursor": "2026-09-09T00:46:14.308191+00:00",
+    "run_id": "20260909T002014Z",
+    "sampling_continuity_ok": true,
+    "source_sha": "afc70323f04445a5a08c085d0b54cb5a4b381c66",
+    "validity": false,
+    "warmup_seconds_required": 900
+  },
+  "terminal_status": "INGESTION_DECISION_24H_SOAK_BLOCKED_HISTORY_PREPARATION",
+  "whole_vm_resource_summary": {
+    "cpu_max_core_equivalent": null,
+    "cpu_p50_core_equivalent": null,
+    "cpu_p95_core_equivalent": null,
+    "rss_max_bytes": null,
+    "rss_p50_bytes": null,
+    "rss_p95_bytes": null,
+    "rss_p99_bytes": null,
+    "rss_robust_slope_bytes_per_second": null,
+    "sample_count": 0
+  }
+}

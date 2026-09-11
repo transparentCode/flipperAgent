@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>com.flipperagent.hostguard-smoke-0610143607</string>
+<key>ProgramArguments</key><array>
+<string>/Users/kajukatli/projects/flipperAgent/.venv/bin/python</string>
+<string>/Users/kajukatli/projects/flipperAgent/artifacts/ingestion_decision_24h_soak/20260910T082550Z/run-local/source/scripts/host_sleep_guard.py</string>
+<string>--max-check-gap</string><string>60</string>
+<string>--</string><string>/bin/sleep</string><string>60</string>
+</array>
+<key>WorkingDirectory</key><string>/Users/kajukatli/projects/flipperAgent</string>
+<key>RunAtLoad</key><true/>
+<key>ProcessType</key><string>Background</string>
+<key>LowPriorityIO</key><true/>
+<key>LimitLoadToSessionType</key><string>Aqua</string>
+<key>EnvironmentVariables</key><dict>
+<key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+<key>PYTHONUNBUFFERED</key><string>1</string>
+<key>PYTHONDONTWRITEBYTECODE</key><string>1</string>
+</dict>
+<key>StandardOutPath</key><string>/Users/kajukatli/projects/flipperAgent/artifacts/host_guard_diagnostics/20260910T143607Z/ac-smoke.stdout.log</string>
+<key>StandardErrorPath</key><string>/Users/kajukatli/projects/flipperAgent/artifacts/host_guard_diagnostics/20260910T143607Z/ac-smoke.stderr.log</string>
+</dict></plist>
