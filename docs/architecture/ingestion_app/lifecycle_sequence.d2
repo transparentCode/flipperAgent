@@ -17,7 +17,10 @@ classes: {
 actors: {
   operator: { class: actor; label: "operator / API client" }
   exchange: { class: actor; label: "Binance Futures" }
-  signal: { class: consumer; label: "signal_app" }
+  broker: { class: actor; label: "Valkey broker" }
+  decision: { class: consumer; label: "decision_app"; link: "../decision_app/README.md" }
+  alert: { class: consumer; label: "alert_app"; link: "../alert_app/README.md" }
+  risk: { class: consumer; label: "risk_app"; link: "../../../src/apps/risk_app/runtime/runner.py" }
 }
 
 app: {
@@ -35,12 +38,27 @@ app: {
   }
   controller: {
     class: component
-    label: "RuntimeController"
+    label: "RuntimeController\nsole desired-state owner"
     link: "../../../src/apps/ingestion_app/runtime/controller.py"
+  }
+  resources: {
+    class: component
+    label: "_LifespanResources\nordered cleanup ledger only"
+    link: "../../../src/apps/ingestion_app/bootstrap.py"
+  }
+  runtime_state: {
+    class: component
+    label: "runtime/state.py\npublic + observed state contracts"
+    link: "../../../src/apps/ingestion_app/runtime/state.py"
+  }
+  planning: {
+    class: component
+    label: "compile_ingestion_plan\nimmutable runtime plan"
+    link: "../../../src/apps/ingestion_app/planning.py"
   }
   supervisor: {
     class: component
-    label: "RuntimeSupervisor"
+    label: "RuntimeSupervisor\none-generation observed runner"
     link: "../../../src/apps/ingestion_app/runtime/supervisor.py"
   }
   recovery: {
@@ -53,6 +71,21 @@ app: {
     label: "BinanceWebSocketManager"
     link: "../../../src/apps/ingestion_app/runtime/websocket.py"
   }
+  websocket_session: {
+    class: component
+    label: "Binance websocket SDK\nsession lifecycle"
+    link: "../../../src/apps/ingestion_app/runtime/websocket_session.py"
+  }
+  websocket_bridge: {
+    class: component
+    label: "bounded callback bridge\nthread -> event loop"
+    link: "../../../src/apps/ingestion_app/runtime/websocket_bridge.py"
+  }
+  websocket_sequence: {
+    class: component
+    label: "live sequence/liveness tracker\nconsumed progress + recovery"
+    link: "../../../src/apps/ingestion_app/runtime/websocket_sequence.py"
+  }
   websocket_decoder: {
     class: component
     label: "Binance websocket payload decoder"
@@ -60,8 +93,13 @@ app: {
   }
   owned_call: {
     class: component
-    label: "Owned transport call\nbounded wait + retained lease"
-    link: "../../../src/apps/ingestion_app/runtime/blocking.py"
+    label: "Neutral owned transport boundary\nbounded wait + retained lease + accounting"
+    link: "../../../src/apps/ingestion_app/transport/ownership.py"
+  }
+  provider_quiescence: {
+    class: component
+    label: "historical provider idle barrier\nowned-call admission release"
+    link: "../../../src/apps/ingestion_app/providers/factory.py"
   }
   htf: {
     class: component
@@ -92,10 +130,29 @@ persistence: {
   manifests: { class: transport; label: "Valkey\nasset:* + asset:lifecycle"; shape: stored_data }
 }
 
+broker_startup: {
+  label: "Sequence 0 — broker-bound projection startup"
+  b1: { class: state; label: "1. connect broker" }
+  b2: { class: state; label: "2. bind AssetManifestStore" }
+  b3: { class: state; label: "3. initial lifecycle reconcile_all" }
+  b4: { class: state; label: "4. start AssetLifecycleReconciler" }
+  b5: { class: state; label: "5. start OutboxPublisher" }
+}
+
+actors.broker -> broker_startup.b1
+broker_startup.b1 -> broker_startup.b2
+broker_startup.b2 -> app.lifecycle: "bind manifest store"
+broker_startup.b2 -> broker_startup.b3
+broker_startup.b3 -> app.lifecycle: "reconcile_all"
+broker_startup.b3 -> broker_startup.b4
+broker_startup.b4 -> app.lifecycle: "start reconciler"
+broker_startup.b4 -> broker_startup.b5
+broker_startup.b5 -> app.publisher: "start publisher"
+
 startup: {
-  label: "Sequence A — startup / resume to LIVE"
+  label: "Sequence A — controller start / fresh generation to LIVE"
   s1: { class: state; label: "1. load canonical ingestion config" }
-  s2: { class: state; label: "2. controller creates supervisor for enabled lanes" }
+  s2: { class: state; label: "2. compile plan; create supervisor only for non-empty plan" }
   s3: { class: state; label: "3. find current closed base boundary" }
   s4: { class: state; label: "4. bounded catch-up missing base history" }
   s5: { class: state; label: "5. reconcile latest closed HTF buckets" }
@@ -104,7 +161,8 @@ startup: {
 }
 
 startup.s1 -> app.controller
-app.controller -> startup.s2
+app.controller -> app.planning: "settings + composed provider IDs"
+app.planning -> startup.s2
 startup.s2 -> app.supervisor
 app.supervisor -> startup.s3
 startup.s3 -> persistence.candles: "latest read"
@@ -129,7 +187,7 @@ live: {
   l4: { class: state; label: "4. derive/reconcile affected HTFs" }
   l5: { class: state; label: "5. publisher drains pending outbox" }
   l6: { class: state; label: "6. XADD then mark published_at" }
-  l7: { class: state; label: "7. signal consumer processes stream" }
+  l7: { class: state; label: "7. Decision consumes canonical stream" }
 }
 
 app.websocket_decoder -> live.l1
@@ -147,11 +205,11 @@ live.l5 -> app.publisher
 app.publisher -> live.l6
 live.l6 -> persistence.streams: "at least once"
 persistence.streams -> live.l7
-live.l7 -> actors.signal
+live.l7 -> actors.decision
 
 interruption: {
   label: "Sequence C — websocket interruption / recovery"
-  r1: { class: state; label: "1. provider reports interruption + missing windows" }
+  r1: { class: state; label: "1. provider reports close/error/gap/overflow/silence + missing windows" }
   r2: { class: state; label: "2. supervisor -> RECOVERING" }
   r3: { class: state; label: "3. bounded provider paging/fallback" }
   r4: { class: state; label: "4. commit repaired base rows" }
@@ -194,9 +252,13 @@ transport_bounds: {
 app.controller -> transport_bounds.t1
 transport_bounds.t1 -> app.owned_call
 app.owned_call -> transport_bounds.t2
-transport_bounds.t2 -> app.websocket: "factory / subscribe / stop"
+transport_bounds.t2 -> app.websocket_session: "factory / subscribe / stop"
 transport_bounds.t2 -> app.recovery: "native REST / CCXT attempt"
-app.websocket -> transport_bounds.t3
+app.websocket_session -> app.websocket: "SDK callbacks"
+app.websocket -> app.websocket_session: "one session / batch / cleanup"
+app.websocket -> app.websocket_bridge: "bounded callback events"
+app.websocket -> app.websocket_sequence: "classify / post-yield record / watchdog"
+app.websocket_session -> transport_bounds.t3
 app.recovery -> transport_bounds.t3
 transport_bounds.t3 -> transport_bounds.t4: "completed provider availability error"
 transport_bounds.t3 -> app.supervisor: "deterministic response / metadata / client / lifecycle error"
@@ -209,8 +271,8 @@ transport_bounds.t7 -> app.owned_call
 mutation: {
   label: "Sequence E — asset config mutation"
   m1: { class: state; label: "1. POST/PATCH asset" }
-  m2: { class: state; label: "2. validate candidate + runtime compatibility" }
-  m3: { class: state; label: "3. write registered asset YAML" }
+  m2: { class: state; label: "2. compile candidate plan + validate runtime compatibility" }
+  m3: { class: state; label: "3. write registered asset YAML\n(nested asset mount is rw in Compose)" }
   m4: { class: state; label: "4. reload and compare exact candidate" }
   m5: { class: state; label: "5. checkpoint + replace supervisor settings" }
   m6: { class: state; label: "6. mark lifecycle asset dirty" }
@@ -226,6 +288,7 @@ app.config_service -> mutation.m3
 mutation.m3 -> mutation.m4
 mutation.m4 -> mutation.m5
 mutation.m5 -> app.controller
+app.controller -> app.planning: "compile replacement before stop"
 app.controller -> mutation.m6
 mutation.m6 -> app.lifecycle
 app.lifecycle -> mutation.m7
@@ -235,13 +298,13 @@ mutation.m3 -> mutation.m8: "write/reload/replace failure"
 mutation.m5 -> mutation.m8: "cancelled / runtime failure"
 
 transition: {
-  label: "Sequence G — ordered runtime generation transition"
+  label: "Sequence G — controller-owned ordered generation transition"
   g1: { class: state; label: "1. checkpoint + pre-stop build where required" }
   g2: { class: state; label: "2. stop old supervisor and drain its task" }
-  g3: { class: state; label: "3. sync/check post-stop quarantine" }
-  g4: { class: state; label: "4. detach only after the check" }
-  g5: { class: state; label: "5. offline repair after stop, then install/start" }
-  g6: { class: state; label: "6. settings/recovery cancellation -> restore checkpoint" }
+  g3: { class: state; label: "3. await historical-provider ownership idle barrier" }
+  g4: { class: state; label: "4. sync/check quarantine; detach only after barrier" }
+  g5: { class: state; label: "5. offline repair or install/start after the fence" }
+  g6: { class: state; label: "6. cancellation -> quiesce, then restore exact checkpoint" }
   g7: { class: state; label: "reconnect install failure -> no rollback" }
 }
 
@@ -249,15 +312,20 @@ actors.operator -> transition.g1: "runtime command"
 mutation.m5 -> transition.g1: "settings replacement"
 transition.g1 -> transition.g2
 transition.g2 -> transition.g3
-transition.g3 -> transition.g4: "not quarantined"
+transition.g3 -> transition.g4: "idle; no typed deadline"
 transition.g4 -> transition.g5
 transition.g5 -> transition.g6: "caller cancellation"
 transition.g5 -> transition.g7: "reconnect install failure"
 transition.g5 -> app.controller: "new generation/status snapshot"
+app.controller -> app.runtime_state: "desired state + observed snapshot composition"
+app.supervisor -> app.runtime_state: "observed state only"
+app.controller -> app.provider_quiescence: "resume / replace / reconnect / recover fence"
+app.provider_quiescence -> transition.g3: "owned calls idle"
+app.provider_quiescence -> app.controller: "typed deadline -> fatal quarantine"
 
 shutdown: {
   label: "Sequence F — controlled pause/drain used by certification"
-  q1: { class: state; label: "1. stop signal consumer" }
+  q1: { class: state; label: "1. stop/isolate downstream consumers required by the specific certification" }
   q2: { class: state; label: "2. POST runtime/pause" }
   q3: { class: state; label: "3. wait desired=paused, state=stopped" }
   q4: { class: state; label: "4. keep broker + publisher alive until pending=0" }
@@ -265,7 +333,7 @@ shutdown: {
   q6: { class: state; label: "6. stop broker" }
 }
 
-actors.signal -> shutdown.q1
+actors.operator -> shutdown.q1: "select certification-specific consumer scope"
 shutdown.q1 -> shutdown.q2
 shutdown.q2 -> app.api
 app.api -> shutdown.q3
@@ -276,3 +344,20 @@ app.publisher -> shutdown.q4: "drain"
 shutdown.q4 -> persistence.streams
 shutdown.q4 -> shutdown.q5
 shutdown.q5 -> shutdown.q6
+
+lifespan_cleanup: {
+  label: "Sequence H — application lifespan resource cleanup"
+  c1: { class: state; label: "1. RuntimeController.close()" }
+  c2: { class: state; label: "2. RetentionJanitor.stop() + retention task reap" }
+  c3: { class: state; label: "3. publisher connection-loop task reap" }
+  c4: { class: state; label: "4. historical providers close in reverse resource order" }
+  c5: { class: state; label: "5. DBPoolManager.close_pools()" }
+  c6: { class: state; label: "6. ConfigManager.shutdown()" }
+}
+
+app.resources -> lifespan_cleanup.c1: "aclose"
+lifespan_cleanup.c1 -> lifespan_cleanup.c2
+lifespan_cleanup.c2 -> lifespan_cleanup.c3
+lifespan_cleanup.c3 -> lifespan_cleanup.c4
+lifespan_cleanup.c4 -> lifespan_cleanup.c5
+lifespan_cleanup.c5 -> lifespan_cleanup.c6

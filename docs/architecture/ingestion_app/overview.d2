@@ -41,9 +41,19 @@ ingestion_app: {
     link: "../../../src/apps/ingestion_app/main.py"
   }
 
+  resources: {
+    label: "_LifespanResources\nordered cleanup ledger only"
+    link: "../../../src/apps/ingestion_app/bootstrap.py"
+  }
+
   settings: {
     label: "typed settings"
     link: "../../../src/apps/ingestion_app/settings.py"
+  }
+
+  planning: {
+    label: "compile_ingestion_plan\nimmutable IngestionPlan / LanePlan"
+    link: "../../../src/apps/ingestion_app/planning.py"
   }
 
   provider_factory: {
@@ -67,12 +77,17 @@ ingestion_app: {
   }
 
   controller: {
-    label: "RuntimeController"
+    label: "RuntimeController\nsole desired-state owner"
     link: "../../../src/apps/ingestion_app/runtime/controller.py"
   }
 
+  runtime_state: {
+    label: "runtime/state.py\npublic desired + observed contracts"
+    link: "../../../src/apps/ingestion_app/runtime/state.py"
+  }
+
   controller_checkpoint: {
-    label: "_RuntimeCheckpoint\nsettings + intent + started + error"
+    label: "_RuntimeCheckpoint\nsettings + plan + intent + started + error"
     link: "../../../src/apps/ingestion_app/runtime/controller.py"
   }
 
@@ -82,23 +97,33 @@ ingestion_app: {
   }
 
   supervisor: {
-    label: "RuntimeSupervisor"
-    link: "../../../src/apps/ingestion_app/runtime/supervisor.py"
-  }
-
-  lane_resolution: {
-    label: "_resolve_lane_contexts(settings, provider)\npure lane/config helper"
+    label: "RuntimeSupervisor\none-generation observed runner"
     link: "../../../src/apps/ingestion_app/runtime/supervisor.py"
   }
 
   supervisor_cycle: {
-    label: "_run_live_or_interruption_cycle\ncommon failure boundary"
+    label: "one generation\ncommon failure boundary"
     link: "../../../src/apps/ingestion_app/runtime/supervisor.py"
   }
 
   websocket: {
-    label: "BinanceWebSocketManager"
+    label: "BinanceWebSocketManager\ncausal per-lane silence watchdog"
     link: "../../../src/apps/ingestion_app/runtime/websocket.py"
+  }
+
+  websocket_session: {
+    label: "Binance websocket SDK\nsession lifecycle"
+    link: "../../../src/apps/ingestion_app/runtime/websocket_session.py"
+  }
+
+  websocket_bridge: {
+    label: "bounded callback bridge\nthread -> event loop"
+    link: "../../../src/apps/ingestion_app/runtime/websocket_bridge.py"
+  }
+
+  websocket_sequence: {
+    label: "live sequence/liveness tracker\nconsumed progress + recovery"
+    link: "../../../src/apps/ingestion_app/runtime/websocket_sequence.py"
   }
 
   websocket_decoder: {
@@ -191,14 +216,19 @@ downstream: {
   label: "Downstream"
   style.fill: "#FCE8E8"
 
-  signal_app: {
-    label: "signal_app"
-    link: "../signal_app/README.md"
+  decision_app: {
+    label: "decision_app\ncanonical ingestion consumer"
+    link: "../decision_app/README.md"
   }
 
   alert_app: {
     label: "alert_app lifecycle consumer"
     link: "../alert_app/README.md"
+  }
+
+  risk_app: {
+    label: "risk_app\nmanifest/lifecycle consumer"
+    link: "../../../src/apps/risk_app/runtime/runner.py"
   }
 }
 
@@ -218,6 +248,7 @@ inputs.historical -> ingestion_app.rest_decoder: "raw historical rows"
 ingestion_app.rest_decoder -> ingestion_app.recovery: "provider observations"
 
 ingestion_app.main -> ingestion_app.settings: "load"
+ingestion_app.main -> ingestion_app.resources: "explicit lifespan ownership"
 ingestion_app.main -> ingestion_app.provider_factory: "validate / construct"
 ingestion_app.provider_factory -> ingestion_app.recovery: "owned historical providers"
 ingestion_app.main -> ingestion_app.controller: "compose/start"
@@ -229,18 +260,27 @@ ingestion_app.api -> ingestion_app.controller: "pause / resume / reconnect / rec
 ingestion_app.config_service -> ingestion_app.settings: "reload candidate"
 ingestion_app.config_service -> ingestion_app.controller: "replace settings"
 ingestion_app.config_service -> ingestion_app.lifecycle: "mark asset dirty"
-ingestion_app.controller -> ingestion_app.supervisor: "fresh supervisor"
+ingestion_app.settings -> ingestion_app.planning: "typed settings"
+ingestion_app.provider_factory -> ingestion_app.planning: "composed provider ownership"
+ingestion_app.controller -> ingestion_app.planning: "initial/candidate compile"
+ingestion_app.planning -> ingestion_app.controller: "immutable plan"
+ingestion_app.controller -> ingestion_app.runtime_state: "compose public snapshot"
+ingestion_app.supervisor -> ingestion_app.runtime_state: "observed SupervisorSnapshot"
+ingestion_app.controller -> ingestion_app.supervisor: "install / start / stop fresh generation"
 ingestion_app.controller -> ingestion_app.controller_checkpoint: "checkpoint replace/recover"
 ingestion_app.controller_checkpoint -> ingestion_app.controller_transition: "ordered transition"
 ingestion_app.controller_transition -> ingestion_app.supervisor: "stop + post-stop check; detach"
 ingestion_app.supervisor -> ingestion_app.recovery: "startup / interruption recovery"
-ingestion_app.settings -> ingestion_app.lane_resolution: "typed enabled lanes"
-ingestion_app.lane_resolution -> ingestion_app.supervisor: "contexts + subscriptions"
 ingestion_app.supervisor -> ingestion_app.supervisor_cycle: "run loop"
-ingestion_app.supervisor_cycle -> ingestion_app.supervisor: "control cancel / deadline / error"
+ingestion_app.supervisor_cycle -> ingestion_app.supervisor: "stop / outer cancel / deadline / error"
 ingestion_app.supervisor -> ingestion_app.websocket: "live stream"
+ingestion_app.websocket_session -> ingestion_app.websocket: "SDK callbacks"
+ingestion_app.websocket -> ingestion_app.websocket_session: "one session / batch / cleanup"
+ingestion_app.websocket -> ingestion_app.websocket_bridge: "bounded callback events"
+ingestion_app.websocket -> ingestion_app.websocket_sequence: "classify / post-yield record / watchdog"
 ingestion_app.websocket -> ingestion_app.websocket_decoder: "raw finalized payload"
 ingestion_app.websocket_decoder -> ingestion_app.supervisor: "CandleObservation"
+ingestion_app.websocket -> ingestion_app.supervisor: "bounded causal silence interruption"
 ingestion_app.supervisor -> ingestion_app.ingestion_service: "commit base candle"
 ingestion_app.supervisor -> ingestion_app.htf: "derive / reconcile HTFs"
 ingestion_app.recovery -> ingestion_app.ingestion_service: "recovered base candles"
@@ -257,10 +297,13 @@ timescale.outbox -> ingestion_app.publisher: "pending rows"
 ingestion_app.publisher -> valkey.ohlcv: "XADD at least once"
 ingestion_app.lifecycle -> valkey.asset_manifest: "project config state"
 ingestion_app.lifecycle -> valkey.lifecycle_stream: "publish transition"
-valkey.ohlcv -> downstream.signal_app: "consume"
-valkey.lifecycle_stream -> downstream.signal_app: "consume"
+valkey.ohlcv -> downstream.decision_app: "parse candle.committed v1"
+valkey.asset_manifest -> downstream.decision_app: "manifest gating"
+valkey.lifecycle_stream -> downstream.decision_app: "lifecycle notifications"
 valkey.lifecycle_stream -> downstream.alert_app: "consume"
-timescale.candles -> downstream.signal_app: "history priming / recovery"
+valkey.asset_manifest -> downstream.risk_app: "availability gating"
+valkey.lifecycle_stream -> downstream.risk_app: "lifecycle notifications"
+timescale.candles -> downstream.decision_app: "history priming / recovery"
 
 ingestion_app.observability -> ops.metrics: "measure"
 ops.metrics -> ops.grafana: "visualize"

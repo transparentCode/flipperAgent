@@ -7,12 +7,9 @@ from pathlib import Path
 import pytest
 
 from apps.ingestion_app.api.app import create_app
+from apps.ingestion_app.planning import compile_ingestion_plan
 from apps.ingestion_app.runtime.controller import RuntimeController
-from apps.ingestion_app.runtime.supervisor import (
-    DesiredRuntimeState,
-    RuntimeSnapshot,
-    RuntimeState,
-)
+from apps.ingestion_app.runtime.state import RuntimeState, SupervisorSnapshot
 from apps.ingestion_app.services.config_reconciliation import AssetConfigService
 from apps.ingestion_app.settings import (
     IngestionSettings,
@@ -24,15 +21,13 @@ from tests.ingestion._asgi import request
 
 class _InstantSupervisor:
     def __init__(self) -> None:
-        self._snapshot = RuntimeSnapshot(
-            desired_state=DesiredRuntimeState.RUNNING,
+        self._snapshot = SupervisorSnapshot(
             state=RuntimeState.STOPPED,
             last_error=None,
         )
 
     async def run(self) -> None:
-        self._snapshot = RuntimeSnapshot(
-            desired_state=DesiredRuntimeState.RUNNING,
+        self._snapshot = SupervisorSnapshot(
             state=RuntimeState.STOPPED,
             last_error=None,
         )
@@ -40,17 +35,7 @@ class _InstantSupervisor:
     def stop(self) -> None:
         pass
 
-    def pause(self) -> None:
-        self._snapshot = RuntimeSnapshot(
-            desired_state=DesiredRuntimeState.PAUSED,
-            state=RuntimeState.STOPPED,
-            last_error=None,
-        )
-
-    def resume(self) -> None:
-        pass
-
-    def snapshot(self) -> RuntimeSnapshot:
+    def snapshot(self) -> SupervisorSnapshot:
         return self._snapshot
 
     async def execute_recovery(self, request) -> None:
@@ -84,13 +69,21 @@ async def test_api_asset_mutation_reconciles_temporary_config_and_remaining_asse
     ConfigManager.reset_singleton()
     manager = ConfigManager(config_dir=str(tmp_path / "configs"))
     settings = load_ingestion_settings(manager)
-    created: list[IngestionSettings] = []
+    created: list[object] = []
 
-    def factory(candidate: IngestionSettings) -> _InstantSupervisor:
-        created.append(candidate)
+    def factory(plan: object) -> _InstantSupervisor:
+        created.append(plan)
         return _InstantSupervisor()
 
-    controller = RuntimeController(settings=settings, supervisor_factory=factory)
+    controller = RuntimeController(
+        settings=settings,
+        plan_factory=lambda candidate: compile_ingestion_plan(
+            candidate,
+            live_provider_ids={"binance_native"},
+            historical_provider_ids={"binance_native", "ccxt_binance"},
+        ),
+        supervisor_factory=factory,
+    )
     service = AssetConfigService(
         config_manager=manager,
         runtime_controller=controller,
@@ -156,4 +149,4 @@ async def test_api_asset_mutation_reconciles_temporary_config_and_remaining_asse
         manager.shutdown()
         ConfigManager.reset_singleton()
 
-    assert created
+    assert created == []

@@ -5,7 +5,7 @@ import pytest
 from apps.ingestion_app.api.app import create_app
 from apps.ingestion_app.domain.recovery import RecoveryRequest
 from apps.ingestion_app.runtime.controller import RuntimeControlConflictError
-from apps.ingestion_app.runtime.supervisor import (
+from apps.ingestion_app.runtime.state import (
     DesiredRuntimeState,
     RuntimeSnapshot,
     RuntimeState,

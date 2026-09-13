@@ -14,7 +14,7 @@ from apps.ingestion_app.runtime.controller import (
     RuntimeControlConflictError,
     RuntimeController,
 )
-from apps.ingestion_app.runtime.supervisor import (
+from apps.ingestion_app.runtime.state import (
     DesiredRuntimeState,
     RuntimeState,
 )

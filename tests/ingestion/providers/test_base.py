@@ -22,6 +22,9 @@ class _FakeHistoricalProvider:
     def __init__(self) -> None:
         self.request: tuple[object, ...] | None = None
 
+    async def wait_until_idle(self) -> None:
+        return None
+
     async def fetch_closed_candles(
         self,
         *,

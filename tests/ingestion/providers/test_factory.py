@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 from apps.ingestion_app.providers.factory import (
     build_historical_providers,
     referenced_provider_ids,
     validate_provider_configuration,
+    wait_until_historical_providers_idle,
 )
 from tests.ingestion.runtime.test_supervisor import _settings
 
@@ -13,6 +16,24 @@ from tests.ingestion.runtime.test_supervisor import _settings
 class _ProviderResource:
     def __init__(self, provider_id: str) -> None:
         self.provider_id = provider_id
+
+
+class _BlockingIdleProvider:
+    def __init__(self, provider_id: str) -> None:
+        self.provider_id = provider_id
+        self.started = asyncio.Event()
+        self.release = asyncio.Event()
+        self.cancelled = asyncio.Event()
+        self.wait_calls = 0
+
+    async def wait_until_idle(self) -> None:
+        self.wait_calls += 1
+        self.started.set()
+        try:
+            await self.release.wait()
+        except asyncio.CancelledError:
+            self.cancelled.set()
+            raise
 
 
 @pytest.mark.asyncio
@@ -89,3 +110,67 @@ async def test_factory_closes_native_resource_when_ccxt_construction_fails() -> 
         )
 
     assert closed == [[native]]
+
+
+@pytest.mark.asyncio
+async def test_provider_idle_barrier_deduplicates_and_orders_waits() -> None:
+    native = _BlockingIdleProvider("native")
+    ccxt = _BlockingIdleProvider("ccxt")
+    barrier = asyncio.create_task(
+        wait_until_historical_providers_idle(
+            {"z-native": native, "a-ccxt": ccxt, "alias": native}
+        )
+    )
+
+    await asyncio.wait_for(native.started.wait(), 1)
+    await asyncio.wait_for(ccxt.started.wait(), 1)
+    assert native.wait_calls == 1
+    assert ccxt.wait_calls == 1
+    assert not barrier.done()
+
+    native.release.set()
+    ccxt.release.set()
+    await asyncio.wait_for(barrier, 1)
+
+
+@pytest.mark.asyncio
+async def test_provider_idle_barrier_cleans_siblings_and_reraises_original_failure() -> (
+    None
+):
+    failing = _BlockingIdleProvider("failing")
+    waiting = _BlockingIdleProvider("waiting")
+    failure = RuntimeError("idle wait failed")
+
+    async def fail() -> None:
+        failing.wait_calls += 1
+        failing.started.set()
+        await asyncio.sleep(0)
+        raise failure
+
+    failing.wait_until_idle = fail  # type: ignore[method-assign]
+    with pytest.raises(RuntimeError) as raised:
+        await wait_until_historical_providers_idle(
+            {"a-failing": failing, "b-waiting": waiting}
+        )
+
+    assert raised.value is failure
+    await asyncio.wait_for(waiting.started.wait(), 1)
+    assert waiting.cancelled.is_set()
+
+
+@pytest.mark.asyncio
+async def test_provider_idle_barrier_cancellation_cleans_every_wait_task() -> None:
+    first = _BlockingIdleProvider("first")
+    second = _BlockingIdleProvider("second")
+    barrier = asyncio.create_task(
+        wait_until_historical_providers_idle({"first": first, "second": second})
+    )
+    await asyncio.wait_for(first.started.wait(), 1)
+    await asyncio.wait_for(second.started.wait(), 1)
+
+    barrier.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await barrier
+
+    assert first.cancelled.is_set()
+    assert second.cancelled.is_set()

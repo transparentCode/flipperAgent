@@ -7,11 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from apps.ingestion_app.runtime.supervisor import (
-    DesiredRuntimeState,
-    RuntimeSnapshot,
-    RuntimeState,
-)
+from apps.ingestion_app.observability import IngestionObservability
+from apps.ingestion_app.planning import compile_ingestion_plan
+from apps.ingestion_app.runtime.state import RuntimeState, SupervisorSnapshot
 from apps.ingestion_app.services.config_reconciliation import (
     AssetAlreadyExistsError,
     AssetCandidateError,
@@ -27,23 +25,22 @@ from libs.common.config import ConfigManager
 
 
 class _FakeSupervisor:
+    active_lanes = ()
+
     def __init__(self) -> None:
-        self._snapshot = RuntimeSnapshot(
-            desired_state=DesiredRuntimeState.RUNNING,
+        self._snapshot = SupervisorSnapshot(
             state=RuntimeState.STOPPED,
             last_error=None,
         )
         self._stop_event = asyncio.Event()
 
     async def run(self) -> None:
-        self._snapshot = RuntimeSnapshot(
-            desired_state=DesiredRuntimeState.RUNNING,
+        self._snapshot = SupervisorSnapshot(
             state=RuntimeState.STARTING,
             last_error=None,
         )
         await self._stop_event.wait()
-        self._snapshot = RuntimeSnapshot(
-            desired_state=self._snapshot.desired_state,
+        self._snapshot = SupervisorSnapshot(
             state=RuntimeState.STOPPED,
             last_error=self._snapshot.last_error,
         )
@@ -51,25 +48,23 @@ class _FakeSupervisor:
     def stop(self) -> None:
         self._stop_event.set()
 
-    def pause(self) -> None:
-        self._snapshot = RuntimeSnapshot(
-            desired_state=DesiredRuntimeState.PAUSED,
-            state=RuntimeState.STOPPED,
-            last_error=None,
-        )
-
-    def resume(self) -> None:
-        self._snapshot = RuntimeSnapshot(
-            desired_state=DesiredRuntimeState.RUNNING,
-            state=self._snapshot.state,
-            last_error=self._snapshot.last_error,
-        )
-
-    def snapshot(self) -> RuntimeSnapshot:
+    def snapshot(self) -> SupervisorSnapshot:
         return self._snapshot
 
     async def execute_recovery(self, request) -> None:
         del request
+
+
+class _FailOnSecondInstallObservability(IngestionObservability):
+    def __init__(self) -> None:
+        super().__init__()
+        self.install_calls = 0
+
+    def install_active_lanes(self, lanes) -> None:  # type: ignore[no-untyped-def]
+        self.install_calls += 1
+        if self.install_calls == 2:
+            raise RuntimeError("synthetic replacement install failure")
+        super().install_active_lanes(lanes)
 
 
 @pytest.fixture
@@ -88,7 +83,11 @@ def ingestion_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     ConfigManager.reset_singleton()
 
 
-def _controller(settings: IngestionSettings):
+def _controller(
+    settings: IngestionSettings,
+    *,
+    observability: IngestionObservability | None = None,
+):
     from apps.ingestion_app.runtime.controller import RuntimeController
 
     created: list[_FakeSupervisor] = []
@@ -99,7 +98,19 @@ def _controller(settings: IngestionSettings):
         created.append(supervisor)
         return supervisor
 
-    return RuntimeController(settings=settings, supervisor_factory=factory), created
+    return (
+        RuntimeController(
+            settings=settings,
+            plan_factory=lambda candidate: compile_ingestion_plan(
+                candidate,
+                live_provider_ids={"binance_native"},
+                historical_provider_ids={"binance_native", "ccxt_binance"},
+            ),
+            supervisor_factory=factory,
+            observability=observability,
+        ),
+        created,
+    )
 
 
 def _test_asset(settings: IngestionSettings) -> AssetSettings:
@@ -278,7 +289,7 @@ async def test_create_asset_is_atomic_and_duplicate_create_is_rejected(
         await service.create_asset(test_asset)
 
     await controller.close()
-    assert created
+    assert created == []
 
 
 @pytest.mark.asyncio
@@ -334,6 +345,37 @@ async def test_runtime_failure_rolls_back_asset_file_and_settings(
 
 
 @pytest.mark.asyncio
+async def test_runtime_install_failure_rolls_back_disk_and_running_runtime(
+    ingestion_config,
+) -> None:
+    manager, settings = ingestion_config
+    observability = _FailOnSecondInstallObservability()
+    controller, created = _controller(settings, observability=observability)
+    service = AssetConfigService(
+        config_manager=manager,
+        runtime_controller=controller,
+    )
+    original_bytes = Path("configs/ingestion/assets/BTC.yaml").read_bytes()
+    await controller.start()
+
+    with pytest.raises(RuntimeError, match="replacement install failure"):
+        await service.patch_asset(
+            "BTC",
+            {"instruments": {"BTC-USDT-PERP": {"timeframes": ["1m", "1h"]}}},
+        )
+
+    assert Path("configs/ingestion/assets/BTC.yaml").read_bytes() == original_bytes
+    assert manager.get("ingestion.assets.BTC.enabled") is True
+    assert controller.settings == settings
+    assert controller.is_started is True
+    assert len(created) == 3
+    assert controller._supervisor is created[-1]
+    assert controller._supervisor_task is not None
+    assert controller._terminal_error is None
+    await controller.close()
+
+
+@pytest.mark.asyncio
 async def test_cancelled_patch_rolls_back_disk_config_and_runtime(
     ingestion_config,
     monkeypatch,
@@ -379,8 +421,8 @@ async def test_cancelled_patch_rolls_back_disk_config_and_runtime(
     assert manager.get("ingestion.assets.BTC.enabled") is True
     assert controller.settings.assets["BTC"].enabled is True
     assert controller.is_started is True
-    # With the six-asset production configuration, candidate validation also
-    # builds a supervisor because five other assets remain enabled.
-    assert len(created) == 3
+    # Candidate validation compiles a plan only; the initial and restored
+    # generations are the only supervisor constructions.
+    assert len(created) == 2
     assert not list(Path("configs/ingestion/assets").glob(".*.tmp"))
     await controller.close()

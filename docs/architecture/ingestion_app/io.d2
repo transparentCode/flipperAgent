@@ -60,9 +60,21 @@ components: {
     link: "../../../src/apps/ingestion_app/settings.py"
   }
 
+  planning: {
+    class: component
+    label: "pure compile_ingestion_plan\nIngestionPlan + LanePlan"
+    link: "../../../src/apps/ingestion_app/planning.py"
+  }
+
   provider_factory: {
     class: component
     label: "provider factory\nvalidate + construct"
+    link: "../../../src/apps/ingestion_app/providers/factory.py"
+  }
+
+  provider_quiescence: {
+    class: component
+    label: "historical provider idle barrier\nunique owned providers"
     link: "../../../src/apps/ingestion_app/providers/factory.py"
   }
 
@@ -80,20 +92,44 @@ components: {
 
   controller: {
     class: component
-    label: "RuntimeController"
+    label: "RuntimeController\nsole desired-state owner"
     link: "../../../src/apps/ingestion_app/runtime/controller.py"
+  }
+
+  runtime_state: {
+    class: component
+    label: "runtime/state.py\npublic + observed state contracts"
+    link: "../../../src/apps/ingestion_app/runtime/state.py"
   }
 
   supervisor: {
     class: component
-    label: "RuntimeSupervisor"
+    label: "RuntimeSupervisor\none-generation observed runner"
     link: "../../../src/apps/ingestion_app/runtime/supervisor.py"
   }
 
   websocket: {
     class: component
-    label: "BinanceWebSocketManager"
+    label: "BinanceWebSocketManager\ncausal per-lane silence watchdog"
     link: "../../../src/apps/ingestion_app/runtime/websocket.py"
+  }
+
+  websocket_session: {
+    class: component
+    label: "Binance websocket SDK\nsession lifecycle"
+    link: "../../../src/apps/ingestion_app/runtime/websocket_session.py"
+  }
+
+  websocket_bridge: {
+    class: component
+    label: "bounded callback bridge\nthread -> event loop"
+    link: "../../../src/apps/ingestion_app/runtime/websocket_bridge.py"
+  }
+
+  websocket_sequence: {
+    class: component
+    label: "live sequence/liveness tracker\nconsumed progress + recovery"
+    link: "../../../src/apps/ingestion_app/runtime/websocket_sequence.py"
   }
 
   websocket_decoder: {
@@ -223,7 +259,7 @@ rules: {
 
   base_htf: {
     class: rule
-    label: "provider 1m base -> complete derived HTFs"
+    label: "configured base timeframe (currently 1m) -> complete derived HTFs"
   }
 
   conflict: {
@@ -248,31 +284,61 @@ rules: {
 
   recovery_bound: {
     class: rule
-    label: "bounded pages + retries + lane lock + global concurrency"
+    label: "RecoveryEngine-owned BFS closure\ndeterministic chunks <= max_concurrency\nsemaphore + lane lock + bounded pages/retries"
   }
 
   retention_rule: {
     class: rule
     label: "retention deletes published outbox only\npending rows survive"
   }
+
+  broker_startup: {
+    class: rule
+    label: "broker connect -> bind manifest store\n-> reconcile_all -> start lifecycle -> start publisher"
+  }
+
+  config_deployment: {
+    class: rule
+    label: "Compose root read-only\nbroad /app/configs bind ro\nnested /app/configs/ingestion/assets bind rw\nexisting atomic asset YAML path"
+  }
+
+  generation_fence: {
+    class: rule
+    label: "stop predecessor -> await provider ownership idle\nthen admit fresh generation\nquiescence deadline = fatal sticky quarantine"
+  }
 }
 
 consumers: {
   label: "Consumers"
 
-  signal_live: {
+  decision_live: {
     class: consumer
-    label: "signal_app live workers"
+    label: "decision_app\ncanonical ingestion stream parser"
+    link: "../decision_app/README.md"
   }
 
-  signal_history: {
+  decision_history: {
     class: consumer
-    label: "signal_app Timescale primer"
+    label: "decision_app\nread-only ingestion.candles history"
+    link: "../decision_app/README.md"
   }
 
-  downstream_lifecycle: {
+  decision_lifecycle: {
     class: consumer
-    label: "signal_app / alert_app lifecycle"
+    label: "decision_app\nmanifest/lifecycle gating"
+    link: "../decision_app/README.md"
+  }
+
+  alert_lifecycle: {
+    class: consumer
+    label: "alert_app\nlifecycle consumer"
+    link: "../alert_app/README.md"
+  }
+
+  risk_lifecycle: {
+    class: consumer
+    label: "risk_app\nmanifest/lifecycle consumer"
+    link: "../../../src/apps/risk_app/runtime/runner.py"
   }
 }
 
@@ -287,18 +353,29 @@ components.rest_decoder -> components.recovery: "provider observations"
 
 components.settings -> components.provider_factory: "validated provider refs"
 components.provider_factory -> components.recovery: "owned historical providers"
-components.settings -> components.controller: "validated runtime composition"
+components.provider_factory -> components.provider_quiescence: "owned provider mapping"
+components.settings -> components.planning: "typed runtime settings"
+components.provider_factory -> components.planning: "composed provider ownership"
+components.planning -> components.controller: "immutable initial/candidate plan"
 components.config_service -> components.settings: "reload"
 components.config_service -> components.controller: "atomic settings replacement"
 components.config_service -> components.lifecycle: "mark dirty"
-components.controller -> components.supervisor: "start / replace / control"
+components.controller -> components.runtime_state: "compose desired + observed public snapshot"
+components.supervisor -> components.runtime_state: "observed SupervisorSnapshot"
+components.controller -> components.supervisor: "install / start / stop generation"
+components.controller -> components.provider_quiescence: "fence fresh historical admission"
+components.provider_quiescence -> components.controller: "idle or TransportDeadlineExceeded"
+components.websocket_session -> components.websocket: "one SDK session / batch / cleanup"
+components.websocket -> components.websocket_session: "SDK callbacks"
+components.websocket -> components.websocket_bridge: "bounded callback events"
+components.websocket -> components.websocket_sequence: "classify / post-yield record / watchdog"
 components.websocket -> components.websocket_decoder: "raw payload"
 components.websocket_decoder -> contracts.observation: "emit"
 contracts.observation -> components.supervisor: "live input"
 components.supervisor -> components.canonicalize: "base commit"
 components.supervisor -> components.htf: "base candle"
 components.supervisor -> contracts.recovery_request: "startup / interruption / HTF gaps"
-contracts.recovery_request -> components.recovery: "recover"
+contracts.recovery_request -> components.recovery: "recover_closure(plan)"
 components.recovery -> components.canonicalize: "recovered provider observations"
 components.recovery -> components.htf: "affected HTF reconciliation"
 components.htf -> components.repository: "read complete constituents"
@@ -310,11 +387,15 @@ components.repository -> storage.outbox: "atomic new-event write"
 storage.outbox -> components.publisher: "ordered pending batch"
 components.publisher -> contracts.outbox_event: "encode fields"
 contracts.outbox_event -> contracts.ohlcv_stream: "XADD"
-contracts.ohlcv_stream -> consumers.signal_live: "consumer group"
-storage.candles -> consumers.signal_history: "history query"
+contracts.ohlcv_stream -> consumers.decision_live: "bounded direct XREAD cursor / parser"
+storage.candles -> consumers.decision_history: "read-only history query"
 components.lifecycle -> contracts.asset_hash: "sync manifests"
 components.lifecycle -> contracts.lifecycle_stream: "publish transition"
-contracts.lifecycle_stream -> consumers.downstream_lifecycle: "consume"
+contracts.asset_hash -> consumers.decision_lifecycle: "manifest gating"
+contracts.asset_hash -> consumers.risk_lifecycle: "availability gating"
+contracts.lifecycle_stream -> consumers.decision_lifecycle: "notification"
+contracts.lifecycle_stream -> consumers.alert_lifecycle: "consume / normalize"
+contracts.lifecycle_stream -> consumers.risk_lifecycle: "consume / apply"
 components.retention -> storage.outbox: "bounded old published delete"
 components.retention -> storage.candles: "drop old chunks"
 
@@ -330,3 +411,8 @@ rules.history -> storage.candles
 rules.history -> contracts.ohlcv_stream
 rules.recovery_bound -> components.recovery
 rules.retention_rule -> components.retention
+rules.broker_startup -> components.lifecycle: "bind -> reconcile_all -> start"
+rules.broker_startup -> components.publisher: "start after lifecycle"
+rules.config_deployment -> components.config_service: "P1B narrow writable asset mount"
+rules.generation_fence -> components.provider_quiescence
+rules.generation_fence -> components.controller

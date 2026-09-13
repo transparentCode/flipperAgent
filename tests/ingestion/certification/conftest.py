@@ -12,12 +12,9 @@ from uuid import UUID, uuid5
 from apps.ingestion_app.domain.candle import CandleObservation, CanonicalCandle
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
+from apps.ingestion_app.planning import IngestionPlan, compile_ingestion_plan
 from apps.ingestion_app.publication.outbox import OutboxEvent
-from apps.ingestion_app.runtime.supervisor import (
-    DesiredRuntimeState,
-    RuntimeSnapshot,
-    RuntimeState,
-)
+from apps.ingestion_app.runtime.state import RuntimeState, SupervisorSnapshot
 from apps.ingestion_app.settings import IngestionSettings
 from apps.ingestion_app.storage.repository import CandleCommitStatus
 
@@ -35,6 +32,16 @@ FULL_TIMEFRAMES = (
     "1d",
     "1w",
 )
+
+
+def compiled_plan(settings: IngestionSettings) -> IngestionPlan:
+    return compile_ingestion_plan(
+        settings,
+        live_provider_ids={"binance_native"},
+        historical_provider_ids={"binance_native", "ccxt_binance"},
+    )
+
+
 TIMEFRAME_SECONDS = {
     "1m": 60,
     "15m": 900,
@@ -412,6 +419,47 @@ class RecordingRecovery:
         finally:
             self.active -= 1
 
+    async def recover_closure(
+        self,
+        requests: tuple[RecoveryRequest, ...] | list[RecoveryRequest],
+        *,
+        plan: Any,
+    ) -> None:
+        del plan
+        pending = list(requests)
+        seen: set[tuple[str, str, str, datetime, datetime, str]] = set()
+        while pending:
+            batch: list[RecoveryRequest] = []
+            for request in sorted(
+                pending,
+                key=lambda item: (
+                    item.lane.venue,
+                    item.lane.instrument_id,
+                    item.lane.timeframe,
+                    item.since,
+                    item.until,
+                    item.reason,
+                ),
+            ):
+                key = (
+                    request.lane.venue,
+                    request.lane.instrument_id,
+                    request.lane.timeframe,
+                    request.since,
+                    request.until,
+                    request.reason,
+                )
+                if key in seen:
+                    continue
+                seen.add(key)
+                batch.append(request)
+            if not batch:
+                return
+            results = await asyncio.gather(
+                *(self.recover(request) for request in batch)
+            )
+            pending = [follow_up for result in results for follow_up in result]
+
 
 class FakeSupervisor:
     """Small controller-only supervisor; it never allocates external resources."""
@@ -438,20 +486,9 @@ class FakeSupervisor:
         self.closed = True
         self.release.set()
 
-    def pause(self) -> None:
-        self.paused = True
-        self.closed = True
-        self.release.set()
-
-    def resume(self) -> None:
-        self.paused = False
-        self.closed = False
-        self.release.clear()
-
-    def snapshot(self) -> RuntimeSnapshot:
+    def snapshot(self) -> SupervisorSnapshot:
         state = RuntimeState.STOPPED if self.closed else RuntimeState.LIVE
-        return RuntimeSnapshot(
-            desired_state=DesiredRuntimeState.RUNNING,
+        return SupervisorSnapshot(
             state=state,
             last_error=None,
         )

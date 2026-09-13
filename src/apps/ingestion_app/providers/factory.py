@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+import asyncio
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
 from apps.ingestion_app.providers.base import HistoricalCandleProvider
@@ -99,9 +100,42 @@ async def build_historical_providers(
     return providers, owned_resources
 
 
+async def wait_until_historical_providers_idle(
+    providers: Mapping[str, HistoricalCandleProvider],
+) -> None:
+    """Await one bounded idle operation for each unique owned provider."""
+    tasks: list[asyncio.Task[None]] = []
+    seen_provider_ids: set[int] = set()
+    try:
+        for provider_id, provider in sorted(providers.items()):
+            object_id = id(provider)
+            if object_id in seen_provider_ids:
+                continue
+            seen_provider_ids.add(object_id)
+            wait_coroutine = provider.wait_until_idle()
+            try:
+                task = asyncio.create_task(
+                    wait_coroutine,
+                    name=f"ingestion-provider-idle:{provider_id}",
+                )
+            except BaseException:
+                wait_coroutine.close()
+                raise
+            tasks.append(task)
+        if tasks:
+            await asyncio.gather(*tasks)
+    except BaseException:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        raise
+
+
 __all__ = [
     "SUPPORTED_PROVIDER_IDS",
     "build_historical_providers",
     "referenced_provider_ids",
     "validate_provider_configuration",
+    "wait_until_historical_providers_idle",
 ]

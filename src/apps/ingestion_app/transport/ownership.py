@@ -1,9 +1,15 @@
-"""Owned transport operations with explicit completion and abandonment handshakes."""
+"""Owned transport operations and bounded ownership accounting.
+
+This module contains only neutral execution and accounting mechanics. Provider
+adapters remain responsible for SDK construction, error classification,
+decoding, and user-facing diagnostics.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import time
 from collections.abc import Awaitable, Callable
 from threading import Event, Lock, Thread
@@ -12,7 +18,7 @@ from typing import Any
 _LOGGER = logging.getLogger(__name__)
 
 
-class _OwnedCallTimeout(TimeoutError):
+class OwnedCallTimeout(TimeoutError):
     """The caller's wait expired; the owned operation may still be running."""
 
     def __init__(self, *, deadline: float) -> None:
@@ -20,7 +26,115 @@ class _OwnedCallTimeout(TimeoutError):
         super().__init__("owned operation wait expired")
 
 
-class _OwnedBlockingCall:
+class OwnershipAccountingError(RuntimeError):
+    """The neutral ownership tracker detected ownership misuse."""
+
+
+class OwnedOperationTracker:
+    """Track retained operations and fail-fast capacity atomically.
+
+    A call is admitted before it is started. Its completion callback releases
+    the call and its capacity reservation together. This is what keeps caller
+    cancellation and wait deadlines from releasing a slot before the SDK work
+    really finishes.
+    """
+
+    def __init__(self, max_concurrency: int) -> None:
+        if isinstance(max_concurrency, bool) or not isinstance(max_concurrency, int):
+            raise TypeError("max_concurrency must be an integer")
+        if max_concurrency <= 0:
+            raise ValueError("max_concurrency must be positive")
+        self.max_concurrency = max_concurrency
+        self._owned_calls: set[Any] = set()
+        self._quarantined = False
+        self._lock = Lock()
+
+    @property
+    def quarantined(self) -> bool:
+        with self._lock:
+            return self._quarantined
+
+    def quarantine(self) -> None:
+        """Sticky-fail future admission without releasing retained calls."""
+        with self._lock:
+            self._quarantined = True
+
+    def admit(self, call: Any, *, exclusive: bool = False) -> bool:
+        """Admit one call without queueing; return false when capacity is full."""
+        with self._lock:
+            if self._quarantined:
+                return False
+            if call in self._owned_calls:
+                self._quarantined = True
+                raise OwnershipAccountingError(
+                    "owned operation was admitted more than once"
+                )
+            if exclusive and self._owned_calls:
+                return False
+            if len(self._owned_calls) >= self.max_concurrency:
+                return False
+            self._owned_calls.add(call)
+            return True
+
+    def release(self, call: Any) -> bool:
+        """Release one call and its capacity exactly once.
+
+        A late or duplicate callback is harmless and never over-releases
+        capacity.
+        """
+        with self._lock:
+            if call not in self._owned_calls:
+                return False
+            self._owned_calls.remove(call)
+            return True
+
+    @property
+    def retained_count(self) -> int:
+        """Return the number of admitted operations not yet finished."""
+        with self._lock:
+            return sum(not call.finished for call in self._owned_calls)
+
+    @property
+    def active_count(self) -> int:
+        """Return admitted capacity, including retained post-cancellation work."""
+        with self._lock:
+            return len(self._owned_calls)
+
+    def is_idle(self) -> bool:
+        """Return true only after all owned calls are released."""
+        with self._lock:
+            return not self._owned_calls
+
+    async def wait_until_idle(
+        self,
+        *,
+        timeout_seconds: float,
+        timeout_error: Callable[[], BaseException],
+    ) -> None:
+        """Wait for idle with an atomic exact-deadline recheck."""
+        if isinstance(timeout_seconds, bool) or not isinstance(
+            timeout_seconds,
+            (int, float),
+        ):
+            raise TypeError("timeout_seconds must be a number")
+        if not math.isfinite(float(timeout_seconds)) or timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be positive")
+        deadline = time.monotonic() + float(timeout_seconds)
+        while True:
+            if self.is_idle():
+                return
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                # Recheck at the deadline so a completion/release that won the
+                # scheduling race is not falsely quarantined.
+                if self.is_idle():
+                    return
+                self.quarantine()
+                raise timeout_error()
+            await asyncio.sleep(min(0.01, remaining))
+
+
+class OwnedBlockingCall:
     """Run one blocking SDK operation without losing ownership on timeout."""
 
     def __init__(
@@ -30,13 +144,13 @@ class _OwnedBlockingCall:
         operation: Callable[[], Any],
         name: str,
         abandoned_cleanup: Callable[[Any], None] | None = None,
-        finished_callback: Callable[[_OwnedBlockingCall], None] | None = None,
+        finished_callback: Callable[[OwnedBlockingCall], None] | None = None,
     ) -> None:
         self._loop = loop
         self._operation = operation
         self._abandoned_cleanup = abandoned_cleanup
         self._finished_callback = finished_callback
-        # The future is only a completion signal.  Results and failures stay on
+        # The future is only a completion signal. Results and failures stay on
         # the owned call so a shield timeout cannot leave a Future holding an
         # SDK payload or an unconsumed exception.
         self._future = loop.create_future()
@@ -94,7 +208,7 @@ class _OwnedBlockingCall:
             try:
                 await asyncio.wait_for(asyncio.shield(self._future), timeout=timeout)
             except TimeoutError as exc:
-                raise _OwnedCallTimeout(deadline=deadline) from exc
+                raise OwnedCallTimeout(deadline=deadline) from exc
         return self.result_or_raise()
 
     def result_or_raise(self) -> Any:
@@ -210,7 +324,7 @@ class _OwnedBlockingCall:
                 self._operation_error = None
 
 
-class _OwnedAsyncCall:
+class OwnedAsyncCall:
     """Own one async SDK operation until its task actually returns."""
 
     def __init__(
@@ -219,7 +333,7 @@ class _OwnedAsyncCall:
         loop: asyncio.AbstractEventLoop,
         operation: Callable[[], Awaitable[Any]],
         name: str,
-        finished_callback: Callable[[_OwnedAsyncCall], None] | None = None,
+        finished_callback: Callable[[OwnedAsyncCall], None] | None = None,
     ) -> None:
         self._loop = loop
         self._operation = operation
@@ -273,7 +387,7 @@ class _OwnedAsyncCall:
             try:
                 await asyncio.wait_for(asyncio.shield(self._future), timeout=timeout)
             except TimeoutError as exc:
-                raise _OwnedCallTimeout(deadline=deadline) from exc
+                raise OwnedCallTimeout(deadline=deadline) from exc
         return self.result_or_raise()
 
     def result_or_raise(self) -> Any:
@@ -356,4 +470,50 @@ class _OwnedAsyncCall:
                 self._operation_error = None
 
 
-__all__ = ["_OwnedAsyncCall", "_OwnedBlockingCall", "_OwnedCallTimeout"]
+async def wait_for_owned_call(
+    call: OwnedBlockingCall | OwnedAsyncCall,
+    *,
+    timeout_seconds: float,
+    timeout_error: Callable[[OwnedCallTimeout], BaseException],
+) -> Any:
+    """Apply the shared historical completion/adopt/abandon handshake."""
+    try:
+        result = await call.wait(timeout_seconds)
+    except OwnedCallTimeout as exc:
+        if (
+            call.operation_finished
+            and call.operation_finished_at is not None
+            and call.operation_finished_at <= exc.deadline
+        ):
+            try:
+                result = call.result_or_raise()
+            except BaseException:
+                call.adopt()
+                raise
+            if not call.adopt():
+                raise asyncio.CancelledError
+            return result
+        call.abandon()
+        raise timeout_error(exc) from exc
+    except asyncio.CancelledError:
+        if call.operation_finished:
+            call.adopt()
+        else:
+            call.abandon()
+        raise
+    except BaseException:
+        call.adopt()
+        raise
+    if not call.adopt():
+        raise asyncio.CancelledError
+    return result
+
+
+__all__ = [
+    "OwnedAsyncCall",
+    "OwnedBlockingCall",
+    "OwnedCallTimeout",
+    "OwnedOperationTracker",
+    "OwnershipAccountingError",
+    "wait_for_owned_call",
+]

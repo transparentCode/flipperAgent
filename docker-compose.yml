@@ -62,6 +62,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./configs:/app/configs:ro
+      - ./configs/ingestion/assets:/app/configs/ingestion/assets:rw
       - flipper-logs:/app/logs
     tmpfs:
       - /tmp

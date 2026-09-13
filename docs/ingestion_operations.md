@@ -1,8 +1,9 @@
 # Ingestion operations
 
 This runbook covers the current canonical ingestion runtime. Ingestion owns the
-canonical 1m feed plus derived 1h/4h publication for the retained Decision
-routes. No legacy Signal/Strategy runtime remains in production.
+configured base-timeframe feed (currently `1m`) plus derived 1h/4h publication
+for the retained Decision routes. No legacy Signal/Strategy runtime remains in
+production.
 
 ## Normal startup and health
 
@@ -17,6 +18,26 @@ curl -fsS http://127.0.0.1:8003/runtime
 The ingestion service uses port `8003`, depends on Timescale health, and does not have
 a hard broker dependency. `/health/ready` reports runtime readiness; liveness
 is independent of the runtime state.
+
+After the service has connected to Valkey, broker startup ordering is:
+
+```text
+broker connection
+  -> bind manifest store
+  -> initial lifecycle reconcile_all
+  -> start lifecycle reconciler
+  -> start OutboxPublisher
+```
+
+This ordering is implemented by
+[`_run_publisher_connection_loop`](../src/apps/ingestion_app/bootstrap.py:132)
+and keeps the lifecycle projection ahead of publisher startup. It is a
+characterized current dependency, not a new readiness contract.
+
+Application lifespan cleanup is owned by the private `_LifespanResources` ledger
+in the same module. It closes the runtime controller first, then stops/reaps
+retention, reaps the publisher task, closes historical providers in reverse
+construction order, closes DB pools, and finally shuts down `ConfigManager`.
 
 Canonical production downstream routing is now:
 
@@ -41,6 +62,17 @@ docker compose restart ingestion
 If downstream certification is in progress, coordinate restarts with the active
 Decision/Risk/Execution procedure. Ingestion itself remains the canonical writer
 for `ingestion.candles` and `ingestion.outbox`.
+
+## Dynamic asset configuration
+
+The asset create/patch control path writes registered YAML atomically, reloads
+it, and replaces runtime settings when the configuration directory is writable.
+The production Compose deployment sets the ingestion service `read_only: true`,
+retains the broad `./configs:/app/configs:ro` mount, and over-mounts only
+`./configs/ingestion/assets:/app/configs/ingestion/assets:rw`. Create and patch
+requests therefore persist only through the existing registered asset YAML
+directory; global and other application configuration remain read-only. The
+API, configuration schema, and atomic mutation algorithm are unchanged.
 
 ## Broker outage and return
 

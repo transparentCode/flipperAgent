@@ -391,6 +391,73 @@ async def test_valkey_connection_is_optional_and_retries_without_restarting_runt
 
 
 @pytest.mark.asyncio
+async def test_lifespan_resources_preserve_order_and_isolate_cleanup_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    order: list[str] = []
+
+    class _Manager:
+        def shutdown(self) -> None:
+            order.append("config.close")
+
+    class _Controller:
+        async def close(self) -> None:
+            order.append("controller.close")
+            raise RuntimeError("controller close failed")
+
+    class _RetentionJanitor:
+        async def stop(self) -> None:
+            order.append("retention.stop")
+
+    class _Provider:
+        def __init__(self, name: str, *, fails: bool = False) -> None:
+            self._name = name
+            self._fails = fails
+
+        async def close(self) -> None:
+            order.append(f"{self._name}.close")
+            if self._fails:
+                raise RuntimeError(f"{self._name} close failed")
+
+    async def pending_task(name: str) -> None:
+        try:
+            await asyncio.Event().wait()
+        finally:
+            order.append(name)
+
+    async def fail_db() -> None:
+        order.append("db.close")
+        raise RuntimeError("db close failed")
+
+    monkeypatch.setattr(bootstrap.DBPoolManager, "close_pools", fail_db)
+    resources = bootstrap._LifespanResources(config_manager=_Manager())
+    resources.db_cleanup_required = True
+    resources.controller = _Controller()
+    resources.retention_janitor = _RetentionJanitor()
+    resources.retention_task = asyncio.create_task(pending_task("retention.cancel"))
+    resources.publisher_task = asyncio.create_task(pending_task("publisher.cancel"))
+    resources.owned_provider_resources.extend(
+        [_Provider("provider.first"), _Provider("provider.second", fails=True)]
+    )
+    await asyncio.sleep(0)
+
+    await resources.aclose()
+
+    assert order == [
+        "controller.close",
+        "retention.stop",
+        "retention.cancel",
+        "publisher.cancel",
+        "provider.second.close",
+        "provider.first.close",
+        "db.close",
+        "config.close",
+    ]
+    assert resources.retention_task.done()
+    assert resources.publisher_task.done()
+
+
+@pytest.mark.asyncio
 async def test_api_factory_lifespan_can_install_dependencies_late() -> None:
     class _Controller:
         is_started = True

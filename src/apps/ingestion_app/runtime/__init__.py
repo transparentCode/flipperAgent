@@ -1,10 +1,13 @@
 """Runtime acquisition and composition boundaries for ingestion."""
 
 from .controller import RuntimeControlConflictError, RuntimeController
-from .supervisor import (
+from .state import (
     DesiredRuntimeState,
     RuntimeSnapshot,
     RuntimeState,
+    SupervisorSnapshot,
+)
+from .supervisor import (
     RuntimeSupervisor,
 )
 from .websocket import BinanceWebSocketManager
@@ -17,4 +20,5 @@ __all__ = [
     "RuntimeSnapshot",
     "RuntimeState",
     "RuntimeSupervisor",
+    "SupervisorSnapshot",
 ]

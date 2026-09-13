@@ -3,7 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Mapping
+from collections.abc import (
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Iterable,
+    Iterator,
+    Mapping,
+)
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -13,6 +20,7 @@ from apps.ingestion_app.domain.candle import CandleObservation, CanonicalCandle
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
 from apps.ingestion_app.observability import IngestionObservability
+from apps.ingestion_app.planning import IngestionPlan
 from apps.ingestion_app.providers.base import (
     HistoricalCandleProvider,
     ProviderAvailabilityError,
@@ -262,6 +270,20 @@ def _deduplicate_requests(
                 request.lane.timeframe,
             ),
         )
+    )
+
+
+def _request_key(
+    request: RecoveryRequest,
+) -> tuple[str, str, str, datetime, datetime, str]:
+    """Return the stable identity/order key for one closure request."""
+    return (
+        request.lane.venue,
+        request.lane.instrument_id,
+        request.lane.timeframe,
+        request.since,
+        request.until,
+        request.reason,
     )
 
 
@@ -635,6 +657,107 @@ class RecoveryEngine:
                     duration_ms=(perf_counter() - started) * 1000,
                 )
                 return result
+
+    async def _recover_closure_request(
+        self,
+        request: RecoveryRequest,
+        *,
+        plan: IngestionPlan,
+    ) -> tuple[RecoveryRequest, ...]:
+        """Run one closure request using the current generation's plan."""
+        lane_plan = plan.lanes_by_lane.get(request.lane)
+        if lane_plan is None:
+            raise DataIngestionError(
+                f"recovery request targets unknown plan lane: {request.lane}"
+            )
+        follow_ups = await self.recover(
+            request,
+            base_timeframe=plan.base_timeframe,
+            base_duration=lane_plan.base_duration,
+            provider_order=lane_plan.provider_order,
+            provider_symbols=lane_plan.provider_symbols,
+            target_durations=lane_plan.target_durations,
+            alignment_origin=plan.alignment_origin,
+        )
+        if not isinstance(follow_ups, tuple) or not all(
+            isinstance(follow_up, RecoveryRequest) for follow_up in follow_ups
+        ):
+            raise DataIngestionError(
+                "recovery engine returned invalid follow-up requests"
+            )
+        return follow_ups
+
+    async def _recover_closure_chunk(
+        self,
+        requests: tuple[RecoveryRequest, ...],
+        *,
+        plan: IngestionPlan,
+    ) -> tuple[tuple[RecoveryRequest, ...], ...]:
+        """Execute one bounded chunk and clean up all siblings on failure."""
+        tasks: list[asyncio.Task[tuple[RecoveryRequest, ...]]] = []
+        try:
+            for request in requests:
+                tasks.append(
+                    asyncio.create_task(
+                        self._recover_closure_request(request, plan=plan),
+                        name="ingestion-recovery-request",
+                    )
+                )
+            return tuple(await asyncio.gather(*tasks))
+        except BaseException:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            raise
+
+    async def recover_closure(
+        self,
+        requests: Iterable[RecoveryRequest],
+        *,
+        plan: IngestionPlan,
+    ) -> None:
+        """Close a bounded recovery worklist in deterministic BFS chunks.
+
+        The closure is deliberately scheduled in chunks instead of eagerly
+        materializing one task per request.  ``recover`` remains the raw
+        single-request primitive and retains the semaphore and lane lock that
+        provide the second concurrency bound.
+        """
+        if not isinstance(plan, IngestionPlan):
+            raise TypeError("plan must be an IngestionPlan")
+
+        pending = list(requests)
+        seen: set[tuple[str, str, str, datetime, datetime, str]] = set()
+        while pending:
+            batch_by_key: dict[
+                tuple[str, str, str, datetime, datetime, str], RecoveryRequest
+            ] = {}
+            for request in pending:
+                if not isinstance(request, RecoveryRequest):
+                    raise DataIngestionError(
+                        "recovery worklist contains a non-RecoveryRequest"
+                    )
+                if request.lane not in plan.lanes_by_lane:
+                    raise DataIngestionError(
+                        f"recovery request targets unknown plan lane: {request.lane}"
+                    )
+                key = _request_key(request)
+                if key not in seen and key not in batch_by_key:
+                    batch_by_key[key] = request
+
+            batch = tuple(sorted(batch_by_key.values(), key=_request_key))
+            seen.update(_request_key(request) for request in batch)
+            if not batch:
+                break
+
+            follow_ups: list[RecoveryRequest] = []
+            for offset in range(0, len(batch), self.max_concurrency):
+                chunk = batch[offset : offset + self.max_concurrency]
+                results = await self._recover_closure_chunk(chunk, plan=plan)
+                for result in results:
+                    follow_ups.extend(result)
+            pending = follow_ups
 
 
 __all__ = ["RecoveryEngine", "RecoveryExhaustedError"]

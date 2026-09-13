@@ -18,7 +18,13 @@ from apps.ingestion_app.providers.base import (
 )
 from apps.ingestion_app.runtime.websocket import (
     BinanceWebSocketManager,
+)
+from apps.ingestion_app.runtime.websocket_sequence import (
+    LiveSequenceTracker,
     _build_recovery_requests,
+    _earliest_silence_deadline,
+    _overdue_silence_lanes,
+    _silence_deadline,
 )
 from apps.ingestion_app.services.time_alignment import aligned_bucket_start
 from libs.common.exceptions import DataIngestionError
@@ -72,6 +78,7 @@ def _message(
     *,
     symbol: str = SYMBOL,
     interval: str = "1m",
+    duration: timedelta = DURATION,
     closed: object = True,
     open_value: object = "100.0",
     close_adjust_ms: int = 0,
@@ -84,7 +91,7 @@ def _message(
         "s": symbol,
         "i": interval,
         "t": _milliseconds(open_time),
-        "T": _milliseconds(open_time + DURATION - timedelta(milliseconds=1))
+        "T": _milliseconds(open_time + duration - timedelta(milliseconds=1))
         + close_adjust_ms,
         "o": open_value,
         "h": "101.0",
@@ -176,12 +183,13 @@ async def _start_stream(
     *,
     subscriptions: dict[MarketLane, str] | None = None,
     connection_anchor: datetime | None = None,
+    timeframe_duration: timedelta = DURATION,
 ) -> tuple[Any, asyncio.Task[Any], _FakeClient]:
     connection_anchor = connection_anchor or _current_anchor()
     stream = manager.stream_closed_candles(
         subscriptions or {LANE: SYMBOL},
         base_timeframe="1m",
-        timeframe_duration=DURATION,
+        timeframe_duration=timeframe_duration,
         alignment_origin=ORIGIN,
         connection_anchor=connection_anchor,
     )
@@ -495,6 +503,69 @@ def test_recovery_requests_use_connection_or_consumed_anchor() -> None:
     assert after_progress[0].reason == "websocket_gap_detected"
 
 
+def test_silence_deadlines_are_causal_per_lane_and_inclusive() -> None:
+    connection_anchor = datetime(2026, 1, 1, 0, 0, tzinfo=UTC)
+    lane_a = MarketLane("binance", "AAA-TEST-PERP", "1m")
+    lane_b = MarketLane("binance", "BBB-TEST-PERP", "1m")
+    routes = {
+        "bbbusdt": (lane_b, "BBBUSDT"),
+        "aaausdt": (lane_a, "AAAUSDT"),
+    }
+
+    assert (
+        _silence_deadline(
+            last_consumed_close=None,
+            connection_anchor=connection_anchor,
+            timeframe_duration=DURATION,
+        )
+        == connection_anchor + 2 * DURATION
+    )
+    established_close = connection_anchor + DURATION
+    assert (
+        _silence_deadline(
+            last_consumed_close=established_close,
+            connection_anchor=connection_anchor,
+            timeframe_duration=DURATION,
+        )
+        == established_close + 2 * DURATION
+    )
+
+    earliest_lane, earliest_deadline = _earliest_silence_deadline(
+        routes=routes,
+        last_consumed_close={},
+        connection_anchor=connection_anchor,
+        timeframe_duration=DURATION,
+    )
+    assert earliest_lane == lane_a
+    assert earliest_deadline == connection_anchor + 2 * DURATION
+    assert (
+        _overdue_silence_lanes(
+            routes=routes,
+            last_consumed_close={},
+            connection_anchor=connection_anchor,
+            timeframe_duration=DURATION,
+            now=connection_anchor + 2 * DURATION - timedelta(microseconds=1),
+        )
+        == ()
+    )
+    assert _overdue_silence_lanes(
+        routes=routes,
+        last_consumed_close={},
+        connection_anchor=connection_anchor,
+        timeframe_duration=DURATION,
+        now=connection_anchor + 2 * DURATION,
+    ) == (lane_a, lane_b)
+    progressed_a = connection_anchor + 10 * DURATION
+    progressed_earliest_lane, progressed_earliest_deadline = _earliest_silence_deadline(
+        routes=routes,
+        last_consumed_close={lane_a: progressed_a},
+        connection_anchor=connection_anchor,
+        timeframe_duration=DURATION,
+    )
+    assert progressed_earliest_lane == lane_b
+    assert progressed_earliest_deadline == connection_anchor + 2 * DURATION
+
+
 @pytest.mark.asyncio
 async def test_multiple_lanes_use_one_batched_subscription_call() -> None:
     clients: list[_FakeClient] = []
@@ -519,6 +590,253 @@ async def test_multiple_lanes_use_one_batched_subscription_call() -> None:
     assert raised.value.reason == "websocket_disconnected"
     await stream.aclose()
     assert client.stop_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_consumed_sequence_advances_only_after_generator_yield_resumes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clients: list[_FakeClient] = []
+    trackers: list[LiveSequenceTracker] = []
+    manager = _manager(clients)
+    original_tracker = websocket_module.LiveSequenceTracker
+
+    def track_tracker(*args: Any, **kwargs: Any) -> LiveSequenceTracker:
+        tracker = original_tracker(*args, **kwargs)
+        trackers.append(tracker)
+        return tracker
+
+    monkeypatch.setattr(websocket_module, "LiveSequenceTracker", track_tracker)
+    stream = manager.stream_closed_candles(
+        {LANE: SYMBOL},
+        base_timeframe="1m",
+        timeframe_duration=DURATION,
+        alignment_origin=ORIGIN,
+        connection_anchor=_current_anchor(),
+    )
+    next_item = asyncio.create_task(stream.__anext__())
+    for _ in range(100):
+        await asyncio.sleep(0)
+        if clients and clients[0].subscribe_calls:
+            break
+    assert clients and clients[0].subscribe_calls
+    tracker = trackers[0]
+    open_time = _current_anchor()
+    clients[0].emit(_message(open_time))
+
+    observation = await next_item
+    assert observation.open_time == open_time
+    assert tracker.last_consumed_close == {}
+
+    resumed = asyncio.create_task(stream.__anext__())
+    for _ in range(100):
+        await asyncio.sleep(0)
+        if tracker.last_consumed_close:
+            break
+    assert tracker.last_consumed_close == {LANE: observation.close_time}
+
+    clients[0].close()
+    with pytest.raises(LiveStreamInterrupted):
+        await resumed
+    await stream.aclose()
+
+
+@pytest.mark.asyncio
+async def test_initial_silent_half_open_interrupts_with_anchor_recovery() -> None:
+    clients: list[_FakeClient] = []
+    manager = _manager(clients)
+    duration = timedelta(milliseconds=5)
+    anchor = aligned_bucket_start(datetime.now(UTC), duration, ORIGIN) - 20 * duration
+    stream, next_item, client = await _start_stream(
+        manager,
+        clients,
+        connection_anchor=anchor,
+        timeframe_duration=duration,
+    )
+
+    with pytest.raises(LiveStreamInterrupted) as raised:
+        await asyncio.wait_for(next_item, timeout=1)
+
+    interruption = raised.value
+    assert interruption.reason == "websocket_silence_detected"
+    assert len(interruption.recovery_requests) == 1
+    request = interruption.recovery_requests[0]
+    assert request.since == anchor
+    assert request.until > anchor
+    assert request.reason == "websocket_silence_detected"
+    assert aligned_bucket_start(request.until, duration, ORIGIN) == request.until
+    await stream.aclose()
+    assert client.stop_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_one_progressing_lane_does_not_hide_silent_lane() -> None:
+    clients: list[_FakeClient] = []
+    manager = _manager(clients)
+    duration = timedelta(milliseconds=100)
+    anchor = aligned_bucket_start(datetime.now(UTC), duration, ORIGIN)
+    lane_a = MarketLane("binance", "AAA-TEST-PERP", "1m")
+    lane_b = MarketLane("binance", "BBB-TEST-PERP", "1m")
+    symbol_a = "AAAUSDT"
+    symbol_b = "BBBUSDT"
+    stream, next_item, client = await _start_stream(
+        manager,
+        clients,
+        subscriptions={lane_a: symbol_a, lane_b: symbol_b},
+        connection_anchor=anchor,
+        timeframe_duration=duration,
+    )
+
+    for index in range(10):
+        observation = await _emit_and_receive(
+            client,
+            next_item,
+            _message(
+                anchor + index * duration,
+                symbol=symbol_a,
+                duration=duration,
+            ),
+        )
+        assert observation.lane == lane_a
+        if index < 9:
+            next_item = asyncio.create_task(stream.__anext__())
+
+    next_item = asyncio.create_task(stream.__anext__())
+    with pytest.raises(LiveStreamInterrupted) as raised:
+        await asyncio.wait_for(next_item, timeout=1)
+
+    interruption = raised.value
+    assert interruption.reason == "websocket_silence_detected"
+    assert [request.lane for request in interruption.recovery_requests] == [lane_b]
+    assert interruption.recovery_requests[0].since == anchor
+    await stream.aclose()
+    assert client.stop_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_forming_and_duplicate_finalized_traffic_does_not_reset_silence() -> None:
+    clients: list[_FakeClient] = []
+    manager = _manager(clients)
+    duration = timedelta(milliseconds=200)
+    anchor = aligned_bucket_start(datetime.now(UTC), duration, ORIGIN)
+    stream, next_item, client = await _start_stream(
+        manager,
+        clients,
+        connection_anchor=anchor,
+        timeframe_duration=duration,
+    )
+    await _emit_and_receive(
+        client,
+        next_item,
+        _message(anchor, duration=duration),
+    )
+
+    next_item = asyncio.create_task(stream.__anext__())
+    for _ in range(5):
+        client.emit(_message(anchor, duration=duration))
+        client.emit(_message(anchor, duration=duration, closed=False))
+        await asyncio.sleep(0.05)
+        if next_item.done():
+            break
+
+    with pytest.raises(LiveStreamInterrupted) as raised:
+        await asyncio.wait_for(next_item, timeout=1)
+    assert raised.value.reason == "websocket_silence_detected"
+    await stream.aclose()
+    assert client.stop_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_finalized_event_admitted_at_deadline_wins_queue_race() -> None:
+    clients: list[_FakeClient] = []
+    manager = _manager(clients)
+    duration = timedelta(milliseconds=100)
+    anchor = aligned_bucket_start(datetime.now(UTC), duration, ORIGIN)
+    stream, next_item, client = await _start_stream(
+        manager,
+        clients,
+        connection_anchor=anchor,
+        timeframe_duration=duration,
+    )
+    deadline = anchor + 2 * duration
+    delay = (deadline - datetime.now(UTC)).total_seconds()
+    assert delay > 0
+    asyncio.get_running_loop().call_later(
+        delay,
+        client.emit,
+        _message(anchor, duration=duration),
+    )
+
+    observation = await asyncio.wait_for(next_item, timeout=1)
+    assert observation.open_time == anchor
+    await stream.aclose()
+    assert client.stop_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_cancellation_while_waiting_for_silence_preserves_cancellation() -> None:
+    clients: list[_FakeClient] = []
+    manager = _manager(clients)
+    duration = timedelta(seconds=5)
+    anchor = aligned_bucket_start(datetime.now(UTC), duration, ORIGIN)
+    stream, next_item, client = await _start_stream(
+        manager,
+        clients,
+        connection_anchor=anchor,
+        timeframe_duration=duration,
+    )
+    next_item.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await next_item
+    await asyncio.sleep(0)
+    assert client.stop_calls == 1
+    await stream.aclose()
+
+
+@pytest.mark.asyncio
+async def test_1024_subscriptions_use_one_consumer_without_per_lane_tasks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clients: list[_FakeClient] = []
+    manager = _manager(clients)
+    duration = timedelta(seconds=5)
+    anchor = aligned_bucket_start(datetime.now(UTC), duration, ORIGIN)
+    subscriptions = {
+        MarketLane("binance", f"SYN-{index:04d}-PERP", "1m"): f"SYN{index:04d}USDT"
+        for index in range(1024)
+    }
+    original_create_task = asyncio.create_task
+    created_by_manager: list[object] = []
+
+    def track_create_task(coro: Any, **kwargs: Any) -> asyncio.Task[Any]:
+        created_by_manager.append(coro)
+        return original_create_task(coro, **kwargs)
+
+    monkeypatch.setattr(websocket_module.asyncio, "create_task", track_create_task)
+    stream = manager.stream_closed_candles(
+        subscriptions,
+        base_timeframe="1m",
+        timeframe_duration=duration,
+        alignment_origin=ORIGIN,
+        connection_anchor=anchor,
+    )
+    next_item = original_create_task(stream.__anext__())
+    for _ in range(100):
+        await asyncio.sleep(0)
+        if clients and clients[0].subscribe_calls:
+            break
+
+    assert len(clients) == 1
+    assert len(clients[0].subscribe_calls) == 1
+    assert len(clients[0].subscribe_calls[0]) == 1024
+    assert created_by_manager == []
+
+    clients[0].close()
+    with pytest.raises(LiveStreamInterrupted) as raised:
+        await next_item
+    assert raised.value.reason == "websocket_disconnected"
+    await stream.aclose()
 
 
 @pytest.mark.asyncio
@@ -733,7 +1051,7 @@ async def test_live_gap_interrupts_without_emitting_later_candle() -> None:
 async def test_explicit_anchor_is_used_and_later_candle_triggers_gap() -> None:
     clients: list[_FakeClient] = []
     manager = _manager(clients)
-    connection_anchor = datetime(2026, 1, 1, 0, 0, tzinfo=UTC)
+    connection_anchor = _current_anchor()
     stream, next_item, client = await _start_stream(
         manager,
         clients,
@@ -1091,13 +1409,13 @@ async def test_stop_exception_completes_ownership_and_quarantines_reopen() -> No
     with pytest.raises(asyncio.CancelledError):
         await next_item
     for _ in range(100):
-        if manager._lifecycle_quarantined:
+        if manager.lifecycle_quarantined:
             break
         await asyncio.sleep(0)
     assert client.stop_calls == 1
     assert len(stop_calls) == 1
-    assert manager._lifecycle_quarantined is True
-    assert manager._lifecycle_active is False
+    assert manager.lifecycle_quarantined is True
+    assert manager._session_owner._lifecycle_active is False
 
     reopened = manager.stream_closed_candles(
         {LANE: SYMBOL},
@@ -1198,7 +1516,7 @@ async def test_broken_pipe_stop_with_live_socket_manager_quarantines() -> None:
             break
         await asyncio.sleep(0)
     assert manager.lifecycle_quarantined is True
-    assert manager._lifecycle_active is False
+    assert manager._session_owner._lifecycle_active is False
 
     reopened = manager.stream_closed_candles(
         {LANE: SYMBOL},

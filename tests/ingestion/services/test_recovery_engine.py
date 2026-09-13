@@ -12,6 +12,7 @@ import apps.ingestion_app.services.recovery as recovery_module
 from apps.ingestion_app.domain.candle import CandleObservation, CanonicalCandle
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
+from apps.ingestion_app.planning import IngestionPlan, LanePlan
 from apps.ingestion_app.providers.base import (
     ProviderAvailabilityError,
     TransportDeadlineExceeded,
@@ -224,6 +225,36 @@ class _LaneBlockingProvider(_ScriptedProvider):
             self.active -= 1
 
 
+class _ClosureBlockingProvider(_ScriptedProvider):
+    def __init__(self, target: int) -> None:
+        super().__init__("binance_native", [])
+        self.target = target
+        self.started = asyncio.Event()
+        self.release = asyncio.Event()
+        self.active = 0
+        self.max_active = 0
+
+    async def fetch_closed_candles(
+        self, **kwargs: Any
+    ) -> tuple[CandleObservation, ...]:
+        self.calls.append(
+            (kwargs["lane"], kwargs["since"], kwargs["until"], kwargs["limit"])
+        )
+        self.active += 1
+        self.max_active = max(self.max_active, self.active)
+        if self.active >= self.target:
+            self.started.set()
+        try:
+            await self.release.wait()
+            return _rows(
+                kwargs["since"],
+                kwargs["until"],
+                lane=kwargs["lane"],
+            )
+        finally:
+            self.active -= 1
+
+
 def _engine(
     repository: _Repository,
     ingestion: _Ingestion,
@@ -260,6 +291,35 @@ def _request(
     lane: MarketLane = LANE,
 ) -> RecoveryRequest:
     return RecoveryRequest(lane=lane, since=since, until=until, reason="test")
+
+
+def _plan_for_lanes(*lanes: MarketLane) -> IngestionPlan:
+    lane_plans = tuple(
+        LanePlan(
+            lane=lane,
+            live_provider_id="binance_native",
+            live_symbol=lane.instrument_id.replace("-", ""),
+            provider_order=("binance_native",),
+            provider_symbols={"binance_native": lane.instrument_id.replace("-", "")},
+            target_durations={},
+            base_duration=MINUTE,
+            lookback_duration=MINUTE,
+        )
+        for lane in sorted(
+            lanes,
+            key=lambda item: (
+                item.venue,
+                item.instrument_id,
+                item.timeframe,
+            ),
+        )
+    )
+    return IngestionPlan(
+        base_timeframe="1m",
+        alignment_origin=ORIGIN,
+        reconnect_backoff_seconds=0,
+        lanes=lane_plans,
+    )
 
 
 async def _wait_for_lane_users(
@@ -1029,6 +1089,406 @@ async def test_follow_up_requests_are_deduplicated_without_recursion() -> None:
     assert result == (follow_up,)
     assert len(htf.calls) == 1
     assert engine._lane_locks == {}
+
+
+@pytest.mark.asyncio
+async def test_recover_closure_uses_plan_and_deduplicates_initial_requests_in_order() -> (
+    None
+):
+    since = datetime(2026, 1, 1, tzinfo=UTC)
+    plan = _plan_for_lanes(LANE, OTHER_LANE)
+    engine = _engine(
+        _Repository(),
+        _Ingestion(_Repository()),
+        _HTF(),
+        {"binance_native": _ScriptedProvider("binance_native", [])},
+        max_concurrency=2,
+    )
+    calls: list[RecoveryRequest] = []
+    received_kwargs: list[dict[str, object]] = []
+
+    async def fake_recover(request: RecoveryRequest, **kwargs: object):
+        calls.append(request)
+        received_kwargs.append(kwargs)
+        return ()
+
+    engine.recover = fake_recover  # type: ignore[method-assign]
+    first = _request(since, since + MINUTE, lane=LANE)
+    second = _request(since + MINUTE, since + 2 * MINUTE, lane=LANE)
+    other = _request(since, since + MINUTE, lane=OTHER_LANE)
+
+    await engine.recover_closure((second, first, first, other), plan=plan)
+
+    assert calls == [first, second, other]
+    assert received_kwargs[0] == {
+        "base_timeframe": "1m",
+        "base_duration": MINUTE,
+        "provider_order": ("binance_native",),
+        "provider_symbols": {"binance_native": "BTCRECOVERYTESTPERP"},
+        "target_durations": {},
+        "alignment_origin": ORIGIN,
+    }
+
+
+@pytest.mark.asyncio
+async def test_recover_closure_is_breadth_first_and_global_seen_set_terminates_self_followup() -> (
+    None
+):
+    since = datetime(2026, 1, 1, tzinfo=UTC)
+    plan = _plan_for_lanes(LANE)
+    repository = _Repository()
+    engine = _engine(
+        repository,
+        _Ingestion(repository),
+        _HTF(),
+        {"binance_native": _ScriptedProvider("binance_native", [])},
+        max_concurrency=2,
+    )
+    initial_a = _request(since, since + MINUTE)
+    initial_b = _request(since + MINUTE, since + 2 * MINUTE)
+    follow_up_c = RecoveryRequest(
+        lane=LANE,
+        since=since + 2 * MINUTE,
+        until=since + 3 * MINUTE,
+        reason="follow-up-c",
+    )
+    follow_up_d = RecoveryRequest(
+        lane=LANE,
+        since=since + 3 * MINUTE,
+        until=since + 4 * MINUTE,
+        reason="follow-up-d",
+    )
+
+    def key(request: RecoveryRequest):
+        return (
+            request.lane.venue,
+            request.lane.instrument_id,
+            request.lane.timeframe,
+            request.since,
+            request.until,
+            request.reason,
+        )
+
+    follow_ups = {
+        key(initial_a): (follow_up_c, follow_up_c),
+        key(initial_b): (follow_up_d, follow_up_c),
+        key(follow_up_c): (follow_up_c,),
+    }
+    started: list[RecoveryRequest] = []
+    completed: list[RecoveryRequest] = []
+
+    async def fake_recover(request: RecoveryRequest, **kwargs: object):
+        del kwargs
+        started.append(request)
+        await asyncio.sleep(0)
+        if request in (follow_up_c, follow_up_d):
+            assert initial_a in completed and initial_b in completed
+        completed.append(request)
+        return follow_ups.get(key(request), ())
+
+    engine.recover = fake_recover  # type: ignore[method-assign]
+
+    await engine.recover_closure((initial_b, initial_a), plan=plan)
+
+    assert started == [initial_a, initial_b, follow_up_c, follow_up_d]
+    assert completed == started
+
+
+@pytest.mark.asyncio
+async def test_recover_closure_rejects_unknown_plan_lane_before_recovery() -> None:
+    since = datetime(2026, 1, 1, tzinfo=UTC)
+    plan = _plan_for_lanes(LANE)
+    engine = _engine(
+        _Repository(),
+        _Ingestion(_Repository()),
+        _HTF(),
+        {"binance_native": _ScriptedProvider("binance_native", [])},
+    )
+
+    async def unexpected_recover(request: RecoveryRequest, **kwargs: object):
+        del request, kwargs
+        raise AssertionError("unknown lane reached single-request recovery")
+
+    engine.recover = unexpected_recover  # type: ignore[method-assign]
+
+    with pytest.raises(DataIngestionError, match="unknown plan lane"):
+        await engine.recover_closure(
+            (_request(since, since + MINUTE, lane=OTHER_LANE),),
+            plan=plan,
+        )
+
+
+@pytest.mark.asyncio
+async def test_recover_closure_rejects_malformed_followups() -> None:
+    since = datetime(2026, 1, 1, tzinfo=UTC)
+    plan = _plan_for_lanes(LANE)
+    engine = _engine(
+        _Repository(),
+        _Ingestion(_Repository()),
+        _HTF(),
+        {"binance_native": _ScriptedProvider("binance_native", [])},
+    )
+
+    async def malformed_recover(request: RecoveryRequest, **kwargs: object):
+        del request, kwargs
+        return [
+            RecoveryRequest(  # type: ignore[return-value]
+                lane=LANE,
+                since=since,
+                until=since + MINUTE,
+                reason="malformed",
+            )
+        ]
+
+    engine.recover = malformed_recover  # type: ignore[method-assign]
+
+    with pytest.raises(DataIngestionError, match="invalid follow-up requests"):
+        await engine.recover_closure(
+            (_request(since, since + MINUTE),),
+            plan=plan,
+        )
+
+
+@pytest.mark.asyncio
+async def test_recover_closure_chunk_failure_cleans_siblings_and_stops_later_chunks() -> (
+    None
+):
+    since = datetime(2026, 1, 1, tzinfo=UTC)
+    plan = _plan_for_lanes(LANE)
+    engine = _engine(
+        _Repository(),
+        _Ingestion(_Repository()),
+        _HTF(),
+        {"binance_native": _ScriptedProvider("binance_native", [])},
+        max_concurrency=2,
+    )
+    first = _request(since, since + MINUTE)
+    sibling = _request(since + MINUTE, since + 2 * MINUTE)
+    later = _request(since + 2 * MINUTE, since + 3 * MINUTE)
+    failure = DataIngestionError("synthetic chunk failure")
+    sibling_started = asyncio.Event()
+    sibling_cancelled = asyncio.Event()
+    never = asyncio.Event()
+    later_started = False
+
+    async def failing_recover(request: RecoveryRequest, **kwargs: object):
+        nonlocal later_started
+        del kwargs
+        if request is first:
+            await asyncio.sleep(0)
+            raise failure
+        if request is sibling:
+            sibling_started.set()
+            try:
+                await never.wait()
+            except asyncio.CancelledError:
+                sibling_cancelled.set()
+                raise
+        later_started = True
+        return ()
+
+    engine.recover = failing_recover  # type: ignore[method-assign]
+    task = asyncio.create_task(
+        engine.recover_closure((later, sibling, first), plan=plan)
+    )
+    await asyncio.wait_for(sibling_started.wait(), timeout=1)
+
+    with pytest.raises(DataIngestionError) as raised:
+        await task
+
+    assert raised.value is failure
+    assert sibling_cancelled.is_set()
+    assert not later_started
+    assert not [
+        child
+        for child in asyncio.all_tasks()
+        if child.get_name() == "ingestion-recovery-request" and not child.done()
+    ]
+
+
+@pytest.mark.asyncio
+async def test_recover_closure_outer_cancellation_cleans_all_bounded_children() -> None:
+    since = datetime(2026, 1, 1, tzinfo=UTC)
+    plan = _plan_for_lanes(LANE)
+    engine = _engine(
+        _Repository(),
+        _Ingestion(_Repository()),
+        _HTF(),
+        {"binance_native": _ScriptedProvider("binance_native", [])},
+        max_concurrency=2,
+    )
+    started = asyncio.Event()
+    never = asyncio.Event()
+    active = 0
+    cancelled = 0
+
+    async def blocking_recover(request: RecoveryRequest, **kwargs: object):
+        nonlocal active, cancelled
+        del request, kwargs
+        active += 1
+        if active == 2:
+            started.set()
+        try:
+            await never.wait()
+        except asyncio.CancelledError:
+            cancelled += 1
+            raise
+
+    engine.recover = blocking_recover  # type: ignore[method-assign]
+    task = asyncio.create_task(
+        engine.recover_closure(
+            (
+                _request(since, since + MINUTE),
+                _request(since + MINUTE, since + 2 * MINUTE),
+            ),
+            plan=plan,
+        )
+    )
+    await asyncio.wait_for(started.wait(), timeout=1)
+
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert cancelled == 2
+    assert not [
+        child
+        for child in asyncio.all_tasks()
+        if child.get_name() == "ingestion-recovery-request" and not child.done()
+    ]
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        TransportDeadlineExceeded(
+            provider_id="binance_native",
+            operation="REST klines",
+            timeout_seconds=30,
+        ),
+        RecoveryExhaustedError("synthetic recovery exhaustion"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_recover_closure_propagates_typed_recovery_failures(
+    failure: BaseException,
+) -> None:
+    since = datetime(2026, 1, 1, tzinfo=UTC)
+    plan = _plan_for_lanes(LANE)
+    engine = _engine(
+        _Repository(),
+        _Ingestion(_Repository()),
+        _HTF(),
+        {"binance_native": _ScriptedProvider("binance_native", [])},
+    )
+
+    async def failed_recover(request: RecoveryRequest, **kwargs: object):
+        del request, kwargs
+        raise failure
+
+    engine.recover = failed_recover  # type: ignore[method-assign]
+
+    with pytest.raises(type(failure)) as raised:
+        await engine.recover_closure(
+            (_request(since, since + MINUTE),),
+            plan=plan,
+        )
+    assert raised.value is failure
+
+
+@pytest.mark.asyncio
+async def test_recover_closure_serializes_same_lane_requests() -> None:
+    since = datetime(2026, 1, 1, tzinfo=UTC)
+    provider = _LaneBlockingProvider()
+    repository = _Repository()
+    engine = _engine(
+        repository,
+        _Ingestion(repository),
+        _HTF(),
+        {"binance_native": provider},
+        max_concurrency=2,
+    )
+    plan = _plan_for_lanes(LANE)
+    closure = asyncio.create_task(
+        engine.recover_closure(
+            (
+                _request(since, since + MINUTE),
+                _request(since + MINUTE, since + 2 * MINUTE),
+            ),
+            plan=plan,
+        )
+    )
+
+    await asyncio.wait_for(provider.started_events[0].wait(), timeout=1)
+    assert not provider.started_events[1].is_set()
+    provider.release_events[0].set()
+    await asyncio.wait_for(provider.started_events[1].wait(), timeout=1)
+    assert provider.max_active == 1
+    provider.release_events[1].set()
+    await asyncio.wait_for(closure, timeout=1)
+
+    assert provider.max_active == 1
+    assert engine._lane_locks == {}
+
+
+@pytest.mark.asyncio
+async def test_recover_closure_500_requests_materializes_only_one_bounded_wave() -> (
+    None
+):
+    count = 500
+    capacity = 4
+    lanes = tuple(
+        MarketLane("binance", f"SYN-{index:04d}-PERP", "1m") for index in range(count)
+    )
+    plan = _plan_for_lanes(*lanes)
+    repository = _Repository()
+    ingestion = _Ingestion(repository)
+    htf = _HTF()
+    provider = _ClosureBlockingProvider(capacity)
+    engine = _engine(
+        repository,
+        ingestion,
+        htf,
+        {"binance_native": provider},
+        max_concurrency=capacity,
+    )
+    since = datetime(2026, 1, 1, tzinfo=UTC)
+    requests = tuple(
+        RecoveryRequest(
+            lane=lane,
+            since=since,
+            until=since + MINUTE,
+            reason="synthetic-500-closure",
+        )
+        for lane in lanes
+    )
+    closure = asyncio.create_task(
+        engine.recover_closure(requests, plan=plan),
+        name="closure-500-test",
+    )
+
+    await asyncio.wait_for(provider.started.wait(), timeout=2)
+    pending_request_tasks = [
+        task
+        for task in asyncio.all_tasks()
+        if task.get_name() == "ingestion-recovery-request" and not task.done()
+    ]
+    assert len(pending_request_tasks) == capacity
+    assert len(provider.calls) == capacity
+    assert provider.active == capacity
+
+    provider.release.set()
+    await asyncio.wait_for(closure, timeout=10)
+
+    assert len(provider.calls) == count
+    assert len(ingestion.committed) == count
+    assert len(htf.calls) == count
+    assert provider.max_active <= capacity
+    assert not [
+        task
+        for task in asyncio.all_tasks()
+        if task.get_name() == "ingestion-recovery-request" and not task.done()
+    ]
 
 
 @pytest.mark.asyncio

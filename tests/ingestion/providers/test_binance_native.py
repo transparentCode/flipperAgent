@@ -12,7 +12,7 @@ from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import SSLError
 
 import apps.ingestion_app.providers.binance_native as native_module
-import apps.ingestion_app.runtime.blocking as blocking_module
+import apps.ingestion_app.transport.ownership as ownership_module
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.providers.base import (
     ProviderAvailabilityError,
@@ -456,6 +456,138 @@ async def test_binance_cancellation_releases_only_after_worker_finishes() -> Non
 
 
 @pytest.mark.asyncio
+async def test_binance_wait_until_idle_returns_for_idle_provider() -> None:
+    provider = BinanceNativeHistoricalProvider(_FakeBinanceClient())
+
+    await asyncio.wait_for(provider.wait_until_idle(), 1)
+
+
+@pytest.mark.asyncio
+async def test_binance_wait_until_idle_waits_for_retained_worker() -> None:
+    client = _HeldBinanceClient([])
+    provider = BinanceNativeHistoricalProvider(client, attempt_timeout_seconds=1)
+    task = asyncio.create_task(
+        provider.fetch_closed_candles(
+            lane=LANE,
+            provider_symbol="BTCUSDT",
+            timeframe_duration=MINUTE,
+            since=SINCE,
+            until=UNTIL,
+            limit=10,
+        )
+    )
+    assert await asyncio.to_thread(client.klines_started.wait, 1)
+
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    idle = asyncio.create_task(provider.wait_until_idle())
+    await asyncio.sleep(0)
+    assert not idle.done()
+    assert client.klines_call_count == 1
+
+    client.release_klines.set()
+    await asyncio.wait_for(idle, 1)
+    assert provider.retained_worker_count == 0
+    assert provider.quarantined is False
+
+
+@pytest.mark.asyncio
+async def test_binance_idle_wait_cancellation_does_not_release_or_quarantine() -> None:
+    client = _HeldBinanceClient([])
+    provider = BinanceNativeHistoricalProvider(client, attempt_timeout_seconds=1)
+    task = asyncio.create_task(
+        provider.fetch_closed_candles(
+            lane=LANE,
+            provider_symbol="BTCUSDT",
+            timeframe_duration=MINUTE,
+            since=SINCE,
+            until=UNTIL,
+            limit=10,
+        )
+    )
+    assert await asyncio.to_thread(client.klines_started.wait, 1)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    idle = asyncio.create_task(provider.wait_until_idle())
+    await asyncio.sleep(0)
+    idle.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await idle
+    assert provider.retained_worker_count == 1
+    assert provider.quarantined is False
+
+    client.release_klines.set()
+    await asyncio.wait_for(provider.wait_until_idle(), 1)
+
+
+@pytest.mark.asyncio
+async def test_binance_idle_wait_deadline_quarantines_retained_worker() -> None:
+    client = _HeldBinanceClient([])
+    provider = BinanceNativeHistoricalProvider(
+        client,
+        attempt_timeout_seconds=0.01,
+    )
+    task = asyncio.create_task(
+        provider.fetch_closed_candles(
+            lane=LANE,
+            provider_symbol="BTCUSDT",
+            timeframe_duration=MINUTE,
+            since=SINCE,
+            until=UNTIL,
+            limit=10,
+        )
+    )
+    assert await asyncio.to_thread(client.klines_started.wait, 1)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    with pytest.raises(TransportDeadlineExceeded) as raised:
+        await provider.wait_until_idle()
+    assert raised.value.operation == "historical provider quiescence"
+    assert provider.quarantined is True
+
+    client.release_klines.set()
+    await _wait_for_retained_workers(provider, 0)
+
+
+@pytest.mark.asyncio
+async def test_binance_idle_wait_fails_closed_for_existing_quarantine() -> None:
+    provider = BinanceNativeHistoricalProvider(_FakeBinanceClient())
+    provider._quarantine()
+
+    with pytest.raises(TransportDeadlineExceeded) as raised:
+        await provider.wait_until_idle()
+
+    assert raised.value.operation == "quarantined historical provider quiescence"
+
+
+@pytest.mark.asyncio
+async def test_binance_idle_wait_rechecks_exact_deadline_before_quarantine(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = BinanceNativeHistoricalProvider(_FakeBinanceClient())
+    idle_results = iter((False, True))
+
+    class _Clock:
+        values = iter((0.0, 1.0))
+
+        @classmethod
+        def monotonic(cls) -> float:
+            return next(cls.values)
+
+    monkeypatch.setattr(ownership_module, "time", _Clock)
+    monkeypatch.setattr(provider._ownership, "is_idle", lambda: next(idle_results))
+
+    await provider.wait_until_idle()
+
+    assert provider.quarantined is False
+
+
+@pytest.mark.asyncio
 async def test_binance_close_timeout_does_not_close_session_concurrently() -> None:
     class _HeldSession:
         def __init__(self) -> None:
@@ -654,7 +786,7 @@ async def test_binance_thread_start_failure_releases_admission_once(
     def fail_start(_thread: threading.Thread) -> None:
         raise RuntimeError("thread start failed")
 
-    monkeypatch.setattr(blocking_module.Thread, "start", fail_start)
+    monkeypatch.setattr(ownership_module.Thread, "start", fail_start)
     client = _FakeBinanceClient([])
     provider = BinanceNativeHistoricalProvider(client)
 

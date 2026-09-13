@@ -27,13 +27,55 @@ architecture_documents:
     - docs/architecture/ingestion_app/io.d2
     - docs/architecture/ingestion_app/lifecycle_sequence.d2
 
+compatibility_matrix:
+  - surface: ingestion.candles
+    producer_or_authority: ingestion / Timescale
+    consumers:
+      - decision_app read-only canonical history adapter
+    phase_0_status: frozen
+  - surface: candle.committed v1 streams
+    identity: stream:ohlcv:ingestion:{venue}:{instrument_id}:{timeframe}
+    producer_or_authority: ingestion transactional outbox publisher
+    consumers:
+      - decision_app live input cursor/parser
+    phase_0_status: frozen
+  - surface: asset manifests
+    identity: asset:{symbol} and asset:{symbol}:tf:{timeframe}
+    producer_or_authority: ingestion-owned Valkey projection
+    consumers:
+      - decision_app manifest gating
+      - risk_app manifest availability and worker gating
+    phase_0_status: frozen
+  - surface: asset:lifecycle
+    producer_or_authority: ingestion lifecycle projection
+    consumers:
+      - decision_app lifecycle reader
+      - alert_app lifecycle consumer and normalizer
+      - risk_app lifecycle watcher
+    phase_0_status: frozen
+  - surface: ingestion control API
+    producer_or_authority: ingestion_app FastAPI routes
+    consumers:
+      - operator and control clients
+    phase_0_status: frozen
+
+broker_startup_order:
+  connection_cycle:
+    - connect broker
+    - bind AssetManifestStore
+    - initial lifecycle reconcile_all
+    - start AssetLifecycleReconciler
+    - start OutboxPublisher
+  source: src/apps/ingestion_app/bootstrap.py:132-178
+  rationale: Reconcile downstream runtime identity before candle publication on a successful broker cycle.
+
 entrypoints:
   process:
     path: src/apps/ingestion_app/main.py
     role: Load server config, initialize telemetry/logging, and run FastAPI
   application:
     path: src/apps/ingestion_app/bootstrap.py
-    role: Compose database, providers, runtime, publisher, lifecycle, retention, and API
+    role: Explicitly compose database, providers, runtime, publisher, lifecycle, retention, API, and the lifespan cleanup ledger
   routes:
     path: src/apps/ingestion_app/api/routes.py
     role: Health, runtime, asset config, providers, and manual recovery control plane
@@ -60,6 +102,16 @@ configuration:
     - retention horizons and cleanup bounds
 
 internal_components:
+  - name: bootstrap_resources
+    paths:
+      - src/apps/ingestion_app/bootstrap.py
+    responsibilities:
+      - record only resources owned by the application lifespan
+      - preserve DB cleanup responsibility from before init_db_pools through partial startup failure
+      - close controller, retention, publisher task, historical providers, DB pools, and ConfigManager in dependency order
+      - isolate controller/provider/DB cleanup failures according to the existing policy
+      - remain a cleanup ledger rather than a service container or configuration registry
+
   - name: typed_domain
     paths:
       - src/apps/ingestion_app/domain/instrument.py
@@ -86,50 +138,99 @@ internal_components:
       - Binance-native REST history
       - CCXT Binance USD-M historical fallback
       - preserve adapter-specific REST row validation and filtering order
-      - multiplexed finalized Binance websocket candles
+      - compose the multiplexed Binance websocket facade with its session, bridge, and sequence components
       - decode websocket payloads at finalized observation construction
-      - bounded owned-call admission for synchronous SDK and websocket lifecycle calls
       - CCXT load-markets plus raw request ownership within one attempt deadline
-      - sticky quarantine when a deadline or cleanup leaves transport ownership uncertain
-      - interruption-to-recovery request generation
+      - historical-provider idle waits backed by actual owned-call/admission release
+
+  - name: websocket_session
+    paths:
+      - src/apps/ingestion_app/runtime/websocket_session.py
+    responsibilities:
+      - construct one Binance SDK client and issue one batched subscription
+      - own factory, subscription, stop, deadline, cancellation, and cleanup handshakes
+      - preserve retained lifecycle ownership and sticky quarantine until actual completion
+      - reap BrokenPipe socket-manager cleanup within the existing lifecycle bound
+
+  - name: websocket_bridge
+    paths:
+      - src/apps/ingestion_app/runtime/websocket_bridge.py
+    responsibilities:
+      - provide bounded thread-safe callback admission and FIFO batch extraction
+      - schedule at most one event-loop drain and retain urgent overflow control
+      - close fail-closed without dropping the oldest admitted events
+
+  - name: websocket_sequence
+    paths:
+      - src/apps/ingestion_app/runtime/websocket_sequence.py
+    responsibilities:
+      - classify finalized observations for duplicate, order, anchor, and gap semantics
+      - record consumed progress only after the facade's async-generator yield resumes
+      - calculate deterministic recovery ranges and causal per-lane silence deadlines
+      - select overdue lanes without creating per-lane tasks or timers
 
   - name: transport_ownership
     paths:
-      - src/apps/ingestion_app/runtime/blocking.py
+      - src/apps/ingestion_app/transport/__init__.py
+      - src/apps/ingestion_app/transport/ownership.py
       - src/apps/ingestion_app/providers/binance_native.py
       - src/apps/ingestion_app/providers/ccxt.py
-      - src/apps/ingestion_app/runtime/websocket.py
+      - src/apps/ingestion_app/runtime/websocket_session.py
     responsibilities:
-      - admit only up to configured recovery.max_concurrency without queueing
+      - admit only up to configured recovery.max_concurrency
       - bound each provider attempt and websocket lifecycle operation at 30 seconds by default
       - retain ownership and admission until the actual worker or task finishes
       - classify only completed provider-availability errors as retryable; deterministic provider contract errors fail closed
       - quarantine unresolved deadlines or cleanup failures with honest diagnostics
+      - use the existing attempt deadline for provider quiescence; never retry a quiescence timeout as availability
       - release completion signals without retaining SDK result or exception payloads
 
   - name: runtime_controller
     paths:
       - src/apps/ingestion_app/runtime/controller.py
     responsibilities:
-      - process-level desired state
+      - sole process-level desired state owner
+      - compose public RuntimeSnapshot from desired plus observed generation state
       - runtime pause/resume/reconnect/manual recovery
+      - compile-only candidate validation through the injected plan factory
       - validated settings replacement
       - fresh supervisor replacement after config change
+      - checkpoint settings and compiled plan for cancellation restoration
       - checkpoint cancellation restoration for settings replacement and recovery
+      - fence fresh-generation historical admission with the composed provider-idle barrier
       - post-stop quarantine check before generation detachment or installation
       - deliberate no-rollback reconnect transition
+
+  - name: runtime_state
+    paths:
+      - src/apps/ingestion_app/runtime/state.py
+    responsibilities:
+      - public DesiredRuntimeState, RuntimeState, and RuntimeSnapshot contracts
+      - observed-only SupervisorSnapshot contract for one supervisor generation
+
+  - name: runtime_planning
+    paths:
+      - src/apps/ingestion_app/planning.py
+    responsibilities:
+      - compile IngestionSettings plus composed provider ownership into an immutable IngestionPlan
+      - produce deterministic ordered LanePlan values for enabled runtime lanes
+      - validate live/historical provider ownership, symbols, lane identity, durations, and bounded lookback
+      - return an empty plan for all-disabled settings
+      - perform no I/O or observability/runtime resource construction
 
   - name: runtime_supervisor
     paths:
       - src/apps/ingestion_app/runtime/supervisor.py
     responsibilities:
-      - resolve enabled base lanes from config
-      - pure same-file lane resolution from settings and the injected live provider
+      - run exactly one installed generation until intentional stop or failure
+      - report observed STARTING RECOVERING LIVE STOPPED ERROR state only
+      - return normally after intentional stop cleanup and propagate external cancellation
+      - consume the compiled immutable IngestionPlan
       - bounded startup catch-up
       - reconcile latest closed HTFs before websocket connect
       - commit finalized live base candles
       - trigger affected HTF work
-      - close recovery requests before reconnect
+      - submit startup, HTF, interruption, and manual recovery requests to the RecoveryEngine closure
       - retry completed provider exhaustion through bounded DB-first catch-up
       - keep recoverable availability diagnostics in RECOVERING without promoting them to ERROR
       - fail on canonical conflict
@@ -167,6 +268,9 @@ internal_components:
       - closed-candle cutoff and finalization grace
       - cancellation propagation
       - HTF follow-up reconciliation
+      - global recovery-request identity deduplication and breadth-first closure
+      - deterministic recovery chunks of at most max_concurrency
+      - sibling cancellation and awaiting on chunk failure or cancellation
 
   - name: outbox_publication
     paths:
@@ -187,7 +291,7 @@ internal_components:
       - src/apps/ingestion_app/services/asset_lifecycle.py
       - src/libs/common/asset_manifest.py
     responsibilities:
-      - create/patch one asset YAML atomically with runtime replacement
+      - create/patch one asset YAML atomically with runtime replacement when the registered directory is writable
       - rollback disk/runtime on mutation failure or cancellation
       - project owned assets into canonical Valkey manifests
       - publish idempotent asset lifecycle events
@@ -238,13 +342,20 @@ valkey:
       - name: asset:lifecycle
         producer: asset_config_and_lifecycle
         consumers:
-          - signal_app
+          - decision_app
           - alert_app
+          - risk_app
     hashes:
       - name: asset:{symbol}
         producer: asset_config_and_lifecycle
+        consumers:
+          - decision_app
+          - risk_app
       - name: asset:{symbol}:tf:{timeframe}
         producer: asset_config_and_lifecycle
+        consumers:
+          - decision_app
+          - risk_app
   historical_authority: false
   published_replay_after_destructive_loss: false
   pending_replay_after_broker_reconnect: true
@@ -323,12 +434,75 @@ runtime_states:
 failure_contracts:
   broker_unavailable: canonical DB writes continue; outbox remains pending and publisher retries
   websocket_interrupted: close bounded recovery requests before reconnect
+  websocket_silence_detected: causal per-lane silence interruption; close bounded recovery requests before reconnect
   recovery_providers_exhausted: remain recovering and retry sequentially after the configured reconnect backoff
   transport_deadline: unresolved provider or websocket lifecycle ownership enters fatal state; retain the lease, quarantine reopening, and keep readiness failed
   database_unavailable: canonical path fails closed; no non-durable acknowledgement
   canonical_conflict: fatal data-quality error; never silent overwrite
-  config_mutation_failure: rollback config file and runtime settings
+  config_mutation_failure: rollback config file and runtime settings when the registered config path is writable
   retention_failure: warn/backoff; non-authoritative to runtime readiness
+
+resolved_gaps:
+  - id: G1
+    summary: closed in P1B; the existing asset YAML persistence path has a narrow writable nested Compose bind
+    source_refs:
+      - src/apps/ingestion_app/services/config_reconciliation.py:156-164
+      - src/libs/common/config.py:598-646
+      - docker-compose.yml:64-65,93
+      - tests/ingestion/test_deployment_contract.py
+    phase_1b_disposition: implemented
+    effective_mount_contract:
+      container_root: read_only
+      broad_config_mount: ./configs:/app/configs:ro
+      writable_asset_mount: ./configs/ingestion/assets:/app/configs/ingestion/assets:rw
+  - id: G4
+    summary: closed in P1C; RecoveryEngine owns global recursive closure and dispatches deterministic bounded chunks
+    source_refs:
+      - src/apps/ingestion_app/services/recovery.py
+      - src/apps/ingestion_app/runtime/supervisor.py
+      - tests/ingestion/services/test_recovery_engine.py
+    phase_1c_disposition: implemented
+  - id: G3
+    summary: closed in P1D; generation transitions await actual historical-provider ownership/admission release before fresh historical admission
+    source_refs:
+      - src/apps/ingestion_app/providers/base.py
+      - src/apps/ingestion_app/providers/binance_native.py
+      - src/apps/ingestion_app/providers/ccxt.py
+      - src/apps/ingestion_app/providers/factory.py
+      - src/apps/ingestion_app/runtime/controller.py
+      - tests/ingestion/runtime/test_controller.py
+    phase_1d_disposition: implemented
+  - id: G5
+    summary: closed in P1E; the single multiplexed websocket consumer bounds queue waiting with the earliest causal per-lane finalized-progress deadline
+    source_refs:
+      - src/apps/ingestion_app/runtime/websocket.py
+      - src/apps/ingestion_app/runtime/websocket_sequence.py
+      - src/apps/ingestion_app/runtime/websocket_bridge.py
+      - src/apps/ingestion_app/runtime/websocket_session.py
+      - tests/ingestion/runtime/test_websocket.py
+      - tests/ingestion/runtime/test_websocket_components.py
+      - tests/ingestion/certification/test_500_lane_scale.py
+    phase_1e_disposition: implemented
+
+known_gaps:
+  - id: G2
+    summary: closed in P1A; candidate validation compiles an immutable plan without constructing a supervisor or updating runtime_live
+    source_refs:
+      - src/apps/ingestion_app/planning.py
+      - src/apps/ingestion_app/runtime/controller.py
+      - tests/ingestion/runtime/test_controller.py:288-311
+    phase_0_disposition: documented_then_implemented_in_p1a
+  - id: G6
+    summary: lifecycle asset_version and timeframe_version are constant
+    source_refs:
+      - src/apps/ingestion_app/services/asset_lifecycle.py:88-100
+    phase_0_disposition: document_only
+  - id: G7
+    summary: ingestion and shared manifest modules have different active lifecycle event-ID helpers
+    source_refs:
+      - src/apps/ingestion_app/services/asset_lifecycle.py:48-64
+      - src/libs/common/asset_manifest.py:131-139
+    phase_0_disposition: document_only
 
 validated_invariants:
   - continuous UTC calendar with explicit alignment origin
@@ -338,11 +512,12 @@ validated_invariants:
   - pending outbox survives broker outage
   - no automatic replay of already-published history after destructive Valkey loss
   - bounded recovery with per-lane locks and global concurrency limit
-  - transport admission has configured capacity and no unbounded wait queue
+  - provider transport admission respects configured capacity
   - transport leases outlive caller cancellation and deadline until actual cleanup
+  - fresh generation admission is fenced by a bounded historical-provider idle barrier
   - deadline quarantine is sticky across controller pause, close, and replacement paths
   - completed provider-availability errors retain bounded retry/fallback behavior; deterministic provider errors fail closed
   - dynamic asset config rollback safety
   - lifecycle manifests rebuilt after broker loss
-  - signal startup/history recovery uses Timescale authority
+  - Decision startup/history recovery uses Timescale authority
   - retention deletes published outbox only

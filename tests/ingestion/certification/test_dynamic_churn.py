@@ -21,6 +21,7 @@ from .conftest import (
     RecordingHTF,
     RecordingIngestion,
     canonical,
+    compiled_plan,
     observation,
     synthetic_lanes,
     synthetic_settings,
@@ -79,6 +80,7 @@ async def test_five_500_lane_settings_generations_replace_without_active_leaks()
 
     controller = RuntimeController(
         settings=synthetic_settings(500, generation=0),
+        plan_factory=compiled_plan,
         supervisor_factory=factory,
     )
     await controller.start()
@@ -206,6 +208,7 @@ async def test_dynamic_generation_replacement_preserves_desired_paused_state() -
 
     controller = RuntimeController(
         settings=synthetic_settings(500, generation=0),
+        plan_factory=compiled_plan,
         supervisor_factory=factory,
     )
     await controller.start()
@@ -239,6 +242,7 @@ async def test_task_audit_excludes_current_test_task_and_has_no_v2_orphans() -> 
 
     controller = RuntimeController(
         settings=synthetic_settings(500),
+        plan_factory=compiled_plan,
         supervisor_factory=factory,
     )
     await controller.start()

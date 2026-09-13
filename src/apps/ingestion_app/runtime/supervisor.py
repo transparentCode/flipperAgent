@@ -3,20 +3,25 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable, Iterable, Mapping
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable, Iterable
 from datetime import UTC, datetime, timedelta
-from enum import StrEnum
 from types import MappingProxyType
 
 from apps.ingestion_app.domain.candle import CandleObservation, CanonicalCandle
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
 from apps.ingestion_app.observability import IngestionObservability
+from apps.ingestion_app.planning import IngestionPlan, LanePlan
 from apps.ingestion_app.providers.base import (
     LiveCandleProvider,
     LiveStreamInterrupted,
     TransportDeadlineExceeded,
+)
+from apps.ingestion_app.runtime.state import (
+    DesiredRuntimeState,
+    RuntimeSnapshot,
+    RuntimeState,
+    SupervisorSnapshot,
 )
 from apps.ingestion_app.services.candle_ingestion import (
     CandleIngestionService,
@@ -28,7 +33,6 @@ from apps.ingestion_app.services.recovery import (
     RecoveryExhaustedError,
 )
 from apps.ingestion_app.services.time_alignment import aligned_bucket_start
-from apps.ingestion_app.settings import IngestionSettings
 from apps.ingestion_app.storage.repository import (
     CandleCommitStatus,
     CandleRepository,
@@ -40,43 +44,6 @@ from libs.common.logging.logger_utils import bind_logger
 _LOGGER = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_ENGINE)
 
 
-class DesiredRuntimeState(StrEnum):
-    """Runtime-wide desired state controlled by pause and resume."""
-
-    RUNNING = "running"
-    PAUSED = "paused"
-
-
-class RuntimeState(StrEnum):
-    """Observed state of the in-memory runtime supervisor."""
-
-    STOPPED = "stopped"
-    STARTING = "starting"
-    LIVE = "live"
-    RECOVERING = "recovering"
-    ERROR = "error"
-
-
-@dataclass(frozen=True, slots=True)
-class RuntimeSnapshot:
-    """Read-only runtime status for future control-plane consumers."""
-
-    desired_state: DesiredRuntimeState
-    state: RuntimeState
-    last_error: str | None
-
-
-@dataclass(frozen=True, slots=True)
-class _LaneContext:
-    lane: MarketLane
-    live_symbol: str
-    provider_order: tuple[str, ...]
-    provider_symbols: Mapping[str, str]
-    target_durations: Mapping[str, timedelta]
-    base_duration: timedelta
-    lookback_duration: timedelta
-
-
 def _require_utc(value: object, *, field_name: str) -> datetime:
     if not isinstance(value, datetime):
         raise DataIngestionError(f"{field_name} must be a datetime")
@@ -85,120 +52,13 @@ def _require_utc(value: object, *, field_name: str) -> datetime:
     return value
 
 
-def _request_key(
-    request: RecoveryRequest,
-) -> tuple[str, str, str, datetime, datetime, str]:
-    return (
-        request.lane.venue,
-        request.lane.instrument_id,
-        request.lane.timeframe,
-        request.since,
-        request.until,
-        request.reason,
-    )
-
-
-def _resolve_lane_contexts(
-    settings: IngestionSettings,
-    live_provider: LiveCandleProvider,
-) -> tuple[_LaneContext, ...]:
-    """Resolve enabled lanes from settings without mutating runtime state."""
-    base_timeframe = settings.base_timeframe
-    base_duration = timedelta(
-        seconds=settings.timeframes[base_timeframe].duration_seconds
-    )
-    contexts: list[_LaneContext] = []
-    seen_lanes: set[MarketLane] = set()
-
-    for asset_name in sorted(settings.assets):
-        asset = settings.assets[asset_name]
-        if not asset.enabled:
-            continue
-        for instrument_id in sorted(asset.instruments):
-            instrument = asset.instruments[instrument_id]
-            if instrument.live_provider != live_provider.provider_id:
-                raise DataIngestionError(
-                    f"instrument '{instrument_id}' live provider "
-                    f"'{instrument.live_provider}' does not match injected "
-                    f"provider '{live_provider.provider_id}'"
-                )
-            if not instrument.historical_providers:
-                raise DataIngestionError(
-                    f"instrument '{instrument_id}' has no historical providers"
-                )
-
-            lane = MarketLane(
-                instrument.venue,
-                instrument_id,
-                base_timeframe,
-            )
-            if lane in seen_lanes:
-                raise DataIngestionError(f"duplicate enabled runtime lane: {lane}")
-            seen_lanes.add(lane)
-
-            provider_symbols = dict(instrument.provider_symbols)
-            for provider_id in instrument.historical_providers:
-                if provider_id not in provider_symbols:
-                    raise DataIngestionError(
-                        f"instrument '{instrument_id}' has no symbol for "
-                        f"historical provider '{provider_id}'"
-                    )
-            live_symbol = provider_symbols.get(instrument.live_provider)
-            if not isinstance(live_symbol, str) or not live_symbol.strip():
-                raise DataIngestionError(
-                    f"instrument '{instrument_id}' has no live provider symbol"
-                )
-
-            target_durations = {
-                timeframe: timedelta(
-                    seconds=settings.timeframes[timeframe].duration_seconds
-                )
-                for timeframe in instrument.timeframes
-                if timeframe != base_timeframe
-            }
-            target_durations = dict(
-                sorted(
-                    target_durations.items(),
-                    key=lambda item: (item[1], item[0]),
-                )
-            )
-            lookback_duration = max(
-                target_durations.values(),
-                default=base_duration,
-            )
-            contexts.append(
-                _LaneContext(
-                    lane=lane,
-                    live_symbol=live_symbol,
-                    provider_order=tuple(instrument.historical_providers),
-                    provider_symbols=MappingProxyType(provider_symbols),
-                    target_durations=MappingProxyType(target_durations),
-                    base_duration=base_duration,
-                    lookback_duration=lookback_duration,
-                )
-            )
-
-    if not contexts:
-        raise DataIngestionError("no enabled ingestion runtime lanes")
-    return tuple(
-        sorted(
-            contexts,
-            key=lambda context: (
-                context.lane.venue,
-                context.lane.instrument_id,
-                context.lane.timeframe,
-            ),
-        )
-    )
-
-
 class RuntimeSupervisor:
     """Compose bounded recovery, live commits, and HTF processing."""
 
     def __init__(
         self,
         *,
-        settings: IngestionSettings,
+        plan: IngestionPlan,
         live_provider: LiveCandleProvider,
         repository: CandleRepository,
         ingestion_service: CandleIngestionService,
@@ -208,8 +68,8 @@ class RuntimeSupervisor:
         reconnect_sleep_fn: Callable[[float], Awaitable[None]] | None = None,
         observability: IngestionObservability | None = None,
     ) -> None:
-        if not isinstance(settings, IngestionSettings):
-            raise TypeError("settings must be IngestionSettings")
+        if not isinstance(plan, IngestionPlan):
+            raise TypeError("plan must be IngestionPlan")
         if not callable(getattr(live_provider, "stream_closed_candles", None)):
             raise TypeError("live_provider must expose stream_closed_candles")
         if not isinstance(getattr(live_provider, "provider_id", None), str):
@@ -220,8 +80,18 @@ class RuntimeSupervisor:
             raise TypeError("now_fn must be callable")
         if reconnect_sleep_fn is not None and not callable(reconnect_sleep_fn):
             raise TypeError("reconnect_sleep_fn must be callable")
+        if not plan.lanes:
+            raise DataIngestionError("no enabled ingestion runtime lanes")
+        if any(
+            lane_plan.live_provider_id != live_provider.provider_id
+            for lane_plan in plan.lanes
+        ):
+            raise DataIngestionError(
+                "compiled runtime plan contains a live provider not owned by the "
+                "injected provider"
+            )
 
-        self.settings = settings
+        self.plan = plan
         self.live_provider = live_provider
         self.repository = repository
         self.ingestion_service = ingestion_service
@@ -230,31 +100,27 @@ class RuntimeSupervisor:
         self.observability = observability or IngestionObservability()
         self._now = now_fn or (lambda: datetime.now(UTC))
         self._reconnect_sleep = reconnect_sleep_fn or asyncio.sleep
-        self._contexts = _resolve_lane_contexts(settings, live_provider)
-        self._contexts_by_lane = {context.lane: context for context in self._contexts}
+        self._contexts = plan.lanes
+        self._contexts_by_lane = plan.lanes_by_lane
         self._subscriptions = MappingProxyType(
             {context.lane: context.live_symbol for context in self._contexts}
         )
 
-        self._desired_state = DesiredRuntimeState.RUNNING
         self._last_error: str | None = None
         self._fatal_error: str | None = None
         self._fatal_exception: BaseException | None = None
-        self._set_state(RuntimeState.STOPPED)
+        self._state = RuntimeState.STOPPED
         self._stop_requested = False
-        self._control_event = asyncio.Event()
         self._active_task: asyncio.Task[None] | None = None
-        self._control_cancel_requested = False
 
     @property
     def active_lanes(self) -> tuple[MarketLane, ...]:
         return tuple(context.lane for context in self._contexts)
 
-    def snapshot(self) -> RuntimeSnapshot:
+    def snapshot(self) -> SupervisorSnapshot:
         """Return the current status without performing I/O."""
         self._sync_transport_quarantine()
-        return RuntimeSnapshot(
-            desired_state=self._desired_state,
+        return SupervisorSnapshot(
             state=self._state,
             last_error=self._last_error,
         )
@@ -293,40 +159,14 @@ class RuntimeSupervisor:
         self._state = state
         self.observability.set_runtime_live(state is RuntimeState.LIVE)
 
-    def pause(self) -> None:
-        """Request a runtime-wide pause and cancel active work cleanly."""
-        self._sync_transport_quarantine()
-        self._desired_state = DesiredRuntimeState.PAUSED
-        if self._fatal_error is None and (
-            self._active_task is None or self._active_task.done()
-        ):
-            self._set_state(RuntimeState.STOPPED)
-        self._control_event.set()
-        self._cancel_active_task()
-        _LOGGER.info("ingestion runtime pause requested")
-
-    def resume(self) -> None:
-        """Request a fresh startup/catch-up cycle."""
-        self._sync_transport_quarantine()
-        if self._stop_requested:
-            return
-        self._desired_state = DesiredRuntimeState.RUNNING
-        if self._fatal_error is not None:
-            self._set_state(RuntimeState.ERROR)
-            return
-        self._last_error = None
-        self._control_event.set()
-        _LOGGER.info("ingestion runtime resume requested")
-
     def stop(self) -> None:
-        """Request process-level shutdown."""
+        """Request intentional shutdown of this one runtime generation."""
         self._sync_transport_quarantine()
         self._stop_requested = True
         if self._fatal_error is None and (
             self._active_task is None or self._active_task.done()
         ):
             self._set_state(RuntimeState.STOPPED)
-        self._control_event.set()
         self._cancel_active_task()
         _LOGGER.info("ingestion runtime stop requested")
 
@@ -371,22 +211,13 @@ class RuntimeSupervisor:
             current_task = None
         if task is None or task.done() or task is current_task:
             return
-        self._control_cancel_requested = True
         task.cancel()
-
-    def _consume_control_cancellation(self) -> bool:
-        if not self._control_cancel_requested:
-            return False
-        self._control_cancel_requested = False
-        if self._fatal_error is None:
-            self._set_state(RuntimeState.STOPPED)
-        return True
 
     def _validate_latest_base_candle(
         self,
         candle: CanonicalCandle,
         *,
-        context: _LaneContext,
+        context: LanePlan,
         before: datetime,
     ) -> None:
         if candle.lane != context.lane:
@@ -411,7 +242,7 @@ class RuntimeSupervisor:
             aligned_bucket_start(
                 candle.open_time,
                 context.base_duration,
-                self.settings.calendar.alignment_origin,
+                self.plan.alignment_origin,
             )
             != candle.open_time
         ):
@@ -421,7 +252,7 @@ class RuntimeSupervisor:
 
     async def _prepare_live_connection(self) -> datetime:
         """Repair bounded base history and latest closed HTFs before opening WS."""
-        alignment_origin = self.settings.calendar.alignment_origin
+        alignment_origin = self.plan.alignment_origin
         while True:
             as_of = _require_utc(self._now(), field_name="runtime as_of")
             current_closed_boundary = aligned_bucket_start(
@@ -502,73 +333,16 @@ class RuntimeSupervisor:
                 settled_boundary,
             )
 
-    async def _execute_recovery_request(
-        self,
-        request: RecoveryRequest,
-    ) -> tuple[RecoveryRequest, ...]:
-        context = self._contexts_by_lane.get(request.lane)
-        if context is None:
-            raise DataIngestionError(
-                f"recovery request targets unknown runtime lane: {request.lane}"
-            )
-        follow_ups = await self.recovery_engine.recover(
-            request,
-            base_timeframe=self.settings.base_timeframe,
-            base_duration=context.base_duration,
-            provider_order=context.provider_order,
-            provider_symbols=context.provider_symbols,
-            target_durations=context.target_durations,
-            alignment_origin=self.settings.calendar.alignment_origin,
-        )
-        if not isinstance(follow_ups, tuple) or not all(
-            isinstance(follow_up, RecoveryRequest) for follow_up in follow_ups
-        ):
-            raise DataIngestionError(
-                "recovery engine returned invalid follow-up requests"
-            )
-        return follow_ups
-
     async def _execute_recovery_closure(
         self,
         requests: Iterable[RecoveryRequest],
     ) -> None:
-        pending = list(requests)
-        seen: set[tuple[str, str, str, datetime, datetime, str]] = set()
-        while pending:
-            batch: list[RecoveryRequest] = []
-            for request in sorted(pending, key=_request_key):
-                if not isinstance(request, RecoveryRequest):
-                    raise DataIngestionError(
-                        "recovery worklist contains a non-RecoveryRequest"
-                    )
-                key = _request_key(request)
-                if key in seen:
-                    continue
-                seen.add(key)
-                batch.append(request)
-            pending = []
-            if not batch:
-                continue
-
-            tasks = [
-                asyncio.create_task(self._execute_recovery_request(request))
-                for request in batch
-            ]
-            try:
-                results = await asyncio.gather(*tasks)
-            except BaseException:
-                for task in tasks:
-                    if not task.done():
-                        task.cancel()
-                await asyncio.gather(*tasks, return_exceptions=True)
-                raise
-            for follow_ups in results:
-                pending.extend(follow_ups)
+        await self.recovery_engine.recover_closure(requests, plan=self.plan)
 
     def _validate_live_observation(
         self,
         observation: CandleObservation,
-    ) -> _LaneContext:
+    ) -> LanePlan:
         if not isinstance(observation, CandleObservation):
             raise DataIngestionError("live provider returned a non-observation")
         context = self._contexts_by_lane.get(observation.lane)
@@ -578,7 +352,7 @@ class RuntimeSupervisor:
             )
         if observation.provider_id != self.live_provider.provider_id:
             raise DataIngestionError("live observation has the wrong provider ID")
-        if observation.lane.timeframe != self.settings.base_timeframe:
+        if observation.lane.timeframe != self.plan.base_timeframe:
             raise DataIngestionError("live observation is not on the base timeframe")
         return context
 
@@ -589,9 +363,9 @@ class RuntimeSupervisor:
         try:
             stream = self.live_provider.stream_closed_candles(
                 self._subscriptions,
-                base_timeframe=self.settings.base_timeframe,
+                base_timeframe=self.plan.base_timeframe,
                 timeframe_duration=self._contexts[0].base_duration,
-                alignment_origin=self.settings.calendar.alignment_origin,
+                alignment_origin=self.plan.alignment_origin,
                 connection_anchor=connection_anchor,
             )
             async for observation in stream:
@@ -612,7 +386,7 @@ class RuntimeSupervisor:
                     canonicalize_observation(observation),
                     base_duration=context.base_duration,
                     target_durations=context.target_durations,
-                    alignment_origin=self.settings.calendar.alignment_origin,
+                    alignment_origin=self.plan.alignment_origin,
                 )
                 self.observability.record_base_last_close(
                     context.lane,
@@ -635,7 +409,7 @@ class RuntimeSupervisor:
         self,
         interruption: LiveStreamInterrupted,
     ) -> None:
-        if self._stop_requested or self._desired_state is DesiredRuntimeState.PAUSED:
+        if self._stop_requested:
             self._set_state(RuntimeState.STOPPED)
             return
         self._set_state(RuntimeState.RECOVERING)
@@ -645,10 +419,10 @@ class RuntimeSupervisor:
             len(interruption.recovery_requests),
         )
         await self._execute_recovery_closure(interruption.recovery_requests)
-        if self._stop_requested or self._desired_state is DesiredRuntimeState.PAUSED:
+        if self._stop_requested:
             self._set_state(RuntimeState.STOPPED)
             return
-        await self._reconnect_sleep(self.settings.runtime.reconnect_backoff_seconds)
+        await self._reconnect_sleep(self.plan.reconnect_backoff_seconds)
         _LOGGER.info("ingestion runtime reconnect cycle ready")
 
     async def _run_live_or_interruption_cycle(self) -> None:
@@ -667,10 +441,10 @@ class RuntimeSupervisor:
             self._last_error = str(exc)
             _LOGGER.warning(
                 "ingestion recovery providers exhausted; retrying after %ss: %s",
-                self.settings.runtime.reconnect_backoff_seconds,
+                self.plan.reconnect_backoff_seconds,
                 exc,
             )
-            await self._reconnect_sleep(self.settings.runtime.reconnect_backoff_seconds)
+            await self._reconnect_sleep(self.plan.reconnect_backoff_seconds)
 
     async def run(self) -> None:
         """Run until stopped, or propagate a fatal runtime error."""
@@ -681,25 +455,14 @@ class RuntimeSupervisor:
             return
 
         self._active_task = asyncio.current_task()
-        self._control_cancel_requested = False
         _LOGGER.info("ingestion runtime starting")
         try:
-            while True:
-                if self._stop_requested:
-                    self._set_state(RuntimeState.STOPPED)
-                    return
+            while not self._stop_requested:
                 try:
-                    if self._desired_state is DesiredRuntimeState.PAUSED:
-                        self._set_state(RuntimeState.STOPPED)
-                        self._control_event.clear()
-                        await self._control_event.wait()
-                        continue
                     await self._run_recoverable_cycle()
                 except asyncio.CancelledError:
-                    if self._consume_control_cancellation():
-                        if self._stop_requested:
-                            return
-                        continue
+                    if self._stop_requested:
+                        return
                     self._set_state(RuntimeState.STOPPED)
                     raise
                 except TransportDeadlineExceeded as exc:
@@ -718,8 +481,10 @@ class RuntimeSupervisor:
 
 
 __all__ = [
+    # Compatibility re-exports; state ownership lives in runtime.state.
     "DesiredRuntimeState",
     "RuntimeSnapshot",
     "RuntimeState",
     "RuntimeSupervisor",
+    "SupervisorSnapshot",
 ]

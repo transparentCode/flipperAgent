@@ -3,19 +3,25 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from apps.ingestion_app.domain.recovery import RecoveryRequest
 from apps.ingestion_app.observability import IngestionObservability
+from apps.ingestion_app.planning import IngestionPlan
 from apps.ingestion_app.providers.base import TransportDeadlineExceeded
-from apps.ingestion_app.runtime.supervisor import (
+from apps.ingestion_app.runtime.state import (
     DesiredRuntimeState,
     RuntimeSnapshot,
     RuntimeState,
+)
+from apps.ingestion_app.runtime.supervisor import (
     RuntimeSupervisor,
 )
 from apps.ingestion_app.settings import IngestionSettings
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class RuntimeControlConflictError(RuntimeError):
@@ -26,11 +32,16 @@ def _has_enabled_assets(settings: IngestionSettings) -> bool:
     return any(asset.enabled for asset in settings.assets.values())
 
 
+async def _noop_historical_provider_quiescence() -> None:
+    return None
+
+
 @dataclass(frozen=True, slots=True)
 class _RuntimeCheckpoint:
     """Controller state needed to restore a cancelled generation transition."""
 
     settings: IngestionSettings
+    plan: IngestionPlan
     desired_state: DesiredRuntimeState
     started: bool
     last_error: str | None
@@ -43,24 +54,37 @@ class RuntimeController:
         self,
         *,
         settings: IngestionSettings,
-        supervisor_factory: Callable[[IngestionSettings], RuntimeSupervisor],
+        plan_factory: Callable[[IngestionSettings], IngestionPlan],
+        supervisor_factory: Callable[[IngestionPlan], RuntimeSupervisor],
         observability: IngestionObservability | None = None,
+        historical_provider_quiescence: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
         if not isinstance(settings, IngestionSettings):
             raise TypeError("settings must be IngestionSettings")
+        if not callable(plan_factory):
+            raise TypeError("plan_factory must be callable")
         if not callable(supervisor_factory):
             raise TypeError("supervisor_factory must be callable")
         if observability is not None and not isinstance(
             observability, IngestionObservability
         ):
             raise TypeError("observability must be IngestionObservability")
+        if historical_provider_quiescence is not None and not callable(
+            historical_provider_quiescence
+        ):
+            raise TypeError("historical_provider_quiescence must be callable")
 
-        self._settings = settings
+        self._plan_factory = plan_factory
         self._supervisor_factory = supervisor_factory
+        self._settings = settings
+        self._plan = self._compile_plan(settings)
         self._supervisor: RuntimeSupervisor | None = None
         self._status_supervisor: RuntimeSupervisor | None = None
         self._supervisor_task: asyncio.Task[None] | None = None
         self._observability = observability
+        self._historical_provider_quiescence = (
+            historical_provider_quiescence or _noop_historical_provider_quiescence
+        )
         self._desired_state = DesiredRuntimeState.RUNNING
         self._last_error: str | None = None
         self._terminal_error: str | None = None
@@ -74,6 +98,11 @@ class RuntimeController:
         return self._settings
 
     @property
+    def plan(self) -> IngestionPlan:
+        """Return the current last-known-good immutable runtime plan."""
+        return self._plan
+
+    @property
     def enabled_asset_count(self) -> int:
         return sum(1 for asset in self._settings.assets.values() if asset.enabled)
 
@@ -85,8 +114,7 @@ class RuntimeController:
     def snapshot(self) -> RuntimeSnapshot:
         """Return an immutable status snapshot without performing I/O."""
         self._sync_supervisor_quarantine()
-        supervisor = self._supervisor or self._status_supervisor
-        if supervisor is None:
+        if self._supervisor is None:
             error = self._fatal_error or self._terminal_error or self._last_error
             state = RuntimeState.ERROR if error else RuntimeState.STOPPED
             return RuntimeSnapshot(
@@ -95,10 +123,9 @@ class RuntimeController:
                 last_error=error,
             )
 
-        supervisor_snapshot = supervisor.snapshot()
+        supervisor_snapshot = self._supervisor.snapshot()
         if (
-            self._supervisor is supervisor
-            and supervisor_snapshot.state is RuntimeState.LIVE
+            supervisor_snapshot.state is RuntimeState.LIVE
             and self._fatal_error is None
             and self._terminal_error is None
         ):
@@ -147,22 +174,43 @@ class RuntimeController:
         if self._observability is not None:
             self._observability.set_runtime_live(False)
 
+    def _latch_terminal_transition_failure(self, error: BaseException) -> None:
+        """Fail closed after a generation was detached unsuccessfully."""
+        if self._fatal_error is not None:
+            return
+        self._terminal_error = str(error)
+        self._last_error = self._terminal_error
+        self._supervisor = None
+        self._supervisor_task = None
+        if self._observability is not None:
+            self._observability.set_runtime_live(False)
+            try:
+                self._observability.install_active_lanes(())
+            except Exception as exc:
+                _LOGGER.debug(
+                    "failed to clear active-lane observability after transition failure",
+                    exc_info=exc,
+                )
+
     def validate_settings(self, settings: IngestionSettings) -> None:
         """Validate settings against the injected runtime composition only."""
+        self._compile_plan(settings)
+
+    def _compile_plan(self, settings: IngestionSettings) -> IngestionPlan:
         if not isinstance(settings, IngestionSettings):
             raise TypeError("settings must be IngestionSettings")
-        if _has_enabled_assets(settings):
-            supervisor = self._build_supervisor(settings)
-            if supervisor is None:  # pragma: no cover - defensive composition check
-                raise TypeError("supervisor_factory returned no supervisor")
+        plan = self._plan_factory(settings)
+        if not isinstance(plan, IngestionPlan):
+            raise TypeError("plan_factory returned an invalid ingestion plan")
+        return plan
 
     def _build_supervisor(
         self,
-        settings: IngestionSettings,
+        plan: IngestionPlan,
     ) -> RuntimeSupervisor | None:
-        if not _has_enabled_assets(settings):
+        if not plan.lanes:
             return None
-        supervisor = self._supervisor_factory(settings)
+        supervisor = self._supervisor_factory(plan)
         if supervisor is None:
             raise TypeError("supervisor_factory returned no supervisor")
         required = ("run", "stop", "snapshot", "execute_recovery")
@@ -173,6 +221,7 @@ class RuntimeController:
     def _checkpoint(self) -> _RuntimeCheckpoint:
         return _RuntimeCheckpoint(
             settings=self._settings,
+            plan=self._plan,
             desired_state=self._desired_state,
             started=self._started,
             last_error=self._last_error,
@@ -192,9 +241,7 @@ class RuntimeController:
         except TransportDeadlineExceeded as exc:
             self._latch_fatal(exc)
         except Exception as exc:  # noqa: BLE001
-            self._terminal_error = str(exc)
-            self._last_error = self._terminal_error
-            self._sync_supervisor_quarantine()
+            self._latch_terminal_transition_failure(exc)
         else:
             self._sync_supervisor_quarantine()
 
@@ -225,12 +272,18 @@ class RuntimeController:
         except Exception as exc:  # noqa: BLE001
             self._last_error = str(exc)
         finally:
-            self._sync_supervisor_quarantine()
             self._supervisor_task = None
 
     async def _stop_for_transition(self, operation: str) -> None:
         """Stop the current generation before detaching it for a transition."""
         await self._stop_current_supervisor()
+        try:
+            await self._wait_for_historical_provider_quiescence()
+        except TransportDeadlineExceeded:
+            raise
+        except Exception as exc:
+            self._latch_terminal_transition_failure(exc)
+            raise
         self._sync_supervisor_quarantine()
         if self._fatal_error is not None:
             raise RuntimeControlConflictError(
@@ -239,32 +292,85 @@ class RuntimeController:
         self._supervisor = None
         self._supervisor_task = None
 
-    def _install_supervisor(self, supervisor: RuntimeSupervisor | None) -> None:
-        self._supervisor = supervisor
-        if supervisor is not None:
-            self._status_supervisor = supervisor
-            self._terminal_error = None
+    def _install_supervisor(
+        self,
+        supervisor: RuntimeSupervisor | None,
+        *,
+        accept_supervisorless: bool = False,
+    ) -> None:
+        if self._desired_state is DesiredRuntimeState.PAUSED:
+            supervisor = None
         if self._observability is not None:
             self._observability.install_active_lanes(
                 () if supervisor is None else supervisor.active_lanes
             )
         if supervisor is None:
+            self._supervisor = None
+            if accept_supervisorless and self._fatal_error is None:
+                self._terminal_error = None
+                self._last_error = None
             return
-        if self._desired_state is DesiredRuntimeState.PAUSED:
-            supervisor.pause()
-        elif self._started:
+        if self._started:
             self._start_supervisor(supervisor)
+        self._supervisor = supervisor
+        self._status_supervisor = supervisor
+        self._terminal_error = None
 
-    def _restore_runtime_state(self, checkpoint: _RuntimeCheckpoint) -> None:
+    async def _wait_for_historical_provider_quiescence(self) -> None:
+        try:
+            await self._historical_provider_quiescence()
+        except TransportDeadlineExceeded as exc:
+            self._latch_fatal(exc)
+            raise
+
+    async def _wait_for_quiescence_during_restore(self) -> None:
+        """Finish the rollback fence even if cancellation is delivered again."""
+        task = asyncio.create_task(
+            self._wait_for_historical_provider_quiescence(),
+            name="ingestion-controller-rollback-quiescence",
+        )
+        while True:
+            try:
+                await asyncio.shield(task)
+                return
+            except asyncio.CancelledError:
+                if task.cancelled():
+                    raise
+
+    async def _restore_runtime_state(self, checkpoint: _RuntimeCheckpoint) -> None:
         """Restore a fresh runtime after a cancelled control operation."""
-        self._settings = checkpoint.settings
         self._desired_state = checkpoint.desired_state
         self._last_error = self._fatal_error or checkpoint.last_error
         self._supervisor = None
         self._supervisor_task = None
         self._started = checkpoint.started
-        if checkpoint.started and self._fatal_error is None:
-            self._install_supervisor(self._build_supervisor(checkpoint.settings))
+        try:
+            if checkpoint.started and self._fatal_error is None:
+                await self._wait_for_quiescence_during_restore()
+                self._sync_supervisor_quarantine()
+            if checkpoint.started and self._fatal_error is None:
+                self._settings = checkpoint.settings
+                self._plan = checkpoint.plan
+                if checkpoint.desired_state is DesiredRuntimeState.RUNNING:
+                    restored = self._build_supervisor(checkpoint.plan)
+                    self._install_supervisor(
+                        restored,
+                        accept_supervisorless=restored is None,
+                    )
+                else:
+                    self._install_supervisor(None, accept_supervisorless=True)
+            elif not checkpoint.started:
+                self._settings = checkpoint.settings
+                self._plan = checkpoint.plan
+                self._install_supervisor(None, accept_supervisorless=True)
+        except TransportDeadlineExceeded as exc:
+            self._latch_fatal(exc)
+            self._supervisor = None
+            self._supervisor_task = None
+            raise
+        except Exception as exc:
+            self._latch_terminal_transition_failure(exc)
+            raise
 
     async def start(self) -> None:
         async with self._operation_lock:
@@ -275,11 +381,18 @@ class RuntimeController:
                 )
             if self._started:
                 return
-            supervisor = self._build_supervisor(self._settings)
+            supervisor = (
+                self._build_supervisor(self._plan)
+                if self._desired_state is DesiredRuntimeState.RUNNING
+                else None
+            )
             self._last_error = None
             self._started = True
             try:
-                self._install_supervisor(supervisor)
+                self._install_supervisor(
+                    supervisor,
+                    accept_supervisorless=supervisor is None,
+                )
             except BaseException:
                 self._started = False
                 self._install_supervisor(None)
@@ -304,7 +417,7 @@ class RuntimeController:
                 raise RuntimeControlConflictError("controller is not started")
             self._desired_state = DesiredRuntimeState.PAUSED
             if self._supervisor is not None:
-                self._supervisor.pause()
+                self._supervisor.stop()
             return self.snapshot()
 
     async def resume(self) -> RuntimeSnapshot:
@@ -316,20 +429,55 @@ class RuntimeController:
                 raise RuntimeControlConflictError(
                     "runtime is quarantined; reconnect is not permitted"
                 )
-            self._desired_state = DesiredRuntimeState.RUNNING
-            if self._supervisor is None:
-                self._install_supervisor(self._build_supervisor(self._settings))
+            if self._terminal_error is not None:
+                raise RuntimeControlConflictError(
+                    "runtime is in ERROR; reconnect is required"
+                )
+            if self._desired_state is DesiredRuntimeState.PAUSED:
+                if (
+                    self._supervisor is not None
+                    and self._supervisor.snapshot().state is RuntimeState.ERROR
+                    and (self._supervisor_task is None or self._supervisor_task.done())
+                ):
+                    raise RuntimeControlConflictError(
+                        "runtime is in ERROR; reconnect is required"
+                    )
+                await self._stop_for_transition("resume")
+                self._desired_state = DesiredRuntimeState.RUNNING
+                try:
+                    replacement = self._build_supervisor(self._plan)
+                    self._install_supervisor(
+                        replacement,
+                        accept_supervisorless=replacement is None,
+                    )
+                except TransportDeadlineExceeded as exc:
+                    self._latch_fatal(exc)
+                    raise
+                except Exception as exc:
+                    self._latch_terminal_transition_failure(exc)
+                    raise
+                self._last_error = None
+            elif self._supervisor is None:
+                self._last_error = None
             elif self._supervisor_task is None or self._supervisor_task.done():
                 if self._supervisor.snapshot().state is RuntimeState.ERROR:
                     raise RuntimeControlConflictError(
                         "runtime is in ERROR; reconnect is required"
                     )
+                await self._stop_for_transition("resume")
+                try:
+                    replacement = self._build_supervisor(self._plan)
+                    self._install_supervisor(
+                        replacement,
+                        accept_supervisorless=replacement is None,
+                    )
+                except TransportDeadlineExceeded as exc:
+                    self._latch_fatal(exc)
+                    raise
+                except Exception as exc:
+                    self._latch_terminal_transition_failure(exc)
+                    raise
                 self._last_error = None
-                self._supervisor.resume()
-                self._start_supervisor(self._supervisor)
-            else:
-                self._last_error = None
-                self._supervisor.resume()
             return self.snapshot()
 
     async def reconnect(self) -> RuntimeSnapshot:
@@ -341,15 +489,28 @@ class RuntimeController:
                 raise RuntimeControlConflictError(
                     "runtime is quarantined; reconnect is not permitted"
                 )
-            if self._desired_state is DesiredRuntimeState.PAUSED:
+            terminal_recovery = self._terminal_error is not None
+            if (
+                self._desired_state is DesiredRuntimeState.PAUSED
+                and not terminal_recovery
+            ):
                 raise RuntimeControlConflictError("cannot reconnect a paused runtime")
-            replacement = self._build_supervisor(self._settings)
+            replacement = self._build_supervisor(self._plan)
             if replacement is None:
                 raise RuntimeControlConflictError(
                     "cannot reconnect with no enabled runtime assets"
                 )
             await self._stop_for_transition("reconnect")
-            self._install_supervisor(replacement)
+            if terminal_recovery:
+                self._desired_state = DesiredRuntimeState.RUNNING
+            try:
+                self._install_supervisor(replacement)
+            except TransportDeadlineExceeded as exc:
+                self._latch_fatal(exc)
+                raise
+            except Exception as exc:
+                self._latch_terminal_transition_failure(exc)
+                raise
             self._last_error = None
             return self.snapshot()
 
@@ -365,29 +526,52 @@ class RuntimeController:
                 raise RuntimeControlConflictError(
                     "runtime is quarantined; settings replacement is not permitted"
                 )
+            replacement_plan = self._compile_plan(settings)
             checkpoint = self._checkpoint()
-            replacement = self._build_supervisor(settings)
 
             if not checkpoint.started:
                 self._settings = settings
+                self._plan = replacement_plan
                 self._supervisor = None
                 self._supervisor_task = None
                 self._last_error = None
+                if self._fatal_error is None:
+                    self._terminal_error = None
                 return self.snapshot()
 
+            replacement = (
+                None
+                if checkpoint.desired_state is DesiredRuntimeState.PAUSED
+                else self._build_supervisor(replacement_plan)
+            )
+            detached = False
             try:
                 await self._stop_for_transition("settings replacement")
+                detached = True
                 self._settings = settings
+                self._plan = replacement_plan
+                self._install_supervisor(
+                    replacement,
+                    accept_supervisorless=replacement is None,
+                )
                 self._last_error = None
-                self._install_supervisor(replacement)
                 return self.snapshot()
             except asyncio.CancelledError:
                 try:
-                    self._restore_runtime_state(checkpoint)
+                    await self._restore_runtime_state(checkpoint)
                 except BaseException as restore_exc:
                     raise RuntimeError(
                         "cancelled settings replacement could not restore runtime"
                     ) from restore_exc
+                raise
+            except TransportDeadlineExceeded as exc:
+                self._latch_fatal(exc)
+                self._supervisor = None
+                self._supervisor_task = None
+                raise
+            except Exception as exc:
+                if detached:
+                    self._latch_terminal_transition_failure(exc)
                 raise
 
     async def recover(self, request: RecoveryRequest) -> RuntimeSnapshot:
@@ -408,23 +592,33 @@ class RuntimeController:
                 )
             checkpoint = self._checkpoint()
 
+            detached = False
             try:
                 await self._stop_for_transition("recovery")
-                offline_supervisor = self._build_supervisor(self._settings)
+                detached = True
+                offline_supervisor = self._build_supervisor(self._plan)
                 if offline_supervisor is None:  # pragma: no cover
                     raise RuntimeControlConflictError(
                         "cannot recover with no enabled runtime assets"
                     )
                 await offline_supervisor.execute_recovery(request)
-                replacement = self._build_supervisor(self._settings)
+                await self._wait_for_historical_provider_quiescence()
                 self._supervisor = None
-                self._install_supervisor(replacement)
                 self._desired_state = checkpoint.desired_state
+                replacement = (
+                    self._build_supervisor(self._plan)
+                    if checkpoint.desired_state is DesiredRuntimeState.RUNNING
+                    else None
+                )
+                self._install_supervisor(
+                    replacement,
+                    accept_supervisorless=replacement is None,
+                )
                 self._last_error = None
                 return self.snapshot()
             except asyncio.CancelledError:
                 try:
-                    self._restore_runtime_state(checkpoint)
+                    await self._restore_runtime_state(checkpoint)
                 except BaseException as restore_exc:
                     raise RuntimeError(
                         "cancelled recovery could not restore runtime"
@@ -436,9 +630,13 @@ class RuntimeController:
                 self._supervisor_task = None
                 raise
             except Exception as exc:
-                self._supervisor = None
-                self._supervisor_task = None
-                self._last_error = str(exc)
+                if detached:
+                    self._latch_terminal_transition_failure(exc)
+                else:
+                    self._supervisor = None
+                    self._supervisor_task = None
+                    if self._fatal_error is None:
+                        self._last_error = str(exc)
                 raise
 
 

@@ -70,6 +70,8 @@ class HistoricalCandleProvider(Protocol):
     @property
     def provider_id(self) -> str: ...
 
+    async def wait_until_idle(self) -> None: ...
+
     async def fetch_closed_candles(
         self,
         *,

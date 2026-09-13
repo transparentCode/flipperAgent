@@ -10,6 +10,7 @@ import asyncpg
 import pytest
 import pytest_asyncio
 
+from apps.ingestion_app.planning import compile_ingestion_plan
 from apps.ingestion_app.providers.binance_native import (
     BinanceNativeHistoricalProvider,
 )
@@ -132,7 +133,11 @@ async def test_runtime_supervisor_live_smoke(
             queue_maxsize=settings.websocket.queue_maxsize,
         )
         supervisor = RuntimeSupervisor(
-            settings=settings,
+            plan=compile_ingestion_plan(
+                settings,
+                live_provider_ids={live_provider.provider_id},
+                historical_provider_ids={"binance_native", "ccxt_binance"},
+            ),
             live_provider=live_provider,
             repository=repository,
             ingestion_service=ingestion,  # type: ignore[arg-type]

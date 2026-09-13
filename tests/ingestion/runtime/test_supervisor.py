@@ -10,15 +10,14 @@ import pytest
 from apps.ingestion_app.domain.candle import CandleObservation, CanonicalCandle
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
+from apps.ingestion_app.observability import IngestionObservability
+from apps.ingestion_app.planning import compile_ingestion_plan
 from apps.ingestion_app.providers.base import (
     LiveStreamInterrupted,
     TransportDeadlineExceeded,
 )
-from apps.ingestion_app.runtime.supervisor import (
-    DesiredRuntimeState,
-    RuntimeState,
-    RuntimeSupervisor,
-)
+from apps.ingestion_app.runtime.state import RuntimeState, SupervisorSnapshot
+from apps.ingestion_app.runtime.supervisor import RuntimeSupervisor
 from apps.ingestion_app.services.recovery import RecoveryExhaustedError
 from apps.ingestion_app.services.time_alignment import aligned_bucket_start
 from apps.ingestion_app.storage.repository import CandleCommitStatus
@@ -277,6 +276,41 @@ class _Recovery:
         finally:
             self.active -= 1
 
+    async def recover_closure(self, requests, *, plan):
+        del plan
+        pending = list(requests)
+        seen = set()
+        while pending:
+            batch = []
+            for request in sorted(
+                pending,
+                key=lambda item: (
+                    item.lane.venue,
+                    item.lane.instrument_id,
+                    item.lane.timeframe,
+                    item.since,
+                    item.until,
+                    item.reason,
+                ),
+            ):
+                key = (
+                    request.lane.venue,
+                    request.lane.instrument_id,
+                    request.lane.timeframe,
+                    request.since,
+                    request.until,
+                    request.reason,
+                )
+                if key not in seen:
+                    seen.add(key)
+                    batch.append(request)
+            if not batch:
+                return
+            results = await asyncio.gather(
+                *(self.recover(request) for request in batch)
+            )
+            pending = [follow_up for result in results for follow_up in result]
+
 
 class _Stream:
     def __init__(
@@ -352,14 +386,20 @@ def _supervisor(
     provider: _LiveProvider | None = None,
     now_fn: Callable[[], datetime] | None = None,
     reconnect_sleep_fn=None,
+    observability: IngestionObservability | None = None,
 ) -> tuple[RuntimeSupervisor, _Repository, _Ingestion, _HTF, _Recovery, _LiveProvider]:
     repository = repository or _Repository({LANE: _canonical()})
     ingestion = ingestion or _Ingestion()
     htf = htf or _HTF()
     recovery = recovery or _Recovery()
     provider = provider or _LiveProvider([_Stream()])
+    plan = compile_ingestion_plan(
+        settings or _settings(),
+        live_provider_ids={provider.provider_id},
+        historical_provider_ids={"binance_native", "ccxt_binance"},
+    )
     supervisor = RuntimeSupervisor(
-        settings=settings or _settings(),
+        plan=plan,
         live_provider=provider,
         repository=repository,  # type: ignore[arg-type]
         ingestion_service=ingestion,  # type: ignore[arg-type]
@@ -367,6 +407,7 @@ def _supervisor(
         recovery_engine=recovery,  # type: ignore[arg-type]
         now_fn=now_fn or (lambda: NOW),
         reconnect_sleep_fn=reconnect_sleep_fn,
+        observability=observability,
     )
     return supervisor, repository, ingestion, htf, recovery, provider
 
@@ -379,11 +420,20 @@ async def test_initial_snapshot_and_lane_resolution_are_bounded() -> None:
 
     snapshot = supervisor.snapshot()
 
-    assert snapshot.desired_state is DesiredRuntimeState.RUNNING
     assert snapshot.state is RuntimeState.STOPPED
     assert snapshot.last_error is None
     await supervisor._prepare_live_connection()
     assert provider.calls == []
+
+
+def test_supervisor_construction_does_not_reset_shared_runtime_live() -> None:
+    observability = IngestionObservability()
+    observability.set_runtime_live(True)
+
+    supervisor, *_ = _supervisor(observability=observability)
+
+    assert observability._runtime_live is True
+    assert supervisor.snapshot().state is RuntimeState.STOPPED
 
 
 @pytest.mark.asyncio
@@ -610,7 +660,6 @@ async def test_plain_live_quarantine_is_error_without_fabricated_deadline() -> N
     )
     with pytest.raises(DataIngestionError, match="cleanup failed"):
         await supervisor.execute_recovery(request)
-    supervisor.pause()
     supervisor.stop()
     assert supervisor.snapshot().state is RuntimeState.ERROR
 
@@ -988,10 +1037,11 @@ async def test_live_htf_followup_recovers_without_restarting_stream() -> None:
 
 
 @pytest.mark.asyncio
-async def test_pause_cancels_stream_without_recovery_and_resume_restarts() -> None:
+async def test_stop_cancels_stream_without_recovery_and_generation_does_not_restart() -> (
+    None
+):
     first = _Stream()
-    second = _Stream()
-    provider = _LiveProvider([first, second])
+    provider = _LiveProvider([first])
     recovery = _Recovery()
     supervisor, _, _, _, _, _ = _supervisor(
         provider=provider,
@@ -1001,62 +1051,27 @@ async def test_pause_cancels_stream_without_recovery_and_resume_restarts() -> No
     task = asyncio.create_task(supervisor.run())
     while len(provider.calls) < 1:
         await asyncio.sleep(0)
-    supervisor.pause()
-    await asyncio.sleep(0)
-    assert supervisor.snapshot().desired_state is DesiredRuntimeState.PAUSED
-    assert supervisor.snapshot().state is RuntimeState.STOPPED
-    assert first.closed
-    assert not task.done()
-    assert recovery.calls == []
-
-    supervisor.resume()
-    while len(provider.calls) < 2:
-        await asyncio.sleep(0)
     supervisor.stop()
     await asyncio.wait_for(task, timeout=1)
-
-    assert second.closed
-    assert supervisor.snapshot().desired_state is DesiredRuntimeState.RUNNING
+    assert first.closed
+    assert recovery.calls == []
+    assert len(provider.calls) == 1
     assert supervisor.snapshot().state is RuntimeState.STOPPED
+    assert not hasattr(supervisor, "pause")
+    assert not hasattr(supervisor, "resume")
 
 
 @pytest.mark.asyncio
-async def test_pause_does_not_publish_stopped_before_stream_cleanup_finishes() -> None:
-    close_started = asyncio.Event()
-    close_gate = asyncio.Event()
-    stream = _Stream(
-        observations=(_observation(),),
-        close_started=close_started,
-        close_gate=close_gate,
-    )
-    provider = _LiveProvider([stream])
-    ingestion = _Ingestion()
-    supervisor, _, _, _, _, _ = _supervisor(
-        provider=provider,
-        ingestion=ingestion,
-    )
+async def test_supervisor_snapshot_is_observed_only() -> None:
+    supervisor, _, _, _, _, _ = _supervisor()
 
-    task = asyncio.create_task(supervisor.run())
-    while supervisor.snapshot().state is not RuntimeState.LIVE:
-        await asyncio.sleep(0)
+    snapshot = supervisor.snapshot()
 
-    supervisor.pause()
-    await asyncio.wait_for(close_started.wait(), timeout=1)
-    assert supervisor.snapshot().desired_state is DesiredRuntimeState.PAUSED
-    assert supervisor.snapshot().state is RuntimeState.LIVE
-    assert not stream.closed
-
-    close_gate.set()
-    await asyncio.wait_for(stream.close_finished.wait(), timeout=1)
-
-    async def wait_for_stopped() -> None:
-        while supervisor.snapshot().state is not RuntimeState.STOPPED:
-            await asyncio.sleep(0)
-
-    await asyncio.wait_for(wait_for_stopped(), timeout=1)
-    assert not task.done()
-    supervisor.stop()
-    await asyncio.wait_for(task, timeout=1)
+    assert isinstance(snapshot, SupervisorSnapshot)
+    assert snapshot.state is RuntimeState.STOPPED
+    assert not hasattr(snapshot, "desired_state")
+    assert not hasattr(supervisor, "pause")
+    assert not hasattr(supervisor, "resume")
 
 
 @pytest.mark.asyncio

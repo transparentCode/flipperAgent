@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import math
-import time
 from datetime import UTC, datetime, timedelta
-from threading import BoundedSemaphore, Lock
 from typing import Any
 
 from binance.error import ServerError
@@ -22,9 +20,10 @@ from apps.ingestion_app.providers.base import (
     TransportDeadlineExceeded,
 )
 from apps.ingestion_app.providers.binance_rest import decode_binance_native_klines
-from apps.ingestion_app.runtime.blocking import (
-    _OwnedBlockingCall,
-    _OwnedCallTimeout,
+from apps.ingestion_app.transport.ownership import (
+    OwnedBlockingCall,
+    OwnedOperationTracker,
+    wait_for_owned_call,
 )
 from libs.common.exceptions import DataIngestionError
 
@@ -120,36 +119,40 @@ class BinanceNativeHistoricalProvider:
         )
         self.attempt_timeout_seconds = float(attempt_timeout_seconds)
         self.max_concurrency = max_concurrency
-        self._owned_calls: set[_OwnedBlockingCall] = set()
-        self._owned_calls_lock = Lock()
-        self._admission = BoundedSemaphore(max_concurrency)
-        self._quarantined = False
+        self._ownership = OwnedOperationTracker(max_concurrency)
         self._closed = False
         self._closing = False
-        self._close_call: _OwnedBlockingCall | None = None
+        self._close_call: OwnedBlockingCall | None = None
         self._close_cancelled = False
         self._close_operation_succeeded = False
 
     @property
     def retained_worker_count(self) -> int:
-        with self._owned_calls_lock:
-            return sum(not call.finished for call in self._owned_calls)
+        return self._ownership.retained_count
 
     @property
     def quarantined(self) -> bool:
-        return self._quarantined
+        return self._ownership.quarantined
 
-    def _track_call(self, call: _OwnedBlockingCall) -> None:
-        with self._owned_calls_lock:
-            self._owned_calls.add(call)
+    async def _wait_for_owned_calls_idle(self, *, operation: str) -> None:
+        await self._ownership.wait_until_idle(
+            timeout_seconds=self.attempt_timeout_seconds,
+            timeout_error=lambda: TransportDeadlineExceeded(
+                provider_id=self.provider_id,
+                operation=operation,
+                timeout_seconds=self.attempt_timeout_seconds,
+            ),
+        )
 
-    def _forget_call(self, call: _OwnedBlockingCall) -> None:
-        with self._owned_calls_lock:
-            self._owned_calls.discard(call)
-        self._admission.release()
+    async def wait_until_idle(self) -> None:
+        """Wait for all provider-owned SDK work and admission to be released."""
+        self._check_available("historical provider quiescence")
+        await self._wait_for_owned_calls_idle(
+            operation="historical provider quiescence"
+        )
 
-    def _finish_close_call(self, call: _OwnedBlockingCall) -> None:
-        self._forget_call(call)
+    def _finish_close_call(self, call: OwnedBlockingCall) -> None:
+        self._ownership.release(call)
         if self._close_call is not call:
             return
         self._close_call = None
@@ -163,10 +166,10 @@ class BinanceNativeHistoricalProvider:
             self._close_cancelled = False
 
     def _quarantine(self) -> None:
-        self._quarantined = True
+        self._ownership.quarantine()
 
     def _check_available(self, operation: str, *, allow_closing: bool = False) -> None:
-        if self._quarantined:
+        if self._ownership.quarantined:
             raise TransportDeadlineExceeded(
                 provider_id=self.provider_id,
                 operation=f"quarantined {operation}",
@@ -181,6 +184,7 @@ class BinanceNativeHistoricalProvider:
         self,
         operation: str,
         *,
+        call: OwnedBlockingCall,
         exclusive: bool = False,
         allow_closing: bool = False,
     ) -> None:
@@ -189,69 +193,35 @@ class BinanceNativeHistoricalProvider:
             raise DataIngestionError(
                 f"Binance provider has active work; cannot start {operation}"
             )
-        if not self._admission.acquire(blocking=False):
+        if not self._ownership.admit(call, exclusive=exclusive):
+            if self._ownership.quarantined:
+                self._check_available(operation, allow_closing=allow_closing)
             raise DataIngestionError(
                 f"Binance provider {operation} admission is saturated"
             )
 
+    def _owned_call_deadline_error(self, operation: str) -> BaseException:
+        self._quarantine()
+        return TransportDeadlineExceeded(
+            provider_id=self.provider_id,
+            operation=operation,
+            timeout_seconds=self.attempt_timeout_seconds,
+        )
+
     async def _wait_owned_call(
         self,
-        call: _OwnedBlockingCall,
+        call: OwnedBlockingCall,
         *,
         operation: str,
     ) -> Any:
-        try:
-            result = await call.wait(self.attempt_timeout_seconds)
-        except _OwnedCallTimeout as exc:
-            if (
-                call.operation_finished
-                and call.operation_finished_at is not None
-                and call.operation_finished_at <= exc.deadline
-            ):
-                try:
-                    result = call.result_or_raise()
-                except BaseException:
-                    call.adopt()
-                    raise
-                if not call.adopt():
-                    raise asyncio.CancelledError
-                return result
-            call.abandon()
-            self._quarantine()
-            raise TransportDeadlineExceeded(
-                provider_id=self.provider_id,
-                operation=operation,
-                timeout_seconds=self.attempt_timeout_seconds,
-            ) from exc
-        except asyncio.CancelledError:
-            if call.operation_finished:
-                call.adopt()
-            else:
-                call.abandon()
-            raise
-        except BaseException:
-            call.adopt()
-            raise
-        if not call.adopt():
-            raise asyncio.CancelledError
-        return result
+        return await wait_for_owned_call(
+            call,
+            timeout_seconds=self.attempt_timeout_seconds,
+            timeout_error=lambda _exc: self._owned_call_deadline_error(operation),
+        )
 
     async def _drain_owned_calls(self) -> None:
-        deadline = time.monotonic() + self.attempt_timeout_seconds
-        while True:
-            with self._owned_calls_lock:
-                retained = bool(self._owned_calls)
-            if not retained:
-                return
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                self._quarantine()
-                raise TransportDeadlineExceeded(
-                    provider_id=self.provider_id,
-                    operation="session close drain",
-                    timeout_seconds=self.attempt_timeout_seconds,
-                )
-            await asyncio.sleep(min(0.01, remaining))
+        await self._wait_for_owned_calls_idle(operation="session close drain")
 
     async def close(self) -> None:
         if self._closed:
@@ -262,7 +232,7 @@ class BinanceNativeHistoricalProvider:
         self._closing = True
         self._close_cancelled = False
         self._close_operation_succeeded = False
-        call: _OwnedBlockingCall | None = None
+        call: OwnedBlockingCall | None = None
         loop = asyncio.get_running_loop()
 
         def close_session() -> None:
@@ -270,15 +240,19 @@ class BinanceNativeHistoricalProvider:
 
         try:
             await self._drain_owned_calls()
-            self._admit("session close", exclusive=True, allow_closing=True)
-            call = _OwnedBlockingCall(
+            call = OwnedBlockingCall(
                 loop=loop,
                 operation=close_session,
                 name="binance-native-session-close",
                 finished_callback=self._finish_close_call,
             )
+            self._admit(
+                "session close",
+                call=call,
+                exclusive=True,
+                allow_closing=True,
+            )
             self._close_call = call
-            self._track_call(call)
             call.start()
             await self._wait_owned_call(call, operation="session close")
             await self._drain_owned_calls()
@@ -289,7 +263,7 @@ class BinanceNativeHistoricalProvider:
                 self._close_cancelled = False
                 self._close_operation_succeeded = False
             elif call.finished or self._close_operation_succeeded:
-                if call.failed or self._quarantined:
+                if call.failed or self._ownership.quarantined:
                     self._quarantine()
                 else:
                     self._closed = True
@@ -329,9 +303,8 @@ class BinanceNativeHistoricalProvider:
         closed_before = min(until, request_started_at)
         if closed_before <= since:
             return ()
-        self._admit("REST klines")
         loop = asyncio.get_running_loop()
-        call = _OwnedBlockingCall(
+        call = OwnedBlockingCall(
             loop=loop,
             operation=lambda: self.client.klines(
                 provider_symbol,
@@ -341,9 +314,9 @@ class BinanceNativeHistoricalProvider:
                 limit=limit,
             ),
             name="binance-native-klines",
-            finished_callback=self._forget_call,
+            finished_callback=self._ownership.release,
         )
-        self._track_call(call)
+        self._admit("REST klines", call=call)
         try:
             call.start()
             raw_rows = await self._wait_owned_call(

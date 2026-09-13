@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+
 _IMPORTS = (
     "from apps.ingestion_app.storage.bootstrap import apply_ingestion_schema",
     "from apps.ingestion_app.storage.repository import CandleRepository",
@@ -45,3 +47,28 @@ def test_package_outbox_publisher_is_the_direct_publisher_class() -> None:
         "assert package is direct"
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_transport_ownership_is_the_provider_neutral_boundary() -> None:
+    result = _fresh_process(
+        "import sys; "
+        "import apps.ingestion_app.transport.ownership; "
+        "import apps.ingestion_app.providers.binance_native; "
+        "import apps.ingestion_app.providers.ccxt; "
+        "import apps.ingestion_app.runtime.websocket; "
+        "assert 'apps.ingestion_app.runtime.blocking' not in sys.modules"
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_provider_sources_do_not_reference_removed_runtime_blocking_module() -> None:
+    provider_sources = (
+        REPOSITORY_ROOT / "src/apps/ingestion_app/providers/binance_native.py",
+        REPOSITORY_ROOT / "src/apps/ingestion_app/providers/ccxt.py",
+        REPOSITORY_ROOT / "src/apps/ingestion_app/runtime/websocket.py",
+    )
+    for path in provider_sources:
+        assert "apps.ingestion_app.runtime.blocking" not in path.read_text(
+            encoding="utf-8"
+        )
+    assert not (REPOSITORY_ROOT / "src/apps/ingestion_app/runtime/blocking.py").exists()

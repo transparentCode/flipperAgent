@@ -27,6 +27,7 @@ from apps.ingestion_app.domain.candle import (
     CanonicalCandle,
 )
 from apps.ingestion_app.domain.instrument import MarketLane
+from apps.ingestion_app.planning import IngestionPlan, compile_ingestion_plan
 from apps.ingestion_app.runtime.controller import RuntimeController
 from apps.ingestion_app.runtime.supervisor import RuntimeState, RuntimeSupervisor
 from apps.ingestion_app.services.candle_ingestion import (
@@ -337,9 +338,9 @@ def _build_runtime(
         settlement_sleep_fn=_no_wait,
     )
 
-    def supervisor_factory(candidate_settings: Any) -> RuntimeSupervisor:
+    def supervisor_factory(plan: IngestionPlan) -> RuntimeSupervisor:
         return RuntimeSupervisor(
-            settings=candidate_settings,
+            plan=plan,
             live_provider=live_provider,
             repository=repository,
             ingestion_service=ingestion_service,
@@ -351,6 +352,11 @@ def _build_runtime(
 
     controller = RuntimeController(
         settings=settings,
+        plan_factory=lambda candidate: compile_ingestion_plan(
+            candidate,
+            live_provider_ids={live_provider.provider_id},
+            historical_provider_ids={PROVIDER_ID},
+        ),
         supervisor_factory=supervisor_factory,
     )
     return (

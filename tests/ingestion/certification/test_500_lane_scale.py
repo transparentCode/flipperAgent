@@ -31,6 +31,7 @@ from .conftest import (
     RecordingIngestion,
     RecordingRecovery,
     canonical,
+    compiled_plan,
     observation,
     synthetic_lanes,
     synthetic_settings,
@@ -82,8 +83,9 @@ async def _start_sdk_stream(
     subscriptions: dict[MarketLane, str],
     clients: list[FakeSDKClient],
     *,
-    anchor: datetime = BOUNDARY,
+    anchor: datetime | None = None,
 ) -> tuple[Any, asyncio.Task[Any], FakeSDKClient]:
+    anchor = anchor or datetime.now(UTC).replace(second=0, microsecond=0)
     stream = manager.stream_closed_candles(
         subscriptions,
         base_timeframe="1m",
@@ -228,10 +230,13 @@ async def test_500_lane_controller_validation_allocates_no_runtime_resources() -
     def factory(candidate):
         return FakeSupervisor(candidate, supervisors)
 
-    controller = RuntimeController(settings=settings, supervisor_factory=factory)
+    controller = RuntimeController(
+        settings=settings,
+        plan_factory=compiled_plan,
+        supervisor_factory=factory,
+    )
     controller.validate_settings(settings)
-    assert len(supervisors) == 1
-    assert supervisors[0].run_calls == 0
+    assert supervisors == []
     assert (
         not {
             task
@@ -277,7 +282,7 @@ async def test_real_supervisor_resolves_500_lanes_and_opens_one_stream_after_mai
     htf = RecordingHTF()
     recovery = RecordingRecovery()
     supervisor = RuntimeSupervisor(
-        settings=settings,
+        plan=compiled_plan(settings),
         live_provider=provider,
         repository=repository,  # type: ignore[arg-type]
         ingestion_service=RecordingIngestion(),  # type: ignore[arg-type]
@@ -340,11 +345,17 @@ async def test_5000_forming_messages_never_enter_finalized_delivery() -> None:
     clients: list[FakeSDKClient] = []
     manager = _sdk_manager(clients)
     subscriptions = {lane: f"G0SYN{index:04d}USDT" for index, lane in enumerate(lanes)}
-    stream, next_item, client = await _start_sdk_stream(manager, subscriptions, clients)
+    anchor = datetime.now(UTC).replace(second=0, microsecond=0)
+    stream, next_item, client = await _start_sdk_stream(
+        manager,
+        subscriptions,
+        clients,
+        anchor=anchor,
+    )
 
     messages = [
         _message(
-            BOUNDARY,
+            anchor,
             symbol=symbol,
             closed=False,
         )
@@ -375,6 +386,7 @@ async def _collect_wave(
 ) -> tuple[list[Any], FakeSDKClient, Any, threading.Thread]:
     settings = synthetic_settings(500)
     lanes = synthetic_lanes(settings)
+    anchor = datetime.now(UTC).replace(second=0, microsecond=0)
     clients: list[FakeSDKClient] = []
     manager = _sdk_manager(clients)
     subscriptions = {lane: f"G0SYN{index:04d}USDT" for index, lane in enumerate(lanes)}
@@ -383,7 +395,7 @@ async def _collect_wave(
         base_timeframe="1m",
         timeframe_duration=BASE_DURATION,
         alignment_origin=ORIGIN,
-        connection_anchor=BOUNDARY,
+        connection_anchor=anchor,
     )
     received: list[Any] = []
 
@@ -400,7 +412,7 @@ async def _collect_wave(
     client = clients[0]
     messages = [
         _message(
-            BOUNDARY + wave * BASE_DURATION,
+            anchor + wave * BASE_DURATION,
             symbol=symbol,
             closed=True,
         )
@@ -441,8 +453,12 @@ async def test_two_500_lane_finalized_waves_fit_and_preserve_per_lane_order() ->
     for item in received:
         by_lane[item.lane].append(item.open_time)
     assert len(by_lane) == 500
+    first_open_times = {times[0] for times in by_lane.values()}
+    assert len(first_open_times) == 1
+    first_open_time = next(iter(first_open_times))
     assert all(
-        times == [BOUNDARY, BOUNDARY + BASE_DURATION] for times in by_lane.values()
+        times == [first_open_time, first_open_time + BASE_DURATION]
+        for times in by_lane.values()
     )
     assert client.stop_calls == 1
 
@@ -454,20 +470,21 @@ async def test_1001st_finalized_message_fails_closed_without_drop_oldest() -> No
     clients: list[FakeSDKClient] = []
     manager = _sdk_manager(clients)
     subscriptions = {lane: f"G0SYN{index:04d}USDT" for index, lane in enumerate(lanes)}
+    anchor = datetime.now(UTC).replace(second=0, microsecond=0)
     stream, next_item, client = await _start_sdk_stream(
         manager,
         subscriptions,
         clients,
-        anchor=BOUNDARY,
+        anchor=anchor,
     )
     messages = [
-        _message(BOUNDARY + wave * BASE_DURATION, symbol=symbol, closed=True)
+        _message(anchor + wave * BASE_DURATION, symbol=symbol, closed=True)
         for wave in range(2)
         for symbol in subscriptions.values()
     ]
     messages.append(
         _message(
-            BOUNDARY + 2 * BASE_DURATION,
+            anchor + 2 * BASE_DURATION,
             symbol=next(iter(subscriptions.values())),
             closed=True,
         )

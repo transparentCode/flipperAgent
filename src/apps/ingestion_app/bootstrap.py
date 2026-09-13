@@ -5,12 +5,17 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from typing import Any
 
 from fastapi import FastAPI
 
 from apps.ingestion_app.api.app import create_app
 from apps.ingestion_app.observability import IngestionObservability
+from apps.ingestion_app.planning import (
+    IngestionPlan,
+    compile_ingestion_plan,
+)
 from apps.ingestion_app.providers.base import HistoricalCandleProvider
 from apps.ingestion_app.providers.binance_native import (
     BinanceNativeHistoricalProvider,
@@ -21,6 +26,7 @@ from apps.ingestion_app.providers.factory import (
     build_historical_providers,
     referenced_provider_ids,
     validate_provider_configuration,
+    wait_until_historical_providers_idle,
 )
 from apps.ingestion_app.publication.publisher import OutboxPublisher
 from apps.ingestion_app.runtime.controller import RuntimeController
@@ -77,19 +83,11 @@ def _supervisor_factory(
     htf_service: HTFAggregationService,
     recovery_engine: RecoveryEngine,
     live_provider: BinanceWebSocketManager,
-    available_provider_ids: frozenset[str],
     observability: IngestionObservability,
-) -> Callable[[IngestionSettings], RuntimeSupervisor]:
-    def build(candidate_settings: IngestionSettings) -> RuntimeSupervisor:
-        referenced_provider_ids = _validate_provider_configuration(candidate_settings)
-        missing_provider_ids = referenced_provider_ids - available_provider_ids
-        if missing_provider_ids:
-            raise ValueError(
-                "candidate settings reference providers not owned by the application: "
-                + ", ".join(sorted(missing_provider_ids))
-            )
+) -> Callable[[IngestionPlan], RuntimeSupervisor]:
+    def build(plan: IngestionPlan) -> RuntimeSupervisor:
         return RuntimeSupervisor(
-            settings=candidate_settings,
+            plan=plan,
             live_provider=live_provider,
             repository=repository,
             ingestion_service=ingestion_service,
@@ -97,6 +95,36 @@ def _supervisor_factory(
             recovery_engine=recovery_engine,
             observability=observability,
         )
+
+    return build
+
+
+def _plan_factory(
+    *,
+    composed_live_provider_ids: frozenset[str],
+    owned_historical_provider_ids: frozenset[str],
+) -> Callable[[IngestionSettings], IngestionPlan]:
+    """Create a pure settings-to-plan seam for the composed application."""
+
+    def build(candidate_settings: IngestionSettings) -> IngestionPlan:
+        plan = compile_ingestion_plan(
+            candidate_settings,
+            live_provider_ids=composed_live_provider_ids,
+            historical_provider_ids=owned_historical_provider_ids,
+        )
+        if not plan.lanes:
+            return plan
+
+        referenced = _validate_provider_configuration(candidate_settings)
+        missing_provider_ids = referenced - (
+            composed_live_provider_ids | owned_historical_provider_ids
+        )
+        if missing_provider_ids:
+            raise ValueError(
+                "candidate settings reference providers not owned by the application: "
+                + ", ".join(sorted(missing_provider_ids))
+            )
+        return plan
 
     return build
 
@@ -166,6 +194,53 @@ async def _close_providers(providers: list[Any]) -> None:
             )
 
 
+@dataclass(slots=True)
+class _LifespanResources:
+    """Own resources created by the ingestion lifespan.
+
+    This is deliberately a cleanup ledger rather than a service registry. The
+    application still constructs and wires each service explicitly in the
+    lifespan below; this object only makes partial-startup ownership and the
+    dependency-ordered cleanup path explicit.
+    """
+
+    config_manager: ConfigManager
+    db_cleanup_required: bool = False
+    owned_provider_resources: list[Any] = field(default_factory=list)
+    controller: RuntimeController | None = None
+    retention_janitor: RetentionJanitor | None = None
+    retention_task: asyncio.Task[Any] | None = None
+    publisher_task: asyncio.Task[Any] | None = None
+
+    async def aclose(self) -> None:
+        """Close owned resources in the established lifespan order."""
+        if self.controller is not None:
+            try:
+                await self.controller.close()
+            except Exception:
+                _LOGGER.warning(
+                    "Failed to close ingestion runtime controller",
+                    exc_info=True,
+                )
+
+        if self.retention_task is not None and self.retention_janitor is not None:
+            await self.retention_janitor.stop()
+            await _cancel_task(self.retention_task)
+
+        if self.publisher_task is not None:
+            await _cancel_task(self.publisher_task)
+
+        await _close_providers(self.owned_provider_resources)
+
+        if self.db_cleanup_required:
+            try:
+                await DBPoolManager.close_pools()
+            except Exception:
+                _LOGGER.warning("Failed to close ingestion DB pools", exc_info=True)
+
+        self.config_manager.shutdown()
+
+
 def create_application(
     *,
     config_manager: ConfigManager | None = None,
@@ -178,18 +253,13 @@ def create_application(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         manager = config_manager or ConfigManager()
-        owned_providers: list[Any] = []
-        controller: RuntimeController | None = None
-        publisher_task: asyncio.Task[Any] | None = None
-        retention_janitor: RetentionJanitor | None = None
-        retention_task: asyncio.Task[Any] | None = None
-        db_init_started = False
+        resources = _LifespanResources(config_manager=manager)
 
         try:
             settings = load_ingestion_settings(manager)
             _validate_provider_configuration(settings)
 
-            db_init_started = True
+            resources.db_cleanup_required = True
             await init_db_pools(manager)
             writer_pool = DBPoolManager.get_writer_pool()
             await apply_ingestion_schema(writer_pool)
@@ -201,7 +271,7 @@ def create_application(
                 settings,
                 _referenced_provider_ids(settings),
             )
-            owned_providers.extend(provider_resources)
+            resources.owned_provider_resources.extend(provider_resources)
             live_provider = BinanceWebSocketManager(
                 stream_url=settings.websocket.stream_url,
                 queue_maxsize=settings.websocket.queue_maxsize,
@@ -246,14 +316,22 @@ def create_application(
                 htf_service=htf_service,
                 recovery_engine=recovery_engine,
                 live_provider=live_provider,
-                available_provider_ids=frozenset(historical_providers),
                 observability=application_observability,
+            )
+            plan_factory = _plan_factory(
+                composed_live_provider_ids=frozenset({live_provider.provider_id}),
+                owned_historical_provider_ids=frozenset(historical_providers),
             )
             controller = RuntimeController(
                 settings=settings,
+                plan_factory=plan_factory,
                 supervisor_factory=factory,
                 observability=application_observability,
+                historical_provider_quiescence=lambda: (
+                    wait_until_historical_providers_idle(historical_providers)
+                ),
             )
+            resources.controller = controller
             lifecycle_reconciler = AssetLifecycleReconciler(
                 settings_provider=lambda: controller.settings,
                 retry_backoff_seconds=settings.publication.error_backoff_seconds,
@@ -267,6 +345,7 @@ def create_application(
                 repository=repository,
                 settings=settings.retention,
             )
+            resources.retention_janitor = retention_janitor
 
             await controller.start()
             app.state.config_manager = manager
@@ -275,12 +354,12 @@ def create_application(
             app.state.lifecycle_reconciler = lifecycle_reconciler
             app.state.retention_janitor = retention_janitor
             app.state.observability = application_observability
-            retention_task = asyncio.create_task(
+            resources.retention_task = asyncio.create_task(
                 retention_janitor.run(),
                 name="ingestion-retention-janitor",
             )
-            app.state.retention_task = retention_task
-            publisher_task = asyncio.create_task(
+            app.state.retention_task = resources.retention_task
+            resources.publisher_task = asyncio.create_task(
                 _run_publisher_connection_loop(
                     config_manager=manager,
                     repository=repository,
@@ -290,30 +369,11 @@ def create_application(
                 ),
                 name="ingestion-outbox-publisher",
             )
-            app.state.publisher_task = publisher_task
+            app.state.publisher_task = resources.publisher_task
             _LOGGER.info("ingestion application started")
             yield
         finally:
-            if controller is not None:
-                try:
-                    await controller.close()
-                except Exception:
-                    _LOGGER.warning(
-                        "Failed to close ingestion runtime controller",
-                        exc_info=True,
-                    )
-            if retention_task is not None and retention_janitor is not None:
-                await retention_janitor.stop()
-                await _cancel_task(retention_task)
-            if publisher_task is not None:
-                await _cancel_task(publisher_task)
-            await _close_providers(owned_providers)
-            if db_init_started:
-                try:
-                    await DBPoolManager.close_pools()
-                except Exception:
-                    _LOGGER.warning("Failed to close ingestion DB pools", exc_info=True)
-            manager.shutdown()
+            await resources.aclose()
             _LOGGER.info("ingestion application stopped")
 
     return create_app(lifespan=lifespan)

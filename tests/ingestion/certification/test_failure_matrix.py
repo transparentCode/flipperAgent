@@ -13,6 +13,7 @@ from apps.ingestion_app.providers.base import (
     LiveStreamInterrupted,
     ProviderAvailabilityError,
 )
+from apps.ingestion_app.runtime.controller import RuntimeController
 from apps.ingestion_app.runtime.supervisor import RuntimeState, RuntimeSupervisor
 from apps.ingestion_app.services.recovery import RecoveryEngine
 from apps.ingestion_app.storage.repository import CandleCommitStatus
@@ -31,6 +32,7 @@ from .conftest import (
     RecordingIngestion,
     RecordingRecovery,
     canonical,
+    compiled_plan,
     observation,
     recovery_request,
     synthetic_lanes,
@@ -353,7 +355,7 @@ def _supervisor_for_wave(
     recovery = recovery or RecordingRecovery()
     provider = ControlledLiveProvider(streams)
     supervisor = RuntimeSupervisor(
-        settings=settings,
+        plan=compiled_plan(settings),
         live_provider=provider,
         repository=repository,
         ingestion_service=ingestion,
@@ -609,6 +611,38 @@ async def test_pause_stop_and_outer_cancel_release_500_lane_recovery() -> None:
                 recovery_requests=requests,
             )
         )
+        if action == "pause":
+            supervisor, _provider, _ingestion, _htf, _ = _supervisor_for_wave(
+                settings=settings,
+                streams=[stream],
+                recovery=recovery,
+            )
+            controller = RuntimeController(
+                settings=settings,
+                plan_factory=compiled_plan,
+                supervisor_factory=lambda _plan, supervisor=supervisor: supervisor,
+            )
+            await controller.start()
+            for _ in range(100):
+                await yield_control()
+                if recovery.calls:
+                    break
+            assert recovery.calls
+
+            paused = await controller.pause()
+            assert paused.desired_state.value == "paused"
+            gate.set()
+            await controller.close()
+
+            assert stream.closed
+            assert controller.snapshot().state is RuntimeState.STOPPED
+            assert not [
+                task
+                for task in asyncio.all_tasks()
+                if task.get_name() == "ingestion-supervisor" and not task.done()
+            ]
+            continue
+
         supervisor, _provider, _ingestion, _htf, _ = _supervisor_for_wave(
             settings=settings,
             streams=[stream],
@@ -620,9 +654,7 @@ async def test_pause_stop_and_outer_cancel_release_500_lane_recovery() -> None:
             if recovery.calls:
                 break
         assert recovery.calls
-        if action == "pause":
-            supervisor.pause()
-        elif action == "stop":
+        if action == "stop":
             supervisor.stop()
         else:
             task.cancel()
@@ -630,14 +662,6 @@ async def test_pause_stop_and_outer_cancel_release_500_lane_recovery() -> None:
         if action == "cancel":
             with pytest.raises(asyncio.CancelledError):
                 await asyncio.wait_for(task, timeout=3)
-        elif action == "pause":
-            for _ in range(20):
-                await yield_control()
-                if supervisor.snapshot().state is RuntimeState.STOPPED:
-                    break
-            assert supervisor.snapshot().state is RuntimeState.STOPPED
-            supervisor.stop()
-            await asyncio.wait_for(task, timeout=3)
         else:
             await asyncio.wait_for(task, timeout=3)
         assert stream.closed
