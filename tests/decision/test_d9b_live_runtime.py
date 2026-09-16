@@ -46,6 +46,9 @@ from apps.decision_app.storage.shadow_progress import (
     ShadowProgressSaveResult,
 )
 from apps.decision_app.transport.ingestion import canonical_ingestion_stream_key
+from apps.decision_app.transport.live_input import (
+    FORWARD_CANONICAL_MARKET_GAP_REASON,
+)
 from apps.decision_app.transport.shadow import (
     ShadowPublicationEnvelope,
     ValkeyShadowPublisher,
@@ -824,6 +827,49 @@ async def test_signal_path_publishes_exact_id_then_finalizes() -> None:
     await runtime.poll_once()
     assert len(meter.instruments["decision.lane.evaluation_total"].adds) == 1
     assert len(meter.instruments["decision.publication.total"].adds) == 1
+
+
+@pytest.mark.asyncio
+async def test_forward_gap_stops_current_poll_before_stale_lane_evaluation() -> None:
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(3))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    input_stream = "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h"
+    stream = _LiveInputClient(
+        stream=input_stream,
+        tail_index=2,
+        field_factory=_signal_fields,
+    )
+    startup = await _signal_coordinator(history, stream).start()
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+    )
+    attempted = False
+
+    async def unexpected_lane_attempt(*_args, **_kwargs):
+        nonlocal attempted
+        attempted = True
+
+    runtime._attempt_pending_lanes = unexpected_lane_attempt
+    stream.pending.extend(
+        [
+            ("4-0", _signal_fields(4)),
+            ("5-0", _signal_fields(5)),
+        ]
+    )
+
+    result = await runtime.poll_once()
+
+    assert len(result.input_results) == 1
+    assert result.input_results[0].reason == FORWARD_CANONICAL_MARKET_GAP_REASON
+    assert runtime.input.cursor_for(input_stream).latest_stream_id == "2-0"
+    assert input_stream in runtime.input.blocked_streams
+    assert attempted is False
 
 
 @pytest.mark.asyncio

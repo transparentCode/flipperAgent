@@ -23,6 +23,7 @@ from apps.decision_app.storage.market_history import (
     InMemoryCanonicalMarketHistoryRepository,
 )
 from apps.decision_app.transport.live_input import (
+    FORWARD_CANONICAL_MARKET_GAP_REASON,
     InputRecordResult,
     InputTransportError,
 )
@@ -1373,6 +1374,373 @@ def _input_failure(disposition: str) -> DecisionPollResult:
         lane_results={},
         cursors={},
     )
+
+
+def _forward_input_gap() -> DecisionPollResult:
+    return DecisionPollResult(
+        input_results=(
+            InputRecordResult(
+                stream_key="stream:ohlcv:ingestion:test:asset:1h",
+                stream_id="2-0",
+                series_key=None,
+                market_as_of=None,
+                disposition="RECONSTRUCTION_REQUIRED",
+                reason=FORWARD_CANONICAL_MARKET_GAP_REASON,
+            ),
+        ),
+        lane_results={},
+        cursors={},
+    )
+
+
+@pytest.mark.asyncio
+async def test_forward_input_gap_rebuilds_once_and_continues_with_fresh_generation() -> (
+    None
+):
+    input_stream = "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h"
+    stream = _LiveInputClient(
+        stream=input_stream,
+        tail_index=2,
+        field_factory=_signal_fields,
+    )
+    first_history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(3))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    second_history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(5))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    publisher_client = _IsolatedSignalClient()
+    generations: list[DecisionRuntimeGeneration] = []
+    factory_reasons: list[str] = []
+
+    async def factory(*, reason: str, generation_id: int):
+        factory_reasons.append(reason)
+        history = first_history if generation_id == 1 else second_history
+        if generation_id == 2:
+            stream.tail_index = 4
+        startup = await _signal_coordinator(history, stream).start()
+        runtime = LiveDecisionRuntime(
+            startup=startup,
+            timeframe_grid=SIGNAL_GRID,
+            stream_client=stream,
+            history_repository=history,
+            signal_publisher=ValkeySignalPublisher(publisher_client),
+            now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+        )
+        generation = DecisionRuntimeGeneration(
+            generation_id=generation_id,
+            created_at=NOW,
+            startup=startup,
+            live_runtime=runtime,
+        )
+        generations.append(generation)
+        return generation
+
+    stream.pending.append(("4-0", _signal_fields(4)))
+    service = DecisionService(
+        generation_factory=factory,
+        block_ms=1,
+        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+    )
+    await service.start()
+    try:
+        await _wait_until(
+            lambda: (
+                len(generations) == 2
+                and service.generation is not None
+                and service.generation.generation_id == 2
+                and service.service_state == "RUNNING"
+            )
+        )
+        assert factory_reasons == ["initial", FORWARD_CANONICAL_MARKET_GAP_REASON]
+        assert generations[0].live_runtime.input.blocked_streams[input_stream]
+
+        stream.pending.append(("5-0", _signal_fields(5)))
+        signal_stream = "signals:BTCUSDT:1h"
+        await _wait_until(
+            lambda: len(publisher_client.entries.get(signal_stream, {})) == 1
+        )
+        assert tuple(publisher_client.entries[signal_stream]) == (
+            f"{int(_signal_bar(5).market_as_of.timestamp() * 1000)}-0",
+        )
+        assert (
+            generations[1].live_runtime.input.cursor_for(input_stream).latest_stream_id
+            == "5-0"
+        )
+        assert service.snapshot().generation_id == 2
+    finally:
+        await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_stateful_forward_gap_reconstructs_from_durable_checkpoint() -> None:
+    input_stream = "stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h"
+    checkpoints = InMemoryCheckpointRepository()
+    first_history = InMemoryCanonicalMarketHistoryRepository(
+        {SR_SERIES: tuple(sr_bar(index) for index in range(50))},
+        timeframe_grid=SR_GRID,
+    )
+    second_history = InMemoryCanonicalMarketHistoryRepository(
+        {SR_SERIES: tuple(sr_bar(index) for index in range(52))},
+        timeframe_grid=SR_GRID,
+    )
+    stream = _LiveInputClient(
+        stream=input_stream,
+        tail_index=49,
+        field_factory=sr_stream_fields,
+    )
+    generations: list[DecisionRuntimeGeneration] = []
+    initial_checkpoint = None
+
+    async def factory(*, reason: str, generation_id: int):
+        nonlocal initial_checkpoint
+        del reason
+        history = first_history if generation_id == 1 else second_history
+        if generation_id == 2:
+            stream.tail_index = 51
+        startup = await _sr_coordinator(history, checkpoints, stream).start()
+        if generation_id == 1:
+            identity = next(iter(startup.runtimes.values())).identity
+            initial_checkpoint = await checkpoints.load(identity)
+        runtime = LiveDecisionRuntime(
+            startup=startup,
+            timeframe_grid=SR_GRID,
+            stream_client=stream,
+            history_repository=history,
+            checkpoint_repository=checkpoints,
+            now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+        )
+        generation = DecisionRuntimeGeneration(
+            generation_id=generation_id,
+            created_at=NOW,
+            startup=startup,
+            live_runtime=runtime,
+        )
+        generations.append(generation)
+        return generation
+
+    # Bar 50 is absent from the retained stream, so bar 51 is the first
+    # post-suspension event and cannot be bridged by generation 1.
+    stream.pending.append(("51-0", sr_stream_fields(51)))
+    service = DecisionService(
+        generation_factory=factory,
+        block_ms=1,
+        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+    )
+    await service.start()
+    try:
+        await _wait_until(
+            lambda: (
+                len(generations) == 2
+                and service.generation is not None
+                and service.generation.generation_id == 2
+                and service.service_state == "RUNNING"
+            )
+        )
+        assert initial_checkpoint is not None
+        auto_generation = generations[1]
+        auto_runtime = auto_generation.live_runtime
+        auto_startup = auto_generation.startup
+        auto_evidence = auto_startup.snapshot.reconstruction_evidence["BTCUSDT:main"]
+        assert auto_evidence["checkpoint_loaded"] is True
+        assert auto_evidence["replay_step_count"] == 2
+        assert auto_evidence["no_publication"] is True
+        assert auto_startup.snapshot.no_publication is True
+
+        identity = next(iter(auto_startup.runtimes.values())).identity
+        binding_id = auto_startup.runtimes["BTCUSDT:main"].stateful_binding_ids[0]
+        auto_state = (
+            auto_runtime.lanes["BTCUSDT:main"]
+            .runtime.state_store.get(binding_id)
+            .committed_state
+        )
+        auto_checkpoint = await checkpoints.load(identity)
+        assert auto_checkpoint is not None
+        assert auto_checkpoint.market_as_of == sr_bar(51).market_as_of
+
+        # Reconstruct the same checkpoint->cutoff interval through a fresh
+        # process-shaped coordinator and compare its durable state outcome.
+        restart_checkpoints = InMemoryCheckpointRepository()
+        await restart_checkpoints.save(initial_checkpoint)
+        restart_stream = _LiveInputClient(
+            stream=input_stream,
+            tail_index=51,
+            field_factory=sr_stream_fields,
+        )
+        restart_startup = await _sr_coordinator(
+            second_history,
+            restart_checkpoints,
+            restart_stream,
+        ).start()
+        restart_identity = next(iter(restart_startup.runtimes.values())).identity
+        restart_state = (
+            restart_startup.runtimes["BTCUSDT:main"]
+            .state_store.get(binding_id)
+            .committed_state
+        )
+        restart_checkpoint = await restart_checkpoints.load(restart_identity)
+        assert restart_state == auto_state
+        assert restart_checkpoint == auto_checkpoint
+
+        # A normal event after the fresh tail is consumed exactly once by the
+        # replacement generation; no old cursor remains in the live path.
+        stream.pending.append(("52-0", sr_stream_fields(52)))
+        await _wait_until(
+            lambda: (
+                auto_runtime.input.cursor_for(input_stream).latest_stream_id == "52-0"
+            )
+        )
+        assert auto_runtime.input.cursor_for(input_stream).latest_stream_id == "52-0"
+    finally:
+        await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_forward_input_gap_stops_old_generation_when_rebuild_fails() -> None:
+    runtime = _ResultRuntime([_forward_input_gap()])
+    factory_calls: list[int] = []
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        factory_calls.append(generation_id)
+        if generation_id == 2:
+            raise RuntimeError("durable reconstruction unavailable")
+        return _generation(generation_id, runtime)
+
+    service = DecisionService(
+        generation_factory=factory,
+        block_ms=1,
+        now_fn=lambda: NOW,
+    )
+    await service.start()
+    try:
+        await _wait_until(lambda: service.service_state == "ERROR")
+        assert factory_calls == [1, 2]
+        assert runtime.calls == 1
+        assert service.generation is None
+        assert service.snapshot().ready is False
+        await asyncio.sleep(0)
+        assert factory_calls == [1, 2]
+        assert runtime.calls == 1
+    finally:
+        await service.stop()
+
+
+def test_forward_input_gap_does_not_override_pending_lifecycle_rebuild() -> None:
+    service = DecisionService(generation_factory=lambda **_: None)  # type: ignore[arg-type]
+    service._rebuild_requested = True
+    service._rebuild_reason = "manifest changed"
+    service._rebuild_source = "LIFECYCLE_RECONCILIATION"
+
+    service._classify_poll_result(_forward_input_gap())
+
+    assert service._rebuild_requested is True
+    assert service._rebuild_reason == "manifest changed"
+    assert service._rebuild_source == "LIFECYCLE_RECONCILIATION"
+
+
+@pytest.mark.parametrize(
+    "reason",
+    (
+        "late post-startup historical event",
+        "retained bar lacks durable provenance",
+        "generic lane reconstruction",
+    ),
+)
+def test_non_forward_reconstruction_does_not_request_generation_rebuild(
+    reason: str,
+) -> None:
+    service = DecisionService(generation_factory=lambda **_: None)  # type: ignore[arg-type]
+    result = DecisionPollResult(
+        input_results=(
+            InputRecordResult(
+                stream_key="stream:ohlcv:ingestion:test:asset:1h",
+                stream_id="2-0",
+                series_key=None,
+                market_as_of=None,
+                disposition="RECONSTRUCTION_REQUIRED",
+                reason=reason,
+            ),
+        ),
+        lane_results={},
+        cursors={},
+    )
+
+    service._classify_poll_result(result)
+
+    assert service._rebuild_requested is False
+    assert service._rebuild_source is None
+    assert service.service_state == "DEGRADED"
+
+
+@pytest.mark.asyncio
+async def test_forward_input_gap_preserves_paused_desired_state_on_rebuild() -> None:
+    generated: list[int] = []
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        generated.append(generation_id)
+        return _generation(generation_id, _Runtime())
+
+    service = DecisionService(generation_factory=factory, now_fn=lambda: NOW)
+    service._desired_state = "PAUSED"
+    service._service_state = "PAUSED"
+    service._classify_poll_result(_forward_input_gap())
+    assert service._rebuild_source == "INPUT_RECONSTRUCTION"
+
+    await service._rebuild_locked(FORWARD_CANONICAL_MARKET_GAP_REASON)
+
+    snapshot = service.snapshot()
+    assert generated == [1]
+    assert snapshot.service_state == "PAUSED"
+    assert snapshot.desired_state == "PAUSED"
+    assert snapshot.generation_id == 1
+    assert snapshot.last_error is None
+
+
+@pytest.mark.asyncio
+async def test_transport_error_precedes_forward_gap_rebuild() -> None:
+    class _TransportThenGapRuntime(_Runtime):
+        def __init__(self) -> None:
+            super().__init__()
+            self._first = True
+
+        async def poll_once(self, *, evaluate_lanes: bool = True) -> DecisionPollResult:
+            del evaluate_lanes
+            self.calls += 1
+            if self._first:
+                self._first = False
+                raise InputTransportError("broker unavailable")
+            return _forward_input_gap()
+
+    first = _TransportThenGapRuntime()
+    generated: list[int] = []
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        generated.append(generation_id)
+        return _generation(generation_id, first if generation_id == 1 else _Runtime())
+
+    service = DecisionService(
+        generation_factory=factory,
+        block_ms=1,
+        now_fn=lambda: NOW,
+    )
+    await service.start()
+    try:
+        await _wait_until(
+            lambda: (
+                service.generation is not None
+                and service.generation.generation_id == 2
+                and service.service_state == "RUNNING"
+            )
+        )
+        assert generated == [1, 2]
+        assert first.calls == 2
+    finally:
+        await service.stop()
 
 
 @pytest.mark.asyncio

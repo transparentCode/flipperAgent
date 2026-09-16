@@ -56,6 +56,7 @@ from apps.decision_app.storage.shadow_progress import (
 )
 from apps.decision_app.transport.ingestion import CanonicalMarketEvent
 from apps.decision_app.transport.live_input import (
+    FORWARD_CANONICAL_MARKET_GAP_REASON,
     DirectCursorInput,
     InputRecordResult,
 )
@@ -83,6 +84,13 @@ LiveLaneStatus = Literal[
 ]
 
 _CLOCK_BEHIND_REASON = "resolver clock is behind lane market cutoff"
+
+
+def _is_forward_canonical_market_gap(result: InputRecordResult) -> bool:
+    return (
+        result.disposition == "RECONSTRUCTION_REQUIRED"
+        and result.reason == FORWARD_CANONICAL_MARKET_GAP_REASON
+    )
 
 
 @dataclass(slots=True)
@@ -399,21 +407,24 @@ class LiveDecisionRuntime:
             raise TypeError("evaluate_lanes must be bool")
 
         poll_evidence = {lane_id: _LanePollEvidence() for lane_id in self._lanes}
-        if evaluate_lanes and not await self._drain_startup_catchup(poll_evidence):
-            lane_results = {
-                lane_id: self._lane_result(live_lane, poll_evidence[lane_id])
-                for lane_id, live_lane in sorted(self._lanes.items())
-            }
-            return DecisionPollResult(
-                input_results=(),
-                lane_results=lane_results,
-                cursors=self._reader.cursors,
-                relay_results={},
-            )
-
-        batch = await self._reader.read_once()
         input_results: list[InputRecordResult] = []
         relay_results: dict[str, PriceRelayResult] = {}
+
+        def build_result() -> DecisionPollResult:
+            return DecisionPollResult(
+                input_results=tuple(input_results),
+                lane_results={
+                    lane_id: self._lane_result(live_lane, poll_evidence[lane_id])
+                    for lane_id, live_lane in sorted(self._lanes.items())
+                },
+                cursors=self._reader.cursors,
+                relay_results=relay_results,
+            )
+
+        if evaluate_lanes and not await self._drain_startup_catchup(poll_evidence):
+            return build_result()
+
+        batch = await self._reader.read_once()
         failed_streams: set[str] = set()
         deferred_failures: dict[str, InputRecordResult] = {}
         if evaluate_lanes and any(
@@ -514,6 +525,16 @@ class LiveDecisionRuntime:
                             observed_target_market_as_of=result.market_as_of,
                         )
                         failed_streams.add(stream_key)
+                        if _is_forward_canonical_market_gap(result):
+                            # The current generation has an unbridgeable input
+                            # cursor.  Return immediately so no later record
+                            # in this batch can trigger stale evaluation or
+                            # publication before the service rebuilds.  Keep
+                            # the existing same-poll relay reconciliation
+                            # contract before handing control back to D9C.
+                            if self._price_relay is not None:
+                                await self._reconcile_price_relay(relay_results)
+                            return build_result()
                     elif result.disposition == "INSERTED":
                         self._remember_relay_bar(
                             pending.event.series_key, pending.event.bar
@@ -542,16 +563,7 @@ class LiveDecisionRuntime:
             # the relay one bounded reconciliation attempt rather than
             # waiting for an unrelated market event.
             await self._reconcile_price_relay(relay_results)
-        lane_results = {
-            lane_id: self._lane_result(live_lane, poll_evidence[lane_id])
-            for lane_id, live_lane in sorted(self._lanes.items())
-        }
-        return DecisionPollResult(
-            input_results=tuple(input_results),
-            lane_results=lane_results,
-            cursors=self._reader.cursors,
-            relay_results=relay_results,
-        )
+        return build_result()
 
     async def _drain_startup_catchup(
         self,

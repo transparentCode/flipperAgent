@@ -40,6 +40,8 @@ InputDisposition = Literal[
     "MALFORMED",
 ]
 
+FORWARD_CANONICAL_MARKET_GAP_REASON = "forward canonical market gap"
+
 
 class LiveInputError(ValueError):
     """Base error for direct-cursor input contract violations."""
@@ -503,11 +505,11 @@ class DirectCursorInput:
             self.block_stream(stream_key, "conflicting canonical identity")
             return self._result(pending, "CONFLICT", "conflicting canonical identity")
         if event.bar.bar_open_at > latest.bar_close_at:
-            self.block_stream(stream_key, "forward canonical market gap")
+            self.block_stream(stream_key, FORWARD_CANONICAL_MARKET_GAP_REASON)
             return self._result(
                 pending,
                 "RECONSTRUCTION_REQUIRED",
-                "forward canonical market gap",
+                FORWARD_CANONICAL_MARKET_GAP_REASON,
             )
         if event.bar.bar_open_at < latest.bar_close_at:
             self.block_stream(stream_key, "overlapping canonical bar")
@@ -582,6 +584,7 @@ class DirectCursorInput:
 
 
 __all__ = [
+    "FORWARD_CANONICAL_MARKET_GAP_REASON",
     "DirectCursorInput",
     "InputDisposition",
     "InputReadBatch",

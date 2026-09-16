@@ -145,11 +145,20 @@ cutoff before it can be `LIVE`; it may not continue from stale committed state.
 The affected lane's `LaneCommitWatermark` remains unchanged while input reading,
 BarStore advancement, PriceRelay, and unrelated lanes continue.
 
-In the current D9C service, `RECONSTRUCTION_REQUIRED` is a lane-local
-fail-closed condition. It marks the service degraded in place and does not
-automatically rebuild the whole generation, so healthy input streams and lanes
-continue. Explicit manual `reconnect()`/`resume()` and authoritative lifecycle
-reconciliation are the current full-generation reconstruction boundaries.
+In the current D9C service, generic `RECONSTRUCTION_REQUIRED` remains a
+lane-local fail-closed condition. It marks the service degraded in place and
+does not automatically rebuild the whole generation, so healthy input streams
+and lanes continue; malformed, conflicting, late, and provenance failures keep
+that behavior. A proven direct-cursor retention gap is the narrow exception:
+when an input result has disposition `RECONSTRUCTION_REQUIRED` and the exact
+reason `forward canonical market gap`, D9C marks the generation unusable and
+requests one bounded `INPUT_RECONSTRUCTION` generation rebuild. The normal D9A
+startup path then reloads durable canonical history and checkpoints, performs
+publication-suppressed causal reconstruction, captures fresh stream tails, and
+installs the replacement before live reads resume. Manual `reconnect()`/`resume()`
+and authoritative lifecycle reconciliation remain full-generation boundaries,
+with lifecycle reconciliation retaining precedence over a concurrently observed
+input retention gap.
 
 ## FeaturePlan and policy
 
@@ -305,14 +314,15 @@ Startup captures input progress first:
 8. process only post-cutoff events.
 
 During a temporary broker interruption, the runtime resumes from its in-memory
-`InputReadCursor` when the stream is continuous. If retention exposes a detectable
-stream gap, the affected input/lane remains fail-closed in the current generation
-and the service is degraded; it does not silently rewrite causal history or start
-an automatic global rebuild. An explicit reconnect or authoritative lifecycle
-reconciliation starts fresh D9A reconstruction, captures new progress positions,
-and only then resumes input reading. A full process restart reconstructs state and
-resumes input reading; it does not replay stale historical trading decisions from
-a persistent PEL in V1.
+`InputReadCursor` when the stream is continuous. If retention exposes the
+specific detectable `forward canonical market gap`, the current generation is
+failed closed and the market loop requests bounded `INPUT_RECONSTRUCTION`; the
+same D9A startup path reloads durable state, suppresses historical publication,
+captures fresh progress positions, and only then resumes input reading. Other
+`RECONSTRUCTION_REQUIRED` causes remain lane-local degraded conditions and do
+not trigger that automatic global rebuild. A full process restart reconstructs
+state and resumes input reading; it does not replay stale historical trading
+decisions from a persistent PEL in V1.
 
 ## Lifecycle, control, and observability
 

@@ -26,7 +26,10 @@ from apps.decision_app.runtime.lifecycle import (
     LifecycleReadResult,
 )
 from apps.decision_app.runtime.live import DecisionPollResult
-from apps.decision_app.transport.live_input import InputTransportError
+from apps.decision_app.transport.live_input import (
+    FORWARD_CANONICAL_MARKET_GAP_REASON,
+    InputTransportError,
+)
 from libs.contracts.decision import FrozenMapping, deep_freeze, require_utc
 
 ServiceState = Literal[
@@ -40,7 +43,11 @@ ServiceState = Literal[
     "STOPPED",
 ]
 DesiredState = Literal["RUNNING", "PAUSED"]
-RebuildSource = Literal["LIFECYCLE_RECONCILIATION", "MANUAL"]
+RebuildSource = Literal[
+    "LIFECYCLE_RECONCILIATION",
+    "MANUAL",
+    "INPUT_RECONSTRUCTION",
+]
 
 _CONTROL_STATES = frozenset({"PAUSED", "REBUILDING", "STOPPING", "STOPPED", "ERROR"})
 
@@ -881,6 +888,11 @@ class DecisionService:
             item.status in {"INVALID", "HALTED"}
             for item in result.lane_results.values()
         )
+        forward_input_gap = any(
+            item.disposition == "RECONSTRUCTION_REQUIRED"
+            and item.reason == FORWARD_CANONICAL_MARKET_GAP_REASON
+            for item in result.input_results
+        )
         relay_failure = any(
             item.continuity_status != "CONTINUOUS"
             or item.publication_outcome in {"FAILED", "CONFLICT"}
@@ -900,6 +912,26 @@ class DecisionService:
                 self._service_state = "DEGRADED"
             self._market_error = "D9B reported a non-rebuildable lane or input fault"
             self._last_error = self._market_error
+        elif forward_input_gap:
+            # Only this exact input-side condition proves that the current
+            # direct-cursor position cannot bridge the canonical sequence.
+            # Generic lane/input reconstruction remains lane-local below.
+            if self._rebuild_source == "LIFECYCLE_RECONCILIATION":
+                # Lifecycle reconciliation has stronger authority when it was
+                # already admitted while this poll was executing.
+                self._rebuild_requested = True
+            elif not self._rebuild_requested or self._rebuild_source is None:
+                self._rebuild_requested = True
+                self._rebuild_reason = FORWARD_CANONICAL_MARKET_GAP_REASON
+                self._rebuild_source = "INPUT_RECONSTRUCTION"
+            if self._service_state not in _CONTROL_STATES:
+                self._service_state = "DEGRADED"
+            self._market_error = (
+                "D9B reported forward canonical market gap; "
+                "durable generation reconstruction requested"
+            )
+            self._last_error = self._market_error
+            self._signal_control_waiters()
         elif reconstruction:
             if self._service_state not in _CONTROL_STATES:
                 self._service_state = "DEGRADED"
