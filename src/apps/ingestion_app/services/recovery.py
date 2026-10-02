@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 from collections.abc import (
     AsyncIterator,
     Awaitable,
@@ -25,6 +26,7 @@ from apps.ingestion_app.planning import IngestionPlan
 from apps.ingestion_app.providers.base import (
     HistoricalCandleProvider,
     ProviderAvailabilityError,
+    ProviderRateLimitedError,
     TransportDeadlineExceeded,
 )
 from apps.ingestion_app.services.candle_ingestion import CandleIngestionService
@@ -42,6 +44,23 @@ _LOGGER = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_
 
 class RecoveryExhaustedError(DataIngestionError):
     """All configured providers completed but a recovery page is still incomplete."""
+
+
+class RecoveryRateLimitedError(RecoveryExhaustedError):
+    """Recovery is paused until the exchange's rate-limit interval expires."""
+
+    def __init__(self, *, retry_after_seconds: float) -> None:
+        if isinstance(retry_after_seconds, bool) or not isinstance(
+            retry_after_seconds, (int, float)
+        ):
+            raise TypeError("retry_after_seconds must be a number")
+        if not math.isfinite(float(retry_after_seconds)) or retry_after_seconds <= 0:
+            raise ValueError("retry_after_seconds must be positive")
+        self.retry_after_seconds = float(retry_after_seconds)
+        super().__init__(
+            f"recovery provider is rate limited; retry after "
+            f"{self.retry_after_seconds:g}s"
+        )
 
 
 @dataclass(slots=True)
@@ -448,6 +467,19 @@ class RecoveryEngine:
                     # falling through to another provider could overlap the
                     # still-running SDK operation.
                     raise
+                except ProviderRateLimitedError as exc:
+                    _LOGGER.warning(
+                        "recovery provider rate limited: provider=%s lane=%s "
+                        "page=[%s,%s) retry_after=%ss",
+                        provider_id,
+                        request.lane,
+                        page_start,
+                        page_end,
+                        exc.retry_after_seconds,
+                    )
+                    raise RecoveryRateLimitedError(
+                        retry_after_seconds=exc.retry_after_seconds
+                    ) from exc
                 except ProviderAvailabilityError as exc:
                     last_provider_error = exc
                     cause = exc.__cause__
@@ -752,4 +784,8 @@ class RecoveryEngine:
             pending = follow_ups
 
 
-__all__ = ["RecoveryEngine", "RecoveryExhaustedError"]
+__all__ = [
+    "RecoveryEngine",
+    "RecoveryExhaustedError",
+    "RecoveryRateLimitedError",
+]

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import math
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from time import monotonic
 from typing import Any
 
 import ccxt.async_support as ccxt
@@ -14,7 +16,9 @@ from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.validation import require_non_empty_string
 from apps.ingestion_app.providers.base import (
     ProviderAvailabilityError,
+    ProviderRateLimitedError,
     TransportDeadlineExceeded,
+    parse_retry_after_seconds,
 )
 from apps.ingestion_app.providers.request import (
     epoch_milliseconds,
@@ -48,6 +52,7 @@ class CCXTHistoricalProvider:
         exchange: Any | None = None,
         attempt_timeout_seconds: float = 30,
         max_concurrency: int = 1,
+        monotonic_fn: Callable[[], float] = monotonic,
     ) -> None:
         require_non_empty_string(provider_id, field_name="provider_id")
         require_non_empty_string(exchange_id, field_name="exchange_id")
@@ -68,6 +73,8 @@ class CCXTHistoricalProvider:
         self.provider_id = provider_id
         self.attempt_timeout_seconds = float(attempt_timeout_seconds)
         self.max_concurrency = max_concurrency
+        self._monotonic = monotonic_fn
+        self._rate_limited_until = 0.0
         self._ownership = OwnedOperationTracker(max_concurrency)
         self._closed = False
         self._closing = False
@@ -180,6 +187,32 @@ class CCXTHistoricalProvider:
     async def _drain_owned_calls(self) -> None:
         await self._wait_for_owned_calls_idle(operation="exchange close drain")
 
+    def _raise_if_rate_limited(self) -> None:
+        remaining = self._rate_limited_until - self._monotonic()
+        if remaining > 0:
+            raise ProviderRateLimitedError(
+                provider_id=self.provider_id,
+                retry_after_seconds=remaining,
+            )
+
+    def _record_rate_limit(self) -> ProviderRateLimitedError:
+        retry_after = parse_retry_after_seconds(
+            getattr(self.exchange, "last_response_headers", None)
+        )
+        now = self._monotonic()
+        self._rate_limited_until = max(
+            self._rate_limited_until,
+            now + retry_after,
+        )
+        return ProviderRateLimitedError(
+            provider_id=self.provider_id,
+            retry_after_seconds=self._rate_limited_until - now,
+        )
+
+    @staticmethod
+    def _is_rate_limit_error(error: BaseException) -> bool:
+        return isinstance(error, (ccxt.RateLimitExceeded, ccxt.DDoSProtection))
+
     async def _fetch_raw_rows(
         self,
         *,
@@ -209,6 +242,8 @@ class CCXTHistoricalProvider:
                 }
             )
         except ccxt.BaseError as exc:
+            if self._is_rate_limit_error(exc):
+                raise self._record_rate_limit() from exc
             if _is_provider_availability_error(exc):
                 raise ProviderAvailabilityError(
                     f"CCXT provider unavailable while fetching Binance USD-M "
@@ -243,6 +278,7 @@ class CCXTHistoricalProvider:
             until=until,
             limit=limit,
         )
+        self._raise_if_rate_limited()
         closed_before = min(until, request_started_at)
         if closed_before <= since:
             return ()
@@ -297,6 +333,8 @@ class CCXTHistoricalProvider:
             await self.exchange.load_markets()
             market = self.exchange.market(provider_symbol)
         except ccxt.BaseError as exc:
+            if self._is_rate_limit_error(exc):
+                raise self._record_rate_limit() from exc
             if _is_provider_availability_error(exc):
                 raise ProviderAvailabilityError(
                     f"CCXT provider unavailable while resolving Binance USD-M "

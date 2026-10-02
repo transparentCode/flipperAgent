@@ -4,16 +4,39 @@ import asyncio
 from collections.abc import AsyncIterator, Mapping
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from apps.ingestion_app.domain.candle import CandleObservation
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.providers.base import (
+    DEFAULT_RATE_LIMIT_BACKOFF_SECONDS,
     HistoricalCandleProvider,
     LiveCandleProvider,
+    parse_retry_after_seconds,
 )
 
 LANE = MarketLane("binance", "BTC-USDT-PERP", "1m")
 SINCE = datetime(2026, 1, 1, tzinfo=UTC)
 UNTIL = datetime(2026, 1, 1, 1, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        ({"Retry-After": "12.5"}, 12.5),
+        ({"retry-after": 7}, 7.0),
+        ({"RETRY-AFTER": "3"}, 3.0),
+        ({"Retry-After": "later"}, DEFAULT_RATE_LIMIT_BACKOFF_SECONDS),
+        ({"Retry-After": "0"}, DEFAULT_RATE_LIMIT_BACKOFF_SECONDS),
+        ({"Retry-After": "-2"}, DEFAULT_RATE_LIMIT_BACKOFF_SECONDS),
+        ({"Retry-After": "nan"}, DEFAULT_RATE_LIMIT_BACKOFF_SECONDS),
+        ({"Retry-After": "Wed, 21 Oct 2015 07:28:00 GMT"}, 60.0),
+        ({}, DEFAULT_RATE_LIMIT_BACKOFF_SECONDS),
+        (None, DEFAULT_RATE_LIMIT_BACKOFF_SECONDS),
+    ],
+)
+def test_parse_retry_after_seconds(headers: object, expected: float) -> None:
+    assert parse_retry_after_seconds(headers) == expected
 
 
 class _FakeHistoricalProvider:

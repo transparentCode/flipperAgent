@@ -16,6 +16,7 @@ import apps.ingestion_app.transport.ownership as ownership_module
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.providers.base import (
     ProviderAvailabilityError,
+    ProviderRateLimitedError,
     TransportDeadlineExceeded,
 )
 from apps.ingestion_app.providers.binance_usdm.rest_native import (
@@ -777,6 +778,103 @@ async def test_binance_client_error_remains_fatal() -> None:
     assert not isinstance(raised.value, ProviderAvailabilityError)
     assert raised.value.__cause__ is original
     await _wait_for_retained_workers(provider, 0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("status_code", "retry_after"),
+    [(429, 12.0), (418, 17.0)],
+)
+async def test_binance_rate_limit_closes_gate_until_retry_after(
+    status_code: int,
+    retry_after: float,
+) -> None:
+    clock = [100.0]
+    client = _FakeBinanceClient(
+        error=ClientError(
+            status_code,
+            -1003,
+            "rate limited",
+            {"Retry-After": str(retry_after)},
+        )
+    )
+    provider = BinanceNativeHistoricalProvider(
+        client,
+        monotonic_fn=lambda: clock[0],
+    )
+
+    with pytest.raises(ProviderRateLimitedError) as raised:
+        await provider.fetch_closed_candles(
+            lane=LANE,
+            provider_symbol="BTCUSDT",
+            timeframe_duration=MINUTE,
+            since=SINCE,
+            until=UNTIL,
+            limit=10,
+        )
+    assert raised.value.retry_after_seconds == retry_after
+    assert isinstance(raised.value.__cause__, ClientError)
+    assert len(client.calls) == 1
+    await provider.wait_until_idle()
+
+    with pytest.raises(ProviderRateLimitedError) as gated:
+        await provider.fetch_closed_candles(
+            lane=LANE,
+            provider_symbol="BTCUSDT",
+            timeframe_duration=MINUTE,
+            since=SINCE,
+            until=UNTIL,
+            limit=10,
+        )
+    assert gated.value.retry_after_seconds == retry_after
+    assert len(client.calls) == 1
+
+    clock[0] += retry_after
+    client.error = None
+    await provider.fetch_closed_candles(
+        lane=LANE,
+        provider_symbol="BTCUSDT",
+        timeframe_duration=MINUTE,
+        since=SINCE,
+        until=UNTIL,
+        limit=10,
+    )
+    assert len(client.calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_binance_rate_limit_missing_header_uses_default() -> None:
+    provider = BinanceNativeHistoricalProvider(
+        _FakeBinanceClient(error=ClientError(429, -1003, "rate limited", {}))
+    )
+
+    with pytest.raises(ProviderRateLimitedError) as raised:
+        await provider.fetch_closed_candles(
+            lane=LANE,
+            provider_symbol="BTCUSDT",
+            timeframe_duration=MINUTE,
+            since=SINCE,
+            until=UNTIL,
+            limit=10,
+        )
+
+    await provider.wait_until_idle()
+    assert raised.value.retry_after_seconds == pytest.approx(60.0)
+
+
+def test_binance_shorter_concurrent_rate_limit_does_not_shorten_gate() -> None:
+    clock = [100.0]
+    provider = BinanceNativeHistoricalProvider(
+        _FakeBinanceClient(),
+        monotonic_fn=lambda: clock[0],
+    )
+    provider._record_rate_limit({"Retry-After": "20"})
+    clock[0] = 105.0
+
+    later_error = provider._record_rate_limit({"Retry-After": "3"})
+
+    assert provider._rate_limited_until == 120.0
+    assert later_error.retry_after_seconds == 15.0
 
 
 @pytest.mark.asyncio

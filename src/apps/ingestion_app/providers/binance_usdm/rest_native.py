@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import math
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from time import monotonic
 from typing import Any
 
-from binance.error import ServerError
+from binance.error import ClientError, ServerError
 from binance.um_futures import UMFutures
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import SSLError
@@ -17,7 +19,9 @@ from apps.ingestion_app.domain.candle import CandleObservation
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.providers.base import (
     ProviderAvailabilityError,
+    ProviderRateLimitedError,
     TransportDeadlineExceeded,
+    parse_retry_after_seconds,
 )
 from apps.ingestion_app.providers.request import (
     epoch_milliseconds,
@@ -51,6 +55,7 @@ class BinanceNativeHistoricalProvider:
         *,
         attempt_timeout_seconds: float = 30,
         max_concurrency: int = 1,
+        monotonic_fn: Callable[[], float] = monotonic,
     ) -> None:
         if isinstance(attempt_timeout_seconds, bool) or not isinstance(
             attempt_timeout_seconds,
@@ -73,6 +78,8 @@ class BinanceNativeHistoricalProvider:
         )
         self.attempt_timeout_seconds = float(attempt_timeout_seconds)
         self.max_concurrency = max_concurrency
+        self._monotonic = monotonic_fn
+        self._rate_limited_until = 0.0
         self._ownership = OwnedOperationTracker(max_concurrency)
         self._closed = False
         self._closing = False
@@ -177,6 +184,26 @@ class BinanceNativeHistoricalProvider:
     async def _drain_owned_calls(self) -> None:
         await self._wait_for_owned_calls_idle(operation="session close drain")
 
+    def _raise_if_rate_limited(self) -> None:
+        remaining = self._rate_limited_until - self._monotonic()
+        if remaining > 0:
+            raise ProviderRateLimitedError(
+                provider_id=self.provider_id,
+                retry_after_seconds=remaining,
+            )
+
+    def _record_rate_limit(self, headers: object) -> ProviderRateLimitedError:
+        retry_after = parse_retry_after_seconds(headers)
+        now = self._monotonic()
+        self._rate_limited_until = max(
+            self._rate_limited_until,
+            now + retry_after,
+        )
+        return ProviderRateLimitedError(
+            provider_id=self.provider_id,
+            retry_after_seconds=self._rate_limited_until - now,
+        )
+
     async def close(self) -> None:
         if self._closed:
             return
@@ -254,6 +281,7 @@ class BinanceNativeHistoricalProvider:
             until=until,
             limit=limit,
         )
+        self._raise_if_rate_limited()
         closed_before = min(until, request_started_at)
         if closed_before <= since:
             return ()
@@ -280,6 +308,8 @@ class BinanceNativeHistoricalProvider:
         except TransportDeadlineExceeded:
             raise
         except Exception as exc:
+            if isinstance(exc, ClientError) and exc.status_code in (418, 429):
+                raise self._record_rate_limit(exc.header) from exc
             if _is_provider_availability_error(exc):
                 raise ProviderAvailabilityError(
                     f"Binance provider unavailable while fetching klines for "

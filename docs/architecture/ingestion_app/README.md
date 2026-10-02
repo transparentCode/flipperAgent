@@ -433,9 +433,23 @@ If every configured provider completes its bounded attempts but the page remains
 incomplete, `RecoveryExhaustedError` keeps the supervisor in `RECOVERING`. It waits
 the same reconnect backoff and retries through normal DB-first startup catch-up;
 only one bounded recovery cycle is active, so retries do not accumulate work.
-Only completed provider-availability failures enter the bounded provider
-retry/fallback path. Deterministic provider contract, market-data validation,
-authentication/client, canonical, database, and lifecycle failures fail closed.
+Only completed non-rate-limit provider-availability failures enter the bounded
+provider retry/fallback path. Deterministic provider contract, market-data
+validation, authentication/client, canonical, database, and lifecycle failures
+fail closed.
+
+### Rate limiting
+
+Binance native HTTP 418/429 and CCXT `RateLimitExceeded`/`DDoSProtection`
+responses become `ProviderRateLimitedError` with a numeric `Retry-After` delay;
+an unusable or missing header uses the fixed 60-second fallback. Each historical
+provider instance keeps a monotonic in-memory gate and refuses new REST calls
+until it opens. Recovery stops the current page immediately, without retrying or
+falling through to the other adapter because both share the Binance IP limit.
+The supervisor remains `RECOVERING` and waits for the greater of the normal
+reconnect backoff and the reported delay; stop still cancels that wait. Other
+4xx responses remain fatal. The gate is process-local and is not shared between
+native and CCXT adapter instances.
 
 Control cancellation during that repair is consumed as a runtime transition;
 external cancellation propagates after the supervisor publishes `STOPPED`; a

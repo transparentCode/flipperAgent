@@ -30,6 +30,7 @@ from apps.ingestion_app.services.htf_aggregation import HTFAggregationService
 from apps.ingestion_app.services.recovery import (
     RecoveryEngine,
     RecoveryExhaustedError,
+    RecoveryRateLimitedError,
 )
 from apps.ingestion_app.storage.repository import (
     CandleCommitStatus,
@@ -447,12 +448,17 @@ class RuntimeSupervisor:
         except RecoveryExhaustedError as exc:
             self._set_state(RuntimeState.RECOVERING)
             self._last_error = str(exc)
+            retry_delay = self.plan.reconnect_backoff_seconds
+            rate_limited = isinstance(exc, RecoveryRateLimitedError)
+            if rate_limited:
+                retry_delay = max(retry_delay, exc.retry_after_seconds)
             _LOGGER.warning(
-                "ingestion recovery providers exhausted; retrying after %ss: %s",
-                self.plan.reconnect_backoff_seconds,
+                "ingestion recovery %s; retrying after %ss: %s",
+                "rate limited" if rate_limited else "providers exhausted",
+                retry_delay,
                 exc,
             )
-            await self._reconnect_sleep(self.plan.reconnect_backoff_seconds)
+            await self._reconnect_sleep(retry_delay)
 
     async def run(self) -> None:
         """Run until stopped, or propagate a fatal runtime error."""

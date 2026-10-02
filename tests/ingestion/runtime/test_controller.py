@@ -30,6 +30,7 @@ from apps.ingestion_app.runtime.state import (
     RuntimeState,
     SupervisorSnapshot,
 )
+from apps.ingestion_app.services.recovery import RecoveryRateLimitedError
 from apps.ingestion_app.settings import IngestionSettings
 from tests.ingestion._asgi import request
 from tests.ingestion.runtime.test_supervisor import LANE, _settings
@@ -254,6 +255,12 @@ class _FailingRecoverySupervisor(_FakeSupervisor):
     async def execute_recovery(self, request: RecoveryRequest) -> None:
         del request
         raise RuntimeError("synthetic manual recovery failure")
+
+
+class _RateLimitedRecoverySupervisor(_FakeSupervisor):
+    async def execute_recovery(self, request: RecoveryRequest) -> None:
+        del request
+        raise RecoveryRateLimitedError(retry_after_seconds=45)
 
 
 class _DeadlineRecoverySupervisor(_FakeSupervisor):
@@ -902,6 +909,40 @@ async def test_manual_recovery_failure_restores_running_runtime() -> None:
     assert controller._terminal_error is None
     assert created[0].run_stopped.is_set()
     assert created[1].run_calls == 0
+    await controller.close()
+
+
+@pytest.mark.asyncio
+async def test_manual_rate_limit_restores_running_runtime() -> None:
+    created: list[_FakeSupervisor] = []
+
+    def factory(_plan: IngestionPlan) -> _FakeSupervisor:
+        supervisor: _FakeSupervisor
+        if len(created) == 1:
+            supervisor = _RateLimitedRecoverySupervisor()
+        else:
+            supervisor = _FakeSupervisor()
+        created.append(supervisor)
+        return supervisor
+
+    controller = RuntimeController(
+        settings=_settings(),
+        plan_factory=_plan_factory,
+        supervisor_factory=factory,
+    )
+    await controller.start()
+    await created[0].run_started.wait()
+
+    with pytest.raises(RecoveryRateLimitedError) as raised:
+        await controller.recover(_request())
+
+    assert raised.value.retry_after_seconds == 45
+    await created[2].run_started.wait()
+    assert controller._supervisor is created[2]
+    assert controller.snapshot().state is RuntimeState.LIVE
+    assert controller.snapshot().last_error is None
+    assert controller._terminal_error is None
+    assert created[0].run_stopped.is_set()
     await controller.close()
 
 

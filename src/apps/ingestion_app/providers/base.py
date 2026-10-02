@@ -66,6 +66,57 @@ class ProviderAvailabilityError(DataIngestionError):
     """A completed provider-availability failure safe for bounded recovery."""
 
 
+DEFAULT_RATE_LIMIT_BACKOFF_SECONDS = 60.0
+
+
+class ProviderRateLimitedError(ProviderAvailabilityError):
+    """A provider asked the caller to stop requests for a finite interval."""
+
+    def __init__(self, *, provider_id: str, retry_after_seconds: float) -> None:
+        if not isinstance(provider_id, str) or not provider_id.strip():
+            raise ValueError("provider_id must be a non-empty string")
+        if isinstance(retry_after_seconds, bool) or not isinstance(
+            retry_after_seconds, (int, float)
+        ):
+            raise TypeError("retry_after_seconds must be a number")
+        if not math.isfinite(float(retry_after_seconds)) or retry_after_seconds <= 0:
+            raise ValueError("retry_after_seconds must be positive")
+        self.provider_id = provider_id
+        self.retry_after_seconds = float(retry_after_seconds)
+        super().__init__(
+            f"{provider_id} is rate limited; retry after {self.retry_after_seconds:g}s"
+        )
+
+
+def parse_retry_after_seconds(headers: object) -> float:
+    """Read a numeric Retry-After value, using the fixed fallback if unusable."""
+    if headers is None:
+        return DEFAULT_RATE_LIMIT_BACKOFF_SECONDS
+    items = getattr(headers, "items", None)
+    if not callable(items):
+        return DEFAULT_RATE_LIMIT_BACKOFF_SECONDS
+    try:
+        value = next(
+            (
+                header_value
+                for name, header_value in items()
+                if isinstance(name, str) and name.lower() == "retry-after"
+            ),
+            None,
+        )
+    except (TypeError, ValueError, AttributeError):
+        return DEFAULT_RATE_LIMIT_BACKOFF_SECONDS
+    if isinstance(value, bool) or value is None:
+        return DEFAULT_RATE_LIMIT_BACKOFF_SECONDS
+    try:
+        seconds = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return DEFAULT_RATE_LIMIT_BACKOFF_SECONDS
+    if not math.isfinite(seconds) or seconds <= 0:
+        return DEFAULT_RATE_LIMIT_BACKOFF_SECONDS
+    return seconds
+
+
 class HistoricalCandleProvider(Protocol):
     @property
     def provider_id(self) -> str: ...
@@ -100,9 +151,12 @@ class LiveCandleProvider(Protocol):
 
 
 __all__ = [
+    "DEFAULT_RATE_LIMIT_BACKOFF_SECONDS",
     "HistoricalCandleProvider",
     "LiveCandleProvider",
     "LiveStreamInterrupted",
     "ProviderAvailabilityError",
+    "ProviderRateLimitedError",
     "TransportDeadlineExceeded",
+    "parse_retry_after_seconds",
 ]

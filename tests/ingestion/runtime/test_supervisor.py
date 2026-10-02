@@ -20,7 +20,10 @@ from apps.ingestion_app.providers.base import (
 from apps.ingestion_app.runtime.state import RuntimeState, SupervisorSnapshot
 from apps.ingestion_app.runtime.supervisor import RuntimeSupervisor
 from apps.ingestion_app.services.htf_aggregation import HTFAggregationService
-from apps.ingestion_app.services.recovery import RecoveryExhaustedError
+from apps.ingestion_app.services.recovery import (
+    RecoveryExhaustedError,
+    RecoveryRateLimitedError,
+)
 from apps.ingestion_app.storage.repository import CandleCommitStatus
 from libs.common.exceptions import DataIngestionError
 
@@ -35,6 +38,7 @@ def _settings(
     *,
     target_timeframes: tuple[str, ...] = (),
     include_eth: bool = False,
+    reconnect_backoff_seconds: float = 0,
 ) -> object:
     timeframe_values = {"1m": {"duration_seconds": 60}}
     for timeframe in target_timeframes:
@@ -114,7 +118,7 @@ def _settings(
                 "stream_url": "wss://fstream.binance.com/market",
                 "queue_maxsize": 10,
             },
-            "runtime": {"reconnect_backoff_seconds": 0},
+            "runtime": {"reconnect_backoff_seconds": reconnect_backoff_seconds},
             "server": {"host": "127.0.0.1", "port": 8003},
             "publication": {
                 "batch_size": 500,
@@ -1019,7 +1023,7 @@ async def test_interruption_provider_exhaustion_retries_catchup_then_stream() ->
             )
 
     async def reconnect_sleep(seconds: float) -> None:
-        assert seconds == 0
+        assert seconds == 3
         retry_started.set()
         await release_retry.wait()
 
@@ -1033,6 +1037,7 @@ async def test_interruption_provider_exhaustion_retries_catchup_then_stream() ->
     provider = _LiveProvider([first, second])
     times = iter((NOW, NOW, NOW + timedelta(minutes=1), NOW + timedelta(minutes=1)))
     supervisor, _, _, _, recovery, _ = _supervisor(
+        settings=_settings(reconnect_backoff_seconds=3),
         repository=_Repository({LANE: _canonical()}),
         provider=provider,
         recovery=_Recovery(on_call=fail_once),
@@ -1066,6 +1071,125 @@ async def test_interruption_provider_exhaustion_retries_catchup_then_stream() ->
     assert len(provider.calls) == 2
     assert first.closed
     assert second.closed
+    assert supervisor.snapshot().state is RuntimeState.STOPPED
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("backoff", "retry_after", "expected_delay"),
+    [(0, 7.5, 7.5), (10, 3, 10)],
+)
+async def test_rate_limit_waits_exchange_delay_then_retries_to_live(
+    backoff: float,
+    retry_after: float,
+    expected_delay: float,
+) -> None:
+    attempts = 0
+    retry_started = asyncio.Event()
+    release_retry = asyncio.Event()
+    sleeps: list[float] = []
+    interruption_request = RecoveryRequest(
+        lane=LANE,
+        since=BOUNDARY - timedelta(minutes=1),
+        until=BOUNDARY,
+        reason="websocket_error",
+    )
+
+    def rate_limit_once(request: RecoveryRequest) -> None:
+        nonlocal attempts
+        del request
+        attempts += 1
+        if attempts == 1:
+            raise RecoveryRateLimitedError(retry_after_seconds=retry_after)
+
+    async def reconnect_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+        retry_started.set()
+        await release_retry.wait()
+
+    provider = _LiveProvider(
+        [
+            _Stream(
+                interruption=LiveStreamInterrupted(
+                    reason="websocket_error",
+                    recovery_requests=(interruption_request,),
+                )
+            ),
+            _Stream(observations=(_observation(),)),
+        ]
+    )
+    times = iter((NOW, NOW, NOW + timedelta(minutes=1), NOW + timedelta(minutes=1)))
+    supervisor, _, _, _, recovery, _ = _supervisor(
+        settings=_settings(reconnect_backoff_seconds=backoff),
+        repository=_Repository({LANE: _canonical()}),
+        provider=provider,
+        recovery=_Recovery(on_call=rate_limit_once),
+        now_fn=lambda: next(times),
+        reconnect_sleep_fn=reconnect_sleep,
+    )
+
+    task = asyncio.create_task(supervisor.run())
+    await asyncio.wait_for(retry_started.wait(), timeout=1)
+    assert supervisor.snapshot().state is RuntimeState.RECOVERING
+    assert supervisor.snapshot().last_error is not None
+    assert sleeps == [expected_delay]
+
+    release_retry.set()
+    for _ in range(100):
+        if supervisor.snapshot().state is RuntimeState.LIVE:
+            break
+        await asyncio.sleep(0)
+    assert len(provider.calls) == 2
+    assert supervisor.snapshot().state is RuntimeState.LIVE
+    supervisor.stop()
+    await asyncio.wait_for(task, timeout=1)
+    assert attempts == 2
+    assert len(recovery.calls) == 2
+    assert supervisor.snapshot().state is RuntimeState.STOPPED
+
+
+@pytest.mark.asyncio
+async def test_stop_cancels_rate_limit_wait() -> None:
+    retry_started = asyncio.Event()
+    never_release = asyncio.Event()
+
+    def rate_limit(request: RecoveryRequest) -> None:
+        raise RecoveryRateLimitedError(retry_after_seconds=30)
+
+    async def reconnect_sleep(seconds: float) -> None:
+        assert seconds == 30
+        retry_started.set()
+        await never_release.wait()
+
+    request = RecoveryRequest(
+        lane=LANE,
+        since=BOUNDARY - timedelta(minutes=1),
+        until=BOUNDARY,
+        reason="websocket_error",
+    )
+    provider = _LiveProvider(
+        [
+            _Stream(
+                interruption=LiveStreamInterrupted(
+                    reason="websocket_error",
+                    recovery_requests=(request,),
+                )
+            )
+        ]
+    )
+    supervisor, _, _, _, recovery, _ = _supervisor(
+        provider=provider,
+        recovery=_Recovery(on_call=rate_limit),
+        reconnect_sleep_fn=reconnect_sleep,
+    )
+
+    task = asyncio.create_task(supervisor.run())
+    await asyncio.wait_for(retry_started.wait(), timeout=1)
+    assert supervisor.snapshot().state is RuntimeState.RECOVERING
+    supervisor.stop()
+    await asyncio.wait_for(task, timeout=1)
+    assert len(recovery.calls) == 1
+    assert len(provider.calls) == 1
     assert supervisor.snapshot().state is RuntimeState.STOPPED
 
 

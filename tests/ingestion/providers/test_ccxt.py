@@ -13,6 +13,7 @@ import apps.ingestion_app.transport.ownership as ownership_module
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.providers.base import (
     ProviderAvailabilityError,
+    ProviderRateLimitedError,
     TransportDeadlineExceeded,
 )
 from apps.ingestion_app.providers.binance_usdm.rest_ccxt import CCXTHistoricalProvider
@@ -103,6 +104,7 @@ class _FakeExchange:
         self.calls: list[tuple[str, object]] = []
         self.closed = False
         self.close_calls = 0
+        self.last_response_headers: object = {}
 
     async def load_markets(self) -> object:
         self.calls.append(("load_markets", None))
@@ -807,6 +809,7 @@ async def test_ccxt_sdk_failure_preserves_cause() -> None:
         )
 
     assert raised.value.__cause__ is original
+    assert not isinstance(raised.value, ProviderRateLimitedError)
 
 
 @pytest.mark.asyncio
@@ -829,6 +832,75 @@ async def test_ccxt_raw_endpoint_failure_preserves_cause() -> None:
         )
 
     assert raised.value.__cause__ is original
+    assert not isinstance(raised.value, ProviderRateLimitedError)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("error_type", [ccxt.RateLimitExceeded, ccxt.DDoSProtection])
+@pytest.mark.parametrize("location", ["load_markets", "raw_klines"])
+async def test_ccxt_rate_limit_closes_gate_until_retry_after(
+    error_type: type[Exception],
+    location: str,
+) -> None:
+    clock = [100.0]
+    original = error_type("rate limited")
+    exchange = _FakeExchange(
+        error=original if location == "load_markets" else None,
+        raw_error=original if location == "raw_klines" else None,
+    )
+    exchange.last_response_headers = {"rEtRy-AfTeR": "9"}
+    provider = CCXTHistoricalProvider(
+        provider_id="ccxt_binance",
+        exchange_id="binanceusdm",
+        exchange=exchange,
+        monotonic_fn=lambda: clock[0],
+    )
+
+    request = {
+        "lane": LANE,
+        "provider_symbol": "BTC/USDT:USDT",
+        "timeframe_duration": MINUTE,
+        "since": SINCE,
+        "until": UNTIL,
+        "limit": 10,
+    }
+    with pytest.raises(ProviderRateLimitedError) as raised:
+        await provider.fetch_closed_candles(**request)
+    assert raised.value.retry_after_seconds == 9.0
+    assert raised.value.__cause__ is original
+    await provider.wait_until_idle()
+    calls_before_gate = tuple(exchange.calls)
+
+    with pytest.raises(ProviderRateLimitedError) as gated:
+        await provider.fetch_closed_candles(**request)
+    assert gated.value.retry_after_seconds == 9.0
+    assert tuple(exchange.calls) == calls_before_gate
+
+    clock[0] = 109.0
+    exchange.error = None
+    exchange.raw_error = None
+    assert await provider.fetch_closed_candles(**request) == ()
+    assert len(exchange.calls) > len(calls_before_gate)
+
+
+def test_ccxt_shorter_concurrent_rate_limit_does_not_shorten_gate() -> None:
+    clock = [100.0]
+    exchange = _FakeExchange()
+    exchange.last_response_headers = {"Retry-After": "20"}
+    provider = CCXTHistoricalProvider(
+        provider_id="ccxt_binance",
+        exchange_id="binanceusdm",
+        exchange=exchange,
+        monotonic_fn=lambda: clock[0],
+    )
+    assert provider._record_rate_limit().retry_after_seconds == 20.0
+    clock[0] = 105.0
+    exchange.last_response_headers = {"Retry-After": "3"}
+
+    later_error = provider._record_rate_limit()
+
+    assert provider._rate_limited_until == 120.0
+    assert later_error.retry_after_seconds == 15.0
 
 
 @pytest.mark.asyncio
@@ -861,6 +933,7 @@ async def test_ccxt_deterministic_provider_errors_remain_fatal(
 
     assert not isinstance(raised.value, ProviderAvailabilityError)
     assert raised.value.__cause__ is original
+    assert not isinstance(raised.value, ProviderRateLimitedError)
 
 
 @pytest.mark.asyncio

@@ -313,19 +313,26 @@ class RecordingHTF:
         self,
         *,
         latest_requests: tuple[RecoveryRequest, ...] = (),
+        missing_requests: tuple[RecoveryRequest, ...] = (),
         affected_requests: tuple[RecoveryRequest, ...] = (),
         live_requests: tuple[RecoveryRequest, ...] = (),
     ) -> None:
         self.latest_requests = latest_requests
+        self.missing_requests = missing_requests
         self.affected_requests = affected_requests
         self.live_requests = live_requests
         self.latest_calls: list[dict[str, Any]] = []
+        self.missing_calls: list[dict[str, Any]] = []
         self.affected_calls: list[dict[str, Any]] = []
         self.live_calls: list[dict[str, Any]] = []
 
     async def reconcile_latest_closed_buckets(self, **kwargs: Any):
         self.latest_calls.append(kwargs)
         return self.latest_requests
+
+    async def reconcile_missing_closed_buckets(self, **kwargs: Any):
+        self.missing_calls.append(kwargs)
+        return self.missing_requests
 
     async def reconcile_affected_buckets(self, **kwargs: Any):
         self.affected_calls.append(kwargs)

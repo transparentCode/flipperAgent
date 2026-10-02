@@ -16,11 +16,13 @@ from apps.ingestion_app.domain.time_alignment import aligned_bucket_start
 from apps.ingestion_app.planning import IngestionPlan, LanePlan
 from apps.ingestion_app.providers.base import (
     ProviderAvailabilityError,
+    ProviderRateLimitedError,
     TransportDeadlineExceeded,
 )
 from apps.ingestion_app.services.recovery import (
     RecoveryEngine,
     RecoveryExhaustedError,
+    RecoveryRateLimitedError,
 )
 from apps.ingestion_app.storage.repository import CandleCommitStatus
 from libs.common.exceptions import DataIngestionError
@@ -675,6 +677,46 @@ async def test_primary_failures_are_bounded_before_fallback() -> None:
     assert {candle.source_provider for candle in repository.rows.values()} == {
         "ccxt_binance"
     }
+
+
+@pytest.mark.asyncio
+async def test_provider_rate_limit_stops_attempts_and_fallback() -> None:
+    since = datetime(2026, 1, 1, tzinfo=UTC)
+    until = since + MINUTE
+    rate_limit = ProviderRateLimitedError(
+        provider_id="binance_native",
+        retry_after_seconds=23,
+    )
+    primary = _ScriptedProvider("binance_native", [rate_limit])
+    fallback = _ScriptedProvider("ccxt_binance", [])
+    repository = _Repository()
+    engine = _engine(
+        repository,
+        _Ingestion(repository),
+        _HTF(),
+        {"binance_native": primary, "ccxt_binance": fallback},
+        max_attempts=3,
+    )
+
+    with pytest.raises(RecoveryRateLimitedError) as raised:
+        await engine.recover(
+            _request(since, until),
+            base_timeframe="1m",
+            base_duration=MINUTE,
+            provider_order=("binance_native", "ccxt_binance"),
+            provider_symbols={
+                "binance_native": "BTCUSDT",
+                "ccxt_binance": "BTC/USDT:USDT",
+            },
+            target_durations={},
+            alignment_origin=ORIGIN,
+        )
+
+    assert isinstance(raised.value, RecoveryExhaustedError)
+    assert raised.value.retry_after_seconds == 23
+    assert raised.value.__cause__ is rate_limit
+    assert len(primary.calls) == 1
+    assert fallback.calls == []
 
 
 @pytest.mark.asyncio
