@@ -11,12 +11,14 @@ import pytest
 import pytest_asyncio
 
 from apps.ingestion_app.planning import compile_ingestion_plan
-from apps.ingestion_app.providers.binance_native import (
+from apps.ingestion_app.providers.binance_usdm.rest_ccxt import CCXTHistoricalProvider
+from apps.ingestion_app.providers.binance_usdm.rest_native import (
     BinanceNativeHistoricalProvider,
 )
-from apps.ingestion_app.providers.ccxt import CCXTHistoricalProvider
+from apps.ingestion_app.providers.binance_usdm.websocket import (
+    BinanceWebSocketManager,
+)
 from apps.ingestion_app.runtime.supervisor import RuntimeSupervisor
-from apps.ingestion_app.runtime.websocket import BinanceWebSocketManager
 from apps.ingestion_app.services.candle_ingestion import CandleIngestionService
 from apps.ingestion_app.services.htf_aggregation import HTFAggregationService
 from apps.ingestion_app.services.recovery import RecoveryEngine

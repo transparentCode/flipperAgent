@@ -6,8 +6,8 @@ from typing import cast
 
 from fastapi import HTTPException, Request
 
+from apps.ingestion_app.control.config_reconciliation import AssetConfigService
 from apps.ingestion_app.runtime.controller import RuntimeController
-from apps.ingestion_app.services.config_reconciliation import AssetConfigService
 
 
 def get_runtime_controller(request: Request) -> RuntimeController:

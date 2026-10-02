@@ -7,15 +7,15 @@ from pathlib import Path
 
 import pytest
 
-from apps.ingestion_app.observability import IngestionObservability
-from apps.ingestion_app.planning import compile_ingestion_plan
-from apps.ingestion_app.runtime.state import RuntimeState, SupervisorSnapshot
-from apps.ingestion_app.services.config_reconciliation import (
+from apps.ingestion_app.control.config_reconciliation import (
     AssetAlreadyExistsError,
     AssetCandidateError,
     AssetConfigService,
     AssetOwnershipConfigurationError,
 )
+from apps.ingestion_app.observability import IngestionObservability
+from apps.ingestion_app.planning import compile_ingestion_plan
+from apps.ingestion_app.runtime.state import RuntimeState, SupervisorSnapshot
 from apps.ingestion_app.settings import (
     AssetSettings,
     IngestionSettings,

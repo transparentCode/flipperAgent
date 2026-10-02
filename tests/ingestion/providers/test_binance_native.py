@@ -11,14 +11,14 @@ from binance.error import ClientError, ServerError
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import SSLError
 
-import apps.ingestion_app.providers.binance_native as native_module
+import apps.ingestion_app.providers.binance_usdm.rest_native as native_module
 import apps.ingestion_app.transport.ownership as ownership_module
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.providers.base import (
     ProviderAvailabilityError,
     TransportDeadlineExceeded,
 )
-from apps.ingestion_app.providers.binance_native import (
+from apps.ingestion_app.providers.binance_usdm.rest_native import (
     BinanceNativeHistoricalProvider,
 )
 from libs.common.exceptions import DataIngestionError

@@ -53,9 +53,9 @@ def test_transport_ownership_is_the_provider_neutral_boundary() -> None:
     result = _fresh_process(
         "import sys; "
         "import apps.ingestion_app.transport.ownership; "
-        "import apps.ingestion_app.providers.binance_native; "
-        "import apps.ingestion_app.providers.ccxt; "
-        "import apps.ingestion_app.runtime.websocket; "
+        "import apps.ingestion_app.providers.binance_usdm.rest_native; "
+        "import apps.ingestion_app.providers.binance_usdm.rest_ccxt; "
+        "import apps.ingestion_app.providers.binance_usdm.websocket; "
         "assert 'apps.ingestion_app.runtime.blocking' not in sys.modules"
     )
     assert result.returncode == 0, result.stderr
@@ -63,9 +63,10 @@ def test_transport_ownership_is_the_provider_neutral_boundary() -> None:
 
 def test_provider_sources_do_not_reference_removed_runtime_blocking_module() -> None:
     provider_sources = (
-        REPOSITORY_ROOT / "src/apps/ingestion_app/providers/binance_native.py",
-        REPOSITORY_ROOT / "src/apps/ingestion_app/providers/ccxt.py",
-        REPOSITORY_ROOT / "src/apps/ingestion_app/runtime/websocket.py",
+        REPOSITORY_ROOT
+        / "src/apps/ingestion_app/providers/binance_usdm/rest_native.py",
+        REPOSITORY_ROOT / "src/apps/ingestion_app/providers/binance_usdm/rest_ccxt.py",
+        REPOSITORY_ROOT / "src/apps/ingestion_app/providers/binance_usdm/websocket.py",
     )
     for path in provider_sources:
         assert "apps.ingestion_app.runtime.blocking" not in path.read_text(

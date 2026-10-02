@@ -10,7 +10,7 @@ import pytest
 import pytest_asyncio
 
 from apps.ingestion_app.domain.instrument import MarketLane
-from apps.ingestion_app.providers.binance_native import (
+from apps.ingestion_app.providers.binance_usdm.rest_native import (
     BinanceNativeHistoricalProvider,
 )
 from apps.ingestion_app.services.candle_ingestion import CandleIngestionService

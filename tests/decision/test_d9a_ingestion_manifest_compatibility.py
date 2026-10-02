@@ -9,7 +9,7 @@ from apps.decision_app.features.planning import compile_feature_plan
 from apps.decision_app.planning.planner import compile_decision_plan
 from apps.decision_app.runtime.startup import DecisionStartupCoordinator
 from apps.decision_app.settings import load_decision_config
-from apps.ingestion_app.services.asset_lifecycle import AssetLifecycleService
+from apps.ingestion_app.control.asset_lifecycle import AssetLifecycleService
 from apps.ingestion_app.settings import load_ingestion_settings
 from libs.common.asset_manifest import AssetManifestStore
 from libs.common.config import ConfigManager

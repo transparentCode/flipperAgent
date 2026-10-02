@@ -7,7 +7,7 @@ from time import monotonic
 
 import pytest
 
-from apps.ingestion_app.services.asset_lifecycle import (
+from apps.ingestion_app.control.asset_lifecycle import (
     MANIFEST_SOURCE,
     AssetLifecycleReconciler,
     AssetLifecycleService,

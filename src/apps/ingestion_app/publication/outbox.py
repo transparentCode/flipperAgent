@@ -3,27 +3,15 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from datetime import UTC, datetime
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from apps.ingestion_app.domain.candle import CanonicalCandle
+from apps.ingestion_app.domain.outbox import OutboxEvent
 
 CANDLE_COMMITTED_EVENT_TYPE = "candle.committed"
 CANDLE_COMMITTED_SCHEMA_VERSION = 1
 CANDLE_COMMITTED_PRODUCER = "ingestion"
-
-
-@dataclass(frozen=True, slots=True)
-class OutboxEvent:
-    """One immutable publication intent stored with a canonical insert."""
-
-    event_id: UUID
-    event_type: str
-    schema_version: int
-    producer: str
-    occurred_at: datetime
-    payload_json: str
 
 
 def _utc_isoformat(value: datetime) -> str:

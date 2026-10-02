@@ -11,10 +11,10 @@ import pytest_asyncio
 
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
-from apps.ingestion_app.providers.binance_native import (
+from apps.ingestion_app.providers.binance_usdm.rest_ccxt import CCXTHistoricalProvider
+from apps.ingestion_app.providers.binance_usdm.rest_native import (
     BinanceNativeHistoricalProvider,
 )
-from apps.ingestion_app.providers.ccxt import CCXTHistoricalProvider
 from apps.ingestion_app.services.candle_ingestion import CandleIngestionService
 from apps.ingestion_app.services.htf_aggregation import HTFAggregationService
 from apps.ingestion_app.services.recovery import RecoveryEngine

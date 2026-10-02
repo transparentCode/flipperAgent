@@ -11,16 +11,23 @@ from typing import Any
 from fastapi import FastAPI
 
 from apps.ingestion_app.api.app import create_app
+from apps.ingestion_app.control.asset_lifecycle import AssetLifecycleReconciler
+from apps.ingestion_app.control.config_reconciliation import AssetConfigService
 from apps.ingestion_app.observability import IngestionObservability
 from apps.ingestion_app.planning import (
     IngestionPlan,
     compile_ingestion_plan,
 )
 from apps.ingestion_app.providers.base import HistoricalCandleProvider
-from apps.ingestion_app.providers.binance_native import (
+from apps.ingestion_app.providers.binance_usdm.rest_ccxt import (
+    CCXTHistoricalProvider,
+)
+from apps.ingestion_app.providers.binance_usdm.rest_native import (
     BinanceNativeHistoricalProvider,
 )
-from apps.ingestion_app.providers.ccxt import CCXTHistoricalProvider
+from apps.ingestion_app.providers.binance_usdm.websocket import (
+    BinanceWebSocketManager,
+)
 from apps.ingestion_app.providers.factory import (
     build_historical_providers,
     referenced_provider_ids,
@@ -30,10 +37,7 @@ from apps.ingestion_app.providers.factory import (
 from apps.ingestion_app.publication.publisher import OutboxPublisher
 from apps.ingestion_app.runtime.controller import RuntimeController
 from apps.ingestion_app.runtime.supervisor import RuntimeSupervisor
-from apps.ingestion_app.runtime.websocket import BinanceWebSocketManager
-from apps.ingestion_app.services.asset_lifecycle import AssetLifecycleReconciler
 from apps.ingestion_app.services.candle_ingestion import CandleIngestionService
-from apps.ingestion_app.services.config_reconciliation import AssetConfigService
 from apps.ingestion_app.services.htf_aggregation import HTFAggregationService
 from apps.ingestion_app.services.recovery import RecoveryEngine
 from apps.ingestion_app.services.retention import RetentionJanitor

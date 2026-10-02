@@ -7,10 +7,10 @@ from pathlib import Path
 import pytest
 
 from apps.ingestion_app.domain.instrument import MarketLane
-from apps.ingestion_app.providers.binance_native import (
+from apps.ingestion_app.providers.binance_usdm.rest_ccxt import CCXTHistoricalProvider
+from apps.ingestion_app.providers.binance_usdm.rest_native import (
     BinanceNativeHistoricalProvider,
 )
-from apps.ingestion_app.providers.ccxt import CCXTHistoricalProvider
 from apps.ingestion_app.settings import load_ingestion_settings
 from libs.common.config import ConfigManager
 

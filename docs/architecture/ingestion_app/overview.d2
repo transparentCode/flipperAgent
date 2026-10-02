@@ -22,7 +22,7 @@ inputs: {
 
   binance_ws: {
     label: "Binance Futures WS"
-    link: "../../../src/apps/ingestion_app/runtime/websocket.py"
+    link: "../../../src/apps/ingestion_app/providers/binance_usdm/websocket.py"
   }
 
   historical: {
@@ -56,14 +56,43 @@ ingestion_app: {
     link: "../../../src/apps/ingestion_app/planning.py"
   }
 
-  provider_factory: {
-    label: "provider factory\nvalidate + construct"
-    link: "../../../src/apps/ingestion_app/providers/factory.py"
-  }
+  providers: {
+    label: "providers"
 
-  rest_decoder: {
-    label: "Binance REST row decoders\nadapter-specific order"
-    link: "../../../src/apps/ingestion_app/providers/binance_rest.py"
+    provider_factory: {
+      label: "provider factory\nvalidate + construct"
+      link: "../../../src/apps/ingestion_app/providers/factory.py"
+    }
+
+    rest_decoder: {
+      label: "Binance REST row decoders\nadapter-specific order"
+      link: "../../../src/apps/ingestion_app/providers/binance_usdm/rest_decode.py"
+    }
+
+    websocket: {
+      label: "BinanceWebSocketManager\ncausal per-lane silence watchdog"
+      link: "../../../src/apps/ingestion_app/providers/binance_usdm/websocket.py"
+    }
+
+    websocket_session: {
+      label: "Binance websocket SDK\nsession lifecycle"
+      link: "../../../src/apps/ingestion_app/providers/binance_usdm/websocket_session.py"
+    }
+
+    websocket_bridge: {
+      label: "bounded callback bridge\nthread -> event loop"
+      link: "../../../src/apps/ingestion_app/providers/binance_usdm/websocket_bridge.py"
+    }
+
+    websocket_sequence: {
+      label: "live sequence/liveness tracker\nconsumed progress + recovery"
+      link: "../../../src/apps/ingestion_app/providers/live_sequence.py"
+    }
+
+    websocket_decoder: {
+      label: "Binance websocket\npayload decoder"
+      link: "../../../src/apps/ingestion_app/providers/binance_usdm/websocket_decode.py"
+    }
   }
 
   api: {
@@ -71,9 +100,18 @@ ingestion_app: {
     link: "../../../src/apps/ingestion_app/api/routes.py"
   }
 
-  config_service: {
-    label: "AssetConfigService"
-    link: "../../../src/apps/ingestion_app/services/config_reconciliation.py"
+  control: {
+    label: "control"
+
+    config_service: {
+      label: "AssetConfigService"
+      link: "../../../src/apps/ingestion_app/control/config_reconciliation.py"
+    }
+
+    lifecycle: {
+      label: "AssetLifecycleReconciler"
+      link: "../../../src/apps/ingestion_app/control/asset_lifecycle.py"
+    }
   }
 
   controller: {
@@ -106,31 +144,6 @@ ingestion_app: {
     link: "../../../src/apps/ingestion_app/runtime/supervisor.py"
   }
 
-  websocket: {
-    label: "BinanceWebSocketManager\ncausal per-lane silence watchdog"
-    link: "../../../src/apps/ingestion_app/runtime/websocket.py"
-  }
-
-  websocket_session: {
-    label: "Binance websocket SDK\nsession lifecycle"
-    link: "../../../src/apps/ingestion_app/runtime/websocket_session.py"
-  }
-
-  websocket_bridge: {
-    label: "bounded callback bridge\nthread -> event loop"
-    link: "../../../src/apps/ingestion_app/runtime/websocket_bridge.py"
-  }
-
-  websocket_sequence: {
-    label: "live sequence/liveness tracker\nconsumed progress + recovery"
-    link: "../../../src/apps/ingestion_app/runtime/websocket_sequence.py"
-  }
-
-  websocket_decoder: {
-    label: "Binance websocket\npayload decoder"
-    link: "../../../src/apps/ingestion_app/runtime/binance_websocket_decode.py"
-  }
-
   recovery: {
     label: "RecoveryEngine"
     link: "../../../src/apps/ingestion_app/services/recovery.py"
@@ -154,11 +167,6 @@ ingestion_app: {
   publisher: {
     label: "OutboxPublisher"
     link: "../../../src/apps/ingestion_app/publication/publisher.py"
-  }
-
-  lifecycle: {
-    label: "AssetLifecycleReconciler"
-    link: "../../../src/apps/ingestion_app/services/asset_lifecycle.py"
   }
 
   retention: {
@@ -243,25 +251,25 @@ ops: {
 
 inputs.config -> ingestion_app.settings: "validate"
 inputs.api_client -> ingestion_app.api: "HTTP control"
-inputs.binance_ws -> ingestion_app.websocket: "finalized 1m candles"
-inputs.historical -> ingestion_app.rest_decoder: "raw historical rows"
-ingestion_app.rest_decoder -> ingestion_app.recovery: "provider observations"
+inputs.binance_ws -> ingestion_app.providers.websocket: "finalized 1m candles"
+inputs.historical -> ingestion_app.providers.rest_decoder: "raw historical rows"
+ingestion_app.providers.rest_decoder -> ingestion_app.recovery: "provider observations"
 
 ingestion_app.main -> ingestion_app.settings: "load"
 ingestion_app.main -> ingestion_app.resources: "explicit lifespan ownership"
-ingestion_app.main -> ingestion_app.provider_factory: "validate / construct"
-ingestion_app.provider_factory -> ingestion_app.recovery: "owned historical providers"
+ingestion_app.main -> ingestion_app.providers.provider_factory: "validate / construct"
+ingestion_app.providers.provider_factory -> ingestion_app.recovery: "owned historical providers"
 ingestion_app.main -> ingestion_app.controller: "compose/start"
 ingestion_app.main -> ingestion_app.publisher: "background task"
-ingestion_app.main -> ingestion_app.lifecycle: "broker-bound projection"
+ingestion_app.main -> ingestion_app.control.lifecycle: "broker-bound projection"
 ingestion_app.main -> ingestion_app.retention: "background janitor"
-ingestion_app.api -> ingestion_app.config_service: "create / patch asset"
+ingestion_app.api -> ingestion_app.control.config_service: "create / patch asset"
 ingestion_app.api -> ingestion_app.controller: "pause / resume / reconnect / recover"
-ingestion_app.config_service -> ingestion_app.settings: "reload candidate"
-ingestion_app.config_service -> ingestion_app.controller: "replace settings"
-ingestion_app.config_service -> ingestion_app.lifecycle: "mark asset dirty"
+ingestion_app.control.config_service -> ingestion_app.settings: "reload candidate"
+ingestion_app.control.config_service -> ingestion_app.controller: "replace settings"
+ingestion_app.control.config_service -> ingestion_app.control.lifecycle: "mark asset dirty"
 ingestion_app.settings -> ingestion_app.planning: "typed settings"
-ingestion_app.provider_factory -> ingestion_app.planning: "composed provider ownership"
+ingestion_app.providers.provider_factory -> ingestion_app.planning: "composed provider ownership"
 ingestion_app.controller -> ingestion_app.planning: "initial/candidate compile"
 ingestion_app.planning -> ingestion_app.controller: "immutable plan"
 ingestion_app.controller -> ingestion_app.runtime_state: "compose public snapshot"
@@ -273,14 +281,14 @@ ingestion_app.controller_transition -> ingestion_app.supervisor: "stop + post-st
 ingestion_app.supervisor -> ingestion_app.recovery: "startup / interruption recovery"
 ingestion_app.supervisor -> ingestion_app.supervisor_cycle: "run loop"
 ingestion_app.supervisor_cycle -> ingestion_app.supervisor: "stop / outer cancel / deadline / error"
-ingestion_app.supervisor -> ingestion_app.websocket: "live stream"
-ingestion_app.websocket_session -> ingestion_app.websocket: "SDK callbacks"
-ingestion_app.websocket -> ingestion_app.websocket_session: "one session / batch / cleanup"
-ingestion_app.websocket -> ingestion_app.websocket_bridge: "bounded callback events"
-ingestion_app.websocket -> ingestion_app.websocket_sequence: "classify / post-yield record / watchdog"
-ingestion_app.websocket -> ingestion_app.websocket_decoder: "raw finalized payload"
-ingestion_app.websocket_decoder -> ingestion_app.supervisor: "CandleObservation"
-ingestion_app.websocket -> ingestion_app.supervisor: "bounded causal silence interruption"
+ingestion_app.supervisor -> ingestion_app.providers.websocket: "live stream"
+ingestion_app.providers.websocket_session -> ingestion_app.providers.websocket: "SDK callbacks"
+ingestion_app.providers.websocket -> ingestion_app.providers.websocket_session: "one session / batch / cleanup"
+ingestion_app.providers.websocket -> ingestion_app.providers.websocket_bridge: "bounded callback events"
+ingestion_app.providers.websocket -> ingestion_app.providers.websocket_sequence: "classify / post-yield record / watchdog"
+ingestion_app.providers.websocket -> ingestion_app.providers.websocket_decoder: "raw finalized payload"
+ingestion_app.providers.websocket_decoder -> ingestion_app.supervisor: "CandleObservation"
+ingestion_app.providers.websocket -> ingestion_app.supervisor: "bounded causal silence interruption"
 ingestion_app.supervisor -> ingestion_app.ingestion_service: "commit base candle"
 ingestion_app.supervisor -> ingestion_app.htf: "derive / reconcile HTFs"
 ingestion_app.recovery -> ingestion_app.ingestion_service: "recovered base candles"
@@ -295,8 +303,8 @@ ingestion_app.repository -> timescale.candles: "read / write"
 ingestion_app.repository -> timescale.outbox: "atomic outbox write"
 timescale.outbox -> ingestion_app.publisher: "pending rows"
 ingestion_app.publisher -> valkey.ohlcv: "XADD at least once"
-ingestion_app.lifecycle -> valkey.asset_manifest: "project config state"
-ingestion_app.lifecycle -> valkey.lifecycle_stream: "publish transition"
+ingestion_app.control.lifecycle -> valkey.asset_manifest: "project config state"
+ingestion_app.control.lifecycle -> valkey.lifecycle_stream: "publish transition"
 valkey.ohlcv -> downstream.decision_app: "parse candle.committed v1"
 valkey.asset_manifest -> downstream.decision_app: "manifest gating"
 valkey.lifecycle_stream -> downstream.decision_app: "lifecycle notifications"

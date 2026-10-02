@@ -70,8 +70,22 @@ configuration, storage, transport, and downstream consumers.
 
 ## High-Level Architecture
 
-The application is composed in `bootstrap.py` as one FastAPI process with six
-cooperating layers.
+The application is composed in `bootstrap.py` as one FastAPI process. Internal
+imports follow this dependency order; packages may import their own package or a
+lower-numbered layer, while distinct packages in the same layer do not import
+each other.
+
+| Layer | Packages / modules |
+| --- | --- |
+| 0 | `domain`, `settings`, `transport` |
+| 1 | `observability`, `planning` |
+| 2 | `providers` (including `providers/binance_usdm`), `storage` |
+| 3 | `publication` |
+| 4 | `services` |
+| 5 | `runtime` |
+| 6 | `control` |
+| 7 | `api` |
+| 8 | `bootstrap`, `main` |
 
 ### 1. Configuration and control plane
 
@@ -189,15 +203,17 @@ pluggable through `HistoricalCandleProvider` and currently composes:
 
 `providers/factory.py` owns provider-reference validation and construction while
 the bootstrap retains resource ownership and partial-construction cleanup.
-Historical SDK calls remain in their adapter modules; `providers/binance_rest.py`
-contains pure row decoders. The Native and CCXT decoders deliberately retain
+Historical SDK calls remain in their adapter modules under
+`providers/binance_usdm/`; `providers/binance_usdm/rest_decode.py` contains pure
+row decoders. The Native and CCXT decoders deliberately retain
 their different out-of-window invalid-value ordering and error contracts rather
-than introducing a branching shared loop. `runtime/websocket.py` remains the
-orchestration facade: `runtime/websocket_session.py` owns the Binance SDK
-factory/subscription/stop lifecycle, `runtime/websocket_bridge.py` owns the
-bounded callback-thread bridge, and `runtime/websocket_sequence.py` owns
-consumed sequence, recovery-range, and causal liveness state. The existing
-`runtime/binance_websocket_decode.py` remains the distinct pure payload decoder
+than introducing a branching shared loop. `providers/binance_usdm/websocket.py`
+remains the orchestration facade: `providers/binance_usdm/websocket_session.py`
+owns the Binance SDK factory/subscription/stop lifecycle,
+`providers/binance_usdm/websocket_bridge.py` owns the bounded callback-thread
+bridge, and `providers/live_sequence.py` owns consumed sequence, recovery-range,
+and causal liveness state. The existing
+`providers/binance_usdm/websocket_decode.py` remains the distinct pure payload decoder
 and receives the receive-time sampling seam only at finalized observation
 construction. The facade retains one multiplexed connection and one consumer
 loop; the sequence tracker derives the earliest causal per-lane silence deadline
@@ -250,6 +266,12 @@ underlying SDK operation, and barrier tasks are always awaited on failure. Closu
 child tasks are created only for the current bounded chunk. A failure or
 cancellation cleans up unfinished siblings before propagating the original
 exception; later chunks are not started.
+
+#### Where new code goes
+
+A new venue-specific provider belongs under `providers/<venue>/` with one
+explicit construction branch in `providers/factory.py`; this fixed deployment
+does not build a provider registry or plugin-discovery mechanism.
 
 ### 4. Canonicalization and Timescale persistence
 
@@ -495,8 +517,8 @@ bypass ingestion's canonical candle/storage contract.
 
 | Gap | Live source evidence | Phase 0 disposition |
 | --- | --- | --- |
-| G6 — lifecycle versions are constant | `services/asset_lifecycle.py:88-100` | Record `asset_version=1` and `timeframe_version=1`; no lifecycle migration. |
-| G7 — duplicate lifecycle-ID helpers | `services/asset_lifecycle.py:48-64`; `libs/common/asset_manifest.py:131-139` | Record the differing formulas; no consolidation. |
+| G6 — lifecycle versions are constant | `control/asset_lifecycle.py:88-100` | Record `asset_version=1` and `timeframe_version=1`; no lifecycle migration. |
+| G7 — duplicate lifecycle-ID helpers | `control/asset_lifecycle.py:48-64`; `libs/common/asset_manifest.py:131-139` | Record the differing formulas; no consolidation. |
 
 P1A closed G2 by moving settings-to-lane/runtime compilation into the pure
 `planning.py` compiler. Candidate validation no longer constructs a supervisor or
@@ -550,12 +572,10 @@ and G7 lifecycle-event-ID consolidation remain explicitly open/deferred.
 
 ## Rendering
 
-If `d2` is installed:
+Render the canonical SVGs from the repository root with:
 
 ```bash
-d2 docs/architecture/ingestion_app/overview.d2 docs/architecture/ingestion_app/overview.svg
-d2 docs/architecture/ingestion_app/io.d2 docs/architecture/ingestion_app/io.svg
-d2 docs/architecture/ingestion_app/lifecycle_sequence.d2 docs/architecture/ingestion_app/lifecycle_sequence.svg
+./scripts/render_d2.sh docs/architecture/ingestion_app/overview.d2 docs/architecture/ingestion_app/overview.svg
+./scripts/render_d2.sh docs/architecture/ingestion_app/io.d2 docs/architecture/ingestion_app/io.svg
+./scripts/render_d2.sh docs/architecture/ingestion_app/lifecycle_sequence.d2 docs/architecture/ingestion_app/lifecycle_sequence.svg
 ```
-
-Or use `scripts/render_d2.sh` for each D2 source.

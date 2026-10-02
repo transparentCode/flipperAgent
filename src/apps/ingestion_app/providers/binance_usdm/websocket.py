@@ -20,21 +20,17 @@ from apps.ingestion_app.providers.base import (
     LiveStreamInterrupted,
     TransportDeadlineExceeded,
 )
-from apps.ingestion_app.runtime.binance_websocket_decode import (
-    decode_binance_websocket_message,
-)
-from apps.ingestion_app.runtime.websocket_bridge import (
-    _BoundedCallbackBridge,
-    _BridgeControl,
-)
-from apps.ingestion_app.runtime.websocket_sequence import LiveSequenceTracker
-from apps.ingestion_app.runtime.websocket_session import (
-    BinanceWebSocketSession,
-    BinanceWebSocketSessionOwner,
-)
+from apps.ingestion_app.providers.live_sequence import LiveSequenceTracker
 from libs.common.enums import SystemComponent
 from libs.common.exceptions import DataIngestionError
 from libs.common.logging.logger_utils import bind_logger
+
+from .websocket_bridge import _BoundedCallbackBridge, _BridgeControl
+from .websocket_decode import decode_binance_websocket_message
+from .websocket_session import (
+    BinanceWebSocketSession,
+    BinanceWebSocketSessionOwner,
+)
 
 _LOGGER = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_ENGINE)
 _WAKE_SENTINEL = object()

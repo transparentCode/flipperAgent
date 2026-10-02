@@ -5,8 +5,8 @@ from __future__ import annotations
 from fastapi import FastAPI
 from starlette.types import Lifespan
 
+from apps.ingestion_app.control.config_reconciliation import AssetConfigService
 from apps.ingestion_app.runtime.controller import RuntimeController
-from apps.ingestion_app.services.config_reconciliation import AssetConfigService
 
 from .routes import router
 

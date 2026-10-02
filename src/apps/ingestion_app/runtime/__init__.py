@@ -10,10 +10,8 @@ from .state import (
 from .supervisor import (
     RuntimeSupervisor,
 )
-from .websocket import BinanceWebSocketManager
 
 __all__ = [
-    "BinanceWebSocketManager",
     "DesiredRuntimeState",
     "RuntimeControlConflictError",
     "RuntimeController",

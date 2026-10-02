@@ -66,28 +66,72 @@ components: {
     link: "../../../src/apps/ingestion_app/planning.py"
   }
 
-  provider_factory: {
-    class: component
-    label: "provider factory\nvalidate + construct"
-    link: "../../../src/apps/ingestion_app/providers/factory.py"
+  providers: {
+    label: "providers"
+
+    provider_factory: {
+      class: component
+      label: "provider factory\nvalidate + construct"
+      link: "../../../src/apps/ingestion_app/providers/factory.py"
+    }
+
+    provider_quiescence: {
+      class: component
+      label: "historical provider idle barrier\nunique owned providers"
+      link: "../../../src/apps/ingestion_app/providers/factory.py"
+    }
+
+    rest_decoder: {
+      class: component
+      label: "Binance REST row decoders\nadapter-specific order"
+      link: "../../../src/apps/ingestion_app/providers/binance_usdm/rest_decode.py"
+    }
+
+    websocket: {
+      class: component
+      label: "BinanceWebSocketManager\ncausal per-lane silence watchdog"
+      link: "../../../src/apps/ingestion_app/providers/binance_usdm/websocket.py"
+    }
+
+    websocket_session: {
+      class: component
+      label: "Binance websocket SDK\nsession lifecycle"
+      link: "../../../src/apps/ingestion_app/providers/binance_usdm/websocket_session.py"
+    }
+
+    websocket_bridge: {
+      class: component
+      label: "bounded callback bridge\nthread -> event loop"
+      link: "../../../src/apps/ingestion_app/providers/binance_usdm/websocket_bridge.py"
+    }
+
+    websocket_sequence: {
+      class: component
+      label: "live sequence/liveness tracker\nconsumed progress + recovery"
+      link: "../../../src/apps/ingestion_app/providers/live_sequence.py"
+    }
+
+    websocket_decoder: {
+      class: component
+      label: "Binance websocket\npayload decoder"
+      link: "../../../src/apps/ingestion_app/providers/binance_usdm/websocket_decode.py"
+    }
   }
 
-  provider_quiescence: {
-    class: component
-    label: "historical provider idle barrier\nunique owned providers"
-    link: "../../../src/apps/ingestion_app/providers/factory.py"
-  }
+  control: {
+    label: "control"
 
-  rest_decoder: {
-    class: component
-    label: "Binance REST row decoders\nadapter-specific order"
-    link: "../../../src/apps/ingestion_app/providers/binance_rest.py"
-  }
+    config_service: {
+      class: component
+      label: "AssetConfigService"
+      link: "../../../src/apps/ingestion_app/control/config_reconciliation.py"
+    }
 
-  config_service: {
-    class: component
-    label: "AssetConfigService"
-    link: "../../../src/apps/ingestion_app/services/config_reconciliation.py"
+    lifecycle: {
+      class: component
+      label: "AssetLifecycleReconciler"
+      link: "../../../src/apps/ingestion_app/control/asset_lifecycle.py"
+    }
   }
 
   controller: {
@@ -106,36 +150,6 @@ components: {
     class: component
     label: "RuntimeSupervisor\none-generation observed runner"
     link: "../../../src/apps/ingestion_app/runtime/supervisor.py"
-  }
-
-  websocket: {
-    class: component
-    label: "BinanceWebSocketManager\ncausal per-lane silence watchdog"
-    link: "../../../src/apps/ingestion_app/runtime/websocket.py"
-  }
-
-  websocket_session: {
-    class: component
-    label: "Binance websocket SDK\nsession lifecycle"
-    link: "../../../src/apps/ingestion_app/runtime/websocket_session.py"
-  }
-
-  websocket_bridge: {
-    class: component
-    label: "bounded callback bridge\nthread -> event loop"
-    link: "../../../src/apps/ingestion_app/runtime/websocket_bridge.py"
-  }
-
-  websocket_sequence: {
-    class: component
-    label: "live sequence/liveness tracker\nconsumed progress + recovery"
-    link: "../../../src/apps/ingestion_app/runtime/websocket_sequence.py"
-  }
-
-  websocket_decoder: {
-    class: component
-    label: "Binance websocket\npayload decoder"
-    link: "../../../src/apps/ingestion_app/runtime/binance_websocket_decode.py"
   }
 
   recovery: {
@@ -166,12 +180,6 @@ components: {
     class: component
     label: "OutboxPublisher"
     link: "../../../src/apps/ingestion_app/publication/publisher.py"
-  }
-
-  lifecycle: {
-    class: component
-    label: "AssetLifecycleReconciler"
-    link: "../../../src/apps/ingestion_app/services/asset_lifecycle.py"
   }
 
   retention: {
@@ -344,33 +352,33 @@ consumers: {
 
 sources.config_global -> components.settings: "load"
 sources.config_assets -> components.settings: "register directory"
-sources.control -> components.config_service: "create / patch assets"
+sources.control -> components.control.config_service: "create / patch assets"
 sources.control -> components.controller: "pause / resume / reconnect / recover"
-sources.ws -> components.websocket: "finalized base klines"
-sources.ws -> components.websocket_decoder: "raw finalized payload"
-sources.rest -> components.rest_decoder: "historical rows"
-components.rest_decoder -> components.recovery: "provider observations"
+sources.ws -> components.providers.websocket: "finalized base klines"
+sources.ws -> components.providers.websocket_decoder: "raw finalized payload"
+sources.rest -> components.providers.rest_decoder: "historical rows"
+components.providers.rest_decoder -> components.recovery: "provider observations"
 
-components.settings -> components.provider_factory: "validated provider refs"
-components.provider_factory -> components.recovery: "owned historical providers"
-components.provider_factory -> components.provider_quiescence: "owned provider mapping"
+components.settings -> components.providers.provider_factory: "validated provider refs"
+components.providers.provider_factory -> components.recovery: "owned historical providers"
+components.providers.provider_factory -> components.providers.provider_quiescence: "owned provider mapping"
 components.settings -> components.planning: "typed runtime settings"
-components.provider_factory -> components.planning: "composed provider ownership"
+components.providers.provider_factory -> components.planning: "composed provider ownership"
 components.planning -> components.controller: "immutable initial/candidate plan"
-components.config_service -> components.settings: "reload"
-components.config_service -> components.controller: "atomic settings replacement"
-components.config_service -> components.lifecycle: "mark dirty"
+components.control.config_service -> components.settings: "reload"
+components.control.config_service -> components.controller: "atomic settings replacement"
+components.control.config_service -> components.control.lifecycle: "mark dirty"
 components.controller -> components.runtime_state: "compose desired + observed public snapshot"
 components.supervisor -> components.runtime_state: "observed SupervisorSnapshot"
 components.controller -> components.supervisor: "install / start / stop generation"
-components.controller -> components.provider_quiescence: "fence fresh historical admission"
-components.provider_quiescence -> components.controller: "idle or TransportDeadlineExceeded"
-components.websocket_session -> components.websocket: "one SDK session / batch / cleanup"
-components.websocket -> components.websocket_session: "SDK callbacks"
-components.websocket -> components.websocket_bridge: "bounded callback events"
-components.websocket -> components.websocket_sequence: "classify / post-yield record / watchdog"
-components.websocket -> components.websocket_decoder: "raw payload"
-components.websocket_decoder -> contracts.observation: "emit"
+components.controller -> components.providers.provider_quiescence: "fence fresh historical admission"
+components.providers.provider_quiescence -> components.controller: "idle or TransportDeadlineExceeded"
+components.providers.websocket_session -> components.providers.websocket: "one SDK session / batch / cleanup"
+components.providers.websocket -> components.providers.websocket_session: "SDK callbacks"
+components.providers.websocket -> components.providers.websocket_bridge: "bounded callback events"
+components.providers.websocket -> components.providers.websocket_sequence: "classify / post-yield record / watchdog"
+components.providers.websocket -> components.providers.websocket_decoder: "raw payload"
+components.providers.websocket_decoder -> contracts.observation: "emit"
 contracts.observation -> components.supervisor: "live input"
 components.supervisor -> components.canonicalize: "base commit"
 components.supervisor -> components.htf: "base candle"
@@ -389,8 +397,8 @@ components.publisher -> contracts.outbox_event: "encode fields"
 contracts.outbox_event -> contracts.ohlcv_stream: "XADD"
 contracts.ohlcv_stream -> consumers.decision_live: "bounded direct XREAD cursor / parser"
 storage.candles -> consumers.decision_history: "read-only history query"
-components.lifecycle -> contracts.asset_hash: "sync manifests"
-components.lifecycle -> contracts.lifecycle_stream: "publish transition"
+components.control.lifecycle -> contracts.asset_hash: "sync manifests"
+components.control.lifecycle -> contracts.lifecycle_stream: "publish transition"
 contracts.asset_hash -> consumers.decision_lifecycle: "manifest gating"
 contracts.asset_hash -> consumers.risk_lifecycle: "availability gating"
 contracts.lifecycle_stream -> consumers.decision_lifecycle: "notification"
@@ -411,8 +419,8 @@ rules.history -> storage.candles
 rules.history -> contracts.ohlcv_stream
 rules.recovery_bound -> components.recovery
 rules.retention_rule -> components.retention
-rules.broker_startup -> components.lifecycle: "bind -> reconcile_all -> start"
+rules.broker_startup -> components.control.lifecycle: "bind -> reconcile_all -> start"
 rules.broker_startup -> components.publisher: "start after lifecycle"
-rules.config_deployment -> components.config_service: "P1B narrow writable asset mount"
-rules.generation_fence -> components.provider_quiescence
+rules.config_deployment -> components.control.config_service: "P1B narrow writable asset mount"
+rules.generation_fence -> components.providers.provider_quiescence
 rules.generation_fence -> components.controller

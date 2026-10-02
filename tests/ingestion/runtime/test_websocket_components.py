@@ -9,20 +9,20 @@ import pytest
 
 from apps.ingestion_app.domain.candle import CandleObservation
 from apps.ingestion_app.domain.instrument import MarketLane
-from apps.ingestion_app.runtime.websocket_bridge import (
+from apps.ingestion_app.providers.binance_usdm.websocket_bridge import (
     _BoundedCallbackBridge,
     _BridgeControl,
 )
-from apps.ingestion_app.runtime.websocket_sequence import (
+from apps.ingestion_app.providers.binance_usdm.websocket_session import (
+    BinanceWebSocketSessionOwner,
+)
+from apps.ingestion_app.providers.live_sequence import (
     LiveSequenceTracker,
     SequenceDecision,
     _build_recovery_requests,
     _earliest_silence_deadline,
     _overdue_silence_lanes,
     _silence_deadline,
-)
-from apps.ingestion_app.runtime.websocket_session import (
-    BinanceWebSocketSessionOwner,
 )
 
 ORIGIN = datetime(1970, 1, 5, tzinfo=UTC)

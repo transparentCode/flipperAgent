@@ -31,10 +31,20 @@ app: {
     label: "control API"
     link: "../../../src/apps/ingestion_app/api/routes.py"
   }
-  config_service: {
-    class: component
-    label: "AssetConfigService"
-    link: "../../../src/apps/ingestion_app/services/config_reconciliation.py"
+  control: {
+    label: "control"
+
+    config_service: {
+      class: component
+      label: "AssetConfigService"
+      link: "../../../src/apps/ingestion_app/control/config_reconciliation.py"
+    }
+
+    lifecycle: {
+      class: component
+      label: "AssetLifecycleReconciler"
+      link: "../../../src/apps/ingestion_app/control/asset_lifecycle.py"
+    }
   }
   controller: {
     class: component
@@ -66,40 +76,44 @@ app: {
     label: "RecoveryEngine"
     link: "../../../src/apps/ingestion_app/services/recovery.py"
   }
-  websocket: {
-    class: component
-    label: "BinanceWebSocketManager"
-    link: "../../../src/apps/ingestion_app/runtime/websocket.py"
-  }
-  websocket_session: {
-    class: component
-    label: "Binance websocket SDK\nsession lifecycle"
-    link: "../../../src/apps/ingestion_app/runtime/websocket_session.py"
-  }
-  websocket_bridge: {
-    class: component
-    label: "bounded callback bridge\nthread -> event loop"
-    link: "../../../src/apps/ingestion_app/runtime/websocket_bridge.py"
-  }
-  websocket_sequence: {
-    class: component
-    label: "live sequence/liveness tracker\nconsumed progress + recovery"
-    link: "../../../src/apps/ingestion_app/runtime/websocket_sequence.py"
-  }
-  websocket_decoder: {
-    class: component
-    label: "Binance websocket payload decoder"
-    link: "../../../src/apps/ingestion_app/runtime/binance_websocket_decode.py"
+  providers: {
+    label: "providers"
+
+    websocket: {
+      class: component
+      label: "BinanceWebSocketManager"
+      link: "../../../src/apps/ingestion_app/providers/binance_usdm/websocket.py"
+    }
+    websocket_session: {
+      class: component
+      label: "Binance websocket SDK\nsession lifecycle"
+      link: "../../../src/apps/ingestion_app/providers/binance_usdm/websocket_session.py"
+    }
+    websocket_bridge: {
+      class: component
+      label: "bounded callback bridge\nthread -> event loop"
+      link: "../../../src/apps/ingestion_app/providers/binance_usdm/websocket_bridge.py"
+    }
+    websocket_sequence: {
+      class: component
+      label: "live sequence/liveness tracker\nconsumed progress + recovery"
+      link: "../../../src/apps/ingestion_app/providers/live_sequence.py"
+    }
+    websocket_decoder: {
+      class: component
+      label: "Binance websocket payload decoder"
+      link: "../../../src/apps/ingestion_app/providers/binance_usdm/websocket_decode.py"
+    }
+    provider_quiescence: {
+      class: component
+      label: "historical provider idle barrier\nowned-call admission release"
+      link: "../../../src/apps/ingestion_app/providers/factory.py"
+    }
   }
   owned_call: {
     class: component
     label: "Neutral owned transport boundary\nbounded wait + retained lease + accounting"
     link: "../../../src/apps/ingestion_app/transport/ownership.py"
-  }
-  provider_quiescence: {
-    class: component
-    label: "historical provider idle barrier\nowned-call admission release"
-    link: "../../../src/apps/ingestion_app/providers/factory.py"
   }
   htf: {
     class: component
@@ -115,11 +129,6 @@ app: {
     class: component
     label: "OutboxPublisher"
     link: "../../../src/apps/ingestion_app/publication/publisher.py"
-  }
-  lifecycle: {
-    class: component
-    label: "AssetLifecycleReconciler"
-    link: "../../../src/apps/ingestion_app/services/asset_lifecycle.py"
   }
 }
 
@@ -141,11 +150,11 @@ broker_startup: {
 
 actors.broker -> broker_startup.b1
 broker_startup.b1 -> broker_startup.b2
-broker_startup.b2 -> app.lifecycle: "bind manifest store"
+broker_startup.b2 -> app.control.lifecycle: "bind manifest store"
 broker_startup.b2 -> broker_startup.b3
-broker_startup.b3 -> app.lifecycle: "reconcile_all"
+broker_startup.b3 -> app.control.lifecycle: "reconcile_all"
 broker_startup.b3 -> broker_startup.b4
-broker_startup.b4 -> app.lifecycle: "start reconciler"
+broker_startup.b4 -> app.control.lifecycle: "start reconciler"
 broker_startup.b4 -> broker_startup.b5
 broker_startup.b5 -> app.publisher: "start publisher"
 
@@ -173,10 +182,10 @@ app.recovery -> startup.s5
 startup.s5 -> app.htf
 app.htf -> persistence.candles: "derive complete buckets"
 persistence.candles -> startup.s6
-startup.s6 -> app.websocket
-actors.exchange -> app.websocket: "finalized klines"
-app.websocket -> app.websocket_decoder: "raw finalized payload"
-app.websocket_decoder -> startup.s7
+startup.s6 -> app.providers.websocket
+actors.exchange -> app.providers.websocket: "finalized klines"
+app.providers.websocket -> app.providers.websocket_decoder: "raw finalized payload"
+app.providers.websocket_decoder -> startup.s7
 startup.s7 -> app.supervisor: "state=LIVE"
 
 live: {
@@ -190,7 +199,7 @@ live: {
   l7: { class: state; label: "7. Decision consumes canonical stream" }
 }
 
-app.websocket_decoder -> live.l1
+app.providers.websocket_decoder -> live.l1
 live.l1 -> live.l2
 live.l2 -> app.repository
 app.repository -> persistence.candles: "candle"
@@ -220,7 +229,7 @@ interruption: {
   r9: { class: state; label: "failure branch: control cancel / external cancel / typed deadline / invariant" }
 }
 
-app.websocket -> interruption.r1
+app.providers.websocket -> interruption.r1
 interruption.r1 -> interruption.r2
 interruption.r2 -> app.supervisor
 app.supervisor -> interruption.r3
@@ -252,13 +261,13 @@ transport_bounds: {
 app.controller -> transport_bounds.t1
 transport_bounds.t1 -> app.owned_call
 app.owned_call -> transport_bounds.t2
-transport_bounds.t2 -> app.websocket_session: "factory / subscribe / stop"
+transport_bounds.t2 -> app.providers.websocket_session: "factory / subscribe / stop"
 transport_bounds.t2 -> app.recovery: "native REST / CCXT attempt"
-app.websocket_session -> app.websocket: "SDK callbacks"
-app.websocket -> app.websocket_session: "one session / batch / cleanup"
-app.websocket -> app.websocket_bridge: "bounded callback events"
-app.websocket -> app.websocket_sequence: "classify / post-yield record / watchdog"
-app.websocket_session -> transport_bounds.t3
+app.providers.websocket_session -> app.providers.websocket: "SDK callbacks"
+app.providers.websocket -> app.providers.websocket_session: "one session / batch / cleanup"
+app.providers.websocket -> app.providers.websocket_bridge: "bounded callback events"
+app.providers.websocket -> app.providers.websocket_sequence: "classify / post-yield record / watchdog"
+app.providers.websocket_session -> transport_bounds.t3
 app.recovery -> transport_bounds.t3
 transport_bounds.t3 -> transport_bounds.t4: "completed provider availability error"
 transport_bounds.t3 -> app.supervisor: "deterministic response / metadata / client / lifecycle error"
@@ -283,15 +292,15 @@ mutation: {
 actors.operator -> mutation.m1
 mutation.m1 -> app.api
 app.api -> mutation.m2
-mutation.m2 -> app.config_service
-app.config_service -> mutation.m3
+mutation.m2 -> app.control.config_service
+app.control.config_service -> mutation.m3
 mutation.m3 -> mutation.m4
 mutation.m4 -> mutation.m5
 mutation.m5 -> app.controller
 app.controller -> app.planning: "compile replacement before stop"
 app.controller -> mutation.m6
-mutation.m6 -> app.lifecycle
-app.lifecycle -> mutation.m7
+mutation.m6 -> app.control.lifecycle
+app.control.lifecycle -> mutation.m7
 mutation.m7 -> persistence.manifests
 mutation.m2 -> mutation.m8: "invalid"
 mutation.m3 -> mutation.m8: "write/reload/replace failure"
@@ -319,9 +328,9 @@ transition.g5 -> transition.g7: "reconnect install failure"
 transition.g5 -> app.controller: "new generation/status snapshot"
 app.controller -> app.runtime_state: "desired state + observed snapshot composition"
 app.supervisor -> app.runtime_state: "observed state only"
-app.controller -> app.provider_quiescence: "resume / replace / reconnect / recover fence"
-app.provider_quiescence -> transition.g3: "owned calls idle"
-app.provider_quiescence -> app.controller: "typed deadline -> fatal quarantine"
+app.controller -> app.providers.provider_quiescence: "resume / replace / reconnect / recover fence"
+app.providers.provider_quiescence -> transition.g3: "owned calls idle"
+app.providers.provider_quiescence -> app.controller: "typed deadline -> fatal quarantine"
 
 shutdown: {
   label: "Sequence F — controlled pause/drain used by certification"

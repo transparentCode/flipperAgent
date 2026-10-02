@@ -23,12 +23,14 @@ import yaml
 from apps.ingestion_app.bootstrap import create_application
 from apps.ingestion_app.domain.candle import CanonicalCandle
 from apps.ingestion_app.domain.instrument import MarketLane
-from apps.ingestion_app.providers.binance_native import (
+from apps.ingestion_app.providers.binance_usdm.rest_ccxt import CCXTHistoricalProvider
+from apps.ingestion_app.providers.binance_usdm.rest_native import (
     BinanceNativeHistoricalProvider,
 )
-from apps.ingestion_app.providers.ccxt import CCXTHistoricalProvider
+from apps.ingestion_app.providers.binance_usdm.websocket import (
+    BinanceWebSocketManager,
+)
 from apps.ingestion_app.publication.publisher import OutboxPublisher
-from apps.ingestion_app.runtime.websocket import BinanceWebSocketManager
 from apps.ingestion_app.services.candle_ingestion import CandleIngestionService
 from apps.ingestion_app.settings import load_ingestion_settings
 from apps.ingestion_app.storage.bootstrap import apply_ingestion_schema

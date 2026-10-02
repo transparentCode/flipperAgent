@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-import apps.ingestion_app.runtime.websocket as websocket_module
+import apps.ingestion_app.providers.binance_usdm.websocket as websocket_module
 from apps.ingestion_app.domain.candle import CandleObservation
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.time_alignment import aligned_bucket_start
@@ -17,13 +17,13 @@ from apps.ingestion_app.providers.base import (
     LiveStreamInterrupted,
     TransportDeadlineExceeded,
 )
-from apps.ingestion_app.runtime.binance_websocket_decode import (
-    decode_binance_websocket_message,
-)
-from apps.ingestion_app.runtime.websocket import (
+from apps.ingestion_app.providers.binance_usdm.websocket import (
     BinanceWebSocketManager,
 )
-from apps.ingestion_app.runtime.websocket_sequence import (
+from apps.ingestion_app.providers.binance_usdm.websocket_decode import (
+    decode_binance_websocket_message,
+)
+from apps.ingestion_app.providers.live_sequence import (
     LiveSequenceTracker,
     _build_recovery_requests,
     _earliest_silence_deadline,

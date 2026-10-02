@@ -16,7 +16,6 @@ from apps.ingestion_app.providers.base import (
     ProviderAvailabilityError,
     TransportDeadlineExceeded,
 )
-from apps.ingestion_app.providers.binance_rest import decode_ccxt_ohlcv_rows
 from apps.ingestion_app.providers.request import (
     epoch_milliseconds,
     validate_historical_request,
@@ -27,6 +26,8 @@ from apps.ingestion_app.transport.ownership import (
     wait_for_owned_call,
 )
 from libs.common.exceptions import DataIngestionError
+
+from .rest_decode import decode_ccxt_ohlcv_rows
 
 
 def _is_provider_availability_error(error: BaseException) -> bool:

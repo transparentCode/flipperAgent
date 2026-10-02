@@ -15,7 +15,7 @@ from apps.ingestion_app.planning import (
     compile_ingestion_plan,
 )
 from apps.ingestion_app.providers.base import TransportDeadlineExceeded
-from apps.ingestion_app.providers.binance_native import (
+from apps.ingestion_app.providers.binance_usdm.rest_native import (
     BinanceNativeHistoricalProvider,
 )
 from apps.ingestion_app.providers.factory import (

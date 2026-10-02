@@ -12,7 +12,7 @@ import asyncpg
 
 from apps.ingestion_app.domain.candle import CanonicalCandle
 from apps.ingestion_app.domain.instrument import MarketLane
-from apps.ingestion_app.publication.outbox import OutboxEvent
+from apps.ingestion_app.domain.outbox import OutboxEvent
 
 
 class CandleCommitStatus(StrEnum):

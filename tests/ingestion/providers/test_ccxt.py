@@ -8,14 +8,14 @@ from decimal import Decimal
 import ccxt.async_support as ccxt
 import pytest
 
-import apps.ingestion_app.providers.ccxt as ccxt_module
+import apps.ingestion_app.providers.binance_usdm.rest_ccxt as ccxt_module
 import apps.ingestion_app.transport.ownership as ownership_module
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.providers.base import (
     ProviderAvailabilityError,
     TransportDeadlineExceeded,
 )
-from apps.ingestion_app.providers.ccxt import CCXTHistoricalProvider
+from apps.ingestion_app.providers.binance_usdm.rest_ccxt import CCXTHistoricalProvider
 from libs.common.exceptions import DataIngestionError
 
 LANE = MarketLane("binance", "BTC-USDT-PERP", "1m")

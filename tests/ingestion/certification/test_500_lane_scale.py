@@ -106,7 +106,9 @@ def _sdk_manager(clients: list[FakeSDKClient], *, queue_maxsize: int = 1000):
         clients.append(client)
         return client
 
-    from apps.ingestion_app.runtime.websocket import BinanceWebSocketManager
+    from apps.ingestion_app.providers.binance_usdm.websocket import (
+        BinanceWebSocketManager,
+    )
 
     return BinanceWebSocketManager(
         stream_url="wss://example.test/market",

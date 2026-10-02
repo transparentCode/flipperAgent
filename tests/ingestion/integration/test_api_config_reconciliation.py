@@ -7,10 +7,10 @@ from pathlib import Path
 import pytest
 
 from apps.ingestion_app.api.app import create_app
+from apps.ingestion_app.control.config_reconciliation import AssetConfigService
 from apps.ingestion_app.planning import compile_ingestion_plan
 from apps.ingestion_app.runtime.controller import RuntimeController
 from apps.ingestion_app.runtime.state import RuntimeState, SupervisorSnapshot
-from apps.ingestion_app.services.config_reconciliation import AssetConfigService
 from apps.ingestion_app.settings import (
     IngestionSettings,
     load_ingestion_settings,

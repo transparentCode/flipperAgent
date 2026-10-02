@@ -6,7 +6,7 @@ import json
 from collections.abc import Mapping
 from urllib.parse import quote
 
-from apps.ingestion_app.publication.outbox import OutboxEvent
+from apps.ingestion_app.domain.outbox import OutboxEvent
 
 
 def _normalize_identity_part(value: object, *, field_name: str) -> str:

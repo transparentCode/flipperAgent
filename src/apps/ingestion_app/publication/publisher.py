@@ -9,8 +9,8 @@ from time import perf_counter
 from typing import Any
 from uuid import UUID
 
+from apps.ingestion_app.domain.outbox import OutboxEvent
 from apps.ingestion_app.observability import IngestionObservability
-from apps.ingestion_app.publication.outbox import OutboxEvent
 from apps.ingestion_app.publication.stream_keys import canonical_lane_stream_key
 from apps.ingestion_app.settings import PublicationSettings
 from apps.ingestion_app.storage.repository import CandleRepository

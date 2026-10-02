@@ -127,11 +127,12 @@ internal_components:
     paths:
       - src/apps/ingestion_app/providers/base.py
       - src/apps/ingestion_app/providers/factory.py
-      - src/apps/ingestion_app/providers/binance_native.py
-      - src/apps/ingestion_app/providers/ccxt.py
-      - src/apps/ingestion_app/providers/binance_rest.py
-      - src/apps/ingestion_app/runtime/websocket.py
-      - src/apps/ingestion_app/runtime/binance_websocket_decode.py
+      - src/apps/ingestion_app/providers/binance_usdm/rest_native.py
+      - src/apps/ingestion_app/providers/binance_usdm/rest_ccxt.py
+      - src/apps/ingestion_app/providers/binance_usdm/rest_decode.py
+      - src/apps/ingestion_app/providers/binance_usdm/websocket.py
+      - src/apps/ingestion_app/providers/binance_usdm/websocket_decode.py
+      - src/apps/ingestion_app/providers/live_sequence.py
     responsibilities:
       - structural historical/live provider protocols
       - validate referenced provider IDs and construct owned historical providers
@@ -145,7 +146,7 @@ internal_components:
 
   - name: websocket_session
     paths:
-      - src/apps/ingestion_app/runtime/websocket_session.py
+      - src/apps/ingestion_app/providers/binance_usdm/websocket_session.py
     responsibilities:
       - construct one Binance SDK client and issue one batched subscription
       - own factory, subscription, stop, deadline, cancellation, and cleanup handshakes
@@ -154,7 +155,7 @@ internal_components:
 
   - name: websocket_bridge
     paths:
-      - src/apps/ingestion_app/runtime/websocket_bridge.py
+      - src/apps/ingestion_app/providers/binance_usdm/websocket_bridge.py
     responsibilities:
       - provide bounded thread-safe callback admission and FIFO batch extraction
       - schedule at most one event-loop drain and retain urgent overflow control
@@ -162,7 +163,7 @@ internal_components:
 
   - name: websocket_sequence
     paths:
-      - src/apps/ingestion_app/runtime/websocket_sequence.py
+      - src/apps/ingestion_app/providers/live_sequence.py
     responsibilities:
       - classify finalized observations for duplicate, order, anchor, and gap semantics
       - record consumed progress only after the facade's async-generator yield resumes
@@ -173,9 +174,9 @@ internal_components:
     paths:
       - src/apps/ingestion_app/transport/__init__.py
       - src/apps/ingestion_app/transport/ownership.py
-      - src/apps/ingestion_app/providers/binance_native.py
-      - src/apps/ingestion_app/providers/ccxt.py
-      - src/apps/ingestion_app/runtime/websocket_session.py
+      - src/apps/ingestion_app/providers/binance_usdm/rest_native.py
+      - src/apps/ingestion_app/providers/binance_usdm/rest_ccxt.py
+      - src/apps/ingestion_app/providers/binance_usdm/websocket_session.py
     responsibilities:
       - admit only up to configured recovery.max_concurrency
       - bound each provider attempt and websocket lifecycle operation at 30 seconds by default
@@ -285,10 +286,10 @@ internal_components:
       - bounded approximate stream MAXLEN
       - retry broker connectivity independently of canonical runtime
 
-  - name: asset_config_and_lifecycle
+  - name: control_plane
     paths:
-      - src/apps/ingestion_app/services/config_reconciliation.py
-      - src/apps/ingestion_app/services/asset_lifecycle.py
+      - src/apps/ingestion_app/control/config_reconciliation.py
+      - src/apps/ingestion_app/control/asset_lifecycle.py
       - src/libs/common/asset_manifest.py
     responsibilities:
       - create/patch one asset YAML atomically with runtime replacement when the registered directory is writable
@@ -446,7 +447,7 @@ resolved_gaps:
   - id: G1
     summary: closed in P1B; the existing asset YAML persistence path has a narrow writable nested Compose bind
     source_refs:
-      - src/apps/ingestion_app/services/config_reconciliation.py:156-164
+      - src/apps/ingestion_app/control/config_reconciliation.py:156-164
       - src/libs/common/config.py:598-646
       - docker-compose.yml:64-65,93
       - tests/ingestion/test_deployment_contract.py
@@ -466,8 +467,8 @@ resolved_gaps:
     summary: closed in P1D; generation transitions await actual historical-provider ownership/admission release before fresh historical admission
     source_refs:
       - src/apps/ingestion_app/providers/base.py
-      - src/apps/ingestion_app/providers/binance_native.py
-      - src/apps/ingestion_app/providers/ccxt.py
+      - src/apps/ingestion_app/providers/binance_usdm/rest_native.py
+      - src/apps/ingestion_app/providers/binance_usdm/rest_ccxt.py
       - src/apps/ingestion_app/providers/factory.py
       - src/apps/ingestion_app/runtime/controller.py
       - tests/ingestion/runtime/test_controller.py
@@ -475,10 +476,10 @@ resolved_gaps:
   - id: G5
     summary: closed in P1E; the single multiplexed websocket consumer bounds queue waiting with the earliest causal per-lane finalized-progress deadline
     source_refs:
-      - src/apps/ingestion_app/runtime/websocket.py
-      - src/apps/ingestion_app/runtime/websocket_sequence.py
-      - src/apps/ingestion_app/runtime/websocket_bridge.py
-      - src/apps/ingestion_app/runtime/websocket_session.py
+      - src/apps/ingestion_app/providers/binance_usdm/websocket.py
+      - src/apps/ingestion_app/providers/live_sequence.py
+      - src/apps/ingestion_app/providers/binance_usdm/websocket_bridge.py
+      - src/apps/ingestion_app/providers/binance_usdm/websocket_session.py
       - tests/ingestion/runtime/test_websocket.py
       - tests/ingestion/runtime/test_websocket_components.py
       - tests/ingestion/certification/test_500_lane_scale.py
@@ -495,12 +496,12 @@ known_gaps:
   - id: G6
     summary: lifecycle asset_version and timeframe_version are constant
     source_refs:
-      - src/apps/ingestion_app/services/asset_lifecycle.py:88-100
+      - src/apps/ingestion_app/control/asset_lifecycle.py:88-100
     phase_0_disposition: document_only
   - id: G7
     summary: ingestion and shared manifest modules have different active lifecycle event-ID helpers
     source_refs:
-      - src/apps/ingestion_app/services/asset_lifecycle.py:48-64
+      - src/apps/ingestion_app/control/asset_lifecycle.py:48-64
       - src/libs/common/asset_manifest.py:131-139
     phase_0_disposition: document_only
 

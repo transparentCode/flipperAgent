@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from apps.ingestion_app.api.app import create_app
+from apps.ingestion_app.control.config_reconciliation import AssetNotFoundError
 from apps.ingestion_app.domain.recovery import RecoveryRequest
 from apps.ingestion_app.runtime.controller import RuntimeControlConflictError
 from apps.ingestion_app.runtime.state import (
@@ -10,7 +11,6 @@ from apps.ingestion_app.runtime.state import (
     RuntimeSnapshot,
     RuntimeState,
 )
-from apps.ingestion_app.services.config_reconciliation import AssetNotFoundError
 from apps.ingestion_app.settings import AssetSettings
 from tests.ingestion._asgi import request
 from tests.ingestion.runtime.test_supervisor import _settings
