@@ -29,7 +29,8 @@ from apps.ingestion_app.domain.candle import (
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.planning import IngestionPlan, compile_ingestion_plan
 from apps.ingestion_app.runtime.controller import RuntimeController
-from apps.ingestion_app.runtime.supervisor import RuntimeState, RuntimeSupervisor
+from apps.ingestion_app.runtime.state import RuntimeState
+from apps.ingestion_app.runtime.supervisor import RuntimeSupervisor
 from apps.ingestion_app.services.candle_ingestion import (
     CandleIngestionService,
     canonicalize_observation,

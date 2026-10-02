@@ -11,10 +11,14 @@ import pytest
 import apps.ingestion_app.runtime.websocket as websocket_module
 from apps.ingestion_app.domain.candle import CandleObservation
 from apps.ingestion_app.domain.instrument import MarketLane
+from apps.ingestion_app.domain.time_alignment import aligned_bucket_start
 from apps.ingestion_app.providers.base import (
     LiveCandleProvider,
     LiveStreamInterrupted,
     TransportDeadlineExceeded,
+)
+from apps.ingestion_app.runtime.binance_websocket_decode import (
+    decode_binance_websocket_message,
 )
 from apps.ingestion_app.runtime.websocket import (
     BinanceWebSocketManager,
@@ -26,7 +30,6 @@ from apps.ingestion_app.runtime.websocket_sequence import (
     _overdue_silence_lanes,
     _silence_deadline,
 )
-from apps.ingestion_app.services.time_alignment import aligned_bucket_start
 from libs.common.exceptions import DataIngestionError
 
 ORIGIN = datetime(1970, 1, 5, tzinfo=UTC)
@@ -910,12 +913,14 @@ def test_websocket_received_at_clock_samples_only_at_observation_construction(
     routes = {SYMBOL.casefold(): (LANE, SYMBOL)}
 
     def parse(message: object) -> CandleObservation | None:
-        return manager._parse_message(
+        return decode_binance_websocket_message(
             message,
+            provider_id=manager.provider_id,
             routes=routes,
             base_timeframe="1m",
             timeframe_duration=DURATION,
             alignment_origin=ORIGIN,
+            received_at_fn=websocket_module._utc_now,
         )
 
     assert parse({"result": None, "id": 1}) is None

@@ -13,6 +13,8 @@ from binance.websocket.um_futures.websocket_client import UMFuturesWebsocketClie
 from apps.ingestion_app.domain.candle import CandleObservation
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
+from apps.ingestion_app.domain.time_alignment import aligned_bucket_start
+from apps.ingestion_app.domain.validation import require_non_empty_string, require_utc
 from apps.ingestion_app.observability import IngestionObservability
 from apps.ingestion_app.providers.base import (
     LiveStreamInterrupted,
@@ -30,7 +32,6 @@ from apps.ingestion_app.runtime.websocket_session import (
     BinanceWebSocketSession,
     BinanceWebSocketSessionOwner,
 )
-from apps.ingestion_app.services.time_alignment import aligned_bucket_start
 from libs.common.enums import SystemComponent
 from libs.common.exceptions import DataIngestionError
 from libs.common.logging.logger_utils import bind_logger
@@ -42,21 +43,6 @@ _WAKE_SENTINEL = object()
 def _utc_now() -> datetime:
     """Return the UTC wall-clock sample used by causal live-stream checks."""
     return datetime.now(UTC)
-
-
-def _require_non_empty_string(value: object, *, field_name: str) -> str:
-    if not isinstance(value, str):
-        raise TypeError(f"{field_name} must be a string")
-    if not value.strip():
-        raise ValueError(f"{field_name} must be non-empty")
-    return value
-
-
-def _require_utc(value: object, *, field_name: str) -> None:
-    if not isinstance(value, datetime):
-        raise TypeError(f"{field_name} must be a datetime")
-    if value.tzinfo is None or value.utcoffset() != timedelta(0):
-        raise ValueError(f"{field_name} must be timezone-aware UTC")
 
 
 def _require_positive_duration(value: object, *, field_name: str) -> timedelta:
@@ -97,7 +83,7 @@ class BinanceWebSocketManager:
         client_factory: Callable[..., Any] = UMFuturesWebsocketClient,
         observability: IngestionObservability | None = None,
     ) -> None:
-        stream_url = _require_non_empty_string(stream_url, field_name="stream_url")
+        stream_url = require_non_empty_string(stream_url, field_name="stream_url")
         if not stream_url.startswith("wss://"):
             raise ValueError("stream_url must use wss://")
         if not callable(client_factory):
@@ -143,13 +129,13 @@ class BinanceWebSocketManager:
             raise TypeError("subscriptions must be a mapping")
         if not subscriptions:
             raise ValueError("subscriptions must not be empty")
-        _require_non_empty_string(base_timeframe, field_name="base_timeframe")
+        require_non_empty_string(base_timeframe, field_name="base_timeframe")
         _require_positive_duration(
             timeframe_duration,
             field_name="timeframe_duration",
         )
-        _require_utc(alignment_origin, field_name="alignment_origin")
-        _require_utc(connection_anchor, field_name="connection_anchor")
+        require_utc(alignment_origin, field_name="alignment_origin")
+        require_utc(connection_anchor, field_name="connection_anchor")
         if (
             aligned_bucket_start(
                 connection_anchor,
@@ -169,7 +155,7 @@ class BinanceWebSocketManager:
                     f"live lane timeframe '{lane.timeframe}' must equal "
                     f"base_timeframe '{base_timeframe}'"
                 )
-            _require_non_empty_string(
+            require_non_empty_string(
                 provider_symbol,
                 field_name="provider_symbol",
             )
@@ -203,25 +189,6 @@ class BinanceWebSocketManager:
             timeframe_duration=timeframe_duration,
             alignment_origin=alignment_origin,
             connection_anchor=connection_anchor,
-        )
-
-    def _parse_message(
-        self,
-        raw_message: object,
-        *,
-        routes: Mapping[str, tuple[MarketLane, str]],
-        base_timeframe: str,
-        timeframe_duration: timedelta,
-        alignment_origin: datetime,
-    ) -> CandleObservation | None:
-        return decode_binance_websocket_message(
-            raw_message,
-            provider_id=self.provider_id,
-            routes=routes,
-            base_timeframe=base_timeframe,
-            timeframe_duration=timeframe_duration,
-            alignment_origin=alignment_origin,
-            received_at_fn=_utc_now,
         )
 
     async def _stream_closed_candles(
@@ -316,12 +283,14 @@ class BinanceWebSocketManager:
 
         def handle_message(raw_message: object) -> None:
             try:
-                observation = self._parse_message(
+                observation = decode_binance_websocket_message(
                     raw_message,
+                    provider_id=self.provider_id,
                     routes=routes,
                     base_timeframe=base_timeframe,
                     timeframe_duration=timeframe_duration,
                     alignment_origin=alignment_origin,
+                    received_at_fn=_utc_now,
                 )
             except (
                 DataIngestionError,
@@ -402,13 +371,8 @@ class BinanceWebSocketManager:
                 on_error=on_error,
             )
         except RuntimeError as exc:
-            reason = (
-                "connection_lifecycle_quarantined"
-                if "quarantined" in str(exc)
-                else "connection_lifecycle_busy"
-            )
             raise LiveStreamInterrupted(
-                reason=reason,
+                reason="connection_lifecycle_busy",
                 recovery_requests=(),
             ) from exc
 

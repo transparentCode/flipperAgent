@@ -19,6 +19,7 @@ from time import perf_counter
 from apps.ingestion_app.domain.candle import CandleObservation, CanonicalCandle
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
+from apps.ingestion_app.domain.time_alignment import aligned_bucket_start
 from apps.ingestion_app.observability import IngestionObservability
 from apps.ingestion_app.planning import IngestionPlan
 from apps.ingestion_app.providers.base import (
@@ -28,7 +29,6 @@ from apps.ingestion_app.providers.base import (
 )
 from apps.ingestion_app.services.candle_ingestion import CandleIngestionService
 from apps.ingestion_app.services.htf_aggregation import HTFAggregationService
-from apps.ingestion_app.services.time_alignment import aligned_bucket_start
 from apps.ingestion_app.storage.repository import (
     CandleCommitStatus,
     CandleRepository,
@@ -249,15 +249,7 @@ def _deduplicate_requests(
 ) -> tuple[RecoveryRequest, ...]:
     unique: dict[tuple[str, str, str, datetime, datetime, str], RecoveryRequest] = {}
     for request in requests:
-        key = (
-            request.lane.venue,
-            request.lane.instrument_id,
-            request.lane.timeframe,
-            request.since,
-            request.until,
-            request.reason,
-        )
-        unique[key] = request
+        unique[_request_key(request)] = request
     return tuple(
         sorted(
             unique.values(),

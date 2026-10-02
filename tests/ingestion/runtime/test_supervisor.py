@@ -10,6 +10,7 @@ import pytest
 from apps.ingestion_app.domain.candle import CandleObservation, CanonicalCandle
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
+from apps.ingestion_app.domain.time_alignment import aligned_bucket_start
 from apps.ingestion_app.observability import IngestionObservability
 from apps.ingestion_app.planning import compile_ingestion_plan
 from apps.ingestion_app.providers.base import (
@@ -19,7 +20,6 @@ from apps.ingestion_app.providers.base import (
 from apps.ingestion_app.runtime.state import RuntimeState, SupervisorSnapshot
 from apps.ingestion_app.runtime.supervisor import RuntimeSupervisor
 from apps.ingestion_app.services.recovery import RecoveryExhaustedError
-from apps.ingestion_app.services.time_alignment import aligned_bucket_start
 from apps.ingestion_app.storage.repository import CandleCommitStatus
 from libs.common.exceptions import DataIngestionError
 

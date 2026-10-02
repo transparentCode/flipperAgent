@@ -3,25 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
 from .instrument import MarketLane
-
-
-def _require_non_empty_string(value: object, *, field_name: str) -> None:
-    if not isinstance(value, str):
-        raise TypeError(f"{field_name} must be a string")
-    if not value.strip():
-        raise ValueError(f"{field_name} must be non-empty")
-
-
-def _require_utc(value: object, *, field_name: str) -> None:
-    if not isinstance(value, datetime):
-        raise TypeError(f"{field_name} must be a datetime")
-    if value.tzinfo is None or value.utcoffset() != timedelta(0):
-        raise ValueError(f"{field_name} must be timezone-aware UTC")
+from .validation import require_non_empty_string, require_utc
 
 
 def _require_decimal(value: object, *, field_name: str) -> None:
@@ -91,14 +78,14 @@ class CandleObservation:
     def __post_init__(self) -> None:
         _require_lane(self.lane)
         for field_name in ("provider_id", "provider_symbol", "transport"):
-            _require_non_empty_string(getattr(self, field_name), field_name=field_name)
-        _require_utc(self.open_time, field_name="open_time")
-        _require_utc(self.close_time, field_name="close_time")
-        _require_utc(self.received_at, field_name="received_at")
+            require_non_empty_string(getattr(self, field_name), field_name=field_name)
+        require_utc(self.open_time, field_name="open_time")
+        require_utc(self.close_time, field_name="close_time")
+        require_utc(self.received_at, field_name="received_at")
         if self.provider_close_time is not None:
-            _require_utc(self.provider_close_time, field_name="provider_close_time")
+            require_utc(self.provider_close_time, field_name="provider_close_time")
         if self.provider_event_id is not None:
-            _require_non_empty_string(
+            require_non_empty_string(
                 self.provider_event_id,
                 field_name="provider_event_id",
             )
@@ -133,8 +120,8 @@ class CanonicalCandle:
 
     def __post_init__(self) -> None:
         _require_lane(self.lane)
-        _require_utc(self.open_time, field_name="open_time")
-        _require_utc(self.close_time, field_name="close_time")
+        require_utc(self.open_time, field_name="open_time")
+        require_utc(self.close_time, field_name="close_time")
         if self.close_time <= self.open_time:
             raise ValueError("close_time must be after open_time")
         _validate_candle_values(
@@ -146,11 +133,11 @@ class CanonicalCandle:
             taker_buy_base=self.taker_buy_base,
         )
 
-        _require_non_empty_string(self.source_type, field_name="source_type")
+        require_non_empty_string(self.source_type, field_name="source_type")
         if self.source_type == "provider":
             if self.source_provider is None:
                 raise ValueError("provider candles require source_provider")
-            _require_non_empty_string(
+            require_non_empty_string(
                 self.source_provider,
                 field_name="source_provider",
             )
@@ -161,7 +148,7 @@ class CanonicalCandle:
                 raise ValueError("derived candles require source_provider to be None")
             if self.source_timeframe is None:
                 raise ValueError("derived candles require source_timeframe")
-            _require_non_empty_string(
+            require_non_empty_string(
                 self.source_timeframe,
                 field_name="source_timeframe",
             )

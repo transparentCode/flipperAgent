@@ -1,4 +1,4 @@
-"""Fixed-duration UTC bucket alignment for ingestion services."""
+"""Fixed-duration UTC bucket alignment for ingestion domain concepts."""
 
 from __future__ import annotations
 

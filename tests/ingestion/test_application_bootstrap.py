@@ -11,7 +11,7 @@ import pytest
 from apps.ingestion_app import bootstrap
 from apps.ingestion_app.api.app import create_app
 from apps.ingestion_app.runtime.controller import RuntimeController
-from apps.ingestion_app.runtime.supervisor import (
+from apps.ingestion_app.runtime.state import (
     DesiredRuntimeState,
     RuntimeSnapshot,
     RuntimeState,

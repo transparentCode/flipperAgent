@@ -12,6 +12,7 @@ import apps.ingestion_app.services.recovery as recovery_module
 from apps.ingestion_app.domain.candle import CandleObservation, CanonicalCandle
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
+from apps.ingestion_app.domain.time_alignment import aligned_bucket_start
 from apps.ingestion_app.planning import IngestionPlan, LanePlan
 from apps.ingestion_app.providers.base import (
     ProviderAvailabilityError,
@@ -21,7 +22,6 @@ from apps.ingestion_app.services.recovery import (
     RecoveryEngine,
     RecoveryExhaustedError,
 )
-from apps.ingestion_app.services.time_alignment import aligned_bucket_start
 from apps.ingestion_app.storage.repository import CandleCommitStatus
 from libs.common.exceptions import DataIngestionError
 

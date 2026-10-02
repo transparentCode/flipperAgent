@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
+from apps.ingestion_app.domain.time_alignment import aligned_bucket_start
 from apps.ingestion_app.runtime.controller import (
     RuntimeControlConflictError,
     RuntimeController,
@@ -24,7 +25,6 @@ from apps.ingestion_app.services.config_reconciliation import (
     AssetConfigService,
     AssetNotFoundError,
 )
-from apps.ingestion_app.services.time_alignment import aligned_bucket_start
 from apps.ingestion_app.settings import AssetSettings
 
 from .dependencies import get_config_service, get_runtime_controller

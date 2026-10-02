@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from apps.ingestion_app.services.time_alignment import aligned_bucket_start
+from apps.ingestion_app.domain.time_alignment import aligned_bucket_start
 
 ORIGIN = datetime(1970, 1, 5, tzinfo=UTC)
 

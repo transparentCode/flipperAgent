@@ -11,68 +11,22 @@ import ccxt.async_support as ccxt
 
 from apps.ingestion_app.domain.candle import CandleObservation
 from apps.ingestion_app.domain.instrument import MarketLane
+from apps.ingestion_app.domain.validation import require_non_empty_string
 from apps.ingestion_app.providers.base import (
     ProviderAvailabilityError,
     TransportDeadlineExceeded,
 )
 from apps.ingestion_app.providers.binance_rest import decode_ccxt_ohlcv_rows
+from apps.ingestion_app.providers.request import (
+    epoch_milliseconds,
+    validate_historical_request,
+)
 from apps.ingestion_app.transport.ownership import (
     OwnedAsyncCall,
     OwnedOperationTracker,
     wait_for_owned_call,
 )
 from libs.common.exceptions import DataIngestionError
-
-_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
-
-
-def _require_non_empty_string(value: object, *, field_name: str) -> None:
-    if not isinstance(value, str):
-        raise TypeError(f"{field_name} must be a string")
-    if not value.strip():
-        raise ValueError(f"{field_name} must be non-empty")
-
-
-def _require_utc(value: object, *, field_name: str) -> None:
-    if not isinstance(value, datetime):
-        raise TypeError(f"{field_name} must be a datetime")
-    if value.tzinfo is None or value.utcoffset() != timedelta(0):
-        raise ValueError(f"{field_name} must be timezone-aware UTC")
-
-
-def _validate_request(
-    *,
-    lane: MarketLane,
-    provider_symbol: str,
-    timeframe_duration: timedelta,
-    since: datetime,
-    until: datetime,
-    limit: int,
-) -> None:
-    if not isinstance(lane, MarketLane):
-        raise TypeError("lane must be a MarketLane")
-    _require_non_empty_string(provider_symbol, field_name="provider_symbol")
-    if not isinstance(timeframe_duration, timedelta):
-        raise TypeError("timeframe_duration must be a timedelta")
-    if timeframe_duration <= timedelta(0):
-        raise ValueError("timeframe_duration must be positive")
-    _require_utc(since, field_name="since")
-    _require_utc(until, field_name="until")
-    if until <= since:
-        raise ValueError("until must be after since")
-    if isinstance(limit, bool) or not isinstance(limit, int):
-        raise TypeError("limit must be an integer")
-    if limit <= 0:
-        raise ValueError("limit must be positive")
-
-
-def _epoch_milliseconds(value: datetime) -> int:
-    elapsed = value - _EPOCH
-    return (
-        elapsed.days * 86_400_000
-        + elapsed.seconds * 1_000
-        + elapsed.microseconds // 1_000
-    )
 
 
 def _is_provider_availability_error(error: BaseException) -> bool:
@@ -94,8 +48,8 @@ class CCXTHistoricalProvider:
         attempt_timeout_seconds: float = 30,
         max_concurrency: int = 1,
     ) -> None:
-        _require_non_empty_string(provider_id, field_name="provider_id")
-        _require_non_empty_string(exchange_id, field_name="exchange_id")
+        require_non_empty_string(provider_id, field_name="provider_id")
+        require_non_empty_string(exchange_id, field_name="exchange_id")
         if isinstance(attempt_timeout_seconds, bool) or not isinstance(
             attempt_timeout_seconds,
             (int, float),
@@ -248,8 +202,8 @@ class CCXTHistoricalProvider:
                 {
                     "symbol": native_symbol,
                     "interval": lane.timeframe,
-                    "startTime": _epoch_milliseconds(since),
-                    "endTime": _epoch_milliseconds(closed_before),
+                    "startTime": epoch_milliseconds(since),
+                    "endTime": epoch_milliseconds(closed_before),
                     "limit": limit,
                 }
             )
@@ -280,7 +234,7 @@ class CCXTHistoricalProvider:
     ) -> tuple[CandleObservation, ...]:
         self._check_available("historical attempt")
         request_started_at = datetime.now(UTC)
-        _validate_request(
+        validate_historical_request(
             lane=lane,
             provider_symbol=provider_symbol,
             timeframe_duration=timeframe_duration,

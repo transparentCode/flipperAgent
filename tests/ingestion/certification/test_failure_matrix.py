@@ -14,7 +14,8 @@ from apps.ingestion_app.providers.base import (
     ProviderAvailabilityError,
 )
 from apps.ingestion_app.runtime.controller import RuntimeController
-from apps.ingestion_app.runtime.supervisor import RuntimeState, RuntimeSupervisor
+from apps.ingestion_app.runtime.state import RuntimeState
+from apps.ingestion_app.runtime.supervisor import RuntimeSupervisor
 from apps.ingestion_app.services.recovery import RecoveryEngine
 from apps.ingestion_app.storage.repository import CandleCommitStatus
 from libs.common.exceptions import DataIngestionError

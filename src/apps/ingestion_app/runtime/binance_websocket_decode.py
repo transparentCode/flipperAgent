@@ -9,7 +9,7 @@ from decimal import Decimal, InvalidOperation
 
 from apps.ingestion_app.domain.candle import CandleObservation
 from apps.ingestion_app.domain.instrument import MarketLane
-from apps.ingestion_app.services.time_alignment import aligned_bucket_start
+from apps.ingestion_app.domain.time_alignment import aligned_bucket_start
 from libs.common.exceptions import DataIngestionError
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)

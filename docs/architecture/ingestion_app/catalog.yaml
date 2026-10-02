@@ -249,7 +249,7 @@ internal_components:
   - name: htf_aggregation
     paths:
       - src/apps/ingestion_app/services/htf_aggregation.py
-      - src/apps/ingestion_app/services/time_alignment.py
+      - src/apps/ingestion_app/domain/time_alignment.py
     responsibilities:
       - derive configured HTFs from canonical base candles
       - enforce complete constituent windows

@@ -10,6 +10,7 @@ from types import MappingProxyType
 from apps.ingestion_app.domain.candle import CandleObservation, CanonicalCandle
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
+from apps.ingestion_app.domain.time_alignment import aligned_bucket_start
 from apps.ingestion_app.observability import IngestionObservability
 from apps.ingestion_app.planning import IngestionPlan, LanePlan
 from apps.ingestion_app.providers.base import (
@@ -18,8 +19,6 @@ from apps.ingestion_app.providers.base import (
     TransportDeadlineExceeded,
 )
 from apps.ingestion_app.runtime.state import (
-    DesiredRuntimeState,
-    RuntimeSnapshot,
     RuntimeState,
     SupervisorSnapshot,
 )
@@ -32,7 +31,6 @@ from apps.ingestion_app.services.recovery import (
     RecoveryEngine,
     RecoveryExhaustedError,
 )
-from apps.ingestion_app.services.time_alignment import aligned_bucket_start
 from apps.ingestion_app.storage.repository import (
     CandleCommitStatus,
     CandleRepository,
@@ -480,11 +478,4 @@ class RuntimeSupervisor:
             _LOGGER.info("ingestion runtime stopped")
 
 
-__all__ = [
-    # Compatibility re-exports; state ownership lives in runtime.state.
-    "DesiredRuntimeState",
-    "RuntimeSnapshot",
-    "RuntimeState",
-    "RuntimeSupervisor",
-    "SupervisorSnapshot",
-]
+__all__ = ["RuntimeSupervisor"]

@@ -22,7 +22,6 @@ from apps.ingestion_app.providers.binance_native import (
 )
 from apps.ingestion_app.providers.ccxt import CCXTHistoricalProvider
 from apps.ingestion_app.providers.factory import (
-    SUPPORTED_PROVIDER_IDS,
     build_historical_providers,
     referenced_provider_ids,
     validate_provider_configuration,
@@ -52,15 +51,6 @@ from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
 
 _LOGGER = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_ENGINE)
-_SUPPORTED_PROVIDER_IDS = SUPPORTED_PROVIDER_IDS
-
-
-def _referenced_provider_ids(settings: IngestionSettings) -> frozenset[str]:
-    return referenced_provider_ids(settings)
-
-
-def _validate_provider_configuration(settings: IngestionSettings) -> frozenset[str]:
-    return validate_provider_configuration(settings)
 
 
 async def _build_historical_providers(
@@ -115,7 +105,7 @@ def _plan_factory(
         if not plan.lanes:
             return plan
 
-        referenced = _validate_provider_configuration(candidate_settings)
+        referenced = validate_provider_configuration(candidate_settings)
         missing_provider_ids = referenced - (
             composed_live_provider_ids | owned_historical_provider_ids
         )
@@ -257,7 +247,7 @@ def create_application(
 
         try:
             settings = load_ingestion_settings(manager)
-            _validate_provider_configuration(settings)
+            validate_provider_configuration(settings)
 
             resources.db_cleanup_required = True
             await init_db_pools(manager)
@@ -269,7 +259,7 @@ def create_application(
                 provider_resources,
             ) = await _build_historical_providers(
                 settings,
-                _referenced_provider_ids(settings),
+                referenced_provider_ids(settings),
             )
             resources.owned_provider_resources.extend(provider_resources)
             live_provider = BinanceWebSocketManager(

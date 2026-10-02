@@ -8,11 +8,11 @@ from pathlib import Path
 import pytest
 
 from apps.ingestion_app.domain.instrument import MarketLane
+from apps.ingestion_app.domain.time_alignment import aligned_bucket_start
 from apps.ingestion_app.providers.binance_native import (
     BinanceNativeHistoricalProvider,
 )
 from apps.ingestion_app.runtime.websocket import BinanceWebSocketManager
-from apps.ingestion_app.services.time_alignment import aligned_bucket_start
 from apps.ingestion_app.settings import load_ingestion_settings
 from libs.common.config import ConfigManager
 

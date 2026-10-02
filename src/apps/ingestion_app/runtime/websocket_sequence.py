@@ -11,7 +11,7 @@ from typing import Literal
 from apps.ingestion_app.domain.candle import CandleObservation
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
-from apps.ingestion_app.services.time_alignment import aligned_bucket_start
+from apps.ingestion_app.domain.time_alignment import aligned_bucket_start
 
 
 def _same_live_observation(

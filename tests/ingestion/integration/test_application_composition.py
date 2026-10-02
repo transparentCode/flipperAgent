@@ -13,7 +13,7 @@ import valkey.asyncio as valkey
 import yaml
 
 from apps.ingestion_app.bootstrap import create_application
-from apps.ingestion_app.runtime.supervisor import RuntimeState
+from apps.ingestion_app.runtime.state import RuntimeState
 from libs.common.config import ConfigManager
 from libs.common.db.pool_manager import DBPoolManager
 from tests.ingestion._asgi import request
