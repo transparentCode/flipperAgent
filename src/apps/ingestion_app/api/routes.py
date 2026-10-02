@@ -30,6 +30,7 @@ from apps.ingestion_app.settings import AssetSettings
 from .dependencies import get_config_service, get_runtime_controller
 
 router = APIRouter()
+READINESS_MAX_NOT_LIVE_SECONDS = 300.0
 
 
 class RuntimeSnapshotResponse(BaseModel):
@@ -37,6 +38,7 @@ class RuntimeSnapshotResponse(BaseModel):
     state: RuntimeState
     last_error: str | None
     enabled_asset_count: int
+    not_live_seconds: float | None = None
 
 
 class HealthResponse(BaseModel):
@@ -97,6 +99,7 @@ def _runtime_response(controller: RuntimeController) -> RuntimeSnapshotResponse:
         state=snapshot.state,
         last_error=snapshot.last_error,
         enabled_asset_count=controller.enabled_asset_count,
+        not_live_seconds=snapshot.not_live_seconds,
     )
 
 
@@ -125,6 +128,15 @@ def health_ready(
             status_code=503,
             detail={"status": "not_ready", "runtime": runtime.model_dump(mode="json")},
         )
+    if (
+        runtime.desired_state is DesiredRuntimeState.RUNNING
+        and runtime.enabled_asset_count > 0
+        and runtime.not_live_seconds is not None
+        and runtime.not_live_seconds > READINESS_MAX_NOT_LIVE_SECONDS
+    ):
+        detail = {"status": "not_ready", "runtime": runtime.model_dump(mode="json")}
+        detail["reason"] = "runtime_not_live"
+        raise HTTPException(status_code=503, detail=detail)
     return HealthResponse(status="ready", runtime=runtime)
 
 
@@ -234,6 +246,7 @@ def _runtime_response_from_snapshot(
         state=snapshot.state,
         last_error=snapshot.last_error,
         enabled_asset_count=controller.enabled_asset_count,
+        not_live_seconds=snapshot.not_live_seconds,
     )
 
 

@@ -5,6 +5,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
+import asyncpg
 import pytest
 
 from apps.ingestion_app.domain.candle import CandleObservation, CanonicalCandle
@@ -525,6 +526,7 @@ def _supervisor(
     recovery: _Recovery | None = None,
     provider: _LiveProvider | None = None,
     now_fn: Callable[[], datetime] | None = None,
+    monotonic_fn: Callable[[], float] | None = None,
     reconnect_sleep_fn=None,
     observability: IngestionObservability | None = None,
 ) -> tuple[RuntimeSupervisor, _Repository, _Ingestion, _HTF, _Recovery, _LiveProvider]:
@@ -546,10 +548,19 @@ def _supervisor(
         htf_service=htf,  # type: ignore[arg-type]
         recovery_engine=recovery,  # type: ignore[arg-type]
         now_fn=now_fn or (lambda: NOW),
+        monotonic_fn=monotonic_fn,
         reconnect_sleep_fn=reconnect_sleep_fn,
         observability=observability,
     )
     return supervisor, repository, ingestion, htf, recovery, provider
+
+
+async def _wait_until_live(supervisor: RuntimeSupervisor) -> None:
+    async def wait() -> None:
+        while supervisor.snapshot().state is not RuntimeState.LIVE:
+            await asyncio.sleep(0.001)
+
+    await asyncio.wait_for(wait(), timeout=1)
 
 
 @pytest.mark.asyncio
@@ -564,6 +575,31 @@ async def test_initial_snapshot_and_lane_resolution_are_bounded() -> None:
     assert snapshot.last_error is None
     await supervisor._prepare_live_connection()
     assert provider.calls == []
+
+
+def test_supervisor_not_live_duration_uses_monotonic_generation_clock() -> None:
+    clock = [10.0]
+    supervisor, *_ = _supervisor(monotonic_fn=lambda: clock[0])
+
+    assert supervisor.snapshot().not_live_seconds == 0
+
+    clock[0] = 15.0
+    supervisor._set_state(RuntimeState.STARTING)
+    assert supervisor.snapshot().not_live_seconds == 5.0
+
+    clock[0] = 20.0
+    supervisor._set_state(RuntimeState.RECOVERING)
+    assert supervisor.snapshot().not_live_seconds == 10.0
+
+    clock[0] = 25.0
+    supervisor._set_state(RuntimeState.LIVE)
+    assert supervisor.snapshot().not_live_seconds is None
+
+    clock[0] = 30.0
+    supervisor._set_state(RuntimeState.RECOVERING)
+    assert supervisor.snapshot().not_live_seconds == 0.0
+    clock[0] = 33.0
+    assert supervisor.snapshot().not_live_seconds == 3.0
 
 
 def test_supervisor_construction_does_not_reset_shared_runtime_live() -> None:
@@ -1246,6 +1282,162 @@ async def test_non_exhaustion_recovery_error_remains_fatal() -> None:
     snapshot = supervisor.snapshot()
     assert snapshot.state is RuntimeState.ERROR
     assert snapshot.last_error == str(failure)
+
+
+@pytest.mark.asyncio
+async def test_storage_availability_error_during_startup_retries_to_live() -> None:
+    failure = asyncpg.ConnectionDoesNotExistError("temporary database outage")
+
+    class _FailOnceRepository(_Repository):
+        def __init__(self) -> None:
+            super().__init__({LANE: _canonical()})
+            self.attempts = 0
+
+        async def fetch_latest_candle(self, *, lane, before):
+            self.attempts += 1
+            if self.attempts == 1:
+                raise failure
+            return await super().fetch_latest_candle(lane=lane, before=before)
+
+    repository = _FailOnceRepository()
+    delays: list[float] = []
+
+    async def reconnect_sleep(seconds: float) -> None:
+        assert supervisor.snapshot().state is RuntimeState.RECOVERING
+        delays.append(seconds)
+
+    provider = _LiveProvider([_Stream(observations=(_observation(),))])
+    supervisor, *_ = _supervisor(
+        settings=_settings(reconnect_backoff_seconds=3),
+        repository=repository,
+        provider=provider,
+        reconnect_sleep_fn=reconnect_sleep,
+    )
+    task = asyncio.create_task(supervisor.run())
+    try:
+        await _wait_until_live(supervisor)
+        assert repository.attempts == 2
+        assert delays == [3]
+        assert len(provider.calls) == 1
+        assert supervisor.snapshot().last_error is None
+    finally:
+        supervisor.stop()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_storage_availability_error_on_live_commit_closes_stream_then_retries() -> (
+    None
+):
+    failure = ConnectionResetError("database connection reset")
+    first_stream = _Stream(observations=(_observation(),))
+    second_stream = _Stream(observations=(_observation(),))
+    delays: list[float] = []
+
+    class _FailFirstIngestion(_Ingestion):
+        def __init__(self) -> None:
+            super().__init__()
+            self.attempts = 0
+
+        async def commit_observation(self, observation: CandleObservation):
+            self.attempts += 1
+            self.observations.append(observation)
+            if self.attempts == 1:
+                raise failure
+            return self.status
+
+    async def reconnect_sleep(seconds: float) -> None:
+        assert supervisor.snapshot().state is RuntimeState.RECOVERING
+        assert first_stream.closed
+        delays.append(seconds)
+
+    ingestion = _FailFirstIngestion()
+    provider = _LiveProvider([first_stream, second_stream])
+    supervisor, *_ = _supervisor(
+        settings=_settings(reconnect_backoff_seconds=4),
+        ingestion=ingestion,
+        provider=provider,
+        reconnect_sleep_fn=reconnect_sleep,
+    )
+    task = asyncio.create_task(supervisor.run())
+    try:
+        await _wait_until_live(supervisor)
+        assert first_stream.closed
+        assert ingestion.attempts == 2
+        assert delays == [4]
+        assert len(provider.calls) == 2
+    finally:
+        supervisor.stop()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_stop_during_storage_availability_backoff_ends_run_cleanly() -> None:
+    failure = asyncpg.ConnectionDoesNotExistError("temporary database outage")
+
+    class _FailOnceRepository(_Repository):
+        def __init__(self) -> None:
+            super().__init__({LANE: _canonical()})
+            self.attempts = 0
+
+        async def fetch_latest_candle(self, *, lane, before):
+            self.attempts += 1
+            if self.attempts == 1:
+                raise failure
+            return await super().fetch_latest_candle(lane=lane, before=before)
+
+    sleep_started = asyncio.Event()
+
+    async def reconnect_sleep(seconds: float) -> None:
+        assert seconds == 5
+        sleep_started.set()
+        await asyncio.Event().wait()
+
+    repository = _FailOnceRepository()
+    provider = _LiveProvider([_Stream(observations=(_observation(),))])
+    supervisor, *_ = _supervisor(
+        settings=_settings(reconnect_backoff_seconds=5),
+        repository=repository,
+        provider=provider,
+        reconnect_sleep_fn=reconnect_sleep,
+    )
+    task = asyncio.create_task(supervisor.run())
+
+    await asyncio.wait_for(sleep_started.wait(), timeout=1)
+    assert supervisor.snapshot().state is RuntimeState.RECOVERING
+    assert supervisor.snapshot().last_error == str(failure)
+    supervisor.stop()
+    await asyncio.wait_for(task, timeout=1)
+
+    assert repository.attempts == 1
+    assert provider.calls == []
+    assert supervisor.snapshot().state is RuntimeState.STOPPED
+
+
+@pytest.mark.asyncio
+async def test_non_availability_database_error_remains_terminal() -> None:
+    failure = asyncpg.UniqueViolationError("synthetic constraint violation")
+    delays: list[float] = []
+
+    class _FailingRepository(_Repository):
+        async def fetch_latest_candle(self, *, lane, before):
+            raise failure
+
+    async def reconnect_sleep(seconds: float) -> None:
+        delays.append(seconds)
+
+    supervisor, *_ = _supervisor(
+        repository=_FailingRepository({LANE: _canonical()}),
+        reconnect_sleep_fn=reconnect_sleep,
+    )
+
+    with pytest.raises(asyncpg.UniqueViolationError) as raised:
+        await supervisor.run()
+
+    assert raised.value is failure
+    assert delays == []
+    assert supervisor.snapshot().state is RuntimeState.ERROR
+    assert supervisor.snapshot().last_error == str(failure)
 
 
 @pytest.mark.asyncio

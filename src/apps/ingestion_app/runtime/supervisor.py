@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import Awaitable, Callable, Iterable
 from datetime import UTC, datetime, timedelta
 from types import MappingProxyType
@@ -35,6 +36,7 @@ from apps.ingestion_app.services.recovery import (
 from apps.ingestion_app.storage.repository import (
     CandleCommitStatus,
     CandleRepository,
+    is_storage_availability_error,
 )
 from libs.common.enums import SystemComponent
 from libs.common.exceptions import DataIngestionError
@@ -64,6 +66,7 @@ class RuntimeSupervisor:
         htf_service: HTFAggregationService,
         recovery_engine: RecoveryEngine,
         now_fn: Callable[[], datetime] | None = None,
+        monotonic_fn: Callable[[], float] | None = None,
         reconnect_sleep_fn: Callable[[float], Awaitable[None]] | None = None,
         observability: IngestionObservability | None = None,
     ) -> None:
@@ -77,6 +80,8 @@ class RuntimeSupervisor:
             raise DataIngestionError("live provider ID must be non-empty")
         if now_fn is not None and not callable(now_fn):
             raise TypeError("now_fn must be callable")
+        if monotonic_fn is not None and not callable(monotonic_fn):
+            raise TypeError("monotonic_fn must be callable")
         if reconnect_sleep_fn is not None and not callable(reconnect_sleep_fn):
             raise TypeError("reconnect_sleep_fn must be callable")
         if not plan.lanes:
@@ -98,6 +103,7 @@ class RuntimeSupervisor:
         self.recovery_engine = recovery_engine
         self.observability = observability or IngestionObservability()
         self._now = now_fn or (lambda: datetime.now(UTC))
+        self._monotonic = monotonic_fn or time.monotonic
         self._reconnect_sleep = reconnect_sleep_fn or asyncio.sleep
         self._contexts = plan.lanes
         self._contexts_by_lane = plan.lanes_by_lane
@@ -109,6 +115,7 @@ class RuntimeSupervisor:
         self._fatal_error: str | None = None
         self._fatal_exception: BaseException | None = None
         self._state = RuntimeState.STOPPED
+        self._not_live_since = self._monotonic()
         self._stop_requested = False
         self._active_task: asyncio.Task[None] | None = None
 
@@ -119,9 +126,13 @@ class RuntimeSupervisor:
     def snapshot(self) -> SupervisorSnapshot:
         """Return the current status without performing I/O."""
         self._sync_transport_quarantine()
+        not_live_seconds = None
+        if self._state is not RuntimeState.LIVE and self._not_live_since is not None:
+            not_live_seconds = max(0.0, self._monotonic() - self._not_live_since)
         return SupervisorSnapshot(
             state=self._state,
             last_error=self._last_error,
+            not_live_seconds=not_live_seconds,
         )
 
     @property
@@ -155,6 +166,11 @@ class RuntimeSupervisor:
     def _set_state(self, state: RuntimeState) -> None:
         if self._fatal_error is not None and state is not RuntimeState.ERROR:
             state = RuntimeState.ERROR
+        previous_state = self._state
+        if state is RuntimeState.LIVE:
+            self._not_live_since = None
+        elif previous_state is RuntimeState.LIVE or self._not_live_since is None:
+            self._not_live_since = self._monotonic()
         self._state = state
         self.observability.set_runtime_live(state is RuntimeState.LIVE)
 
@@ -442,7 +458,7 @@ class RuntimeSupervisor:
             await self._handle_stream_interruption(interruption)
 
     async def _run_recoverable_cycle(self) -> None:
-        """Retry completed provider exhaustion without masking fatal failures."""
+        """Retry provider exhaustion and storage outages without masking failures."""
         try:
             await self._run_live_or_interruption_cycle()
         except RecoveryExhaustedError as exc:
@@ -455,6 +471,21 @@ class RuntimeSupervisor:
             _LOGGER.warning(
                 "ingestion recovery %s; retrying after %ss: %s",
                 "rate limited" if rate_limited else "providers exhausted",
+                retry_delay,
+                exc,
+            )
+            await self._reconnect_sleep(retry_delay)
+        except Exception as exc:
+            if isinstance(
+                exc, TransportDeadlineExceeded
+            ) or not is_storage_availability_error(exc):
+                raise
+            self._set_state(RuntimeState.RECOVERING)
+            self._last_error = str(exc)
+            retry_delay = self.plan.reconnect_backoff_seconds
+            _LOGGER.warning(
+                "ingestion storage unavailable (%s); retrying after %ss: %s",
+                type(exc).__name__,
                 retry_delay,
                 exc,
             )

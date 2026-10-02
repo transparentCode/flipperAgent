@@ -153,6 +153,45 @@ async def test_health_ready_requires_controller_initialization() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("desired_state", "not_live_seconds", "disable_assets", "expected_status"),
+    [
+        (DesiredRuntimeState.RUNNING, 299.0, False, 200),
+        (DesiredRuntimeState.RUNNING, 300.0, False, 200),
+        (DesiredRuntimeState.RUNNING, 301.0, False, 503),
+        (DesiredRuntimeState.PAUSED, 301.0, False, 200),
+        (DesiredRuntimeState.RUNNING, 301.0, True, 200),
+    ],
+)
+async def test_health_ready_applies_five_minute_not_live_threshold(
+    desired_state: DesiredRuntimeState,
+    not_live_seconds: float,
+    disable_assets: bool,
+    expected_status: int,
+) -> None:
+    app, controller, _ = _client()
+    controller._snapshot = RuntimeSnapshot(
+        desired_state=desired_state,
+        state=RuntimeState.RECOVERING,
+        last_error="storage unavailable; retrying",
+        not_live_seconds=not_live_seconds,
+    )
+    if disable_assets:
+        raw = controller.settings.model_dump(mode="json")
+        raw["assets"]["BTC"]["enabled"] = False
+        controller.settings = type(controller.settings).model_validate(raw)
+
+    response = await request(app, "GET", "/health/ready")
+
+    assert response.status_code == expected_status
+    if expected_status == 503:
+        assert response.body["detail"]["reason"] == "runtime_not_live"
+        assert response.body["detail"]["runtime"]["not_live_seconds"] == 301.0
+    else:
+        assert response.body["runtime"]["not_live_seconds"] == not_live_seconds
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("zero_assets", [False, True])
 async def test_health_ready_tracks_start_and_close(
     zero_assets: bool,

@@ -334,8 +334,9 @@ candidates. Janitor failure is logged/retried and does not make canonical ingest
 unhealthy.
 
 `IngestionObservability` records commit, websocket, recovery, outbox, base-candle,
-and runtime metrics. `/health/ready` fails closed when the runtime is not started or
-is in `ERROR`; `/health/live` represents process liveness.
+and runtime metrics. `/health/ready` fails closed when the runtime is not started,
+is in `ERROR`, or has remained outside `LIVE` for more than five minutes while
+desired `RUNNING` with enabled assets; `/health/live` represents process liveness.
 
 ## Data Ownership and Source-of-Truth Rules
 
@@ -435,8 +436,9 @@ the same reconnect backoff and retries through normal DB-first startup catch-up;
 only one bounded recovery cycle is active, so retries do not accumulate work.
 Only completed non-rate-limit provider-availability failures enter the bounded
 provider retry/fallback path. Deterministic provider contract, market-data
-validation, authentication/client, canonical, database, and lifecycle failures
-fail closed.
+validation, authentication/client, canonical, non-availability database, and
+lifecycle failures fail closed. Storage availability errors use the supervisor's
+bounded reconnect-backoff retry described below.
 
 ### Rate limiting
 
@@ -454,8 +456,10 @@ native and CCXT adapter instances.
 Control cancellation during that repair is consumed as a runtime transition;
 external cancellation propagates after the supervisor publishes `STOPPED`; a
 typed transport deadline is latched as fatal `ERROR`; canonical conflicts,
-invalid contracts, database failures, and other non-exhaustion errors retain their
-error log and `ERROR` state. These branches are characterized in the runtime
+invalid contracts, non-availability database failures, and other unclassified
+non-exhaustion errors retain their error log and `ERROR` state. Storage
+availability exceptions instead remain in `RECOVERING` and retry after the
+configured reconnect backoff. These branches are characterized in the runtime
 supervisor tests.
 
 ### Startup derived-history completeness
@@ -483,8 +487,18 @@ cannot be replaced or hidden by a late cleanup callback.
 
 ### Database unavailable
 
-Canonical writes and recovery fail closed. Readiness reflects runtime failure; the
-system does not acknowledge a candle that was not durably committed.
+Storage availability errors keep the runtime in `RECOVERING` and retry the
+normal live-connection preparation after the configured reconnect backoff. Other
+database errors, including constraint and data errors, remain fatal and keep the
+runtime in `ERROR`.
+
+### Readiness
+
+`/health/ready` returns 503 with reason `runtime_not_live` after the runtime has
+remained outside `LIVE` for more than five minutes when desired state is
+`RUNNING` and at least one asset is enabled. This delay does not apply while
+paused, with no enabled assets, or before the five-minute threshold is exceeded.
+Existing not-started and `ERROR` readiness failures remain unchanged.
 
 ### Canonical conflict
 

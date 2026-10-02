@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Self
 
+import asyncpg
 import pytest
 
 from apps.ingestion_app.domain.candle import CanonicalCandle
@@ -13,9 +15,47 @@ from apps.ingestion_app.publication.outbox import build_candle_committed_event
 from apps.ingestion_app.storage.repository import (
     CandleCommitStatus,
     CandleRepository,
+    is_storage_availability_error,
 )
+from libs.common.exceptions import DataIngestionError
 
 _OPEN_TIME = datetime(2026, 8, 9, 9, 0, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    "error_type",
+    [
+        asyncpg.PostgresConnectionError,
+        asyncpg.InterfaceError,
+        asyncpg.CannotConnectNowError,
+        asyncpg.TooManyConnectionsError,
+        asyncpg.AdminShutdownError,
+        asyncpg.CrashShutdownError,
+        asyncpg.ConnectionDoesNotExistError,
+        ConnectionError,
+        ConnectionResetError,
+    ],
+)
+def test_storage_availability_errors_are_narrowly_classified(
+    error_type: type[BaseException],
+) -> None:
+    assert is_storage_availability_error(error_type("synthetic outage"))
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        TimeoutError("not an availability retry"),
+        asyncpg.UniqueViolationError("constraint failure"),
+        DataIngestionError("domain failure"),
+        ValueError("programming error"),
+        asyncio.CancelledError("cancellation"),
+    ],
+)
+def test_non_availability_errors_are_not_classified_for_retry(
+    error: BaseException,
+) -> None:
+    assert not is_storage_availability_error(error)
 
 
 def _candle(

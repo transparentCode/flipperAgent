@@ -121,6 +121,7 @@ class RuntimeController:
                 desired_state=self._desired_state,
                 state=state,
                 last_error=error,
+                not_live_seconds=None,
             )
 
         supervisor_snapshot = self._supervisor.snapshot()
@@ -134,6 +135,7 @@ class RuntimeController:
                 desired_state=self._desired_state,
                 state=RuntimeState.LIVE,
                 last_error=None,
+                not_live_seconds=supervisor_snapshot.not_live_seconds,
             )
         if supervisor_snapshot.last_error is not None:
             self._last_error = supervisor_snapshot.last_error
@@ -150,6 +152,7 @@ class RuntimeController:
             desired_state=self._desired_state,
             state=state,
             last_error=error,
+            not_live_seconds=supervisor_snapshot.not_live_seconds,
         )
 
     def _sync_supervisor_quarantine(self) -> None:

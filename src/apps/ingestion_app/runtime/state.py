@@ -34,6 +34,7 @@ class RuntimeSnapshot:
     desired_state: DesiredRuntimeState
     state: RuntimeState
     last_error: str | None
+    not_live_seconds: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +43,7 @@ class SupervisorSnapshot:
 
     state: RuntimeState
     last_error: str | None
+    not_live_seconds: float | None = None
 
 
 __all__ = [

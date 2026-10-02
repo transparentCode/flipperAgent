@@ -23,6 +23,22 @@ class CandleCommitStatus(StrEnum):
     CONFLICT = "conflict"
 
 
+def is_storage_availability_error(error: BaseException) -> bool:
+    """Return whether an exception represents temporary PostgreSQL unavailability."""
+    return isinstance(
+        error,
+        (
+            asyncpg.PostgresConnectionError,
+            asyncpg.InterfaceError,
+            asyncpg.CannotConnectNowError,
+            asyncpg.TooManyConnectionsError,
+            asyncpg.AdminShutdownError,
+            asyncpg.CrashShutdownError,
+            ConnectionError,
+        ),
+    )
+
+
 _INSERT_CANDLE_SQL = """
 INSERT INTO ingestion.candles (
     venue,
@@ -458,4 +474,8 @@ class CandleRepository:
             return CandleCommitStatus.CONFLICT
 
 
-__all__ = ["CandleCommitStatus", "CandleRepository"]
+__all__ = [
+    "CandleCommitStatus",
+    "CandleRepository",
+    "is_storage_availability_error",
+]

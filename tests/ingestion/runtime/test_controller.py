@@ -1368,6 +1368,38 @@ async def test_recovering_diagnostic_is_non_terminal_and_clears_when_live() -> N
 
 
 @pytest.mark.asyncio
+async def test_controller_snapshot_passes_through_supervisor_not_live_duration() -> (
+    None
+):
+    created: list[_FakeSupervisor] = []
+
+    def factory(candidate: IngestionSettings) -> _FakeSupervisor:
+        del candidate
+        supervisor = _FakeSupervisor()
+        created.append(supervisor)
+        return supervisor
+
+    controller = RuntimeController(
+        settings=_settings(),
+        plan_factory=_plan_factory,
+        supervisor_factory=factory,
+    )
+    assert controller.snapshot().not_live_seconds is None
+    await controller.start()
+    await created[0].run_started.wait()
+
+    created[0]._snapshot = SupervisorSnapshot(
+        state=RuntimeState.RECOVERING,
+        last_error="storage unavailable; retrying",
+        not_live_seconds=42.5,
+    )
+
+    snapshot = controller.snapshot()
+    assert snapshot.not_live_seconds == 42.5
+    await controller.close()
+
+
+@pytest.mark.asyncio
 async def test_quarantine_is_latched_before_control_gates_without_snapshot() -> None:
     created: list[_QuarantinedSupervisor] = []
 
