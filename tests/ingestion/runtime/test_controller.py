@@ -256,6 +256,16 @@ class _FailingRecoverySupervisor(_FakeSupervisor):
         raise RuntimeError("synthetic manual recovery failure")
 
 
+class _DeadlineRecoverySupervisor(_FakeSupervisor):
+    async def execute_recovery(self, request: RecoveryRequest) -> None:
+        del request
+        raise TransportDeadlineExceeded(
+            provider_id="binance_native",
+            operation="manual recovery",
+            timeout_seconds=1,
+        )
+
+
 class _ObservabilitySupervisor(_FakeSupervisor):
     active_lanes = (LANE,)
 
@@ -854,7 +864,7 @@ async def test_reconnect_install_failure_does_not_restore_old_generation() -> No
 
 
 @pytest.mark.asyncio
-async def test_manual_recovery_failure_is_terminal_and_reconnect_recovers() -> None:
+async def test_manual_recovery_failure_restores_running_runtime() -> None:
     created: list[_FakeSupervisor] = []
 
     def factory(_plan: IngestionPlan) -> _FakeSupervisor:
@@ -877,31 +887,26 @@ async def test_manual_recovery_failure_is_terminal_and_reconnect_recovers() -> N
     with pytest.raises(RuntimeError, match="manual recovery failure"):
         await controller.recover(_request())
 
+    await created[2].run_started.wait()
     assert controller.is_started is True
-    assert controller._supervisor is None
-    assert controller._supervisor_task is None
-    assert controller.snapshot().state is RuntimeState.ERROR
-    assert controller.snapshot().last_error == "synthetic manual recovery failure"
+    assert controller._supervisor is created[2]
+    assert controller._supervisor_task is not None
+    assert controller.snapshot().state is RuntimeState.LIVE
+    assert controller.snapshot().last_error is None
     ready = await request(
         create_app(runtime_controller=controller),
         "GET",
         "/health/ready",
     )
-    assert ready.status_code == 503
-
-    paused = await controller.pause()
-    assert paused.desired_state is DesiredRuntimeState.PAUSED
-
-    await controller.reconnect()
-    await created[2].run_started.wait()
-    assert controller.snapshot().state is RuntimeState.LIVE
-    assert controller.snapshot().last_error is None
+    assert ready.status_code == 200
     assert controller._terminal_error is None
+    assert created[0].run_stopped.is_set()
+    assert created[1].run_calls == 0
     await controller.close()
 
 
 @pytest.mark.asyncio
-async def test_paused_manual_recovery_failure_reconnects_to_running() -> None:
+async def test_paused_manual_recovery_failure_preserves_paused_runtime() -> None:
     created: list[_FakeSupervisor] = []
 
     def factory(_plan: IngestionPlan) -> _FakeSupervisor:
@@ -928,23 +933,89 @@ async def test_paused_manual_recovery_failure_reconnects_to_running() -> None:
 
     failed = controller.snapshot()
     assert failed.desired_state is DesiredRuntimeState.PAUSED
-    assert failed.state is RuntimeState.ERROR
-    assert failed.last_error == "synthetic manual recovery failure"
+    assert failed.state is RuntimeState.STOPPED
+    assert failed.last_error is None
     ready = await request(
         create_app(runtime_controller=controller),
         "GET",
         "/health/ready",
     )
-    assert ready.status_code == 503
-
-    recovered = await controller.reconnect()
-    await created[2].run_started.wait()
-    assert recovered.desired_state is DesiredRuntimeState.RUNNING
-    live = controller.snapshot()
-    assert live.state is RuntimeState.LIVE
-    assert live.last_error is None
+    assert ready.status_code == 200
+    assert controller._supervisor is None
+    assert controller._supervisor_task is None
+    assert len(created) == 2
     assert controller._terminal_error is None
-    assert len(created) == 3
+    await controller.close()
+
+
+@pytest.mark.asyncio
+async def test_manual_recovery_deadline_remains_fatal() -> None:
+    created: list[_FakeSupervisor] = []
+
+    def factory(_plan: IngestionPlan) -> _FakeSupervisor:
+        supervisor = (
+            _DeadlineRecoverySupervisor() if len(created) == 1 else _FakeSupervisor()
+        )
+        created.append(supervisor)
+        return supervisor
+
+    controller = RuntimeController(
+        settings=_settings(),
+        plan_factory=_plan_factory,
+        supervisor_factory=factory,
+    )
+    await controller.start()
+    await created[0].run_started.wait()
+
+    with pytest.raises(TransportDeadlineExceeded):
+        await controller.recover(_request())
+
+    assert controller.quarantined is True
+    assert controller.snapshot().state is RuntimeState.ERROR
+    assert controller._supervisor is None
+    assert len(created) == 2
+    await controller.close()
+
+
+@pytest.mark.asyncio
+async def test_manual_recovery_restore_failure_remains_terminal() -> None:
+    created: list[_FakeSupervisor] = []
+    quiescence_calls = 0
+
+    async def fail_during_restore() -> None:
+        nonlocal quiescence_calls
+        quiescence_calls += 1
+        if quiescence_calls == 2:
+            raise RuntimeError("synthetic recovery restore failure")
+
+    def factory(_plan: IngestionPlan) -> _FakeSupervisor:
+        supervisor = (
+            _FailingRecoverySupervisor() if len(created) == 1 else _FakeSupervisor()
+        )
+        created.append(supervisor)
+        return supervisor
+
+    controller = RuntimeController(
+        settings=_settings(),
+        plan_factory=_plan_factory,
+        supervisor_factory=factory,
+        historical_provider_quiescence=fail_during_restore,
+    )
+    await controller.start()
+    await created[0].run_started.wait()
+
+    with pytest.raises(
+        RuntimeError,
+        match="failed recovery could not restore runtime",
+    ) as raised:
+        await controller.recover(_request())
+
+    assert isinstance(raised.value.__cause__, RuntimeError)
+    assert str(raised.value.__cause__) == "synthetic recovery restore failure"
+    assert controller.snapshot().state is RuntimeState.ERROR
+    assert controller.snapshot().last_error == "synthetic recovery restore failure"
+    assert controller._supervisor is None
+    assert quiescence_calls == 2
     await controller.close()
 
 

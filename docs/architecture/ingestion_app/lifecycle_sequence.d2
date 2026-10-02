@@ -164,7 +164,7 @@ startup: {
   s2: { class: state; label: "2. compile plan; create supervisor only for non-empty plan" }
   s3: { class: state; label: "3. find current closed base boundary" }
   s4: { class: state; label: "4. bounded catch-up missing base history" }
-  s5: { class: state; label: "5. reconcile latest closed HTF buckets" }
+  s5: { class: state; label: "5. reconcile latest and missing closed HTF buckets in lookback" }
   s6: { class: state; label: "6. open websocket after recovery closure" }
   s7: { class: state; label: "7. first valid finalized base candle -> LIVE" }
 }

@@ -146,7 +146,8 @@ the run loop has one common cancellation/deadline/ordinary failure boundary:
 
 1. determine the latest closed base boundary;
 2. perform bounded startup catch-up from Timescale state;
-3. reconcile latest closed HTF buckets;
+3. reconcile latest closed HTF buckets and every missing closed bucket within
+   the bounded startup lookback;
 4. open the Binance websocket only after recovery closure completes;
 5. commit each finalized base candle;
 6. aggregate/reconcile affected HTFs;
@@ -442,6 +443,23 @@ typed transport deadline is latched as fatal `ERROR`; canonical conflicts,
 invalid contracts, database failures, and other non-exhaustion errors retain their
 error log and `ERROR` state. These branches are characterized in the runtime
 supervisor tests.
+
+### Startup derived-history completeness
+
+After bounded base-history catch-up, startup reconciles the latest closed bucket
+for each configured HTF and checks every closed target bucket inside the same
+startup lookback. Existing derived rows are left untouched; missing rows are
+materialized only from complete canonical provider base candles. Buckets whose
+base constituents are incomplete produce the existing bounded recovery request.
+The `as_of` close boundary prevents an open HTF bucket from being published.
+
+### Manual recovery
+
+The API rejects a manual recovery `since` older than the configured candle
+retention with HTTP 422. If an ordinary manual recovery fails after the active
+generation has stopped, the controller restores the saved runtime checkpoint
+using a fresh generation; a previously paused runtime remains paused. A typed
+transport deadline or quarantine remains fatal and is not rolled back.
 
 An unresolved websocket factory, subscription, or stop deadline, or a failed
 transport cleanup, is a fatal transport condition with an operation-specific

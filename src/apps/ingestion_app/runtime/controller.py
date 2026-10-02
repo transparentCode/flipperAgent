@@ -631,7 +631,12 @@ class RuntimeController:
                 raise
             except Exception as exc:
                 if detached:
-                    self._latch_terminal_transition_failure(exc)
+                    try:
+                        await self._restore_runtime_state(checkpoint)
+                    except BaseException as restore_exc:
+                        raise RuntimeError(
+                            "failed recovery could not restore runtime"
+                        ) from restore_exc
                 else:
                     self._supervisor = None
                     self._supervisor_task = None

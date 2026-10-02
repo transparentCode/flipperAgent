@@ -192,6 +192,28 @@ def _complete_three_minute_bucket(
     )
 
 
+def _derived_candle(
+    bucket_start: datetime,
+    *,
+    timeframe: str = "3m",
+    duration: timedelta = timedelta(minutes=3),
+) -> CanonicalCandle:
+    return CanonicalCandle(
+        lane=MarketLane(BASE_LANE.venue, BASE_LANE.instrument_id, timeframe),
+        open_time=bucket_start,
+        close_time=bucket_start + duration,
+        open=Decimal(100),
+        high=Decimal(101),
+        low=Decimal(99),
+        close=Decimal(100),
+        volume=Decimal(3),
+        taker_buy_base=Decimal(2),
+        source_type="derived",
+        source_provider=None,
+        source_timeframe="1m",
+    )
+
+
 @pytest.mark.asyncio
 async def test_complete_bucket_aggregates_exact_decimal_values_and_provenance() -> None:
     bucket_start, constituents = _complete_three_minute_bucket()
@@ -416,6 +438,191 @@ async def test_reconciliation_reads_exactly_one_latest_bucket_per_target() -> No
             datetime(2026, 8, 9, 9, 9, tzinfo=UTC),
             datetime(2026, 8, 9, 9, 18, tzinfo=UTC),
         ),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_missing_closed_bucket_between_existing_rows_is_materialized() -> None:
+    first_start = datetime(2026, 8, 9, 9, 0, tzinfo=UTC)
+    missing_start = first_start + timedelta(minutes=3)
+    last_start = first_start + timedelta(minutes=6)
+    last_end = first_start + timedelta(minutes=9)
+    _, missing_constituents = _complete_three_minute_bucket()
+    missing_constituents = tuple(
+        replace(
+            candle,
+            open_time=candle.open_time + timedelta(minutes=3),
+            close_time=candle.close_time + timedelta(minutes=3),
+        )
+        for candle in missing_constituents
+    )
+    target_rows = (
+        _derived_candle(first_start),
+        _derived_candle(last_start),
+    )
+    repository = _Repository(
+        {
+            (first_start, last_end): target_rows,
+            (missing_start, missing_start + timedelta(minutes=3)): (
+                missing_constituents
+            ),
+        }
+    )
+    service, ingestion = _service(repository)
+
+    requests = await service.reconcile_missing_closed_buckets(
+        base_lane=BASE_LANE,
+        base_duration=timedelta(minutes=1),
+        target_durations={"3m": timedelta(minutes=3)},
+        alignment_origin=ORIGIN,
+        since=first_start,
+        as_of=last_end,
+    )
+
+    assert requests == ()
+    assert [candle.open_time for candle in ingestion.committed] == [missing_start]
+    assert repository.calls == [
+        (
+            MarketLane(BASE_LANE.venue, BASE_LANE.instrument_id, "3m"),
+            first_start,
+            last_end,
+        ),
+        (BASE_LANE, missing_start, missing_start + timedelta(minutes=3)),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_existing_closed_buckets_are_not_recommitted() -> None:
+    first_start = datetime(2026, 8, 9, 9, 0, tzinfo=UTC)
+    last_end = first_start + timedelta(minutes=9)
+    repository = _Repository(
+        {
+            (first_start, last_end): tuple(
+                _derived_candle(first_start + index * timedelta(minutes=3))
+                for index in range(3)
+            )
+        }
+    )
+    service, ingestion = _service(repository)
+
+    requests = await service.reconcile_missing_closed_buckets(
+        base_lane=BASE_LANE,
+        base_duration=timedelta(minutes=1),
+        target_durations={"3m": timedelta(minutes=3)},
+        alignment_origin=ORIGIN,
+        since=first_start,
+        as_of=last_end,
+    )
+
+    assert requests == ()
+    assert ingestion.committed == []
+    assert repository.calls == [
+        (
+            MarketLane(BASE_LANE.venue, BASE_LANE.instrument_id, "3m"),
+            first_start,
+            last_end,
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_missing_bucket_with_incomplete_base_returns_recovery_request() -> None:
+    first_start = datetime(2026, 8, 9, 9, 0, tzinfo=UTC)
+    missing_start = first_start + timedelta(minutes=3)
+    last_start = first_start + timedelta(minutes=6)
+    last_end = first_start + timedelta(minutes=9)
+    _, constituents = _complete_three_minute_bucket()
+    incomplete = tuple(
+        replace(
+            candle,
+            open_time=candle.open_time + timedelta(minutes=3),
+            close_time=candle.close_time + timedelta(minutes=3),
+        )
+        for candle in constituents[:2]
+    )
+    repository = _Repository(
+        {
+            (first_start, last_end): (
+                _derived_candle(first_start),
+                _derived_candle(last_start),
+            ),
+            (missing_start, missing_start + timedelta(minutes=3)): incomplete,
+        }
+    )
+    service, ingestion = _service(repository)
+
+    requests = await service.reconcile_missing_closed_buckets(
+        base_lane=BASE_LANE,
+        base_duration=timedelta(minutes=1),
+        target_durations={"3m": timedelta(minutes=3)},
+        alignment_origin=ORIGIN,
+        since=first_start,
+        as_of=last_end,
+    )
+
+    assert requests == (
+        RecoveryRequest(
+            lane=BASE_LANE,
+            since=missing_start,
+            until=missing_start + timedelta(minutes=3),
+            reason="htf_incomplete:3m",
+        ),
+    )
+    assert ingestion.committed == []
+
+
+@pytest.mark.asyncio
+async def test_unclosed_bucket_is_not_read_or_materialized() -> None:
+    bucket_start = datetime(2026, 8, 9, 9, 6, tzinfo=UTC)
+    repository = _Repository()
+    service, ingestion = _service(repository)
+
+    requests = await service.reconcile_missing_closed_buckets(
+        base_lane=BASE_LANE,
+        base_duration=timedelta(minutes=1),
+        target_durations={"3m": timedelta(minutes=3)},
+        alignment_origin=ORIGIN,
+        since=bucket_start,
+        as_of=bucket_start + timedelta(minutes=2),
+    )
+
+    assert requests == ()
+    assert repository.calls == []
+    assert ingestion.committed == []
+
+
+@pytest.mark.asyncio
+async def test_off_grid_since_starts_at_next_target_bucket() -> None:
+    since = datetime(2026, 8, 9, 9, 1, tzinfo=UTC)
+    first_start = datetime(2026, 8, 9, 9, 3, tzinfo=UTC)
+    last_end = datetime(2026, 8, 9, 9, 9, tzinfo=UTC)
+    repository = _Repository(
+        {
+            (first_start, last_end): (
+                _derived_candle(first_start),
+                _derived_candle(first_start + timedelta(minutes=3)),
+            )
+        }
+    )
+    service, ingestion = _service(repository)
+
+    requests = await service.reconcile_missing_closed_buckets(
+        base_lane=BASE_LANE,
+        base_duration=timedelta(minutes=1),
+        target_durations={"3m": timedelta(minutes=3)},
+        alignment_origin=ORIGIN,
+        since=since,
+        as_of=datetime(2026, 8, 9, 9, 10, tzinfo=UTC),
+    )
+
+    assert requests == ()
+    assert ingestion.committed == []
+    assert repository.calls == [
+        (
+            MarketLane(BASE_LANE.venue, BASE_LANE.instrument_id, "3m"),
+            first_start,
+            last_end,
+        )
     ]
 
 

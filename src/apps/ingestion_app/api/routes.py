@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -283,6 +283,12 @@ async def recover_runtime(
         until=body.until,
         controller=controller,
     )
+    retention_floor = datetime.now(UTC) - timedelta(days=settings.retention.candle_days)
+    if body.since < retention_floor:
+        raise HTTPException(
+            status_code=422,
+            detail="since is older than the configured candle retention",
+        )
 
     request = RecoveryRequest(
         lane=MarketLane(

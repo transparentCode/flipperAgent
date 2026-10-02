@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 from apps.ingestion_app.api.app import create_app
 from apps.ingestion_app.control.config_reconciliation import AssetNotFoundError
 from apps.ingestion_app.domain.recovery import RecoveryRequest
+from apps.ingestion_app.domain.time_alignment import aligned_bucket_start
 from apps.ingestion_app.runtime.controller import RuntimeControlConflictError
 from apps.ingestion_app.runtime.state import (
     DesiredRuntimeState,
@@ -292,3 +295,67 @@ async def test_manual_recovery_rejects_disabled_asset() -> None:
         },
     )
     assert response.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_manual_recovery_rejects_since_older_than_retention() -> None:
+    app, controller, _ = _client()
+    settings = controller.settings
+    base_duration = timedelta(
+        seconds=settings.timeframes[settings.base_timeframe].duration_seconds
+    )
+    origin = settings.calendar.alignment_origin
+    since = aligned_bucket_start(
+        datetime.now(UTC) - timedelta(days=settings.retention.candle_days + 1),
+        base_duration,
+        origin,
+    )
+    until = since + timedelta(hours=1)
+
+    response = await request(
+        app,
+        "POST",
+        "/runtime/recover",
+        {
+            "asset": "BTC",
+            "instrument_id": "BTC-TEST-PERP",
+            "since": since.isoformat().replace("+00:00", "Z"),
+            "until": until.isoformat().replace("+00:00", "Z"),
+        },
+    )
+
+    assert response.status_code == 422
+    assert (
+        response.body["detail"] == "since is older than the configured candle retention"
+    )
+    assert controller.calls == []
+
+
+@pytest.mark.asyncio
+async def test_manual_recovery_since_inside_retention_is_accepted() -> None:
+    app, controller, _ = _client()
+    settings = controller.settings
+    base_duration = timedelta(
+        seconds=settings.timeframes[settings.base_timeframe].duration_seconds
+    )
+    since = aligned_bucket_start(
+        datetime.now(UTC) - timedelta(days=1),
+        base_duration,
+        settings.calendar.alignment_origin,
+    )
+    until = since + timedelta(hours=1)
+
+    response = await request(
+        app,
+        "POST",
+        "/runtime/recover",
+        {
+            "asset": "BTC",
+            "instrument_id": "BTC-TEST-PERP",
+            "since": since.isoformat().replace("+00:00", "Z"),
+            "until": until.isoformat().replace("+00:00", "Z"),
+        },
+    )
+
+    assert response.status_code == 200
+    assert controller.calls == ["recover:manual_api"]

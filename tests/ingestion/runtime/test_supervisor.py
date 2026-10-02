@@ -19,6 +19,7 @@ from apps.ingestion_app.providers.base import (
 )
 from apps.ingestion_app.runtime.state import RuntimeState, SupervisorSnapshot
 from apps.ingestion_app.runtime.supervisor import RuntimeSupervisor
+from apps.ingestion_app.services.htf_aggregation import HTFAggregationService
 from apps.ingestion_app.services.recovery import RecoveryExhaustedError
 from apps.ingestion_app.storage.repository import CandleCommitStatus
 from libs.common.exceptions import DataIngestionError
@@ -38,7 +39,11 @@ def _settings(
     timeframe_values = {"1m": {"duration_seconds": 60}}
     for timeframe in target_timeframes:
         timeframe_values[timeframe] = {
-            "duration_seconds": {"1h": 3600, "2h": 7200}[timeframe]
+            "duration_seconds": {
+                "15m": 900,
+                "1h": 3600,
+                "2h": 7200,
+            }[timeframe]
         }
     instruments: dict[str, dict[str, object]] = {
         "BTC-TEST-PERP": {
@@ -216,20 +221,151 @@ class _HTF:
         self,
         *,
         latest_requests: tuple[RecoveryRequest, ...] = (),
+        missing_requests: tuple[RecoveryRequest, ...] = (),
         live_requests: tuple[RecoveryRequest, ...] = (),
     ) -> None:
         self.latest_requests = latest_requests
+        self.missing_requests = missing_requests
         self.live_requests = live_requests
         self.latest_calls: list[dict[str, object]] = []
+        self.missing_calls: list[dict[str, object]] = []
         self.live_calls: list[dict[str, object]] = []
 
     async def reconcile_latest_closed_buckets(self, **kwargs: object):
         self.latest_calls.append(kwargs)
         return self.latest_requests
 
+    async def reconcile_missing_closed_buckets(self, **kwargs: object):
+        self.missing_calls.append(kwargs)
+        return self.missing_requests
+
     async def process_base_candle(self, candle: CanonicalCandle, **kwargs: object):
         self.live_calls.append({"candle": candle, **kwargs})
         return self.live_requests
+
+
+class _MemoryRepository:
+    def __init__(self, candles: tuple[CanonicalCandle, ...] = ()) -> None:
+        self.candles = list(candles)
+        self.range_calls: list[tuple[MarketLane, datetime, datetime]] = []
+
+    async def fetch_latest_candle(
+        self,
+        *,
+        lane: MarketLane,
+        before: datetime,
+    ) -> CanonicalCandle | None:
+        matches = [
+            candle
+            for candle in self.candles
+            if candle.lane == lane and candle.close_time <= before
+        ]
+        return max(matches, key=lambda candle: candle.open_time, default=None)
+
+    async def fetch_candles(
+        self,
+        *,
+        lane: MarketLane,
+        since: datetime,
+        until: datetime,
+    ) -> tuple[CanonicalCandle, ...]:
+        self.range_calls.append((lane, since, until))
+        return tuple(
+            sorted(
+                (
+                    candle
+                    for candle in self.candles
+                    if candle.lane == lane and since <= candle.open_time < until
+                ),
+                key=lambda candle: candle.open_time,
+            )
+        )
+
+    def insert(self, candle: CanonicalCandle) -> CandleCommitStatus:
+        if any(
+            existing.lane == candle.lane and existing.open_time == candle.open_time
+            for existing in self.candles
+        ):
+            return CandleCommitStatus.DUPLICATE
+        self.candles.append(candle)
+        return CandleCommitStatus.INSERTED
+
+
+def _derived_candle(
+    lane: MarketLane,
+    open_time: datetime,
+    duration: timedelta,
+) -> CanonicalCandle:
+    return CanonicalCandle(
+        lane=MarketLane(lane.venue, lane.instrument_id, "15m"),
+        open_time=open_time,
+        close_time=open_time + duration,
+        open=Decimal(100),
+        high=Decimal(101),
+        low=Decimal(99),
+        close=Decimal(100),
+        volume=Decimal(15),
+        taker_buy_base=Decimal(10),
+        source_type="derived",
+        source_provider=None,
+        source_timeframe="1m",
+    )
+
+
+class _PersistingIngestion:
+    def __init__(self, repository: _MemoryRepository) -> None:
+        self.repository = repository
+        self.commit_attempts: list[CanonicalCandle] = []
+
+    async def commit_candle(self, candle: CanonicalCandle) -> CandleCommitStatus:
+        self.commit_attempts.append(candle)
+        return self.repository.insert(candle)
+
+    async def commit_observation(self, observation: CandleObservation):
+        del observation
+        raise AssertionError("these startup tests do not consume live observations")
+
+
+class _PartialPageRecovery:
+    def __init__(
+        self,
+        repository: _MemoryRepository,
+        htf_service: HTFAggregationService,
+    ) -> None:
+        self.repository = repository
+        self.htf_service = htf_service
+        self.calls: list[tuple[RecoveryRequest, ...]] = []
+        self.first_page_failed = False
+
+    async def recover_closure(self, requests, *, plan) -> None:
+        batch = tuple(requests)
+        self.calls.append(batch)
+        for request in batch:
+            if request.reason != "runtime_catchup":
+                continue
+            stop_at = request.until
+            if not self.first_page_failed:
+                stop_at = min(request.until, request.since + timedelta(minutes=30))
+                self.first_page_failed = True
+            cursor = request.since
+            while cursor < stop_at:
+                self.repository.insert(
+                    _canonical(close_time=cursor + timedelta(minutes=1))
+                )
+                cursor += timedelta(minutes=1)
+            if stop_at < request.until:
+                raise RecoveryExhaustedError("synthetic second-page exhaustion")
+
+            context = plan.lanes_by_lane[request.lane]
+            await self.htf_service.reconcile_affected_buckets(
+                base_lane=request.lane,
+                base_duration=context.base_duration,
+                target_durations=context.target_durations,
+                alignment_origin=plan.alignment_origin,
+                since=request.since,
+                until=request.until,
+                as_of=request.until,
+            )
 
 
 class _Recovery:
@@ -455,6 +591,150 @@ async def test_cold_start_uses_largest_target_as_bounded_floor() -> None:
         )
     ]
     assert len(htf.latest_calls) == 1
+    assert htf.missing_calls == [
+        {
+            "base_lane": LANE,
+            "base_duration": timedelta(minutes=1),
+            "target_durations": supervisor.plan.lanes[0].target_durations,
+            "alignment_origin": ORIGIN,
+            "since": BOUNDARY - timedelta(hours=1),
+            "as_of": NOW,
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_startup_retry_repairs_every_closed_htf_bucket_after_partial_pages() -> (
+    None
+):
+    settings = _settings(target_timeframes=("15m", "1h"))
+    plan = compile_ingestion_plan(
+        settings,
+        live_provider_ids={"binance_native"},
+        historical_provider_ids={"binance_native", "ccxt_binance"},
+    )
+    repository = _MemoryRepository()
+    ingestion = _PersistingIngestion(repository)
+    htf = HTFAggregationService(
+        repository=repository,  # type: ignore[arg-type]
+        ingestion_service=ingestion,  # type: ignore[arg-type]
+    )
+    recovery = _PartialPageRecovery(repository, htf)
+    provider = _LiveProvider([_Stream()])
+    supervisor = RuntimeSupervisor(
+        plan=plan,
+        live_provider=provider,
+        repository=repository,  # type: ignore[arg-type]
+        ingestion_service=ingestion,  # type: ignore[arg-type]
+        htf_service=htf,
+        recovery_engine=recovery,  # type: ignore[arg-type]
+        now_fn=lambda: NOW,
+        reconnect_sleep_fn=lambda _seconds: asyncio.sleep(0),
+    )
+
+    task = asyncio.create_task(supervisor.run())
+    while not provider.calls:
+        await asyncio.sleep(0)
+    supervisor.stop()
+    await asyncio.wait_for(task, timeout=1)
+
+    expected_15m_starts = tuple(
+        BOUNDARY - timedelta(hours=1) + index * timedelta(minutes=15)
+        for index in range(4)
+    )
+    actual_15m_starts = tuple(
+        sorted(
+            candle.open_time
+            for candle in repository.candles
+            if candle.lane == MarketLane(LANE.venue, LANE.instrument_id, "15m")
+        )
+    )
+    assert actual_15m_starts == expected_15m_starts
+    assert any(
+        candle.lane == MarketLane(LANE.venue, LANE.instrument_id, "1h")
+        and candle.open_time == BOUNDARY - timedelta(hours=1)
+        for candle in repository.candles
+    )
+    assert recovery.first_page_failed is True
+    assert recovery.calls[0] == (
+        RecoveryRequest(
+            lane=LANE,
+            since=BOUNDARY - timedelta(hours=1),
+            until=BOUNDARY,
+            reason="runtime_catchup",
+        ),
+    )
+    assert recovery.calls[1] == (
+        RecoveryRequest(
+            lane=LANE,
+            since=BOUNDARY - timedelta(minutes=30),
+            until=BOUNDARY,
+            reason="runtime_catchup",
+        ),
+    )
+
+
+@pytest.mark.asyncio
+async def test_startup_builds_older_missing_bucket_when_later_bucket_exists() -> None:
+    settings = _settings(target_timeframes=("15m", "1h"))
+    plan = compile_ingestion_plan(
+        settings,
+        live_provider_ids={"binance_native"},
+        historical_provider_ids={"binance_native", "ccxt_binance"},
+    )
+    base_candles = tuple(
+        _canonical(
+            close_time=BOUNDARY
+            - timedelta(hours=1)
+            + (index + 1) * timedelta(minutes=1)
+        )
+        for index in range(60)
+    )
+    repository = _MemoryRepository(
+        (
+            *base_candles,
+            _derived_candle(
+                LANE,
+                BOUNDARY - timedelta(hours=1),
+                timedelta(minutes=15),
+            ),
+            _derived_candle(
+                LANE,
+                BOUNDARY - timedelta(minutes=30),
+                timedelta(minutes=15),
+            ),
+            _derived_candle(
+                LANE,
+                BOUNDARY - timedelta(minutes=15),
+                timedelta(minutes=15),
+            ),
+        )
+    )
+    ingestion = _PersistingIngestion(repository)
+    htf = HTFAggregationService(
+        repository=repository,  # type: ignore[arg-type]
+        ingestion_service=ingestion,  # type: ignore[arg-type]
+    )
+    recovery = _Recovery()
+    provider = _LiveProvider([_Stream()])
+    supervisor = RuntimeSupervisor(
+        plan=plan,
+        live_provider=provider,
+        repository=repository,  # type: ignore[arg-type]
+        ingestion_service=ingestion,  # type: ignore[arg-type]
+        htf_service=htf,
+        recovery_engine=recovery,  # type: ignore[arg-type]
+        now_fn=lambda: NOW,
+    )
+
+    await supervisor._prepare_live_connection()
+
+    assert recovery.calls == []
+    assert any(
+        candle.lane == MarketLane(LANE.venue, LANE.instrument_id, "15m")
+        and candle.open_time == BOUNDARY - timedelta(minutes=45)
+        for candle in repository.candles
+    )
 
 
 @pytest.mark.asyncio

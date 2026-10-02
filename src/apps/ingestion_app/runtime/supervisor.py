@@ -249,7 +249,7 @@ class RuntimeSupervisor:
             )
 
     async def _prepare_live_connection(self) -> datetime:
-        """Repair bounded base history and latest closed HTFs before opening WS."""
+        """Repair bounded base history and closed HTFs before opening WS."""
         alignment_origin = self.plan.alignment_origin
         while True:
             as_of = _require_utc(self._now(), field_name="runtime as_of")
@@ -308,6 +308,16 @@ class RuntimeSupervisor:
                         base_duration=context.base_duration,
                         target_durations=context.target_durations,
                         alignment_origin=alignment_origin,
+                        as_of=as_of,
+                    )
+                )
+                htf_requests.extend(
+                    await self.htf_service.reconcile_missing_closed_buckets(
+                        base_lane=context.lane,
+                        base_duration=context.base_duration,
+                        target_durations=context.target_durations,
+                        alignment_origin=alignment_origin,
+                        since=current_closed_boundary - context.lookback_duration,
                         as_of=as_of,
                     )
                 )

@@ -323,6 +323,78 @@ class HTFAggregationService:
                 requests.append(request)
         return tuple(requests)
 
+    async def reconcile_missing_closed_buckets(
+        self,
+        *,
+        base_lane: MarketLane,
+        base_duration: timedelta,
+        target_durations: Mapping[str, timedelta],
+        alignment_origin: datetime,
+        since: datetime,
+        as_of: datetime,
+    ) -> tuple[RecoveryRequest, ...]:
+        """Build missing closed target buckets inside a bounded time range."""
+        if not isinstance(base_lane, MarketLane):
+            raise DataIngestionError("base_lane must be a MarketLane")
+        base_duration = _require_positive_duration(
+            base_duration,
+            field_name="base_duration",
+        )
+        _require_utc(alignment_origin, field_name="alignment_origin")
+        _require_utc(since, field_name="since")
+        _require_utc(as_of, field_name="as_of")
+        targets = _validated_targets(
+            base_timeframe=base_lane.timeframe,
+            base_duration=base_duration,
+            target_durations=target_durations,
+        )
+
+        requests: list[RecoveryRequest] = []
+        for target_timeframe, target_duration in targets:
+            first_start = aligned_bucket_start(
+                since,
+                target_duration,
+                alignment_origin,
+            )
+            if first_start < since:
+                first_start += target_duration
+            last_bucket_end = aligned_bucket_start(
+                as_of,
+                target_duration,
+                alignment_origin,
+            )
+            if first_start >= last_bucket_end:
+                continue
+
+            target_lane = MarketLane(
+                base_lane.venue,
+                base_lane.instrument_id,
+                target_timeframe,
+            )
+            existing_rows = await self.repository.fetch_candles(
+                lane=target_lane,
+                since=first_start,
+                until=last_bucket_end,
+            )
+            existing_starts = {row.open_time for row in existing_rows}
+
+            bucket_start = first_start
+            while bucket_start + target_duration <= as_of:
+                bucket_end = bucket_start + target_duration
+                if bucket_start not in existing_starts:
+                    request = await self._materialize_bucket(
+                        base_lane=base_lane,
+                        base_duration=base_duration,
+                        target_timeframe=target_timeframe,
+                        bucket_start=bucket_start,
+                        bucket_end=bucket_end,
+                    )
+                    if request is not None:
+                        requests.append(request)
+                bucket_start = bucket_end
+
+        return tuple(requests)
+
     async def reconcile_affected_buckets(
         self,
         *,
