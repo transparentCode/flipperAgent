@@ -72,6 +72,31 @@ Detectable retention gaps and process restarts reconstruct causal state from
 Timescale, establish new input and lane progress positions, and resume input
 reading. V1 does not replay stale trading decisions from a persistent PEL.
 
+### Isolate startup failure by lane and recover at generation scope
+
+DA-1 installs the ready lanes of a partially blocked startup generation. A
+series capture/history failure, manifest-read failure, or lane reconstruction
+failure blocks only dependent work; first-generation static planning/configuration
+and application resource-construction failures remain fatal. Faults that make a
+lane or input path unsafe schedule a bounded generation retry rather than
+continuing that failed path. Automatic retry uses exponential backoff from 5 to
+300 seconds while the installed generation continues polling healthy lanes.
+Manual/lifecycle operations and a proven forward canonical input gap retain
+immediate rebuild behavior, with lifecycle authority taking precedence.
+
+This uses the existing generation factory and startup reconstruction path. It
+does not add lane workers or a second per-lane reconstruction algorithm.
+
+### Readiness measures live-lane availability
+
+The service remains ready while its existing generation/service-state contract
+holds and at least one configured lane is live. If all configured lanes remain
+non-live for more than 300 seconds while desired state is `RUNNING`, readiness
+returns 503 (`no_lane_live`). An absent generation reports `no_generation`.
+Paused operation and zero-lane configurations are not subject to this
+no-live-lane timeout. Liveness is independent; this threshold is not a causal
+market-data or trading-progress SLO.
+
 ### Stateful models use proposed state
 
 `evaluate()` sees a state snapshot and returns a proposed next state. The runtime

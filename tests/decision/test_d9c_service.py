@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import ClassVar
@@ -24,6 +25,7 @@ from apps.decision_app.storage.market_history import (
 )
 from apps.decision_app.transport.live_input import (
     FORWARD_CANONICAL_MARKET_GAP_REASON,
+    DirectCursorInput,
     InputRecordResult,
     InputTransportError,
 )
@@ -49,8 +51,15 @@ NOW = datetime(2026, 8, 14, tzinfo=UTC)
 
 
 class _Input:
-    cursors: ClassVar[dict] = {}
+    cursors: ClassVar[dict] = {
+        "stream:test": InputReadCursor(
+            stream_key="stream:test",
+            latest_stream_id="1-0",
+            latest_market_as_of=NOW,
+        )
+    }
     blocked_streams: ClassVar[dict] = {}
+    stream_keys: ClassVar[tuple[str, ...]] = ("stream:test",)
 
 
 class _Runtime:
@@ -1020,7 +1029,9 @@ async def test_reconstruction_failure_keeps_generation_and_lifecycle_rebuild_ava
     assert service.generation is not None
     assert service.generation.generation_id == 1
     assert service.service_state == "DEGRADED"
-    assert service._rebuild_requested is False
+    assert service._rebuild_requested is True
+    assert service._rebuild_source == "AUTOMATIC_RECOVERY"
+    assert service._rebuild_due_at == NOW + timedelta(seconds=5)
 
     await service.pause()
     async with service._transition_lock:
@@ -1598,13 +1609,13 @@ async def test_stateful_forward_gap_reconstructs_from_durable_checkpoint() -> No
 
 
 @pytest.mark.asyncio
-async def test_forward_input_gap_stops_old_generation_when_rebuild_fails() -> None:
+async def test_forward_input_gap_failed_rebuild_retries_after_bounded_backoff() -> None:
     runtime = _ResultRuntime([_forward_input_gap()])
-    factory_calls: list[int] = []
+    factory_calls: list[tuple[int, float]] = []
 
     async def factory(*, reason: str, generation_id: int):
         del reason
-        factory_calls.append(generation_id)
+        factory_calls.append((generation_id, asyncio.get_running_loop().time()))
         if generation_id == 2:
             raise RuntimeError("durable reconstruction unavailable")
         return _generation(generation_id, runtime)
@@ -1612,18 +1623,22 @@ async def test_forward_input_gap_stops_old_generation_when_rebuild_fails() -> No
     service = DecisionService(
         generation_factory=factory,
         block_ms=1,
-        now_fn=lambda: NOW,
+        now_fn=lambda: datetime.now(UTC),
+        recovery_backoff_initial_seconds=0.01,
+        recovery_backoff_max_seconds=0.02,
     )
     await service.start()
     try:
-        await _wait_until(lambda: service.service_state == "ERROR")
-        assert factory_calls == [1, 2]
+        await _wait_until_realtime(lambda: len(factory_calls) >= 4)
+        assert [generation_id for generation_id, _ in factory_calls] == [1, 2, 2, 2]
+        assert factory_calls[2][1] - factory_calls[1][1] >= 0.008
+        assert factory_calls[3][1] - factory_calls[2][1] >= 0.015
         assert runtime.calls == 1
         assert service.generation is None
         assert service.snapshot().ready is False
-        await asyncio.sleep(0)
-        assert factory_calls == [1, 2]
-        assert runtime.calls == 1
+        assert service.service_state == "ERROR"
+        assert service._rebuild_requested is True
+        assert service._rebuild_source == "INPUT_RECONSTRUCTION"
     finally:
         await service.stop()
 
@@ -1649,10 +1664,13 @@ def test_forward_input_gap_does_not_override_pending_lifecycle_rebuild() -> None
         "generic lane reconstruction",
     ),
 )
-def test_non_forward_reconstruction_does_not_request_generation_rebuild(
+def test_non_forward_reconstruction_schedules_bounded_automatic_recovery(
     reason: str,
 ) -> None:
-    service = DecisionService(generation_factory=lambda **_: None)  # type: ignore[arg-type]
+    service = DecisionService(
+        generation_factory=lambda **_: None,  # type: ignore[arg-type]
+        now_fn=lambda: NOW,
+    )
     result = DecisionPollResult(
         input_results=(
             InputRecordResult(
@@ -1670,8 +1688,9 @@ def test_non_forward_reconstruction_does_not_request_generation_rebuild(
 
     service._classify_poll_result(result)
 
-    assert service._rebuild_requested is False
-    assert service._rebuild_source is None
+    assert service._rebuild_requested is True
+    assert service._rebuild_source == "AUTOMATIC_RECOVERY"
+    assert service._rebuild_due_at == NOW + timedelta(seconds=5)
     assert service.service_state == "DEGRADED"
 
 
@@ -1744,7 +1763,7 @@ async def test_transport_error_precedes_forward_gap_rebuild() -> None:
 
 
 @pytest.mark.asyncio
-async def test_reconstruction_stays_degraded_but_hard_faults_do_not_loop() -> None:
+async def test_reconstruction_and_hard_faults_wait_for_automatic_backoff() -> None:
     reconstruction_result = DecisionPollResult(
         input_results=(),
         lane_results={
@@ -1776,6 +1795,8 @@ async def test_reconstruction_stays_degraded_but_hard_faults_do_not_loop() -> No
     assert service.generation.generation_id == 1
     assert len(generated) == 1
     assert service.service_state == "DEGRADED"
+    assert service._rebuild_source == "AUTOMATIC_RECOVERY"
+    assert service._rebuild_due_at == NOW + timedelta(seconds=5)
     await service.stop()
 
     for failure in ("MALFORMED", "CONFLICT"):
@@ -1802,6 +1823,8 @@ async def test_reconstruction_stays_degraded_but_hard_faults_do_not_loop() -> No
         await _wait_until(lambda runtime=runtime: runtime.calls >= 2)
         assert len(generated_hard) == 1
         assert hard_service.service_state == "DEGRADED"
+        assert hard_service._rebuild_source == "AUTOMATIC_RECOVERY"
+        assert hard_service._rebuild_due_at == NOW + timedelta(seconds=5)
         await hard_service.stop()
 
     halted_runtime = _ResultRuntime(
@@ -1835,7 +1858,340 @@ async def test_reconstruction_stays_degraded_but_hard_faults_do_not_loop() -> No
     await _wait_until(lambda: halted_runtime.calls >= 2)
     assert len(halted_generations) == 1
     assert halted_service.service_state == "DEGRADED"
+    assert halted_service._rebuild_source == "AUTOMATIC_RECOVERY"
+    assert halted_service._rebuild_due_at == NOW + timedelta(seconds=5)
     await halted_service.stop()
+
+
+def test_recovery_backoff_is_exponential_and_capped() -> None:
+    service = DecisionService(
+        generation_factory=lambda **_: None,  # type: ignore[arg-type]
+        now_fn=lambda: NOW,
+    )
+    expected = (5.0, 10.0, 20.0, 40.0, 80.0, 160.0, 300.0, 300.0)
+    for attempt, delay in enumerate(expected):
+        service._recovery_attempt = attempt
+        assert service._recovery_delay_seconds() == delay
+
+
+@pytest.mark.asyncio
+async def test_clean_generation_poll_and_manual_reconnect_reset_recovery_attempt() -> (
+    None
+):
+    first_poll_gate = asyncio.Event()
+    runtimes: list[_Runtime] = []
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        runtime = _Runtime(gate=first_poll_gate if generation_id == 1 else None)
+        runtimes.append(runtime)
+        return _generation(generation_id, runtime)
+
+    service = DecisionService(
+        generation_factory=factory, block_ms=1, now_fn=lambda: NOW
+    )
+    await service.start()
+    try:
+        await runtimes[0].started.wait()
+        service._recovery_attempt = 6
+        first_poll_gate.set()
+        await _wait_until(lambda: not service._generation_needs_clean_poll)
+        assert service._recovery_attempt == 0
+
+        service._recovery_attempt = 5
+        resumed = await service.reconnect()
+        assert resumed.generation_id == 2
+        assert service._recovery_attempt == 0
+    finally:
+        await service.stop()
+
+
+def test_readiness_grace_applies_only_to_running_configured_lanes() -> None:
+    now = [NOW]
+    runtime = _Runtime()
+    runtime.blocked_lanes = {
+        "BTCUSDT:momentum_1h": {
+            "lane_id": "BTCUSDT:momentum_1h",
+            "status": "BLOCKED",
+            "reason": "history unavailable",
+        }
+    }
+    evidence = SimpleNamespace(
+        status="BLOCKED",
+        reason="history unavailable",
+        resume_cutoff=None,
+        replay_step_count=0,
+    )
+    startup = SimpleNamespace(
+        snapshot=SimpleNamespace(
+            status="STARTUP_BLOCKED",
+            active_manifest_assets=("BTCUSDT",),
+            lane_evidence={"BTCUSDT:momentum_1h": evidence},
+        ),
+        decision_plan=SimpleNamespace(lanes=(object(),)),
+    )
+    generation = DecisionRuntimeGeneration(
+        generation_id=1,
+        created_at=NOW,
+        startup=startup,
+        live_runtime=runtime,
+    )
+    service = DecisionService(
+        generation_factory=lambda **_: None,  # type: ignore[arg-type]
+        configured_lane_count=1,
+        now_fn=lambda: now[0],
+    )
+    service._generation = generation
+    service._generation_number = 1
+    service._service_state = "DEGRADED"
+    service._started_at = NOW
+    service._last_lane_live_at = NOW
+
+    within_grace = service.snapshot()
+    assert within_grace.ready is True
+    assert within_grace.not_live_seconds == 0
+    assert within_grace.lanes["BTCUSDT:momentum_1h"]["reason"] == (
+        "history unavailable"
+    )
+
+    now[0] = NOW + timedelta(seconds=301)
+    outside_grace = service.snapshot()
+    assert outside_grace.ready is False
+    assert outside_grace.not_live_seconds == 301
+    assert outside_grace.readiness_reason == "no_lane_live"
+
+    service._desired_state = "PAUSED"
+    service._service_state = "PAUSED"
+    paused = service.snapshot()
+    assert paused.ready is False
+    assert paused.readiness_reason == "paused"
+
+    zero_lane_service = DecisionService(
+        generation_factory=lambda **_: None,  # type: ignore[arg-type]
+        configured_lane_count=0,
+        now_fn=lambda: now[0],
+    )
+    zero_lane_service._generation = _generation(1, _Runtime())
+    zero_lane_service._generation_number = 1
+    zero_lane_service._service_state = "RUNNING"
+    zero_lane_service._started_at = NOW
+    zero_lane_service._last_lane_live_at = NOW
+    zero_lane_snapshot = zero_lane_service.snapshot()
+    assert zero_lane_snapshot.not_live_seconds == 301
+    assert zero_lane_snapshot.ready is True
+
+
+def test_startup_and_lane_unblocked_logs_are_structured_and_transition_only(caplog):
+    caplog.set_level(logging.INFO)
+    blocked_evidence = SimpleNamespace(
+        status="BLOCKED",
+        reason="history unavailable",
+        resume_cutoff=None,
+        replay_step_count=0,
+    )
+    blocked_runtime = _Runtime()
+    blocked_runtime.blocked_lanes = {
+        "lane": {
+            "lane_id": "lane",
+            "status": "BLOCKED",
+            "reason": "history unavailable",
+        }
+    }
+    blocked_generation = DecisionRuntimeGeneration(
+        generation_id=1,
+        created_at=NOW,
+        startup=SimpleNamespace(
+            snapshot=SimpleNamespace(
+                status="STARTUP_BLOCKED",
+                active_manifest_assets=("BTCUSDT",),
+                lane_evidence={"lane": blocked_evidence},
+            ),
+            decision_plan=SimpleNamespace(lanes=(object(),)),
+        ),
+        live_runtime=blocked_runtime,
+    )
+    ready_runtime = _ObservableRuntime(
+        lane_id="lane",
+        asset="BTCUSDT",
+        timeframe="1h",
+    )
+    ready_generation = DecisionRuntimeGeneration(
+        generation_id=2,
+        created_at=NOW,
+        startup=SimpleNamespace(
+            snapshot=SimpleNamespace(
+                status="STARTUP_READY",
+                active_manifest_assets=("BTCUSDT",),
+                lane_evidence={
+                    "lane": SimpleNamespace(
+                        status="STARTUP_READY",
+                        reason=None,
+                        resume_cutoff=NOW,
+                        replay_step_count=0,
+                    )
+                },
+            ),
+            decision_plan=SimpleNamespace(lanes=(object(),)),
+        ),
+        live_runtime=ready_runtime,
+    )
+    service = DecisionService(generation_factory=lambda **_: None)  # type: ignore[arg-type]
+
+    service._install_generation(blocked_generation)
+    service._install_generation(ready_generation)
+
+    records = [
+        record
+        for record in caplog.records
+        if getattr(record, "event", None)
+        in {"decision.startup.lane", "decision.lane.unblocked"}
+    ]
+    assert [record.event for record in records].count("decision.startup.lane") == 2
+    unblocked = [
+        record for record in records if record.event == "decision.lane.unblocked"
+    ]
+    assert len(unblocked) == 1
+    assert unblocked[0].lane_id == "lane"
+    assert unblocked[0].previous_status == "BLOCKED"
+
+
+@pytest.mark.asyncio
+async def test_zero_lane_zero_stream_generation_is_paced_not_busy_looped() -> None:
+    class _EmptyRuntime:
+        def __init__(self) -> None:
+            self.calls = 0
+            self.input = SimpleNamespace(
+                cursors={},
+                blocked_streams={},
+                stream_keys=(),
+                has_unblocked_streams=False,
+            )
+            self.lanes = {}
+
+        async def poll_once(self, *, evaluate_lanes: bool = True):
+            del evaluate_lanes
+            self.calls += 1
+            return DecisionPollResult(input_results=(), lane_results={}, cursors={})
+
+    runtime = _EmptyRuntime()
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        return _generation(generation_id, runtime)
+
+    service = DecisionService(
+        generation_factory=factory,
+        block_ms=0,
+        now_fn=lambda: NOW,
+    )
+    await service.start()
+    try:
+        await asyncio.sleep(0.12)
+        assert 1 <= runtime.calls <= 3
+    finally:
+        await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_lifecycle_rebuild_preempts_and_survives_failed_automatic_recovery(
+    caplog,
+) -> None:
+    caplog.set_level(logging.INFO)
+    should_fail = True
+    calls: list[tuple[int, str]] = []
+
+    async def factory(*, reason: str, generation_id: int):
+        nonlocal should_fail
+        calls.append((generation_id, reason))
+        if generation_id > 1 and should_fail:
+            raise RuntimeError("lifecycle replacement unavailable")
+        return _generation(generation_id, _Runtime())
+
+    service = DecisionService(generation_factory=factory, now_fn=lambda: NOW)
+    service._generation = _generation(1, _Runtime())
+    service._generation_number = 1
+    service._service_state = "RUNNING"
+    service._started_at = NOW
+    service._last_lane_live_at = NOW
+    service._request_rebuild(
+        "AUTOMATIC_RECOVERY",
+        "lane fault",
+        due_at=NOW + timedelta(seconds=5),
+    )
+    service._request_rebuild(
+        "LIFECYCLE_RECONCILIATION",
+        "manifest changed",
+        due_at=None,
+    )
+    assert service._rebuild_source == "LIFECYCLE_RECONCILIATION"
+    assert service._rebuild_due_at is None
+
+    await service._rebuild_locked("manifest changed")
+    assert service.service_state == "ERROR"
+    assert service.generation is None
+    assert service._rebuild_requested is True
+    assert service._rebuild_source == "LIFECYCLE_RECONCILIATION"
+    assert service._rebuild_due_at == NOW + timedelta(seconds=5)
+
+    service._schedule_automatic_recovery("later market fault")
+    assert service._rebuild_source == "LIFECYCLE_RECONCILIATION"
+    assert service._rebuild_reason == "manifest changed"
+
+    should_fail = False
+    service._rebuild_due_at = None
+    await service._rebuild_locked("manifest changed")
+    assert calls == [(2, "manifest changed"), (2, "manifest changed")]
+    assert service.service_state == "RUNNING"
+    assert service.generation is not None
+    assert service.generation.generation_id == 2
+    assert service._rebuild_requested is False
+    assert service._rebuild_source is None
+    events = [getattr(record, "event", None) for record in caplog.records]
+    assert "decision.rebuild.requested" in events
+    assert "decision.rebuild.failed" in events
+    assert "decision.rebuild.completed" in events
+
+
+def test_input_and_lane_faults_log_only_on_first_block_or_transition(caplog) -> None:
+    caplog.set_level(logging.WARNING)
+    input_owner = SimpleNamespace(_blocked_streams={})
+    DirectCursorInput.block_stream(
+        input_owner,
+        "stream:btc:1h",
+        "canonical conflict",
+        stream_id="2-0",
+        disposition="CONFLICT",
+    )
+    DirectCursorInput.block_stream(
+        input_owner,
+        "stream:btc:1h",
+        "another conflict",
+        stream_id="3-0",
+        disposition="CONFLICT",
+    )
+
+    lane = SimpleNamespace(
+        lane_id="BTCUSDT:momentum_1h",
+        status="LIVE",
+        reason=None,
+        pending_trigger_cutoff=NOW,
+    )
+    LiveDecisionRuntime._halt_lane(
+        SimpleNamespace(_generation_id=7), lane, "HALTED", "publisher failed"
+    )
+    LiveDecisionRuntime._halt_lane(
+        SimpleNamespace(_generation_id=7), lane, "HALTED", "publisher failed"
+    )
+
+    events = [record for record in caplog.records if hasattr(record, "event")]
+    assert [record.event for record in events].count("decision.input.blocked") == 1
+    assert [record.event for record in events].count("decision.lane.halted") == 1
+    input_record = next(
+        record for record in events if record.event == "decision.input.blocked"
+    )
+    assert input_record.stream_id == "2-0"
+    assert input_record.disposition == "CONFLICT"
+    assert input_owner._blocked_streams["stream:btc:1h"] == "canonical conflict"
 
 
 @pytest.mark.asyncio

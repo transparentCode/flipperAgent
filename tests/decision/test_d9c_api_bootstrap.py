@@ -60,6 +60,9 @@ def _api_snapshot(
     service_state: str = "RUNNING",
     desired_state: str = "RUNNING",
     generation_id: int | None = 1,
+    not_live_seconds: float = 0.0,
+    configured_lane_count: int = 1,
+    active_lane_count: int = 0,
 ) -> DecisionServiceSnapshot:
     return DecisionServiceSnapshot(
         service_state=service_state,  # type: ignore[arg-type]
@@ -71,14 +74,15 @@ def _api_snapshot(
         last_lifecycle_event_at=None,
         last_error=None,
         configured_asset_count=1,
-        configured_lane_count=1,
-        active_lane_count=0,
-        lane_status_counts={},
+        configured_lane_count=configured_lane_count,
+        active_lane_count=active_lane_count,
+        lane_status_counts=({"LIVE": active_lane_count} if active_lane_count else {}),
         blocked_stream_count=0,
         lifecycle_cursor="0-0",
-        lanes={},
+        lanes=({"lane": {"status": "LIVE"}} if active_lane_count else {}),
         inputs={},
         last_lifecycle_evidence={},
+        not_live_seconds=not_live_seconds,
     )
 
 
@@ -88,12 +92,16 @@ class _ControlPlaneService:
         self.desired = "RUNNING"
         self.snapshot_calls = 0
         self.control_calls: list[str] = []
+        self.not_live_seconds = 0.0
+        self.generation_id: int | None = 1
 
     def snapshot(self) -> DecisionServiceSnapshot:
         self.snapshot_calls += 1
         return _api_snapshot(
             service_state=self.state,
             desired_state=self.desired,
+            generation_id=self.generation_id,
+            not_live_seconds=self.not_live_seconds,
         )
 
     async def pause(self) -> DecisionServiceSnapshot:
@@ -437,6 +445,7 @@ async def test_d9c_http_readiness_and_control_routes_use_cached_service_state() 
     assert live_body == {"status": "live"}
 
     service.state = service.desired = "PAUSED"
+    service.not_live_seconds = 500.0
     paused_status, _ = await _asgi_request(app, "GET", "/health/ready")
     assert paused_status == 503
 
@@ -446,9 +455,21 @@ async def test_d9c_http_readiness_and_control_routes_use_cached_service_state() 
     assert paused_degraded_status == 503
 
     service.desired = "RUNNING"
+    service.not_live_seconds = 300.0
     degraded_status, degraded_body = await _asgi_request(app, "GET", "/health/ready")
     assert degraded_status == 200
     assert degraded_body["status"] == "degraded"
+    assert degraded_body["not_live_seconds"] == 300.0
+
+    service.not_live_seconds = 300.001
+    not_live_status, not_live_body = await _asgi_request(
+        app,
+        "GET",
+        "/health/ready",
+    )
+    assert not_live_status == 503
+    assert not_live_body["detail"]["reason"] == "no_lane_live"
+    assert not_live_body["detail"]["runtime"]["not_live_seconds"] == 300.001
 
     for path in ("/runtime", "/runtime/lanes", "/runtime/inputs"):
         status, _ = await _asgi_request(app, "GET", path)
@@ -465,8 +486,24 @@ async def test_d9c_http_readiness_and_control_routes_use_cached_service_state() 
 
     assert service.snapshot_calls > 0
 
-    missing_status, _ = await _asgi_request(create_app(), "GET", "/health/ready")
+    service.generation_id = None
+    missing_status, missing_body = await _asgi_request(app, "GET", "/health/ready")
     assert missing_status == 503
+    assert missing_body["detail"]["reason"] == "no_generation"
+
+    zero_lane = _api_snapshot(
+        configured_lane_count=0,
+        active_lane_count=0,
+        not_live_seconds=10_000.0,
+    )
+    assert zero_lane.ready is True
+
+    live_within_grace = _api_snapshot(
+        active_lane_count=1,
+        not_live_seconds=0.0,
+    )
+    assert live_within_grace.lanes == {"lane": {"status": "LIVE"}}
+    assert live_within_grace.ready is True
 
 
 @pytest.mark.asyncio

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import logging
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -10,6 +11,8 @@ from pathlib import Path
 
 import pytest
 
+from apps.decision_app.api.routes import health_ready
+from apps.decision_app.api.routes import runtime as runtime_route
 from apps.decision_app.composition import (
     build_production_composition,
 )
@@ -26,6 +29,7 @@ from apps.decision_app.features.momentum_integration import (
 )
 from apps.decision_app.runtime.live import LiveDecisionRuntime
 from apps.decision_app.runtime.policy import DecisionPolicy
+from apps.decision_app.runtime.service import DecisionRuntimeGeneration, DecisionService
 from apps.decision_app.runtime.startup import DecisionStartupCoordinator
 from apps.decision_app.settings import (
     CanonicalInstrument,
@@ -684,6 +688,245 @@ async def test_m4_interior_feature_history_gap_blocks_eth_startup(
     )
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure_stage", ("capture", "history"))
+async def test_startup_series_failure_blocks_only_dependent_lanes(
+    fixture_config: DecisionConfig,
+    failure_stage: str,
+) -> None:
+    composition = build_production_composition(fixture_config)
+    eth_key = MarketSeriesKey(
+        asset="ETHUSDT",
+        venue="binance",
+        instrument_id="ETH-USDT-PERP",
+        timeframe="4h",
+    )
+    histories = {
+        key: _bar_series(key, fixture_config.timeframe_grid)
+        for key in _series_keys(fixture_config)
+    }
+    repository = InMemoryCanonicalMarketHistoryRepository(
+        histories,
+        timeframe_grid=fixture_config.timeframe_grid,
+    )
+
+    class FailingSeriesRepository:
+        async def fetch_latest_cutoff(self, key):
+            if failure_stage == "capture" and key == eth_key:
+                raise RuntimeError("isolated latest-cutoff failure")
+            return await repository.fetch_latest_cutoff(key)
+
+        async def fetch_bars(self, key, **kwargs):
+            if failure_stage == "history" and key == eth_key:
+                raise RuntimeError("isolated history read failure")
+            return await repository.fetch_bars(key, **kwargs)
+
+        async def fetch_record_at(self, key, bar_open_at):
+            return await repository.fetch_record_at(key, bar_open_at)
+
+    startup = await DecisionStartupCoordinator(
+        decision_config=fixture_config,
+        plugin_catalog=composition.plugin_catalog,
+        feature_catalog=composition.feature_catalog,
+        feature_policy=composition.feature_policy,
+        data_policy=composition.data_policy,
+        source_catalog=composition.data_source_catalog,
+        runtime_plugin_catalog=composition.runtime_plugin_catalog,
+        history_repository=FailingSeriesRepository(),
+        stream_client=_EmptyStreamClient(),
+        checkpoint_repository=InMemoryCheckpointRepository(),
+        data_resolver=composition.data_resolver,
+        policy_catalog=composition.policy_catalog,
+    ).start()
+
+    assert startup.snapshot.status == "STARTUP_BLOCKED"
+    assert startup.snapshot.series_failures[eth_key]
+    assert startup.snapshot.lane_evidence["ETHUSDT:momentum_4h"].status == "BLOCKED"
+    assert all(
+        startup.snapshot.lane_evidence[lane_id].status == "STARTUP_READY"
+        for lane_id in ("BTCUSDT:momentum_1h", "BTCUSDT:momentum_4h")
+    )
+
+
+@pytest.mark.asyncio
+async def test_eth_startup_manifest_timeout_isolated_from_btc_lanes(
+    fixture_config: DecisionConfig,
+) -> None:
+    from types import SimpleNamespace
+
+    composition = build_production_composition(fixture_config)
+    histories = {
+        key: _bar_series(key, fixture_config.timeframe_grid)
+        for key in _series_keys(fixture_config)
+    }
+    repository = InMemoryCanonicalMarketHistoryRepository(
+        histories,
+        timeframe_grid=fixture_config.timeframe_grid,
+    )
+
+    class ManifestStore:
+        async def read_asset(self, symbol):
+            return SimpleNamespace(
+                symbol=symbol,
+                source="ingestion",
+                enabled=True,
+                desired_state="LIVE",
+            )
+
+        async def read_timeframe(self, symbol, timeframe):
+            if symbol == "ETHUSDT" and timeframe == "4h":
+                raise TimeoutError("ETH manifest read timed out")
+            return SimpleNamespace(
+                symbol=symbol,
+                source="ingestion",
+                enabled=True,
+                desired_state="LIVE",
+            )
+
+    startup = await DecisionStartupCoordinator(
+        decision_config=fixture_config,
+        plugin_catalog=composition.plugin_catalog,
+        feature_catalog=composition.feature_catalog,
+        feature_policy=composition.feature_policy,
+        data_policy=composition.data_policy,
+        source_catalog=composition.data_source_catalog,
+        runtime_plugin_catalog=composition.runtime_plugin_catalog,
+        history_repository=repository,
+        stream_client=_EmptyStreamClient(),
+        checkpoint_repository=InMemoryCheckpointRepository(),
+        data_resolver=composition.data_resolver,
+        policy_catalog=composition.policy_catalog,
+        manifest_store=ManifestStore(),
+    ).start()
+
+    assert startup.snapshot.lane_evidence["ETHUSDT:momentum_4h"].status == "BLOCKED"
+    assert "manifest read failed" in (
+        startup.snapshot.lane_evidence["ETHUSDT:momentum_4h"].reason or ""
+    )
+    assert all(
+        startup.snapshot.lane_evidence[lane_id].status == "STARTUP_READY"
+        for lane_id in ("BTCUSDT:momentum_1h", "BTCUSDT:momentum_4h")
+    )
+
+
+@pytest.mark.asyncio
+async def test_blocked_eth_lane_does_not_prevent_btc_publication_or_readiness(
+    fixture_config: DecisionConfig,
+    caplog,
+) -> None:
+    caplog.set_level(logging.INFO)
+    composition = build_production_composition(fixture_config)
+    startup, repository, histories = await _startup(
+        fixture_config,
+        composition,
+        missing=(
+            MarketSeriesKey(
+                asset="ETHUSDT",
+                venue="binance",
+                instrument_id="ETH-USDT-PERP",
+                timeframe="4h",
+            ),
+            10,
+        ),
+    )
+    key = MarketSeriesKey(
+        asset="BTCUSDT",
+        venue="binance",
+        instrument_id="BTC-USDT-PERP",
+        timeframe="4h",
+    )
+    new_bar = _next_bar(key, histories[key], fixture_config.timeframe_grid)
+    new_bar = replace(
+        new_bar,
+        close=new_bar.close + Decimal(100),
+        high=new_bar.close + Decimal(101),
+    )
+    stream_key = canonical_ingestion_stream_key(key)
+    stream = _LiveStreamClient()
+    stream.pending.append(
+        (
+            f"{stream_key}|{new_bar.bar_open_at}",
+            "1-0",
+            _event_fields(new_bar, key),
+        )
+    )
+    signal_client = _SignalClient()
+    publisher = _RecordingPublisher(ValkeySignalPublisher(signal_client))
+    live_runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=fixture_config.timeframe_grid,
+        stream_client=stream,
+        history_repository=repository,
+        signal_publisher=publisher,
+        now_fn=lambda: new_bar.market_as_of + timedelta(seconds=1),
+        generation_id=1,
+    )
+    assert set(live_runtime.lanes) == {
+        "BTCUSDT:momentum_1h",
+        "BTCUSDT:momentum_4h",
+    }
+    assert live_runtime.blocked_lanes["ETHUSDT:momentum_4h"]["status"] == "BLOCKED"
+    poll = await live_runtime.poll_once()
+    assert poll.lane_results["BTCUSDT:momentum_4h"].publication_outcome == "PUBLISHED"
+    assert len(signal_client.entries["signals:BTCUSDT:4h"]) == 1
+
+    async def unexpected_rebuild(*, reason: str, generation_id: int):
+        raise AssertionError(
+            f"unexpected recovery during test: {reason}/{generation_id}"
+        )
+
+    service = DecisionService(
+        generation_factory=unexpected_rebuild,
+        configured_asset_count=2,
+        configured_lane_count=3,
+        block_ms=10,
+        now_fn=lambda: new_bar.market_as_of + timedelta(seconds=1),
+    )
+    generation = DecisionRuntimeGeneration(
+        generation_id=1,
+        created_at=new_bar.market_as_of + timedelta(seconds=1),
+        startup=startup,
+        live_runtime=live_runtime,
+    )
+    await service.start(generation)
+    try:
+        startup_logs = [
+            record
+            for record in caplog.records
+            if getattr(record, "event", None) == "decision.startup.lane"
+        ]
+        assert len(startup_logs) == 3
+        assert {record.lane_id: record.status for record in startup_logs} == {
+            "BTCUSDT:momentum_1h": "STARTUP_READY",
+            "BTCUSDT:momentum_4h": "STARTUP_READY",
+            "ETHUSDT:momentum_4h": "BLOCKED",
+        }
+        recovery_log = next(
+            record
+            for record in caplog.records
+            if getattr(record, "event", None) == "decision.rebuild.requested"
+        )
+        assert recovery_log.source == "AUTOMATIC_RECOVERY"
+        assert recovery_log.due_in_seconds == 5.0
+        assert publisher.envelopes
+        snapshot = service.snapshot()
+        assert snapshot.service_state == "DEGRADED"
+        assert snapshot.lanes["ETHUSDT:momentum_4h"]["status"] == "BLOCKED"
+        assert "no ready causal lane cutoff" in (
+            snapshot.lanes["ETHUSDT:momentum_4h"]["reason"] or ""
+        )
+        assert runtime_route(service)["lanes"]["ETHUSDT:momentum_4h"]["status"] == (
+            "BLOCKED"
+        )
+        ready_payload = health_ready(service)
+        assert ready_payload["status"] == "degraded"
+        assert ready_payload["lanes"]["BTCUSDT:momentum_4h"]["status"] == "LIVE"
+        assert len(signal_client.entries["signals:BTCUSDT:4h"]) == 1
+        assert service._rebuild_source == "AUTOMATIC_RECOVERY"
+    finally:
+        await service.stop()
+
+
 def test_retention_days_cover_certified_eth_history(
     fixture_config: DecisionConfig,
 ) -> None:
@@ -691,10 +934,10 @@ def test_retention_days_cover_certified_eth_history(
     assert evidence["status"] == "PASS"
     assert evidence["required_bars"] == 544
     assert evidence["minimum_whole_days"] == 91
-    assert evidence["configured_retention_days"] == 91
-    assert evidence["configured_bar_capacity"] == 546
+    assert evidence["configured_retention_days"] == 400
+    assert evidence["configured_bar_capacity"] == 2400
     assert evidence["ninety_day_bar_capacity"] == 540
-    assert evidence["margin_hours"] == pytest.approx(4.0)
+    assert evidence["margin_hours"] == pytest.approx(7420.0)
     assert all(
         item["configured_retention_includes_oldest_open"] for item in evidence["phases"]
     )

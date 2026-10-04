@@ -468,6 +468,40 @@ affected `BarStore` views and lanes from Timescale, with new input and lane
 progress positions. Full restart reconstructs state and resumes input reading; stale
 historical decisions are not republished from a persistent PEL in V1.
 
+## Service availability and recovery
+
+Startup evidence is lane-isolated. `STARTUP_READY` means all active configured
+lanes reconstructed; `STARTUP_BLOCKED` records one or more blocked lanes, not a
+fatal generation-construction result. A generation installs every ready lane;
+series capture/history failures, manifest-read failures, and lane reconstruction
+failures block only their dependent series, asset, or lane. First-generation
+static planning/configuration errors and application resource-construction
+failures remain fatal.
+
+The service schedules generation-level `AUTOMATIC_RECOVERY` for malformed or
+conflicting input, non-forward-gap `RECONSTRUCTION_REQUIRED`, halted/invalid or
+reconstruction-required lanes, blocked startup lanes, and failed rebuilds.
+Automatic attempts use exponential delays from 5 seconds through a 300-second
+cap. While an installed generation waits for an automatic retry, it continues
+polling so healthy lanes can progress. A forward canonical market gap is the
+separate immediate `INPUT_RECONSTRUCTION` path; manual control and lifecycle
+reconciliation are also immediate. Rebuild precedence is
+`LIFECYCLE_RECONCILIATION` > `MANUAL` > `INPUT_RECONSTRUCTION` >
+`AUTOMATIC_RECOVERY`. A failed non-automatic rebuild retains its source and
+request, exposes `ERROR`/not-ready, and retries after the bounded backoff; a
+failed automatic rebuild retains the current generation in `DEGRADED` and
+retries it.
+
+Readiness is true only under the existing installed-generation, desired-running,
+and `RUNNING`/`DEGRADED` service conditions, except that a zero-lane configuration
+does not acquire a lane-liveness deadline. For a running configuration with at
+least one lane, no `LIVE` lane for more than 300 seconds makes readiness false
+with reason `no_lane_live`; absence of an installed generation reports
+`no_generation`. The 300-second interval is an availability threshold, not a
+market or causal-progress guarantee. `/health/live` remains independent of
+readiness. Status includes `not_live_seconds` and pending rebuild source,
+attempt, and due time.
+
 ## Bounded runtime and resource ownership
 
 The D9 implementation adds an operational envelope without changing the D0

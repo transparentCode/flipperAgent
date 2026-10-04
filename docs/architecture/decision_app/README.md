@@ -1,8 +1,9 @@
 # `decision_app` architecture freeze
 
-Status: D0 architecture is frozen and the approved D9D implementation is
-current. D10 certifies the current bounded core envelope; final model-mix
-resource recertification remains required after model integration.
+Status: D0 architecture is frozen; the approved D9A-D9D and DA-1 runtime
+availability behavior is implemented. D10 certifies the current bounded core
+envelope; final model-mix resource recertification remains required after model
+integration.
 
 `decision_app` is a single runtime application that evaluates an explicit catalog
 of model plugins over causal market context. It is not a new market-data source,
@@ -11,10 +12,11 @@ The application owns decision formation only. `ingestion` remains the canonical
 OHLCV authority, `risk_app` remains responsible for risk and position policy, and
 `execution_app` remains responsible for order execution.
 
-The approved implementation currently covers D9A startup reconstruction, D9B's
+The approved implementation covers D9A startup reconstruction, D9B's
 direct-cursor live transaction, D9C's ASGI-owned service/lifecycle/control
-shell, and D9D's model-independent PriceRelay/risk-continuity path. This
-document remains the source of truth for those semantics.
+shell, D9D's model-independent PriceRelay/risk-continuity path, and DA-1's
+lane-isolated availability, bounded generation recovery, and honest readiness.
+This document remains the source of truth for those semantics.
 
 ## Scope and ownership
 
@@ -39,10 +41,9 @@ The ownership boundary is:
 | Risk, sizing, SL/TP, positions | `risk_app` | Downstream authority; not moved into `decision_app`. |
 | Orders and fills | `execution_app` | Downstream execution authority. |
 
-The canonical configuration boundary is now reserved and partially materialized:
-the global file carries the already-approved live-input/publication settings,
-while concrete production asset files remain intentionally absent until reviewed
-models are integrated:
+The current Decision configuration has one global file and two concrete asset
+files for BTC and ETH. The earlier D0 statement that production asset files were
+intentionally absent is historical, not current state:
 
 ```text
 configs/decision/global.yaml
@@ -145,20 +146,37 @@ cutoff before it can be `LIVE`; it may not continue from stale committed state.
 The affected lane's `LaneCommitWatermark` remains unchanged while input reading,
 BarStore advancement, PriceRelay, and unrelated lanes continue.
 
-In the current D9C service, generic `RECONSTRUCTION_REQUIRED` remains a
-lane-local fail-closed condition. It marks the service degraded in place and
-does not automatically rebuild the whole generation, so healthy input streams
-and lanes continue; malformed, conflicting, late, and provenance failures keep
-that behavior. A proven direct-cursor retention gap is the narrow exception:
-when an input result has disposition `RECONSTRUCTION_REQUIRED` and the exact
-reason `forward canonical market gap`, D9C marks the generation unusable and
-requests one bounded `INPUT_RECONSTRUCTION` generation rebuild. The normal D9A
-startup path then reloads durable canonical history and checkpoints, performs
+At startup, a series capture/history error, manifest read error, or lane
+reconstruction error blocks only the affected series, asset, or lane. Other
+ready lanes are installed and continue operating. The service is `DEGRADED` and
+schedules generation-level `AUTOMATIC_RECOVERY` for blocked startup lanes; it
+does not make the whole ASGI lifespan fail. First-generation static plan/config
+errors and resource-construction failures remain fatal.
+
+Generic input or lane `RECONSTRUCTION_REQUIRED`, malformed/conflicting input,
+and halted/invalid lanes remain fail-closed for the affected path and schedule
+bounded `AUTOMATIC_RECOVERY`. The retry delay starts at 5 seconds, doubles after
+failed attempts, and caps at 300 seconds. While that cooldown is pending, the
+current generation continues polling so healthy lanes keep progressing. A
+proven direct-cursor retention gap remains distinct and immediate: only an input
+result with disposition `RECONSTRUCTION_REQUIRED` and exact reason `forward
+canonical market gap` requests `INPUT_RECONSTRUCTION`. The normal D9A startup
+path reloads durable canonical history and checkpoints, performs
 publication-suppressed causal reconstruction, captures fresh stream tails, and
 installs the replacement before live reads resume. Manual `reconnect()`/`resume()`
-and authoritative lifecycle reconciliation remain full-generation boundaries,
-with lifecycle reconciliation retaining precedence over a concurrently observed
-input retention gap.
+and authoritative lifecycle reconciliation remain immediate full-generation
+boundaries. Request precedence is lifecycle reconciliation, manual control,
+input reconstruction, then automatic recovery.
+
+Readiness remains degraded-ready while at least one configured lane is live.
+When the service is running with one or more configured lanes but no lane has
+been `LIVE` for more than 300 seconds, `/health/ready` returns 503 with
+`reason=no_lane_live`; no installed generation returns `reason=no_generation`.
+The no-live-lane timeout is not applied while desired state is `PAUSED` or when
+the configuration has zero lanes. `PAUSED` still follows the existing
+control-plane readiness policy; zero-lane plans are exempt from this timeout.
+Liveness remains independent. Runtime status exposes the no-live duration and
+pending rebuild source, attempt, and due time.
 
 ## FeaturePlan and policy
 
@@ -337,7 +355,11 @@ continuity path and publishes `price_update:*` while preserving risk and
 execution mathematics. Operator `PAUSED` keeps canonical input and PriceRelay
 active while suppressing model evaluation and signal finalization.
 
-Observability records `InputReadCursor`, per-lane `LaneCommitWatermark` values, PriceRelay
+Structured logs include `decision.startup.lane`, `decision.lane.halted`,
+`decision.lane.unblocked`, `decision.input.blocked`, and rebuild requested,
+completed, and failed events. Startup outcomes are emitted once per generation;
+lane halt and input-block events are transition/first-block only. Observability
+also records `InputReadCursor`, per-lane `LaneCommitWatermark` values, PriceRelay
 progress/continuity, readiness reasons, data provenance, evaluation latency,
 dependency failures, state transitions, publication conflicts, and price-relay
 health. Controls are bounded and auditable; there is no hot graph mutation or live

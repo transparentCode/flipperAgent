@@ -73,7 +73,19 @@ from apps.decision_app.transport.shadow import (
     ShadowPublicationAck,
     build_shadow_envelope,
 )
+from libs.common.enums import SystemComponent
+from libs.common.logging.logger_utils import bind_logger
 from libs.contracts.decision import FrozenMapping, require_utc
+
+_LOGGER = bind_logger(__name__, system_component=SystemComponent.SIGNAL_GENERATOR)
+
+
+def _log_best_effort(level: str, event: str, **fields: Any) -> None:
+    try:
+        getattr(_LOGGER, level)(event, extra={"event": event, **fields})
+    except Exception:  # noqa: BLE001, S110 - logging cannot change runtime behavior
+        pass
+
 
 LiveLaneStatus = Literal[
     "LIVE",
@@ -253,11 +265,16 @@ class LiveDecisionRuntime:
         io_timeout_seconds: float | None = None,
         now_fn: Callable[[], datetime] | None = None,
         observability: DecisionObservability | None = None,
+        generation_id: int | None = None,
     ) -> None:
         if not isinstance(startup, DecisionStartupResult):
             raise TypeError("startup must be DecisionStartupResult")
-        if startup.snapshot.status != "STARTUP_READY":
-            raise LiveRuntimeError("D9B requires STARTUP_READY startup evidence")
+        if generation_id is not None and (
+            isinstance(generation_id, bool)
+            or not isinstance(generation_id, int)
+            or generation_id <= 0
+        ):
+            raise ValueError("generation_id must be a positive integer or None")
         if not isinstance(timeframe_grid, TimeframeGrid):
             raise TypeError("timeframe_grid must be TimeframeGrid")
         if not callable(getattr(history_repository, "fetch_bars", None)):
@@ -299,6 +316,7 @@ class LiveDecisionRuntime:
             else policy_catalog
         )
         self._now_fn = now_fn or (lambda: datetime.now(UTC))
+        self._generation_id = generation_id
         if observability is not None and not isinstance(
             observability, DecisionObservability
         ):
@@ -399,6 +417,27 @@ class LiveDecisionRuntime:
     @property
     def lanes(self) -> Mapping[str, LiveLane]:
         return FrozenMapping(dict(sorted(self._lanes.items())))
+
+    @property
+    def blocked_lanes(self) -> Mapping[str, Mapping[str, Any]]:
+        """Startup lanes not admitted to live evaluation, with their reason."""
+
+        blocked: dict[str, Mapping[str, Any]] = {}
+        for lane_id, evidence in self._startup.snapshot.lane_evidence.items():
+            if evidence.status == "STARTUP_READY":
+                continue
+            blocked[lane_id] = {
+                "lane_id": lane_id,
+                "status": "INACTIVE" if evidence.status == "INACTIVE" else "BLOCKED",
+                "reason": evidence.reason,
+                "startup_status": evidence.status,
+            }
+        return FrozenMapping(dict(sorted(blocked.items())))
+
+    @property
+    def has_unblocked_streams(self) -> bool:
+        blocked = self._reader.blocked_streams
+        return any(key not in blocked for key in self._reader.stream_keys)
 
     async def poll_once(self, *, evaluate_lanes: bool = True) -> DecisionPollResult:
         """Read/process one bounded batch and return bounded evidence."""
@@ -1196,14 +1235,26 @@ class LiveDecisionRuntime:
                 previous=relay_results.get(relay_plan_id),
             )
 
-    @staticmethod
     def _halt_lane(
+        self,
         live_lane: LiveLane,
         status: Literal["HALTED", "RECONSTRUCTION_REQUIRED", "INVALID", "BLOCKED"],
         reason: str,
     ) -> None:
-        live_lane.status = "INVALID" if status in {"INVALID", "BLOCKED"} else status
+        next_status = "INVALID" if status in {"INVALID", "BLOCKED"} else status
+        transitioned = live_lane.status != next_status or live_lane.reason != reason
+        live_lane.status = next_status
         live_lane.reason = reason
+        if transitioned:
+            _log_best_effort(
+                "warning",
+                "decision.lane.halted",
+                lane_id=live_lane.lane_id,
+                status=next_status,
+                reason=reason,
+                trigger_cutoff=live_lane.pending_trigger_cutoff,
+                generation_id=self._generation_id,
+            )
 
     def _lane_result(
         self,

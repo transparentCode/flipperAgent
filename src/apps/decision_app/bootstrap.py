@@ -248,6 +248,7 @@ def build_generation_factory(
             io_timeout_seconds=dependency_io.io_timeout_seconds,
             now_fn=now_fn,
             observability=observability,
+            generation_id=generation_id,
         )
         created_at = (now_fn or (lambda: datetime.now(UTC)))()
         return DecisionRuntimeGeneration(

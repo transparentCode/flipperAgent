@@ -1,12 +1,17 @@
 app:
   name: decision_app
-  status: D0_ARCHITECTURE_FREEZE
+  status: IMPLEMENTED
+  architecture_status: D0_ARCHITECTURE_FREEZE
   purpose: >-
     Single runtime for causal model evaluation and lane-local authoritative
     decision publication. It does not own canonical market data, risk, sizing,
     stop-loss/take-profit, or execution.
   target_path: src/apps/decision_app
-  implementation_status: not_created_in_D0
+  implementation_status: D9A_D9B_D9C_D9D_DA1
+  current_configured_lanes:
+    - BTCUSDT:momentum_1h
+    - BTCUSDT:momentum_4h
+    - ETHUSDT:momentum_4h
 
 contracts:
   canonical_market_data_authority: ingestion
@@ -33,10 +38,10 @@ runtime_deadlines:
   unconfirmed_release: retain_and_fence_reuse
 
 components:
-  - name: asset_runtime
+  - name: decision_generation
     role: >-
-      Owns asset lifecycle state, configured lanes, shared bounded stores, and
-      independent PriceRelay policy.
+      Installs ready configured lanes from one startup generation while retaining
+      blocked and inactive lane evidence in service status.
     source_of_asset_availability: ingestion_manifest_lifecycle
   - name: bar_store
     role: >-
@@ -101,11 +106,11 @@ flows:
     steps:
       - resolve streams and static graph
       - establish one absolute 120-second startup/generation deadline
-      - capture stream tails and DB cutoffs
-      - warm from Timescale through cutoffs
-      - causal stateful re-warm with publication suppressed
-      - verify cutoffs
-      - consume post-cutoff live events
+      - isolate stream-tail and canonical-history failures by series
+      - isolate manifest failures by asset and reconstruction failures by lane
+      - install every ready lane and retain blocked-lane evidence
+      - warm from Timescale and replay state with publication suppressed
+      - consume post-cutoff live events for ready lanes
   - name: shutdown
     steps:
       - admit control and drain effect work within 30 seconds
@@ -114,10 +119,19 @@ flows:
       - retain and fence ownership when release is unconfirmed
   - name: gap_recovery
     steps:
-      - detect stream gap
-      - rebuild affected state from Timescale
+      - detect exact forward canonical market gap at the input boundary
+      - request immediate INPUT_RECONSTRUCTION
+      - rebuild generation from Timescale through the existing startup path
       - establish new input/lane progress positions
       - resume input reading without stale decision replay
+  - name: automatic_recovery
+    steps:
+      - fail closed for malformed/conflicting input or unsafe lane state
+      - retain any already-pending higher-priority rebuild request
+      - schedule generation retry with 5-second exponential backoff capped at 300 seconds
+      - continue polling healthy lanes during automatic-recovery cooldown
+      - retry generation reconstruction and preserve blocked-lane evidence on failure
+      - report 503 after more than 300 seconds without a LIVE lane while RUNNING with configured lanes
 
 timing:
   canonical_time_type: timezone_aware_utc_instant
@@ -163,8 +177,10 @@ identity:
   decision_id: lane_id_plus_lane_revision_plus_market_as_of
 
 configuration:
-  future_global: configs/decision/global.yaml
-  future_asset_directory: configs/decision/assets/{ASSET}.yaml
+  global_file: configs/decision/global.yaml
+  current_asset_files:
+    - configs/decision/assets/BTC.yaml
+    - configs/decision/assets/ETH.yaml
   graph_reload: process_restart_only
   plugin_loading: explicit_catalog
 

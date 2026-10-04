@@ -36,9 +36,13 @@ def snapshot_payload(snapshot: DecisionServiceSnapshot) -> dict[str, Any]:
             "last_rebuild_at": snapshot.last_rebuild_at,
             "last_lifecycle_event_at": snapshot.last_lifecycle_event_at,
             "last_error": snapshot.last_error,
+            "rebuild_source": snapshot.rebuild_source,
+            "recovery_attempt": snapshot.recovery_attempt,
+            "rebuild_due_at": snapshot.rebuild_due_at,
             "configured_asset_count": snapshot.configured_asset_count,
             "configured_lane_count": snapshot.configured_lane_count,
             "active_lane_count": snapshot.active_lane_count,
+            "not_live_seconds": snapshot.not_live_seconds,
             "lane_status_counts": snapshot.lane_status_counts,
             "blocked_stream_count": snapshot.blocked_stream_count,
             "lifecycle_cursor": snapshot.lifecycle_cursor,
@@ -67,7 +71,11 @@ def health_ready(
     if not snapshot.ready:
         raise HTTPException(
             status_code=503,
-            detail={"status": "not_ready", "runtime": payload},
+            detail={
+                "status": "not_ready",
+                "reason": snapshot.readiness_reason,
+                "runtime": payload,
+            },
         )
     return {
         "status": "ready" if snapshot.service_state == "RUNNING" else "degraded",

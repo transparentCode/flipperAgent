@@ -61,7 +61,7 @@ from apps.decision_app.planning.readiness import (
     compile_lane_market_requirements,
 )
 from apps.decision_app.runtime.deadlines import run_with_timeout
-from apps.decision_app.runtime.models import ModelRuntime, RewarmError, RewarmStep
+from apps.decision_app.runtime.models import ModelRuntime, RewarmStep
 from apps.decision_app.runtime.plugins import (
     RuntimePluginCatalog,
     StateInitializationRequirement,
@@ -224,6 +224,7 @@ class DecisionStartupSnapshot:
     lane_watermarks: Mapping[str, LaneCommitWatermark]
     lane_evidence: Mapping[str, LaneStartupEvidence]
     reconstruction_evidence: Mapping[str, Mapping[str, Any]]
+    series_failures: Mapping[MarketSeriesKey, str] = field(default_factory=dict)
     no_publication: bool = True
 
     def __post_init__(self) -> None:
@@ -275,6 +276,28 @@ class DecisionStartupSnapshot:
         object.__setattr__(self, "input_cursors", FrozenMapping(cursors))
         object.__setattr__(self, "lane_watermarks", FrozenMapping(watermarks))
         object.__setattr__(self, "lane_evidence", FrozenMapping(evidence))
+        normalized_failures: dict[MarketSeriesKey, str] = {}
+        for key, reason in self.series_failures.items():
+            if not isinstance(key, MarketSeriesKey):
+                raise TypeError("series_failures keys must be MarketSeriesKey values")
+            normalized_failures[key] = _text(reason, "series failure reason")
+        object.__setattr__(
+            self,
+            "series_failures",
+            FrozenMapping(
+                dict(
+                    sorted(
+                        normalized_failures.items(),
+                        key=lambda item: (
+                            item[0].asset,
+                            item[0].venue,
+                            item[0].instrument_id,
+                            item[0].timeframe,
+                        ),
+                    )
+                )
+            ),
+        )
         object.__setattr__(
             self,
             "reconstruction_evidence",
@@ -431,6 +454,7 @@ async def capture_series_startup_positions(
     stream_client: Any,
     history_repository: CanonicalMarketHistoryRepository,
     io_timeout_seconds: float | None = None,
+    series_failures: dict[MarketSeriesKey, str] | None = None,
 ) -> Mapping[MarketSeriesKey, SeriesStartupPosition]:
     """Capture each stream tail once, then read the durable DB cutoff."""
 
@@ -441,14 +465,20 @@ async def capture_series_startup_positions(
     positions: dict[MarketSeriesKey, SeriesStartupPosition] = {}
     for series_key in _sorted_keys(series_keys):
         stream_key = canonical_ingestion_stream_key(series_key)
-        tail = await _capture_tail(
-            stream_client,
-            stream_key=stream_key,
-            series_key=series_key,
-            timeframe_grid=timeframe_grid,
-            io_timeout_seconds=io_timeout_seconds,
-        )
-        db_latest = await history_repository.fetch_latest_cutoff(series_key)
+        try:
+            tail = await _capture_tail(
+                stream_client,
+                stream_key=stream_key,
+                series_key=series_key,
+                timeframe_grid=timeframe_grid,
+                io_timeout_seconds=io_timeout_seconds,
+            )
+            db_latest = await history_repository.fetch_latest_cutoff(series_key)
+        except Exception as exc:
+            if series_failures is None:
+                raise
+            series_failures[series_key] = f"series capture failed: {exc}"
+            continue
         tail_cutoff = None if tail is None else tail.bar.market_as_of
         warm_cutoff = db_latest or tail_cutoff
         positions[series_key] = SeriesStartupPosition(
@@ -572,6 +602,7 @@ class DecisionStartupCoordinator:
             for lane in decision_plan.lanes
         }
         relay_plans = compile_price_relay_plans(self._config)
+        series_failures: dict[MarketSeriesKey, str] = {}
         positions = await capture_series_startup_positions(
             series_keys=self._required_series(
                 decision_plan,
@@ -582,10 +613,13 @@ class DecisionStartupCoordinator:
             stream_client=self._streams,
             history_repository=self._history,
             io_timeout_seconds=self._io_timeout_seconds,
+            series_failures=series_failures,
         )
-        active_assets = await self._active_manifest_assets(decision_plan, feature_plans)
-        active_relay_plans = tuple(
-            plan for plan in relay_plans if plan.asset in active_assets
+        manifest_failures: dict[str, str] = {}
+        active_assets = await self._active_manifest_assets(
+            decision_plan,
+            feature_plans,
+            failures=manifest_failures,
         )
         capacities = self._compile_capacities(
             decision_plan,
@@ -595,7 +629,24 @@ class DecisionStartupCoordinator:
         # This tail is exclusively for the final bounded shared BarStore.  A
         # stateful lane's replay history is loaded separately after its
         # checkpoint and replay interval are known.
-        history_cache = await self._load_history(positions, capacities)
+        history_failures: dict[MarketSeriesKey, str] = {}
+        history_cache = await self._load_history(
+            positions,
+            capacities,
+            failures=history_failures,
+        )
+        series_failures.update(history_failures)
+        positions = {
+            key: position
+            for key, position in positions.items()
+            if key not in history_failures
+        }
+        active_relay_plans = tuple(
+            plan
+            for plan in relay_plans
+            if plan.asset in active_assets
+            and plan_series_key(plan) not in series_failures
+        )
         final_store = BarStore(capacities)
         self._fill_store(final_store, history_cache)
         lane_evidence: dict[str, LaneStartupEvidence] = {}
@@ -607,11 +658,41 @@ class DecisionStartupCoordinator:
         }
         lane_catchup_stores: dict[str, BarStore] = {}
         for lane in decision_plan.lanes:
+            if lane.asset in manifest_failures:
+                lane_evidence[lane.lane_id] = LaneStartupEvidence(
+                    lane_id=lane.lane_id,
+                    status="BLOCKED",
+                    reason=manifest_failures[lane.asset],
+                )
+                continue
             if lane.asset not in active_assets:
                 lane_evidence[lane.lane_id] = LaneStartupEvidence(
                     lane_id=lane.lane_id,
                     status="INACTIVE",
                     reason="manifest_not_live",
+                )
+                continue
+            failed_series = sorted(
+                (
+                    key
+                    for key in self._lane_required_series(
+                        lane,
+                        feature_plans[lane.lane_id],
+                    )
+                    if key in series_failures
+                ),
+                key=lambda item: (
+                    item.asset,
+                    item.venue,
+                    item.instrument_id,
+                    item.timeframe,
+                ),
+            )
+            if failed_series:
+                lane_evidence[lane.lane_id] = LaneStartupEvidence(
+                    lane_id=lane.lane_id,
+                    status="BLOCKED",
+                    reason=series_failures[failed_series[0]],
                 )
                 continue
             try:
@@ -624,7 +705,7 @@ class DecisionStartupCoordinator:
                     positions,
                     final_store,
                 )
-            except (StartupLaneError, RewarmError, ValueError, TypeError) as exc:
+            except Exception as exc:  # noqa: BLE001 - isolate one lane reconstruction
                 lane_evidence[lane.lane_id] = LaneStartupEvidence(
                     lane_id=lane.lane_id,
                     status="BLOCKED",
@@ -671,6 +752,7 @@ class DecisionStartupCoordinator:
             lane_watermarks=lane_watermarks,
             lane_evidence=lane_evidence,
             reconstruction_evidence=reconstruction_evidence,
+            series_failures=series_failures,
         )
         return DecisionStartupResult(
             snapshot=snapshot,
@@ -703,6 +785,21 @@ class DecisionStartupCoordinator:
         keys.update(plan_series_key(relay_plan) for relay_plan in relay_plans)
         return _sorted_keys(tuple(keys))
 
+    def _lane_required_series(
+        self,
+        lane: ResolvedLanePlan,
+        feature_plan: FeaturePlan,
+    ) -> set[MarketSeriesKey]:
+        keys = set(
+            compile_lane_market_requirements(
+                lane,
+                self._config.timeframe_grid,
+            ).minimum_bars_by_series
+        )
+        for history in feature_plan.history_requirements.values():
+            keys.update(history)
+        return keys
+
     def _compile_capacities(
         self,
         plan: ResolvedDecisionPlan,
@@ -726,6 +823,8 @@ class DecisionStartupCoordinator:
         self,
         positions: Mapping[MarketSeriesKey, SeriesStartupPosition],
         capacities: Mapping[MarketSeriesKey, int],
+        *,
+        failures: dict[MarketSeriesKey, str] | None = None,
     ) -> Mapping[MarketSeriesKey, tuple[Any, ...]]:
         result: dict[MarketSeriesKey, tuple[Any, ...]] = {}
         for key, position in positions.items():
@@ -737,13 +836,18 @@ class DecisionStartupCoordinator:
             # lane-specific range below, so this tail must never be used as a
             # proxy for a checkpoint catch-up window.
             limit = capacities.get(key, 1)
-            result[key] = tuple(
-                await self._history.fetch_bars(
-                    key,
-                    through=position.warm_cutoff,
-                    limit=limit,
+            try:
+                result[key] = tuple(
+                    await self._history.fetch_bars(
+                        key,
+                        through=position.warm_cutoff,
+                        limit=limit,
+                    )
                 )
-            )
+            except Exception as exc:
+                if failures is None:
+                    raise
+                failures[key] = f"series history read failed: {exc}"
         return FrozenMapping(result)
 
     def _lane_history_requirements(
@@ -1036,6 +1140,8 @@ class DecisionStartupCoordinator:
         self,
         plan: ResolvedDecisionPlan,
         feature_plans: Mapping[str, FeaturePlan],
+        *,
+        failures: dict[str, str] | None = None,
     ) -> set[str]:
         configured = {
             asset.decision_asset: asset
@@ -1063,11 +1169,17 @@ class DecisionStartupCoordinator:
             # ``asset.manifest_asset`` remains the canonical Ingestion config
             # key. The manifest store and lifecycle stream use the validated
             # live-provider identity in ``decision_asset``.
-            manifest = await run_with_timeout(
-                self._manifest_store.read_asset(decision_asset),
-                self._io_timeout_seconds,
-                operation="startup asset manifest read",
-            )
+            try:
+                manifest = await run_with_timeout(
+                    self._manifest_store.read_asset(decision_asset),
+                    self._io_timeout_seconds,
+                    operation="startup asset manifest read",
+                )
+            except Exception as exc:
+                if failures is None:
+                    raise
+                failures[decision_asset] = f"manifest read failed: {exc}"
+                continue
             if manifest is None:
                 continue
             if (
@@ -1082,15 +1194,22 @@ class DecisionStartupCoordinator:
                 set(),
             )
             valid = True
-            for timeframe in required_timeframes:
-                timeframe_manifest = await run_with_timeout(
-                    self._manifest_store.read_timeframe(
-                        decision_asset,
-                        timeframe,
-                    ),
-                    self._io_timeout_seconds,
-                    operation="startup timeframe manifest read",
-                )
+            for timeframe in sorted(required_timeframes):
+                try:
+                    timeframe_manifest = await run_with_timeout(
+                        self._manifest_store.read_timeframe(
+                            decision_asset,
+                            timeframe,
+                        ),
+                        self._io_timeout_seconds,
+                        operation="startup timeframe manifest read",
+                    )
+                except Exception as exc:
+                    if failures is None:
+                        raise
+                    failures[decision_asset] = f"manifest read failed: {exc}"
+                    valid = False
+                    break
                 if timeframe_manifest is None or (
                     timeframe_manifest.symbol != decision_asset
                     or timeframe_manifest.source != "ingestion"

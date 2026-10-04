@@ -177,7 +177,7 @@ progress: {
 }
 
 recovery: {
-  label: "5. Broker gap and restart"
+  label: "5. Broker gap, automatic recovery, and restart"
 
   disconnect: {
     class: failure
@@ -207,6 +207,31 @@ recovery: {
   resume: {
     class: terminal
     label: "New input/lane progress\nresume input reading"
+  }
+
+  lane_fault: {
+    class: failure
+    label: "Malformed/conflicting input,\nblocked startup lane, or unsafe lane state"
+  }
+
+  automatic: {
+    class: step
+    label: "Schedule AUTOMATIC_RECOVERY\n5s exponential backoff, capped at 300s"
+  }
+
+  healthy_progress: {
+    class: step
+    label: "Keep installed generation polling\nhealthy lanes during cooldown"
+  }
+
+  retry: {
+    class: gate
+    label: "Retry due?\nLifecycle > Manual > Input > Automatic"
+  }
+
+  no_lane_live: {
+    class: failure
+    label: "RUNNING with configured lanes\nno LIVE lane >300s -> readiness 503"
   }
 }
 
@@ -291,6 +316,14 @@ recovery.gap -> recovery.resume: "no gap"
 recovery.rebuild -> recovery.resume: "new input/lane progress"
 recovery.restart -> recovery.rebuild: "full process restart"
 recovery.resume -> live.candle: "post-input-cursor reads"
+recovery.lane_fault -> recovery.automatic: "fail affected path closed"
+recovery.automatic -> recovery.healthy_progress: "cooldown pending"
+recovery.healthy_progress -> recovery.retry: "bounded market polls"
+recovery.retry -> recovery.healthy_progress: "not due"
+recovery.retry -> recovery.rebuild: "due; preserve source precedence"
+recovery.rebuild -> recovery.retry: "failed; retain source and schedule backoff"
+recovery.rebuild -> recovery.automatic: "installed generation still has blocked lanes"
+recovery.healthy_progress -> recovery.no_lane_live: "no LIVE lane beyond grace"
 
 live.candle -> progress.input_cursor: "reader observes"
 progress.input_cursor -> progress.bar_store: "accepted observation"

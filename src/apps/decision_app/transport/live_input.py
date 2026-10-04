@@ -29,7 +29,11 @@ from apps.decision_app.transport.ingestion import (
     canonical_ingestion_stream_key,
     parse_canonical_ingestion_event,
 )
+from libs.common.enums import SystemComponent
+from libs.common.logging.logger_utils import bind_logger
 from libs.contracts.decision import CausalBarView, FrozenMapping, require_utc
+
+_LOGGER = bind_logger(__name__, system_component=SystemComponent.SIGNAL_GENERATOR)
 
 InputDisposition = Literal[
     "INSERTED",
@@ -188,8 +192,8 @@ class DirectCursorInput:
     ) -> None:
         if stream_client is None or not callable(getattr(stream_client, "xread", None)):
             raise TypeError("stream_client must provide direct xread()")
-        if not isinstance(startup_positions, Mapping) or not startup_positions:
-            raise ValueError("startup_positions must not be empty")
+        if not isinstance(startup_positions, Mapping):
+            raise TypeError("startup_positions must be a mapping")
         if not isinstance(bar_store, BarStore):
             raise TypeError("bar_store must be BarStore")
         if not callable(getattr(history_repository, "fetch_record_at", None)):
@@ -259,6 +263,10 @@ class DirectCursorInput:
     def stream_keys(self) -> tuple[str, ...]:
         return tuple(sorted(self._series_by_stream))
 
+    @property
+    def has_unblocked_streams(self) -> bool:
+        return any(key not in self._blocked_streams for key in self._series_by_stream)
+
     def cursor_for(self, key_or_stream: MarketSeriesKey | str) -> InputReadCursor:
         stream_key = (
             canonical_ingestion_stream_key(key_or_stream)
@@ -270,11 +278,33 @@ class DirectCursorInput:
         except KeyError as exc:
             raise KeyError(f"unknown input stream: {stream_key}") from exc
 
-    def block_stream(self, stream_key: str, reason: str) -> None:
+    def block_stream(
+        self,
+        stream_key: str,
+        reason: str,
+        *,
+        stream_id: str | None = None,
+        disposition: str | None = None,
+    ) -> None:
         stream_key = _text(stream_key, "stream_key")
         if not isinstance(reason, str) or not reason.strip():
             raise ValueError("stream block reason must be non-empty")
-        self._blocked_streams.setdefault(stream_key, reason)
+        if stream_key in self._blocked_streams:
+            return
+        self._blocked_streams[stream_key] = reason
+        try:
+            _LOGGER.warning(
+                "decision.input.blocked",
+                extra={
+                    "event": "decision.input.blocked",
+                    "stream_key": stream_key,
+                    "stream_id": stream_id,
+                    "disposition": disposition,
+                    "reason": reason,
+                },
+            )
+        except Exception:  # noqa: BLE001, S110 - logging cannot change input control
+            pass
 
     async def read_once(self) -> InputReadBatch:
         """Perform exactly one bounded direct XREAD."""
@@ -317,7 +347,11 @@ class DirectCursorInput:
                 raise InputTransportError(str(exc)) from exc
             key = self._series_by_stream.get(stream_key)
             if key is None:
-                self.block_stream(stream_key, "unexpected stream key")
+                self.block_stream(
+                    stream_key,
+                    "unexpected stream key",
+                    disposition="MALFORMED",
+                )
                 failures.append(
                     InputRecordResult(
                         stream_key=stream_key,
@@ -427,7 +461,12 @@ class DirectCursorInput:
         cursor = self._cursors[stream_key]
         previous_id = cursor.latest_stream_id or "0-0"
         if compare_stream_ids(pending.stream_id, previous_id) <= 0:
-            self.block_stream(stream_key, "accepted record is not forward")
+            self.block_stream(
+                stream_key,
+                "accepted record is not forward",
+                stream_id=pending.stream_id,
+                disposition="MALFORMED",
+            )
             return self._result(
                 pending,
                 "MALFORMED",
@@ -440,7 +479,14 @@ class DirectCursorInput:
             if _record_matches_event(record, event):
                 self._advance_cursor(stream_key, pending.stream_id, event)
                 return self._result(pending, "ALREADY_REPRESENTED", "startup DB match")
-            self.block_stream(stream_key, "startup history does not match event")
+            self.block_stream(
+                stream_key,
+                "startup history does not match event",
+                stream_id=pending.stream_id,
+                disposition=(
+                    "CONFLICT" if record is not None else "RECONSTRUCTION_REQUIRED"
+                ),
+            )
             return self._result(
                 pending,
                 "CONFLICT" if record is not None else "RECONSTRUCTION_REQUIRED",
@@ -454,7 +500,12 @@ class DirectCursorInput:
         )
         if retained is not None:
             if retained != event.bar:
-                self.block_stream(stream_key, "conflicting retained canonical bar")
+                self.block_stream(
+                    stream_key,
+                    "conflicting retained canonical bar",
+                    stream_id=pending.stream_id,
+                    disposition="CONFLICT",
+                )
                 return self._result(
                     pending,
                     "CONFLICT",
@@ -462,7 +513,12 @@ class DirectCursorInput:
                 )
             record = await self._history.fetch_record_at(key, event.bar.bar_open_at)
             if record is None:
-                self.block_stream(stream_key, "retained bar lacks durable provenance")
+                self.block_stream(
+                    stream_key,
+                    "retained bar lacks durable provenance",
+                    stream_id=pending.stream_id,
+                    disposition="RECONSTRUCTION_REQUIRED",
+                )
                 return self._result(
                     pending,
                     "RECONSTRUCTION_REQUIRED",
@@ -475,7 +531,12 @@ class DirectCursorInput:
                     "DUPLICATE",
                     "exact retained canonical duplicate",
                 )
-            self.block_stream(stream_key, "conflicting durable canonical identity")
+            self.block_stream(
+                stream_key,
+                "conflicting durable canonical identity",
+                stream_id=pending.stream_id,
+                disposition="CONFLICT",
+            )
             return self._result(
                 pending,
                 "CONFLICT",
@@ -489,36 +550,66 @@ class DirectCursorInput:
             try:
                 self._bar_store.append(key, event.bar)
             except (BarConflictError, BarOrderError, ValueError) as exc:
-                self.block_stream(stream_key, str(exc))
+                self.block_stream(
+                    stream_key,
+                    str(exc),
+                    stream_id=pending.stream_id,
+                    disposition="CONFLICT",
+                )
                 return self._result(pending, "CONFLICT", str(exc))
             self._advance_cursor(stream_key, pending.stream_id, event)
             return self._result(pending, "INSERTED")
 
         if event.bar.bar_open_at < latest.bar_open_at:
-            self.block_stream(stream_key, "late post-startup historical event")
+            self.block_stream(
+                stream_key,
+                "late post-startup historical event",
+                stream_id=pending.stream_id,
+                disposition="RECONSTRUCTION_REQUIRED",
+            )
             return self._result(
                 pending,
                 "RECONSTRUCTION_REQUIRED",
                 "late post-startup historical event",
             )
         if event.bar.bar_open_at == latest.bar_open_at:
-            self.block_stream(stream_key, "conflicting canonical identity")
+            self.block_stream(
+                stream_key,
+                "conflicting canonical identity",
+                stream_id=pending.stream_id,
+                disposition="CONFLICT",
+            )
             return self._result(pending, "CONFLICT", "conflicting canonical identity")
         if event.bar.bar_open_at > latest.bar_close_at:
-            self.block_stream(stream_key, FORWARD_CANONICAL_MARKET_GAP_REASON)
+            self.block_stream(
+                stream_key,
+                FORWARD_CANONICAL_MARKET_GAP_REASON,
+                stream_id=pending.stream_id,
+                disposition="RECONSTRUCTION_REQUIRED",
+            )
             return self._result(
                 pending,
                 "RECONSTRUCTION_REQUIRED",
                 FORWARD_CANONICAL_MARKET_GAP_REASON,
             )
         if event.bar.bar_open_at < latest.bar_close_at:
-            self.block_stream(stream_key, "overlapping canonical bar")
+            self.block_stream(
+                stream_key,
+                "overlapping canonical bar",
+                stream_id=pending.stream_id,
+                disposition="CONFLICT",
+            )
             return self._result(pending, "CONFLICT", "overlapping canonical bar")
 
         try:
             self._bar_store.append(key, event.bar)
         except (BarConflictError, BarOrderError, ValueError) as exc:
-            self.block_stream(stream_key, str(exc))
+            self.block_stream(
+                stream_key,
+                str(exc),
+                stream_id=pending.stream_id,
+                disposition="CONFLICT",
+            )
             return self._result(pending, "CONFLICT", str(exc))
         self._advance_cursor(stream_key, pending.stream_id, event)
         return self._result(pending, "INSERTED")

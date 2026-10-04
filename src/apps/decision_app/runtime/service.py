@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import Callable, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from math import isfinite
 from time import perf_counter
 from typing import Any, Literal, Protocol
@@ -30,7 +30,11 @@ from apps.decision_app.transport.live_input import (
     FORWARD_CANONICAL_MARKET_GAP_REASON,
     InputTransportError,
 )
+from libs.common.enums import SystemComponent
+from libs.common.logging.logger_utils import bind_logger
 from libs.contracts.decision import FrozenMapping, deep_freeze, require_utc
+
+_LOGGER = bind_logger(__name__, system_component=SystemComponent.SIGNAL_GENERATOR)
 
 ServiceState = Literal[
     "STARTING",
@@ -47,9 +51,26 @@ RebuildSource = Literal[
     "LIFECYCLE_RECONCILIATION",
     "MANUAL",
     "INPUT_RECONSTRUCTION",
+    "AUTOMATIC_RECOVERY",
 ]
 
 _CONTROL_STATES = frozenset({"PAUSED", "REBUILDING", "STOPPING", "STOPPED", "ERROR"})
+RECOVERY_BACKOFF_INITIAL_SECONDS = 5.0
+RECOVERY_BACKOFF_MAX_SECONDS = 300.0
+READINESS_MAX_NOT_LIVE_SECONDS = 300.0
+_REBUILD_SOURCE_PRIORITY = {
+    "AUTOMATIC_RECOVERY": 1,
+    "INPUT_RECONSTRUCTION": 2,
+    "MANUAL": 3,
+    "LIFECYCLE_RECONCILIATION": 4,
+}
+
+
+def _log_best_effort(level: str, event: str, **fields: Any) -> None:
+    try:
+        getattr(_LOGGER, level)(event, extra={"event": event, **fields})
+    except Exception:  # noqa: BLE001, S110 - logging cannot change runtime behavior
+        pass
 
 
 def _text(value: object, *, field_name: str) -> str:
@@ -75,11 +96,6 @@ class DecisionRuntimeGeneration:
         ):
             raise ValueError("generation_id must be a positive integer")
         require_utc(self.created_at, field_name="generation.created_at")
-        if (
-            getattr(getattr(self.startup, "snapshot", None), "status", None)
-            != "STARTUP_READY"
-        ):
-            raise ValueError("generation startup must be STARTUP_READY")
         if not callable(getattr(self.live_runtime, "poll_once", None)):
             raise TypeError("generation.live_runtime must provide poll_once()")
         if not hasattr(self.live_runtime, "lanes") or not hasattr(
@@ -109,6 +125,11 @@ class DecisionServiceSnapshot:
     lanes: Mapping[str, Any]
     inputs: Mapping[str, Any]
     last_lifecycle_evidence: Mapping[str, Any]
+    not_live_seconds: float = 0.0
+    readiness_max_not_live_seconds: float = READINESS_MAX_NOT_LIVE_SECONDS
+    rebuild_source: RebuildSource | None = None
+    recovery_attempt: int = 0
+    rebuild_due_at: datetime | None = None
 
     def __post_init__(self) -> None:
         if self.service_state not in {
@@ -129,12 +150,36 @@ class DecisionServiceSnapshot:
             "last_poll_at",
             "last_rebuild_at",
             "last_lifecycle_event_at",
+            "rebuild_due_at",
         ):
             value = getattr(self, field_name)
             if value is not None:
                 require_utc(value, field_name=field_name)
         if self.last_error is not None:
             _text(self.last_error, field_name="last_error")
+        if self.rebuild_source not in {None, *_REBUILD_SOURCE_PRIORITY}:
+            raise ValueError("unsupported rebuild source")
+        if (
+            isinstance(self.recovery_attempt, bool)
+            or not isinstance(self.recovery_attempt, int)
+            or self.recovery_attempt < 0
+        ):
+            raise ValueError("recovery_attempt must be a non-negative integer")
+        for field_name in ("not_live_seconds", "readiness_max_not_live_seconds"):
+            value = getattr(self, field_name)
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not isfinite(float(value))
+                or value < 0
+                or (field_name == "readiness_max_not_live_seconds" and value == 0)
+            ):
+                qualifier = (
+                    "positive"
+                    if field_name == "readiness_max_not_live_seconds"
+                    else "non-negative"
+                )
+                raise ValueError(f"{field_name} must be finite and {qualifier}")
         for field_name in (
             "configured_asset_count",
             "configured_lane_count",
@@ -159,7 +204,27 @@ class DecisionServiceSnapshot:
             self.generation_id is not None
             and self.desired_state == "RUNNING"
             and self.service_state in {"RUNNING", "DEGRADED"}
+            and not (
+                self.configured_lane_count >= 1
+                and self.not_live_seconds > self.readiness_max_not_live_seconds
+            )
         )
+
+    @property
+    def readiness_reason(self) -> str | None:
+        if self.ready:
+            return None
+        if self.generation_id is None:
+            return "no_generation"
+        if (
+            self.desired_state == "RUNNING"
+            and self.configured_lane_count >= 1
+            and self.not_live_seconds > self.readiness_max_not_live_seconds
+        ):
+            return "no_lane_live"
+        if self.desired_state == "PAUSED":
+            return "paused"
+        return "runtime_not_ready"
 
 
 class GenerationFactory(Protocol):
@@ -191,6 +256,9 @@ class DecisionService:
         generation_timeout_seconds: float | None = None,
         control_wait_timeout_seconds: float | None = None,
         cleanup_timeout_seconds: float | None = None,
+        recovery_backoff_initial_seconds: float = RECOVERY_BACKOFF_INITIAL_SECONDS,
+        recovery_backoff_max_seconds: float = RECOVERY_BACKOFF_MAX_SECONDS,
+        readiness_max_not_live_seconds: float = READINESS_MAX_NOT_LIVE_SECONDS,
         now_fn: Callable[[], datetime] | None = None,
         observability: DecisionObservability | None = None,
     ) -> None:
@@ -215,6 +283,22 @@ class DecisionService:
             ):
                 raise ValueError(f"{name} must be finite and positive")
         for name, value in (
+            ("recovery_backoff_initial_seconds", recovery_backoff_initial_seconds),
+            ("recovery_backoff_max_seconds", recovery_backoff_max_seconds),
+            ("readiness_max_not_live_seconds", readiness_max_not_live_seconds),
+        ):
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not isfinite(float(value))
+                or value <= 0
+            ):
+                raise ValueError(f"{name} must be finite and positive")
+        if recovery_backoff_max_seconds < recovery_backoff_initial_seconds:
+            raise ValueError(
+                "recovery_backoff_max_seconds must be at least the initial delay"
+            )
+        for name, value in (
             ("configured_asset_count", configured_asset_count),
             ("configured_lane_count", configured_lane_count),
         ):
@@ -228,6 +312,9 @@ class DecisionService:
         self._generation_timeout_seconds = generation_timeout_seconds
         self._control_wait_timeout_seconds = control_wait_timeout_seconds
         self._cleanup_timeout_seconds = cleanup_timeout_seconds
+        self._recovery_backoff_initial_seconds = float(recovery_backoff_initial_seconds)
+        self._recovery_backoff_max_seconds = float(recovery_backoff_max_seconds)
+        self._readiness_max_not_live_seconds = float(readiness_max_not_live_seconds)
         self._now_fn = now_fn or (lambda: datetime.now(UTC))
         if observability is not None and not isinstance(
             observability, DecisionObservability
@@ -247,6 +334,7 @@ class DecisionService:
         self._desired_state: DesiredState = "RUNNING"
         self._service_state: ServiceState = "STARTING"
         self._started_at: datetime | None = None
+        self._last_lane_live_at: datetime | None = None
         self._last_poll_at: datetime | None = None
         self._last_rebuild_at: datetime | None = None
         self._last_lifecycle_event_at: datetime | None = None
@@ -259,6 +347,9 @@ class DecisionService:
         self._rebuild_requested = False
         self._rebuild_reason: str | None = None
         self._rebuild_source: RebuildSource | None = None
+        self._rebuild_due_at: datetime | None = None
+        self._recovery_attempt = 0
+        self._generation_needs_clean_poll = False
         self._poll_active = False
         self._retained_cleanup_tasks: set[asyncio.Task[Any]] = set()
 
@@ -308,6 +399,9 @@ class DecisionService:
             self._rebuild_requested = False
             self._rebuild_reason = None
             self._rebuild_source = None
+            self._rebuild_due_at = None
+            self._recovery_attempt = 0
+            self._generation_needs_clean_poll = False
             if generation is None:
                 try:
                     generation = await self._build_generation(
@@ -338,7 +432,15 @@ class DecisionService:
                 require_remaining(deadline, operation="initial generation install")
             self._install_generation(generation)
             self._started_at = self._now()
-            self._service_state = "RUNNING"
+            self._last_lane_live_at = self._started_at
+            if self._generation_has_live_lane(generation):
+                self._last_lane_live_at = self._now()
+            if self._generation_has_blocked_startup_lane(generation):
+                self._service_state = "DEGRADED"
+                self._last_error = "one or more Decision startup lanes are blocked"
+                self._schedule_automatic_recovery(self._last_error)
+            else:
+                self._service_state = "RUNNING"
             self._sync_observability()
             self._market_task = asyncio.create_task(
                 self._market_loop(), name="decision-market-loop"
@@ -465,8 +567,10 @@ class DecisionService:
         runtime = None if generation is None else generation.live_runtime
         lanes: dict[str, Any] = {}
         status_counts: dict[str, int] = {}
+        active_lane_count = 0
         if runtime is not None:
             for lane_id, lane in runtime.lanes.items():
+                active_lane_count += 1
                 status = lane.status
                 status_counts[status] = status_counts.get(status, 0) + 1
                 watermark = lane.finalizer.watermark
@@ -491,6 +595,10 @@ class DecisionService:
                         "reason": last_result.reason,
                     },
                 }
+            for lane_id, lane in getattr(runtime, "blocked_lanes", {}).items():
+                status = lane["status"]
+                status_counts[status] = status_counts.get(status, 0) + 1
+                lanes[lane_id] = dict(lane)
         inputs: dict[str, Any] = {}
         blocked_count = 0
         if runtime is not None:
@@ -517,6 +625,18 @@ class DecisionService:
                     for progress in (relay.progress[relay_id],)
                 }
         lifecycle_evidence = self._last_lifecycle_evidence
+        configured_lane_count = self._configured_lane_count or (
+            0 if generation is None else len(generation.startup.decision_plan.lanes)
+        )
+        has_live_lane = runtime is not None and any(
+            lane.status == "LIVE" for lane in runtime.lanes.values()
+        )
+        not_live_seconds = 0.0
+        if not has_live_lane and self._last_lane_live_at is not None:
+            not_live_seconds = max(
+                0.0,
+                (self._now() - self._last_lane_live_at).total_seconds(),
+            )
         return DecisionServiceSnapshot(
             service_state=self._service_state,
             desired_state=self._desired_state,
@@ -526,17 +646,17 @@ class DecisionService:
             last_rebuild_at=self._last_rebuild_at,
             last_lifecycle_event_at=self._last_lifecycle_event_at,
             last_error=self._last_error,
+            rebuild_source=self._rebuild_source,
+            recovery_attempt=self._recovery_attempt,
+            rebuild_due_at=self._rebuild_due_at,
             configured_asset_count=self._configured_asset_count
             or (
                 0
                 if generation is None
                 else len(generation.startup.snapshot.active_manifest_assets)
             ),
-            configured_lane_count=self._configured_lane_count
-            or (
-                0 if generation is None else len(generation.startup.decision_plan.lanes)
-            ),
-            active_lane_count=len(lanes),
+            configured_lane_count=configured_lane_count,
+            active_lane_count=active_lane_count,
             lane_status_counts=status_counts,
             blocked_stream_count=blocked_count,
             lifecycle_cursor=(
@@ -558,6 +678,8 @@ class DecisionService:
                     "reason": lifecycle_evidence.reason,
                 }
             ),
+            not_live_seconds=not_live_seconds,
+            readiness_max_not_live_seconds=self._readiness_max_not_live_seconds,
         )
 
     async def _manual_rebuild(self, reason: str) -> DecisionServiceSnapshot:
@@ -567,15 +689,27 @@ class DecisionService:
             async with self._transition_scope(deadline):
                 self._ensure_control_available()
                 self._desired_state = "RUNNING"
+                self._recovery_attempt = 0
                 # Mark the old generation unusable before waiting.  The market
                 # loop does not own the transition lock while polling, so this
                 # state gate prevents a new old-generation transaction.
                 self._service_state = "REBUILDING"
-                self._rebuild_requested = True
-                self._rebuild_reason = reason
-                self._rebuild_source = "MANUAL"
+                request_source: RebuildSource = (
+                    "LIFECYCLE_RECONCILIATION"
+                    if self._rebuild_source == "LIFECYCLE_RECONCILIATION"
+                    else "MANUAL"
+                )
+                request_reason = (
+                    self._rebuild_reason
+                    if request_source == "LIFECYCLE_RECONCILIATION"
+                    else reason
+                ) or reason
+                self._request_rebuild(
+                    request_source,
+                    request_reason,
+                    due_at=None,
+                )
                 admitted = True
-                self._signal_control_waiters()
                 self._sync_observability()
                 await self._wait_for_poll_idle(
                     deadline,
@@ -598,8 +732,10 @@ class DecisionService:
                     # transition lock; never claim RUNNING.
                     self._service_state = "REBUILDING"
                     self._rebuild_requested = True
-                    self._rebuild_reason = reason
-                    self._rebuild_source = "MANUAL"
+                    if self._rebuild_source != "LIFECYCLE_RECONCILIATION":
+                        self._rebuild_reason = reason
+                        self._rebuild_source = "MANUAL"
+                    self._rebuild_due_at = None
                 self._signal_control_waiters()
                 self._sync_observability()
             raise
@@ -665,10 +801,69 @@ class DecisionService:
     ) -> None:
         if not isinstance(generation, DecisionRuntimeGeneration):
             raise TypeError("generation must be DecisionRuntimeGeneration")
+        previous_status: dict[str, str] = {}
+        previous = self._generation
+        if previous is not None:
+            previous_status.update(
+                {
+                    lane_id: lane.status
+                    for lane_id, lane in previous.live_runtime.lanes.items()
+                }
+            )
+            previous_status.update(
+                {
+                    lane_id: lane["status"]
+                    for lane_id, lane in getattr(
+                        previous.live_runtime,
+                        "blocked_lanes",
+                        {},
+                    ).items()
+                }
+            )
         self._generation = generation
         self._generation_number = generation.generation_id
         self._last_lane_transactions.clear()
         self._last_rebuild_at = self._now()
+        self._generation_needs_clean_poll = True
+        if self._started_at is not None and self._generation_has_live_lane(generation):
+            self._last_lane_live_at = self._now()
+        startup_evidence = getattr(
+            generation.startup.snapshot,
+            "lane_evidence",
+            {},
+        )
+        for lane_id, evidence in startup_evidence.items():
+            level = "info" if evidence.status == "STARTUP_READY" else "warning"
+            _log_best_effort(
+                level,
+                "decision.startup.lane",
+                lane_id=lane_id,
+                status=evidence.status,
+                reason=evidence.reason,
+                resume_cutoff=evidence.resume_cutoff,
+                replay_step_count=evidence.replay_step_count,
+                generation_id=generation.generation_id,
+            )
+        for lane_id, lane in generation.live_runtime.lanes.items():
+            previous = previous_status.get(lane_id)
+            if (
+                previous
+                in {
+                    "BLOCKED",
+                    "INACTIVE",
+                    "HALTED",
+                    "INVALID",
+                    "RECONSTRUCTION_REQUIRED",
+                }
+                and lane.status == "LIVE"
+            ):
+                _log_best_effort(
+                    "info",
+                    "decision.lane.unblocked",
+                    lane_id=lane_id,
+                    previous_status=previous,
+                    generation_id=generation.generation_id,
+                )
         if self._observability is not None:
             observe_best_effort(
                 self._observability.replace_generation,
@@ -680,15 +875,47 @@ class DecisionService:
                 ),
             )
 
+    @staticmethod
+    def _generation_has_live_lane(generation: DecisionRuntimeGeneration) -> bool:
+        return any(
+            lane.status == "LIVE" for lane in generation.live_runtime.lanes.values()
+        )
+
+    @staticmethod
+    def _generation_has_blocked_startup_lane(
+        generation: DecisionRuntimeGeneration,
+    ) -> bool:
+        return any(
+            evidence.status not in {"STARTUP_READY", "INACTIVE"}
+            for evidence in getattr(
+                generation.startup.snapshot,
+                "lane_evidence",
+                {},
+            ).values()
+        )
+
+    @staticmethod
+    def _runtime_has_streams(runtime: Any) -> bool:
+        input_owner = getattr(runtime, "input", None)
+        if input_owner is None:
+            return False
+        known = getattr(input_owner, "has_unblocked_streams", None)
+        if isinstance(known, bool):
+            return known
+        stream_keys = tuple(getattr(input_owner, "stream_keys", ()))
+        blocked = getattr(input_owner, "blocked_streams", {})
+        return any(key not in blocked for key in stream_keys)
+
     async def _rebuild_locked(
         self,
         reason: str,
     ) -> None:
+        source = self._rebuild_source or "AUTOMATIC_RECOVERY"
         self._service_state = "REBUILDING"
         self._last_error = None
         self._market_error = None
         self._wake_event.clear()
-        if self._observability is not None:
+        if self._observability is not None and source != "AUTOMATIC_RECOVERY":
             observe_best_effort(self._observability.clear_generation)
         self._sync_observability()
         started = perf_counter()
@@ -705,21 +932,42 @@ class DecisionService:
                 self._rebuild_requested = False
                 self._rebuild_reason = None
                 self._rebuild_source = None
+                self._rebuild_due_at = None
                 self._sync_observability()
                 return
-            self._generation = None
-            self._service_state = "ERROR"
+            if source != "AUTOMATIC_RECOVERY":
+                self._generation = None
+            self._service_state = (
+                "DEGRADED"
+                if source == "AUTOMATIC_RECOVERY" and self._generation is not None
+                else "ERROR"
+            )
             self._last_error = f"generation rebuild failed: {exc}"
-            self._rebuild_requested = False
-            self._rebuild_reason = None
-            self._rebuild_source = None
+            self._rebuild_requested = True
+            self._rebuild_reason = reason
+            self._rebuild_source = source
+            self._schedule_retained_rebuild_retry()
             if self._observability is not None:
-                observe_best_effort(self._observability.clear_generation)
+                if source != "AUTOMATIC_RECOVERY":
+                    observe_best_effort(self._observability.clear_generation)
+                elif self._generation is not None:
+                    observe_best_effort(
+                        self._observability.refresh_runtime,
+                        self._generation.live_runtime,
+                    )
                 observe_best_effort(
                     self._observability.record_rebuild,
                     outcome="failure",
                     duration_ms=(perf_counter() - started) * 1000.0,
                 )
+            _log_best_effort(
+                "error",
+                "decision.rebuild.failed",
+                source=source,
+                generation_id=self._generation_number + 1,
+                duration_ms=(perf_counter() - started) * 1000.0,
+                error=str(exc),
+            )
             self._sync_observability()
             return
         if self._observability is not None:
@@ -737,27 +985,55 @@ class DecisionService:
         self._rebuild_requested = False
         self._rebuild_reason = None
         self._rebuild_source = None
+        self._rebuild_due_at = None
         if self._desired_state == "PAUSED":
             self._service_state = "PAUSED"
+        elif self._generation_has_blocked_startup_lane(generation):
+            self._service_state = "DEGRADED"
+            self._last_error = "one or more Decision startup lanes are blocked"
+            self._schedule_automatic_recovery(self._last_error)
         elif self._lifecycle_error is not None:
             self._service_state = "DEGRADED"
             self._last_error = self._lifecycle_error
         else:
             self._service_state = "RUNNING"
+        _log_best_effort(
+            "info",
+            "decision.rebuild.completed",
+            source=source,
+            generation_id=generation.generation_id,
+            duration_ms=(perf_counter() - started) * 1000.0,
+            error=None,
+        )
         self._wake_event.set()
         self._sync_observability()
 
     async def _market_loop(self) -> None:
         while not self._stop_event.is_set():
             if self._rebuild_requested:
-                async with self._transition_lock:
-                    if self._stop_event.is_set():
+                due_at = self._rebuild_due_at
+                if due_at is not None and self._now() < due_at:
+                    if self._generation is None:
+                        await self._wait_for_rebuild_due_or_wake()
                         continue
-                    if not self._rebuild_requested:
-                        continue
-                    reason = self._rebuild_reason or "requested"
-                    await self._rebuild_locked(reason)
-                continue
+                else:
+                    async with self._transition_lock:
+                        if self._stop_event.is_set():
+                            continue
+                        if not self._rebuild_requested:
+                            continue
+                        due_at = self._rebuild_due_at
+                        if due_at is not None and self._now() < due_at:
+                            if self._generation is None:
+                                await self._wait_for_rebuild_due_or_wake()
+                                continue
+                        else:
+                            if due_at is not None:
+                                self._recovery_attempt += 1
+                                self._rebuild_due_at = None
+                            reason = self._rebuild_reason or "requested"
+                            await self._rebuild_locked(reason)
+                            continue
             if self._service_state in {
                 "STARTING",
                 "REBUILDING",
@@ -768,8 +1044,11 @@ class DecisionService:
                 continue
             generation = self._generation
             if generation is None:
-                self._service_state = "ERROR"
-                await self._wait_for_wake()
+                if self._rebuild_requested and self._rebuild_due_at is not None:
+                    await self._wait_for_rebuild_due_or_wake()
+                else:
+                    self._service_state = "ERROR"
+                    await self._wait_for_wake()
                 continue
             self._poll_active = True
             self._poll_idle.clear()
@@ -826,9 +1105,22 @@ class DecisionService:
                 ):
                     self._last_lane_transactions[lane_id] = lane_result
             self._classify_poll_result(result)
+            if self._generation_has_live_lane(generation):
+                self._last_lane_live_at = self._now()
+            if (
+                self._generation_needs_clean_poll
+                and not self._generation_has_blocked_startup_lane(generation)
+                and self._poll_is_clean(result)
+            ):
+                self._recovery_attempt = 0
+                self._generation_needs_clean_poll = False
             self._sync_observability()
             self._wake_event.set()
-            if result.clock_waiting:
+            if not generation.live_runtime.lanes and not self._runtime_has_streams(
+                generation.live_runtime
+            ):
+                await self._pace_empty_generation()
+            elif result.clock_waiting:
                 await self._wait_for_clock_catchup(
                     allow_pause_transition=evaluate_lanes
                 )
@@ -863,11 +1155,11 @@ class DecisionService:
             if result.rebuild_requested:
                 async with self._transition_lock:
                     if self._service_state not in {"STOPPING", "STOPPED"}:
-                        self._rebuild_requested = True
-                        self._rebuild_reason = (
-                            result.reason or "configured asset lifecycle changed"
+                        self._request_rebuild(
+                            "LIFECYCLE_RECONCILIATION",
+                            result.reason or "configured asset lifecycle changed",
+                            due_at=None,
                         )
-                        self._rebuild_source = "LIFECYCLE_RECONCILIATION"
                 self._signal_control_waiters()
                 self._sync_observability()
             else:
@@ -899,31 +1191,20 @@ class DecisionService:
             for item in result.relay_results.values()
         )
         if hard_failure:
-            # A malformed/conflicting input or a halted/invalid lane is an
-            # operator-visible fault, not an automatic reconstruction trigger.
-            # Preserve an already-requested lifecycle rebuild that arrived
-            # while this bounded poll was running, but never create one from
-            # the failed poll itself.
-            if self._rebuild_source != "LIFECYCLE_RECONCILIATION":
-                self._rebuild_requested = False
-                self._rebuild_reason = None
-                self._rebuild_source = None
             if self._service_state not in _CONTROL_STATES:
                 self._service_state = "DEGRADED"
             self._market_error = "D9B reported a non-rebuildable lane or input fault"
             self._last_error = self._market_error
+            self._schedule_automatic_recovery(self._market_error)
         elif forward_input_gap:
             # Only this exact input-side condition proves that the current
             # direct-cursor position cannot bridge the canonical sequence.
             # Generic lane/input reconstruction remains lane-local below.
-            if self._rebuild_source == "LIFECYCLE_RECONCILIATION":
-                # Lifecycle reconciliation has stronger authority when it was
-                # already admitted while this poll was executing.
-                self._rebuild_requested = True
-            elif not self._rebuild_requested or self._rebuild_source is None:
-                self._rebuild_requested = True
-                self._rebuild_reason = FORWARD_CANONICAL_MARKET_GAP_REASON
-                self._rebuild_source = "INPUT_RECONSTRUCTION"
+            self._request_rebuild(
+                "INPUT_RECONSTRUCTION",
+                FORWARD_CANONICAL_MARKET_GAP_REASON,
+                due_at=None,
+            )
             if self._service_state not in _CONTROL_STATES:
                 self._service_state = "DEGRADED"
             self._market_error = (
@@ -937,6 +1218,7 @@ class DecisionService:
                 self._service_state = "DEGRADED"
             self._market_error = "D9B reported reconstruction required"
             self._last_error = self._market_error
+            self._schedule_automatic_recovery(self._market_error)
         elif relay_failure:
             if self._service_state not in _CONTROL_STATES:
                 self._service_state = "DEGRADED"
@@ -948,9 +1230,136 @@ class DecisionService:
                 if self._lifecycle_error is not None:
                     self._service_state = "DEGRADED"
                     self._last_error = self._lifecycle_error
+                elif (
+                    self._rebuild_requested
+                    and self._rebuild_source == "AUTOMATIC_RECOVERY"
+                ):
+                    self._service_state = "DEGRADED"
+                    self._last_error = (
+                        self._market_error
+                        or self._rebuild_reason
+                        or "automatic Decision recovery is pending"
+                    )
                 else:
                     self._service_state = "RUNNING"
                     self._last_error = None
+
+    def _request_rebuild(
+        self,
+        source: RebuildSource,
+        reason: str,
+        *,
+        due_at: datetime | None,
+    ) -> bool:
+        if self._rebuild_requested and self._rebuild_source is not None:
+            current_priority = _REBUILD_SOURCE_PRIORITY[self._rebuild_source]
+            requested_priority = _REBUILD_SOURCE_PRIORITY[source]
+            if current_priority > requested_priority:
+                return False
+            if (
+                current_priority == requested_priority
+                and source == "AUTOMATIC_RECOVERY"
+            ):
+                return False
+        self._rebuild_requested = True
+        self._rebuild_reason = reason
+        self._rebuild_source = source
+        self._rebuild_due_at = due_at
+        due_seconds = (
+            None if due_at is None else max(0.0, (due_at - self._now()).total_seconds())
+        )
+        _log_best_effort(
+            "info",
+            "decision.rebuild.requested",
+            source=source,
+            reason=reason,
+            attempt=self._recovery_attempt,
+            due_in_seconds=due_seconds,
+        )
+        self._signal_control_waiters()
+        return True
+
+    def _schedule_automatic_recovery(self, reason: str) -> None:
+        if (
+            self._rebuild_requested
+            and self._rebuild_source is not None
+            and _REBUILD_SOURCE_PRIORITY[self._rebuild_source]
+            >= _REBUILD_SOURCE_PRIORITY["AUTOMATIC_RECOVERY"]
+        ):
+            return
+        delay = self._recovery_delay_seconds()
+        if self._service_state not in _CONTROL_STATES:
+            self._service_state = "DEGRADED"
+        self._request_rebuild(
+            "AUTOMATIC_RECOVERY",
+            reason,
+            due_at=self._now() + timedelta(seconds=delay),
+        )
+
+    def _schedule_retained_rebuild_retry(self) -> None:
+        delay = self._recovery_delay_seconds()
+        self._rebuild_due_at = self._now() + timedelta(seconds=delay)
+        _log_best_effort(
+            "info",
+            "decision.rebuild.requested",
+            source=self._rebuild_source,
+            reason=self._rebuild_reason,
+            attempt=self._recovery_attempt,
+            due_in_seconds=delay,
+        )
+
+    def _recovery_delay_seconds(self) -> float:
+        delay = self._recovery_backoff_initial_seconds
+        for _ in range(self._recovery_attempt):
+            if delay >= self._recovery_backoff_max_seconds:
+                return self._recovery_backoff_max_seconds
+            delay = min(delay * 2.0, self._recovery_backoff_max_seconds)
+        return delay
+
+    @staticmethod
+    def _poll_is_clean(result: DecisionPollResult) -> bool:
+        return not (
+            any(
+                item.disposition in {"RECONSTRUCTION_REQUIRED", "CONFLICT", "MALFORMED"}
+                for item in result.input_results
+            )
+            or any(
+                item.status in {"RECONSTRUCTION_REQUIRED", "INVALID", "HALTED"}
+                for item in result.lane_results.values()
+            )
+            or any(
+                item.continuity_status != "CONTINUOUS"
+                or item.publication_outcome in {"FAILED", "CONFLICT"}
+                for item in result.relay_results.values()
+            )
+        )
+
+    async def _wait_for_rebuild_due_or_wake(self) -> None:
+        if self._stop_event.is_set():
+            return
+        self._wake_event.clear()
+        due_at = self._rebuild_due_at
+        if due_at is None:
+            await self._wait_for_wake()
+            return
+        remaining = max(0.0, (due_at - self._now()).total_seconds())
+        if remaining == 0:
+            return
+        try:
+            async with asyncio.timeout(remaining):
+                await self._wake_event.wait()
+        except TimeoutError:
+            pass
+        self._wake_event.clear()
+
+    async def _pace_empty_generation(self) -> None:
+        delay = self._block_ms / 1000 if self._block_ms > 0 else 0.05
+        self._wake_event.clear()
+        try:
+            async with asyncio.timeout(delay):
+                await self._wake_event.wait()
+        except TimeoutError:
+            pass
 
     async def _pace_transport_error(self) -> None:
         if self._block_ms > 0:
