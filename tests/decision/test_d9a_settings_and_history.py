@@ -152,10 +152,7 @@ def test_minimal_decision_global_namespace_is_strict_and_has_no_asset_graph() ->
         "signal_publication": {
             "stream_maxlen": 1000,
             "stream_approximate": True,
-        },
-        "price_relay": {
-            "stream_maxlen": 200,
-            "stream_approximate": True,
+            "signal_freshness_seconds": 300,
         },
         "shadow_publication": {
             "stream_maxlen": 1000,

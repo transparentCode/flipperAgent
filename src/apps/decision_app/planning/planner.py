@@ -372,6 +372,8 @@ class StaticCompositionPlanner:
                 )
             except CatalogError as exc:
                 raise PlannerError(str(exc)) from exc
+            if spec.intrinsic_data_requirements:
+                raise PlannerError("external data requirements are not supported")
             self._validate_capabilities(lane, binding, spec)
             resolved_specs[binding.slot_name] = spec
             runtime_binding = {
@@ -404,10 +406,6 @@ class StaticCompositionPlanner:
             ordered_bindings,
             resolved_specs,
             binding_ids,
-        )
-        self._validate_stateful_replay_closure(
-            ordered_bindings,
-            resolved_specs,
         )
         execution_order = self._topological_order(ordered_bindings)
         lane_revision = effective_lane_revision(
@@ -458,9 +456,6 @@ class StaticCompositionPlanner:
                 effective_feature_requirements=resolved_specs[
                     binding.slot_name
                 ].intrinsic_feature_requirements,
-                effective_data_requirements=resolved_specs[
-                    binding.slot_name
-                ].intrinsic_data_requirements,
                 risk_profile_key=lane.risk_profile_key,
                 publication_authority=lane.authority,
             )
@@ -514,13 +509,7 @@ class StaticCompositionPlanner:
             raise PlannerError(
                 f"{binding.slot_name} does not support trigger mode {lane.trigger_mode}"
             )
-        if spec.stateful and (
-            not spec.state_reconstruction.durable_pit_required
-            or any(
-                not requirement.replay_support_required
-                for requirement in spec.intrinsic_data_requirements
-            )
-        ):
+        if spec.stateful and not spec.state_reconstruction.durable_pit_required:
             raise PlannerError(
                 f"stateful binding {binding.slot_name} is not replay-safe"
             )
@@ -575,49 +564,6 @@ class StaticCompositionPlanner:
                 resolved[dependency_slot] = binding_ids[provider_slot]
             dependencies[binding.slot_name] = resolved
         return dependencies
-
-    @staticmethod
-    def _validate_stateful_replay_closure(
-        bindings: Sequence[ModelBindingSpec],
-        specs: Mapping[str, ModelSpec],
-    ) -> None:
-        """Require replay-safe external inputs across stateful ancestors."""
-
-        bindings_by_slot = {binding.slot_name: binding for binding in bindings}
-        for root_slot in sorted(bindings_by_slot):
-            root_spec = specs[root_slot]
-            if not root_spec.stateful:
-                continue
-            if not root_spec.state_reconstruction.durable_pit_required:
-                raise PlannerError(
-                    f"stateful binding {root_slot} is not replay-safe: "
-                    "durable PIT reconstruction is required"
-                )
-
-            pending = [root_slot]
-            visited: set[str] = set()
-            while pending:
-                slot_name = pending.pop()
-                if slot_name in visited:
-                    continue
-                visited.add(slot_name)
-                spec = specs[slot_name]
-                for requirement in spec.intrinsic_data_requirements:
-                    if requirement.replay_support_required:
-                        continue
-                    if slot_name == root_slot:
-                        raise PlannerError(
-                            f"stateful binding {root_slot} has non-replay-safe "
-                            f"data concept {requirement.concept}"
-                        )
-                    raise PlannerError(
-                        f"stateful binding {root_slot} depends on non-replay-safe "
-                        f"upstream binding {slot_name} data concept "
-                        f"{requirement.concept}"
-                    )
-                pending.extend(
-                    sorted(bindings_by_slot[slot_name].dependencies.values())
-                )
 
     @staticmethod
     def _topological_order(bindings: Sequence[ModelBindingSpec]) -> tuple[str, ...]:

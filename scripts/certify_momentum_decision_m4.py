@@ -233,6 +233,9 @@ def _fields(bar: CausalBarView, key: MarketSeriesKey) -> dict[str, str]:
 
 
 class _StartupStream:
+    async def xrange(self, *_args: object, **_kwargs: object) -> list[object]:
+        return []
+
     async def xrevrange(self, *_args: object, **_kwargs: object) -> list[object]:
         return []
 
@@ -384,13 +387,10 @@ async def _startup(
         plugin_catalog=composition.plugin_catalog,
         feature_catalog=composition.feature_catalog,
         feature_policy=composition.feature_policy,
-        data_policy=composition.data_policy,
-        source_catalog=composition.data_source_catalog,
         runtime_plugin_catalog=composition.runtime_plugin_catalog,
         history_repository=repository,
         stream_client=_StartupStream(),
         checkpoint_repository=InMemoryCheckpointRepository(),
-        data_resolver=composition.data_resolver,
         policy_catalog=composition.policy_catalog,
     ).start()
     return result, repository, histories
@@ -546,7 +546,6 @@ async def _measure_route_reconstruction(
     )
     sequential_prepared = await live_lane.runtime.prepare_live(
         sequential_view,
-        resolver_knowledge_cutoff=next_bar.market_as_of + timedelta(seconds=1),
     )
 
     fresh_histories = dict(base_histories)
@@ -564,7 +563,6 @@ async def _measure_route_reconstruction(
     fresh_view = _view(config, fresh_startup, fresh_lane)
     fresh_prepared = await fresh_startup.runtimes[lane.lane_id].prepare_live(
         fresh_view,
-        resolver_knowledge_cutoff=fresh_view.market_as_of + timedelta(seconds=1),
     )
     fresh_publication_client = _SignalClient()
     fresh_publisher = _RecordingPublisher(
@@ -781,7 +779,6 @@ async def _collect(
         view = _view(config, startup, lane)
         prepared = await startup.runtimes[lane.lane_id].prepare_live(
             view,
-            resolver_knowledge_cutoff=view.market_as_of + timedelta(seconds=1),
         )
         key = MarketSeriesKey(
             asset=lane.asset,
@@ -1093,11 +1090,7 @@ async def _collect(
             "lane_count": len(startup.decision_plan.lanes),
         },
         "routes": sorted(route_evidence, key=lambda item: item["route"]),
-        "compiled_feature_histories": {
-            item.name: item.history_requirements[0].bars
-            for item in composition.feature_catalog
-            if item.name in {MOMENTUM_RSI_FEATURE_NAME, MOMENTUM_MACD_FEATURE_NAME}
-        },
+        "compiled_feature_histories": feature_history_requirements,
         "compiled_capacities": capacities,
         "retention_coverage": retention_coverage,
         "startup": {

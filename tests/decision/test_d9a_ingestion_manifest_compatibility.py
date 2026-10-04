@@ -89,13 +89,10 @@ async def test_real_ingestion_manifests_activate_decision_runtime_assets() -> No
             plugin_catalog=composition.plugin_catalog,
             feature_catalog=composition.feature_catalog,
             feature_policy=composition.feature_policy,
-            data_policy=composition.data_policy,
-            source_catalog=composition.data_source_catalog,
             runtime_plugin_catalog=composition.runtime_plugin_catalog,
             history_repository=SimpleNamespace(fetch_bars=lambda *_args, **_kwargs: ()),
             manifest_store=manifest_store,
             policy_catalog=composition.policy_catalog,
-            data_resolver=composition.data_resolver,
             checkpoint_repository=None,
         )
 

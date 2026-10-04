@@ -8,7 +8,6 @@ from decimal import Decimal
 import pytest
 
 from apps.decision_app.composition import sr_initialization_requirement
-from apps.decision_app.data.resolver import DataPolicy, DataResolver, DataSourceCatalog
 from apps.decision_app.domain.market_state import MarketSeriesKey, TimeframeGrid
 from apps.decision_app.features.definitions import SR_ATR_DEFINITION
 from apps.decision_app.features.planning import (
@@ -24,6 +23,7 @@ from apps.decision_app.runtime.live import LiveDecisionRuntime
 from apps.decision_app.runtime.plugins import (
     RuntimePluginCatalog,
     RuntimePluginDefinition,
+    StateInitializationRequirement,
 )
 from apps.decision_app.runtime.startup import DecisionStartupCoordinator
 from apps.decision_app.settings import (
@@ -38,6 +38,9 @@ from apps.decision_app.storage.checkpoints import (
     CheckpointSaveResult,
     InMemoryCheckpointRepository,
 )
+from apps.decision_app.storage.effect_skips import (
+    InMemoryLaneEffectSkipsRepository,
+)
 from apps.decision_app.storage.market_history import (
     InMemoryCanonicalMarketHistoryRepository,
 )
@@ -50,6 +53,7 @@ from apps.decision_app.transport.live_input import (
     FORWARD_CANONICAL_MARKET_GAP_REASON,
 )
 from apps.decision_app.transport.shadow import (
+    ShadowDecisionObservation,
     ShadowPublicationEnvelope,
     ValkeyShadowPublisher,
     build_shadow_envelope,
@@ -68,7 +72,7 @@ from libs.contracts.decision import (
     ModelRequestContext,
     ModelSpec,
 )
-from libs.contracts.serialization import valkey_decode
+from libs.contracts.serialization import valkey_decode, valkey_encode
 from libs.contracts.signal import TradeSignal
 from libs.models.sr.adapters.decision_plugin import SR_MODEL_SPEC, SRDecisionPlugin
 from tests.decision.test_d9a_real_sr_startup import (
@@ -164,6 +168,33 @@ class _SignalPlugin:
                 artifact_type=SIGNAL_SPEC.produces_artifact_type,
             ),
             decision=decision,
+        )
+
+
+STATEFUL_SIGNAL_SPEC = ModelSpec(
+    name="test-decision",
+    version="1",
+    stateful=True,
+    output_kind="decision_capable",
+    produces_artifact_type="test-decision.v1",
+    supported_trigger_modes=("on_bar_close",),
+)
+
+
+class _StatefulSignalPlugin(_SignalPlugin):
+    spec = STATEFUL_SIGNAL_SPEC
+
+    def evaluate(
+        self,
+        context: DecisionContext,
+        state_snapshot: object | None = None,
+    ) -> ModelOutcome:
+        result = super().evaluate(context, state_snapshot)
+        previous = 0 if state_snapshot is None else int(state_snapshot)
+        return ModelOutcome(
+            artifact=result.artifact,
+            decision=result.decision,
+            proposed_next_state=previous + 1,
         )
 
 
@@ -284,6 +315,19 @@ class _LiveInputClient:
         self.field_factory = field_factory
         self.pending: list[tuple[str, Mapping[object, object]]] = []
         self.xread_calls: list[tuple[dict[str, str], int, int | None]] = []
+        self.xrange_calls: list[tuple[str, str, str, int]] = []
+        self.effect_entries: Mapping[str, Mapping[str, Mapping[object, object]]] = {}
+
+    async def xrange(
+        self, stream: str, minimum: str, maximum: str, *, count: int = 1
+    ) -> list[tuple[str, Mapping[object, object]]]:
+        self.xrange_calls.append((stream, minimum, maximum, count))
+        values = self.effect_entries.get(stream, {})
+        return [
+            (entry_id, fields)
+            for entry_id, fields in values.items()
+            if entry_id == minimum == maximum
+        ][:count]
 
     async def xrevrange(
         self, stream: str, *_args: object, count: int = 1
@@ -338,6 +382,13 @@ class _MultiStreamInputClient:
         self.pending: dict[str, list[tuple[str, Mapping[object, object]]]] = {
             stream: [] for stream in tails
         }
+        self.xrange_calls: list[tuple[str, str, str, int]] = []
+
+    async def xrange(
+        self, stream: str, minimum: str, maximum: str, *, count: int = 1
+    ) -> list[tuple[str, Mapping[object, object]]]:
+        self.xrange_calls.append((stream, minimum, maximum, count))
+        return []
 
     async def xrevrange(
         self, stream: str, *_args: object, count: int = 1
@@ -463,7 +514,6 @@ def _sr_coordinator(
     checkpoints: InMemoryCheckpointRepository,
     stream_client: _LiveInputClient,
 ) -> DecisionStartupCoordinator:
-    source_catalog = DataSourceCatalog([])
     return DecisionStartupCoordinator(
         decision_config=_sr_config(),
         plugin_catalog=PluginCatalog([SR_MODEL_SPEC]),
@@ -471,8 +521,6 @@ def _sr_coordinator(
         feature_policy=FeaturePolicy(
             name="operator", version="1", allowed_features=("ATR",)
         ),
-        data_policy=DataPolicy(name="operator", version="1", concepts={}),
-        source_catalog=source_catalog,
         runtime_plugin_catalog=RuntimePluginCatalog(
             [
                 RuntimePluginDefinition(
@@ -486,7 +534,6 @@ def _sr_coordinator(
         history_repository=history,
         stream_client=stream_client,
         checkpoint_repository=checkpoints,
-        data_resolver=DataResolver(source_catalog),
     )
 
 
@@ -578,10 +625,10 @@ def _signal_coordinator(
     stream_client: _LiveInputClient,
     *,
     authority: str = "authoritative",
-    shadow_progress_repository: InMemoryShadowProgressRepository | None = None,
+    effect_progress_repository: InMemoryShadowProgressRepository | None = None,
+    effect_skips_repository: InMemoryLaneEffectSkipsRepository | None = None,
     history_capacity: int | None = None,
 ) -> DecisionStartupCoordinator:
-    source_catalog = DataSourceCatalog([])
     if history_capacity is None:
         plugin_spec = SIGNAL_SPEC
         feature_catalog = FeatureCatalog([])
@@ -614,8 +661,6 @@ def _signal_coordinator(
         plugin_catalog=PluginCatalog([plugin_spec]),
         feature_catalog=feature_catalog,
         feature_policy=feature_policy,
-        data_policy=DataPolicy(name="operator", version="1", concepts={}),
-        source_catalog=source_catalog,
         runtime_plugin_catalog=RuntimePluginCatalog(
             [
                 RuntimePluginDefinition(
@@ -627,8 +672,41 @@ def _signal_coordinator(
         ),
         history_repository=history,
         stream_client=stream_client,
-        data_resolver=DataResolver(source_catalog),
-        shadow_progress_repository=shadow_progress_repository,
+        effect_progress_repository=effect_progress_repository,
+        effect_skips_repository=effect_skips_repository,
+    )
+
+
+def _stateful_signal_coordinator(
+    history: InMemoryCanonicalMarketHistoryRepository,
+    stream_client: _LiveInputClient,
+    *,
+    checkpoint_repository: InMemoryCheckpointRepository,
+    effect_progress_repository: InMemoryShadowProgressRepository,
+    effect_skips_repository: InMemoryLaneEffectSkipsRepository,
+) -> DecisionStartupCoordinator:
+    return DecisionStartupCoordinator(
+        decision_config=_signal_config(),
+        plugin_catalog=PluginCatalog([STATEFUL_SIGNAL_SPEC]),
+        feature_catalog=FeatureCatalog([]),
+        feature_policy=FeaturePolicy(name="operator", version="1"),
+        runtime_plugin_catalog=RuntimePluginCatalog(
+            [
+                RuntimePluginDefinition(
+                    plugin_name="test-decision",
+                    plugin_version="1",
+                    factory=lambda _parameters: _StatefulSignalPlugin(),
+                    initialization_requirement=lambda _binding: (
+                        StateInitializationRequirement(trigger_steps=2)
+                    ),
+                )
+            ]
+        ),
+        history_repository=history,
+        stream_client=stream_client,
+        checkpoint_repository=checkpoint_repository,
+        effect_progress_repository=effect_progress_repository,
+        effect_skips_repository=effect_skips_repository,
     )
 
 
@@ -674,14 +752,11 @@ def _projected_coordinator(
             )
         },
     )
-    source_catalog = DataSourceCatalog([])
     return DecisionStartupCoordinator(
         decision_config=config,
         plugin_catalog=PluginCatalog([SIGNAL_SPEC]),
         feature_catalog=FeatureCatalog([]),
         feature_policy=FeaturePolicy(name="operator", version="1", allowed_features=()),
-        data_policy=DataPolicy(name="operator", version="1", concepts={}),
-        source_catalog=source_catalog,
         runtime_plugin_catalog=RuntimePluginCatalog(
             [
                 RuntimePluginDefinition(
@@ -693,7 +768,6 @@ def _projected_coordinator(
         ),
         history_repository=history,
         stream_client=stream_client,
-        data_resolver=DataResolver(source_catalog),
     )
 
 
@@ -780,7 +854,7 @@ async def test_signal_path_publishes_exact_id_then_finalizes() -> None:
         stream_client=stream,
         history_repository=history,
         signal_publisher=ValkeySignalPublisher(publisher_client),
-        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+        now_fn=lambda: _signal_bar(3).market_as_of + timedelta(seconds=300),
         observability=observability,
     )
     observability.replace_generation(
@@ -813,7 +887,9 @@ async def test_signal_path_publishes_exact_id_then_finalizes() -> None:
     assert (
         len(meter.instruments["decision.input.canonical_event_latency_ms"].records) == 1
     )
-    assert len(meter.instruments["decision.lane.evaluation_total"].adds) == 1
+    # Startup's latest retained cutoff is evaluated once, then skipped as stale;
+    # the arriving fresh cutoff is evaluated and published once.
+    assert len(meter.instruments["decision.lane.evaluation_total"].adds) == 2
     assert (
         meter.instruments["decision.lane.evaluation_total"].adds[0][1]["outcome"]
         == "SIGNAL"
@@ -825,7 +901,7 @@ async def test_signal_path_publishes_exact_id_then_finalizes() -> None:
     )
 
     await runtime.poll_once()
-    assert len(meter.instruments["decision.lane.evaluation_total"].adds) == 1
+    assert len(meter.instruments["decision.lane.evaluation_total"].adds) == 2
     assert len(meter.instruments["decision.publication.total"].adds) == 1
 
 
@@ -892,7 +968,7 @@ async def test_shadow_signal_uses_only_shadow_transport_and_commits_shadow() -> 
         stream_client=stream,
         history_repository=history,
         shadow_publisher=ValkeyShadowPublisher(publisher_client),
-        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+        now_fn=lambda: _signal_bar(3).market_as_of + timedelta(seconds=300),
     )
 
     stream.pending.append(("3-0", _signal_fields(3)))
@@ -926,32 +1002,279 @@ async def test_shadow_startup_persists_exact_baseline_without_backfill() -> None
         history,
         stream,
         authority="shadow",
-        shadow_progress_repository=progress,
+        effect_progress_repository=progress,
     ).start()
     identity = next(iter(first.runtimes.values())).identity
-    saved = await progress.load(identity)
-
-    assert saved is not None
-    assert saved.market_as_of == _signal_bar(3).market_as_of
-    assert saved.last_disposition is None
-    assert first.lane_catchup_cutoffs["BTCUSDT:main"] == ()
-    assert first.snapshot.lane_watermarks["BTCUSDT:main"].latest_market_as_of == (
-        _signal_bar(3).market_as_of
+    resume_cutoff = _signal_bar(3).market_as_of
+    assert await progress.load(identity) is None
+    assert first.snapshot.lane_watermarks["BTCUSDT:main"].latest_market_as_of is None
+    assert first.snapshot.lane_evidence["BTCUSDT:main"].pending_trigger_cutoff == (
+        resume_cutoff
     )
+    assert stream.xrange_calls == [
+        (
+            "decision:shadow:BTCUSDT:main",
+            shadow_stream_entry_id(resume_cutoff),
+            shadow_stream_entry_id(resume_cutoff),
+            1,
+        )
+    ]
+
+    publisher_client = _IsolatedSignalClient()
+    stream.effect_entries = publisher_client.entries
+    runtime = LiveDecisionRuntime(
+        startup=first,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        shadow_publisher=ValkeyShadowPublisher(publisher_client),
+        effect_progress_repository=progress,
+        now_fn=lambda: resume_cutoff + timedelta(seconds=300),
+    )
+    first_poll = await runtime.poll_once()
+    assert first_poll.lane_results["BTCUSDT:main"].finalization_status == "COMMITTED"
+    saved = await progress.load(identity)
+    assert saved is not None
+    assert saved.market_as_of == resume_cutoff
+    assert saved.last_disposition == "shadow"
+    assert len(publisher_client.entries["decision:shadow:BTCUSDT:main"]) == 1
 
     second = await _signal_coordinator(
         history,
         stream,
         authority="shadow",
-        shadow_progress_repository=progress,
+        effect_progress_repository=progress,
     ).start()
-    assert second.lane_catchup_cutoffs["BTCUSDT:main"] == ()
+    assert second.snapshot.lane_evidence["BTCUSDT:main"].pending_trigger_cutoff is None
     assert await progress.load(identity) == saved
+    second_runtime = LiveDecisionRuntime(
+        startup=second,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        shadow_publisher=ValkeyShadowPublisher(publisher_client),
+        effect_progress_repository=progress,
+        now_fn=lambda: resume_cutoff + timedelta(seconds=300),
+    )
+    await second_runtime.poll_once()
+    assert len(publisher_client.entries["decision:shadow:BTCUSDT:main"]) == 1
+
+
+@pytest.mark.parametrize("authority", ("authoritative", "shadow"))
+@pytest.mark.parametrize(
+    ("age_seconds", "expected_outcome"),
+    ((300, "PUBLISHED"), (301, "SKIPPED_STALE")),
+)
+@pytest.mark.asyncio
+async def test_signal_freshness_boundary_is_exact_for_authoritative_and_shadow(
+    authority: str,
+    age_seconds: int,
+    expected_outcome: str,
+) -> None:
+    cutoff = _signal_bar(2).market_as_of
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(3))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    stream = _LiveInputClient(
+        stream="stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+        tail_index=2,
+        field_factory=_signal_fields,
+    )
+    progress = InMemoryShadowProgressRepository()
+    skips = InMemoryLaneEffectSkipsRepository()
+    startup = await _signal_coordinator(
+        history,
+        stream,
+        authority=authority,
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+    publisher_client = _IsolatedSignalClient()
+    publication_kwargs = (
+        {"signal_publisher": ValkeySignalPublisher(publisher_client)}
+        if authority == "authoritative"
+        else {"shadow_publisher": ValkeyShadowPublisher(publisher_client)}
+    )
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+        now_fn=lambda: cutoff + timedelta(seconds=age_seconds),
+        **publication_kwargs,
+    )
+
+    result = await runtime.poll_once()
+    lane = result.lane_results["BTCUSDT:main"]
+    identity = runtime.lanes["BTCUSDT:main"].identity
+    saved = await progress.load(identity)
+
+    assert lane.publication_outcome == expected_outcome
+    assert lane.finalization_status == "COMMITTED"
+    assert runtime.lanes["BTCUSDT:main"].finalizer.watermark.last_disposition == (
+        "skipped"
+        if age_seconds == 301
+        else authority.replace("authoritative", "published")
+    )
+    assert saved is not None and saved.market_as_of == cutoff
+    if age_seconds == 300:
+        assert saved.last_disposition == authority.replace("authoritative", "published")
+        assert not skips.records
+        assert publisher_client.xadd_calls == 1
+    else:
+        assert saved.last_disposition is None
+        assert len(skips.records) == 1
+        assert skips.records[0].skipped_from == cutoff
+        assert skips.records[0].skipped_through == cutoff
+        assert skips.records[0].reason == "stale"
+        assert publisher_client.xadd_calls == 0
 
 
 @pytest.mark.asyncio
-async def test_shadow_restart_drains_exact_catchup_before_new_input() -> None:
+async def test_stale_stateful_signal_commits_checkpoint_without_publication() -> None:
+    checkpoints = InMemoryCheckpointRepository()
     progress = InMemoryShadowProgressRepository()
+    skips = InMemoryLaneEffectSkipsRepository()
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(4))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    stream = _LiveInputClient(
+        stream="stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+        tail_index=3,
+        field_factory=_signal_fields,
+    )
+    startup = await _stateful_signal_coordinator(
+        history,
+        stream,
+        checkpoint_repository=checkpoints,
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+    identity = next(iter(startup.runtimes.values())).identity
+    prior_checkpoint = await checkpoints.load(identity)
+    prior_progress = await progress.load(identity)
+    assert prior_checkpoint is not None
+    assert prior_checkpoint.market_as_of == _signal_bar(3).market_as_of
+    assert prior_progress is not None
+    assert prior_progress.market_as_of == _signal_bar(3).market_as_of
+    assert prior_progress.last_disposition is None
+
+    stream.pending.append(("4-0", _signal_fields(4)))
+    publisher_client = _IsolatedSignalClient()
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        signal_publisher=ValkeySignalPublisher(publisher_client),
+        checkpoint_repository=checkpoints,
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+        now_fn=lambda: _signal_bar(4).market_as_of + timedelta(seconds=301),
+    )
+
+    result = await runtime.poll_once()
+    lane = result.lane_results["BTCUSDT:main"]
+    checkpoint = await checkpoints.load(identity)
+    saved_progress = await progress.load(identity)
+
+    assert lane.publication_outcome == "SKIPPED_STALE"
+    assert lane.finalization_status == "COMMITTED"
+    assert lane.trigger_cutoff == _signal_bar(4).market_as_of
+    assert checkpoint is not None
+    assert checkpoint.market_as_of == _signal_bar(4).market_as_of
+    assert checkpoint.state_payload != prior_checkpoint.state_payload
+    assert saved_progress is not None
+    assert saved_progress.market_as_of == _signal_bar(4).market_as_of
+    assert saved_progress.last_disposition is None
+    assert publisher_client.xadd_calls == 0
+    stale_skips = [skip for skip in skips.records if skip.reason == "stale"]
+    assert len(stale_skips) == 1
+    assert stale_skips[0].skipped_from == _signal_bar(4).market_as_of
+    assert stale_skips[0].skipped_through == _signal_bar(4).market_as_of
+
+
+@pytest.mark.asyncio
+async def test_foreign_exact_id_is_recorded_as_skip_without_publication_conflict() -> (
+    None
+):
+    cutoff = _signal_bar(3).market_as_of
+    stream = _LiveInputClient(
+        stream="stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+        tail_index=2,
+        field_factory=_signal_fields,
+    )
+    output_stream = "decision:shadow:BTCUSDT:main"
+    output_id = shadow_stream_entry_id(cutoff)
+    foreign = ShadowDecisionObservation(
+        lane_id="BTCUSDT:main",
+        asset="BTCUSDT",
+        decision_timeframe="1h",
+        trigger_timeframe="1h",
+        market_as_of=cutoff,
+        decision_ready_at=cutoff + timedelta(seconds=1),
+        decision_id="foreign-cutover-identity",
+        policy_status="SIGNAL",
+        selected_binding_id="BTCUSDT:main/decision/test-decision@1",
+        direction_hint=1,
+        base_lane_revision="old-lane-revision",
+        decision_execution_revision="old-execution-revision",
+        feature_plan_fingerprint="old-feature-fingerprint",
+        policy_name="passthrough",
+        policy_version="1",
+    )
+    stream.effect_entries = {output_stream: {output_id: valkey_encode(foreign)}}
+    progress = InMemoryShadowProgressRepository()
+    skips = InMemoryLaneEffectSkipsRepository()
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(4))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    startup = await _signal_coordinator(
+        history,
+        stream,
+        authority="shadow",
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+
+    assert startup.snapshot.lane_evidence["BTCUSDT:main"].pending_trigger_cutoff is None
+    assert (
+        startup.snapshot.lane_watermarks["BTCUSDT:main"].latest_market_as_of == cutoff
+    )
+    saved = await progress.load(next(iter(startup.runtimes.values())).identity)
+    assert saved is not None and saved.market_as_of == cutoff
+    assert saved.last_disposition is None
+    assert len(skips.records) == 1
+    assert skips.records[0].reason == "foreign_entry"
+    assert skips.records[0].skipped_from == cutoff
+    assert skips.records[0].skipped_through == cutoff
+
+    publisher_client = _IsolatedSignalClient()
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        shadow_publisher=ValkeyShadowPublisher(publisher_client),
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+        now_fn=lambda: cutoff + timedelta(seconds=300),
+    )
+    await runtime.poll_once()
+    assert publisher_client.xadd_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_restart_skips_forward_records_one_range_and_evaluates_only_latest() -> (
+    None
+):
+    progress = InMemoryShadowProgressRepository()
+    skips = InMemoryLaneEffectSkipsRepository()
     first_history = InMemoryCanonicalMarketHistoryRepository(
         {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(4))},
         timeframe_grid=SIGNAL_GRID,
@@ -965,12 +1288,29 @@ async def test_shadow_restart_drains_exact_catchup_before_new_input() -> None:
         first_history,
         first_stream,
         authority="shadow",
-        shadow_progress_repository=progress,
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
         history_capacity=4,
     ).start()
     identity = next(iter(first.runtimes.values())).identity
+    first_pending = first.snapshot.lane_evidence["BTCUSDT:main"].pending_trigger_cutoff
+    assert first_pending == _signal_bar(3).market_as_of
+    first_publisher = _IsolatedSignalClient()
+    first_stream.effect_entries = first_publisher.entries
+    first_runtime = LiveDecisionRuntime(
+        startup=first,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=first_stream,
+        history_repository=first_history,
+        shadow_publisher=ValkeyShadowPublisher(first_publisher),
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+        now_fn=lambda: _signal_bar(3).market_as_of + timedelta(seconds=300),
+    )
+    await first_runtime.poll_once()
     baseline = await progress.load(identity)
     assert baseline is not None
+    assert baseline.market_as_of == _signal_bar(3).market_as_of
 
     history = InMemoryCanonicalMarketHistoryRepository(
         {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(8))},
@@ -985,26 +1325,35 @@ async def test_shadow_restart_drains_exact_catchup_before_new_input() -> None:
         history,
         stream,
         authority="shadow",
-        shadow_progress_repository=progress,
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
         history_capacity=4,
     ).start()
 
-    assert startup.lane_catchup_cutoffs["BTCUSDT:main"] == tuple(
-        _signal_bar(index).market_as_of for index in range(4, 8)
+    assert startup.snapshot.lane_evidence["BTCUSDT:main"].pending_trigger_cutoff == (
+        _signal_bar(7).market_as_of
     )
     assert startup.snapshot.lane_watermarks["BTCUSDT:main"].latest_market_as_of == (
-        baseline.market_as_of
+        _signal_bar(6).market_as_of
     )
+    assert len(skips.records) == 1
+    skip = skips.records[0]
+    assert skip.skipped_from == _signal_bar(4).market_as_of
+    assert skip.skipped_through == _signal_bar(6).market_as_of
+    assert skip.cutoff_count == 3
+    assert skip.reason == "restart"
 
-    publisher_client = _IsolatedSignalClient()
+    publisher_client = first_publisher
+    stream.effect_entries = publisher_client.entries
     runtime = LiveDecisionRuntime(
         startup=startup,
         timeframe_grid=SIGNAL_GRID,
         stream_client=stream,
         history_repository=history,
         shadow_publisher=ValkeyShadowPublisher(publisher_client),
-        shadow_progress_repository=progress,
-        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+        now_fn=lambda: _signal_bar(7).market_as_of + timedelta(seconds=300),
     )
     result = await runtime.poll_once()
 
@@ -1017,24 +1366,27 @@ async def test_shadow_restart_drains_exact_catchup_before_new_input() -> None:
     assert saved is not None
     assert saved.market_as_of == _signal_bar(7).market_as_of
     assert saved.last_disposition == "shadow"
-    assert len(publisher_client.entries["decision:shadow:BTCUSDT:main"]) == 4
+    assert len(publisher_client.entries["decision:shadow:BTCUSDT:main"]) == 2
     assert not any(key.startswith("signals:") for key in publisher_client.entries)
 
     restarted = await _signal_coordinator(
         history,
         stream,
         authority="shadow",
-        shadow_progress_repository=progress,
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
         history_capacity=4,
     ).start()
-    assert restarted.lane_catchup_cutoffs["BTCUSDT:main"] == ()
+    assert (
+        restarted.snapshot.lane_evidence["BTCUSDT:main"].pending_trigger_cutoff is None
+    )
+    assert len(skips.records) == 1
 
 
 @pytest.mark.asyncio
-async def test_shadow_startup_catchup_retries_clock_wait_without_duplicate_effects() -> (
-    None
-):
+async def test_restart_skip_upsert_converges_after_progress_save_crash() -> None:
     progress = InMemoryShadowProgressRepository()
+    skips = InMemoryLaneEffectSkipsRepository()
     first_history = InMemoryCanonicalMarketHistoryRepository(
         {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(4))},
         timeframe_grid=SIGNAL_GRID,
@@ -1048,12 +1400,112 @@ async def test_shadow_startup_catchup_retries_clock_wait_without_duplicate_effec
         first_history,
         first_stream,
         authority="shadow",
-        shadow_progress_repository=progress,
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+    publisher_client = _IsolatedSignalClient()
+    first_stream.effect_entries = publisher_client.entries
+    first_runtime = LiveDecisionRuntime(
+        startup=first,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=first_stream,
+        history_repository=first_history,
+        shadow_publisher=ValkeyShadowPublisher(publisher_client),
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+        now_fn=lambda: _signal_bar(3).market_as_of + timedelta(seconds=300),
+    )
+    await first_runtime.poll_once()
+    prior = await progress.load(first_runtime.lanes["BTCUSDT:main"].identity)
+    assert prior is not None and prior.market_as_of == _signal_bar(3).market_as_of
+
+    original_save = progress.save
+    fail_next_save = [True]
+
+    async def fail_after_skip_upsert(item):
+        if fail_next_save[0]:
+            fail_next_save[0] = False
+            raise RuntimeError("simulated crash after skip-row upsert")
+        return await original_save(item)
+
+    progress.save = fail_after_skip_upsert  # type: ignore[method-assign]
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(8))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    stream = _LiveInputClient(
+        stream="stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+        tail_index=6,
+        field_factory=_signal_fields,
+    )
+    failed = await _signal_coordinator(
+        history,
+        stream,
+        authority="shadow",
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+    assert failed.snapshot.status == "STARTUP_BLOCKED"
+    assert len(skips.records) == 1
+    assert skips.records[0].skipped_from == _signal_bar(4).market_as_of
+    assert skips.records[0].skipped_through == _signal_bar(6).market_as_of
+    assert await progress.load(first_runtime.lanes["BTCUSDT:main"].identity) == prior
+
+    recovered = await _signal_coordinator(
+        history,
+        stream,
+        authority="shadow",
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+    assert recovered.snapshot.status == "STARTUP_READY"
+    assert len(skips.records) == 1
+    assert skips.records[0].cutoff_count == 3
+    advanced = await progress.load(first_runtime.lanes["BTCUSDT:main"].identity)
+    assert advanced is not None
+    assert advanced.market_as_of == _signal_bar(6).market_as_of
+    assert advanced.last_disposition is None
+
+
+@pytest.mark.asyncio
+async def test_restart_pending_cutoff_retries_clock_wait_without_duplicate_effects() -> (
+    None
+):
+    progress = InMemoryShadowProgressRepository()
+    skips = InMemoryLaneEffectSkipsRepository()
+    first_history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(4))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    first_stream = _LiveInputClient(
+        stream="stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+        tail_index=2,
+        field_factory=_signal_fields,
+    )
+    first = await _signal_coordinator(
+        first_history,
+        first_stream,
+        authority="shadow",
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
         history_capacity=4,
     ).start()
-    identity = next(iter(first.runtimes.values())).identity
-    baseline = await progress.load(identity)
-    assert baseline is not None
+    first_identity = next(iter(first.runtimes.values())).identity
+    first_publisher = _IsolatedSignalClient()
+    first_stream.effect_entries = first_publisher.entries
+    first_runtime = LiveDecisionRuntime(
+        startup=first,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=first_stream,
+        history_repository=first_history,
+        shadow_publisher=ValkeyShadowPublisher(first_publisher),
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+        now_fn=lambda: _signal_bar(3).market_as_of + timedelta(seconds=300),
+    )
+    await first_runtime.poll_once()
+    baseline = await progress.load(first_identity)
+    assert baseline is not None and baseline.market_as_of == _signal_bar(3).market_as_of
 
     history = InMemoryCanonicalMarketHistoryRepository(
         {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(8))},
@@ -1068,67 +1520,45 @@ async def test_shadow_startup_catchup_retries_clock_wait_without_duplicate_effec
         history,
         stream,
         authority="shadow",
-        shadow_progress_repository=progress,
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
         history_capacity=4,
     ).start()
-    assert startup.lane_catchup_cutoffs["BTCUSDT:main"] == tuple(
-        _signal_bar(index).market_as_of for index in range(4, 8)
-    )
     assert startup.snapshot.lane_watermarks["BTCUSDT:main"].latest_market_as_of == (
-        baseline.market_as_of
+        _signal_bar(6).market_as_of
     )
 
-    publisher_client = _IsolatedSignalClient()
-    clock = [_signal_bar(4).market_as_of - timedelta(minutes=1)]
+    publisher_client = first_publisher
+    stream.effect_entries = publisher_client.entries
+    clock = [_signal_bar(7).market_as_of - timedelta(minutes=1)]
     runtime = LiveDecisionRuntime(
         startup=startup,
         timeframe_grid=SIGNAL_GRID,
         stream_client=stream,
         history_repository=history,
         shadow_publisher=ValkeyShadowPublisher(publisher_client),
-        shadow_progress_repository=progress,
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
         now_fn=lambda: clock[0],
     )
 
     waiting = await runtime.poll_once()
     waiting_lane = waiting.lane_results["BTCUSDT:main"]
     assert waiting_lane.status == "WAITING"
-    assert waiting_lane.reason == "resolver clock is behind lane market cutoff"
+    assert waiting_lane.reason == "decision clock is behind lane market cutoff"
     assert runtime.lanes["BTCUSDT:main"].pending_trigger_cutoff == (
-        _signal_bar(4).market_as_of
+        _signal_bar(7).market_as_of
     )
-    assert not publisher_client.entries
+    assert len(publisher_client.entries["decision:shadow:BTCUSDT:main"]) == 1
 
     retried = await runtime.poll_once()
     retried_lane = retried.lane_results["BTCUSDT:main"]
     assert retried_lane.status == "WAITING"
-    assert retried_lane.reason == "resolver clock is behind lane market cutoff"
+    assert retried_lane.reason == "decision clock is behind lane market cutoff"
     assert runtime.lanes["BTCUSDT:main"].pending_trigger_cutoff == (
-        _signal_bar(4).market_as_of
-    )
-    assert not publisher_client.entries
-
-    clock[0] = _signal_bar(4).market_as_of
-    first_caught_up = await runtime.poll_once()
-    caught_up_lane = first_caught_up.lane_results["BTCUSDT:main"]
-    assert caught_up_lane.status == "WAITING"
-    assert caught_up_lane.reason == "resolver clock is behind lane market cutoff"
-    assert runtime.lanes["BTCUSDT:main"].pending_trigger_cutoff == (
-        _signal_bar(5).market_as_of
+        _signal_bar(7).market_as_of
     )
     assert len(publisher_client.entries["decision:shadow:BTCUSDT:main"]) == 1
-    saved = await progress.load(identity)
-    assert saved is not None
-    assert saved.market_as_of == _signal_bar(4).market_as_of
-
-    extra_idle = await runtime.poll_once()
-    extra_idle_lane = extra_idle.lane_results["BTCUSDT:main"]
-    assert extra_idle_lane.status == "WAITING"
-    assert not extra_idle.input_results
-    assert len(publisher_client.entries["decision:shadow:BTCUSDT:main"]) == 1
-    saved = await progress.load(identity)
-    assert saved is not None
-    assert saved.market_as_of == _signal_bar(4).market_as_of
 
     clock[0] = _signal_bar(7).market_as_of
     completed = await runtime.poll_once()
@@ -1136,14 +1566,14 @@ async def test_shadow_startup_catchup_retries_clock_wait_without_duplicate_effec
     assert completed_lane.status == "LIVE"
     assert completed_lane.finalization_status == "COMMITTED"
     assert runtime.lanes["BTCUSDT:main"].pending_trigger_cutoff is None
-    assert len(publisher_client.entries["decision:shadow:BTCUSDT:main"]) == 4
-    saved = await progress.load(identity)
+    assert len(publisher_client.entries["decision:shadow:BTCUSDT:main"]) == 2
+    saved = await progress.load(first_identity)
     assert saved is not None
     assert saved.market_as_of == _signal_bar(7).market_as_of
 
 
 @pytest.mark.asyncio
-async def test_shadow_catchup_exact_id_reconciles_crash_window() -> None:
+async def test_shadow_exact_id_reconciles_in_flight_cutoff_crash_window() -> None:
     progress = InMemoryShadowProgressRepository()
     first_history = InMemoryCanonicalMarketHistoryRepository(
         {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(4))},
@@ -1158,7 +1588,7 @@ async def test_shadow_catchup_exact_id_reconciles_crash_window() -> None:
         first_history,
         first_stream,
         authority="shadow",
-        shadow_progress_repository=progress,
+        effect_progress_repository=progress,
         history_capacity=1,
     ).start()
     history = InMemoryCanonicalMarketHistoryRepository(
@@ -1174,7 +1604,7 @@ async def test_shadow_catchup_exact_id_reconciles_crash_window() -> None:
         history,
         stream,
         authority="shadow",
-        shadow_progress_repository=progress,
+        effect_progress_repository=progress,
         history_capacity=1,
     ).start()
     publisher_client = _IsolatedSignalClient()
@@ -1184,8 +1614,8 @@ async def test_shadow_catchup_exact_id_reconciles_crash_window() -> None:
         stream_client=stream,
         history_repository=history,
         shadow_publisher=ValkeyShadowPublisher(publisher_client),
-        shadow_progress_repository=progress,
-        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+        effect_progress_repository=progress,
+        now_fn=lambda: _signal_bar(4).market_as_of + timedelta(seconds=300),
     )
     # The first process publishes the exact observation but loses the progress
     # write, which is the crash window repaired by the next startup.
@@ -1205,29 +1635,33 @@ async def test_shadow_catchup_exact_id_reconciles_crash_window() -> None:
     assert len(publisher_client.entries["decision:shadow:BTCUSDT:main"]) == 1
 
     progress.save = original_save  # type: ignore[method-assign]
+    stream.effect_entries = publisher_client.entries
     restarted = await _signal_coordinator(
         history,
         stream,
         authority="shadow",
-        shadow_progress_repository=progress,
+        effect_progress_repository=progress,
         history_capacity=1,
     ).start()
-    assert restarted.lane_catchup_cutoffs["BTCUSDT:main"] == (
-        _signal_bar(4).market_as_of,
+    assert (
+        restarted.snapshot.lane_evidence["BTCUSDT:main"].pending_trigger_cutoff is None
     )
+    reconciled_identity = next(iter(restarted.runtimes.values())).identity
+    reconciled = await progress.load(reconciled_identity)
+    assert reconciled is not None
+    assert reconciled.market_as_of == _signal_bar(4).market_as_of
+    assert reconciled.last_disposition == "shadow"
     second_runtime = LiveDecisionRuntime(
         startup=restarted,
         timeframe_grid=SIGNAL_GRID,
         stream_client=stream,
         history_repository=history,
         shadow_publisher=ValkeyShadowPublisher(publisher_client),
-        shadow_progress_repository=progress,
+        effect_progress_repository=progress,
         now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
     )
     second = await second_runtime.poll_once()
-    assert second.lane_results["BTCUSDT:main"].publication_outcome == (
-        "ALREADY_IDENTICAL"
-    )
+    assert second.lane_results["BTCUSDT:main"].publication_outcome is None
     assert len(publisher_client.entries["decision:shadow:BTCUSDT:main"]) == 1
     saved = await progress.load(next(iter(restarted.runtimes.values())).identity)
     assert saved is not None
@@ -1250,11 +1684,11 @@ async def test_shadow_progress_sql_timeout_after_commit_halts_without_rewind() -
         history,
         stream,
         authority="shadow",
-        shadow_progress_repository=progress,
+        effect_progress_repository=progress,
     ).start()
     identity = next(iter(startup.runtimes.values())).identity
     previous_progress = await progress.load(identity)
-    assert previous_progress is not None
+    assert previous_progress is None
 
     publisher_client = _IsolatedSignalClient()
     runtime = LiveDecisionRuntime(
@@ -1263,11 +1697,10 @@ async def test_shadow_progress_sql_timeout_after_commit_halts_without_rewind() -
         stream_client=stream,
         history_repository=history,
         shadow_publisher=ValkeyShadowPublisher(publisher_client),
-        shadow_progress_repository=progress,
-        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+        effect_progress_repository=progress,
+        now_fn=lambda: _signal_bar(2).market_as_of + timedelta(seconds=300),
     )
     progress.fail_live = True
-    stream.pending.append(("3-0", _signal_fields(3)))
 
     result = await runtime.poll_once()
     lane = result.lane_results["BTCUSDT:main"]
@@ -1279,7 +1712,7 @@ async def test_shadow_progress_sql_timeout_after_commit_halts_without_rewind() -
         lane.reason or ""
     )
     assert runtime.lanes["BTCUSDT:main"].finalizer.watermark.latest_market_as_of == (
-        _signal_bar(3).market_as_of
+        _signal_bar(2).market_as_of
     )
     assert await progress.load(identity) == previous_progress
 
@@ -1304,7 +1737,7 @@ async def test_shadow_preflight_failure_never_calls_publisher(monkeypatch) -> No
         stream_client=stream,
         history_repository=history,
         shadow_publisher=ValkeyShadowPublisher(publisher_client),
-        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+        now_fn=lambda: _signal_bar(3).market_as_of + timedelta(seconds=300),
     )
 
     import apps.decision_app.runtime.live as live_module
@@ -1349,7 +1782,7 @@ async def test_shadow_lane_without_shadow_publisher_fails_closed() -> None:
         timeframe_grid=SIGNAL_GRID,
         stream_client=stream,
         history_repository=history,
-        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+        now_fn=lambda: _signal_bar(2).market_as_of + timedelta(seconds=300),
     )
     baseline_watermark = runtime.lanes["BTCUSDT:main"].finalizer.watermark
     stream.pending.append(("3-0", _signal_fields(3)))
@@ -1377,13 +1810,14 @@ async def test_valid_prefix_commits_before_later_malformed_suffix() -> None:
     )
     startup = await _signal_coordinator(history, stream).start()
     publisher_client = _IsolatedSignalClient()
+    clock = [_signal_bar(3).market_as_of + timedelta(seconds=300)]
     runtime = LiveDecisionRuntime(
         startup=startup,
         timeframe_grid=SIGNAL_GRID,
         stream_client=stream,
         history_repository=history,
         signal_publisher=ValkeySignalPublisher(publisher_client),
-        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+        now_fn=lambda: clock[0],
     )
 
     malformed = _signal_fields(4)
@@ -1444,7 +1878,7 @@ async def test_live_input_preserves_per_stream_transport_order() -> None:
         stream_client=stream,
         history_repository=history,
         signal_publisher=ValkeySignalPublisher(publisher_client),
-        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+        now_fn=lambda: _signal_bar(3).market_as_of + timedelta(seconds=300),
     )
 
     stream.pending.extend(
@@ -1481,13 +1915,14 @@ async def test_lane_poll_evidence_is_transaction_local() -> None:
     )
     startup = await _signal_coordinator(history, stream).start()
     publisher_client = _IsolatedSignalClient()
+    clock = [_signal_bar(3).market_as_of + timedelta(seconds=300)]
     runtime = LiveDecisionRuntime(
         startup=startup,
         timeframe_grid=SIGNAL_GRID,
         stream_client=stream,
         history_repository=history,
         signal_publisher=ValkeySignalPublisher(publisher_client),
-        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+        now_fn=lambda: clock[0],
     )
 
     stream.pending.append(("3-0", _signal_fields(3)))
@@ -1506,6 +1941,7 @@ async def test_lane_poll_evidence_is_transaction_local() -> None:
     assert idle_lane.checkpoint_result is None
 
     runtime._publisher = _RaisingPublisher()
+    clock[0] = _signal_bar(4).market_as_of + timedelta(seconds=300)
     stream.pending.append(("4-0", _signal_fields(4)))
     failed = await runtime.poll_once()
     failed_lane = failed.lane_results["BTCUSDT:main"]
@@ -1545,7 +1981,10 @@ async def test_same_cutoff_context_and_trigger_are_applied_before_evaluation() -
         stream_client=stream,
         history_repository=history,
         signal_publisher=ValkeySignalPublisher(publisher_client),
-        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+        now_fn=lambda: (
+            _projected_bar(PROJECTED_TRIGGER_SERIES, 7).market_as_of
+            + timedelta(seconds=300)
+        ),
     )
 
     # Return the trigger first even though the stream-key sort order is not
@@ -1599,7 +2038,10 @@ async def test_pending_trigger_evaluates_after_context_stream_catches_up() -> No
         stream_client=stream,
         history_repository=history,
         signal_publisher=ValkeySignalPublisher(publisher_client),
-        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+        now_fn=lambda: (
+            _projected_bar(PROJECTED_TRIGGER_SERIES, 7).market_as_of
+            + timedelta(seconds=300)
+        ),
     )
 
     stream.pending[trigger_stream].append(
@@ -1711,7 +2153,7 @@ async def test_clock_behind_waits_and_retries_on_idle_poll() -> None:
     waiting_lane = waiting.lane_results["BTCUSDT:main"]
 
     assert waiting_lane.status == "WAITING"
-    assert waiting_lane.reason == "resolver clock is behind lane market cutoff"
+    assert waiting_lane.reason == "decision clock is behind lane market cutoff"
     assert waiting_lane.policy_status is None
     assert waiting_lane.finalization_status is None
     assert runtime.lanes["BTCUSDT:main"].pending_trigger_cutoff == (
@@ -1811,9 +2253,7 @@ async def test_clock_wait_defers_newer_batch_cutoff_until_catchup() -> None:
 
 
 @pytest.mark.asyncio
-async def test_durable_trigger_without_post_startup_stream_event_is_not_live_trigger() -> (
-    None
-):
+async def test_stale_durable_startup_cutoff_is_skipped_without_publication() -> None:
     trigger_stream = canonical_ingestion_stream_key(PROJECTED_TRIGGER_SERIES)
     decision_stream = canonical_ingestion_stream_key(PROJECTED_DECISION_SERIES)
     history = InMemoryCanonicalMarketHistoryRepository(
@@ -1848,8 +2288,14 @@ async def test_durable_trigger_without_post_startup_stream_event_is_not_live_tri
     lane = result.lane_results["BTCUSDT:main"]
 
     assert lane.status == "LIVE"
-    assert lane.trigger_cutoff is None
-    assert lane.finalization_status is None
+    assert (
+        lane.trigger_cutoff == _projected_bar(PROJECTED_TRIGGER_SERIES, 7).market_as_of
+    )
+    assert lane.publication_outcome == "SKIPPED_STALE"
+    assert lane.finalization_status == "COMMITTED"
+    assert runtime.lanes["BTCUSDT:main"].finalizer.watermark.latest_market_as_of == (
+        _projected_bar(PROJECTED_TRIGGER_SERIES, 7).market_as_of
+    )
     assert not publisher_client.entries
 
 
@@ -1865,7 +2311,10 @@ async def test_signal_batch_processes_each_cutoff_before_capacity_eviction() -> 
         tail_index=2,
         field_factory=_signal_fields,
     )
-    startup = await _signal_coordinator(history, stream).start()
+    skips = InMemoryLaneEffectSkipsRepository()
+    startup = await _signal_coordinator(
+        history, stream, effect_skips_repository=skips
+    ).start()
     publisher_client = _IsolatedSignalClient()
     meter = _Meter()
     observability = DecisionObservability(
@@ -1879,7 +2328,8 @@ async def test_signal_batch_processes_each_cutoff_before_capacity_eviction() -> 
         stream_client=stream,
         history_repository=history,
         signal_publisher=ValkeySignalPublisher(publisher_client),
-        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+        effect_skips_repository=skips,
+        now_fn=lambda: _signal_bar(4).market_as_of + timedelta(seconds=300),
         observability=observability,
     )
     observability.replace_generation(
@@ -1900,23 +2350,30 @@ async def test_signal_batch_processes_each_cutoff_before_capacity_eviction() -> 
     assert runtime.lanes["BTCUSDT:main"].finalizer.watermark.latest_market_as_of == (
         _signal_bar(4).market_as_of
     )
-    assert len(publisher_client.entries["signals:BTCUSDT:1h"]) == 2
+    assert tuple(publisher_client.entries["signals:BTCUSDT:1h"]) == (
+        f"{int(_signal_bar(4).market_as_of.timestamp() * 1000)}-0",
+    )
+    assert [skip.skipped_from for skip in skips.records] == [
+        _signal_bar(2).market_as_of,
+        _signal_bar(3).market_as_of,
+    ]
+    assert all(skip.reason == "stale" for skip in skips.records)
     evaluation_adds = meter.instruments["decision.lane.evaluation_total"].adds
     publication_adds = meter.instruments["decision.publication.total"].adds
-    assert len(evaluation_adds) == 2
+    assert len(evaluation_adds) == 3
     assert [attributes["outcome"] for _value, attributes in evaluation_adds] == [
         "SIGNAL",
         "SIGNAL",
+        "SIGNAL",
     ]
-    assert len(publication_adds) == 2
+    assert len(publication_adds) == 1
     assert [attributes["outcome"] for _value, attributes in publication_adds] == [
-        "PUBLISHED",
         "PUBLISHED",
     ]
 
     await runtime.poll_once()
-    assert len(meter.instruments["decision.lane.evaluation_total"].adds) == 2
-    assert len(meter.instruments["decision.publication.total"].adds) == 2
+    assert len(meter.instruments["decision.lane.evaluation_total"].adds) == 3
+    assert len(meter.instruments["decision.publication.total"].adds) == 1
 
 
 @pytest.mark.asyncio
@@ -1941,7 +2398,7 @@ async def test_observability_failure_cannot_abort_authoritative_signal(
     observability = DecisionObservability(
         meter=_Meter(),
         timeframe_grid=SIGNAL_GRID,
-        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+        now_fn=lambda: _signal_bar(3).market_as_of + timedelta(seconds=300),
     )
 
     def fail_telemetry(*_args, **_kwargs) -> None:
@@ -1954,7 +2411,7 @@ async def test_observability_failure_cannot_abort_authoritative_signal(
         stream_client=stream,
         history_repository=history,
         signal_publisher=ValkeySignalPublisher(publisher_client),
-        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+        now_fn=lambda: _signal_bar(3).market_as_of + timedelta(seconds=300),
         observability=observability,
     )
     observability.replace_generation(

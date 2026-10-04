@@ -7,14 +7,6 @@ from decimal import Decimal
 
 import pytest
 
-from apps.decision_app.data.resolver import (
-    ConceptDataPolicy,
-    DataPolicy,
-    DataResolver,
-    DataSourceCatalog,
-    DataSourceDefinition,
-    compile_data_plan,
-)
 from apps.decision_app.domain.market_state import (
     BarStore,
     TimeframeGrid,
@@ -46,7 +38,6 @@ from apps.decision_app.runtime.plugins import (
 )
 from libs.contracts.decision import (
     CausalBarView,
-    DataRequirement,
     DecisionContext,
     FeatureRequirement,
     ModelArtifact,
@@ -86,7 +77,6 @@ def make_spec(
     *,
     stateful: bool = False,
     feature_requirements: tuple[FeatureRequirement, ...] = (),
-    data_requirements: tuple[DataRequirement, ...] = (),
     dependencies=(),
 ) -> ModelSpec:
     from libs.contracts.decision import ModelDependencyRequirement
@@ -98,7 +88,6 @@ def make_spec(
         output_kind="analytical",
         produces_artifact_type=artifact_type,
         intrinsic_feature_requirements=feature_requirements,
-        intrinsic_data_requirements=data_requirements,
         dependency_requirements=tuple(
             ModelDependencyRequirement(
                 slot_name=slot,
@@ -156,18 +145,17 @@ class RecordingPlugin:
     def __init__(self, spec: ModelSpec, events: list[tuple[str, str, tuple[str, ...]]]):
         self.spec = spec
         self.events = events
-        self.requested: tuple[DataRequirement, ...] = ()
+        self.request_count = 0
         self.evaluate_count = 0
 
     def data_requests(
         self,
         base_context: ModelRequestContext,
         state_snapshot: object | None = None,
-    ) -> tuple[DataRequirement, ...]:
-        self.events.append(
-            ("request", base_context.binding_id, tuple(base_context.upstream_artifacts))
-        )
-        return self.requested
+    ) -> tuple[()]:
+        del base_context, state_snapshot
+        self.request_count += 1
+        return ()
 
     def evaluate(
         self,
@@ -197,7 +185,6 @@ def make_bundle(
     *,
     definitions: tuple[SharedFeatureDefinition, ...] = (),
     allowed_features: tuple[str, ...] = (),
-    source_fetcher=None,
     plugin_overrides: Mapping[str, object] | None = None,
     policy_name: str = "default",
     policy_version: str = "1",
@@ -240,56 +227,6 @@ def make_bundle(
     )
     store = BarStore(capacities)
     view_builder = DecisionViewBuilder(store, GRID)
-    concepts = {
-        requirement.concept
-        for spec in specs
-        for requirement in spec.intrinsic_data_requirements
-    }
-    if concepts:
-        if source_fetcher is None:
-
-            async def source_fetcher(request):
-                from libs.contracts.decision import DataSnapshot
-
-                return DataSnapshot(
-                    request_key=request.request_key,
-                    concept=request.concept,
-                    payload={"concept": request.concept},
-                    event_time=request.market_as_of,
-                    available_at=request.market_as_of,
-                    fetched_at=request.market_as_of,
-                    source="pit",
-                    resolved_capability="LIVE_AND_REPLAY",
-                )
-
-        data_sources = DataSourceCatalog(
-            [
-                DataSourceDefinition(
-                    name="pit",
-                    version="1",
-                    kind="pit",
-                    capability="LIVE_AND_REPLAY",
-                    fetcher=source_fetcher,
-                )
-            ]
-        )
-        data_policy = DataPolicy(
-            name="operator",
-            version="1",
-            concepts={
-                concept: ConceptDataPolicy(
-                    concept=concept,
-                    scope_mode="lane_asset",
-                    live_source_order=("pit",),
-                    replay_source_order=("pit",),
-                )
-                for concept in concepts
-            },
-        )
-    else:
-        data_sources = DataSourceCatalog([])
-        data_policy = DataPolicy(name="operator", version="1", concepts={})
-    data_plan = compile_data_plan(lane, data_policy, data_sources)
     events: list[tuple[str, str, tuple[str, ...]]] = []
     plugins: dict[str, RecordingPlugin] = {}
     runtime_definitions = []
@@ -311,9 +248,7 @@ def make_bundle(
     runtime = ModelRuntime(
         lane,
         feature_plan,
-        data_plan,
         FeatureEngine(feature_catalog, store, GRID),
-        DataResolver(data_sources),
         runtime_catalog,
         GRID,
     )
@@ -321,7 +256,7 @@ def make_bundle(
 
 
 @pytest.mark.asyncio
-async def test_request_phase_completes_before_evaluation_and_reuses_dependency_artifact():
+async def test_model_bindings_evaluate_in_dependency_order_without_data_resolution():
     specs = [
         make_spec("Boundary", "boundary.v1"),
         make_spec(
@@ -348,20 +283,10 @@ async def test_request_phase_completes_before_evaluation_and_reuses_dependency_a
         ),
     )
     bundle, plugins = make_bundle(specs, bindings)
-    plugins["Boundary"].requested = ()
-    plugins["Regression"].requested = ()
-    plugins["Independent"].requested = ()
+    prepared = await bundle.runtime.prepare_live(bundle.view(0))
 
-    prepared = await bundle.runtime.prepare_live(
-        bundle.view(0),
-        resolver_knowledge_cutoff=BASE + timedelta(hours=1),
-    )
-
+    assert all(plugin.request_count == 0 for plugin in plugins.values())
     events = plugins["Boundary"].events
-    first_evaluate = next(
-        index for index, item in enumerate(events) if item[0] == "evaluate"
-    )
-    assert all(item[0] == "request" for item in events[:first_evaluate])
     assert prepared.binding_results
     assert all(
         result.status == "EXECUTED" for result in prepared.binding_results.values()
@@ -375,10 +300,13 @@ async def test_request_phase_completes_before_evaluation_and_reuses_dependency_a
         item for item in events if item[0] == "evaluate" and item[1] == regression_id
     )
     assert len(regression_event[2]) == 1
-    request_event = next(
-        item for item in events if item[0] == "request" and item[1] == regression_id
+    boundary_id = next(
+        binding.binding_id
+        for binding in bundle.lane.bindings.values()
+        if binding.slot_name == "boundary"
     )
-    assert request_event[2] == ()
+    evaluation_order = [item[1] for item in events]
+    assert evaluation_order.index(boundary_id) < evaluation_order.index(regression_id)
 
 
 @pytest.mark.asyncio
@@ -413,10 +341,7 @@ async def test_binding_feature_visibility_is_isolated():
         definitions=definitions,
         allowed_features=("FEATURE_A", "FEATURE_B"),
     )
-    prepared = await bundle.runtime.prepare_live(
-        bundle.view(0),
-        resolver_knowledge_cutoff=BASE + timedelta(hours=1),
-    )
+    prepared = await bundle.runtime.prepare_live(bundle.view(0))
 
     assert all(
         result.status == "EXECUTED" for result in prepared.binding_results.values()
@@ -430,74 +355,6 @@ async def test_binding_feature_visibility_is_isolated():
 
 
 @pytest.mark.asyncio
-async def test_required_missing_data_isolated_from_independent_binding():
-    requirement = DataRequirement(concept="MISSING", required=True)
-    specs = [
-        make_spec("Provider", "provider.v1", data_requirements=(requirement,)),
-        make_spec(
-            "Consumer",
-            "consumer.v1",
-            dependencies=(("provider", "provider.v1"),),
-        ),
-        make_spec("Independent", "independent.v1"),
-    ]
-
-    async def missing_source(request):
-        return None
-
-    bindings = (
-        ModelBindingSpec(
-            slot_name="provider", plugin_name="Provider", plugin_version="1"
-        ),
-        ModelBindingSpec(
-            slot_name="consumer",
-            plugin_name="Consumer",
-            plugin_version="1",
-            dependencies={"provider": "provider"},
-        ),
-        ModelBindingSpec(
-            slot_name="independent", plugin_name="Independent", plugin_version="1"
-        ),
-    )
-    bundle, plugins = make_bundle(specs, bindings, source_fetcher=missing_source)
-    plugins["Provider"].requested = (requirement,)
-    prepared = await bundle.runtime.prepare_live(
-        bundle.view(0),
-        resolver_knowledge_cutoff=BASE + timedelta(hours=1),
-    )
-
-    binding_ids = {
-        binding.slot_name: binding.binding_id
-        for binding in bundle.lane.bindings.values()
-    }
-    assert prepared.binding_results[binding_ids["provider"]].status == "UNAVAILABLE"
-    assert prepared.binding_results[binding_ids["consumer"]].status == "BLOCKED"
-    assert prepared.binding_results[binding_ids["independent"]].status == "EXECUTED"
-    assert plugins["Consumer"].evaluate_count == 0
-    assert plugins["Independent"].evaluate_count == 1
-
-
-@pytest.mark.asyncio
-async def test_dynamic_requirement_contract_drift_fails_closed():
-    declared = DataRequirement(concept="OPEN_INTEREST", required=True)
-    drifted = DataRequirement(concept="OPEN_INTEREST", required=False)
-    spec = make_spec("Drift", "drift.v1", data_requirements=(declared,))
-    binding = ModelBindingSpec(
-        slot_name="drift", plugin_name="Drift", plugin_version="1"
-    )
-    bundle, plugins = make_bundle([spec], (binding,))
-    plugins["Drift"].requested = (drifted,)
-
-    prepared = await bundle.runtime.prepare_live(
-        bundle.view(0),
-        resolver_knowledge_cutoff=BASE + timedelta(hours=1),
-    )
-    result = next(iter(prepared.binding_results.values()))
-    assert result.status == "INVALID"
-    assert plugins["Drift"].evaluate_count == 0
-
-
-@pytest.mark.asyncio
 async def test_prepared_execution_requires_complete_binding_evidence_and_identity():
     specs = [make_spec("A", "a.v1"), make_spec("B", "b.v1")]
     bundle, _ = make_bundle(
@@ -507,10 +364,7 @@ async def test_prepared_execution_requires_complete_binding_evidence_and_identit
             ModelBindingSpec(slot_name="b", plugin_name="B", plugin_version="1"),
         ),
     )
-    prepared = await bundle.runtime.prepare_live(
-        bundle.view(0),
-        resolver_knowledge_cutoff=BASE + timedelta(hours=1),
-    )
+    prepared = await bundle.runtime.prepare_live(bundle.view(0))
     assert isinstance(prepared, PreparedLaneExecution)
     binding_ids = {
         binding.slot_name: binding.binding_id
@@ -597,10 +451,7 @@ async def test_prepared_execution_rejects_invalid_blocker_evidence(
             ModelBindingSpec(slot_name="b", plugin_name="B", plugin_version="1"),
         ),
     )
-    prepared = await bundle.runtime.prepare_live(
-        bundle.view(0),
-        resolver_knowledge_cutoff=BASE + timedelta(hours=1),
-    )
+    prepared = await bundle.runtime.prepare_live(bundle.view(0))
     binding_ids = {
         binding.slot_name: binding.binding_id
         for binding in bundle.lane.bindings.values()

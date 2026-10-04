@@ -7,15 +7,9 @@ from typing import Any
 import pytest
 
 from apps.decision_app.runtime.deadlines import OperationTimeout
-from apps.decision_app.transport.price_relay import (
-    PriceRelayPublisher,
-    price_relay_entry_id,
-)
 from apps.decision_app.transport.shadow import ValkeyShadowPublisher
 from apps.decision_app.transport.signals import ValkeySignalPublisher
 from tests.decision.test_d9b_signal_transport import _envelope as signal_envelope
-from tests.decision.test_d9d_price_relay import _bar as price_bar
-from tests.decision.test_d9d_price_relay import _plan as price_plan
 from tests.decision.test_shadow_transport import (
     _envelope as shadow_envelope,
 )
@@ -103,21 +97,9 @@ def _build_shadow(client: _MatrixClient):
     )
 
 
-def _build_price(client: _MatrixClient):
-    plan = price_plan()
-    bar = price_bar(0)
-    publisher = PriceRelayPublisher(client, io_timeout_seconds=0.1)
-    return (
-        lambda: publisher.publish(plan, bar),
-        plan.stream_key,
-        price_relay_entry_id(bar),
-    )
-
-
 PUBLISHER_CASES = (
     _PublisherCase("signal", _build_signal),
     _PublisherCase("shadow", _build_shadow),
-    _PublisherCase("price", _build_price),
 )
 
 

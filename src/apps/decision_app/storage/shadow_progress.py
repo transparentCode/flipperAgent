@@ -225,12 +225,11 @@ class LaneEffectProgressRepository:
                  WHERE lane_id = $1
                    AND effective_lane_revision = $2
                    AND feature_plan_fingerprint = $3
-                   AND data_plan_fingerprint = $4
+                   AND data_plan_fingerprint = 'none'
                 """,
                     identity.lane_id,
                     identity.effective_lane_revision,
                     identity.feature_plan_fingerprint,
-                    identity.data_plan_fingerprint,
                     **native_timeout_kwargs(
                         deadline,
                         operation="lane-effect load query",
@@ -329,13 +328,12 @@ class LaneEffectProgressRepository:
              WHERE lane_id = $1
                AND effective_lane_revision = $2
                AND feature_plan_fingerprint = $3
-               AND data_plan_fingerprint = $4
+               AND data_plan_fingerprint = 'none'
              FOR UPDATE
             """,
                 identity.lane_id,
                 identity.effective_lane_revision,
                 identity.feature_plan_fingerprint,
-                identity.data_plan_fingerprint,
                 **native_timeout_kwargs(
                     deadline,
                     operation="lane-effect save query",
@@ -356,16 +354,15 @@ class LaneEffectProgressRepository:
                 connection.execute(
                     """
                 UPDATE decision.shadow_progress
-                   SET market_as_of = $5, last_disposition = $6,
-                       updated_at = $7
+                   SET market_as_of = $4, last_disposition = $5,
+                       updated_at = $6
                  WHERE lane_id = $1 AND effective_lane_revision = $2
                    AND feature_plan_fingerprint = $3
-                   AND data_plan_fingerprint = $4
+                   AND data_plan_fingerprint = 'none'
                 """,
                     identity.lane_id,
                     identity.effective_lane_revision,
                     identity.feature_plan_fingerprint,
-                    identity.data_plan_fingerprint,
                     progress.market_as_of,
                     progress.last_disposition,
                     now,
@@ -385,13 +382,12 @@ class LaneEffectProgressRepository:
                 progress_schema_version, lane_id, effective_lane_revision,
                 feature_plan_fingerprint, data_plan_fingerprint, market_as_of,
                 last_disposition, created_at, updated_at
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8)
+            ) VALUES ($1,$2,$3,$4,'none',$5,$6,$7,$7)
             """,
                 progress.progress_schema_version,
                 identity.lane_id,
                 identity.effective_lane_revision,
                 identity.feature_plan_fingerprint,
-                identity.data_plan_fingerprint,
                 progress.market_as_of,
                 progress.last_disposition,
                 now,
@@ -419,11 +415,14 @@ def _progress_from_row(
     row: Any,
     identity: LaneExecutionIdentity,
 ) -> LaneEffectProgress:
+    if _row_value(row, "data_plan_fingerprint") != "none":
+        raise LaneEffectProgressCorruptionError(
+            "lane effect data_plan_fingerprint must use the neutral value"
+        )
     row_identity = LaneExecutionIdentity(
         lane_id=_row_value(row, "lane_id"),
         effective_lane_revision=_row_value(row, "effective_lane_revision"),
         feature_plan_fingerprint=_row_value(row, "feature_plan_fingerprint"),
-        data_plan_fingerprint=_row_value(row, "data_plan_fingerprint"),
     )
     if row_identity != identity:
         raise LaneEffectProgressCorruptionError(

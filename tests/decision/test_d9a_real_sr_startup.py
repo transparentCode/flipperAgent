@@ -7,7 +7,6 @@ from decimal import Decimal
 import pytest
 
 from apps.decision_app.composition import sr_initialization_requirement
-from apps.decision_app.data.resolver import DataPolicy, DataResolver, DataSourceCatalog
 from apps.decision_app.domain.market_state import MarketSeriesKey, TimeframeGrid
 from apps.decision_app.features.definitions import SR_ATR_DEFINITION
 from apps.decision_app.features.planning import FeatureCatalog, FeaturePolicy
@@ -116,6 +115,10 @@ class _TailClient:
         assert count == 1
         return [(f"{self.index}-0", _stream_fields(self.index))]
 
+    async def xrange(self, _stream: str, _start: str, _end: str, *, count: int = 1):
+        assert count == 1
+        return []
+
 
 def _config() -> DecisionConfig:
     lane = DecisionLaneSettings(
@@ -162,7 +165,6 @@ def _coordinator(
     checkpoints: InMemoryCheckpointRepository,
     tail_index: int,
 ) -> DecisionStartupCoordinator:
-    source_catalog = DataSourceCatalog([])
     return DecisionStartupCoordinator(
         decision_config=_config(),
         plugin_catalog=PluginCatalog([SR_MODEL_SPEC]),
@@ -170,8 +172,6 @@ def _coordinator(
         feature_policy=FeaturePolicy(
             name="operator", version="1", allowed_features=("ATR",)
         ),
-        data_policy=DataPolicy(name="operator", version="1", concepts={}),
-        source_catalog=source_catalog,
         runtime_plugin_catalog=RuntimePluginCatalog(
             [
                 RuntimePluginDefinition(
@@ -185,7 +185,6 @@ def _coordinator(
         history_repository=history,
         stream_client=_TailClient(tail_index),
         checkpoint_repository=checkpoints,
-        data_resolver=DataResolver(source_catalog),
     )
 
 
@@ -228,7 +227,9 @@ async def test_real_sr_startup_and_checkpointed_restart_are_publication_free() -
 
 
 @pytest.mark.asyncio
-async def test_real_sr_checkpoint_catchup_exceeds_initialization_horizon() -> None:
+async def test_real_sr_checkpoint_reconstruction_exceeds_initialization_horizon() -> (
+    None
+):
     checkpoints = InMemoryCheckpointRepository()
     first_history = InMemoryCanonicalMarketHistoryRepository(
         {SERIES: tuple(_bar(index) for index in range(50))},
@@ -255,7 +256,7 @@ async def test_real_sr_checkpoint_catchup_exceeds_initialization_horizon() -> No
     assert second_checkpoint is not None
     assert second_checkpoint.market_as_of == _bar(99).market_as_of
     assert second_checkpoint.state_payload != first_checkpoint.state_payload
-    # The temporary catch-up store must not enlarge the returned steady-state
+    # The temporary reconstruction store must not enlarge the returned steady-state
     # BarStore beyond the D3/D4 capacity (ATR requires 15 bars here).
     assert second.bar_store.capacity_for(SERIES) == 15
     assert second.bar_store.retained_count(SERIES) == 15

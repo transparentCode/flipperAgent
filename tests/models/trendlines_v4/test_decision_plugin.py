@@ -12,12 +12,6 @@ from typing import Any
 
 import pytest
 
-from apps.decision_app.data.resolver import (
-    DataPolicy,
-    DataResolver,
-    DataSourceCatalog,
-    compile_data_plan,
-)
 from apps.decision_app.domain.market_state import BarStore, MarketSeriesKey
 from apps.decision_app.domain.view import LaneMarketView
 from apps.decision_app.features.engine import FeatureEngine
@@ -206,11 +200,6 @@ def _runtime_environment() -> tuple[ModelRuntime, object, RuntimePluginCatalog]:
         FeaturePolicy(name="empty", version="1", allowed_features=()),
         GRID,
     )
-    data_plan = compile_data_plan(
-        lane,
-        DataPolicy(name="empty", version="1", concepts={}),
-        DataSourceCatalog([]),
-    )
     runtime_catalog = RuntimePluginCatalog(
         [
             RuntimePluginDefinition(
@@ -224,7 +213,6 @@ def _runtime_environment() -> tuple[ModelRuntime, object, RuntimePluginCatalog]:
     runtime = ModelRuntime(
         lane,
         feature_plan,
-        data_plan,
         FeatureEngine(
             feature_catalog,
             BarStore(
@@ -239,7 +227,6 @@ def _runtime_environment() -> tuple[ModelRuntime, object, RuntimePluginCatalog]:
             ),
             GRID,
         ),
-        DataResolver(DataSourceCatalog([])),
         runtime_catalog,
         GRID,
     )
@@ -301,7 +288,6 @@ def test_spec_factory_and_initialization_contract() -> None:
                 trigger_mode=binding.trigger_mode,
                 dependencies=binding.dependencies,
                 effective_feature_requirements=binding.effective_feature_requirements,
-                effective_data_requirements=binding.effective_data_requirements,
                 risk_profile_key=binding.risk_profile_key,
                 publication_authority=binding.publication_authority,
             )
@@ -445,7 +431,6 @@ async def test_runtime_checkpoint_rewarm_and_uninterrupted_execution_are_exact()
     uninterrupted_steps = tuple(
         RewarmStep(
             lane_market_view=_view(lane, _bar(index)),
-            resolver_knowledge_cutoff=_bar(index).market_as_of,
         )
         for index in range(HISTORY_CAPACITY_BARS + 1)
     )
@@ -461,7 +446,6 @@ async def test_runtime_checkpoint_rewarm_and_uninterrupted_execution_are_exact()
     steps = tuple(
         RewarmStep(
             lane_market_view=_view(cold_lane, _bar(index)),
-            resolver_knowledge_cutoff=_bar(index).market_as_of,
         )
         for index in range(HISTORY_CAPACITY_BARS)
     )
@@ -475,7 +459,6 @@ async def test_runtime_checkpoint_rewarm_and_uninterrupted_execution_are_exact()
     next_bar = _bar(HISTORY_CAPACITY_BARS)
     prepared = await cold.prepare_live(
         _view(cold_lane, next_bar),
-        resolver_knowledge_cutoff=next_bar.market_as_of,
     )
     cold_outcome = prepared.binding_results[cold_binding_id].outcome
     reference_plugin = TrendlinesV4DecisionPlugin({})

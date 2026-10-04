@@ -15,19 +15,15 @@ from enum import Enum
 from itertools import pairwise
 from typing import Any, Literal
 
-from apps.decision_app.data.resolver import (
-    DataPlan,
-    DataPolicy,
-    DataResolver,
-    DataSourceCatalog,
-    compile_data_plan,
-)
 from apps.decision_app.domain.contracts import (
     InputReadCursor,
     LaneCommitWatermark,
-    PriceRelayPlan,
 )
-from apps.decision_app.domain.identity import lane_execution_identity
+from apps.decision_app.domain.identity import (
+    compute_decision_execution_revision,
+    decision_id,
+    lane_execution_identity,
+)
 from apps.decision_app.domain.market_state import (
     BarStore,
     MarketSeriesKey,
@@ -77,6 +73,10 @@ from apps.decision_app.storage.checkpoints import (
     InMemoryCheckpointRepository,
     LaneStateCheckpoint,
 )
+from apps.decision_app.storage.effect_skips import (
+    InMemoryLaneEffectSkipsRepository,
+    LaneEffectSkip,
+)
 from apps.decision_app.storage.market_history import CanonicalMarketHistoryRepository
 from apps.decision_app.storage.shadow_progress import (
     InMemoryLaneEffectProgressRepository,
@@ -87,11 +87,9 @@ from apps.decision_app.transport.ingestion import (
     canonical_ingestion_stream_key,
     parse_canonical_ingestion_event,
 )
-from apps.decision_app.transport.price_relay import (
-    compile_price_relay_plans,
-    plan_series_key,
-)
 from libs.contracts.decision import FrozenMapping, deep_freeze, require_utc
+from libs.contracts.serialization import valkey_decode
+from libs.contracts.signal import TradeSignal
 
 
 class StartupError(ValueError):
@@ -182,6 +180,7 @@ class LaneStartupEvidence:
     lane_id: str
     status: LaneStartupStatus
     resume_cutoff: datetime | None = None
+    pending_trigger_cutoff: datetime | None = None
     state_inception_at: datetime | None = None
     checkpoint_loaded: bool = False
     checkpoint_save_result: str | None = None
@@ -198,7 +197,11 @@ class LaneStartupEvidence:
             "BLOCKED",
         }:
             raise ValueError("unsupported lane startup status")
-        for field_name in ("resume_cutoff", "state_inception_at"):
+        for field_name in (
+            "resume_cutoff",
+            "pending_trigger_cutoff",
+            "state_inception_at",
+        ):
             value = getattr(self, field_name)
             if value is not None:
                 require_utc(value, field_name=field_name)
@@ -260,6 +263,7 @@ class DecisionStartupSnapshot:
                 "shadow",
                 "published",
                 "no_signal",
+                "skipped",
             }:
                 raise ValueError("unsupported startup watermark disposition")
             watermarks[lane_id] = watermark
@@ -319,13 +323,8 @@ class DecisionStartupResult:
     runtimes: Mapping[str, ModelRuntime]
     decision_plan: ResolvedDecisionPlan
     feature_plans: Mapping[str, FeaturePlan]
-    data_plans: Mapping[str, DataPlan]
     lane_requirements: Mapping[str, LaneMarketRequirements]
-    lane_catchup_cutoffs: Mapping[str, tuple[datetime, ...]] = field(
-        default_factory=dict
-    )
-    lane_catchup_stores: Mapping[str, BarStore] = field(default_factory=dict)
-    relay_plans: tuple[PriceRelayPlan, ...] = ()
+    lane_history_requirements: Mapping[str, Mapping[MarketSeriesKey, int]]
 
     def __post_init__(self) -> None:
         if not isinstance(self.snapshot, DecisionStartupSnapshot):
@@ -336,20 +335,9 @@ class DecisionStartupResult:
             raise TypeError("runtimes must be a mapping")
         if not isinstance(self.decision_plan, ResolvedDecisionPlan):
             raise TypeError("decision_plan must be ResolvedDecisionPlan")
-        if any(not isinstance(plan, PriceRelayPlan) for plan in self.relay_plans):
-            raise TypeError("relay_plans must contain PriceRelayPlan values")
-        relay_ids = tuple(plan.relay_plan_id for plan in self.relay_plans)
-        if len(set(relay_ids)) != len(relay_ids):
-            raise ValueError("relay plan IDs must be unique")
-        object.__setattr__(
-            self,
-            "relay_plans",
-            tuple(sorted(self.relay_plans, key=lambda item: item.relay_plan_id)),
-        )
         lane_ids = {lane.lane_id for lane in self.decision_plan.lanes}
         for name, values, expected_type in (
             ("feature_plans", self.feature_plans, FeaturePlan),
-            ("data_plans", self.data_plans, DataPlan),
             ("lane_requirements", self.lane_requirements, LaneMarketRequirements),
         ):
             if not isinstance(values, Mapping):
@@ -358,41 +346,28 @@ class DecisionStartupResult:
                 raise ValueError(f"{name} must cover every resolved lane")
             if any(not isinstance(value, expected_type) for value in values.values()):
                 raise TypeError(f"{name} has invalid values")
-        if not isinstance(self.lane_catchup_cutoffs, Mapping):
-            raise TypeError("lane_catchup_cutoffs must be a mapping")
-        raw_catchups = self.lane_catchup_cutoffs
-        if not raw_catchups:
-            raw_catchups = {lane_id: () for lane_id in lane_ids}
-        if set(raw_catchups) != lane_ids:
-            raise ValueError("lane_catchup_cutoffs must cover every resolved lane")
-        normalized_catchups: dict[str, tuple[datetime, ...]] = {}
-        for lane_id, cutoffs in raw_catchups.items():
-            if isinstance(cutoffs, (str, bytes)) or not isinstance(cutoffs, Sequence):
-                raise TypeError("lane catch-up cutoffs must be sequences")
-            values = tuple(cutoffs)
-            for cutoff in values:
-                require_utc(cutoff, field_name="lane catch-up cutoff")
-            if any(current <= previous for previous, current in pairwise(values)):
-                raise ValueError("lane catch-up cutoffs must be strictly increasing")
-            normalized_catchups[lane_id] = values
-        if not isinstance(self.lane_catchup_stores, Mapping):
-            raise TypeError("lane_catchup_stores must be a mapping")
-        if not set(self.lane_catchup_stores) <= lane_ids:
-            raise ValueError("lane_catchup_stores contains an unknown lane")
-        if any(
-            not isinstance(store, BarStore)
-            for store in self.lane_catchup_stores.values()
-        ):
-            raise TypeError("lane_catchup_stores must contain BarStore values")
+        if not isinstance(self.lane_history_requirements, Mapping):
+            raise TypeError("lane_history_requirements must be a mapping")
+        if set(self.lane_history_requirements) != lane_ids:
+            raise ValueError("lane_history_requirements must cover every lane")
+        normalized_history: dict[str, FrozenMapping[MarketSeriesKey, int]] = {}
+        for lane_id, requirements in self.lane_history_requirements.items():
+            if not isinstance(requirements, Mapping) or not requirements:
+                raise TypeError("lane history requirements must be non-empty mappings")
+            normalized: dict[MarketSeriesKey, int] = {}
+            for key, count in requirements.items():
+                if not isinstance(key, MarketSeriesKey):
+                    raise TypeError("lane history requirement keys must be series keys")
+                if isinstance(count, bool) or not isinstance(count, int) or count <= 0:
+                    raise ValueError("lane history counts must be positive integers")
+                normalized[key] = count
+            normalized_history[lane_id] = FrozenMapping(
+                dict(sorted(normalized.items(), key=lambda item: item[0].timeframe))
+            )
         object.__setattr__(
             self,
             "feature_plans",
             FrozenMapping(dict(sorted(self.feature_plans.items()))),
-        )
-        object.__setattr__(
-            self,
-            "data_plans",
-            FrozenMapping(dict(sorted(self.data_plans.items()))),
         )
         object.__setattr__(
             self,
@@ -401,13 +376,8 @@ class DecisionStartupResult:
         )
         object.__setattr__(
             self,
-            "lane_catchup_cutoffs",
-            FrozenMapping(dict(sorted(normalized_catchups.items()))),
-        )
-        object.__setattr__(
-            self,
-            "lane_catchup_stores",
-            FrozenMapping(dict(sorted(self.lane_catchup_stores.items()))),
+            "lane_history_requirements",
+            FrozenMapping(dict(sorted(normalized_history.items()))),
         )
         for lane_id in lane_ids:
             if (
@@ -510,16 +480,14 @@ class DecisionStartupCoordinator:
         plugin_catalog: Any,
         feature_catalog: FeatureCatalog,
         feature_policy: FeaturePolicy,
-        data_policy: DataPolicy,
-        source_catalog: DataSourceCatalog,
         runtime_plugin_catalog: RuntimePluginCatalog,
         history_repository: Any,
         policy_catalog: DecisionPolicyCatalog | None = None,
         stream_client: Any = None,
         checkpoint_repository: Any | None = None,
-        shadow_progress_repository: Any | None = None,
+        effect_progress_repository: Any | None = None,
+        effect_skips_repository: Any | None = None,
         manifest_store: Any | None = None,
-        data_resolver: DataResolver | None = None,
         io_timeout_seconds: float | None = None,
     ) -> None:
         if not isinstance(decision_config, DecisionConfig):
@@ -528,10 +496,6 @@ class DecisionStartupCoordinator:
             raise TypeError("feature_catalog must be FeatureCatalog")
         if not isinstance(feature_policy, FeaturePolicy):
             raise TypeError("feature_policy must be FeaturePolicy")
-        if not isinstance(data_policy, DataPolicy):
-            raise TypeError("data_policy must be DataPolicy")
-        if not isinstance(source_catalog, DataSourceCatalog):
-            raise TypeError("source_catalog must be DataSourceCatalog")
         if not isinstance(runtime_plugin_catalog, RuntimePluginCatalog):
             raise TypeError("runtime_plugin_catalog must be RuntimePluginCatalog")
         if policy_catalog is not None and not isinstance(
@@ -544,8 +508,6 @@ class DecisionStartupCoordinator:
         self._plugin_catalog = plugin_catalog
         self._feature_catalog = feature_catalog
         self._feature_policy = feature_policy
-        self._data_policy = data_policy
-        self._source_catalog = source_catalog
         self._runtime_catalog = runtime_plugin_catalog
         self._policy_catalog = policy_catalog or DecisionPolicyCatalog(
             [PASSTHROUGH_V1, PRIORITY_V1]
@@ -554,7 +516,7 @@ class DecisionStartupCoordinator:
         self._streams = stream_client
         self._checkpoints = checkpoint_repository or InMemoryCheckpointRepository()
         self._effect_progress = (
-            shadow_progress_repository or InMemoryLaneEffectProgressRepository()
+            effect_progress_repository or InMemoryLaneEffectProgressRepository()
         )
         if not callable(getattr(self._effect_progress, "load", None)) or not callable(
             getattr(self._effect_progress, "save", None)
@@ -563,7 +525,11 @@ class DecisionStartupCoordinator:
                 "lane effect progress repository must provide load() and save()"
             )
         self._manifest_store = manifest_store
-        self._data_resolver = data_resolver or DataResolver(source_catalog)
+        self._effect_skips = (
+            effect_skips_repository or InMemoryLaneEffectSkipsRepository()
+        )
+        if not callable(getattr(self._effect_skips, "upsert", None)):
+            raise TypeError("lane effect skips repository must provide upsert()")
         self._io_timeout_seconds = io_timeout_seconds
 
     async def start(self) -> DecisionStartupResult:
@@ -593,22 +559,17 @@ class DecisionStartupCoordinator:
             )
             for lane in decision_plan.lanes
         }
-        data_plans = {
-            lane.lane_id: compile_data_plan(
+        lane_history_requirements = {
+            lane.lane_id: compile_lane_causal_history_requirements(
                 lane,
-                self._data_policy,
-                self._source_catalog,
+                feature_plans[lane.lane_id],
+                self._config.timeframe_grid,
             )
             for lane in decision_plan.lanes
         }
-        relay_plans = compile_price_relay_plans(self._config)
         series_failures: dict[MarketSeriesKey, str] = {}
         positions = await capture_series_startup_positions(
-            series_keys=self._required_series(
-                decision_plan,
-                feature_plans,
-                relay_plans,
-            ),
+            series_keys=self._required_series(decision_plan, feature_plans),
             timeframe_grid=self._config.timeframe_grid,
             stream_client=self._streams,
             history_repository=self._history,
@@ -624,7 +585,6 @@ class DecisionStartupCoordinator:
         capacities = self._compile_capacities(
             decision_plan,
             feature_plans,
-            relay_plans,
         )
         # This tail is exclusively for the final bounded shared BarStore.  A
         # stateful lane's replay history is loaded separately after its
@@ -641,22 +601,12 @@ class DecisionStartupCoordinator:
             for key, position in positions.items()
             if key not in history_failures
         }
-        active_relay_plans = tuple(
-            plan
-            for plan in relay_plans
-            if plan.asset in active_assets
-            and plan_series_key(plan) not in series_failures
-        )
         final_store = BarStore(capacities)
         self._fill_store(final_store, history_cache)
         lane_evidence: dict[str, LaneStartupEvidence] = {}
         lane_watermarks: dict[str, LaneCommitWatermark] = {}
         runtimes: dict[str, ModelRuntime] = {}
         reconstruction_evidence: dict[str, Mapping[str, Any]] = {}
-        lane_catchup_cutoffs: dict[str, tuple[datetime, ...]] = {
-            lane.lane_id: () for lane in decision_plan.lanes
-        }
-        lane_catchup_stores: dict[str, BarStore] = {}
         for lane in decision_plan.lanes:
             if lane.asset in manifest_failures:
                 lane_evidence[lane.lane_id] = LaneStartupEvidence(
@@ -696,10 +646,10 @@ class DecisionStartupCoordinator:
                 )
                 continue
             try:
-                runtime, evidence, catchup_store = await self._reconstruct_lane(
+                runtime, evidence = await self._reconstruct_lane(
                     lane,
                     feature_plans[lane.lane_id],
-                    data_plans[lane.lane_id],
+                    lane_history_requirements[lane.lane_id],
                     history_cache,
                     capacities,
                     positions,
@@ -713,12 +663,8 @@ class DecisionStartupCoordinator:
                 )
                 continue
             runtimes[lane.lane_id] = runtime
-            if catchup_store is not None:
-                lane_catchup_stores[lane.lane_id] = catchup_store
             resume_cutoff = evidence["resume_cutoff"]
-            catchup_cutoffs = tuple(evidence.get("catchup_cutoffs", ()))
-            lane_catchup_cutoffs[lane.lane_id] = catchup_cutoffs
-            watermark_cutoff = evidence.get("effect_progress_cutoff", resume_cutoff)
+            watermark_cutoff = evidence.get("effect_progress_cutoff")
             watermark_disposition = evidence.get("effect_progress_disposition")
             lane_watermarks[lane.lane_id] = LaneCommitWatermark(
                 lane_id=lane.lane_id,
@@ -729,6 +675,7 @@ class DecisionStartupCoordinator:
                 lane_id=lane.lane_id,
                 status="STARTUP_READY",
                 resume_cutoff=resume_cutoff,
+                pending_trigger_cutoff=evidence.get("pending_trigger_cutoff"),
                 state_inception_at=evidence.get("state_inception_at"),
                 checkpoint_loaded=bool(evidence["checkpoint_loaded"]),
                 checkpoint_save_result=evidence.get("checkpoint_save_result"),
@@ -760,18 +707,14 @@ class DecisionStartupCoordinator:
             runtimes=FrozenMapping(runtimes),
             decision_plan=decision_plan,
             feature_plans=feature_plans,
-            data_plans=data_plans,
             lane_requirements=lane_requirements,
-            lane_catchup_cutoffs=lane_catchup_cutoffs,
-            lane_catchup_stores=lane_catchup_stores,
-            relay_plans=active_relay_plans,
+            lane_history_requirements=lane_history_requirements,
         )
 
     def _required_series(
         self,
         plan: ResolvedDecisionPlan,
         feature_plans: Mapping[str, FeaturePlan],
-        relay_plans: Sequence[PriceRelayPlan] = (),
     ) -> tuple[MarketSeriesKey, ...]:
         keys: set[MarketSeriesKey] = set()
         for lane in plan.lanes:
@@ -782,7 +725,6 @@ class DecisionStartupCoordinator:
         for feature_plan in feature_plans.values():
             for history in feature_plan.history_requirements.values():
                 keys.update(history)
-        keys.update(plan_series_key(relay_plan) for relay_plan in relay_plans)
         return _sorted_keys(tuple(keys))
 
     def _lane_required_series(
@@ -804,7 +746,6 @@ class DecisionStartupCoordinator:
         self,
         plan: ResolvedDecisionPlan,
         feature_plans: Mapping[str, FeaturePlan],
-        relay_plans: Sequence[PriceRelayPlan] = (),
     ) -> Mapping[MarketSeriesKey, int]:
         base = compile_bar_store_capacities(plan, self._config.timeframe_grid)
         feature = compile_feature_bar_store_capacities(
@@ -814,10 +755,7 @@ class DecisionStartupCoordinator:
             self._config.timeframe_grid,
         )
         merged = merge_bar_store_capacities(base, feature)
-        relay_capacities = {
-            plan_series_key(relay_plan): 1 for relay_plan in relay_plans
-        }
-        return merge_bar_store_capacities(merged, relay_capacities)
+        return merged
 
     async def _load_history(
         self,
@@ -850,30 +788,15 @@ class DecisionStartupCoordinator:
                 failures[key] = f"series history read failed: {exc}"
         return FrozenMapping(result)
 
-    def _lane_history_requirements(
-        self,
-        lane: ResolvedLanePlan,
-        feature_plan: FeaturePlan,
-    ) -> Mapping[MarketSeriesKey, int]:
-        """Merge D3 and D4 per-cutoff history needs for one lane."""
-
-        return compile_lane_causal_history_requirements(
-            lane,
-            feature_plan,
-            self._config.timeframe_grid,
-        )
-
     def _validate_causal_history_at_cutoff(
         self,
-        lane: ResolvedLanePlan,
-        feature_plan: FeaturePlan,
+        requirements: Mapping[MarketSeriesKey, int],
         store: BarStore,
         cutoff: datetime,
     ) -> None:
         """Require the merged D3+D4 history window at one selected cutoff."""
 
         require_utc(cutoff, field_name="startup resume cutoff")
-        requirements = self._lane_history_requirements(lane, feature_plan)
         for key, required_count in requirements.items():
             expected_cutoff = self._config.timeframe_grid.expected_closed_cutoff(
                 key.timeframe,
@@ -928,74 +851,121 @@ class DecisionStartupCoordinator:
         self,
         lane: ResolvedLanePlan,
         feature_plan: FeaturePlan,
-        data_plan: Any,
     ) -> LaneExecutionIdentity:
         """Build the exact D6 identity without instantiating a runtime."""
 
-        return lane_execution_identity(lane, feature_plan, data_plan)
+        return lane_execution_identity(lane, feature_plan)
 
-    async def _effect_progress_for_lane(
+    async def _save_effect_progress(
+        self,
+        *,
+        identity: LaneExecutionIdentity,
+        market_as_of: datetime,
+        last_disposition: Literal["shadow", "published", "no_signal"] | None,
+    ) -> LaneEffectProgress:
+        progress = LaneEffectProgress.create(
+            identity=identity,
+            market_as_of=market_as_of,
+            last_disposition=last_disposition,
+        )
+        result = await self._effect_progress.save(progress)
+        if _save_result_value(result) not in {"INSERTED", "UPDATED", "IDENTICAL"}:
+            raise StartupLaneError(
+                f"effect progress persistence {result} blocks startup"
+            )
+        return progress
+
+    async def _upsert_skip(
+        self,
+        *,
+        identity: LaneExecutionIdentity,
+        skipped_from: datetime,
+        skipped_through: datetime,
+        reason: Literal["restart", "restart_rewarm", "stale", "foreign_entry"],
+        trigger_duration: Any,
+    ) -> None:
+        if skipped_through < skipped_from:
+            return
+        elapsed = skipped_through - skipped_from
+        quotient, remainder = divmod(elapsed, trigger_duration)
+        if remainder:
+            raise StartupLaneError("skip range is not aligned to the lane trigger")
+        await self._effect_skips.upsert(
+            LaneEffectSkip(
+                identity=identity,
+                skipped_from=skipped_from,
+                skipped_through=skipped_through,
+                cutoff_count=quotient + 1,
+                reason=reason,
+            )
+        )
+
+    async def _probe_effect_entry(
         self,
         *,
         lane: ResolvedLanePlan,
-        data_plan: DataPlan,
         identity: LaneExecutionIdentity,
-        resume_cutoff: datetime,
-        ready_views: Sequence[tuple[datetime, LaneMarketView]],
-        stateful_binding_ids: Sequence[str],
-    ) -> tuple[LaneEffectProgress | None, tuple[datetime, ...]]:
-        """Resolve authority-neutral effect progress without rewinding input."""
+        cutoff: datetime,
+    ) -> Literal["published", "shadow", "foreign_entry"] | None:
+        """Probe the one exact stream ID whose publication may have outlived progress."""
 
-        progress = await self._effect_progress.load(identity)
-        if progress is None:
-            baseline = LaneEffectProgress.create(
-                identity=identity,
-                market_as_of=resume_cutoff,
-                last_disposition=None,
-            )
-            result = await self._effect_progress.save(baseline)
-            if _save_result_value(result) not in {
-                "INSERTED",
-                "UPDATED",
-                "IDENTICAL",
-            }:
-                raise StartupLaneError(
-                    f"effect progress persistence {result} blocks startup"
-                )
-            progress = baseline
-        if not isinstance(progress, LaneEffectProgress):
-            raise StartupLaneError("effect progress repository returned invalid record")
-        if progress.identity != identity:
-            raise StartupLaneError("effect progress identity does not match lane")
-        if progress.market_as_of > resume_cutoff:
-            raise StartupLaneError("effect progress is ahead of market reconstruction")
-        if progress.market_as_of == resume_cutoff:
-            return progress, ()
-        if stateful_binding_ids:
-            raise StartupLaneError("stateful lane has an unresolved effect backlog")
-        if data_plan.requested_concepts:
-            raise StartupLaneError(
-                "external-data lane has an unresolved effect backlog"
-            )
-        trigger_duration = self._config.timeframe_grid.duration(lane.trigger_timeframe)
-        candidates = tuple(
-            cutoff
-            for cutoff, _view in ready_views
-            if progress.market_as_of < cutoff <= resume_cutoff
+        if self._streams is None:
+            return None
+        from apps.decision_app.transport.shadow import (
+            ShadowDecisionObservation,
+            shadow_stream_key,
         )
-        expected_first = progress.market_as_of + trigger_duration
-        if not candidates or candidates[0] != expected_first:
-            raise StartupLaneError(
-                "retained history cannot bridge lane effect progress backlog"
-            )
-        if candidates[-1] != resume_cutoff or any(
-            current != previous + trigger_duration
-            for previous, current in pairwise(candidates)
-        ):
-            raise StartupLaneError(
-                "lane effect backlog is not contiguous in retained history"
-            )
-        return progress, candidates
+
+        xrange = getattr(self._streams, "xrange", None)
+        if not callable(xrange):
+            raise StartupContractError("stream client must provide exact xrange")
+        execution_revision = compute_decision_execution_revision(
+            lane_id=lane.lane_id,
+            base_lane_revision=lane.effective_lane_revision,
+            feature_plan_fingerprint=identity.feature_plan_fingerprint,
+            policy_name=lane.policy_name,
+            policy_version=lane.policy_version,
+            policy_parameters=lane.policy_parameters,
+        )
+        expected_id = decision_id(
+            lane_id=lane.lane_id,
+            lane_revision=execution_revision,
+            market_as_of=cutoff,
+        )
+        stream_key = (
+            f"signals:{lane.asset}:{lane.decision_timeframe}"
+            if lane.authority == "authoritative"
+            else shadow_stream_key(lane.lane_id)
+        )
+        stream_id = f"{int(cutoff.timestamp() * 1000)}-0"
+        records = await run_with_timeout(
+            xrange(stream_key, stream_id, stream_id, count=1),
+            self._io_timeout_seconds,
+            operation="startup exact effect probe",
+        )
+        if not records:
+            return None
+        if len(records) != 1:
+            raise StartupLaneError("exact effect probe returned multiple entries")
+        observed_id, fields = records[0]
+        if isinstance(observed_id, bytes):
+            observed_id = observed_id.decode("utf-8")
+        if observed_id != stream_id or not isinstance(fields, Mapping):
+            raise StartupLaneError("exact effect probe returned a malformed entry")
+        try:
+            if lane.authority == "authoritative":
+                signal = valkey_decode(dict(fields), TradeSignal)
+                observed_decision_id = signal.metadata.get("decision_id")
+                disposition: Literal["published", "shadow"] = "published"
+            else:
+                observation = valkey_decode(dict(fields), ShadowDecisionObservation)
+                observed_decision_id = observation.decision_id
+                disposition = "shadow"
+        except Exception as exc:
+            raise StartupLaneError("exact effect probe entry is malformed") from exc
+        if observed_decision_id != expected_id:
+            return "foreign_entry"
+        return disposition
 
     def _ready_views(
         self,
@@ -1032,64 +1002,6 @@ class DecisionStartupCoordinator:
                 continue
             ready.append((cutoff, view))
         return ready
-
-    async def _load_effect_catchup_store(
-        self,
-        *,
-        lane: ResolvedLanePlan,
-        feature_plan: FeaturePlan,
-        lane_requirements: Mapping[MarketSeriesKey, int],
-        catchup_cutoffs: Sequence[datetime],
-        resume_cutoff: datetime,
-    ) -> BarStore | None:
-        """Load one bounded causal store for a stateless effect backlog."""
-
-        if not catchup_cutoffs:
-            return None
-        if any(binding.model_spec.stateful for binding in lane.bindings.values()):
-            raise StartupLaneError("stateful lane has an unresolved effect backlog")
-        first_cutoff = catchup_cutoffs[0]
-        histories: dict[MarketSeriesKey, tuple[Any, ...]] = {}
-        capacities: dict[MarketSeriesKey, int] = {}
-        for key, required_count in lane_requirements.items():
-            duration = self._config.timeframe_grid.duration(key.timeframe)
-            first_visible_cutoff = self._config.timeframe_grid.expected_closed_cutoff(
-                key.timeframe,
-                first_cutoff,
-            )
-            # ``start`` is an open-time bound while ``first_visible_cutoff``
-            # is a close-time bound.  N contiguous bars ending at that close
-            # begin exactly N durations earlier.
-            start = first_visible_cutoff - duration * required_count
-            bars = tuple(
-                await self._history.fetch_bars(
-                    key,
-                    start=start,
-                    through=resume_cutoff,
-                )
-            )
-            if len(bars) < required_count:
-                raise StartupLaneError(
-                    "retained history cannot bridge lane effect progress backlog"
-                )
-            histories[key] = bars
-            capacities[key] = len(bars)
-
-        store = BarStore(capacities)
-        try:
-            self._fill_store(store, histories)
-            for cutoff in catchup_cutoffs:
-                self._validate_causal_history_at_cutoff(
-                    lane,
-                    feature_plan,
-                    store,
-                    cutoff,
-                )
-        except (KeyError, TypeError, ValueError) as exc:
-            raise StartupLaneError(
-                "retained history cannot bridge lane effect progress backlog"
-            ) from exc
-        return store
 
     async def _load_reconstruction_history(
         self,
@@ -1151,8 +1063,7 @@ class DecisionStartupCoordinator:
         if self._manifest_store is None:
             return set(configured)
         required_timeframes_by_runtime_asset: dict[str, set[str]] = {}
-        relay_plans = compile_price_relay_plans(self._config)
-        for series_key in self._required_series(plan, feature_plans, relay_plans):
+        for series_key in self._required_series(plan, feature_plans):
             for asset in self._config.assets.values():
                 if (
                     series_key.asset in {asset.decision_asset, asset.manifest_asset}
@@ -1238,12 +1149,12 @@ class DecisionStartupCoordinator:
         self,
         lane: ResolvedLanePlan,
         feature_plan: FeaturePlan,
-        data_plan: Any,
+        history_requirements: Mapping[MarketSeriesKey, int],
         history: Mapping[MarketSeriesKey, Sequence[Any]],
         capacities: Mapping[MarketSeriesKey, int],
         positions: Mapping[MarketSeriesKey, SeriesStartupPosition],
         final_store: BarStore,
-    ) -> tuple[ModelRuntime, Mapping[str, Any], BarStore | None]:
+    ) -> tuple[ModelRuntime, Mapping[str, Any]]:
         lane_requirements = compile_lane_market_requirements(
             lane, self._config.timeframe_grid
         )
@@ -1255,45 +1166,120 @@ class DecisionStartupCoordinator:
                 if binding.model_spec.stateful
             )
         )
-        identity = self._lane_identity(lane, feature_plan, data_plan)
-        baseline_store = final_store
-        baseline_ready = self._ready_views(
-            lane,
-            lane_requirements,
-            baseline_store,
-            positions,
+        identity = self._lane_identity(lane, feature_plan)
+        trigger_position = positions.get(lane_requirements.trigger_series)
+        if trigger_position is None or trigger_position.warm_cutoff is None:
+            raise StartupLaneError("no warm trigger cutoff in retained history")
+        try:
+            trigger_bars = final_store.bars_at(
+                lane_requirements.trigger_series,
+                trigger_position.warm_cutoff,
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise StartupLaneError(
+                "no latest trigger cutoff in retained history"
+            ) from exc
+        expected_resume = self._config.timeframe_grid.expected_closed_cutoff(
+            lane.trigger_timeframe,
+            trigger_position.warm_cutoff,
         )
-        if not baseline_ready:
-            raise StartupLaneError("no ready causal lane cutoff in retained history")
-        resume_candidate, _ = baseline_ready[-1]
+        if not trigger_bars or trigger_bars[-1].market_as_of != expected_resume:
+            raise StartupLaneError("latest trigger cutoff is not retained")
+        resume_candidate = expected_resume
         self._validate_causal_history_at_cutoff(
-            lane,
-            feature_plan,
-            baseline_store,
+            history_requirements,
+            final_store,
             resume_candidate,
         )
+        view_builder = DecisionViewBuilder(final_store, self._config.timeframe_grid)
+        try:
+            view_builder.build(
+                lane,
+                lane_requirements,
+                resume_candidate,
+                input_read_cursor=_position_cursor(trigger_position),
+                lane_commit_watermark=LaneCommitWatermark(lane_id=lane.lane_id),
+            )
+        except (MarketViewNotReadyError, ValueError, KeyError) as exc:
+            raise StartupLaneError(
+                "latest trigger cutoff is not causally ready"
+            ) from exc
         checkpoint = await self._checkpoints.load(
             identity,
             expected_binding_ids=lane_stateful,
         )
         if checkpoint is not None and checkpoint.market_as_of > resume_candidate:
             raise StartupLaneError("checkpoint cutoff is after startup resume cutoff")
+        if (
+            checkpoint is not None
+            and self._config.timeframe_grid.expected_closed_cutoff(
+                lane.trigger_timeframe, checkpoint.market_as_of
+            )
+            != checkpoint.market_as_of
+        ):
+            raise StartupLaneError("checkpoint cutoff is not trigger-aligned")
+        effect_progress = await self._effect_progress.load(identity)
+        if effect_progress is not None:
+            if not isinstance(effect_progress, LaneEffectProgress):
+                raise StartupLaneError(
+                    "effect progress repository returned invalid record"
+                )
+            if effect_progress.identity != identity:
+                raise StartupLaneError("effect progress identity does not match lane")
+            if effect_progress.market_as_of > resume_candidate:
+                raise StartupLaneError(
+                    "effect progress is ahead of market reconstruction"
+                )
+            if (
+                self._config.timeframe_grid.expected_closed_cutoff(
+                    lane.trigger_timeframe, effect_progress.market_as_of
+                )
+                != effect_progress.market_as_of
+            ):
+                raise StartupLaneError("effect progress cutoff is not trigger-aligned")
 
-        effect_progress, catchup_cutoffs = await self._effect_progress_for_lane(
-            lane=lane,
-            data_plan=data_plan,
-            identity=identity,
-            resume_cutoff=resume_candidate,
-            ready_views=baseline_ready,
-            stateful_binding_ids=lane_stateful,
+        trigger_duration = self._config.timeframe_grid.duration(lane.trigger_timeframe)
+        previous_effect_cutoff = (
+            None if effect_progress is None else effect_progress.market_as_of
         )
-        catchup_store = await self._load_effect_catchup_store(
-            lane=lane,
-            feature_plan=feature_plan,
-            lane_requirements=self._lane_history_requirements(lane, feature_plan),
-            catchup_cutoffs=catchup_cutoffs,
-            resume_cutoff=resume_candidate,
+        initial_effect_cutoff = previous_effect_cutoff
+        first_unaccounted = (
+            resume_candidate
+            if previous_effect_cutoff is None
+            else previous_effect_cutoff + trigger_duration
         )
+        if (
+            previous_effect_cutoff is not None
+            and previous_effect_cutoff < resume_candidate
+            and first_unaccounted > resume_candidate
+        ):
+            raise StartupLaneError("effect progress is ahead of market reconstruction")
+        probe_result: Literal["published", "shadow", "foreign_entry"] | None = None
+        if previous_effect_cutoff != resume_candidate:
+            probe_result = await self._probe_effect_entry(
+                lane=lane,
+                identity=identity,
+                cutoff=first_unaccounted,
+            )
+            if probe_result == "foreign_entry":
+                await self._upsert_skip(
+                    identity=identity,
+                    skipped_from=first_unaccounted,
+                    skipped_through=first_unaccounted,
+                    reason="foreign_entry",
+                    trigger_duration=trigger_duration,
+                )
+                effect_progress = await self._save_effect_progress(
+                    identity=identity,
+                    market_as_of=first_unaccounted,
+                    last_disposition=None,
+                )
+            elif probe_result in {"published", "shadow"}:
+                effect_progress = await self._save_effect_progress(
+                    identity=identity,
+                    market_as_of=first_unaccounted,
+                    last_disposition=probe_result,
+                )
 
         replay_history: Mapping[MarketSeriesKey, Sequence[Any]] = history
         if lane_stateful and checkpoint is not None:
@@ -1304,9 +1290,7 @@ class DecisionStartupCoordinator:
                 )
                 replay_history = await self._load_reconstruction_history(
                     first_replay_cutoff=first_replay_cutoff,
-                    lane_requirements=self._lane_history_requirements(
-                        lane, feature_plan
-                    ),
+                    lane_requirements=history_requirements,
                     capacities=capacities,
                     positions=positions,
                 )
@@ -1324,7 +1308,7 @@ class DecisionStartupCoordinator:
             )
             replay_history = await self._load_reconstruction_history(
                 first_replay_cutoff=first_replay_cutoff,
-                lane_requirements=self._lane_history_requirements(lane, feature_plan),
+                lane_requirements=history_requirements,
                 capacities=capacities,
                 positions=positions,
             )
@@ -1340,11 +1324,9 @@ class DecisionStartupCoordinator:
         temp_runtime = ModelRuntime(
             lane,
             feature_plan,
-            data_plan,
             FeatureEngine(
                 self._feature_catalog, temp_store, self._config.timeframe_grid
             ),
-            self._data_resolver,
             self._runtime_catalog,
             self._config.timeframe_grid,
         )
@@ -1362,8 +1344,7 @@ class DecisionStartupCoordinator:
                 "reconstruction history does not reach startup resume cutoff"
             )
         self._validate_causal_history_at_cutoff(
-            lane,
-            feature_plan,
+            history_requirements,
             temp_store,
             resume_cutoff,
         )
@@ -1399,11 +1380,7 @@ class DecisionStartupCoordinator:
                             "retained history cannot bridge checkpoint next trigger transition"
                         )
                     replay_steps = [
-                        RewarmStep(
-                            lane_market_view=view,
-                            resolver_knowledge_cutoff=cutoff,
-                        )
-                        for cutoff, view in after
+                        RewarmStep(lane_market_view=view) for cutoff, view in after
                     ]
             else:
                 requirement_steps = max(
@@ -1428,11 +1405,7 @@ class DecisionStartupCoordinator:
                     )
                 state_inception_at = selected[0][0]
                 replay_steps = [
-                    RewarmStep(
-                        lane_market_view=view,
-                        resolver_knowledge_cutoff=cutoff,
-                    )
-                    for cutoff, view in selected
+                    RewarmStep(lane_market_view=view) for cutoff, view in selected
                 ]
             if replay_steps:
                 await temp_runtime.rewarm(replay_steps)
@@ -1463,14 +1436,79 @@ class DecisionStartupCoordinator:
                 )
         else:
             save_result = None
+
+        pending_trigger_cutoff: datetime | None = None
+        current_effect_cutoff = (
+            None if effect_progress is None else effect_progress.market_as_of
+        )
+        if lane_stateful:
+            # Stateful history is reconstructed through R with publication
+            # suppressed.  Progress follows the durable checkpoint only after
+            # the full rewarm and checkpoint save have succeeded.
+            if initial_effect_cutoff is None or initial_effect_cutoff < resume_cutoff:
+                skip_start = (
+                    initial_effect_cutoff + trigger_duration
+                    if initial_effect_cutoff is not None
+                    else (
+                        replay_steps[0].lane_market_view.market_as_of
+                        if replay_steps
+                        else resume_cutoff
+                    )
+                )
+                if probe_result is not None:
+                    skip_start = max(skip_start, first_unaccounted + trigger_duration)
+                skip_through = (
+                    resume_cutoff - trigger_duration
+                    if probe_result is not None and first_unaccounted == resume_cutoff
+                    else resume_cutoff
+                )
+                await self._upsert_skip(
+                    identity=identity,
+                    skipped_from=skip_start,
+                    skipped_through=skip_through,
+                    reason="restart_rewarm",
+                    trigger_duration=trigger_duration,
+                )
+                if (
+                    current_effect_cutoff is None
+                    or current_effect_cutoff < resume_cutoff
+                ):
+                    effect_progress = await self._save_effect_progress(
+                        identity=identity,
+                        market_as_of=resume_cutoff,
+                        last_disposition=None,
+                    )
+        else:
+            if current_effect_cutoff is None or current_effect_cutoff < resume_cutoff:
+                if probe_result in {"published", "shadow", "foreign_entry"}:
+                    skip_start = first_unaccounted + trigger_duration
+                else:
+                    skip_start = first_unaccounted
+                skip_through = resume_cutoff - trigger_duration
+                if skip_start <= skip_through:
+                    await self._upsert_skip(
+                        identity=identity,
+                        skipped_from=skip_start,
+                        skipped_through=skip_through,
+                        reason="restart",
+                        trigger_duration=trigger_duration,
+                    )
+                    effect_progress = await self._save_effect_progress(
+                        identity=identity,
+                        market_as_of=skip_through,
+                        last_disposition=None,
+                    )
+                if (
+                    effect_progress is None
+                    or effect_progress.market_as_of < resume_cutoff
+                ):
+                    pending_trigger_cutoff = resume_cutoff
         final_runtime = ModelRuntime(
             lane,
             feature_plan,
-            data_plan,
             FeatureEngine(
                 self._feature_catalog, final_store, self._config.timeframe_grid
             ),
-            self._data_resolver,
             self._runtime_catalog,
             self._config.timeframe_grid,
             state_store=temp_runtime.state_store,
@@ -1491,18 +1529,9 @@ class DecisionStartupCoordinator:
             "effect_progress_disposition": (
                 None if effect_progress is None else effect_progress.last_disposition
             ),
-            # Keep the bounded C4B evidence keys while the physical table and
-            # compatibility tests transition to the authority-neutral names.
-            "shadow_progress_cutoff": (
-                None if effect_progress is None else effect_progress.market_as_of
-            ),
-            "shadow_progress_disposition": (
-                None if effect_progress is None else effect_progress.last_disposition
-            ),
-            "catchup_cutoffs": catchup_cutoffs,
-            "catchup_step_count": len(catchup_cutoffs),
+            "pending_trigger_cutoff": pending_trigger_cutoff,
         }
-        return final_runtime, evidence, catchup_store
+        return final_runtime, evidence
 
 
 __all__ = [

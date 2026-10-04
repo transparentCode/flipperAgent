@@ -16,6 +16,10 @@ from apps.decision_app.api.routes import runtime as runtime_route
 from apps.decision_app.composition import (
     build_production_composition,
 )
+from apps.decision_app.domain.identity import (
+    compute_decision_execution_revision,
+    decision_id,
+)
 from apps.decision_app.domain.market_state import MarketSeriesKey
 from apps.decision_app.domain.view import DecisionViewBuilder
 from apps.decision_app.features.momentum import calculate_macd, calculate_rsi
@@ -24,9 +28,12 @@ from apps.decision_app.features.momentum_integration import (
     MOMENTUM_MACD_FEATURE_NAME,
     MOMENTUM_ROUTE_PROFILE_LOCKS,
     MOMENTUM_RSI_FEATURE_NAME,
+    MomentumBindingEnvelope,
+    build_momentum_feature_definitions,
     momentum_route_profile_digest,
     parse_momentum_binding_parameters,
 )
+from apps.decision_app.features.planning import FeatureCatalog
 from apps.decision_app.runtime.live import LiveDecisionRuntime
 from apps.decision_app.runtime.policy import DecisionPolicy
 from apps.decision_app.runtime.service import DecisionRuntimeGeneration, DecisionService
@@ -72,6 +79,9 @@ M3_SHA = "6fcd3d736524b513a63f244a3268478a658924cd571a62a72ec33958ad67972c"
 
 
 class _EmptyStreamClient:
+    async def xrange(self, *_args: object, **_kwargs: object) -> list[object]:
+        return []
+
     async def xrevrange(self, *_args: object, **_kwargs: object) -> list[object]:
         return []
 
@@ -249,7 +259,11 @@ async def _startup(
     if histories_override is None:
         for key in _series_keys(config):
             missing_index = None
-            count = 544
+            count = {
+                ("BTCUSDT", "1h"): 136,
+                ("BTCUSDT", "4h"): 272,
+                ("ETHUSDT", "4h"): 544,
+            }[(key.asset, key.timeframe)]
             if missing is not None and key == missing[0]:
                 missing_index = missing[1]
             histories[key] = _bar_series(
@@ -267,13 +281,10 @@ async def _startup(
         plugin_catalog=composition.plugin_catalog,
         feature_catalog=composition.feature_catalog,
         feature_policy=composition.feature_policy,
-        data_policy=composition.data_policy,
-        source_catalog=composition.data_source_catalog,
         runtime_plugin_catalog=composition.runtime_plugin_catalog,
         history_repository=repository,
         stream_client=_EmptyStreamClient(),
         checkpoint_repository=InMemoryCheckpointRepository(),
-        data_resolver=composition.data_resolver,
         policy_catalog=composition.policy_catalog,
     ).start()
     return startup, repository, histories
@@ -411,11 +422,84 @@ def test_composition_is_conditional_and_exact(fixture_config: DecisionConfig) ->
         ("MACD", "1"),
         ("RSI", "1"),
     }
-    assert (
-        composition.feature_catalog.resolve("RSI").history_requirements[0].bars == 208
+    assert all(
+        definition.history_requirement_resolver is not None
+        and not definition.history_requirements
+        for definition in composition.feature_catalog
+        if definition.name in {"RSI", "MACD"}
     )
+
+
+@pytest.mark.asyncio
+async def test_eth_history_change_does_not_change_btc_lane_identity(
+    fixture_config: DecisionConfig,
+) -> None:
+    composition = build_production_composition(fixture_config)
+    profiles: dict[str, MomentumBindingEnvelope] = {}
+    for lane in fixture_config.lane_specs():
+        parameters = _route_parameters(fixture_config, lane.lane_id)
+        envelope = parse_momentum_binding_parameters(
+            parameters,
+            expected_asset=lane.asset,
+            expected_decision_timeframe=lane.decision_timeframe,
+        )
+        if lane.asset == "ETHUSDT":
+            changed_profile = replace(
+                envelope.feature_profile,
+                macd_history_bars=envelope.feature_profile.macd_history_bars + 1,
+            )
+            envelope = replace(
+                envelope,
+                feature_profile=changed_profile,
+                route_profile_sha256="test-only-history-change",
+            )
+        profiles[envelope.route_key] = envelope
+
+    changed_definitions = build_momentum_feature_definitions(profiles)
+    changed_catalog = FeatureCatalog(
+        tuple(
+            definition
+            for definition in composition.feature_catalog
+            if definition.name
+            not in {MOMENTUM_RSI_FEATURE_NAME, MOMENTUM_MACD_FEATURE_NAME}
+        )
+        + changed_definitions
+    )
+    changed_composition = replace(composition, feature_catalog=changed_catalog)
+    baseline, _, _ = await _startup(fixture_config, composition)
+    changed, _, _ = await _startup(fixture_config, changed_composition)
+
+    def btc_decision_id(startup, lane_id: str) -> str:
+        lane = next(
+            item for item in startup.decision_plan.lanes if item.lane_id == lane_id
+        )
+        feature_plan = startup.feature_plans[lane_id]
+        execution_revision = compute_decision_execution_revision(
+            lane_id=lane.lane_id,
+            base_lane_revision=lane.effective_lane_revision,
+            feature_plan_fingerprint=feature_plan.feature_plan_fingerprint,
+            policy_name=lane.policy_name,
+            policy_version=lane.policy_version,
+            policy_parameters=lane.policy_parameters,
+        )
+        cutoff = startup.snapshot.lane_evidence[lane_id].resume_cutoff
+        assert cutoff is not None
+        return decision_id(
+            lane_id=lane.lane_id,
+            lane_revision=execution_revision,
+            market_as_of=cutoff,
+        )
+
+    btc_lanes = ("BTCUSDT:momentum_1h", "BTCUSDT:momentum_4h")
+    for lane_id in btc_lanes:
+        assert (
+            baseline.feature_plans[lane_id].feature_plan_fingerprint
+            == changed.feature_plans[lane_id].feature_plan_fingerprint
+        )
+        assert btc_decision_id(baseline, lane_id) == btc_decision_id(changed, lane_id)
     assert (
-        composition.feature_catalog.resolve("MACD").history_requirements[0].bars == 544
+        baseline.feature_plans["ETHUSDT:momentum_4h"].feature_plan_fingerprint
+        != changed.feature_plans["ETHUSDT:momentum_4h"].feature_plan_fingerprint
     )
 
 
@@ -518,13 +602,19 @@ async def test_d4_feature_and_momentum_runtime_parity(
         for evidence in startup.snapshot.lane_evidence.values()
     )
     assert startup.bar_store.capacities
-    assert set(startup.bar_store.capacities.values()) == {544}
+    assert {
+        (key.asset, key.timeframe): startup.bar_store.capacity_for(key)
+        for key in startup.bar_store.series_keys
+    } == {
+        ("BTCUSDT", "1h"): 136,
+        ("BTCUSDT", "4h"): 272,
+        ("ETHUSDT", "4h"): 544,
+    }
 
     for lane in startup.decision_plan.lanes:
         view = _view_for(fixture_config, startup, lane)
         prepared = await startup.runtimes[lane.lane_id].prepare_live(
             view,
-            resolver_knowledge_cutoff=view.market_as_of + timedelta(seconds=1),
         )
         envelope = parse_momentum_binding_parameters(
             _route_parameters(fixture_config, lane.lane_id),
@@ -608,7 +698,6 @@ async def test_route_tail_isolated_from_over_retained_history(
     base_view = _view_for(fixture_config, base_startup, target_lane)
     base_prepared = await base_startup.runtimes[target_lane.lane_id].prepare_live(
         base_view,
-        resolver_knowledge_cutoff=base_view.market_as_of + timedelta(seconds=1),
     )
 
     key = MarketSeriesKey(
@@ -617,7 +706,19 @@ async def test_route_tail_isolated_from_over_retained_history(
         instrument_id="BTC-USDT-PERP",
         timeframe="1h",
     )
-    altered_outer = list(base_histories[key])
+    duration = fixture_config.timeframe_grid.duration(key.timeframe)
+    first_route_bar = base_histories[key][0]
+    older_history = [
+        replace(
+            first_route_bar,
+            bar_open_at=first_route_bar.bar_open_at - duration * offset,
+            bar_close_at=first_route_bar.bar_close_at - duration * offset,
+            market_as_of=first_route_bar.market_as_of - duration * offset,
+        )
+        for offset in range(100, 0, -1)
+    ]
+    over_retained_route = [*older_history, *base_histories[key]]
+    altered_outer = list(over_retained_route)
     altered_outer[0] = replace(
         altered_outer[0],
         close=altered_outer[0].close + Decimal("0.1"),
@@ -645,12 +746,12 @@ async def test_route_tail_isolated_from_over_retained_history(
     inner_view = _view_for(fixture_config, inner_startup, target_lane)
     outer_prepared = await outer_startup.runtimes[target_lane.lane_id].prepare_live(
         outer_view,
-        resolver_knowledge_cutoff=outer_view.market_as_of + timedelta(seconds=1),
     )
     inner_prepared = await inner_startup.runtimes[target_lane.lane_id].prepare_live(
         inner_view,
-        resolver_knowledge_cutoff=inner_view.market_as_of + timedelta(seconds=1),
     )
+    assert len(base_histories[key]) == 136
+    assert base_startup.bar_store.capacity_for(key) == 136
     assert outer_prepared.feature_resolution.shared_features == (
         base_prepared.feature_resolution.shared_features
     )
@@ -729,13 +830,10 @@ async def test_startup_series_failure_blocks_only_dependent_lanes(
         plugin_catalog=composition.plugin_catalog,
         feature_catalog=composition.feature_catalog,
         feature_policy=composition.feature_policy,
-        data_policy=composition.data_policy,
-        source_catalog=composition.data_source_catalog,
         runtime_plugin_catalog=composition.runtime_plugin_catalog,
         history_repository=FailingSeriesRepository(),
         stream_client=_EmptyStreamClient(),
         checkpoint_repository=InMemoryCheckpointRepository(),
-        data_resolver=composition.data_resolver,
         policy_catalog=composition.policy_catalog,
     ).start()
 
@@ -788,13 +886,10 @@ async def test_eth_startup_manifest_timeout_isolated_from_btc_lanes(
         plugin_catalog=composition.plugin_catalog,
         feature_catalog=composition.feature_catalog,
         feature_policy=composition.feature_policy,
-        data_policy=composition.data_policy,
-        source_catalog=composition.data_source_catalog,
         runtime_plugin_catalog=composition.runtime_plugin_catalog,
         history_repository=repository,
         stream_client=_EmptyStreamClient(),
         checkpoint_repository=InMemoryCheckpointRepository(),
-        data_resolver=composition.data_resolver,
         policy_catalog=composition.policy_catalog,
         manifest_store=ManifestStore(),
     ).start()

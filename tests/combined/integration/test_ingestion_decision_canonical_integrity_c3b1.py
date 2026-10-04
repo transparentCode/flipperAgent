@@ -182,7 +182,11 @@ def test_c3b1_gates_recompute_from_raw_evidence() -> None:
         ),
         (
             "production_scope",
-            lambda value: value["production_scope"].update(decision_assets_empty=False),
+            lambda value: value["production_scope"].update(
+                decision_assets_empty=not value["production_scope"][
+                    "decision_assets_empty"
+                ]
+            ),
             "production_scope",
         ),
     )

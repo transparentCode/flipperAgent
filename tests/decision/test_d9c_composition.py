@@ -28,8 +28,6 @@ def test_d9c_production_composition_is_explicit_and_closed() -> None:
     assert [item.name for item in composition.feature_catalog] == ["ATR"]
     assert composition.policy_catalog.resolve("passthrough", "1").kind == "passthrough"
     assert composition.policy_catalog.resolve("priority", "1").kind == "priority"
-    assert len(composition.data_source_catalog) == 0
-    assert composition.data_policy.concepts == {}
     assert composition.feature_policy.allowed_features == ()
 
 

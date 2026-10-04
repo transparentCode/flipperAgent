@@ -610,20 +610,6 @@ class DecisionService:
                     "latest_market_as_of": cursor.latest_market_as_of,
                     "blocked_reason": blocked.get(stream_key),
                 }
-            relay = getattr(runtime, "price_relay", None)
-            if relay is not None:
-                inputs["price_relay"] = {
-                    relay_id: {
-                        "stream_key": plan.stream_key,
-                        "asset": plan.asset,
-                        "timeframe": plan.timeframe,
-                        "latest_market_as_of": progress.latest_market_as_of,
-                        "continuity_status": progress.continuity_status,
-                        "gap_evidence": progress.gap_evidence,
-                    }
-                    for relay_id, plan in relay.plans.items()
-                    for progress in (relay.progress[relay_id],)
-                }
         lifecycle_evidence = self._last_lifecycle_evidence
         configured_lane_count = self._configured_lane_count or (
             0 if generation is None else len(generation.startup.decision_plan.lanes)
@@ -1185,11 +1171,6 @@ class DecisionService:
             and item.reason == FORWARD_CANONICAL_MARKET_GAP_REASON
             for item in result.input_results
         )
-        relay_failure = any(
-            item.continuity_status != "CONTINUOUS"
-            or item.publication_outcome in {"FAILED", "CONFLICT"}
-            for item in result.relay_results.values()
-        )
         if hard_failure:
             if self._service_state not in _CONTROL_STATES:
                 self._service_state = "DEGRADED"
@@ -1219,11 +1200,6 @@ class DecisionService:
             self._market_error = "D9B reported reconstruction required"
             self._last_error = self._market_error
             self._schedule_automatic_recovery(self._market_error)
-        elif relay_failure:
-            if self._service_state not in _CONTROL_STATES:
-                self._service_state = "DEGRADED"
-            self._market_error = "D9D reported price-relay continuity failure"
-            self._last_error = self._market_error
         else:
             if self._service_state not in _CONTROL_STATES:
                 self._market_error = None
@@ -1326,11 +1302,6 @@ class DecisionService:
             or any(
                 item.status in {"RECONSTRUCTION_REQUIRED", "INVALID", "HALTED"}
                 for item in result.lane_results.values()
-            )
-            or any(
-                item.continuity_status != "CONTINUOUS"
-                or item.publication_outcome in {"FAILED", "CONFLICT"}
-                for item in result.relay_results.values()
             )
         )
 

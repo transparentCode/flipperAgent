@@ -1,9 +1,8 @@
 # `decision_app` semantic contracts
 
-This document freezes meaning and invariants for D0. It is intentionally
-language-neutral: later implementation may choose Python dataclasses, Pydantic
-models, or equivalent internal types, but it must preserve these fields and
-rules.
+This document records the frozen D0 semantics and the implemented DA-2 runtime
+amendments. It is intentionally language-neutral: implementation types must
+preserve these fields and rules.
 
 ## Identity vocabulary
 
@@ -23,8 +22,8 @@ an authoritative result.
 
 ## Independent progress contracts
 
-The runtime does not use one shared progress marker for input reading, model-lane
-commit, and price handling. These are distinct contracts:
+The runtime does not use one shared progress marker for input reading and
+model-lane commit. These are distinct contracts:
 
 ```text
 InputReadCursor
@@ -35,26 +34,16 @@ InputReadCursor
 LaneCommitWatermark
   lane_id
   latest market_as_of whose state and publication disposition committed
-
-PriceRelayProgress
-  relay plan identity
-  latest canonical market_as_of successfully handled
-  continuity status / detected gap evidence
 ```
 
 `InputReadCursor` advances when the canonical stream reader observes and accepts
 an input into the shared `BarStore`; it is not held back by model evaluation or
 publication. Each `LaneCommitWatermark` advances independently, only after that
 lane has successfully published its authoritative result or recorded its final
-no-signal disposition and committed proposed state. A lane failure leaves that
-lane's `LaneCommitWatermark` unchanged without rolling back the input cursor or BarStore;
-unrelated lanes and PriceRelay continue.
-
-`PriceRelayProgress` is independent of lane progress. PriceRelay must not silently
-claim continuity after a detected input gap. Because current downstream risk uses
-`PriceUpdate.high`/`low` for SL/TP monitoring, the exact missed-price catch-up or
-discard semantics are deferred to a dedicated downstream risk-compatibility proof;
-D0 selects neither policy.
+no-signal/skip disposition and committed proposed state. A lane failure leaves
+that lane's `LaneCommitWatermark` unchanged without rolling back the input cursor
+or BarStore. Decision has no price-relay or price-progress cursor; downstream
+price continuity requires a separately approved risk-side feed change.
 
 ## Time contract
 
@@ -74,8 +63,8 @@ seconds/milliseconds guessing is prohibited.
 | `fetched_at` | Time this runtime acquired the snapshot. | Operational provenance only. |
 
 `decision_ready_at` must never be used as a substitute for `market_as_of` or
-`signal_time`. A decision may be ready later than its market cutoff without
-changing its market identity.
+`signal_time`. It is also compared with `market_as_of` solely by the configured
+freshness gate; a stale result is skipped, never published.
 
 ## DecisionContext
 
@@ -102,12 +91,11 @@ DecisionContext
   shared_features
     feature_name -> value with feature provenance
   external_data
-    semantic request key -> DataSnapshot
+    always empty in the current Decision runtime
   upstream_artifacts
     dependency slot -> ModelArtifact
   provenance
-    input read cursor, observed source cutoffs, stream ids, history cutoffs,
-    resolver decisions
+    input read cursor, observed source cutoffs, stream ids, history cutoffs
 ```
 
 The model receives no DB pool, Valkey client, HTTP client, scraper object,
@@ -138,7 +126,8 @@ ModelSpec
 The spec does not contain asset-specific wiring or operator policy. A model may
 produce an analytical artifact without direction or a trade decision. A stateful
 spec must declare enough information for the runtime to reconstruct it from
-durable PIT-safe inputs.
+durable canonical inputs. DA-2 rejects any model spec with non-empty
+`intrinsic_data_requirements`; external-data execution is not active.
 
 ## ResolvedModelBinding
 
@@ -161,7 +150,6 @@ ResolvedModelBinding
   dependencies
     named slot -> binding_id
   effective_feature_requirements
-  effective_data_requirements
   risk_profile_key
   publication_authority
 ```
@@ -171,94 +159,16 @@ inside the same lane, must be acyclic, and must resolve to compatible artifact
 types. A dependency is executed once per binding/as-of and its artifact is reused
 for all dependents.
 
-## DataRequirement and DataRequest
+## Retained external-data contracts (inactive)
 
-Models declare semantic requirements; the runtime resolves physical acquisition.
-
-```text
-DataRequirement
-  concept
-    OPEN_INTEREST | BTC_DOMINANCE | LIQUIDATION_HEATMAP | ...
-  required
-  replay_support_required
-  max_age_at_market_as_of
-  max_available_lag
-  alignment
-    exact | at_or_before | bounded_window
-```
-
-At evaluation time, the resolver materializes a request:
-
-```text
-DataRequest
-  request_key
-  concept
-  asset / optional scope
-  market_as_of
-  required
-  freshness_bound
-  mode
-    LIVE | REPLAY
-  resolver_knowledge_cutoff
-```
-
-`DataRequirement` is a model-level semantic demand. It does not name physical
-sources or claim an infrastructure capability. `DataPolicy` is owned by
-`decision_app` and supplies physical routing, source allow-lists, freshness and
-availability rules, and the resolver's resolved capability:
-
-```text
-DataPolicy
-  live_source_order
-  replay_source_order
-  allowed_physical_sources
-  freshness_and_availability_rules
-  resolved_capability
-    LIVE_AND_REPLAY | LIVE_ONLY | UNAVAILABLE
-```
-
-`resolver_knowledge_cutoff` is runtime-supplied context for the selected mode; it
-is not a model-controlled physical-source choice.
-
-The runtime runs one bounded request phase before model evaluation. Equivalent
-requests for a lane/as-of are single-flight and share the resulting snapshot.
-Missing optional data is explicit. Missing required data makes the binding
-unavailable for that trigger; it is not silently replaced by an older or live-only
-value.
-
-## DataSnapshot
-
-```text
-DataSnapshot
-  request_key
-  concept
-  payload
-  event_time
-  available_at
-  fetched_at
-  source
-  resolved_capability
-    LIVE_AND_REPLAY | LIVE_ONLY | UNAVAILABLE
-  provenance
-  freshness_check
-```
-
-For `LIVE` resolution, the policy is runtime cache → PIT database → one permitted
-bounded scraper request. For `REPLAY`, only PIT durable sources are eligible.
-The resolver must enforce these point-in-time rules:
-
-```text
-represented observation/window end <= market_as_of
-event_time <= market_as_of
-cache latest result must be bounded by market_as_of
-REPLAY available_at <= resolver_knowledge_cutoff
-```
-
-For replay, `resolver_knowledge_cutoff` is the simulated evaluation cutoff. For
-live resolution it is the runtime's actual resolver cutoff used with the
-freshness policy. `available_at` must be known before a snapshot can satisfy a
-PIT-sensitive requirement. `fetched_at` is never evidence that the source was
-historically available.
+The shared library retains `DataRequirement`, `DataRequest`, `DataSnapshot`,
+`validate_data_snapshot`, `DataMode`, and `ResolvedCapability` for compatibility.
+These types do not imply a current Decision acquisition path. The planner rejects
+non-empty `ModelSpec.intrinsic_data_requirements`; `ResolvedModelBinding` has no
+effective data-requirements field; and runtime `DecisionContext.external_data` is
+empty. Reintroducing external data requires a separately reviewed implementation
+that proves causal availability and replay/PIT semantics before any source is
+activated.
 
 ## FeaturePlan and feature policy
 
@@ -342,7 +252,7 @@ Stateful evaluation is transactional at the runtime boundary:
 committed_state + complete_context + upstream_artifacts
     -> ModelOutcome(proposed_next_state)
     -> policy
-    -> successful idempotent publication (or final no-signal result)
+    -> successful idempotent publication, final no-signal, or explicit skip
     -> commit proposed_next_state
     -> advance affected LaneCommitWatermark
 ```
@@ -353,15 +263,13 @@ publication failure or conflict leaves committed state and the affected
 `BarStore` progress. If the required trigger has a causal gap, missing required
 data, unavailable dependency, or model exception, the binding transitions to
 `DEGRADED` or `INVALID`. The old state cannot be used for a later trigger as if
-the missed transition succeeded; input reading, unrelated lanes, and PriceRelay
-continue.
+the missed transition succeeded; input reading and unrelated lanes continue.
 
-The runtime must causal-rewarm before returning the binding to `LIVE` by replaying
-the same execution chain used in live operation: causal bar views, shared
-features, replay-safe external data, upstream dependencies in topological order,
-then the stateful binding, with publication suppressed. In V1, a stateful binding
-may not consume `LIVE_ONLY` external data; every stateful input must be
-reconstructable from durable PIT-safe `LIVE_AND_REPLAY` data.
+The runtime must causally rewarm before returning the binding to `LIVE` by
+replaying the same execution chain used in live operation: causal bar views,
+shared features, upstream dependencies in topological order, then the stateful
+binding, with publication suppressed. External-data execution is inactive and
+non-empty intrinsic data requirements are rejected.
 
 ## DecisionPolicy result
 
@@ -373,6 +281,7 @@ DecisionPolicyResult
   contributing_artifacts
   normalization / gating / weighting evidence
   policy_version
+  feature_plan_fingerprint
   effective_lane_revision
   binding_config_fingerprints
   decision_ready_at
@@ -384,29 +293,32 @@ of this result.
 
 ## TradeSignal boundary
 
-The future decision output is conceptually:
+The active Decision-to-Risk payload contains:
 
 ```text
 TradeSignal
-  decision_id
   asset
-  decision_timeframe
-  market_as_of
-  signal_time
-  decision_ready_at
+  timeframe
+  timestamp: epoch seconds derived from market_as_of
   direction
   conviction
-  price_at_market_as_of
-  risk_profile_key
+  price
   idempotency_key
-  metadata / contributor provenance
+  model_name: configured risk_profile_key
+  metadata: market_as_of_utc, decision identity/revision, policy and contributor provenance
 ```
+
+The Valkey stream entry ID is milliseconds derived from the same
+`market_as_of`; it is not the unit of `TradeSignal.timestamp`. The freshness
+gate uses `decision_ready_at - market_as_of`; `decision_ready_at` is not used as
+market identity.
 
 The stable passthrough model identity or explicitly configured composed
 `risk_profile_key` is the risk-selection key. Contributor model names belong in
 metadata/provenance and must not accidentally become a composed lane's risk key.
-The existing downstream numeric `TradeSignal.model_name`/timestamp boundary is
-an adapter concern for a later coordinated migration; D0 does not alter it.
+Risk compares the seconds-valued signal timestamp with wall-clock seconds. A
+separate `PriceUpdate` timestamp is milliseconds and Risk converts it to seconds;
+Decision does not publish that type.
 
 ## Publication identity and idempotency
 
@@ -416,14 +328,17 @@ Canonical identity serialization is deterministic:
 lane_id = canonical asset + decision timeframe + configured lane identity
 binding_config_fingerprint = SHA-256(canonical binding parameters + runtime binding)
 binding_id = lane_id + named slot + plugin/version + binding_config_fingerprint
-effective_lane_revision = SHA-256(canonical effective lane + policy configuration)
-decision_id = lane_id + effective_lane_revision + canonical UTC market_as_of
+LaneExecutionIdentity = (lane_id, effective_lane_revision, feature_plan_fingerprint)
+decision_execution_revision = SHA-256(lane_id + base lane revision + feature plan + policy)
+decision_id = lane_id + decision_execution_revision + canonical UTC market_as_of
 ```
 
-The canonical serialization includes effective parameters, runtime binding, and
-policy configuration. Therefore a parameter, binding, or policy change produces a
-new fingerprint/revision and cannot reuse an identity for materially different
-behavior. The authoritative lane uses a deterministic transport entry identity
+The canonical serialization includes effective parameters, runtime binding,
+feature-plan identity, and policy configuration. Therefore a material change
+produces a new fingerprint/revision and cannot reuse an identity for different
+behavior. The physical `data_plan_fingerprint` columns remain in the checkpoint
+and effect-progress tables for compatibility and are written as the constant
+`none`; they are excluded from runtime identity. The authoritative lane uses a deterministic transport entry identity
 derived from `decision_id`/`market_as_of`. Raw Valkey XADD rejects a duplicate
 explicit ID; an adapter must first look up the existing entry and compare the
 identity and payload. An identical retry is success, while a same-identity,
@@ -454,19 +369,41 @@ The startup sequence is:
 ```text
 resolve streams and static graph
   -> capture InputReadCursor / stream tails / candle cutoffs
-  -> warm BarStores from Timescale through cutoffs
-  -> replay causal chain: bars -> shared features -> replay-safe external data
-  -> execute upstream dependencies topologically, then stateful bindings
-  -> verify every required cutoff and reconstructed binding
-  -> begin live reads after captured stream ids
-  -> process only post-cutoff events
+  -> warm BarStores from Timescale through latest retained trigger cutoffs R
+  -> validate required lane history at R
+  -> probe exact first-unaccounted publication ID X
+  -> rewarm stateful bindings through R with publication suppressed
+  -> record compact skip ranges; do not replay stale stateless effects
+  -> install lanes and begin reads after captured stream IDs
+  -> evaluate stateless R only when the live freshness gate permits it
 ```
 
-Temporary broker interruption resumes from the in-memory `InputReadCursor` when the
-stream is continuous. A detected stream gap causes causal reconstruction of the
-affected `BarStore` views and lanes from Timescale, with new input and lane
-progress positions. Full restart reconstructs state and resumes input reading; stale
-historical decisions are not republished from a persistent PEL in V1.
+Temporary broker interruption resumes from the in-memory `InputReadCursor` when
+the stream is continuous. A proven forward canonical market gap requests one
+`INPUT_RECONSTRUCTION` generation rebuild; generic lane-level
+`RECONSTRUCTION_REQUIRED` remains lane-local and does not request this rebuild.
+Full restart validates history at the latest retained trigger cutoff `R`; it does
+not replay stateless publication effects across downtime. For stored effect
+progress `P`, startup probes the exact ID for `P + duration` (or `R` when no `P`
+exists). An exact current-identity entry reconciles as already effected; a
+different identity at that ID is recorded as `foreign_entry`, not republished.
+Stateless cutoffs after the probe and before `R` are one `restart` skip range;
+only `R` may be evaluated live, and only when fresh. Stateful lanes rewarm every
+required transition through `R` with publication suppressed, then record the
+missed range as `restart_rewarm` and resume at `R + trigger_duration`. Skipped
+progress uses NULL disposition; the append-only skip table preserves the reason
+and range without one row per cutoff.
+
+## Freshness and effect skips
+
+Authoritative `SIGNAL` decisions and all shadow observations are published only
+when `decision_ready_at - market_as_of <= signal_freshness_seconds` (300 seconds
+by default). Exactly 300 seconds is fresh. A stale result commits proposed state
+and advances its lane watermark with disposition `skipped`, but publishes no
+signal or shadow observation. Its cutoff is recorded in the append-only
+`decision.lane_effect_skips` table; latest effect progress advances with a NULL
+disposition for skipped work. Restart ranges and foreign exact-ID entries use the
+same durable skip trail, without expanding into one row per skipped cutoff.
 
 ## Service availability and recovery
 
@@ -532,28 +469,12 @@ service `STOPPED` while application shutdown is unclean. These rules describe
 bounded implementation behavior and do not certify a deployment, backend
 leak-freedom, or soak.
 
-## PriceRelay
+## Downstream price continuity
 
-```text
-PriceRelayPlan
-  asset
-  source lane / canonical price source
-  timeframes
-  publication cadence
-  downstream risk compatibility
-```
-
-PriceRelay runs from canonical BarStore observations independently of model-lane
-evaluation and records `PriceRelayProgress`. A model failure cannot block eligible
-price handling or advance of unrelated lane state. If PriceRelay detects a gap,
-it enters an explicit unresolved/degraded condition rather than silently asserting
-continuous SL/TP coverage. The recovery/catch-up policy is a later downstream risk
-compatibility gate because `risk_app` uses price high/low observations for SL/TP
-monitoring.
-
-The relay is independently configured and may publish eligible prices while model
-bindings are warming, degraded, unavailable, or policy-suppressed. Model, data,
-scraper, and policy failures cannot prevent eligible price updates.
+Decision does not own or publish `price_update:*`. Risk-side stop-loss,
+take-profit, and mark-to-market price continuity requires a separately approved
+downstream feed change. DA-2 does not alter Risk, Execution, or Portfolio
+contracts.
 
 ## Asset lifecycle and control states
 
@@ -567,6 +488,5 @@ STOPPED    -> no evaluation until a new authoritative live transition
 ```
 
 Asset lifecycle never invents model bindings or timeframes. A configured lane may
-also be disabled without changing the asset manifest. PriceRelay behavior is an
-explicit policy field. Open-position and liquidation behavior remains a downstream
-risk contract and is not invented here.
+also be disabled without changing the asset manifest. Open-position and
+liquidation behavior remains a downstream risk contract and is not invented here.

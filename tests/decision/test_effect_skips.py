@@ -1,0 +1,127 @@
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+import pytest
+
+from apps.decision_app.domain.state import LaneExecutionIdentity
+from apps.decision_app.storage.effect_skips import (
+    InMemoryLaneEffectSkipsRepository,
+    LaneEffectSkip,
+    LaneEffectSkipConflictError,
+    LaneEffectSkipsRepository,
+)
+
+ROOT = Path(__file__).resolve().parents[2]
+BASE = datetime(2026, 1, 5, tzinfo=UTC)
+IDENTITY = LaneExecutionIdentity(
+    lane_id="BTCUSDT:momentum_1h",
+    effective_lane_revision="lane-r1",
+    feature_plan_fingerprint="features-f1",
+)
+
+
+def _skip(through_index: int, *, reason: str = "restart") -> LaneEffectSkip:
+    return LaneEffectSkip(
+        identity=IDENTITY,
+        skipped_from=BASE + timedelta(hours=1),
+        skipped_through=BASE + timedelta(hours=through_index),
+        cutoff_count=through_index,
+        reason=reason,  # type: ignore[arg-type]
+    )
+
+
+@pytest.mark.asyncio
+async def test_in_memory_skip_upsert_is_idempotent_and_extends_one_range() -> None:
+    repository = InMemoryLaneEffectSkipsRepository()
+
+    first = await repository.upsert(_skip(3))
+    identical = await repository.upsert(_skip(3))
+    extended = await repository.upsert(_skip(5))
+    stale_retry = await repository.upsert(_skip(4))
+
+    assert first == identical
+    assert extended.skipped_through == BASE + timedelta(hours=5)
+    assert extended.cutoff_count == 5
+    assert stale_retry == extended
+    assert repository.records == (extended,)
+
+
+@pytest.mark.asyncio
+async def test_skip_start_cannot_be_reused_for_a_different_reason() -> None:
+    repository = InMemoryLaneEffectSkipsRepository()
+    await repository.upsert(_skip(3))
+
+    with pytest.raises(LaneEffectSkipConflictError, match="different reason"):
+        await repository.upsert(_skip(4, reason="stale"))
+
+
+class _Connection:
+    def __init__(self) -> None:
+        self.query = ""
+        self.args: tuple[object, ...] = ()
+
+    async def fetchrow(self, query: str, *args: object, **_kwargs: object):
+        self.query = query
+        self.args = args
+        return {
+            "skipped_from": args[3],
+            "skipped_through": args[4],
+            "cutoff_count": args[5],
+            "reason": args[6],
+            "recorded_at": BASE,
+        }
+
+
+class _Acquire:
+    def __init__(self, connection: _Connection) -> None:
+        self.connection = connection
+
+    async def __aenter__(self) -> _Connection:
+        return self.connection
+
+    async def __aexit__(self, *_args: object) -> None:
+        return None
+
+
+class _Pool:
+    def __init__(self, connection: _Connection) -> None:
+        self.connection = connection
+
+    def acquire(self) -> _Acquire:
+        return _Acquire(self.connection)
+
+
+@pytest.mark.asyncio
+async def test_durable_skip_upsert_merges_range_idempotently() -> None:
+    connection = _Connection()
+    repository = LaneEffectSkipsRepository(_Pool(connection))
+    result = await repository.upsert(_skip(5))
+
+    assert result.skipped_through == BASE + timedelta(hours=5)
+    assert result.cutoff_count == 5
+    assert "ON CONFLICT" in connection.query
+    assert "GREATEST(" in connection.query
+    assert "EXCLUDED.cutoff_count" in connection.query
+    assert connection.args[:3] == (
+        IDENTITY.lane_id,
+        IDENTITY.effective_lane_revision,
+        IDENTITY.feature_plan_fingerprint,
+    )
+
+
+def test_skip_table_creation_is_idempotent_and_keeps_the_declared_identity() -> None:
+    schema = (ROOT / "src/apps/decision_app/storage/schema.sql").read_text()
+    declaration = schema.split(
+        "CREATE TABLE IF NOT EXISTS decision.lane_effect_skips", maxsplit=1
+    )[1]
+    assert "PRIMARY KEY (" in declaration
+    assert "lane_id," in declaration
+    assert "effective_lane_revision," in declaration
+    assert "feature_plan_fingerprint," in declaration
+    assert "skipped_from" in declaration
+    assert (
+        "reason IN ('restart', 'restart_rewarm', 'stale', 'foreign_entry')"
+        in declaration
+    )

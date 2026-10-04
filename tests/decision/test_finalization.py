@@ -246,7 +246,6 @@ async def test_real_sr_analytical_no_signal_commits_encoded_state_and_watermark(
         steps.append(
             RewarmStep(
                 lane_market_view=_view(view_builder, lane, bar),
-                resolver_knowledge_cutoff=bar.market_as_of,
             )
         )
     await runtime.rewarm(tuple(steps))
@@ -258,7 +257,6 @@ async def test_real_sr_analytical_no_signal_commits_encoded_state_and_watermark(
     view = _view(view_builder, lane, next_bar)
     prepared = await runtime.prepare_live(
         view,
-        resolver_knowledge_cutoff=next_bar.market_as_of,
     )
     evaluation = DecisionPolicy(DecisionPolicyCatalog([PASSTHROUGH_V1])).evaluate(
         lane,
@@ -292,7 +290,6 @@ async def test_state_commit_ineligible_blocks_policy_and_cannot_finalize() -> No
     view = _view(view_builder, lane, first_live_bar)
     prepared = await runtime.prepare_live(
         view,
-        resolver_knowledge_cutoff=first_live_bar.market_as_of,
     )
     assert prepared.state_commit_eligible is False
     evaluation = DecisionPolicy(DecisionPolicyCatalog([PASSTHROUGH_V1])).evaluate(

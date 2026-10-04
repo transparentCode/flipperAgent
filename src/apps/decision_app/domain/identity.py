@@ -104,7 +104,6 @@ def compute_decision_execution_revision(
     lane_id: str,
     base_lane_revision: str,
     feature_plan_fingerprint: str,
-    data_plan_fingerprint: str,
     policy_name: str,
     policy_version: str,
     policy_parameters: Mapping[str, Any],
@@ -115,7 +114,6 @@ def compute_decision_execution_revision(
         ("lane_id", lane_id),
         ("base_lane_revision", base_lane_revision),
         ("feature_plan_fingerprint", feature_plan_fingerprint),
-        ("data_plan_fingerprint", data_plan_fingerprint),
         ("policy_name", policy_name),
         ("policy_version", policy_version),
     ):
@@ -125,7 +123,6 @@ def compute_decision_execution_revision(
             "lane_id": lane_id,
             "base_lane_revision": base_lane_revision,
             "feature_plan_fingerprint": feature_plan_fingerprint,
-            "data_plan_fingerprint": data_plan_fingerprint,
             "policy": {
                 "name": policy_name,
                 "version": policy_version,
@@ -138,9 +135,8 @@ def compute_decision_execution_revision(
 def lane_execution_identity(
     lane: Any,
     feature_plan: Any,
-    data_plan: Any,
 ) -> Any:
-    """Derive the exact D6 lane identity without constructing a runtime.
+    """Derive the exact lane identity without constructing a runtime.
 
     The local import keeps the low-level fingerprint module independent from
     the state store while giving startup and the D11B controller one canonical
@@ -150,19 +146,15 @@ def lane_execution_identity(
     lane_id = getattr(lane, "lane_id", None)
     revision = getattr(lane, "effective_lane_revision", None)
     feature_fingerprint = getattr(feature_plan, "feature_plan_fingerprint", None)
-    data_fingerprint = getattr(data_plan, "data_plan_fingerprint", None)
     if not all(
         isinstance(value, str) and value.strip()
         for value in (
             lane_id,
             revision,
             feature_fingerprint,
-            data_fingerprint,
         )
     ):
-        raise TypeError(
-            "lane, feature_plan, and data_plan must expose exact identity fields"
-        )
+        raise TypeError("lane and feature_plan must expose exact identity fields")
     identity_type = import_module(
         "apps.decision_app.domain.state"
     ).LaneExecutionIdentity
@@ -170,7 +162,6 @@ def lane_execution_identity(
         lane_id=lane_id,
         effective_lane_revision=revision,
         feature_plan_fingerprint=feature_fingerprint,
-        data_plan_fingerprint=data_fingerprint,
     )
 
 

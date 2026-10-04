@@ -12,17 +12,8 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Any, Literal
 
-from apps.decision_app.data.resolver import (
-    BindingDataRequest,
-    DataError,
-    DataPlan,
-    DataRequestError,
-    DataResolution,
-    DataResolver,
-    materialize_data_request,
-    validate_data_plan_against_lane,
-)
 from apps.decision_app.domain.contracts import ResolvedModelBinding
+from apps.decision_app.domain.identity import lane_execution_identity
 from apps.decision_app.domain.market_state import TimeframeGrid
 from apps.decision_app.domain.state import (
     BindingRuntimeState,
@@ -40,13 +31,10 @@ from apps.decision_app.features.planning import (
 from apps.decision_app.planning.planner import ResolvedLanePlan
 from apps.decision_app.runtime.plugins import RuntimePluginCatalog
 from libs.contracts.decision import (
-    DataMode,
-    DataRequirement,
     DecisionContext,
     DecisionModelPlugin,
     ModelArtifact,
     ModelOutcome,
-    ModelRequestContext,
     require_utc,
 )
 
@@ -131,7 +119,6 @@ class PreparedLaneExecution:
     market_as_of: datetime
     mode: Literal["LIVE"]
     feature_resolution: FeatureResolution
-    data_resolution: DataResolution
     binding_results: Mapping[str, BindingExecutionResult]
     stateful_binding_ids: tuple[str, ...]
     prepared_state_transitions: Mapping[str, PreparedStateTransition]
@@ -146,8 +133,6 @@ class PreparedLaneExecution:
             raise ValueError("PreparedLaneExecution mode must be LIVE")
         if not isinstance(self.feature_resolution, FeatureResolution):
             raise TypeError("feature_resolution must be FeatureResolution")
-        if not isinstance(self.data_resolution, DataResolution):
-            raise TypeError("data_resolution must be DataResolution")
         if self.feature_resolution.lane_id != self.identity.lane_id:
             raise ValueError("feature resolution lane_id does not match identity")
         if self.feature_resolution.base_lane_revision != (
@@ -160,18 +145,6 @@ class PreparedLaneExecution:
             raise ValueError("feature resolution fingerprint does not match identity")
         if self.feature_resolution.market_as_of != self.market_as_of:
             raise ValueError("feature resolution cutoff does not match execution")
-        if self.data_resolution.lane_id != self.identity.lane_id:
-            raise ValueError("data resolution lane_id does not match identity")
-        if self.data_resolution.base_lane_revision != (
-            self.identity.effective_lane_revision
-        ):
-            raise ValueError("data resolution revision does not match identity")
-        if self.data_resolution.data_plan_fingerprint != (
-            self.identity.data_plan_fingerprint
-        ):
-            raise ValueError("data resolution fingerprint does not match identity")
-        if self.data_resolution.market_as_of != self.market_as_of:
-            raise ValueError("data resolution cutoff does not match execution")
         if not isinstance(self.binding_results, Mapping):
             raise TypeError("binding_results must be a mapping")
         results: dict[str, BindingExecutionResult] = {}
@@ -199,11 +172,8 @@ class PreparedLaneExecution:
                     )
             results[binding_id] = result
         feature_binding_ids = set(self.feature_resolution.bindings)
-        data_binding_ids = set(self.data_resolution.bindings)
-        if set(results) != feature_binding_ids or set(results) != data_binding_ids:
-            raise ValueError(
-                "binding_results must exactly match feature and data resolutions"
-            )
+        if set(results) != feature_binding_ids:
+            raise ValueError("binding_results must exactly match feature resolutions")
         stateful_ids = _normalize_ids(
             self.stateful_binding_ids,
             field_name="stateful_binding_ids",
@@ -283,22 +253,13 @@ class PreparedLaneExecution:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class RewarmStep:
-    """One supplied historical causal view and resolver knowledge cutoff."""
+    """One supplied historical causal view for publication-free reconstruction."""
 
     lane_market_view: LaneMarketView
-    resolver_knowledge_cutoff: datetime
 
     def __post_init__(self) -> None:
         if not isinstance(self.lane_market_view, LaneMarketView):
             raise TypeError("lane_market_view must be a LaneMarketView")
-        require_utc(
-            self.resolver_knowledge_cutoff,
-            field_name="resolver_knowledge_cutoff",
-        )
-        if self.resolver_knowledge_cutoff < self.lane_market_view.market_as_of:
-            raise ValueError(
-                "resolver_knowledge_cutoff must be at or after lane market_as_of"
-            )
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -352,13 +313,6 @@ def _freeze_transition_map(
     return FrozenMapping(dict(sorted(values.items())))
 
 
-@dataclass(frozen=True, slots=True)
-class _RequestPhase:
-    requests: tuple[BindingDataRequest, ...]
-    unavailable: Mapping[str, str]
-    invalid: Mapping[str, str]
-
-
 class ModelRuntime:
     """Execute one resolved lane without policy, publication, or I/O."""
 
@@ -366,9 +320,7 @@ class ModelRuntime:
         self,
         resolved_lane: ResolvedLanePlan,
         feature_plan: FeaturePlan,
-        data_plan: DataPlan,
         feature_engine: FeatureEngine,
-        data_resolver: DataResolver,
         runtime_plugin_catalog: RuntimePluginCatalog,
         timeframe_grid: TimeframeGrid,
         state_store: LaneStateStore | None = None,
@@ -377,25 +329,15 @@ class ModelRuntime:
             raise TypeError("resolved_lane must be a ResolvedLanePlan")
         if not isinstance(feature_plan, FeaturePlan):
             raise TypeError("feature_plan must be a FeaturePlan")
-        if not isinstance(data_plan, DataPlan):
-            raise TypeError("data_plan must be a DataPlan")
         if not isinstance(feature_engine, FeatureEngine):
             raise TypeError("feature_engine must be a FeatureEngine")
-        if not isinstance(data_resolver, DataResolver):
-            raise TypeError("data_resolver must be a DataResolver")
         if not isinstance(runtime_plugin_catalog, RuntimePluginCatalog):
             raise TypeError("runtime_plugin_catalog must be a RuntimePluginCatalog")
         if not isinstance(timeframe_grid, TimeframeGrid):
             raise TypeError("timeframe_grid must be a TimeframeGrid")
         timeframe_grid.duration(resolved_lane.trigger_timeframe)
         validate_feature_plan_against_lane(feature_plan, resolved_lane)
-        validate_data_plan_against_lane(data_plan, resolved_lane)
-        identity = LaneExecutionIdentity(
-            lane_id=resolved_lane.lane_id,
-            effective_lane_revision=resolved_lane.effective_lane_revision,
-            feature_plan_fingerprint=feature_plan.feature_plan_fingerprint,
-            data_plan_fingerprint=data_plan.data_plan_fingerprint,
-        )
+        identity = lane_execution_identity(resolved_lane, feature_plan)
         stateful_ids = tuple(
             sorted(
                 binding.binding_id
@@ -428,9 +370,7 @@ class ModelRuntime:
 
         self._lane = resolved_lane
         self._feature_plan = feature_plan
-        self._data_plan = data_plan
         self._feature_engine = feature_engine
-        self._data_resolver = data_resolver
         self._timeframe_grid = timeframe_grid
         self._plugins = plugins
         self._bindings_by_id = bindings_by_id
@@ -463,20 +403,10 @@ class ModelRuntime:
     async def prepare_live(
         self,
         lane_market_view: LaneMarketView,
-        *,
-        resolver_knowledge_cutoff: datetime,
     ) -> PreparedLaneExecution:
         """Prepare one LIVE evaluation; never commits proposed state."""
 
         self._validate_lane_market_view(lane_market_view)
-        require_utc(
-            resolver_knowledge_cutoff,
-            field_name="resolver_knowledge_cutoff",
-        )
-        if resolver_knowledge_cutoff < lane_market_view.market_as_of:
-            raise ValueError(
-                "resolver_knowledge_cutoff must be at or after market_as_of"
-            )
         if self.stateful_binding_ids:
             if self._pending_state_execution is not None:
                 raise StateTransactionError(
@@ -496,33 +426,9 @@ class ModelRuntime:
             self._degrade_live_stateful("feature_resolution_failed")
             raise
 
-        try:
-            request_phase = self._request_phase(
-                lane_market_view,
-                feature_resolution,
-                mode="LIVE",
-                resolver_knowledge_cutoff=resolver_knowledge_cutoff,
-                candidate_binding_ids=set(self._bindings_by_id),
-                state_records=self._state_store.records,
-            )
-            data_resolution = await self._resolve_requests(
-                request_phase.requests,
-                mode="LIVE",
-                market_as_of=lane_market_view.market_as_of,
-                resolver_knowledge_cutoff=resolver_knowledge_cutoff,
-            )
-        except asyncio.CancelledError:
-            self._degrade_live_stateful("data_resolution_cancelled")
-            raise
-        except Exception:
-            self._degrade_live_stateful("data_resolution_failed")
-            raise
-
         results, transitions = self._execute_bindings(
             lane_market_view,
             feature_resolution,
-            data_resolution,
-            request_phase,
             mode="LIVE",
             candidate_binding_ids=set(self._bindings_by_id),
             state_records=self._state_store.records,
@@ -537,7 +443,6 @@ class ModelRuntime:
             market_as_of=lane_market_view.market_as_of,
             mode="LIVE",
             feature_resolution=feature_resolution,
-            data_resolution=data_resolution,
             binding_results=results,
             stateful_binding_ids=self.stateful_binding_ids,
             prepared_state_transitions=transitions,
@@ -551,26 +456,24 @@ class ModelRuntime:
     async def prepare(
         self,
         lane_market_view: LaneMarketView,
-        *,
-        resolver_knowledge_cutoff: datetime,
     ) -> PreparedLaneExecution:
         """Compatibility spelling for the explicit LIVE preparation operation."""
 
-        return await self.prepare_live(
-            lane_market_view,
-            resolver_knowledge_cutoff=resolver_knowledge_cutoff,
-        )
+        return await self.prepare_live(lane_market_view)
 
     def commit_prepared(
         self,
         prepared: PreparedLaneExecution,
-        disposition: Literal["published", "no_signal", "shadow"],
+        disposition: Literal["published", "no_signal", "shadow", "skipped"],
     ) -> StateCommitReceipt:
         """Commit only after a future policy/publication boundary authorizes it."""
 
         if not isinstance(prepared, PreparedLaneExecution):
             raise TypeError("prepared must be PreparedLaneExecution")
-        if self._lane.authority == "shadow" and disposition != "shadow":
+        if self._lane.authority == "shadow" and disposition not in {
+            "shadow",
+            "skipped",
+        }:
             raise StateTransactionError(
                 "shadow lane state commits require shadow disposition"
             )
@@ -652,26 +555,9 @@ class ModelRuntime:
                     self._lane,
                     view,
                 )
-                request_phase = self._request_phase(
-                    view,
-                    feature_resolution,
-                    mode="REPLAY",
-                    resolver_knowledge_cutoff=step.resolver_knowledge_cutoff,
-                    candidate_binding_ids=closure,
-                    state_records=shadow,
-                    rewarm=True,
-                )
-                data_resolution = await self._resolve_requests(
-                    request_phase.requests,
-                    mode="REPLAY",
-                    market_as_of=view.market_as_of,
-                    resolver_knowledge_cutoff=step.resolver_knowledge_cutoff,
-                )
                 results, transitions = self._execute_bindings(
                     view,
                     feature_resolution,
-                    data_resolution,
-                    request_phase,
                     mode="REPLAY",
                     candidate_binding_ids=closure,
                     state_records=shadow,
@@ -706,7 +592,7 @@ class ModelRuntime:
             raise
         except RewarmError:
             raise
-        except (DataError, RuntimeExecutionError, ValueError) as exc:
+        except (RuntimeExecutionError, ValueError) as exc:
             raise RewarmError(f"causal rewarm failed: {exc}") from exc
 
         if final_cutoff is None:
@@ -720,126 +606,12 @@ class ModelRuntime:
             reconstructed_binding_ids=self._ordered_binding_ids(closure),
         )
 
-    def _request_phase(
-        self,
-        lane_market_view: LaneMarketView,
-        feature_resolution: FeatureResolution,
-        *,
-        mode: DataMode,
-        resolver_knowledge_cutoff: datetime,
-        candidate_binding_ids: set[str],
-        state_records: Mapping[str, BindingRuntimeState],
-        rewarm: bool = False,
-    ) -> _RequestPhase:
-        requests: list[BindingDataRequest] = []
-        unavailable: dict[str, str] = {}
-        invalid: dict[str, str] = {}
-        for binding_id in self._ordered_binding_ids(candidate_binding_ids):
-            binding = self._bindings_by_id[binding_id]
-            feature_binding = feature_resolution.bindings.get(binding_id)
-            if feature_binding is None:
-                invalid[binding_id] = "missing_feature_resolution"
-                if not rewarm:
-                    self._mark_invalid_if_stateful(binding, invalid[binding_id])
-                continue
-            if not feature_binding.available:
-                unavailable[binding_id] = "required_feature_unavailable"
-                if not rewarm:
-                    self._mark_degraded_if_initialized(binding, unavailable[binding_id])
-                continue
-            state_record = state_records.get(binding_id)
-            if (
-                binding.model_spec.stateful
-                and not rewarm
-                and (state_record is None or state_record.health != "LIVE")
-            ):
-                unavailable[binding_id] = "state_rewarm_required"
-                continue
-            state_snapshot = (
-                state_record.committed_state
-                if binding.model_spec.stateful and state_record is not None
-                else None
-            )
-            context = self._request_context(
-                binding,
-                lane_market_view,
-                feature_binding.features,
-                mode=mode,
-                upstream_artifacts={},
-            )
-            try:
-                dynamic = self._validate_dynamic_requirements(
-                    self._plugins[binding_id].data_requests(
-                        context,
-                        state_snapshot,
-                    ),
-                    binding,
-                )
-            except Exception:  # noqa: BLE001 - plugin contract boundary
-                invalid[binding_id] = "data_requests_invalid"
-                if not rewarm:
-                    self._mark_invalid_if_stateful(binding, invalid[binding_id])
-                continue
-            for requirement in dynamic:
-                route = self._data_plan.routes.get(requirement.concept)
-                if route is None:
-                    if requirement.required:
-                        unavailable[binding_id] = "required_data_unrouted"
-                        if not rewarm:
-                            self._mark_degraded_if_initialized(
-                                binding,
-                                unavailable[binding_id],
-                            )
-                    continue
-                try:
-                    request = materialize_data_request(
-                        resolved_lane=self._lane,
-                        resolved_binding=binding,
-                        data_plan=self._data_plan,
-                        dynamic_requirement=requirement,
-                        mode=mode,
-                        market_as_of=lane_market_view.market_as_of,
-                        resolver_knowledge_cutoff=resolver_knowledge_cutoff,
-                    )
-                except DataRequestError:
-                    invalid[binding_id] = "dynamic_data_request_invalid"
-                    if not rewarm:
-                        self._mark_invalid_if_stateful(binding, invalid[binding_id])
-                    break
-                requests.append(
-                    BindingDataRequest(binding_id=binding_id, request=request)
-                )
-        return _RequestPhase(
-            requests=tuple(requests),
-            unavailable=unavailable,
-            invalid=invalid,
-        )
-
-    async def _resolve_requests(
-        self,
-        requests: Sequence[BindingDataRequest],
-        *,
-        mode: DataMode,
-        market_as_of: datetime,
-        resolver_knowledge_cutoff: datetime,
-    ) -> DataResolution:
-        return await self._data_resolver.resolve(
-            self._data_plan,
-            self._lane,
-            requests,
-            mode=mode,
-            market_as_of=market_as_of,
-            resolver_knowledge_cutoff=resolver_knowledge_cutoff,
-        )
-
     def _execute_bindings(
         self,
         lane_market_view: LaneMarketView,
         feature_resolution: FeatureResolution,
-        data_resolution: DataResolution,
-        request_phase: _RequestPhase,
         *,
-        mode: DataMode,
+        mode: Literal["LIVE", "REPLAY"],
         candidate_binding_ids: set[str],
         state_records: Mapping[str, BindingRuntimeState],
         rewarm: bool = False,
@@ -848,23 +620,21 @@ class ModelRuntime:
         transitions: dict[str, PreparedStateTransition] = {}
         for binding_id in self._ordered_binding_ids(candidate_binding_ids):
             binding = self._bindings_by_id[binding_id]
-            if binding_id in request_phase.invalid:
+            feature_binding = feature_resolution.bindings.get(binding_id)
+            if feature_binding is None:
                 results[binding_id] = BindingExecutionResult(
                     binding_id=binding_id,
                     status="INVALID",
-                    reason=request_phase.invalid[binding_id],
+                    reason="missing_feature_resolution",
                 )
+                if not rewarm:
+                    self._mark_invalid_if_stateful(
+                        binding,
+                        "missing_feature_resolution",
+                    )
                 continue
-            if binding_id in request_phase.unavailable:
-                results[binding_id] = BindingExecutionResult(
-                    binding_id=binding_id,
-                    status="UNAVAILABLE",
-                    reason=request_phase.unavailable[binding_id],
-                )
-                continue
-            data_binding = data_resolution.bindings.get(binding_id)
-            if data_binding is None or not data_binding.available:
-                reason = "required_data_unavailable"
+            if not feature_binding.available:
+                reason = "required_feature_unavailable"
                 results[binding_id] = BindingExecutionResult(
                     binding_id=binding_id,
                     status="UNAVAILABLE",
@@ -872,6 +642,18 @@ class ModelRuntime:
                 )
                 if not rewarm:
                     self._mark_degraded_if_initialized(binding, reason)
+                continue
+            state_record = state_records.get(binding_id)
+            if (
+                binding.model_spec.stateful
+                and not rewarm
+                and (state_record is None or state_record.health != "LIVE")
+            ):
+                results[binding_id] = BindingExecutionResult(
+                    binding_id=binding_id,
+                    status="UNAVAILABLE",
+                    reason="state_rewarm_required",
+                )
                 continue
             blocked = tuple(
                 provider_id
@@ -895,8 +677,6 @@ class ModelRuntime:
                 dependency_slot: results[provider_id].outcome.artifact
                 for dependency_slot, provider_id in binding.dependencies.items()
             }
-            feature_binding = feature_resolution.bindings[binding_id]
-            state_record = state_records.get(binding_id)
             state_snapshot = (
                 state_record.committed_state
                 if binding.model_spec.stateful and state_record is not None
@@ -906,7 +686,6 @@ class ModelRuntime:
                 binding,
                 lane_market_view,
                 feature_binding.features,
-                data_binding.snapshots,
                 upstream,
                 mode=mode,
             )
@@ -944,75 +723,14 @@ class ModelRuntime:
                 )
         return results, transitions
 
-    @staticmethod
-    def _validate_dynamic_requirements(
-        returned: object,
-        binding: ResolvedModelBinding,
-    ) -> tuple[DataRequirement, ...]:
-        if isinstance(returned, (str, bytes)) or not isinstance(returned, Sequence):
-            raise RuntimeExecutionError(
-                f"binding {binding.slot_name} data_requests must return a sequence"
-            )
-        declared = {
-            requirement.concept: requirement
-            for requirement in binding.effective_data_requirements
-        }
-        seen: set[str] = set()
-        normalized: list[DataRequirement] = []
-        for requirement in returned:
-            if not isinstance(requirement, DataRequirement):
-                raise RuntimeExecutionError(
-                    f"binding {binding.slot_name} returned a non-DataRequirement"
-                )
-            if requirement.concept in seen:
-                raise RuntimeExecutionError(
-                    f"binding {binding.slot_name} returned duplicate data concept"
-                )
-            seen.add(requirement.concept)
-            if declared.get(requirement.concept) != requirement:
-                raise RuntimeExecutionError(
-                    f"binding {binding.slot_name} returned undeclared or drifted "
-                    f"data concept {requirement.concept}"
-                )
-            normalized.append(requirement)
-        return tuple(normalized)
-
-    def _request_context(
-        self,
-        binding: ResolvedModelBinding,
-        view: LaneMarketView,
-        features: Mapping[str, Any],
-        *,
-        mode: DataMode,
-        upstream_artifacts: Mapping[str, ModelArtifact],
-    ) -> ModelRequestContext:
-        return ModelRequestContext(
-            asset=self._lane.asset,
-            venue=self._lane.venue,
-            instrument_id=self._lane.instrument_id,
-            lane_id=self._lane.lane_id,
-            binding_id=binding.binding_id,
-            market_as_of=view.market_as_of,
-            trigger_timeframe=self._lane.trigger_timeframe,
-            decision_timeframe=self._lane.decision_timeframe,
-            trigger_mode=self._lane.trigger_mode,
-            decision_bar=view.decision_bar,
-            decision_bar_closed=view.decision_bar_closed,
-            causal_bar_views=view.causal_bar_views,
-            shared_features=features,
-            upstream_artifacts=upstream_artifacts,
-            provenance=self._provenance(mode),
-        )
-
     def _decision_context(
         self,
         binding: ResolvedModelBinding,
         view: LaneMarketView,
         features: Mapping[str, Any],
-        external_data: Mapping[str, Any],
         upstream_artifacts: Mapping[str, ModelArtifact],
         *,
-        mode: DataMode,
+        mode: Literal["LIVE", "REPLAY"],
     ) -> DecisionContext:
         return DecisionContext(
             asset=self._lane.asset,
@@ -1028,17 +746,16 @@ class ModelRuntime:
             decision_bar_closed=view.decision_bar_closed,
             causal_bar_views=view.causal_bar_views,
             shared_features=features,
-            external_data=external_data,
+            external_data={},
             upstream_artifacts=upstream_artifacts,
             provenance=self._provenance(mode),
         )
 
-    def _provenance(self, mode: DataMode) -> Mapping[str, str]:
+    def _provenance(self, mode: Literal["LIVE", "REPLAY"]) -> Mapping[str, str]:
         return {
             "lane_id": self._identity.lane_id,
             "effective_lane_revision": self._identity.effective_lane_revision,
             "feature_plan_fingerprint": self._identity.feature_plan_fingerprint,
-            "data_plan_fingerprint": self._identity.data_plan_fingerprint,
             "mode": mode,
         }
 

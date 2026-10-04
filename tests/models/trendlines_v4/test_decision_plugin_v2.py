@@ -176,7 +176,6 @@ def test_v2_initialization_requires_explicit_v2_binding() -> None:
         trigger_mode="on_bar_close",
         dependencies={},
         effective_feature_requirements=(),
-        effective_data_requirements=(),
         risk_profile_key=None,
         publication_authority="shadow",
     )

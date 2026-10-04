@@ -681,7 +681,6 @@ def _observation_payload(observation: ShadowDecisionObservation) -> dict[str, ob
         "conviction": observation.conviction,
         "decision_execution_revision": observation.decision_execution_revision,
         "feature_plan_fingerprint": observation.feature_plan_fingerprint,
-        "data_plan_fingerprint": observation.data_plan_fingerprint,
     }
 
 
@@ -1521,7 +1520,7 @@ def identity_payload(evidence: Mapping[str, object]) -> dict[str, object]:
         "protected_hashes": evidence.get("protected_hashes"),
         "routes": EXPECTED_LANES,
         "shadow_stream_prefix": "decision:shadow:",
-        "shadow_schema_version": "decision.shadow.v1",
+        "shadow_schema_version": "decision.shadow.v2",
         "shadow_stream_maxlen": 1000,
         "shadow_stream_approximate": True,
         "resource_limit": {
@@ -1578,7 +1577,7 @@ async def run_c4a_certification() -> dict[str, object]:
         },
         "fixture_hashes": _fixture_hashes(),
         "shadow_contract": {
-            "schema_version": "decision.shadow.v1",
+            "schema_version": "decision.shadow.v2",
             "stream_prefix": "decision:shadow:",
             "entry_id": "int(market_as_of.timestamp() * 1000)-0",
             "maxlen": 1000,

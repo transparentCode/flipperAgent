@@ -23,14 +23,12 @@ inputs: {
     shape: document
     link: "../../../src/apps/ingestion_app/domain/candle.py"
   }
-
   lifecycle: {
     class: source
     label: "ingestion lifecycle\nasset availability only"
     shape: document
     link: "../../../src/libs/common/asset_manifest.py"
   }
-
   config: {
     class: source
     label: "static model catalog\nplugin + lane bindings"
@@ -45,79 +43,51 @@ runtime: {
     class: runtime
     label: "InputReadCursor\ncanonical reader position"
   }
-
   bar_store: {
     class: runtime
     label: "Causal BarStore\ncontinues independent of lanes"
   }
-
   context: {
     class: contract
-    label: "DecisionContext\nmarket_as_of\ncausal bars + provenance"
+    label: "DecisionContext\nmarket_as_of + causal bars\nexternal_data = empty"
     shape: document
     link: "./contracts.md"
   }
-
   feature_plan: {
     class: runtime
-    label: "FeaturePlan\nshared policy-gated features"
+    label: "FeaturePlan\nper-lane history requirements"
   }
-
-  data_request: {
-    class: contract
-    label: "DataRequest\nsemantic concept + freshness\nresolver knowledge cutoff"
-    shape: document
-  }
-
-  data_snapshot: {
-    class: contract
-    label: "DataSnapshot\nevent / available / fetched\nresolver capability"
-    shape: document
-  }
-
   model: {
     class: runtime
     label: "Model plugin\nsynchronous semantic evaluation"
   }
-
   artifact: {
     class: contract
     label: "ModelArtifact\ntyped analytical result"
     shape: document
   }
-
   outcome: {
     class: contract
-    label: "ModelOutcome\noptional decision\nproposed next state"
+    label: "ModelOutcome\noptional decision + proposed state"
     shape: document
   }
-
   policy: {
     class: runtime
-    label: "DecisionPolicy\nlane-local composition"
+    label: "DecisionPolicy\nlane-local composition + freshness"
   }
-
   signal: {
     class: contract
-    label: "TradeSignal\nsignal_time = market_as_of\ndecision_ready_at\nrisk_profile_key + idempotency"
+    label: "TradeSignal\nsignal_time = market_as_of\ndecision_ready_at + risk identity"
     shape: document
   }
-
-  price: {
-    class: contract
-    label: "PriceUpdate\nindependent relay path"
-    shape: document
-  }
-
-  price_progress: {
-    class: contract
-    label: "PriceRelayProgress\nhandled position + gap evidence"
-    shape: document
-  }
-
   lane_commit: {
     class: contract
     label: "LaneCommitWatermark\nper-lane commit position"
+    shape: document
+  }
+  effect_skips: {
+    class: contract
+    label: "LaneEffectSkips\nstale / restart / foreign-entry ranges"
     shape: document
   }
 }
@@ -130,28 +100,24 @@ physical: {
     label: "Timescale\ncanonical durable history"
     shape: cylinder
   }
-
-  scraper: {
-    class: storage
-    label: "scraper_service\nLIVE bounded source only"
-    shape: package
-  }
-
   streams: {
     class: storage
-    label: "Valkey\nsignals:* + price_update:*"
+    label: "Valkey\ningestion input + signals:*"
     shape: queue
+  }
+  decision_db: {
+    class: storage
+    label: "Decision PostgreSQL\ncheckpoint + effect progress + skip trail"
+    shape: cylinder
   }
 }
 
 downstream: {
   label: "Consumers"
-
   risk: {
     class: boundary
-    label: "risk_app\nprice + signal consumers"
+    label: "risk_app\nsignal consumer"
   }
-
   execution: {
     class: boundary
     label: "execution_app\norder consumer"
@@ -160,35 +126,29 @@ downstream: {
 
 bounds: {
   label: "Runtime deadline and ownership envelope"
-
   startup: {
-    class: gate
+    class: rule
     label: "Initial resources + first generation\none absolute 120s deadline"
   }
-
   wire: {
     class: rule
     label: "Valkey commands + DB acquisition\nnative I/O budget <= 5s"
   }
-
   database: {
     class: rule
-    label: "Canonical history + checkpoint/effect repositories\nSQL / transaction operation\none remaining 15s budget"
+    label: "Canonical history + checkpoint/effect repositories\nSQL / transaction operation <= 15s"
   }
-
   control: {
-    class: gate
+    class: rule
     label: "Control admission + effect-task drain\nbounded by 30s"
   }
-
   cleanup: {
     class: rule
-    label: "One lazy aggregate cleanup budget <= 5s\nstartup failure or final teardown"
+    label: "One lazy aggregate cleanup budget <= 5s"
   }
-
   ownership: {
     class: boundary
-    label: "Service STOPPED = owned task quiescence\nclean lifespan = owned resource teardown\nunconfirmed release is retained/fenced"
+    label: "STOPPED = owned task quiescence\nunconfirmed resource release is retained/fenced"
   }
 }
 
@@ -197,27 +157,21 @@ inputs.lifecycle -> runtime.context: "asset availability"
 inputs.config -> runtime.context: "resolved lane/binding"
 runtime.input_cursor -> runtime.bar_store: "append accepted observation"
 runtime.bar_store -> runtime.context: "causal views"
-physical.timescale -> runtime.bar_store: "warmup / gap rebuild"
-runtime.context -> runtime.feature_plan: "requirements"
-runtime.context -> runtime.data_request: "semantic demand"
-runtime.data_request -> physical.scraper: "only permitted LIVE request"
-runtime.data_request -> physical.timescale: "PIT lookup"
-physical.scraper -> runtime.data_snapshot: "payload + fetched_at"
-physical.timescale -> runtime.data_snapshot: "payload + available_at"
-runtime.data_snapshot -> runtime.model: "complete external context"
+physical.timescale -> runtime.bar_store: "startup / reconstruction history"
+runtime.context -> runtime.feature_plan: "compiled requirements"
 runtime.feature_plan -> runtime.model: "shared feature values"
-runtime.context -> runtime.model: "DecisionContext"
+runtime.context -> runtime.model: "complete causal DecisionContext"
 runtime.model -> runtime.artifact: "analytical artifact"
-runtime.model -> runtime.outcome: "optional decision + proposed state"
+runtime.model -> runtime.outcome: "decision + proposed next state"
 runtime.artifact -> runtime.policy: "upstream artifact"
 runtime.outcome -> runtime.policy: "binding outcome"
-runtime.policy -> runtime.signal: "zero or one authoritative result"
-runtime.bar_store -> runtime.price: "independent eligible price"
+runtime.policy -> runtime.signal: "fresh result or no-signal disposition"
 runtime.signal -> physical.streams: "signals:*"
-runtime.price -> physical.streams: "price_update:*"
-runtime.price -> runtime.price_progress: "handled / published"
-runtime.signal -> runtime.lane_commit: "publication success / no-signal + state commit"
-physical.streams -> downstream.risk: "live transport"
+runtime.signal -> runtime.lane_commit: "publication success + state commit"
+runtime.lane_commit -> physical.decision_db: "checkpoint / latest effect progress"
+runtime.policy -> runtime.effect_skips: "stale publication suppressed"
+runtime.effect_skips -> physical.decision_db: "idempotent append-only range"
+physical.streams -> downstream.risk: "live signal transport"
 downstream.risk -> downstream.execution: "orders"
 
 inputs.config -> bounds.startup: "approved defaults from configs/decision/global.yaml"
@@ -225,8 +179,7 @@ bounds.startup -> runtime.input_cursor: "install after bounded startup"
 physical.streams -> bounds.wire: "Valkey command"
 physical.timescale -> bounds.wire: "DB acquisition"
 bounds.wire -> bounds.database: "remaining operation budget"
-physical.timescale -> bounds.database: "canonical history SQL / transaction phase"
-runtime.lane_commit -> bounds.database: "checkpoint/effect SQL / transaction phase"
+physical.decision_db -> bounds.database: "state/effect transactions"
 bounds.startup -> bounds.cleanup: "startup failure path"
 bounds.database -> bounds.cleanup: "rollback / release on expiry"
 bounds.control -> bounds.cleanup: "drain before cleanup clock"
@@ -234,41 +187,30 @@ bounds.cleanup -> bounds.ownership: "confirmed release or fail-closed fence"
 
 rules: {
   label: "Non-negotiable semantics"
-
   causal: {
     class: rule
-    label: "market_as_of is causal cutoff;\nrepresented end <= cutoff"
+    label: "market_as_of is causal cutoff\nrepresented end <= cutoff"
   }
-
   state: {
     class: rule
-    label: "publish success -> commit state\nthen advance LaneCommitWatermark"
+    label: "publish / no-signal / explicit skip\ncommit state before lane watermark"
   }
-
   progress: {
     class: rule
-    label: "InputReadCursor + BarStore continue;\nlane failure cannot block unrelated lanes"
+    label: "InputReadCursor + BarStore continue\nlane failure cannot block unrelated lanes"
   }
-
-  price_recovery: {
+  freshness: {
     class: rule
-    label: "PriceRelay gap is explicit;\nmissed-price policy needs risk proof"
+    label: "SIGNAL and shadow age <= 300s\notherwise commit skip; no publication"
   }
-
   replay: {
     class: rule
-    label: "REPLAY: available_at <= knowledge cutoff;\nnever live scraper"
-  }
-
-  price_independent: {
-    class: rule
-    label: "model failure cannot block PriceRelay"
+    label: "startup state reconstruction suppresses publication\nexternal data runtime is inactive"
   }
 }
 
 runtime.context -> rules.causal: "must satisfy"
 runtime.outcome -> rules.state: "must satisfy"
 runtime.bar_store -> rules.progress: "independent progress"
-runtime.data_snapshot -> rules.replay: "provenance gate"
-runtime.price_progress -> rules.price_recovery: "continuity evidence"
-runtime.price -> rules.price_independent: "separate path"
+runtime.policy -> rules.freshness: "before publication"
+runtime.effect_skips -> rules.replay: "durable skip trail"

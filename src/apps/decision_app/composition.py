@@ -12,7 +12,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from apps.decision_app.data.resolver import DataPolicy, DataResolver, DataSourceCatalog
 from apps.decision_app.domain.contracts import ResolvedModelBinding
 from apps.decision_app.features.definitions import SR_ATR_DEFINITION
 from apps.decision_app.features.momentum_integration import (
@@ -44,8 +43,6 @@ from libs.models.trendlines_v4.adapters.decision_plugin import (
 
 EMPTY_FEATURE_POLICY_NAME = "decision-empty"
 EMPTY_FEATURE_POLICY_VERSION = "1"
-EMPTY_DATA_POLICY_NAME = "decision-empty"
-EMPTY_DATA_POLICY_VERSION = "1"
 
 
 def sr_initialization_requirement(
@@ -83,9 +80,6 @@ class DecisionComposition:
     feature_catalog: FeatureCatalog
     feature_policy: FeaturePolicy
     policy_catalog: DecisionPolicyCatalog
-    data_source_catalog: DataSourceCatalog
-    data_policy: DataPolicy
-    data_resolver: DataResolver
 
 
 def _configured_momentum_profiles(
@@ -191,12 +185,6 @@ def build_production_composition(config: DecisionConfig) -> DecisionComposition:
     momentum_profiles = _configured_momentum_profiles(config)
     momentum_enabled = bool(momentum_profiles)
     observer_enabled = _validate_regression_observer_configuration(config)
-    source_catalog = DataSourceCatalog(())
-    data_policy = DataPolicy(
-        name=EMPTY_DATA_POLICY_NAME,
-        version=EMPTY_DATA_POLICY_VERSION,
-        concepts={},
-    )
     plugin_specs = [SR_MODEL_SPEC, TRENDLINES_MODEL_SPEC]
     runtime_definitions = [
         RuntimePluginDefinition(
@@ -264,15 +252,10 @@ def build_production_composition(config: DecisionConfig) -> DecisionComposition:
         feature_catalog=FeatureCatalog(feature_definitions),
         feature_policy=feature_policy,
         policy_catalog=DecisionPolicyCatalog((PASSTHROUGH_V1, PRIORITY_V1)),
-        data_source_catalog=source_catalog,
-        data_policy=data_policy,
-        data_resolver=DataResolver(source_catalog),
     )
 
 
 __all__ = [
-    "EMPTY_DATA_POLICY_NAME",
-    "EMPTY_DATA_POLICY_VERSION",
     "EMPTY_FEATURE_POLICY_NAME",
     "EMPTY_FEATURE_POLICY_VERSION",
     "DecisionComposition",

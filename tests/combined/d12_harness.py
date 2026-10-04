@@ -23,7 +23,6 @@ import valkey.asyncio as valkey
 import yaml
 
 from apps.decision_app.composition import build_production_composition
-from apps.decision_app.data.resolver import compile_data_plan
 from apps.decision_app.domain.identity import lane_execution_identity
 from apps.decision_app.features.planning import compile_feature_plan
 from apps.decision_app.planning.planner import compile_decision_plan
@@ -732,12 +731,7 @@ async def _seed_effect_progress(
             composition.feature_policy,
             config.timeframe_grid,
         )
-        data_plan = compile_data_plan(
-            lane,
-            composition.data_policy,
-            composition.data_source_catalog,
-        )
-        identity = lane_execution_identity(lane, feature_plan, data_plan)
+        identity = lane_execution_identity(lane, feature_plan)
         progress = LaneEffectProgress.create(
             identity=identity,
             market_as_of=market_as_of,
@@ -752,7 +746,7 @@ async def _seed_effect_progress(
                 "lane_id": identity.lane_id,
                 "effective_lane_revision": identity.effective_lane_revision,
                 "feature_plan_fingerprint": identity.feature_plan_fingerprint,
-                "data_plan_fingerprint": identity.data_plan_fingerprint,
+                "data_plan_fingerprint": "none",
                 "market_as_of": market_as_of,
                 "last_disposition": None,
                 "save_result": result_value,

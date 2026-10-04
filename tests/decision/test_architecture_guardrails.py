@@ -12,7 +12,6 @@ SHARED_FACTORY_MODULES = (
     ROOT / "src" / "libs" / "common" / "db" / "pool_manager.py",
 )
 GENERIC_MODULES = {
-    "data/resolver.py",
     "runtime/live.py",
     "runtime/models.py",
     "planning/planner.py",
@@ -74,6 +73,21 @@ def test_decision_app_does_not_import_legacy_runtime_apps() -> None:
     for path, _, tree in _parsed_sources():
         for name in _import_names(tree):
             if name == "apps" or name.startswith(LEGACY_RUNTIME_PREFIXES):
+                offenders.append(f"{path}: {name}")
+    assert offenders == []
+
+
+def test_removed_external_data_runtime_modules_stay_absent() -> None:
+    forbidden = (
+        "apps.decision_app.data",
+        "apps.decision_app.transport.price_relay",
+    )
+    offenders: list[str] = []
+    for path, _, tree in _parsed_sources():
+        for name in _import_names(tree):
+            if any(
+                name == prefix or name.startswith(f"{prefix}.") for prefix in forbidden
+            ):
                 offenders.append(f"{path}: {name}")
     assert offenders == []
 

@@ -8,12 +8,6 @@ from pathlib import Path
 
 import pytest
 
-from apps.decision_app.data.resolver import (
-    DataPolicy,
-    DataResolver,
-    DataSourceCatalog,
-    compile_data_plan,
-)
 from apps.decision_app.domain.market_state import (
     BarStore,
     TimeframeGrid,
@@ -170,17 +164,10 @@ def _lane_and_runtime(
     for bar in bars[:SR_ATR_HISTORY_BARS]:
         store.append(key, bar)
     view_builder = DecisionViewBuilder(store, GRID)
-    data_plan = compile_data_plan(
-        lane,
-        DataPolicy(name="operator", version="1", concepts={}),
-        DataSourceCatalog([]),
-    )
     runtime = ModelRuntime(
         lane,
         feature_plan,
-        data_plan,
         FeatureEngine(feature_catalog, store, GRID),
-        DataResolver(DataSourceCatalog([])),
         RuntimePluginCatalog(
             [
                 RuntimePluginDefinition(
@@ -441,7 +428,6 @@ async def test_d6_rewarm_and_transaction_boundary_use_real_sr_plugin() -> None:
         steps.append(
             RewarmStep(
                 lane_market_view=_view(view_builder, lane, bar),
-                resolver_knowledge_cutoff=bar.market_as_of,
             )
         )
     result = await runtime.rewarm(tuple(steps))
@@ -474,7 +460,6 @@ async def test_d6_rewarm_and_transaction_boundary_use_real_sr_plugin() -> None:
     store.append(key, next_bar)
     prepared = await runtime.prepare_live(
         _view(view_builder, lane, next_bar),
-        resolver_knowledge_cutoff=next_bar.market_as_of,
     )
     assert prepared.state_commit_eligible is True
     assert runtime.state_store.get(binding_id).committed_state == committed_before
@@ -500,7 +485,6 @@ async def test_d6_rewarm_and_transaction_boundary_use_real_sr_plugin() -> None:
     assert after_abort.health == "DEGRADED"
     blocked = await runtime.prepare_live(
         _view(view_builder, lane, next_bar),
-        resolver_knowledge_cutoff=next_bar.market_as_of,
     )
     assert blocked.binding_results[binding_id].status == "UNAVAILABLE"
     assert blocked.binding_results[binding_id].reason == "state_rewarm_required"
@@ -508,7 +492,6 @@ async def test_d6_rewarm_and_transaction_boundary_use_real_sr_plugin() -> None:
         (
             RewarmStep(
                 lane_market_view=_view(view_builder, lane, next_bar),
-                resolver_knowledge_cutoff=next_bar.market_as_of,
             ),
         )
     )
@@ -516,7 +499,6 @@ async def test_d6_rewarm_and_transaction_boundary_use_real_sr_plugin() -> None:
     store.append(key, commit_bar)
     prepared = await runtime.prepare_live(
         _view(view_builder, lane, commit_bar),
-        resolver_knowledge_cutoff=commit_bar.market_as_of,
     )
     receipt = runtime.commit_prepared(prepared, "no_signal")
     assert receipt.committed_binding_ids == (binding_id,)
@@ -532,7 +514,6 @@ async def test_d6_rewarm_and_transaction_boundary_use_real_sr_plugin() -> None:
     with pytest.raises(StateTransactionError):
         await runtime.prepare_live(
             _view(view_builder, lane, future_cutoff),
-            resolver_knowledge_cutoff=future_cutoff.market_as_of,
         )
 
 
@@ -549,11 +530,9 @@ async def test_d6_rewarm_rejects_out_of_order_steps_with_real_sr_plugin() -> Non
             (
                 RewarmStep(
                     lane_market_view=_view(view_builder, lane, first),
-                    resolver_knowledge_cutoff=first.market_as_of,
                 ),
                 RewarmStep(
                     lane_market_view=_view(view_builder, lane, skipped),
-                    resolver_knowledge_cutoff=skipped.market_as_of,
                 ),
             )
         )

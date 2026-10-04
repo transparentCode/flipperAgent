@@ -29,7 +29,6 @@ from typing import Any
 import yaml
 
 from apps.decision_app.composition import build_production_composition
-from apps.decision_app.data.resolver import compile_data_plan
 from apps.decision_app.domain.market_state import (
     BarStore,
     MarketSeriesKey,
@@ -288,7 +287,6 @@ class ReplayGraph:
     composition: Any
     lane: Any
     feature_plan: Any
-    data_plan: Any
     requirements: Any
     bar_store: BarStore
     runtime: ModelRuntime
@@ -312,7 +310,6 @@ class ReplayGraph:
         )
         prepared = await self.runtime.prepare_live(
             view,
-            resolver_knowledge_cutoff=bar.market_as_of,
         )
         by_id = {binding.binding_id: binding for binding in self.lane.bindings.values()}
         results_by_slot = {
@@ -954,11 +951,6 @@ def build_replay_graph(study: StudyConfig, member: MemberSpec) -> ReplayGraph:
         composition.feature_policy,
         decision_config.timeframe_grid,
     )
-    data_plan = compile_data_plan(
-        lane,
-        composition.data_policy,
-        composition.data_source_catalog,
-    )
     requirements = compile_lane_market_requirements(
         lane, decision_config.timeframe_grid
     )
@@ -1008,13 +1000,11 @@ def build_replay_graph(study: StudyConfig, member: MemberSpec) -> ReplayGraph:
     runtime = ModelRuntime(
         lane,
         feature_plan,
-        data_plan,
         FeatureEngine(
             composition.feature_catalog,
             bar_store,
             decision_config.timeframe_grid,
         ),
-        composition.data_resolver,
         composition.runtime_plugin_catalog,
         decision_config.timeframe_grid,
     )
@@ -1060,7 +1050,6 @@ def build_replay_graph(study: StudyConfig, member: MemberSpec) -> ReplayGraph:
         composition=composition,
         lane=lane,
         feature_plan=feature_plan,
-        data_plan=data_plan,
         requirements=requirements,
         bar_store=bar_store,
         runtime=runtime,

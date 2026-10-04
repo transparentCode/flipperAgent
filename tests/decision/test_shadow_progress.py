@@ -19,7 +19,6 @@ def _identity() -> LaneExecutionIdentity:
         lane_id="BTCUSDT:momentum_1h",
         effective_lane_revision="lane-revision",
         feature_plan_fingerprint="feature-fingerprint",
-        data_plan_fingerprint="data-fingerprint",
     )
 
 
@@ -64,8 +63,7 @@ async def test_shadow_progress_is_monotonic_and_exact_identity_scoped() -> None:
     other_identity = LaneExecutionIdentity(
         lane_id=identity.lane_id,
         effective_lane_revision=identity.effective_lane_revision,
-        feature_plan_fingerprint=identity.feature_plan_fingerprint,
-        data_plan_fingerprint="other-data-fingerprint",
+        feature_plan_fingerprint="other-feature-fingerprint",
     )
     assert await repository.load(other_identity) is None
 

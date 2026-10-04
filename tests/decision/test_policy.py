@@ -159,7 +159,6 @@ async def test_passthrough_selects_exact_decision_and_identity_ignores_ready_tim
     )
     prepared = await bundle.runtime.prepare_live(
         bundle.view(0),
-        resolver_knowledge_cutoff=bundle.view(0).market_as_of,
     )
     policy = DecisionPolicy(DecisionPolicyCatalog([PASSTHROUGH_V1]))
     first = policy.evaluate(
@@ -205,7 +204,6 @@ async def test_passthrough_analytical_none_is_final_no_signal():
     view = bundle.view(0)
     prepared = await bundle.runtime.prepare_live(
         view,
-        resolver_knowledge_cutoff=view.market_as_of,
     )
     evaluation = DecisionPolicy(DecisionPolicyCatalog([PASSTHROUGH_V1])).evaluate(
         bundle.lane,
@@ -243,7 +241,6 @@ async def test_priority_uses_declared_order_without_score_comparison():
     view = bundle.view(0)
     prepared = await bundle.runtime.prepare_live(
         view,
-        resolver_knowledge_cutoff=view.market_as_of,
     )
     evaluation = DecisionPolicy(DecisionPolicyCatalog([PRIORITY_V1])).evaluate(
         bundle.lane,
@@ -274,7 +271,6 @@ async def test_policy_source_statuses_fail_closed():
     view = bundle.view(0)
     prepared = await bundle.runtime.prepare_live(
         view,
-        resolver_knowledge_cutoff=view.market_as_of,
     )
     binding_id = next(iter(prepared.binding_results))
     blocked = replace(
@@ -306,7 +302,6 @@ async def test_bad_passthrough_configuration_is_invalid_not_no_signal():
     view = bundle.view(0)
     prepared = await bundle.runtime.prepare_live(
         view,
-        resolver_knowledge_cutoff=view.market_as_of,
     )
     evaluation = DecisionPolicy(DecisionPolicyCatalog([PASSTHROUGH_V1])).evaluate(
         bundle.lane,
@@ -330,7 +325,6 @@ def test_final_execution_identity_includes_all_material_policy_inputs() -> None:
         "lane_id": "BTCUSDT:1h",
         "base_lane_revision": "lane-a",
         "feature_plan_fingerprint": "feature-a",
-        "data_plan_fingerprint": "data-a",
         "policy_name": "passthrough",
         "policy_version": "1",
         "policy_parameters": {"source_slot": "decision"},
@@ -339,7 +333,6 @@ def test_final_execution_identity_includes_all_material_policy_inputs() -> None:
     for field, value in (
         ("base_lane_revision", "lane-b"),
         ("feature_plan_fingerprint", "feature-b"),
-        ("data_plan_fingerprint", "data-b"),
         ("policy_name", "priority"),
         ("policy_version", "2"),
         ("policy_parameters", {"source_slot": "other"}),

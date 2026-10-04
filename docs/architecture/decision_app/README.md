@@ -1,9 +1,9 @@
 # `decision_app` architecture freeze
 
-Status: D0 architecture is frozen; the approved D9A-D9D and DA-1 runtime
-availability behavior is implemented. D10 certifies the current bounded core
-envelope; final model-mix resource recertification remains required after model
-integration.
+Status: D0 architecture is frozen; the approved D9A-D9C, DA-1 availability,
+and DA-2 skip-forward/freshness behavior is implemented. D10 certifies the
+current bounded core envelope; final model-mix resource recertification remains
+required after model integration.
 
 `decision_app` is a single runtime application that evaluates an explicit catalog
 of model plugins over causal market context. It is not a new market-data source,
@@ -14,19 +14,17 @@ OHLCV authority, `risk_app` remains responsible for risk and position policy, an
 
 The approved implementation covers D9A startup reconstruction, D9B's
 direct-cursor live transaction, D9C's ASGI-owned service/lifecycle/control
-shell, D9D's model-independent PriceRelay/risk-continuity path, and DA-1's
-lane-isolated availability, bounded generation recovery, and honest readiness.
-This document remains the source of truth for those semantics.
+shell, and DA-1's lane-isolated availability, bounded generation recovery, and
+honest readiness. DA-2 adds restart skip-forward, stale-result suppression, and
+per-lane momentum history. PriceRelay and external-data resolution are not part
+of the active Decision runtime.
 
 ## Scope and ownership
 
 The runtime accepts finalized canonical candles from `ingestion`, reconstructs a
-bounded causal view, resolves the data required by the configured model bindings,
-evaluates a small same-lane dependency plan, applies a lane-local decision policy,
-and publishes at most one authoritative trade signal for each `(asset, decision
-timeframe, market_as_of)`. The independently configured `PriceRelay` publishes
-the price cadence required by downstream risk monitoring even when no model is
-ready or a model evaluation fails.
+bounded causal view, evaluates a small same-lane dependency plan, applies a
+lane-local decision policy, and publishes at most one fresh authoritative trade
+signal for each `(asset, decision timeframe, market_as_of)`.
 
 The ownership boundary is:
 
@@ -35,9 +33,7 @@ The ownership boundary is:
 | Canonical candles and ordinary HTFs | `ingestion` | One canonical venue/instrument/timeframe history; no local re-aggregation in the decision hot path. |
 | Causal bar history | `decision_app` `BarStore` | Bounded, shared views driven by `InputReadCursor` and explicit lane cutoffs; no model-owned copies of the full history. |
 | Model graph and parameters | `decision_app` configuration | Static for a running process; lifecycle does not rewrite topology. |
-| External data acquisition | `DataResolver` | Models request semantic concepts; models never access DB, Valkey, HTTP, or scraper clients. |
 | Decision composition | Lane-local `DecisionPolicy` | Normalization, gating, and weighting are explicit; raw scores are not assumed comparable. |
-| Price monitoring input | `PriceRelay` | Independent from model evaluation and policy success. |
 | Risk, sizing, SL/TP, positions | `risk_app` | Downstream authority; not moved into `decision_app`. |
 | Orders and fills | `execution_app` | Downstream execution authority. |
 
@@ -50,8 +46,8 @@ configs/decision/global.yaml
 configs/decision/assets/{MANIFEST_ASSET}.yaml
 ```
 
-Global policy controls runtime bounds, price relay, shared-feature allow/deny,
-data-source routing, publication limits, and concurrency. Asset configuration
+Global policy controls runtime bounds, shared-feature allow/deny, the 300-second
+signal freshness threshold, publication limits, and concurrency. Asset configuration
 declares model bindings, plugin names, parameters, lane policy, dependencies,
 and stable `risk_profile_key` values. Model code owns intrinsic capabilities and
 safe defaults. There is no inheritance/template/expression language and no hot
@@ -64,32 +60,23 @@ flowchart LR
     ING["ingestion"] --> I["InputReadCursor"]
 
     I --> B["Causal BarStore"]
-    B --> P["PriceRelay"]
-    P --> PP["PriceRelayProgress"]
-    P --> PS["price_update:*"]
-
     B --> L1["Lane A"]
     B --> L2["Lane B"]
     L1 -->|success| W1["Lane A Commit Watermark"]
     L2 -->|success| W2["Lane B Commit Watermark"]
     L1 -->|failure| D1["Lane A degraded / rewarm"]
     D1 -. does not block .-> I
-    D1 -. does not block .-> P
     D1 -. does not block .-> L2
 
     B --> ASSET["Manifest gating / lane readiness"]
     ASSET --> READY["Causal cutoff checks"]
 
     READY --> FEATURES["FeaturePlan"]
-    READY --> DATA["DataResolver"]
-
     FEATURES --> MODELS["Model execution plan"]
-    DATA --> MODELS
 
     MODELS --> POLICY["DecisionPolicy"]
     POLICY --> SS["signals:*"]
 
-    PS --> RISK["risk_app"]
     SS --> RISK
     RISK --> EXEC["execution_app"]
 ```
@@ -97,10 +84,10 @@ flowchart LR
 Progress is deliberately split. `InputReadCursor` belongs to the canonical stream
 reader and shared `BarStore`; it advances as observations are accepted and never
 waits for a model publication. Each lane owns its `LaneCommitWatermark`, which may
-lag the input cursor while that lane retries, degrades, or causally re-warms.
-`PriceRelayProgress` is independent of both and records PriceRelay handling and
-continuity evidence. A degraded lane cannot block input reading, PriceRelay, or
-unrelated lanes.
+lag the input cursor while that lane retries, degrades, or causally re-warms. A
+degraded lane cannot block input reading or unrelated lanes. Decision does not
+currently produce `price_update:*`; downstream price monitoring requires a
+separately approved risk-side feed change.
 
 The physical transport names above describe the existing downstream boundary;
 the decision contracts use explicit typed fields and do not inherit an ambiguous
@@ -118,7 +105,7 @@ decision lanes.
 
 Each `DecisionLane` is identified by a stable asset and decision-timeframe
 identity. It declares its trigger timeframe, required canonical context, feature
-plan, data requirements, model bindings, policy, and output authority. V1
+plan, model bindings, policy, and output authority. V1
 dependencies are static, named, acyclic, and confined to the same lane. A lane
 may have analytical or predictive models that emit artifacts without emitting a
 trade signal. Only the lane policy may publish the authoritative signal.
@@ -132,19 +119,19 @@ authoritative `signals:*` stream.
 The shared `BarStore` stores bounded canonical observations keyed by lane
 identity and timeframe. It exposes views at a causal cutoff, not merely the last
 arrival, and continues advancing from `InputReadCursor` when an individual lane
-is degraded. A lane is ready only when every required input is complete through
-its cutoff and all required dependencies/data snapshots are resolved.
+is degraded. A lane is ready only when every required canonical input is complete
+through its cutoff and all required dependencies are resolved.
 
 Arrival ordering is not causal ordering. If a 1h trigger arrives while a required
 4h context is not complete, the lane performs a bounded wait and an explicitly
-bounded historical resolution attempt. It then evaluates only if the required
+bounded canonical-history repair attempt. It then evaluates only if the required
 causal cutoff is reached. It never silently substitutes an older HTF observation.
-Missing required data, an unavailable dependency, a causal gap, or a model
-exception fails the affected evaluation closed. For a stateful binding, the
+An unavailable dependency, a causal gap, or a model exception fails the affected
+evaluation closed. For a stateful binding, the
 binding becomes `DEGRADED`/`INVALID` and must causally re-warm to a newer safe
 cutoff before it can be `LIVE`; it may not continue from stale committed state.
 The affected lane's `LaneCommitWatermark` remains unchanged while input reading,
-BarStore advancement, PriceRelay, and unrelated lanes continue.
+BarStore advancement, and unrelated lanes continue.
 
 At startup, a series capture/history error, manifest read error, or lane
 reconstruction error blocks only the affected series, asset, or lane. Other
@@ -153,20 +140,28 @@ schedules generation-level `AUTOMATIC_RECOVERY` for blocked startup lanes; it
 does not make the whole ASGI lifespan fail. First-generation static plan/config
 errors and resource-construction failures remain fatal.
 
-Generic input or lane `RECONSTRUCTION_REQUIRED`, malformed/conflicting input,
-and halted/invalid lanes remain fail-closed for the affected path and schedule
-bounded `AUTOMATIC_RECOVERY`. The retry delay starts at 5 seconds, doubles after
-failed attempts, and caps at 300 seconds. While that cooldown is pending, the
-current generation continues polling so healthy lanes keep progressing. A
-proven direct-cursor retention gap remains distinct and immediate: only an input
-result with disposition `RECONSTRUCTION_REQUIRED` and exact reason `forward
-canonical market gap` requests `INPUT_RECONSTRUCTION`. The normal D9A startup
-path reloads durable canonical history and checkpoints, performs
-publication-suppressed causal reconstruction, captures fresh stream tails, and
-installs the replacement before live reads resume. Manual `reconnect()`/`resume()`
-and authoritative lifecycle reconciliation remain immediate full-generation
-boundaries. Request precedence is lifecycle reconciliation, manual control,
-input reconstruction, then automatic recovery.
+Generic lane-level `RECONSTRUCTION_REQUIRED` remains lane-local and degraded;
+malformed/conflicting input and halted/invalid lanes remain fail-closed. A proven
+direct-cursor retention gap is distinct: only an input result with disposition
+`RECONSTRUCTION_REQUIRED` and exact reason `forward canonical market gap` requests
+`INPUT_RECONSTRUCTION`. The market loop builds one replacement through the
+normal D9A path, which reloads durable canonical history and checkpoints,
+performs publication-suppressed state reconstruction, captures fresh stream
+tails, and installs the replacement before further live reads. Other service
+recovery and lifecycle transitions retain their existing ownership and
+precedence.
+
+On process restart, each lane validates its required history at the latest
+retained trigger cutoff `R`; it does not search backward for an older ready
+cutoff. Startup probes the exact first unaccounted publication ID. A matching
+current-identity entry reconciles an already-committed effect; a foreign entry is
+recorded as `foreign_entry` and is not republished. Stateless missed cutoffs are
+recorded as one compact `restart` skip range, and only `R` may be evaluated live
+if it passes the freshness gate. Stateful lanes rewarm every required transition
+through `R` with publication suppressed, record a `restart_rewarm` range, then
+resume at the next trigger. Skip reasons and ranges are stored in the append-only
+`decision.lane_effect_skips` table; latest effect progress remains one row per
+lane and uses NULL disposition for skipped work.
 
 Readiness remains degraded-ready while at least one configured lane is live.
 When the service is running with one or more configured lanes but no lane has
@@ -190,30 +185,20 @@ Feature computation has three categories:
 
 There is no universal always-on feature vector and no internal feature stream in
 the new hot path. The plan is bounded and keyed by causal `market_as_of`.
+Momentum history is route-specific: BTC 1h requires 136 bars, BTC 4h requires 272,
+and ETH 4h requires 544. A route's history change does not expand another lane's
+feature-plan identity or retained store.
 
-## DataResolver and external data
+## External-data contract types (inactive)
 
-Models express semantic demand such as `OPEN_INTEREST`, `BTC_DOMINANCE`, or
-`LIQUIDATION_HEATMAP`. They do not name tables, keys, URLs, physical source
-allow-lists, or scraper classes. `DataResolver`/`DataPolicy` determines physical
-source routing and records the resolver's capability classification. A live
-request may use runtime cache, then a PIT database, then one permitted bounded
-scraper request. Replay may use PIT durable sources only; it never invokes live
-scraper acquisition. One bounded request phase runs before model evaluation, and
-equivalent requests for the same lane/as-of are deduplicated/single-flight.
-
-Every snapshot separates `event_time`, `available_at`, and `fetched_at`; the final
-policy result/output additionally records `decision_ready_at`. A resolver marks a
-source `LIVE_AND_REPLAY`, `LIVE_ONLY`, or `UNAVAILABLE` only after resolving its
-capability. For V1, a stateful binding may not consume `LIVE_ONLY` external data
-at all: every external input it consumes must be replayable from durable,
-point-in-time-safe data.
-
-The resolver must reject a snapshot whose represented observation/window extends
-past `market_as_of`, including a future item returned by a cache's "latest"
-lookup. Replay may select only information whose historical `available_at` is no
-later than the simulated knowledge cutoff. `fetched_at` is never evidence of
-historical availability.
+The shared `DataRequest`, `DataSnapshot`, `DataMode`, and
+`ResolvedCapability` contract types remain available to avoid an unrelated
+shared-library break. They are not wired into the Decision runtime. The planner
+rejects any model with non-empty `intrinsic_data_requirements`, and runtime model
+contexts receive `external_data={}`. No resolver, source catalog, acquisition
+phase, or external-data capability claim is active. Any future activation needs
+a separately approved design that preserves event/availability/fetch timestamps
+and point-in-time replay rules.
 
 ## Model execution and state
 
@@ -229,36 +214,32 @@ For a stateful binding:
 committed state + complete causal context
     -> outcome + proposed next state
     -> policy
-    -> successful idempotent publication (or final no-signal result)
+    -> successful idempotent publication, final no-signal, or explicit skip
     -> commit proposed next state
     -> advance affected LaneCommitWatermark
 ```
 
-The runtime commits proposed state only after successful idempotent publication
-or a final no-signal disposition. It then advances only the affected lane's
+The runtime commits proposed state only after successful idempotent publication,
+a final no-signal disposition, or an explicit stale-effect skip. It then advances only the affected lane's
 `LaneCommitWatermark`. A publication failure or conflict leaves committed state
 and that lane's `LaneCommitWatermark` unchanged; it does not roll back
-`InputReadCursor` or `BarStore` progress. A missed required transition never advances from the old
-state; causal re-warm is required.
-Stateful V1 models must be reconstructable by replaying the same causal execution
-chain: bar views, shared features, replay-safe external snapshots, upstream
-dependencies in topological order, then the stateful model. Publication is
-suppressed during this reconstruction. There is no generic checkpoint framework
-or live training in V1.
+`InputReadCursor` or `BarStore` progress. A missed required transition never
+advances from the old state; causal re-warm is required. Stale authoritative
+signals and all stale shadow observations use `skipped`: proposed state and the
+lane watermark advance, publication does not occur, and an append-only skip row
+records the cutoff. Freshness uses `decision_ready_at - market_as_of`; exactly
+300 seconds is still fresh. Stateful V1 models are reconstructable by replaying
+the same causal execution chain: bar views, shared features, upstream dependencies
+in topological order, then the stateful model. Publication is suppressed during
+this reconstruction. There is no generic checkpoint framework or live training
+in V1.
 
-## PriceRelay progress and downstream continuity
+## Downstream price continuity
 
-`PriceRelay` consumes eligible canonical observations from the shared `BarStore`
-without depending on model evaluation. Its `PriceRelayProgress` is separate from
-both `InputReadCursor` and every lane's `LaneCommitWatermark`. A model or policy
-failure therefore cannot stop price handling, input reading, or unrelated lanes.
-
-PriceRelay must not silently claim continuous coverage after detecting a gap.
-Because current `risk_app` uses `PriceUpdate.high`/`low` for SL/TP monitoring,
-D9D catches up exact canonical closed bars oldest-first, bounded by the live
-input batch size. Missing history, downstream conflicts, and retention overflow
-remain explicit `UNRESOLVED` evidence. PriceRelay runs in the existing bounded
-market poll; it does not own a task, queue, database table, or separate worker.
+Decision no longer owns or publishes a `PriceRelay` stream. Risk-side stop-loss,
+take-profit, and mark-to-market consumers that require a dedicated price cadence
+need a separately approved downstream feed change; this DA-2 scope does not
+change Risk, Execution, or Portfolio contracts.
 
 ## Decision policy and publication
 
@@ -275,20 +256,25 @@ deterministic configuration fingerprints:
 lane_id       = canonical asset + decision timeframe + lane identity
 binding_config_fingerprint = SHA-256(canonical binding parameters + runtime binding)
 binding_id    = lane_id + binding slot + plugin/version + binding_config_fingerprint
-lane_revision = SHA-256(canonical effective lane + policy configuration)
-decision_id   = lane_id + lane_revision + canonical market_as_of
+LaneExecutionIdentity = (lane_id, effective_lane_revision, feature_plan_fingerprint)
+decision_execution_revision = SHA-256(lane + base revision + feature plan + policy)
+decision_id   = lane_id + decision_execution_revision + canonical market_as_of
 ```
 
-The authoritative publication entry uses a deterministic stream identity derived
-from `market_as_of`, not wall-clock completion time. Repeating the same identity
+The physical `data_plan_fingerprint` columns remain for database compatibility
+and are written as `none`; they are excluded from runtime identity.
+
+The authoritative publication entry uses an explicit millisecond stream ID
+derived from `market_as_of`; `TradeSignal.timestamp` remains epoch seconds.
+Repeating the same identity
 with the same payload is success after an existing-entry identity/payload check;
 repeating it with a different payload is a deterministic conflict and fails
 closed. Raw Valkey XADD rejects a duplicate explicit ID, so the publication
 adapter must perform this lookup before treating an exact retry as success.
 `TradeSignal.idempotency_key` remains the downstream execution idempotency
-identity. The exact serialization adapter for existing numeric downstream fields
-is a later coordinated implementation gate because the current signal/risk path
-does not use one consistent unit.
+identity. The publication adapter owns this seconds-versus-milliseconds
+distinction; Risk compares the seconds-valued signal timestamp with wall-clock
+seconds.
 
 ## Timing contract
 
@@ -309,27 +295,24 @@ All fields are timezone-aware UTC values in the conceptual contract; serialized
 adapters must use one documented canonical representation and must not infer
 seconds versus milliseconds from magnitude.
 
-The current repository audit found the following compatibility issue: ingestion
-decodes candle open/close as UTC epoch seconds, `FeaturePipeline` converts the
-feature and price timestamps to epoch milliseconds, and risk compares a signal
-timestamp against `time.time()` seconds for staleness. D0 does not copy that
-ambiguity. A coordinated downstream adapter and contract-test change is required
-before `decision_app` publishes into the existing risk boundary.
+The active signal adapter serializes `TradeSignal.timestamp` as epoch seconds,
+derived from `market_as_of`; Risk compares that field with wall-clock seconds.
+The explicit Valkey stream entry ID remains epoch milliseconds derived from the
+same `market_as_of`. Decision does not publish the separate `PriceUpdate` type;
+Risk converts a `PriceUpdate` bar-open timestamp from milliseconds to seconds.
 
 ## Startup, restart, and broker gaps
 
 Startup captures input progress first:
 
 1. resolve required streams and the static lane graph;
-2. capture `InputReadCursor`, stream tails, and canonical candle cutoffs;
-3. fetch Timescale warmup through those cutoffs;
-4. build shared `BarStore` views;
-5. replay the same causal execution chain with publication suppressed: bar views,
-   shared features, replay-safe external data, upstream dependencies in
-   topological order, then stateful bindings;
-6. verify history and every reconstructed binding reach each captured cutoff;
-7. begin live reads after the captured stream IDs;
-8. process only post-cutoff events.
+2. capture `InputReadCursor`, stream tails, and the latest retained trigger cutoff `R`;
+3. validate each lane's required history at `R`;
+4. probe the exact first-unaccounted publication ID;
+5. rewarm stateful bindings through `R` with publication suppressed;
+6. record missed ranges as compact skip evidence rather than replaying stale stateless effects;
+7. install the generation and begin live reads after captured stream IDs;
+8. evaluate only the stateless cutoff `R` live, and only if fresh.
 
 During a temporary broker interruption, the runtime resumes from its in-memory
 `InputReadCursor` when the stream is continuous. If retention exposes the
@@ -340,7 +323,12 @@ captures fresh progress positions, and only then resumes input reading. Other
 `RECONSTRUCTION_REQUIRED` causes remain lane-local degraded conditions and do
 not trigger that automatic global rebuild. A full process restart reconstructs
 state and resumes input reading; it does not replay stale historical trading
-decisions from a persistent PEL in V1.
+decisions from a persistent PEL. A matching exact-ID entry reconciles the
+in-flight effect; an entry owned by an older execution identity is recorded as a
+`foreign_entry` skip. Stateless skipped cutoffs use `restart`; stateful
+publication-free reconstruction uses `restart_rewarm`. The skip trail is
+append-only in `decision.lane_effect_skips`, while latest effect progress remains
+compact.
 
 ## Lifecycle, control, and observability
 
@@ -349,21 +337,19 @@ events from `ingestion` control asset availability only. `PAUSED` stops decision
 evaluation according to the configured asset policy while preserving explicit
 position/risk handoff requirements; `REMOVING` stops the asset runtime and emits
 the removal transition, but does not invent a new risk liquidation policy. A
-model/lane can be disabled independently of asset availability. PriceRelay policy
-is explicit and independently operable. D9D owns the model-independent price
-continuity path and publishes `price_update:*` while preserving risk and
-execution mathematics. Operator `PAUSED` keeps canonical input and PriceRelay
-active while suppressing model evaluation and signal finalization.
+model/lane can be disabled independently of asset availability. Decision does
+not own or publish `price_update:*`; a Risk-owned price continuity feed is a
+separate downstream contract. Operator `PAUSED` keeps canonical input active
+while suppressing model evaluation and signal finalization.
 
 Structured logs include `decision.startup.lane`, `decision.lane.halted`,
 `decision.lane.unblocked`, `decision.input.blocked`, and rebuild requested,
 completed, and failed events. Startup outcomes are emitted once per generation;
 lane halt and input-block events are transition/first-block only. Observability
-also records `InputReadCursor`, per-lane `LaneCommitWatermark` values, PriceRelay
-progress/continuity, readiness reasons, data provenance, evaluation latency,
-dependency failures, state transitions, publication conflicts, and price-relay
-health. Controls are bounded and auditable; there is no hot graph mutation or live
-training control surface.
+also records `InputReadCursor`, per-lane `LaneCommitWatermark` and effect progress,
+skip ranges, readiness reasons, evaluation latency, dependency failures, state
+transitions, and publication conflicts. Controls are bounded and auditable; there
+is no hot graph mutation or live training control surface.
 
 ## Runtime deadlines and ownership
 

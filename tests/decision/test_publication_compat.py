@@ -74,7 +74,6 @@ async def _prepared_signal(
     view = bundle.view(0)
     prepared = await bundle.runtime.prepare_live(
         view,
-        resolver_knowledge_cutoff=view.market_as_of,
     )
     evaluation = DecisionPolicy(DecisionPolicyCatalog([PASSTHROUGH_V1])).evaluate(
         bundle.lane,

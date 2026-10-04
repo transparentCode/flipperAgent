@@ -45,9 +45,15 @@ from apps.decision_app.runtime.startup import DecisionStartupCoordinator
 from apps.decision_app.settings import DecisionConfig, load_decision_config
 from apps.decision_app.storage.bootstrap import ensure_checkpoint_schema
 from apps.decision_app.storage.checkpoints import CheckpointRepository
+from apps.decision_app.storage.effect_skips import (
+    InMemoryLaneEffectSkipsRepository,
+    LaneEffectSkipsRepository,
+)
 from apps.decision_app.storage.market_history import CanonicalMarketHistoryRepository
-from apps.decision_app.storage.shadow_progress import ShadowProgressRepository
-from apps.decision_app.transport.price_relay import PriceRelay, plan_series_key
+from apps.decision_app.storage.shadow_progress import (
+    InMemoryLaneEffectProgressRepository,
+    ShadowProgressRepository,
+)
 from apps.decision_app.transport.shadow import ValkeyShadowPublisher
 from apps.decision_app.transport.signals import ValkeySignalPublisher
 from libs.common.asset_manifest import AssetManifestStore
@@ -120,6 +126,7 @@ def _require_bounded_repository(
         "history": CanonicalMarketHistoryRepository,
         "checkpoint": CheckpointRepository,
         "shadow-progress": ShadowProgressRepository,
+        "effect-skips": LaneEffectSkipsRepository,
     }
     expected_type = expected_types[name]
     if type(repository) is not expected_type:
@@ -152,6 +159,7 @@ def build_generation_factory(
     history_repository: Any,
     checkpoint_repository: Any,
     shadow_progress_repository: Any | None = None,
+    effect_skips_repository: Any | None = None,
     manifest_store: Any | None = None,
     observability: DecisionObservability | None = None,
     now_fn: Callable[[], datetime] | None = None,
@@ -168,13 +176,20 @@ def build_generation_factory(
     if not callable(getattr(history_repository, "fetch_bars", None)):
         raise TypeError("history_repository must provide fetch_bars()")
     dependency_io = config.global_settings.dependency_io
+    resolved_effect_progress_repository = (
+        shadow_progress_repository or InMemoryLaneEffectProgressRepository()
+    )
+    resolved_effect_skips_repository = (
+        effect_skips_repository or InMemoryLaneEffectSkipsRepository()
+    )
 
     async def build(*, reason: str, generation_id: int) -> DecisionRuntimeGeneration:
         del reason
         for name, repository in (
             ("history", history_repository),
             ("checkpoint", checkpoint_repository),
-            ("shadow-progress", shadow_progress_repository),
+            ("shadow-progress", resolved_effect_progress_repository),
+            ("effect-skips", resolved_effect_skips_repository),
         ):
             if bool(getattr(repository, "poisoned", False)):
                 raise RuntimeError(
@@ -185,16 +200,14 @@ def build_generation_factory(
             plugin_catalog=composition.plugin_catalog,
             feature_catalog=composition.feature_catalog,
             feature_policy=composition.feature_policy,
-            data_policy=composition.data_policy,
-            source_catalog=composition.data_source_catalog,
             runtime_plugin_catalog=composition.runtime_plugin_catalog,
             policy_catalog=composition.policy_catalog,
             history_repository=history_repository,
             stream_client=stream_client,
             checkpoint_repository=checkpoint_repository,
-            shadow_progress_repository=shadow_progress_repository,
+            effect_progress_repository=resolved_effect_progress_repository,
+            effect_skips_repository=resolved_effect_skips_repository,
             manifest_store=manifest_store,
-            data_resolver=composition.data_resolver,
             io_timeout_seconds=dependency_io.io_timeout_seconds,
         )
         startup = await coordinator.start()
@@ -212,26 +225,6 @@ def build_generation_factory(
             ),
             io_timeout_seconds=dependency_io.io_timeout_seconds,
         )
-        relay = None
-        if startup.relay_plans:
-            relay = PriceRelay(
-                plans=startup.relay_plans,
-                stream_client=stream_client,
-                history_repository=history_repository,
-                timeframe_grid=config.timeframe_grid,
-                warm_cutoffs={
-                    key: position.warm_cutoff
-                    for key, position in startup.snapshot.series_positions.items()
-                    if any(key == plan_series_key(plan) for plan in startup.relay_plans)
-                },
-                stream_maxlen=config.global_settings.price_relay.stream_maxlen,
-                stream_approximate=(
-                    config.global_settings.price_relay.stream_approximate
-                ),
-                batch_size=config.global_settings.live_input.batch_size,
-                io_timeout_seconds=dependency_io.io_timeout_seconds,
-            )
-            await relay.bootstrap()
         live_runtime = LiveDecisionRuntime(
             startup=startup,
             timeframe_grid=config.timeframe_grid,
@@ -240,15 +233,18 @@ def build_generation_factory(
             signal_publisher=publisher,
             shadow_publisher=shadow_publisher,
             checkpoint_repository=checkpoint_repository,
-            shadow_progress_repository=shadow_progress_repository,
+            effect_progress_repository=resolved_effect_progress_repository,
+            effect_skips_repository=resolved_effect_skips_repository,
             policy_catalog=composition.policy_catalog,
-            price_relay=relay,
             batch_size=config.global_settings.live_input.batch_size,
             block_ms=config.global_settings.live_input.block_ms,
             io_timeout_seconds=dependency_io.io_timeout_seconds,
             now_fn=now_fn,
             observability=observability,
             generation_id=generation_id,
+            signal_freshness_seconds=(
+                config.global_settings.signal_publication.signal_freshness_seconds
+            ),
         )
         created_at = (now_fn or (lambda: datetime.now(UTC)))()
         return DecisionRuntimeGeneration(
@@ -272,6 +268,7 @@ def create_application(
     history_repository: Any | None = None,
     checkpoint_repository: Any | None = None,
     shadow_progress_repository: Any | None = None,
+    effect_skips_repository: Any | None = None,
     manifest_store: AssetManifestStore | None = None,
     observability: DecisionObservability | None = None,
 ) -> FastAPI:
@@ -288,6 +285,7 @@ def create_application(
                 "history_repository": None,
                 "checkpoint_repository": None,
                 "shadow_progress_repository": None,
+                "effect_skips_repository": None,
                 "service": None,
                 "owned_valkey": False,
                 "owned_db": False,
@@ -306,9 +304,11 @@ def create_application(
         current_history = history_repository
         current_checkpoints = checkpoint_repository
         current_shadow_progress = shadow_progress_repository
+        current_effect_skips = effect_skips_repository
         injected_history = history_repository is not None
         injected_checkpoints = checkpoint_repository is not None
         injected_shadow_progress = shadow_progress_repository is not None
+        injected_effect_skips = effect_skips_repository is not None
         current_manifest_store = manifest_store
         current_lifecycle_reader = lifecycle_reader
         current_observability = observability
@@ -325,6 +325,7 @@ def create_application(
             history_repository=current_history,
             checkpoint_repository=current_checkpoints,
             shadow_progress_repository=current_shadow_progress,
+            effect_skips_repository=current_effect_skips,
             service=service,
             owned_valkey=False,
             owned_db=False,
@@ -480,10 +481,20 @@ def create_application(
                             ),
                             cleanup_timeout_seconds=dependency_io.cleanup_timeout_seconds,
                         )
+                    if current_effect_skips is None:
+                        current_effect_skips = LaneEffectSkipsRepository(
+                            writer_pool,
+                            io_timeout_seconds=dependency_io.io_timeout_seconds,
+                            operation_timeout_seconds=(
+                                dependency_io.db_operation_timeout_seconds
+                            ),
+                            cleanup_timeout_seconds=dependency_io.cleanup_timeout_seconds,
+                        )
                     owner.update(
                         history_repository=current_history,
                         checkpoint_repository=current_checkpoints,
                         shadow_progress_repository=current_shadow_progress,
+                        effect_skips_repository=current_effect_skips,
                     )
                 if current_manifest_store is None:
                     current_manifest_store = AssetManifestStore(current_stream_client)
@@ -498,6 +509,11 @@ def create_application(
                         "shadow-progress",
                         current_shadow_progress,
                         injected_shadow_progress,
+                    ),
+                    (
+                        "effect-skips",
+                        current_effect_skips,
+                        injected_effect_skips,
                     ),
                 ):
                     if repository is not None and injected:
@@ -521,6 +537,9 @@ def create_application(
                     operation="initial lifecycle tail",
                 )
                 composition = build_production_composition(config)
+                if current_effect_skips is None:
+                    current_effect_skips = InMemoryLaneEffectSkipsRepository()
+                    owner["effect_skips_repository"] = current_effect_skips
                 factory = build_generation_factory(
                     config=config,
                     composition=composition,
@@ -528,6 +547,7 @@ def create_application(
                     history_repository=current_history,
                     checkpoint_repository=current_checkpoints,
                     shadow_progress_repository=current_shadow_progress,
+                    effect_skips_repository=current_effect_skips,
                     manifest_store=current_manifest_store,
                     observability=current_observability,
                 )
@@ -698,6 +718,7 @@ def create_application(
                         history_repository=current_history,
                         checkpoint_repository=current_checkpoints,
                         shadow_progress_repository=current_shadow_progress,
+                        effect_skips_repository=current_effect_skips,
                         service=service,
                         owned_valkey=owned_valkey,
                         owned_db=owned_db,

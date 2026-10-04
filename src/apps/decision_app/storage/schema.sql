@@ -109,3 +109,23 @@ BEGIN
         constraint_definition;
 END
 $$;
+
+CREATE TABLE IF NOT EXISTS decision.lane_effect_skips (
+    lane_id text NOT NULL,
+    effective_lane_revision text NOT NULL,
+    feature_plan_fingerprint text NOT NULL,
+    skipped_from timestamptz NOT NULL,
+    skipped_through timestamptz NOT NULL,
+    cutoff_count integer NOT NULL CHECK (cutoff_count > 0),
+    reason text NOT NULL CHECK (
+        reason IN ('restart', 'restart_rewarm', 'stale', 'foreign_entry')
+    ),
+    recorded_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (
+        lane_id,
+        effective_lane_revision,
+        feature_plan_fingerprint,
+        skipped_from
+    ),
+    CHECK (skipped_through >= skipped_from)
+);

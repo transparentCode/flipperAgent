@@ -37,6 +37,9 @@ FIXTURE_ROOT = ROOT / "tests" / "decision" / "fixtures" / "regression_r3b"
 
 
 class _EmptyStreamClient:
+    async def xrange(self, *_args: object, **_kwargs: object) -> list[object]:
+        return []
+
     async def xrevrange(self, *_args: object, **_kwargs: object) -> list[object]:
         return []
 
@@ -118,13 +121,10 @@ async def _startup(
         plugin_catalog=composition.plugin_catalog,
         feature_catalog=composition.feature_catalog,
         feature_policy=composition.feature_policy,
-        data_policy=composition.data_policy,
-        source_catalog=composition.data_source_catalog,
         runtime_plugin_catalog=composition.runtime_plugin_catalog,
         history_repository=repository,
         stream_client=_EmptyStreamClient(),
         checkpoint_repository=InMemoryCheckpointRepository(),
-        data_resolver=composition.data_resolver,
         policy_catalog=composition.policy_catalog,
     ).start()
     return composition, startup
@@ -352,7 +352,6 @@ async def test_r3b_shadow_observer_is_causal_decision_path_and_non_authoritative
     view = _view(fixture_config, startup, lane)
     prepared = await startup.runtimes[lane.lane_id].prepare_live(
         view,
-        resolver_knowledge_cutoff=view.market_as_of + timedelta(seconds=1),
     )
     primary_binding = lane.bindings["primary"]
     observer_binding = lane.bindings["observer"]
@@ -441,11 +440,9 @@ async def test_observer_does_not_change_certified_momentum_semantics(
         observer_lane.lane_id
     ].prepare_live(
         observer_view,
-        resolver_knowledge_cutoff=observer_view.market_as_of + timedelta(seconds=1),
     )
     plain_prepared = await plain_startup.runtimes[plain_lane.lane_id].prepare_live(
         plain_view,
-        resolver_knowledge_cutoff=plain_view.market_as_of + timedelta(seconds=1),
     )
     observer_primary = observer_prepared.binding_results[
         observer_lane.bindings["primary"].binding_id

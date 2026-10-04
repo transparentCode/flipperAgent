@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -19,7 +19,7 @@ from apps.decision_app.features.momentum_integration import (
     MOMENTUM_RSI_FEATURE_NAME,
     parse_momentum_binding_parameters,
 )
-from apps.decision_app.runtime.live import LiveDecisionRuntime
+from apps.decision_app.runtime.live import DecisionPollResult, LiveDecisionRuntime
 from apps.decision_app.runtime.startup import DecisionStartupCoordinator
 from apps.decision_app.settings import DecisionConfig, load_decision_config
 from apps.decision_app.storage.checkpoints import InMemoryCheckpointRepository
@@ -359,12 +359,14 @@ class DeterministicBroker:
         stream: str,
         minimum: str,
         maximum: str,
+        *,
+        count: int = 1,
     ) -> list[tuple[str, Mapping[str, str]]]:
         return [
             (entry_id, fields)
             for entry_id, fields in self.entries.get(stream, ())
             if entry_id == minimum == maximum
-        ]
+        ][:count]
 
     async def xrevrange(
         self,
@@ -639,6 +641,8 @@ async def build_startup_runtime(
     config: DecisionConfig,
     persistence: CombinedPersistence,
     broker: DeterministicBroker,
+    *,
+    now_fn: Callable[[], datetime] | None = None,
 ) -> tuple[Any, Any, LiveDecisionRuntime, DeterministicBroker]:
     composition = build_production_composition(config)
     startup = await DecisionStartupCoordinator(
@@ -646,14 +650,11 @@ async def build_startup_runtime(
         plugin_catalog=composition.plugin_catalog,
         feature_catalog=composition.feature_catalog,
         feature_policy=composition.feature_policy,
-        data_policy=composition.data_policy,
-        source_catalog=composition.data_source_catalog,
         runtime_plugin_catalog=composition.runtime_plugin_catalog,
         history_repository=persistence.history,
         policy_catalog=composition.policy_catalog,
         stream_client=broker,
         checkpoint_repository=InMemoryCheckpointRepository(),
-        data_resolver=composition.data_resolver,
     ).start()
     signal_broker = DeterministicBroker()
     runtime = LiveDecisionRuntime(
@@ -668,7 +669,9 @@ async def build_startup_runtime(
         ),
         batch_size=10,
         block_ms=1000,
-        now_fn=lambda: datetime(2030, 1, 1, tzinfo=UTC),
+        now_fn=(
+            (lambda: datetime(2030, 1, 1, tzinfo=UTC)) if now_fn is None else now_fn
+        ),
     )
     return startup, composition, runtime, signal_broker
 
@@ -688,6 +691,41 @@ def _lane_result_table(poll: Any) -> dict[str, dict[str, object]]:
         }
         for lane_id, result in poll.lane_results.items()
     }
+
+
+async def _poll_until_watermarks(
+    runtime: LiveDecisionRuntime,
+    expected: Mapping[str, datetime],
+) -> DecisionPollResult:
+    """Drive bounded polls until the requested lane cutoffs are committed."""
+
+    input_results = []
+    lane_results = {}
+    cursors = {}
+    for _ in range(16):
+        result = await runtime.poll_once()
+        input_results.extend(result.input_results)
+        lane_results.update(result.lane_results)
+        cursors.update(result.cursors)
+        if all(
+            lane_id in runtime.lanes
+            and runtime.lanes[lane_id].finalizer.watermark.latest_market_as_of == cutoff
+            for lane_id, cutoff in expected.items()
+        ):
+            return DecisionPollResult(
+                input_results=tuple(input_results),
+                lane_results=lane_results,
+                cursors=cursors,
+            )
+    observed = {
+        lane_id: (
+            None
+            if lane_id not in runtime.lanes
+            else runtime.lanes[lane_id].finalizer.watermark.latest_market_as_of
+        )
+        for lane_id in expected
+    }
+    raise AssertionError(f"Decision lanes did not reach expected cutoffs: {observed}")
 
 
 async def _semantic_parity(
@@ -723,7 +761,6 @@ async def _semantic_evidence(
         )
         prepared = await live_lane.runtime.prepare_live(
             view,
-            resolver_knowledge_cutoff=cutoff + timedelta(seconds=1),
         )
         binding = next(iter(prepared.binding_results.values()))
         parameters = next(
@@ -954,10 +991,12 @@ async def run_live_transition() -> dict[str, object]:
     persistence = CombinedPersistence()
     bucket_start = seed_route_history(persistence, config)
     broker = DeterministicBroker()
+    live_cutoff = bucket_start + timedelta(hours=4)
+    clock = [live_cutoff + timedelta(seconds=1)]
     startup, _composition, runtime, signal_broker = await build_startup_runtime(
-        config, persistence, broker
+        config, persistence, broker, now_fn=lambda: clock[0]
     )
-    assert startup.snapshot.status == "STARTUP_READY"
+    assert startup.snapshot.status == "STARTUP_READY", startup.snapshot.lane_evidence
     requests = await materialize_live_bucket(
         persistence, config, bucket_start=bucket_start
     )
@@ -1029,7 +1068,10 @@ async def run_live_transition() -> dict[str, object]:
             and event.source_provider is None
             and event.source_timeframe == "1m"
         )
-    poll = await runtime.poll_once()
+    poll = await _poll_until_watermarks(
+        runtime,
+        {lane.lane_id: live_cutoff for lane in startup.decision_plan.lanes},
+    )
     assert all(item.disposition == "INSERTED" for item in poll.input_results)
     assert all(
         item.policy_status in {"SIGNAL", "NO_SIGNAL"}
@@ -1050,7 +1092,10 @@ async def run_live_transition() -> dict[str, object]:
     return {
         "startup_status": startup.snapshot.status,
         "startup_history_counts": {
-            f"{key.asset}/{key.timeframe}": 544 for key in _route_keys(config)
+            f"{lane.asset}/{lane.trigger_timeframe}": max(
+                startup.lane_history_requirements[lane.lane_id].values()
+            )
+            for lane in startup.decision_plan.lanes
         },
         "routes": list(_ROUTE_NAMES),
         "recovery_requests": [
@@ -1149,12 +1194,17 @@ async def run_cross_route_isolation() -> dict[str, object]:
     persistence = CombinedPersistence()
     bucket_start = seed_route_history(persistence, config)
     broker = DeterministicBroker()
+    live_cutoff = bucket_start + timedelta(hours=4)
+    clock = [live_cutoff + timedelta(seconds=1)]
     startup, _composition, runtime, _signal_broker = await build_startup_runtime(
-        config, persistence, broker
+        config, persistence, broker, now_fn=lambda: clock[0]
     )
     await materialize_live_bucket(persistence, config, bucket_start=bucket_start)
     await publish_pending(persistence, broker)
-    baseline_poll = await runtime.poll_once()
+    baseline_poll = await _poll_until_watermarks(
+        runtime,
+        {lane.lane_id: live_cutoff for lane in startup.decision_plan.lanes},
+    )
     baseline = await _route_runtime_snapshot(config, startup, runtime)
 
     next_bucket = bucket_start + timedelta(hours=4)
@@ -1165,7 +1215,12 @@ async def run_cross_route_isolation() -> dict[str, object]:
         only_asset="ETHUSDT",
     )
     await publish_pending(persistence, broker)
-    perturbed_poll = await runtime.poll_once()
+    next_cutoff = next_bucket + timedelta(hours=4)
+    clock[0] = next_cutoff + timedelta(seconds=1)
+    perturbed_poll = await _poll_until_watermarks(
+        runtime,
+        {"ETHUSDT:momentum_4h": next_cutoff},
+    )
     after = await _route_runtime_snapshot(config, startup, runtime)
 
     unchanged_routes = [
@@ -1217,8 +1272,12 @@ async def run_outbox_retry() -> dict[str, object]:
     persistence = CombinedPersistence()
     bucket_start = seed_route_history(persistence, config)
     broker = DeterministicBroker()
+    target_cutoff = bucket_start + timedelta(hours=4)
     startup, _composition, runtime, signal_broker = await build_startup_runtime(
-        config, persistence, broker
+        config,
+        persistence,
+        broker,
+        now_fn=lambda: target_cutoff + timedelta(seconds=1),
     )
     key = MarketSeriesKey(
         asset="ETHUSDT",
@@ -1237,7 +1296,7 @@ async def run_outbox_retry() -> dict[str, object]:
     attempts, _ = await publish_pending(persistence, broker, fail_mark_once=True)
     stream = canonical_ingestion_stream_key(key)
     entries = broker.stream_entries(stream)
-    poll = await runtime.poll_once()
+    poll = await _poll_until_watermarks(runtime, {"ETHUSDT:momentum_4h": target_cutoff})
     dispositions = [item.disposition for item in poll.input_results]
     signal_count = sum(len(values) for values in signal_broker.entries.values())
     return {
@@ -1250,8 +1309,10 @@ async def run_outbox_retry() -> dict[str, object]:
         "signal_count": signal_count,
         "transaction_count": sum(
             1
-            for result in poll.lane_results.values()
-            if result.finalization_status == "COMMITTED"
+            for lane_id, result in poll.lane_results.items()
+            if lane_id == "ETHUSDT:momentum_4h"
+            and result.trigger_cutoff == target_cutoff
+            and result.finalization_status == "COMMITTED"
         ),
         "attempts": attempts,
         "startup": startup.snapshot.status,
@@ -1265,8 +1326,12 @@ async def _run_uninterrupted_eth_reference(
     persistence = CombinedPersistence()
     assert seed_route_history(persistence, config) == bucket_start
     broker = DeterministicBroker()
+    target_cutoff = bucket_start + timedelta(hours=4)
     startup, _composition, runtime, signal_broker = await build_startup_runtime(
-        config, persistence, broker
+        config,
+        persistence,
+        broker,
+        now_fn=lambda: target_cutoff + timedelta(seconds=1),
     )
     await materialize_live_bucket(
         persistence,
@@ -1275,7 +1340,7 @@ async def _run_uninterrupted_eth_reference(
         only_asset="ETHUSDT",
     )
     await publish_pending(persistence, broker)
-    poll = await runtime.poll_once()
+    poll = await _poll_until_watermarks(runtime, {"ETHUSDT:momentum_4h": target_cutoff})
     derived = persistence.candles_for(
         MarketLane("binance", "ETH-USDT-PERP", "4h"),
         bucket_start,
@@ -1298,8 +1363,10 @@ async def run_recovery_flow() -> dict[str, object]:
     persistence = CombinedPersistence()
     bucket_start = seed_route_history(persistence, config)
     broker = DeterministicBroker()
+    target_cutoff = bucket_start + timedelta(hours=4)
+    clock = [target_cutoff + timedelta(seconds=1)]
     startup, _composition, runtime, signal_broker = await build_startup_runtime(
-        config, persistence, broker
+        config, persistence, broker, now_fn=lambda: clock[0]
     )
     requests = await materialize_live_bucket(
         persistence,
@@ -1350,7 +1417,14 @@ async def run_recovery_flow() -> dict[str, object]:
         alignment_origin=config.timeframe_grid.alignment_origin,
     )
     await publish_pending(persistence, broker)
-    after = await runtime.poll_once()
+    after = await _poll_until_watermarks(
+        runtime,
+        {
+            "BTCUSDT:momentum_1h": bucket_start,
+            "BTCUSDT:momentum_4h": bucket_start,
+            "ETHUSDT:momentum_4h": target_cutoff,
+        },
+    )
     key = MarketSeriesKey(
         asset="ETHUSDT",
         venue="binance",
@@ -1413,17 +1487,28 @@ async def run_restart_parity() -> dict[str, object]:
     persistence = CombinedPersistence()
     bucket_start = seed_route_history(persistence, config)
     broker = DeterministicBroker()
+    clock = [bucket_start + timedelta(hours=4, seconds=1)]
     (
         first_startup,
         _composition,
         continuous,
         first_signals,
-    ) = await build_startup_runtime(config, persistence, broker)
+    ) = await build_startup_runtime(
+        config,
+        persistence,
+        broker,
+        now_fn=lambda: clock[0],
+    )
     await materialize_live_bucket(persistence, config, bucket_start=bucket_start)
     await publish_pending(persistence, broker)
-    first_poll = await continuous.poll_once()
+    first_cutoff = bucket_start + timedelta(hours=4)
+    first_poll = await _poll_until_watermarks(
+        continuous,
+        {lane.lane_id: first_cutoff for lane in first_startup.decision_plan.lanes},
+    )
+    clock[0] = first_cutoff + timedelta(seconds=1)
     fresh_startup, _composition2, fresh, fresh_signals = await build_startup_runtime(
-        config, persistence, broker
+        config, persistence, broker, now_fn=lambda: clock[0]
     )
     assert fresh_startup.snapshot.status == "STARTUP_READY"
     fresh_startup_publication_count = sum(
@@ -1436,8 +1521,13 @@ async def run_restart_parity() -> dict[str, object]:
     next_bucket = bucket_start + timedelta(hours=4)
     await materialize_live_bucket(persistence, config, bucket_start=next_bucket)
     await publish_pending(persistence, broker)
-    continuous_poll = await continuous.poll_once()
-    fresh_poll = await fresh.poll_once()
+    next_cutoff = next_bucket + timedelta(hours=4)
+    clock[0] = next_cutoff + timedelta(seconds=1)
+    expected_cutoffs = {
+        lane.lane_id: next_cutoff for lane in first_startup.decision_plan.lanes
+    }
+    continuous_poll = await _poll_until_watermarks(continuous, expected_cutoffs)
+    fresh_poll = await _poll_until_watermarks(fresh, expected_cutoffs)
     continuous_lanes = _lane_result_table(continuous_poll)
     fresh_lanes = _lane_result_table(fresh_poll)
     continuous_new_signals = {

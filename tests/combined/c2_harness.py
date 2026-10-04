@@ -546,14 +546,11 @@ async def _build_runtime(
         plugin_catalog=composition.plugin_catalog,
         feature_catalog=composition.feature_catalog,
         feature_policy=composition.feature_policy,
-        data_policy=composition.data_policy,
-        source_catalog=composition.data_source_catalog,
         runtime_plugin_catalog=composition.runtime_plugin_catalog,
         history_repository=history,
         policy_catalog=composition.policy_catalog,
         stream_client=broker,
         checkpoint_repository=CheckpointRepository(pool),
-        data_resolver=composition.data_resolver,
     ).start()
     runtime = LiveDecisionRuntime(
         startup=startup,

@@ -165,33 +165,6 @@ class DecisionLaneSettings(BaseModel):
         )
 
 
-class PriceRelaySettings(BaseModel):
-    """Canonical-series price relay configuration for one decision asset."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    enabled: StrictBool = False
-    timeframes: tuple[str, ...] = ()
-
-    @field_validator("timeframes", mode="before")
-    @classmethod
-    def normalize_timeframes(cls, value: object) -> tuple[str, ...]:
-        if value is None:
-            return ()
-        if isinstance(value, (str, bytes)) or not isinstance(value, (list, tuple)):
-            raise TypeError("price_relay.timeframes must be a list of strings")
-        return tuple(_text(item, "price_relay timeframe") for item in value)
-
-    @model_validator(mode="after")
-    def validate_timeframes(self) -> PriceRelaySettings:
-        if len(set(self.timeframes)) != len(self.timeframes):
-            raise ValueError("price_relay.timeframes must not contain duplicates")
-        if self.enabled and not self.timeframes:
-            raise ValueError("enabled price relay requires at least one timeframe")
-        object.__setattr__(self, "timeframes", tuple(sorted(self.timeframes)))
-        return self
-
-
 class DecisionAssetSettings(BaseModel):
     """Explicit split between ingestion lifecycle and decision identities."""
 
@@ -203,7 +176,6 @@ class DecisionAssetSettings(BaseModel):
     instrument_id: str
     enabled: StrictBool = True
     lanes: dict[str, DecisionLaneSettings]
-    price_relay: PriceRelaySettings = Field(default_factory=PriceRelaySettings)
 
     @field_validator(
         "manifest_asset", "decision_asset", "venue", "instrument_id", mode="before"
@@ -214,10 +186,8 @@ class DecisionAssetSettings(BaseModel):
 
     @model_validator(mode="after")
     def freeze_lanes(self) -> DecisionAssetSettings:
-        if not self.lanes and not self.price_relay.enabled:
-            raise ValueError(
-                "decision asset must contain a lane or an enabled price relay"
-            )
+        if not self.lanes:
+            raise ValueError("decision asset must contain at least one lane")
         object.__setattr__(
             self,
             "lanes",
@@ -316,26 +286,16 @@ class SignalPublicationSettings(BaseModel):
 
     stream_maxlen: StrictInt = 1000
     stream_approximate: StrictBool = True
+    signal_freshness_seconds: StrictInt = 300
 
     @model_validator(mode="after")
     def validate_bounds(self) -> SignalPublicationSettings:
         if self.stream_maxlen <= 0:
             raise ValueError("signal_publication.stream_maxlen must be positive")
-        return self
-
-
-class PriceRelayPublicationSettings(BaseModel):
-    """Bounded explicit-ID price publication settings for D9D."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    stream_maxlen: StrictInt = 200
-    stream_approximate: StrictBool = True
-
-    @model_validator(mode="after")
-    def validate_bounds(self) -> PriceRelayPublicationSettings:
-        if self.stream_maxlen <= 0:
-            raise ValueError("price_relay.stream_maxlen must be positive")
+        if self.signal_freshness_seconds <= 0:
+            raise ValueError(
+                "signal_publication.signal_freshness_seconds must be positive"
+            )
         return self
 
 
@@ -387,9 +347,6 @@ class DecisionGlobalSettings(BaseModel):
     )
     signal_publication: SignalPublicationSettings = Field(
         default_factory=SignalPublicationSettings
-    )
-    price_relay: PriceRelayPublicationSettings = Field(
-        default_factory=PriceRelayPublicationSettings
     )
     shadow_publication: ShadowPublicationSettings = Field(
         default_factory=ShadowPublicationSettings
@@ -568,10 +525,6 @@ class CanonicalInstrument:
                         raise ValueError(
                             f"unknown required ingestion timeframe: {timeframe}"
                         )
-        for timeframe in asset.price_relay.timeframes:
-            if timeframe not in self.timeframes:
-                raise ValueError(f"unknown price relay timeframe: {timeframe}")
-            timeframe_grid.duration(timeframe)
 
 
 def _parse_alignment_origin(value: object) -> datetime:
@@ -714,8 +667,6 @@ __all__ = [
     "DecisionServerSettings",
     "FeaturePolicySettings",
     "LiveInputSettings",
-    "PriceRelayPublicationSettings",
-    "PriceRelaySettings",
     "ShadowPublicationSettings",
     "SignalPublicationSettings",
     "load_canonical_ingestion_contract",

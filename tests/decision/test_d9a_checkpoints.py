@@ -24,7 +24,6 @@ IDENTITY = LaneExecutionIdentity(
     lane_id="BTCUSDT:1h",
     effective_lane_revision="lane-rev",
     feature_plan_fingerprint="feature-rev",
-    data_plan_fingerprint="data-rev",
 )
 
 

@@ -63,7 +63,7 @@ class FinalizationReceipt:
         if self.watermark.lane_id != self.lane_id:
             raise ValueError("finalization watermark lane does not match")
         if self.status == "COMMITTED":
-            if self.disposition not in {"published", "no_signal", "shadow"}:
+            if self.disposition not in {"published", "no_signal", "shadow", "skipped"}:
                 raise ValueError("committed finalization requires disposition")
             if not isinstance(self.state_commit_receipt, StateCommitReceipt):
                 raise ValueError("committed finalization requires state receipt")
@@ -84,7 +84,7 @@ class FinalizationReceipt:
             ):
                 raise ValueError("published finalization requires envelope")
             if (
-                self.disposition in {"no_signal", "shadow"}
+                self.disposition in {"no_signal", "shadow", "skipped"}
                 and self.envelope is not None
             ):
                 raise ValueError("no-signal finalization cannot have envelope")
@@ -195,6 +195,35 @@ class LaneFinalizer:
             market_as_of=prepared.market_as_of,
             watermark=self._watermark,
             disposition="no_signal",
+            state_commit_receipt=receipt,
+        )
+
+    def finalize_skipped(
+        self,
+        prepared: PreparedLaneExecution,
+        evaluation: DecisionPolicyEvaluation,
+    ) -> FinalizationReceipt:
+        """Commit prepared state while recording no publication effect."""
+
+        if not isinstance(evaluation, DecisionPolicyEvaluation):
+            raise TypeError("evaluation must be DecisionPolicyEvaluation")
+        if (
+            evaluation.status not in {"SIGNAL", "NO_SIGNAL"}
+            or evaluation.result is None
+        ):
+            raise FinalizationError("skipped finalization requires SIGNAL or NO_SIGNAL")
+        self._preflight(prepared, evaluation.result)
+        try:
+            receipt = self._runtime.commit_prepared(prepared, "skipped")
+        except (StateTransactionError, TypeError, ValueError) as exc:
+            raise FinalizationError(f"skipped state commit failed: {exc}") from exc
+        self._advance_watermark(prepared.market_as_of, "skipped")
+        return FinalizationReceipt(
+            status="COMMITTED",
+            lane_id=self._lane.lane_id,
+            market_as_of=prepared.market_as_of,
+            watermark=self._watermark,
+            disposition="skipped",
             state_commit_receipt=receipt,
         )
 
@@ -386,8 +415,6 @@ class LaneFinalizer:
             raise FinalizationError(
                 "policy feature fingerprint does not match prepared"
             )
-        if result.data_plan_fingerprint != prepared.identity.data_plan_fingerprint:
-            raise FinalizationError("policy data fingerprint does not match prepared")
         if result.policy_name != self._lane.policy_name:
             raise FinalizationError("policy result name does not match lane")
         if result.policy_version != self._lane.policy_version:
@@ -412,7 +439,6 @@ class LaneFinalizer:
             lane_id=self._lane.lane_id,
             base_lane_revision=self._lane.effective_lane_revision,
             feature_plan_fingerprint=prepared.identity.feature_plan_fingerprint,
-            data_plan_fingerprint=prepared.identity.data_plan_fingerprint,
             policy_name=self._lane.policy_name,
             policy_version=self._lane.policy_version,
             policy_parameters=self._lane.policy_parameters,

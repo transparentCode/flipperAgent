@@ -13,7 +13,6 @@ from apps.decision_app.runtime.models import (
 )
 from libs.contracts.decision import (
     DataRequirement,
-    DataSnapshot,
     DecisionContext,
     ModelArtifact,
     ModelOutcome,
@@ -33,14 +32,14 @@ class CounterPlugin:
         self.spec = spec
         self.evaluate_count = 0
         self.fail_at: int | None = None
-        self.requested: tuple[DataRequirement, ...] = ()
 
     def data_requests(
         self,
         base_context: ModelRequestContext,
         state_snapshot: object | None = None,
     ) -> tuple[DataRequirement, ...]:
-        return self.requested
+        del base_context, state_snapshot
+        return ()
 
     def evaluate(
         self,
@@ -87,7 +86,6 @@ def steps(bundle: Bundle, count: int) -> tuple[RewarmStep, ...]:
     return tuple(
         RewarmStep(
             lane_market_view=bundle.view(index),
-            resolver_knowledge_cutoff=BASE + timedelta(hours=index + 1),
         )
         for index in range(count)
     )
@@ -98,7 +96,6 @@ async def test_stateful_binding_starts_warming_and_requires_rewarm_before_live()
     bundle, plugin = counter_bundle()
     prepared = await bundle.runtime.prepare_live(
         bundle.view(0),
-        resolver_knowledge_cutoff=BASE + timedelta(hours=1),
     )
 
     result = next(iter(prepared.binding_results.values()))
@@ -129,61 +126,12 @@ async def test_rewarm_is_replay_only_and_installs_state_only_after_success():
 
     prepared = await bundle.runtime.prepare_live(
         bundle.view(3),
-        resolver_knowledge_cutoff=BASE + timedelta(hours=4),
     )
     assert plugin.evaluate_count == 4
     assert bundle.runtime.state_store.get(binding_id).committed_state["count"] == 3
     receipt = bundle.runtime.commit_prepared(prepared, "published")
     assert receipt.committed_binding_ids == (binding_id,)
     assert bundle.runtime.state_store.get(binding_id).committed_state["count"] == 4
-
-
-@pytest.mark.asyncio
-async def test_rewarm_resolves_external_data_in_replay_mode_only():
-    requirement = DataRequirement(
-        concept="REPLAY_SAFE",
-        required=True,
-        replay_support_required=True,
-    )
-    spec = make_spec(
-        "CounterWithData",
-        "counter-data.v1",
-        stateful=True,
-        data_requirements=(requirement,),
-    )
-    plugin = CounterPlugin(spec)
-    modes: list[str] = []
-
-    async def source_fetcher(request):
-        modes.append(request.mode)
-        return DataSnapshot(
-            request_key=request.request_key,
-            concept=request.concept,
-            payload={"value": 1},
-            event_time=request.market_as_of,
-            available_at=request.market_as_of,
-            fetched_at=request.market_as_of,
-            source="pit",
-            resolved_capability="LIVE_AND_REPLAY",
-        )
-
-    bundle, _ = make_bundle(
-        [spec],
-        (
-            ModelBindingSpec(
-                slot_name="counter",
-                plugin_name="CounterWithData",
-                plugin_version="1",
-            ),
-        ),
-        source_fetcher=source_fetcher,
-        plugin_overrides={"CounterWithData": plugin},
-    )
-    plugin.requested = (requirement,)
-
-    await bundle.runtime.rewarm(steps(bundle, 2))
-
-    assert modes == ["REPLAY", "REPLAY"]
 
 
 @pytest.mark.asyncio
@@ -204,7 +152,6 @@ async def test_two_stateful_commit_validates_all_bindings_before_mutation():
     await bundle.runtime.rewarm(steps(bundle, 1))
     prepared = await bundle.runtime.prepare_live(
         bundle.view(1),
-        resolver_knowledge_cutoff=BASE + timedelta(hours=2),
     )
     binding_ids = {
         binding.slot_name: binding.binding_id
@@ -251,7 +198,6 @@ async def test_rewarm_requires_contiguous_steps_and_baseline_continuation():
             (
                 RewarmStep(
                     lane_market_view=bundle.view(2),
-                    resolver_knowledge_cutoff=BASE + timedelta(hours=4),
                 ),
             )
         )
@@ -261,11 +207,9 @@ async def test_rewarm_requires_contiguous_steps_and_baseline_continuation():
             (
                 RewarmStep(
                     lane_market_view=bundle.view(3),
-                    resolver_knowledge_cutoff=BASE + timedelta(hours=5),
                 ),
                 RewarmStep(
                     lane_market_view=bundle.view(5),
-                    resolver_knowledge_cutoff=BASE + timedelta(hours=7),
                 ),
             )
         )
@@ -279,7 +223,6 @@ async def test_abort_discards_proposal_and_forces_rewarm():
     before = bundle.runtime.state_store.get(binding_id)
     prepared = await bundle.runtime.prepare_live(
         bundle.view(2),
-        resolver_knowledge_cutoff=BASE + timedelta(hours=3),
     )
     bundle.runtime.abort_prepared(prepared, "publication_failed")
     after = bundle.runtime.state_store.get(binding_id)
@@ -289,7 +232,6 @@ async def test_abort_discards_proposal_and_forces_rewarm():
 
     blocked = await bundle.runtime.prepare_live(
         bundle.view(2),
-        resolver_knowledge_cutoff=BASE + timedelta(hours=3),
     )
     assert (
         next(iter(blocked.binding_results.values())).reason == "state_rewarm_required"
@@ -302,7 +244,6 @@ async def test_copied_prepared_commit_is_rejected_without_changing_pending_state
     await bundle.runtime.rewarm(steps(bundle, 2))
     prepared = await bundle.runtime.prepare_live(
         bundle.view(2),
-        resolver_knowledge_cutoff=BASE + timedelta(hours=3),
     )
     copied = replace(prepared)
     state_before = dict(bundle.runtime.state_store.records)
@@ -326,7 +267,6 @@ async def test_stateful_same_cutoff_is_rejected_before_second_evaluation():
     view = bundle.view(1)
     prepared = await bundle.runtime.prepare_live(
         view,
-        resolver_knowledge_cutoff=BASE + timedelta(hours=2),
     )
     bundle.runtime.commit_prepared(prepared, "published")
     evaluations = plugin.evaluate_count
@@ -334,7 +274,6 @@ async def test_stateful_same_cutoff_is_rejected_before_second_evaluation():
     with pytest.raises(StateTransactionError, match="cutoff"):
         await bundle.runtime.prepare_live(
             view,
-            resolver_knowledge_cutoff=BASE + timedelta(hours=2),
         )
     assert plugin.evaluate_count == evaluations
 
@@ -353,12 +292,10 @@ async def test_stateful_live_requires_exact_next_trigger_cutoff():
         with pytest.raises(StateTransactionError, match="next trigger cutoff"):
             await bundle.runtime.prepare_live(
                 view,
-                resolver_knowledge_cutoff=view.market_as_of + timedelta(hours=1),
             )
 
     prepared = await bundle.runtime.prepare_live(
         accepted_view,
-        resolver_knowledge_cutoff=BASE + timedelta(hours=3),
     )
     bundle.runtime.abort_prepared(prepared, "continuity_test")
 
@@ -369,19 +306,16 @@ async def test_one_pending_state_transaction_blocks_duplicate_and_future_prepare
     await bundle.runtime.rewarm(steps(bundle, 2))
     prepared = await bundle.runtime.prepare_live(
         bundle.view(2),
-        resolver_knowledge_cutoff=BASE + timedelta(hours=3),
     )
     evaluations = plugin.evaluate_count
 
     with pytest.raises(StateTransactionError, match="pending finalization"):
         await bundle.runtime.prepare_live(
             bundle.view(2),
-            resolver_knowledge_cutoff=BASE + timedelta(hours=3),
         )
     with pytest.raises(StateTransactionError, match="pending finalization"):
         await bundle.runtime.prepare_live(
             bundle.view(3),
-            resolver_knowledge_cutoff=BASE + timedelta(hours=4),
         )
     assert plugin.evaluate_count == evaluations
     assert bundle.runtime.pending_state_execution is prepared
@@ -390,7 +324,6 @@ async def test_one_pending_state_transaction_blocks_duplicate_and_future_prepare
     assert bundle.runtime.pending_state_execution is None
     next_prepared = await bundle.runtime.prepare_live(
         bundle.view(3),
-        resolver_knowledge_cutoff=BASE + timedelta(hours=4),
     )
     bundle.runtime.abort_prepared(next_prepared, "continuity_test")
 
@@ -401,7 +334,6 @@ async def test_pending_transaction_blocks_rewarm_until_abort():
     await bundle.runtime.rewarm(steps(bundle, 2))
     prepared = await bundle.runtime.prepare_live(
         bundle.view(2),
-        resolver_knowledge_cutoff=BASE + timedelta(hours=3),
     )
     pending_lane_view = bundle.view(2)
 
@@ -410,7 +342,6 @@ async def test_pending_transaction_blocks_rewarm_until_abort():
             (
                 RewarmStep(
                     lane_market_view=pending_lane_view,
-                    resolver_knowledge_cutoff=BASE + timedelta(hours=3),
                 ),
             )
         )
@@ -420,7 +351,6 @@ async def test_pending_transaction_blocks_rewarm_until_abort():
         (
             RewarmStep(
                 lane_market_view=bundle.view(2),
-                resolver_knowledge_cutoff=BASE + timedelta(hours=3),
             ),
         )
     )
@@ -451,7 +381,6 @@ async def test_partial_multi_stateful_failure_blocks_stale_continuation():
     live_view = bundle.view(1)
     prepared = await bundle.runtime.prepare_live(
         live_view,
-        resolver_knowledge_cutoff=BASE + timedelta(hours=2),
     )
     binding_ids = {
         binding.slot_name: binding.binding_id
@@ -468,7 +397,6 @@ async def test_partial_multi_stateful_failure_blocks_stale_continuation():
     with pytest.raises(StateTransactionError, match="pending finalization"):
         await bundle.runtime.prepare_live(
             bundle.view(2),
-            resolver_knowledge_cutoff=BASE + timedelta(hours=3),
         )
     assert first_plugin.evaluate_count == first_evaluations
     bundle.runtime.abort_prepared(prepared, "partial_state_failure")
@@ -477,7 +405,6 @@ async def test_partial_multi_stateful_failure_blocks_stale_continuation():
     assert bundle.runtime.state_store.get(binding_ids["second"]).health == "INVALID"
     blocked = await bundle.runtime.prepare_live(
         live_view,
-        resolver_knowledge_cutoff=BASE + timedelta(hours=2),
     )
     assert all(
         result.status == "UNAVAILABLE" for result in blocked.binding_results.values()

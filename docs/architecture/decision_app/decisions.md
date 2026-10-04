@@ -1,7 +1,8 @@
 # D0 design decisions
 
-This record freezes the intentionally small V1 boundary for `decision_app` and
-records alternatives that are deferred rather than accidentally left open.
+This record preserves the original D0 design rationale and records the
+implemented DA-2 amendments. Historical D0 decisions below are not a claim that
+retired resolver or relay behavior remains active.
 
 ## Selected decisions
 
@@ -53,16 +54,17 @@ owned-resource teardown, so cleanup failure may leave the service `STOPPED` whil
 application shutdown is unclean. This is an operational implementation boundary,
 not a new actor, workflow, or resource-management framework.
 
-### Independent progress markers
+### Independent progress markers (D0; price-relay portion superseded by DA-2)
 
 V1 does not let a model binding own input-consumer progress. `InputReadCursor`
 records how far the canonical stream reader has observed and accepted data into
 the shared `BarStore`; it continues even when a lane is degraded. Each
-`DecisionLane` has its own `LaneCommitWatermark`, advanced only after successful
-signal publication or final no-signal disposition and the proposed-state commit.
-`PriceRelayProgress` is independent of both. A failed lane leaves its own state
-and its `LaneCommitWatermark` unchanged, but does not roll back the input cursor
-or block PriceRelay or unrelated lanes.
+`DecisionLane` has its own `LaneCommitWatermark`, advanced only after a committed
+publication, no-signal, or explicit skip disposition and proposed-state commit. A
+failed lane leaves its own state and watermark unchanged, but does not roll back
+the input cursor or block unrelated lanes. The originally designed independent
+`PriceRelayProgress` path was retired by DA-2; Decision no longer owns a price
+relay or progress cursor.
 
 ### Reconstruct and resume, not stale-decision replay
 
@@ -97,7 +99,7 @@ Paused operation and zero-lane configurations are not subject to this
 no-live-lane timeout. Liveness is independent; this threshold is not a causal
 market-data or trading-progress SLO.
 
-### Stateful models use proposed state
+### Stateful models use proposed state (D0; extended by DA-2)
 
 `evaluate()` sees a state snapshot and returns a proposed next state. The runtime
 commits it only after policy and successful idempotent publication, or a final
@@ -111,30 +113,33 @@ it must causally re-warm before returning `LIVE`.
 
 Causal re-warm is not an arbitrary history warmup. It replays the same execution
 chain as live operation, with publication suppressed: causal bar views, shared
-features, replay-safe external data, upstream dependencies in topological order,
-then the stateful binding. V1 stateful bindings may consume only durable
-`LIVE_AND_REPLAY` external inputs; a `LIVE_ONLY` input cannot be essential to
-state reconstruction.
+features, upstream dependencies in topological order, then the stateful binding.
+DA-2 removed external-data execution and rejects non-empty intrinsic data
+requirements.
 
-### Explicit time semantics
+### Explicit time semantics (D0; current serialized units clarified by DA-1)
 
-The new contracts distinguish bar open/close, `market_as_of`, `signal_time`,
+The contracts distinguish bar open/close, `market_as_of`, `signal_time`,
 `decision_ready_at`, and external `event_time`/`available_at`/`fetched_at`. The
 market identity is causal market time; runtime completion time is operational
-metadata. The current repository has a seconds/milliseconds mismatch between
-signal feature output and risk staleness, so a later downstream adapter and
-contract-test migration is required before this output boundary is activated.
+metadata. The active signal adapter writes `TradeSignal.timestamp` in seconds and
+uses milliseconds only for the explicit stream entry ID; Risk's signal-staleness
+comparison is also in seconds. Risk converts a `PriceUpdate` bar-open timestamp
+from milliseconds to seconds. Decision does not publish `PriceUpdate`.
 
-### Semantic external data resolution
+### Semantic external data resolution (D0 proposal; removed by DA-2)
 
-Models request semantic concepts. `DataResolver` chooses cache, PIT storage, or a
-bounded live scraper request according to `DataPolicy`, mode, and provenance.
+The original D0 proposal had models request semantic concepts and a
+`DataResolver` choose cache, PIT storage, or a bounded live scraper request
+according to `DataPolicy`, mode, and provenance.
 Models declare required/optional status, freshness/alignment, and whether replay
 support is required; they do not declare physical source allow-lists or resolver
 capabilities. Replay never calls live acquisition. One bounded request phase runs
 before model evaluation and equivalent requests are single-flight. Resolved
 capability is runtime output (`LIVE_AND_REPLAY`, `LIVE_ONLY`, or `UNAVAILABLE`),
-not an intrinsic model claim.
+not an intrinsic model claim. DA-2 removed that runtime, its source catalog, and
+its policy; the shared contract types remain inactive and the planner rejects
+non-empty intrinsic data requirements.
 
 PIT acceptance requires the represented observation/window end and `event_time` to
 be no later than `market_as_of`; a cache's latest result is rejected when it is
@@ -155,17 +160,20 @@ Shared features run once only when a model requires them and operator policy all
 them. Model-private deterministic transforms stay inside the plugin. Disabled
 required features make a binding unavailable; they are not silently approximated.
 
-### Independent PriceRelay
+### Independent PriceRelay (D0 choice; retired by DA-2)
 
-Price updates are not a side effect of successful model evaluation. PriceRelay has
-its own configured cadence and remains available to risk monitoring during model
-warmup, external-data failure, policy suppression, or model failure.
+The D0 design specified that price updates would not be a side effect of
+successful model evaluation. PriceRelay would have its own configured cadence and
+would remain available to risk monitoring during model warmup, external-data
+failure, policy suppression, or model failure.
 
 PriceRelay records independent `PriceRelayProgress` and cannot silently claim
 continuity after a detected input gap. Current risk uses `PriceUpdate.high`/`low`
 for SL/TP monitoring, so D0 deliberately does not choose replay/catch-up versus
 discard semantics for missed prices. A dedicated downstream risk compatibility
-proof must establish those semantics before cutover.
+proof must establish those semantics before cutover. DA-2 retired this component
+before activation: Decision publishes no `price_update:*`; downstream Risk price
+continuity remains a separately coordinated feed contract.
 
 ### One authoritative publisher
 
@@ -185,6 +193,52 @@ A passthrough binding uses a stable configured risk key. A composed lane uses an
 explicit `risk_profile_key`; contributor models remain metadata. This preserves
 the downstream risk-selection boundary and avoids deriving risk configuration from
 an arbitrary ensemble contributor.
+
+## DA-2 implemented amendments
+
+These amendments describe the active runtime and supersede conflicting D0
+proposals above without erasing their design history.
+
+### Restart skip-forward and durable effect accounting
+
+Startup validates each lane's required history at the latest retained trigger
+cutoff `R`, probes one exact first-unaccounted stream ID, and does not replay
+stateless publication effects across downtime. A matching current-identity entry
+reconciles as already effected; a foreign entry is recorded as `foreign_entry`.
+Stateless missed cutoffs form one `restart` skip range, with only `R` eligible for
+live evaluation. Stateful bindings rewarm every required transition through `R`
+with publication suppressed, then record `restart_rewarm`. The append-only
+`decision.lane_effect_skips` table records ranges; latest effect progress uses
+NULL disposition when no publication effect occurred. A stale cutoff is also
+committed as `skipped`, with proposed state/checkpoint advanced and no publication.
+
+### Freshness and identity
+
+Authoritative SIGNAL results and all shadow observations are publishable only
+when `decision_ready_at - market_as_of <= signal_freshness_seconds`; the active
+default is 300 seconds, and exactly 300 seconds is fresh. Stale work advances
+state and lane watermark as a skip, not as a signal or shadow effect.
+
+DA-2's one identity change adds the feature-plan fingerprint to
+`LaneExecutionIdentity` and includes it in `decision_execution_revision`, along
+with lane identity, base lane revision, and policy. `decision_id` derives from
+that execution revision and `market_as_of`. The physical
+`data_plan_fingerprint` columns remain but are written as the constant `none` and
+are excluded from identity.
+
+### External data and price-relay retirement
+
+Decision has no active `DataResolver`, source catalog, or external-data
+acquisition phase. Shared external-data contracts remain inactive, and the
+planner rejects non-empty intrinsic data requirements. Decision no longer owns
+PriceRelay or publishes `price_update:*`; downstream Risk price continuity needs
+a separately approved feed change.
+
+### Per-lane momentum history
+
+Momentum feature history follows each route's locked RSI/MACD history rather than
+the maximum across all routes: BTC 1h is 136 bars, BTC 4h is 272 bars, and ETH 4h
+is 544 bars. Feature values on each route's own window remain unchanged.
 
 ## Alternatives deliberately rejected or deferred
 
@@ -216,7 +270,8 @@ driven.
 ### Direct model DB/Valkey/HTTP I/O
 
 Rejected. It prevents deterministic evaluation, complicates replay, and hides
-availability timing. DataResolver is the only physical acquisition boundary.
+availability timing. DA-2 has no active physical external-data acquisition
+boundary.
 
 ### General DAG/workflow framework
 

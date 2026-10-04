@@ -11,19 +11,13 @@ import pytest
 import scripts.certify_decision_runtime_d10 as d10
 from scripts.certify_decision_runtime_d10 import (
     HARD_RSS_TARGET_BYTES,
-    LIVE_BATCH_SIZE,
     NORMAL_RSS_TARGET_BYTES,
-    RETENTION_MAXLEN,
     _risk_timeframes,
     _rss_bytes,
-    build_relay_config,
     deterministic_identity_sha256,
     evaluate_resource_gates,
     load_canonical_inventory,
     measurement_payload_sha256,
-    run_current_risk_scenario,
-    run_full_boundary_scenario,
-    run_retention_edge_scenario,
     run_service_scenario,
     run_sr_reference,
     structural_boundedness_scan,
@@ -49,19 +43,6 @@ def test_current_inventory_and_resource_targets_are_derived_from_live_config() -
     assert inventory.series_count == 54
     assert NORMAL_RSS_TARGET_BYTES == 5 * 1024**3
     assert HARD_RSS_TARGET_BYTES == 8 * 1024**3
-
-
-def test_relay_only_config_compiles_exactly_one_bounded_series_store_slot() -> None:
-    inventory = load_canonical_inventory()
-    config = build_relay_config(inventory)
-
-    from apps.decision_app.transport.price_relay import compile_price_relay_plans
-
-    plans = compile_price_relay_plans(config)
-    assert len(plans) == 54
-    assert config.global_settings.live_input.batch_size == LIVE_BATCH_SIZE
-    assert config.global_settings.price_relay.stream_maxlen == RETENTION_MAXLEN
-    assert all(not asset.lanes for asset in config.assets.values())
 
 
 def test_current_risk_routes_follow_risk_app_discovery() -> None:
@@ -100,55 +81,15 @@ def test_ru_maxrss_normalization_is_platform_explicit() -> None:
 
 
 @pytest.mark.asyncio
-async def test_current_risk_and_full_canonical_boundaries_are_bounded() -> None:
-    inventory = load_canonical_inventory()
-    current_route_count = sum(
-        len(timeframes) for timeframes in _risk_timeframes(inventory).values()
-    )
-
-    current = await run_current_risk_scenario(inventory)
-    full = await run_full_boundary_scenario(inventory)
-
-    assert current["correct"] is True
-    assert current["relay_count"] == current_route_count
-    assert current["published_count"] == current_route_count
-    assert current["max_history_in_flight"] == 1
-    assert current["max_xadd_in_flight"] == 1
-    assert full["correct"] is True
-    assert full["series_count"] == 54
-    assert full["published_count"] == 54
-    assert full["bar_store_capacity_min"] == 1
-    assert full["bar_store_capacity_max"] == 1
-
-
-@pytest.mark.asyncio
-async def test_retention_edge_drains_exactly_10800_bars_in_bounded_passes() -> None:
-    evidence = await run_retention_edge_scenario(load_canonical_inventory())
-
-    assert evidence["correct"] is True
-    assert evidence["expected_bars"] == 10_800
-    assert evidence["reconcile_passes"] == 20
-    assert evidence["publications_per_pass_max"] == 540
-    assert evidence["publications_per_relay_per_pass_max"] == 10
-    assert evidence["total_publications"] == 10_800
-    assert evidence["idle_publications"] == 0
-    assert evidence["max_stream_entries"] <= 200
-
-
-@pytest.mark.asyncio
 async def test_decision_service_keeps_two_tasks_and_stops_cleanly() -> None:
     inventory = load_canonical_inventory()
     evidence = await run_service_scenario(inventory)
-    current_route_count = sum(
-        len(timeframes) for timeframes in _risk_timeframes(inventory).values()
-    )
 
     assert evidence["correct"] is True
     assert evidence["generations_built"] == [1, 2, 3]
     assert evidence["task_count_after_start"] == 2
     assert evidence["task_peak"] == 2
     assert evidence["task_count_after_stop"] == 0
-    assert evidence["price_publications_while_paused"] == current_route_count
 
 
 @pytest.mark.asyncio

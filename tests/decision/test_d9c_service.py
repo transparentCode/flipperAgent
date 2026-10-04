@@ -1197,7 +1197,11 @@ async def test_service_paces_real_clock_wait_and_catches_up() -> None:
         assert runtime.lanes[
             "BTCUSDT:main"
         ].finalizer.watermark.latest_market_as_of == (_signal_bar(4).market_as_of)
-        assert len(publisher_client.entries["signals:BTCUSDT:1h"]) == 2
+        # The older pending cutoff is stale at the current clock and is
+        # recorded as skipped; only the current cutoff is published.
+        assert tuple(publisher_client.entries["signals:BTCUSDT:1h"]) == (
+            f"{int(_signal_bar(4).market_as_of.timestamp() * 1000)}-0",
+        )
     finally:
         await service.stop()
 
@@ -1346,7 +1350,7 @@ async def test_service_isolated_signal_publishes_and_commits() -> None:
             stream_client=stream,
             history_repository=history,
             signal_publisher=ValkeySignalPublisher(publisher_client),
-            now_fn=lambda: NOW,
+            now_fn=lambda: _signal_bar(3).market_as_of,
         )
         return DecisionRuntimeGeneration(
             generation_id=generation_id,
@@ -1438,7 +1442,7 @@ async def test_forward_input_gap_rebuilds_once_and_continues_with_fresh_generati
             stream_client=stream,
             history_repository=history,
             signal_publisher=ValkeySignalPublisher(publisher_client),
-            now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+            now_fn=lambda: _signal_bar(5).market_as_of,
         )
         generation = DecisionRuntimeGeneration(
             generation_id=generation_id,
@@ -1453,7 +1457,7 @@ async def test_forward_input_gap_rebuilds_once_and_continues_with_fresh_generati
     service = DecisionService(
         generation_factory=factory,
         block_ms=1,
-        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+        now_fn=lambda: _signal_bar(5).market_as_of,
     )
     await service.start()
     try:
@@ -1471,10 +1475,28 @@ async def test_forward_input_gap_rebuilds_once_and_continues_with_fresh_generati
         stream.pending.append(("5-0", _signal_fields(5)))
         signal_stream = "signals:BTCUSDT:1h"
         await _wait_until(
-            lambda: len(publisher_client.entries.get(signal_stream, {})) == 1
+            lambda: (
+                generations[1]
+                .live_runtime.input.cursor_for(input_stream)
+                .latest_stream_id
+                == "5-0"
+            )
         )
-        assert tuple(publisher_client.entries[signal_stream]) == (
-            f"{int(_signal_bar(5).market_as_of.timestamp() * 1000)}-0",
+        assert generations[1].live_runtime.lanes["BTCUSDT:main"].status == "LIVE", (
+            generations[1].live_runtime.lanes["BTCUSDT:main"].reason
+        )
+        await _wait_until(
+            lambda: (
+                f"{int(_signal_bar(5).market_as_of.timestamp() * 1000)}-0"
+                in publisher_client.entries.get(signal_stream, {})
+            )
+        )
+        assert (
+            sum(
+                entry_id == f"{int(_signal_bar(5).market_as_of.timestamp() * 1000)}-0"
+                for entry_id in publisher_client.entries[signal_stream]
+            )
+            == 1
         )
         assert (
             generations[1].live_runtime.input.cursor_for(input_stream).latest_stream_id

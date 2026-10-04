@@ -55,7 +55,7 @@ class ShadowDecisionObservation(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    schema_version: Literal["decision.shadow.v1"] = "decision.shadow.v1"
+    schema_version: Literal["decision.shadow.v2"] = "decision.shadow.v2"
     lane_id: str
     asset: str
     decision_timeframe: str
@@ -71,7 +71,6 @@ class ShadowDecisionObservation(BaseModel):
     base_lane_revision: str
     decision_execution_revision: str
     feature_plan_fingerprint: str
-    data_plan_fingerprint: str
     policy_name: str
     policy_version: str
 
@@ -84,7 +83,6 @@ class ShadowDecisionObservation(BaseModel):
         "base_lane_revision",
         "decision_execution_revision",
         "feature_plan_fingerprint",
-        "data_plan_fingerprint",
         "policy_name",
         "policy_version",
     )
@@ -218,7 +216,9 @@ def shadow_stream_entry_id(market_as_of: datetime) -> str:
 def shadow_payload_fingerprint(observation: ShadowDecisionObservation) -> str:
     if not isinstance(observation, ShadowDecisionObservation):
         raise TypeError("observation must be ShadowDecisionObservation")
-    return sha256_fingerprint(observation.model_dump(mode="python"))
+    payload = observation.model_dump(mode="python")
+    payload.pop("decision_ready_at")
+    return sha256_fingerprint(payload)
 
 
 def build_shadow_envelope(
@@ -282,9 +282,6 @@ def build_shadow_envelope(
         ),
         feature_plan_fingerprint=_required_identity(
             result.feature_plan_fingerprint, "feature_plan_fingerprint"
-        ),
-        data_plan_fingerprint=_required_identity(
-            result.data_plan_fingerprint, "data_plan_fingerprint"
         ),
         policy_name=_required_identity(result.policy_name, "policy_name"),
         policy_version=result.policy_version,

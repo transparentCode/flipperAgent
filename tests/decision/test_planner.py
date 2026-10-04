@@ -218,150 +218,23 @@ def test_empty_capabilities_are_unrestricted() -> None:
     assert len(plan.lanes) == 1
 
 
-def test_unknown_plugin_and_stateful_replay_safety_fail_closed() -> None:
+def test_unknown_plugin_and_external_data_requirement_fail_closed() -> None:
     unknown_lane = make_lane((make_binding("unknown", "UnknownModel"),))
     with pytest.raises(PlannerError, match="unknown plugin"):
         compile_decision_plan(PluginCatalog([]), [unknown_lane])
 
-    stateful = make_spec("StatefulModel", "stateful.v1", stateful=False)
-    object.__setattr__(stateful, "stateful", True)
-    object.__setattr__(
-        stateful,
-        "intrinsic_data_requirements",
-        (DataRequirement(concept="LIVE_ONLY", replay_support_required=False),),
+    external = make_spec(
+        "ExternalModel",
+        "external.v1",
+        data_requirements=(DataRequirement(concept="LIVE_ONLY"),),
     )
-    with pytest.raises(PlannerError, match="not replay-safe"):
+    with pytest.raises(
+        PlannerError, match="external data requirements are not supported"
+    ):
         compile_decision_plan(
-            PluginCatalog([stateful]),
-            [make_lane((make_binding("state", "StatefulModel"),))],
+            PluginCatalog([external]),
+            [make_lane((make_binding("external", "ExternalModel"),))],
         )
-
-
-def test_stateful_replay_safety_covers_direct_and_transitive_ancestors() -> None:
-    live_only = DataRequirement(
-        concept="LIVE_ONLY_SENTIMENT",
-        required=False,
-        replay_support_required=False,
-    )
-    direct_catalog = PluginCatalog(
-        [
-            make_spec("LiveProvider", "provider.v1", data_requirements=(live_only,)),
-            make_spec(
-                "StatefulConsumer",
-                "consumer.v1",
-                stateful=True,
-                dependencies=(
-                    ModelDependencyRequirement(
-                        slot_name="provider",
-                        artifact_type="provider.v1",
-                    ),
-                ),
-            ),
-        ]
-    )
-    direct_lane = make_lane(
-        (
-            make_binding("provider", "LiveProvider"),
-            make_binding(
-                "consumer",
-                "StatefulConsumer",
-                dependencies={"provider": "provider"},
-            ),
-        )
-    )
-    with pytest.raises(
-        PlannerError,
-        match="consumer.*provider.*LIVE_ONLY_SENTIMENT",
-    ):
-        compile_decision_plan(direct_catalog, [direct_lane])
-
-    transitive_catalog = PluginCatalog(
-        [
-            make_spec("LiveLeaf", "leaf.v1", data_requirements=(live_only,)),
-            make_spec(
-                "MiddleModel",
-                "middle.v1",
-                dependencies=(
-                    ModelDependencyRequirement(
-                        slot_name="leaf",
-                        artifact_type="leaf.v1",
-                    ),
-                ),
-            ),
-            make_spec(
-                "StatefulRoot",
-                "root.v1",
-                stateful=True,
-                dependencies=(
-                    ModelDependencyRequirement(
-                        slot_name="middle",
-                        artifact_type="middle.v1",
-                    ),
-                ),
-            ),
-        ]
-    )
-    transitive_lane = make_lane(
-        (
-            make_binding("leaf", "LiveLeaf"),
-            make_binding(
-                "middle",
-                "MiddleModel",
-                dependencies={"leaf": "leaf"},
-            ),
-            make_binding(
-                "root",
-                "StatefulRoot",
-                dependencies={"middle": "middle"},
-            ),
-        )
-    )
-    with pytest.raises(
-        PlannerError,
-        match="root.*leaf.*LIVE_ONLY_SENTIMENT",
-    ):
-        compile_decision_plan(transitive_catalog, [transitive_lane])
-
-
-def test_stateful_replay_safe_dependency_closure_is_accepted() -> None:
-    replay_safe = DataRequirement(
-        concept="OPEN_INTEREST",
-        required=False,
-        replay_support_required=True,
-    )
-    catalog = PluginCatalog(
-        [
-            make_spec("ReplayLeaf", "leaf.v1", data_requirements=(replay_safe,)),
-            make_spec(
-                "MiddleModel",
-                "middle.v1",
-                dependencies=(
-                    ModelDependencyRequirement(
-                        slot_name="leaf", artifact_type="leaf.v1"
-                    ),
-                ),
-            ),
-            make_spec(
-                "StatefulRoot",
-                "root.v1",
-                stateful=True,
-                dependencies=(
-                    ModelDependencyRequirement(
-                        slot_name="middle", artifact_type="middle.v1"
-                    ),
-                ),
-            ),
-        ]
-    )
-    lane = make_lane(
-        (
-            make_binding("leaf", "ReplayLeaf"),
-            make_binding("middle", "MiddleModel", dependencies={"leaf": "leaf"}),
-            make_binding("root", "StatefulRoot", dependencies={"middle": "middle"}),
-        )
-    )
-    plan = compile_decision_plan(catalog, [lane])
-    assert plan.lanes[0].bindings["root"].model_spec.stateful is True
 
 
 @pytest.mark.parametrize(

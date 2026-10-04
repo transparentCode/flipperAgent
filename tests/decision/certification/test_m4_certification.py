@@ -92,11 +92,24 @@ def test_m4_functional_artifact_is_deterministic_and_complete() -> None:
         "6fcd3d736524b513a63f244a3268478a658924cd571a62a72ec33958ad67972c"
     )
     assert first["compiled_capacities"] == {
-        "BTCUSDT/1h": 544,
-        "BTCUSDT/4h": 544,
+        "BTCUSDT/1h": 136,
+        "BTCUSDT/4h": 272,
         "ETHUSDT/4h": 544,
     }
-    assert first["compiled_feature_histories"] == {"MACD": 544, "RSI": 208}
+    assert first["compiled_feature_histories"] == {
+        "BTCUSDT:momentum_1h": {
+            "MACD": {"BTCUSDT/1h": 136},
+            "RSI": {"BTCUSDT/1h": 60},
+        },
+        "BTCUSDT:momentum_4h": {
+            "MACD": {"BTCUSDT/4h": 272},
+            "RSI": {"BTCUSDT/4h": 120},
+        },
+        "ETHUSDT:momentum_4h": {
+            "MACD": {"ETHUSDT/4h": 544},
+            "RSI": {"ETHUSDT/4h": 208},
+        },
+    }
     assert first["startup"]["status"] == "STARTUP_READY"
     assert first["startup"]["stateful_binding_count"] == 0
     assert first["functional_status"] == "PASS"
@@ -133,8 +146,8 @@ def test_m4_functional_artifact_is_deterministic_and_complete() -> None:
     }
     assert first["retention_coverage"]["status"] == "PASS"
     assert first["resource_structure"]["startup_fetch_limits"] == {
-        "BTCUSDT/1h": [544],
-        "BTCUSDT/4h": [544],
+        "BTCUSDT/1h": [136],
+        "BTCUSDT/4h": [272],
         "ETHUSDT/4h": [544],
     }
     assert first["live_path"] == {

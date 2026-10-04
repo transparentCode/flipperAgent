@@ -88,7 +88,6 @@ def _observation() -> ShadowDecisionObservation:
         base_lane_revision="lane-revision",
         decision_execution_revision="execution-revision",
         feature_plan_fingerprint="feature-plan",
-        data_plan_fingerprint="data-plan",
         policy_name="passthrough",
         policy_version="1",
     )
@@ -165,7 +164,7 @@ def test_shadow_observation_is_frozen_and_has_explicit_market_id() -> None:
     assert shadow_stream_entry_id(observation.market_as_of) == "1767225600000-0"
     assert (
         valkey_encode(observation, inject_trace=False)["schema_version"]
-        == "decision.shadow.v1"
+        == "decision.shadow.v2"
     )
     with pytest.raises((AttributeError, TypeError, ValueError)):
         observation.policy_name = "other"  # type: ignore[misc]

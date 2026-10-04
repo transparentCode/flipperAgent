@@ -291,12 +291,11 @@ class CheckpointRepository:
                  WHERE lane_id = $1
                    AND effective_lane_revision = $2
                    AND feature_plan_fingerprint = $3
-                   AND data_plan_fingerprint = $4
+                   AND data_plan_fingerprint = 'none'
                 """,
                     identity.lane_id,
                     identity.effective_lane_revision,
                     identity.feature_plan_fingerprint,
-                    identity.data_plan_fingerprint,
                     **native_timeout_kwargs(
                         deadline,
                         operation="checkpoint load query",
@@ -396,13 +395,12 @@ class CheckpointRepository:
              WHERE lane_id = $1
                AND effective_lane_revision = $2
                AND feature_plan_fingerprint = $3
-               AND data_plan_fingerprint = $4
+               AND data_plan_fingerprint = 'none'
              FOR UPDATE
             """,
                 checkpoint.identity.lane_id,
                 checkpoint.identity.effective_lane_revision,
                 checkpoint.identity.feature_plan_fingerprint,
-                checkpoint.identity.data_plan_fingerprint,
                 **native_timeout_kwargs(
                     deadline,
                     operation="checkpoint save query",
@@ -427,17 +425,16 @@ class CheckpointRepository:
                 connection.execute(
                     """
                 UPDATE decision.state_checkpoints
-                   SET market_as_of = $5, state_inception_at = $6,
-                       state_payload = $7, state_payload_sha256 = $8,
-                       updated_at = $9
+                   SET market_as_of = $4, state_inception_at = $5,
+                       state_payload = $6, state_payload_sha256 = $7,
+                       updated_at = $8
                  WHERE lane_id = $1 AND effective_lane_revision = $2
                    AND feature_plan_fingerprint = $3
-                   AND data_plan_fingerprint = $4
+                   AND data_plan_fingerprint = 'none'
                 """,
                     checkpoint.identity.lane_id,
                     checkpoint.identity.effective_lane_revision,
                     checkpoint.identity.feature_plan_fingerprint,
-                    checkpoint.identity.data_plan_fingerprint,
                     checkpoint.market_as_of,
                     checkpoint.state_inception_at,
                     checkpoint.state_payload,
@@ -460,13 +457,12 @@ class CheckpointRepository:
                 feature_plan_fingerprint, data_plan_fingerprint, market_as_of,
                 state_inception_at, state_payload, state_payload_sha256,
                 created_at, updated_at
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10)
+            ) VALUES ($1,$2,$3,$4,'none',$5,$6,$7,$8,$9,$9)
             """,
                 checkpoint.checkpoint_schema_version,
                 checkpoint.identity.lane_id,
                 checkpoint.identity.effective_lane_revision,
                 checkpoint.identity.feature_plan_fingerprint,
-                checkpoint.identity.data_plan_fingerprint,
                 checkpoint.market_as_of,
                 checkpoint.state_inception_at,
                 checkpoint.state_payload,
@@ -493,11 +489,14 @@ def _row_value(row: Any, name: str) -> Any:
 def _checkpoint_from_row(
     row: Any, identity: LaneExecutionIdentity
 ) -> LaneStateCheckpoint:
+    if _row_value(row, "data_plan_fingerprint") != "none":
+        raise CheckpointCorruptionError(
+            "checkpoint data_plan_fingerprint must use the neutral value"
+        )
     row_identity = LaneExecutionIdentity(
         lane_id=_row_value(row, "lane_id"),
         effective_lane_revision=_row_value(row, "effective_lane_revision"),
         feature_plan_fingerprint=_row_value(row, "feature_plan_fingerprint"),
-        data_plan_fingerprint=_row_value(row, "data_plan_fingerprint"),
     )
     if row_identity != identity:
         raise CheckpointCorruptionError("checkpoint identity does not match query")

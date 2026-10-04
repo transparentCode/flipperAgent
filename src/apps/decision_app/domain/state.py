@@ -49,14 +49,12 @@ class LaneExecutionIdentity:
     lane_id: str
     effective_lane_revision: str
     feature_plan_fingerprint: str
-    data_plan_fingerprint: str
 
     def __post_init__(self) -> None:
         for field_name in (
             "lane_id",
             "effective_lane_revision",
             "feature_plan_fingerprint",
-            "data_plan_fingerprint",
         ):
             _require_non_empty(getattr(self, field_name), field_name=field_name)
 
@@ -126,8 +124,10 @@ class StateCommitReceipt:
         if not isinstance(self.identity, LaneExecutionIdentity):
             raise TypeError("identity must be LaneExecutionIdentity")
         require_utc(self.market_as_of, field_name="market_as_of")
-        if self.disposition not in {"published", "no_signal", "shadow"}:
-            raise ValueError("disposition must be published, no_signal, or shadow")
+        if self.disposition not in {"published", "no_signal", "shadow", "skipped"}:
+            raise ValueError(
+                "disposition must be published, no_signal, shadow, or skipped"
+            )
         object.__setattr__(
             self,
             "committed_binding_ids",
@@ -214,8 +214,10 @@ class LaneStateStore:
 
         self.assert_identity(identity)
         require_utc(market_as_of, field_name="market_as_of")
-        if disposition not in {"published", "no_signal", "shadow"}:
-            raise ValueError("disposition must be published, no_signal, or shadow")
+        if disposition not in {"published", "no_signal", "shadow", "skipped"}:
+            raise ValueError(
+                "disposition must be published, no_signal, shadow, or skipped"
+            )
         if not isinstance(transitions, Mapping):
             raise TypeError("transitions must be a mapping")
         normalized = dict(transitions)

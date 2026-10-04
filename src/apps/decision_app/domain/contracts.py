@@ -8,7 +8,6 @@ from datetime import datetime
 from typing import Any, Literal
 
 from libs.contracts.decision import (
-    DataRequirement,
     FeatureRequirement,
     FrozenMapping,
     ModelDecision,
@@ -19,8 +18,7 @@ from libs.contracts.decision import (
 
 PublicationAuthority = Literal["authoritative", "shadow"]
 LaneState = Literal["WARMING", "LIVE", "DEGRADED", "INVALID", "PAUSED", "STOPPED"]
-PriceContinuity = Literal["CONTINUOUS", "GAP_DETECTED", "UNRESOLVED"]
-CommitDisposition = Literal["published", "no_signal", "shadow"]
+CommitDisposition = Literal["published", "no_signal", "shadow", "skipped"]
 
 
 def _require_non_empty(value: object, *, field_name: str) -> str:
@@ -59,7 +57,6 @@ class ResolvedModelBinding:
     trigger_mode: str = ""
     dependencies: Mapping[str, str] = field(default_factory=dict)
     effective_feature_requirements: tuple[FeatureRequirement, ...] = ()
-    effective_data_requirements: tuple[DataRequirement, ...] = ()
     risk_profile_key: str | None = None
     publication_authority: PublicationAuthority = "authoritative"
 
@@ -110,12 +107,6 @@ class ResolvedModelBinding:
             "effective_feature_requirements",
             _normalize_feature_requirements(self.effective_feature_requirements),
         )
-        requirements = tuple(self.effective_data_requirements)
-        if any(not isinstance(item, DataRequirement) for item in requirements):
-            raise TypeError(
-                "effective_data_requirements must contain DataRequirement values"
-            )
-        object.__setattr__(self, "effective_data_requirements", requirements)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -137,7 +128,6 @@ class DecisionPolicyResult:
     base_lane_revision: str | None = None
     decision_execution_revision: str | None = None
     feature_plan_fingerprint: str | None = None
-    data_plan_fingerprint: str | None = None
     policy_name: str | None = None
     policy_parameters: Mapping[str, Any] = field(default_factory=dict)
     risk_profile_key: str | None = None
@@ -178,7 +168,6 @@ class DecisionPolicyResult:
             self.base_lane_revision,
             self.decision_execution_revision,
             self.feature_plan_fingerprint,
-            self.data_plan_fingerprint,
             self.policy_name,
         )
         if self.risk_profile_key is not None and not any(
@@ -194,7 +183,6 @@ class DecisionPolicyResult:
                 "base_lane_revision",
                 "decision_execution_revision",
                 "feature_plan_fingerprint",
-                "data_plan_fingerprint",
                 "policy_name",
             ):
                 _require_non_empty(
@@ -214,7 +202,6 @@ class DecisionPolicyResult:
                 lane_id=self.lane_id,
                 base_lane_revision=self.base_lane_revision,
                 feature_plan_fingerprint=self.feature_plan_fingerprint,
-                data_plan_fingerprint=self.data_plan_fingerprint,
                 policy_name=self.policy_name,
                 policy_version=self.policy_version,
                 policy_parameters=self.policy_parameters,
@@ -262,32 +249,16 @@ class LaneCommitWatermark:
         _require_non_empty(self.lane_id, field_name="lane_id")
         if self.latest_market_as_of is not None:
             require_utc(self.latest_market_as_of, field_name="latest_market_as_of")
-        if self.last_disposition not in {"published", "no_signal", "shadow", None}:
+        if self.last_disposition not in {
+            "published",
+            "no_signal",
+            "shadow",
+            "skipped",
+            None,
+        }:
             raise ValueError(
-                "last_disposition must be published, no_signal, shadow, or None"
+                "last_disposition must be published, no_signal, shadow, skipped, or None"
             )
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class PriceRelayProgress:
-    """PriceRelay progress and explicit continuity evidence."""
-
-    relay_plan_id: str
-    latest_market_as_of: datetime | None = None
-    continuity_status: PriceContinuity = "CONTINUOUS"
-    gap_evidence: Mapping[str, Any] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        _require_non_empty(self.relay_plan_id, field_name="relay_plan_id")
-        if self.latest_market_as_of is not None:
-            require_utc(self.latest_market_as_of, field_name="latest_market_as_of")
-        if self.continuity_status not in {"CONTINUOUS", "GAP_DETECTED", "UNRESOLVED"}:
-            raise ValueError("continuity_status is not supported")
-        object.__setattr__(
-            self,
-            "gap_evidence",
-            _freeze_mapping(self.gap_evidence, field_name="gap_evidence"),
-        )
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -344,40 +315,6 @@ class LaneReadiness:
             _require_non_empty(self.last_rewarm_reason, field_name="last_rewarm_reason")
 
 
-@dataclass(frozen=True, slots=True, kw_only=True)
-class PriceRelayPlan:
-    """Independent downstream-risk price cadence configuration."""
-
-    relay_plan_id: str
-    manifest_asset: str
-    asset: str
-    venue: str
-    instrument_id: str
-    timeframe: str
-    stream_key: str
-    downstream_risk_compatibility: Mapping[str, Any] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        for field_name in (
-            "relay_plan_id",
-            "manifest_asset",
-            "asset",
-            "venue",
-            "instrument_id",
-            "timeframe",
-            "stream_key",
-        ):
-            _require_non_empty(getattr(self, field_name), field_name=field_name)
-        object.__setattr__(
-            self,
-            "downstream_risk_compatibility",
-            _freeze_mapping(
-                self.downstream_risk_compatibility,
-                field_name="downstream_risk_compatibility",
-            ),
-        )
-
-
 def _normalize_strings(values: tuple[str, ...], *, field_name: str) -> tuple[str, ...]:
     if isinstance(values, (str, bytes)):
         raise TypeError(f"{field_name} must be a sequence of strings")
@@ -410,9 +347,6 @@ __all__ = [
     "LaneCommitWatermark",
     "LaneReadiness",
     "LaneState",
-    "PriceContinuity",
-    "PriceRelayPlan",
-    "PriceRelayProgress",
     "PublicationAuthority",
     "ResolvedModelBinding",
 ]

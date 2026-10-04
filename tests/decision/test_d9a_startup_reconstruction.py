@@ -7,7 +7,6 @@ from decimal import Decimal
 
 import pytest
 
-from apps.decision_app.data.resolver import DataPolicy, DataResolver, DataSourceCatalog
 from apps.decision_app.domain.market_state import MarketSeriesKey, TimeframeGrid
 from apps.decision_app.features.planning import (
     FeatureCatalog,
@@ -34,9 +33,14 @@ from apps.decision_app.settings import (
 from apps.decision_app.storage.checkpoints import (
     CheckpointSaveResult,
     InMemoryCheckpointRepository,
+    LaneStateCheckpoint,
 )
+from apps.decision_app.storage.effect_skips import InMemoryLaneEffectSkipsRepository
 from apps.decision_app.storage.market_history import (
     InMemoryCanonicalMarketHistoryRepository,
+)
+from apps.decision_app.storage.shadow_progress import (
+    InMemoryLaneEffectProgressRepository,
 )
 from apps.decision_app.transport.ingestion import canonical_ingestion_stream_key
 from libs.contracts.decision import (
@@ -235,6 +239,10 @@ class TailClient:
         assert stream == canonical_ingestion_stream_key(SERIES)
         return [(f"{self.index}-0", _stream_fields(self.index))]
 
+    async def xrange(self, _stream: str, _start: str, _end: str, *, count: int = 1):
+        assert count == 1
+        return []
+
 
 class _FixedSaveResultRepository(InMemoryCheckpointRepository):
     def __init__(self, result: object) -> None:
@@ -247,14 +255,19 @@ class _FixedSaveResultRepository(InMemoryCheckpointRepository):
         return self.result
 
 
-def _coordinator(history, checkpoints, tail_index: int):
+def _coordinator(
+    history,
+    checkpoints,
+    tail_index: int,
+    *,
+    effect_progress_repository=None,
+    effect_skips_repository=None,
+):
     return DecisionStartupCoordinator(
         decision_config=_config(),
         plugin_catalog=PluginCatalog([SPEC]),
         feature_catalog=FeatureCatalog([]),
         feature_policy=FeaturePolicy(name="operator", version="1"),
-        data_policy=DataPolicy(name="operator", version="1"),
-        source_catalog=DataSourceCatalog([]),
         runtime_plugin_catalog=RuntimePluginCatalog(
             [
                 RuntimePluginDefinition(
@@ -270,7 +283,8 @@ def _coordinator(history, checkpoints, tail_index: int):
         history_repository=history,
         stream_client=TailClient(tail_index),
         checkpoint_repository=checkpoints,
-        data_resolver=DataResolver(DataSourceCatalog([])),
+        effect_progress_repository=effect_progress_repository,
+        effect_skips_repository=effect_skips_repository,
     )
 
 
@@ -301,8 +315,6 @@ def _stateless_coordinator(history, checkpoints, tail_index: int):
             version="1",
             allowed_features=("FIXED",),
         ),
-        data_policy=DataPolicy(name="operator", version="1"),
-        source_catalog=DataSourceCatalog([]),
         runtime_plugin_catalog=RuntimePluginCatalog(
             [
                 RuntimePluginDefinition(
@@ -315,7 +327,6 @@ def _stateless_coordinator(history, checkpoints, tail_index: int):
         history_repository=history,
         stream_client=TailClient(tail_index),
         checkpoint_repository=checkpoints,
-        data_resolver=DataResolver(DataSourceCatalog([])),
     )
 
 
@@ -396,6 +407,75 @@ async def test_checkpointed_restart_replays_only_next_contiguous_transition() ->
     assert second_checkpoint.market_as_of == _bar(5).market_as_of
     assert second.snapshot.lane_evidence["BTCUSDT:main"].checkpoint_loaded is True
     assert second.snapshot.lane_evidence["BTCUSDT:main"].replay_step_count == 1
+
+
+@pytest.mark.asyncio
+async def test_checkpoint_one_cutoff_ahead_of_progress_rewarms_then_skips_forward() -> (
+    None
+):
+    checkpoints = InMemoryCheckpointRepository()
+    progress = InMemoryLaneEffectProgressRepository()
+    skips = InMemoryLaneEffectSkipsRepository()
+    first_history = InMemoryCanonicalMarketHistoryRepository(
+        {SERIES: tuple(_bar(index) for index in range(5))},
+        timeframe_grid=GRID,
+    )
+    first = await _coordinator(
+        first_history,
+        checkpoints,
+        tail_index=3,
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+    identity = next(iter(first.runtimes.values())).identity
+    checkpoint = await checkpoints.load(identity)
+    effect = await progress.load(identity)
+    assert checkpoint is not None and effect is not None
+    assert checkpoint.market_as_of == _bar(4).market_as_of
+    assert effect.market_as_of == _bar(4).market_as_of
+    assert effect.last_disposition is None
+
+    one_step_ahead = LaneStateCheckpoint.create(
+        identity=identity,
+        market_as_of=_bar(5).market_as_of,
+        state_inception_at=checkpoint.state_inception_at,
+        state_by_binding={
+            binding_id: int(state) + 1
+            for binding_id, state in checkpoint.state_by_binding.items()
+        },
+    )
+    assert await checkpoints.save(one_step_ahead) == CheckpointSaveResult.UPDATED
+
+    second_history = InMemoryCanonicalMarketHistoryRepository(
+        {SERIES: tuple(_bar(index) for index in range(8))},
+        timeframe_grid=GRID,
+    )
+    second = await _coordinator(
+        second_history,
+        checkpoints,
+        tail_index=6,
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+
+    evidence = second.snapshot.lane_evidence["BTCUSDT:main"]
+    final_checkpoint = await checkpoints.load(identity)
+    final_progress = await progress.load(identity)
+    restart_skips = [skip for skip in skips.records if skip.reason == "restart_rewarm"]
+    assert second.snapshot.status == "STARTUP_READY"
+    assert evidence.checkpoint_loaded is True
+    assert evidence.replay_step_count == 2
+    assert final_checkpoint is not None
+    assert final_checkpoint.market_as_of == _bar(7).market_as_of
+    assert final_progress is not None
+    assert final_progress.market_as_of == _bar(7).market_as_of
+    assert final_progress.last_disposition is None
+    assert any(
+        skip.skipped_from == _bar(5).market_as_of
+        and skip.skipped_through == _bar(7).market_as_of
+        and skip.cutoff_count == 3
+        for skip in restart_skips
+    )
 
 
 @pytest.mark.asyncio
@@ -624,8 +704,6 @@ async def test_manifest_gate_uses_compiled_feature_timeframes(
         ),
         feature_catalog=FeatureCatalog([]),
         feature_policy=FeaturePolicy(name="operator", version="1"),
-        data_policy=DataPolicy(name="operator", version="1"),
-        source_catalog=DataSourceCatalog([]),
         runtime_plugin_catalog=RuntimePluginCatalog([]),
         history_repository=InMemoryCanonicalMarketHistoryRepository(
             {}, timeframe_grid=config.timeframe_grid
@@ -659,8 +737,6 @@ def _manifest_gate_coordinator(store: _IdentityManifestStore):
         ),
         feature_catalog=FeatureCatalog([]),
         feature_policy=FeaturePolicy(name="operator", version="1"),
-        data_policy=DataPolicy(name="operator", version="1"),
-        source_catalog=DataSourceCatalog([]),
         runtime_plugin_catalog=RuntimePluginCatalog([]),
         history_repository=InMemoryCanonicalMarketHistoryRepository(
             {}, timeframe_grid=config.timeframe_grid
@@ -863,6 +939,10 @@ class _MixedTailClient:
                 ]
         raise AssertionError(f"unexpected stream: {stream}")
 
+    async def xrange(self, _stream: str, _start: str, _end: str, *, count: int = 1):
+        assert count == 1
+        return []
+
 
 def _mixed_coordinator(history: _RecordingHistory, tail_bars):
     return DecisionStartupCoordinator(
@@ -889,8 +969,6 @@ def _mixed_coordinator(history: _RecordingHistory, tail_bars):
             version="1",
             allowed_features=("FIXED",),
         ),
-        data_policy=DataPolicy(name="operator", version="1"),
-        source_catalog=DataSourceCatalog([]),
         runtime_plugin_catalog=RuntimePluginCatalog(
             [
                 RuntimePluginDefinition(
@@ -906,7 +984,6 @@ def _mixed_coordinator(history: _RecordingHistory, tail_bars):
         history_repository=history,
         stream_client=_MixedTailClient(tail_bars),
         checkpoint_repository=InMemoryCheckpointRepository(),
-        data_resolver=DataResolver(DataSourceCatalog([])),
     )
 
 

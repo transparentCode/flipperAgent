@@ -337,19 +337,16 @@ def build_momentum_feature_definitions(
     """Build exactly one shared RSI@1 and MACD@1 definition for active routes."""
 
     routes = _route_profiles(profiles)
-    max_rsi_history = max(
-        envelope.feature_profile.rsi_history_bars for envelope in routes.values()
-    )
-    max_macd_history = max(
-        envelope.feature_profile.macd_history_bars for envelope in routes.values()
-    )
 
-    def _context_profile(context: Any) -> MomentumBindingEnvelope:
-        route_key = f"{context.asset}/{context.decision_timeframe}"
+    def _lane_profile(lane: Any) -> MomentumBindingEnvelope:
+        route_key = f"{lane.asset}/{lane.decision_timeframe}"
         try:
             return routes[route_key]
         except KeyError as exc:
             raise ValueError(f"no certified Momentum route for {route_key}") from exc
+
+    def _context_profile(context: Any) -> MomentumBindingEnvelope:
+        return _lane_profile(context)
 
     def _closes(context: Any, count: int) -> tuple[float, ...]:
         bars = context.histories.get(context.decision_timeframe)
@@ -388,16 +385,22 @@ def build_momentum_feature_definitions(
             name=MOMENTUM_RSI_FEATURE_NAME,
             version=MOMENTUM_FEATURE_VERSION,
             calculator=calculate_route_rsi,
-            history_requirements=(
-                FeatureHistoryRequirement(source="decision", bars=max_rsi_history),
+            history_requirement_resolver=lambda lane: (
+                FeatureHistoryRequirement(
+                    source="decision",
+                    bars=_lane_profile(lane).feature_profile.rsi_history_bars,
+                ),
             ),
         ),
         SharedFeatureDefinition(
             name=MOMENTUM_MACD_FEATURE_NAME,
             version=MOMENTUM_FEATURE_VERSION,
             calculator=calculate_route_macd,
-            history_requirements=(
-                FeatureHistoryRequirement(source="decision", bars=max_macd_history),
+            history_requirement_resolver=lambda lane: (
+                FeatureHistoryRequirement(
+                    source="decision",
+                    bars=_lane_profile(lane).feature_profile.macd_history_bars,
+                ),
             ),
         ),
     )

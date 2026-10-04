@@ -186,8 +186,6 @@ def build_signal_envelope(
         )
     if result.feature_plan_fingerprint != prepared.identity.feature_plan_fingerprint:
         raise PublicationCompatibilityError("policy feature fingerprint does not match")
-    if result.data_plan_fingerprint != prepared.identity.data_plan_fingerprint:
-        raise PublicationCompatibilityError("policy data fingerprint does not match")
     if (
         result.policy_name != lane.policy_name
         or result.policy_version != lane.policy_version
@@ -199,7 +197,6 @@ def build_signal_envelope(
         lane_id=lane.lane_id,
         base_lane_revision=lane.effective_lane_revision,
         feature_plan_fingerprint=prepared.identity.feature_plan_fingerprint,
-        data_plan_fingerprint=prepared.identity.data_plan_fingerprint,
         policy_name=lane.policy_name,
         policy_version=lane.policy_version,
         policy_parameters=lane.policy_parameters,
@@ -288,7 +285,6 @@ def build_signal_envelope(
         "decision_execution_revision": result.decision_execution_revision,
         "base_lane_revision": result.base_lane_revision,
         "feature_plan_fingerprint": result.feature_plan_fingerprint,
-        "data_plan_fingerprint": result.data_plan_fingerprint,
         "risk_profile_key": lane.risk_profile_key,
         "policy_name": lane.policy_name,
         "policy_version": lane.policy_version,
