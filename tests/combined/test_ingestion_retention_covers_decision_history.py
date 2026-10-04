@@ -28,7 +28,12 @@ def test_ingestion_candle_retention_covers_enabled_decision_lane_history() -> No
         for name, definition in ingestion_config["timeframes"].items()
     }
     retention_days = ingestion_config["retention"]["candle_days"]
+    startup_history_days = ingestion_config["recovery"].get("startup_history_days")
     observed_history_values: list[int] = []
+
+    assert isinstance(startup_history_days, int) and not isinstance(
+        startup_history_days, bool
+    ), "ingestion recovery.startup_history_days must be configured as an integer"
 
     asset_paths = sorted((repository_root / "configs/decision/assets").glob("*.yaml"))
     for asset_path in asset_paths:
@@ -51,10 +56,15 @@ def test_ingestion_candle_retention_covers_enabled_decision_lane_history() -> No
             required_bars = max(history_values)
             timeframe = lane_config["decision_timeframe"]
             required_days = required_bars * timeframe_seconds[timeframe] / 86_400
-            assert required_days <= retention_days, (
-                f"{asset_name} lane {lane_name}: required history is "
-                f"{required_days:.2f} days, exceeding retention of "
-                f"{retention_days} days"
+            assert retention_days - required_days >= 30, (
+                f"{asset_name} lane {lane_name}: requires {required_days:.2f} days; "
+                f"retention is {retention_days} days, leaving "
+                f"{retention_days - required_days:.2f} days (minimum 30)"
+            )
+            assert startup_history_days >= required_days + 7, (
+                f"{asset_name} lane {lane_name}: requires {required_days:.2f} days; "
+                f"startup_history_days is {startup_history_days}, below the "
+                f"required {required_days + 7:.2f} days (history plus 7-day margin)"
             )
 
     assert observed_history_values, "no decision lane history_bars values found"

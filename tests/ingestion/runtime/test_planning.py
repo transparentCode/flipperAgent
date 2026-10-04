@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import copy
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, replace
 from datetime import timedelta
 
 import pytest
@@ -53,6 +53,7 @@ def test_compiler_is_deterministic_and_contains_runtime_fields() -> None:
     assert lane_plan.provider_order == ("binance_native", "ccxt_binance")
     assert tuple(lane_plan.target_durations) == ("1h", "2h")
     assert lane_plan.lookback_duration == timedelta(hours=2)
+    assert lane_plan.history_floor_duration == lane_plan.lookback_duration
     assert first.lanes_by_lane[lane_plan.lane] is lane_plan
 
 
@@ -84,6 +85,39 @@ def test_lookback_covers_base_when_target_is_shorter() -> None:
     assert plan.lanes[0].base_duration == timedelta(minutes=5)
     assert plan.lanes[0].target_durations == {"1m": timedelta(minutes=1)}
     assert plan.lanes[0].lookback_duration == timedelta(minutes=5)
+    assert plan.lanes[0].history_floor_duration == timedelta(minutes=5)
+
+
+def test_startup_history_floor_uses_configured_days_above_weekly_lookback() -> None:
+    plan = _compile(
+        _settings(
+            target_timeframes=("1w",),
+            startup_history_days=120,
+            candle_days=400,
+        )
+    )
+
+    lane_plan = plan.lanes[0]
+    assert lane_plan.lookback_duration == timedelta(weeks=1)
+    assert lane_plan.history_floor_duration == timedelta(days=120)
+
+
+def test_startup_history_floor_never_reduces_target_lookback() -> None:
+    plan = _compile(_settings(target_timeframes=("1w",), startup_history_days=3))
+
+    lane_plan = plan.lanes[0]
+    assert lane_plan.history_floor_duration == lane_plan.lookback_duration
+    assert lane_plan.history_floor_duration == timedelta(weeks=1)
+
+
+def test_lane_plan_rejects_history_floor_shorter_than_lookback() -> None:
+    lane_plan = _compile(_settings(target_timeframes=("1h",))).lanes[0]
+
+    with pytest.raises(ValueError, match="history_floor_duration"):
+        replace(
+            lane_plan,
+            history_floor_duration=lane_plan.lookback_duration - timedelta(seconds=1),
+        )
 
 
 def test_all_disabled_settings_compile_to_an_empty_plan() -> None:

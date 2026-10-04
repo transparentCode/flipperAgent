@@ -40,6 +40,8 @@ def _settings(
     target_timeframes: tuple[str, ...] = (),
     include_eth: bool = False,
     reconnect_backoff_seconds: float = 0,
+    startup_history_days: int | None = None,
+    candle_days: int = 90,
 ) -> object:
     timeframe_values = {"1m": {"duration_seconds": 60}}
     for timeframe in target_timeframes:
@@ -48,6 +50,7 @@ def _settings(
                 "15m": 900,
                 "1h": 3600,
                 "2h": 7200,
+                "1w": 604800,
             }[timeframe]
         }
     instruments: dict[str, dict[str, object]] = {
@@ -114,6 +117,7 @@ def _settings(
                 "max_attempts_per_provider": 1,
                 "retry_backoff_seconds": 0,
                 "rest_finalization_grace_seconds": 5,
+                "startup_history_days": startup_history_days,
             },
             "websocket": {
                 "stream_url": "wss://fstream.binance.com/market",
@@ -129,7 +133,7 @@ def _settings(
                 "stream_approximate": True,
             },
             "retention": {
-                "candle_days": 90,
+                "candle_days": candle_days,
                 "published_outbox_days": 7,
                 "cleanup_interval_seconds": 86400,
                 "error_backoff_seconds": 60,
@@ -641,6 +645,31 @@ async def test_cold_start_uses_largest_target_as_bounded_floor() -> None:
             "as_of": NOW,
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_configured_startup_history_extends_only_base_catchup_floor() -> None:
+    repository = _Repository()
+    supervisor, _, _, htf, recovery, _ = _supervisor(
+        settings=_settings(
+            target_timeframes=("1w",),
+            startup_history_days=120,
+            candle_days=400,
+        ),
+        repository=repository,
+    )
+
+    await supervisor._prepare_live_connection()
+
+    assert recovery.calls == [
+        RecoveryRequest(
+            lane=LANE,
+            since=BOUNDARY - timedelta(days=120),
+            until=BOUNDARY,
+            reason="runtime_catchup",
+        )
+    ]
+    assert htf.missing_calls[0]["since"] == BOUNDARY - timedelta(weeks=1)
 
 
 @pytest.mark.asyncio

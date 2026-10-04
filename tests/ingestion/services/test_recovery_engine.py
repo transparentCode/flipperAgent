@@ -306,6 +306,7 @@ def _plan_for_lanes(*lanes: MarketLane) -> IngestionPlan:
             target_durations={},
             base_duration=MINUTE,
             lookback_duration=MINUTE,
+            history_floor_duration=MINUTE,
         )
         for lane in sorted(
             lanes,

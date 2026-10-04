@@ -134,6 +134,7 @@ def test_real_global_and_asset_configuration_load_successfully() -> None:
     assert settings.recovery.retry_backoff_seconds == 1
     assert settings.recovery.rest_finalization_grace_seconds == 5
     assert settings.recovery.provider_attempt_timeout_seconds == 30
+    assert settings.recovery.startup_history_days == 120
     assert settings.websocket.stream_url == "wss://fstream.binance.com/market"
     assert settings.websocket.queue_maxsize == 1000
     assert settings.websocket.lifecycle_timeout_seconds == 30
@@ -145,7 +146,7 @@ def test_real_global_and_asset_configuration_load_successfully() -> None:
     assert settings.publication.error_backoff_seconds == 1
     assert settings.publication.stream_maxlen == 1000
     assert settings.publication.stream_approximate is True
-    assert settings.retention.candle_days == 91
+    assert settings.retention.candle_days == 400
     assert settings.retention.published_outbox_days == 7
     assert settings.retention.cleanup_interval_seconds == 86400
     assert settings.retention.error_backoff_seconds == 60
@@ -220,6 +221,7 @@ def test_settings_model_dump_is_warning_free_and_serializable(
     assert isinstance(dumped["assets"], dict)
     assert dumped["recovery"]["page_limit"] == 500
     assert dumped["recovery"]["provider_attempt_timeout_seconds"] == 30
+    assert dumped["recovery"]["startup_history_days"] is None
     assert dumped["websocket"]["lifecycle_timeout_seconds"] == 30
     assert dumped["retention"]["candle_days"] == 90
     assert dumped["calendar"]["alignment_origin"] == "1970-01-05T00:00:00Z"
@@ -245,6 +247,7 @@ def test_settings_model_dump_json_succeeds(
     assert decoded["recovery"]["max_concurrency"] == 4
     assert decoded["recovery"]["rest_finalization_grace_seconds"] == 5
     assert decoded["recovery"]["provider_attempt_timeout_seconds"] == 30
+    assert decoded["recovery"]["startup_history_days"] is None
     assert decoded["websocket"]["queue_maxsize"] == 1000
     assert decoded["websocket"]["lifecycle_timeout_seconds"] == 30
     assert decoded["runtime"]["reconnect_backoff_seconds"] == 5
@@ -325,6 +328,9 @@ def test_asset_enabled_rejects_scalar_coercion(
         ("retry_backoff_seconds", -1),
         ("rest_finalization_grace_seconds", -1),
         ("provider_attempt_timeout_seconds", 0),
+        ("startup_history_days", 0),
+        ("startup_history_days", -1),
+        ("startup_history_days", "120"),
     ],
 )
 def test_recovery_settings_reject_invalid_values(
@@ -349,6 +355,7 @@ def test_recovery_settings_reject_invalid_values(
         "retry_backoff_seconds",
         "rest_finalization_grace_seconds",
         "provider_attempt_timeout_seconds",
+        "startup_history_days",
     ],
 )
 def test_recovery_settings_reject_bool_coercion(
@@ -361,6 +368,37 @@ def test_recovery_settings_reject_bool_coercion(
 
     with pytest.raises(ValidationError):
         load_ingestion_settings(temp_ingestion_manager)
+
+
+@pytest.mark.parametrize("startup_history_days", [90, 120])
+def test_startup_history_must_be_shorter_than_candle_retention(
+    temp_ingestion_manager: ConfigManager,
+    startup_history_days: int,
+) -> None:
+    global_config = _global_config()
+    global_config["ingestion"]["recovery"]["startup_history_days"] = (
+        startup_history_days
+    )
+    _write_yaml(Path("configs/ingestion/global.yaml"), global_config)
+
+    with pytest.raises(
+        ValidationError,
+        match=rf"startup_history_days \({startup_history_days}\).*candle_days \(90\)",
+    ):
+        load_ingestion_settings(temp_ingestion_manager)
+
+
+def test_startup_history_days_accepts_valid_value_below_retention(
+    temp_ingestion_manager: ConfigManager,
+) -> None:
+    global_config = _global_config()
+    global_config["ingestion"]["recovery"]["startup_history_days"] = 120
+    global_config["ingestion"]["retention"]["candle_days"] = 400
+    _write_yaml(Path("configs/ingestion/global.yaml"), global_config)
+
+    settings = load_ingestion_settings(temp_ingestion_manager)
+
+    assert settings.recovery.startup_history_days == 120
 
 
 @pytest.mark.parametrize(

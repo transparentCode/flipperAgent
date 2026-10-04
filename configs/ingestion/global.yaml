@@ -13,6 +13,7 @@ ingestion:
     retry_backoff_seconds: 1
     rest_finalization_grace_seconds: 5
     provider_attempt_timeout_seconds: 30
+    startup_history_days: 120
 
   websocket:
     stream_url: "wss://fstream.binance.com/market"
@@ -34,7 +35,7 @@ ingestion:
     stream_approximate: true
 
   retention:
-    candle_days: 91
+    candle_days: 400
     published_outbox_days: 7
     cleanup_interval_seconds: 86400
     error_backoff_seconds: 60

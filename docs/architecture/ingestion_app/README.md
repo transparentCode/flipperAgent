@@ -112,6 +112,13 @@ over-mounting only `./configs/ingestion/assets:/app/configs/ingestion/assets:rw`
 The registered asset directory remains the sole configuration authority; global
 and other application configuration remains read-only.
 
+Startup base-history catch-up uses the largest configured target timeframe as
+its minimum floor and extends that floor to `recovery.startup_history_days` when
+configured. Production uses 120 days. The separate missing-HTF-bucket scan
+remains bounded by the largest target timeframe, so deeper base catch-up does
+not widen that scan. Candle retention is 400 days, leaving at least 30 days
+beyond the largest configured Decision history requirement.
+
 ### 2. Runtime controller and supervisor
 
 `runtime/state.py` owns the shared runtime state contracts. `RuntimeController`
@@ -145,9 +152,11 @@ generation only after the gates pass.
 the run loop has one common cancellation/deadline/ordinary failure boundary:
 
 1. determine the latest closed base boundary;
-2. perform bounded startup catch-up from Timescale state;
+2. perform bounded startup base-history catch-up from Timescale state, using the
+   configured startup history floor (120 days in production) or the largest
+   target timeframe when unset;
 3. reconcile latest closed HTF buckets and every missing closed bucket within
-   the bounded startup lookback;
+   the unchanged largest-target-timeframe lookback;
 4. open the Binance websocket only after recovery closure completes;
 5. commit each finalized base candle;
 6. aggregate/reconcile affected HTFs;

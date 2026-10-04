@@ -112,6 +112,7 @@ class RecoverySettings(BaseModel):
     retry_backoff_seconds: StrictInt = Field(ge=0)
     rest_finalization_grace_seconds: StrictInt = Field(ge=0)
     provider_attempt_timeout_seconds: StrictInt = Field(default=30, gt=0)
+    startup_history_days: StrictInt | None = Field(default=None, gt=0)
 
 
 class WebSocketSettings(BaseModel):
@@ -333,6 +334,15 @@ class IngestionSettings(BaseModel):
         if self.base_timeframe not in self.timeframes:
             raise ValueError(
                 f"base_timeframe '{self.base_timeframe}' is not configured in timeframes"
+            )
+        if (
+            self.recovery.startup_history_days is not None
+            and self.recovery.startup_history_days >= self.retention.candle_days
+        ):
+            raise ValueError(
+                "recovery.startup_history_days "
+                f"({self.recovery.startup_history_days}) must be less than "
+                f"retention.candle_days ({self.retention.candle_days})"
             )
 
         active_live_routes: dict[tuple[str, str], tuple[str, str]] = {}

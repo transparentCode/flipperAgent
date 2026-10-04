@@ -61,6 +61,7 @@ class LanePlan:
     target_durations: Mapping[str, timedelta]
     base_duration: timedelta
     lookback_duration: timedelta
+    history_floor_duration: timedelta
 
     def __post_init__(self) -> None:
         if not isinstance(self.lane, MarketLane):
@@ -136,6 +137,11 @@ class LanePlan:
             )
         ):
             raise ValueError("lookback_duration must cover base and target durations")
+        if (
+            not isinstance(self.history_floor_duration, timedelta)
+            or self.history_floor_duration < self.lookback_duration
+        ):
+            raise ValueError("history_floor_duration must cover lookback_duration")
 
         object.__setattr__(self, "live_provider_id", live_provider_id)
         object.__setattr__(self, "live_symbol", live_symbol)
@@ -313,6 +319,11 @@ def compile_ingestion_plan(
             lookback_duration = max(
                 (base_duration, *target_durations.values()),
             )
+            configured_history_duration = (
+                timedelta(days=settings.recovery.startup_history_days)
+                if settings.recovery.startup_history_days is not None
+                else timedelta(0)
+            )
             lane_plans.append(
                 LanePlan(
                     lane=lane,
@@ -323,6 +334,10 @@ def compile_ingestion_plan(
                     target_durations=target_durations,
                     base_duration=base_duration,
                     lookback_duration=lookback_duration,
+                    history_floor_duration=max(
+                        lookback_duration,
+                        configured_history_duration,
+                    ),
                 )
             )
 

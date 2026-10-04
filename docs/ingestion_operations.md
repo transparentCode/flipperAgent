@@ -19,6 +19,16 @@ The ingestion service uses port `8003`, depends on Timescale health, and does no
 a hard broker dependency. `/health/ready` reports runtime readiness; liveness
 is independent of the runtime state.
 
+### First start on an empty database
+
+Production startup requests up to 120 days of base candles before opening the
+live websocket. With the configured `1m` base timeframe, that is about 120 ×
+1,440 = 172,800 base candles per enabled asset (about 1.04 million across the
+current six assets). Recovery persists candles individually, and each recovered
+candle is published through the outbox. Expect a substantially longer first
+start and a large publication backlog compared with an ordinary restart; measure
+and record the actual duration in the next soak rather than estimating it.
+
 After the service has connected to Valkey, broker startup ordering is:
 
 ```text
@@ -127,7 +137,7 @@ startup, then once per day:
 
 ```yaml
 retention:
-  candle_days: 90
+  candle_days: 400
   published_outbox_days: 7
   cleanup_interval_seconds: 86400
   error_backoff_seconds: 60
@@ -135,7 +145,7 @@ retention:
   outbox_max_batches_per_run: 100
 ```
 
-Canonical candles are retained for at least 90 days by dropping only complete
+Canonical candles are retained for at least 400 days by dropping only complete
 Timescale chunks older than the cutoff. Published outbox rows are deleted in
 bounded batches after seven days. Pending rows (`published_at IS NULL`) are
 never deleted by age and remain durable publication intent until they publish.
@@ -143,7 +153,7 @@ The janitor is non-fatal, broker-independent, and stops before database pools
 close. It does not add an API endpoint or a scheduler service.
 
 The operational store is not an indefinite research archive. Research that
-needs history older than the 90-day operating window must reacquire data from a
+needs history older than the 400-day operating window must reacquire data from a
 provider and freeze its own artifact.
 
 ### Retention certification

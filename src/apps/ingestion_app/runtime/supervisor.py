@@ -292,7 +292,7 @@ class RuntimeSupervisor:
                         context.lane,
                         latest.close_time,
                     )
-                startup_floor = current_closed_boundary - context.lookback_duration
+                startup_floor = current_closed_boundary - context.history_floor_duration
                 if latest is None:
                     since = startup_floor
                 else:
