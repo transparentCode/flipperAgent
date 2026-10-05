@@ -51,9 +51,41 @@ class _Repository:
         self,
         candles_by_range: dict[tuple[datetime, datetime], tuple[CanonicalCandle, ...]]
         | None = None,
+        *,
+        earlier: tuple[CanonicalCandle, ...] = (),
     ) -> None:
         self.candles_by_range = candles_by_range or {}
+        # Stored candles that no range read returns; they are what
+        # fetch_latest_candle can find before a bucket.
+        self.earlier = earlier
+        # Every read in call order, whichever method made it.
         self.calls: list[tuple[MarketLane, datetime, datetime]] = []
+        self.candle_calls: list[tuple[MarketLane, datetime, datetime]] = []
+        self.open_time_calls: list[tuple[MarketLane, datetime, datetime]] = []
+        # Latest-candle reads, kept apart so assertions on `calls` are unchanged.
+        self.latest_calls: list[tuple[MarketLane, datetime]] = []
+
+    async def fetch_latest_candle(
+        self,
+        *,
+        lane: MarketLane,
+        before: datetime,
+    ) -> CanonicalCandle | None:
+        self.latest_calls.append((lane, before))
+        stored = (
+            *self.earlier,
+            *(
+                candle
+                for candles in self.candles_by_range.values()
+                for candle in candles
+            ),
+        )
+        matches = [
+            candle
+            for candle in stored
+            if candle.lane == lane and candle.close_time <= before
+        ]
+        return max(matches, key=lambda candle: candle.open_time, default=None)
 
     async def fetch_candles(
         self,
@@ -63,7 +95,21 @@ class _Repository:
         until: datetime,
     ) -> tuple[CanonicalCandle, ...]:
         self.calls.append((lane, since, until))
+        self.candle_calls.append((lane, since, until))
         return self.candles_by_range.get((since, until), ())
+
+    async def fetch_candle_open_times(
+        self,
+        *,
+        lane: MarketLane,
+        since: datetime,
+        until: datetime,
+    ) -> tuple[datetime, ...]:
+        self.calls.append((lane, since, until))
+        self.open_time_calls.append((lane, since, until))
+        return tuple(
+            candle.open_time for candle in self.candles_by_range.get((since, until), ())
+        )
 
 
 class _IngestionService:
@@ -97,7 +143,7 @@ def _service(
 async def test_alignment_is_generic_and_targets_are_deterministically_ordered() -> None:
     bucket_end = ORIGIN + timedelta(weeks=1)
     base = _candle(bucket_end - timedelta(minutes=1))
-    repository = _Repository()
+    repository = _Repository(earlier=(_candle(ORIGIN - timedelta(minutes=1)),))
     service, _ = _service(repository)
     target_durations = {
         "1w": timedelta(weeks=1),
@@ -137,7 +183,9 @@ async def test_alignment_is_generic_and_targets_are_deterministically_ordered() 
 
 @pytest.mark.asyncio
 async def test_only_bucket_closing_base_candles_trigger_reads() -> None:
-    repository = _Repository()
+    repository = _Repository(
+        earlier=(_candle(datetime(2026, 8, 9, 8, 59, tzinfo=UTC)),)
+    )
     service, _ = _service(repository)
     target_durations = {"3m": timedelta(minutes=3), "6m": timedelta(minutes=6)}
 
@@ -289,6 +337,200 @@ async def test_incomplete_bucket_returns_one_recovery_request_without_commit() -
     assert ingestion.committed == []
 
 
+_THREE_MINUTES = {"3m": timedelta(minutes=3)}
+_SIX_MINUTES = {"6m": timedelta(minutes=6)}
+_SIX_MINUTE_START = datetime(2026, 8, 9, 9, 0, tzinfo=UTC)
+
+
+@pytest.mark.asyncio
+async def test_incomplete_bucket_with_first_candle_stored_reads_no_history() -> None:
+    bucket_start, constituents = _complete_three_minute_bucket()
+    bucket_end = bucket_start + timedelta(minutes=3)
+    repository = _Repository({(bucket_start, bucket_end): constituents[:2]})
+    service, ingestion = _service(repository)
+
+    requests = await service.process_base_candle(
+        constituents[-1],
+        base_duration=timedelta(minutes=1),
+        target_durations=_THREE_MINUTES,
+        alignment_origin=ORIGIN,
+    )
+
+    assert requests == (
+        RecoveryRequest(
+            lane=BASE_LANE,
+            since=bucket_start,
+            until=bucket_end,
+            reason="htf_incomplete:3m",
+        ),
+    )
+    assert repository.latest_calls == []
+    assert ingestion.committed == []
+
+
+@pytest.mark.asyncio
+async def test_absent_first_candle_with_earlier_stored_candle_is_a_gap() -> None:
+    bucket_start, constituents = _complete_three_minute_bucket()
+    bucket_end = bucket_start + timedelta(minutes=3)
+    repository = _Repository(
+        {(bucket_start, bucket_end): constituents[1:]},
+        earlier=(_candle(bucket_start - timedelta(minutes=1)),),
+    )
+    service, ingestion = _service(repository)
+
+    requests = await service.process_base_candle(
+        constituents[-1],
+        base_duration=timedelta(minutes=1),
+        target_durations=_THREE_MINUTES,
+        alignment_origin=ORIGIN,
+    )
+
+    assert requests == (
+        RecoveryRequest(
+            lane=BASE_LANE,
+            since=bucket_start,
+            until=bucket_end,
+            reason="htf_incomplete:3m",
+        ),
+    )
+    assert repository.latest_calls == [(BASE_LANE, bucket_start)]
+    assert ingestion.committed == []
+
+
+@pytest.mark.parametrize("stored_from", [1, 2, 3])
+@pytest.mark.asyncio
+async def test_bucket_beginning_before_stored_history_is_neither_built_nor_requested(
+    stored_from: int,
+) -> None:
+    bucket_start, constituents = _complete_three_minute_bucket()
+    bucket_end = bucket_start + timedelta(minutes=3)
+    # The stored candles are the trailing part of the bucket's grid; stored_from=3
+    # is the case with no constituent at all.
+    repository = _Repository({(bucket_start, bucket_end): constituents[stored_from:]})
+    service, ingestion = _service(repository)
+
+    requests = await service.process_base_candle(
+        constituents[-1],
+        base_duration=timedelta(minutes=1),
+        target_durations=_THREE_MINUTES,
+        alignment_origin=ORIGIN,
+    )
+
+    assert requests == ()
+    assert ingestion.committed == []
+    assert repository.latest_calls == [(BASE_LANE, bucket_start)]
+
+
+@pytest.mark.parametrize(
+    ("stored_minutes", "request_since_minutes"),
+    [
+        # The first stored candle is 09:02 and 09:04 is missing after it.
+        ((2, 3, 5), 2),
+        # Both 09:00 and a later candle are missing: the later one still is a gap.
+        ((1, 2, 3, 4), 1),
+        ((3,), 3),
+    ],
+)
+@pytest.mark.asyncio
+async def test_candle_missing_after_first_stored_one_is_requested_from_it(
+    stored_minutes: tuple[int, ...],
+    request_since_minutes: int,
+) -> None:
+    bucket_end = _SIX_MINUTE_START + timedelta(minutes=6)
+    stored = tuple(
+        _candle(_SIX_MINUTE_START + timedelta(minutes=minute))
+        for minute in stored_minutes
+    )
+    repository = _Repository({(_SIX_MINUTE_START, bucket_end): stored})
+    service, ingestion = _service(repository)
+
+    requests = await service.reconcile_latest_closed_buckets(
+        base_lane=BASE_LANE,
+        base_duration=timedelta(minutes=1),
+        target_durations=_SIX_MINUTES,
+        alignment_origin=ORIGIN,
+        as_of=bucket_end,
+    )
+
+    assert requests == (
+        RecoveryRequest(
+            lane=BASE_LANE,
+            since=_SIX_MINUTE_START + timedelta(minutes=request_since_minutes),
+            until=bucket_end,
+            reason="htf_incomplete:6m",
+        ),
+    )
+    assert repository.latest_calls == [(BASE_LANE, _SIX_MINUTE_START)]
+    assert ingestion.committed == []
+
+
+@pytest.mark.parametrize("stored_minutes", [(4, 5), (5,), ()])
+@pytest.mark.asyncio
+async def test_trailing_part_of_the_grid_is_skipped_by_latest_reconciliation(
+    stored_minutes: tuple[int, ...],
+) -> None:
+    bucket_end = _SIX_MINUTE_START + timedelta(minutes=6)
+    stored = tuple(
+        _candle(_SIX_MINUTE_START + timedelta(minutes=minute))
+        for minute in stored_minutes
+    )
+    repository = _Repository({(_SIX_MINUTE_START, bucket_end): stored})
+    service, ingestion = _service(repository)
+
+    requests = await service.reconcile_latest_closed_buckets(
+        base_lane=BASE_LANE,
+        base_duration=timedelta(minutes=1),
+        target_durations=_SIX_MINUTES,
+        alignment_origin=ORIGIN,
+        as_of=bucket_end,
+    )
+
+    assert requests == ()
+    assert ingestion.committed == []
+    assert repository.latest_calls == [(BASE_LANE, _SIX_MINUTE_START)]
+
+
+@pytest.mark.asyncio
+async def test_affected_bucket_beginning_before_stored_history_is_skipped() -> None:
+    bucket_start, constituents = _complete_three_minute_bucket()
+    bucket_end = bucket_start + timedelta(minutes=3)
+    repository = _Repository({(bucket_start, bucket_end): constituents[1:]})
+    service, ingestion = _service(repository)
+
+    requests = await service.reconcile_affected_buckets(
+        base_lane=BASE_LANE,
+        base_duration=timedelta(minutes=1),
+        target_durations=_THREE_MINUTES,
+        alignment_origin=ORIGIN,
+        since=bucket_start + timedelta(minutes=1),
+        until=bucket_end,
+        as_of=bucket_end,
+    )
+
+    assert requests == ()
+    assert ingestion.committed == []
+    assert repository.latest_calls == [(BASE_LANE, bucket_start)]
+
+
+@pytest.mark.asyncio
+async def test_bucket_that_is_complete_is_still_built_without_history_read() -> None:
+    bucket_start, constituents = _complete_three_minute_bucket()
+    bucket_end = bucket_start + timedelta(minutes=3)
+    repository = _Repository({(bucket_start, bucket_end): constituents})
+    service, ingestion = _service(repository)
+
+    requests = await service.process_base_candle(
+        constituents[-1],
+        base_duration=timedelta(minutes=1),
+        target_durations=_THREE_MINUTES,
+        alignment_origin=ORIGIN,
+    )
+
+    assert requests == ()
+    assert len(ingestion.committed) == 1
+    assert repository.latest_calls == []
+
+
 @pytest.mark.asyncio
 async def test_equal_row_count_with_wrong_grid_does_not_aggregate() -> None:
     bucket_start, constituents = _complete_three_minute_bucket()
@@ -407,7 +649,7 @@ async def test_duplicate_is_success_and_conflict_raises() -> None:
 
 @pytest.mark.asyncio
 async def test_reconciliation_reads_exactly_one_latest_bucket_per_target() -> None:
-    repository = _Repository()
+    repository = _Repository(earlier=(_candle(datetime(2026, 8, 9, 8, 0, tzinfo=UTC)),))
     service, _ = _service(repository)
     as_of = datetime(2026, 8, 9, 9, 18, tzinfo=UTC)
     target_durations = {
@@ -489,6 +731,53 @@ async def test_missing_closed_bucket_between_existing_rows_is_materialized() -> 
         ),
         (BASE_LANE, missing_start, missing_start + timedelta(minutes=3)),
     ]
+
+
+@pytest.mark.asyncio
+async def test_missing_bucket_scan_reads_open_times_and_base_only_for_gaps() -> None:
+    first_start = datetime(2026, 8, 9, 9, 0, tzinfo=UTC)
+    missing_start = first_start + timedelta(minutes=3)
+    last_start = first_start + timedelta(minutes=6)
+    last_end = first_start + timedelta(minutes=9)
+    target_lane = MarketLane(BASE_LANE.venue, BASE_LANE.instrument_id, "3m")
+    _, constituents = _complete_three_minute_bucket()
+    missing_constituents = tuple(
+        replace(
+            candle,
+            open_time=candle.open_time + timedelta(minutes=3),
+            close_time=candle.close_time + timedelta(minutes=3),
+        )
+        for candle in constituents
+    )
+    repository = _Repository(
+        {
+            (first_start, last_end): (
+                _derived_candle(first_start),
+                _derived_candle(last_start),
+            ),
+            (missing_start, missing_start + timedelta(minutes=3)): (
+                missing_constituents
+            ),
+        }
+    )
+    service, ingestion = _service(repository)
+
+    requests = await service.reconcile_missing_closed_buckets(
+        base_lane=BASE_LANE,
+        base_duration=timedelta(minutes=1),
+        target_durations={"3m": timedelta(minutes=3)},
+        alignment_origin=ORIGIN,
+        since=first_start,
+        as_of=last_end,
+    )
+
+    assert requests == ()
+    assert [candle.open_time for candle in ingestion.committed] == [missing_start]
+    assert repository.open_time_calls == [(target_lane, first_start, last_end)]
+    assert repository.candle_calls == [
+        (BASE_LANE, missing_start, missing_start + timedelta(minutes=3))
+    ]
+    assert target_lane not in {lane for lane, _, _ in repository.candle_calls}
 
 
 @pytest.mark.asyncio
@@ -623,6 +912,231 @@ async def test_off_grid_since_starts_at_next_target_bucket() -> None:
             first_start,
             last_end,
         )
+    ]
+
+
+TARGET_LANE_3M = MarketLane(BASE_LANE.venue, BASE_LANE.instrument_id, "3m")
+
+
+def _stored_base_candles(start: datetime, count: int) -> tuple[CanonicalCandle, ...]:
+    return tuple(
+        _candle(start + index * timedelta(minutes=1)) for index in range(count)
+    )
+
+
+def _bucket_constituent_ranges(
+    base: tuple[CanonicalCandle, ...],
+    first_start: datetime,
+    minutes: int,
+) -> dict[tuple[datetime, datetime], tuple[CanonicalCandle, ...]]:
+    width = timedelta(minutes=minutes)
+    ranges: dict[tuple[datetime, datetime], tuple[CanonicalCandle, ...]] = {}
+    for index in range(len(base) // minutes):
+        start = first_start + index * width
+        ranges[(start, start + width)] = base[index * minutes : (index + 1) * minutes]
+    return ranges
+
+
+async def _materialize_three_minute_buckets(
+    service: HTFAggregationService,
+    *,
+    since: datetime,
+    before: datetime,
+    as_of: datetime,
+) -> int:
+    return await service.materialize_complete_missing_buckets(
+        base_lane=BASE_LANE,
+        base_duration=timedelta(minutes=1),
+        target_durations={"3m": timedelta(minutes=3)},
+        alignment_origin=ORIGIN,
+        since=since,
+        before=before,
+        as_of=as_of,
+    )
+
+
+@pytest.mark.asyncio
+async def test_complete_missing_bucket_is_built_without_recovery_request() -> None:
+    first_start = datetime(2026, 8, 9, 9, 0, tzinfo=UTC)
+    missing_start = first_start + timedelta(minutes=3)
+    before = first_start + timedelta(minutes=9)
+    as_of = first_start + timedelta(minutes=30)
+    base = _stored_base_candles(first_start, 9)
+    repository = _Repository(
+        {
+            (first_start, before): (
+                _derived_candle(first_start),
+                _derived_candle(first_start + timedelta(minutes=6)),
+            ),
+            (first_start, as_of): base,
+            (missing_start, missing_start + timedelta(minutes=3)): base[3:6],
+        }
+    )
+    service, ingestion = _service(repository)
+
+    built = await _materialize_three_minute_buckets(
+        service, since=first_start, before=before, as_of=as_of
+    )
+
+    assert built == 1
+    assert [candle.open_time for candle in ingestion.committed] == [missing_start]
+    assert ingestion.committed[0].lane == TARGET_LANE_3M
+    assert ingestion.committed[0].source_type == "derived"
+    assert repository.open_time_calls == [
+        (TARGET_LANE_3M, first_start, before),
+        (BASE_LANE, first_start, as_of),
+    ]
+    assert repository.candle_calls == [
+        (BASE_LANE, missing_start, missing_start + timedelta(minutes=3))
+    ]
+
+
+@pytest.mark.asyncio
+async def test_missing_bucket_with_absent_base_candle_is_left_alone() -> None:
+    first_start = datetime(2026, 8, 9, 9, 0, tzinfo=UTC)
+    before = first_start + timedelta(minutes=6)
+    as_of = first_start + timedelta(minutes=30)
+    base = tuple(
+        candle
+        for candle in _stored_base_candles(first_start, 6)
+        if candle.open_time != first_start + timedelta(minutes=4)
+    )
+    repository = _Repository(
+        {
+            (first_start, before): (_derived_candle(first_start),),
+            (first_start, as_of): base,
+        }
+    )
+    service, ingestion = _service(repository)
+
+    built = await _materialize_three_minute_buckets(
+        service, since=first_start, before=before, as_of=as_of
+    )
+
+    assert built == 0
+    assert ingestion.committed == []
+    assert repository.candle_calls == []
+    assert repository.open_time_calls == [
+        (TARGET_LANE_3M, first_start, before),
+        (BASE_LANE, first_start, as_of),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("since", "before", "as_of"),
+    [
+        # Off-grid since starts at 09:03; before excludes the closed 09:09 bucket.
+        (
+            datetime(2026, 8, 9, 9, 1, tzinfo=UTC),
+            datetime(2026, 8, 9, 9, 9, tzinfo=UTC),
+            datetime(2026, 8, 9, 9, 30, tzinfo=UTC),
+        ),
+        # as_of excludes the 09:09 bucket, which only closes at 09:12.
+        (
+            datetime(2026, 8, 9, 9, 3, tzinfo=UTC),
+            datetime(2026, 8, 9, 9, 30, tzinfo=UTC),
+            datetime(2026, 8, 9, 9, 10, tzinfo=UTC),
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_complete_bucket_scan_honours_since_before_and_as_of(
+    since: datetime,
+    before: datetime,
+    as_of: datetime,
+) -> None:
+    first_start = datetime(2026, 8, 9, 9, 3, tzinfo=UTC)
+    base = _stored_base_candles(first_start, 6)
+    repository = _Repository(
+        {
+            (first_start, first_start + timedelta(minutes=6)): (),
+            (since, as_of): base,
+            **_bucket_constituent_ranges(base, first_start, 3),
+        }
+    )
+    service, ingestion = _service(repository)
+
+    built = await _materialize_three_minute_buckets(
+        service, since=since, before=before, as_of=as_of
+    )
+
+    assert built == 2
+    assert [candle.open_time for candle in ingestion.committed] == [
+        first_start,
+        first_start + timedelta(minutes=3),
+    ]
+    assert repository.open_time_calls == [
+        (TARGET_LANE_3M, first_start, first_start + timedelta(minutes=6)),
+        (BASE_LANE, since, as_of),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_existing_derived_buckets_skip_base_open_time_read() -> None:
+    first_start = datetime(2026, 8, 9, 9, 0, tzinfo=UTC)
+    before = first_start + timedelta(minutes=9)
+    repository = _Repository(
+        {
+            (first_start, before): tuple(
+                _derived_candle(first_start + index * timedelta(minutes=3))
+                for index in range(3)
+            )
+        }
+    )
+    service, ingestion = _service(repository)
+
+    built = await _materialize_three_minute_buckets(
+        service,
+        since=first_start,
+        before=before,
+        as_of=first_start + timedelta(minutes=30),
+    )
+
+    assert built == 0
+    assert ingestion.committed == []
+    assert repository.open_time_calls == [(TARGET_LANE_3M, first_start, before)]
+    assert repository.candle_calls == []
+
+
+@pytest.mark.asyncio
+async def test_base_open_times_are_read_once_across_target_timeframes() -> None:
+    first_start = datetime(2026, 8, 9, 9, 0, tzinfo=UTC)
+    before = first_start + timedelta(minutes=12)
+    as_of = first_start + timedelta(minutes=30)
+    base = _stored_base_candles(first_start, 12)
+    repository = _Repository(
+        {
+            (first_start, before): (),
+            (first_start, as_of): base,
+            **_bucket_constituent_ranges(base, first_start, 3),
+            **_bucket_constituent_ranges(base, first_start, 6),
+        }
+    )
+    service, ingestion = _service(repository)
+
+    built = await service.materialize_complete_missing_buckets(
+        base_lane=BASE_LANE,
+        base_duration=timedelta(minutes=1),
+        target_durations={"6m": timedelta(minutes=6), "3m": timedelta(minutes=3)},
+        alignment_origin=ORIGIN,
+        since=first_start,
+        before=before,
+        as_of=as_of,
+    )
+
+    assert built == 6
+    assert [
+        (candle.lane.timeframe, candle.open_time) for candle in ingestion.committed
+    ] == [
+        ("3m", first_start),
+        ("3m", first_start + timedelta(minutes=3)),
+        ("3m", first_start + timedelta(minutes=6)),
+        ("3m", first_start + timedelta(minutes=9)),
+        ("6m", first_start),
+        ("6m", first_start + timedelta(minutes=6)),
+    ]
+    assert [call for call in repository.open_time_calls if call[0] == BASE_LANE] == [
+        (BASE_LANE, first_start, as_of)
     ]
 
 

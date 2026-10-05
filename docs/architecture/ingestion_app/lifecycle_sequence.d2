@@ -84,6 +84,11 @@ app: {
       label: "BinanceWebSocketManager"
       link: "../../../src/apps/ingestion_app/providers/binance_usdm/websocket.py"
     }
+    websocket_pump: {
+      class: component
+      label: "closed-candle pump\nconnection-scoped queue + consumer/watchdog loop"
+      link: "../../../src/apps/ingestion_app/providers/binance_usdm/websocket_pump.py"
+    }
     websocket_session: {
       class: component
       label: "Binance websocket SDK\nsession lifecycle"
@@ -163,10 +168,11 @@ startup: {
   s1: { class: state; label: "1. load canonical ingestion config" }
   s2: { class: state; label: "2. compile plan; create supervisor only for non-empty plan" }
   s3: { class: state; label: "3. find current closed base boundary" }
-  s4: { class: state; label: "4. bounded catch-up missing base history" }
-  s5: { class: state; label: "5. reconcile latest and missing closed HTF buckets in lookback" }
+  s4: { class: state; label: "4. probe history start on an empty lane; bounded catch-up of missing base history; a lane that cannot be prepared is excluded, the rest continue" }
+  s5: { class: state; label: "5. reconcile latest/missing closed HTF buckets in lookback; rebuild older missing ones from stored base" }
   s6: { class: state; label: "6. open websocket after recovery closure" }
   s7: { class: state; label: "7. first valid finalized base candle -> LIVE" }
+  s8: { class: state; label: "8. excluded lanes: background repair every 60 s; on success the live loop ends after its next candle and the next cycle admits them (no backoff)" }
 }
 
 startup.s1 -> app.controller
@@ -225,7 +231,7 @@ interruption: {
   r5: { class: state; label: "5. reconcile affected HTFs" }
   r6: { class: state; label: "6. reconnect backoff" }
   r7: { class: state; label: "7. fresh startup/catch-up then websocket" }
-  r8: { class: state; label: "providers exhausted: stay RECOVERING + bounded backoff" }
+  r8: { class: state; label: "providers exhausted: stay RECOVERING + bounded backoff; the next preparation excludes the failing lane, the rest go live (all lanes failing: retry every lane)" }
   r9: { class: state; label: "failure branch: control cancel / external cancel / typed deadline / invariant" }
 }
 
@@ -263,10 +269,11 @@ transport_bounds.t1 -> app.owned_call
 app.owned_call -> transport_bounds.t2
 transport_bounds.t2 -> app.providers.websocket_session: "factory / subscribe / stop"
 transport_bounds.t2 -> app.recovery: "native REST / CCXT attempt"
-app.providers.websocket_session -> app.providers.websocket: "SDK callbacks"
-app.providers.websocket -> app.providers.websocket_session: "one session / batch / cleanup"
-app.providers.websocket -> app.providers.websocket_bridge: "bounded callback events"
-app.providers.websocket -> app.providers.websocket_sequence: "classify / post-yield record / watchdog"
+app.providers.websocket -> app.providers.websocket_pump: "build pump / run()"
+app.providers.websocket_session -> app.providers.websocket_pump: "SDK callbacks"
+app.providers.websocket_pump -> app.providers.websocket_session: "one session / batch / cleanup"
+app.providers.websocket_pump -> app.providers.websocket_bridge: "bounded callback events"
+app.providers.websocket_pump -> app.providers.websocket_sequence: "classify / post-yield record / watchdog"
 app.providers.websocket_session -> transport_bounds.t3
 app.recovery -> transport_bounds.t3
 transport_bounds.t3 -> transport_bounds.t4: "completed provider availability error"

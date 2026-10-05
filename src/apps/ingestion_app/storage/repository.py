@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
 
@@ -118,6 +118,17 @@ WHERE venue = $1
 ORDER BY open_time ASC
 """
 
+_SELECT_CANDLE_OPEN_TIMES_SQL = """
+SELECT open_time
+FROM ingestion.candles
+WHERE venue = $1
+  AND instrument_id = $2
+  AND timeframe = $3
+  AND open_time >= $4
+  AND open_time < $5
+ORDER BY open_time ASC
+"""
+
 _SELECT_LATEST_CANDLE_SQL = """
 SELECT
     venue,
@@ -138,6 +149,7 @@ FROM ingestion.candles
 WHERE venue = $1
   AND instrument_id = $2
   AND timeframe = $3
+  AND open_time < $4
   AND close_time <= $4
 ORDER BY open_time DESC
 LIMIT 1
@@ -198,22 +210,6 @@ SELECT show_chunks(
 _DROP_CANDLE_CHUNKS_SQL = """
 SELECT drop_chunks('ingestion.candles', older_than => $1::timestamptz)
 """
-
-
-def _validate_positive_limit(limit: object) -> int:
-    if isinstance(limit, bool) or not isinstance(limit, int):
-        raise TypeError("limit must be a strict positive int")
-    if limit <= 0:
-        raise ValueError("limit must be a strict positive int")
-    return limit
-
-
-def _validate_utc_datetime(value: object, *, field_name: str) -> datetime:
-    if not isinstance(value, datetime):
-        raise TypeError(f"{field_name} must be a datetime")
-    if value.tzinfo is None or value.utcoffset() != timedelta(0):
-        raise ValueError(f"{field_name} must be timezone-aware UTC")
-    return value.astimezone(UTC)
 
 
 def _canonical_payload_json(payload: object) -> str:
@@ -301,16 +297,6 @@ class CandleRepository:
         until: datetime,
     ) -> tuple[CanonicalCandle, ...]:
         """Read canonical candles in the half-open UTC interval [since, until)."""
-        if not isinstance(lane, MarketLane):
-            raise TypeError("lane must be a MarketLane")
-        for value, field_name in ((since, "since"), (until, "until")):
-            if not isinstance(value, datetime):
-                raise TypeError(f"{field_name} must be a datetime")
-            if value.tzinfo is None or value.utcoffset() != timedelta(0):
-                raise ValueError(f"{field_name} must be timezone-aware UTC")
-        if until <= since:
-            raise ValueError("until must be after since")
-
         async with self.pool.acquire() as connection:
             rows = await connection.fetch(
                 _SELECT_CANDLES_SQL,
@@ -323,6 +309,26 @@ class CandleRepository:
 
         return tuple(self._row_to_canonical(row) for row in rows)
 
+    async def fetch_candle_open_times(
+        self,
+        *,
+        lane: MarketLane,
+        since: datetime,
+        until: datetime,
+    ) -> tuple[datetime, ...]:
+        """Read only the open times of stored candles in [since, until)."""
+        async with self.pool.acquire() as connection:
+            rows = await connection.fetch(
+                _SELECT_CANDLE_OPEN_TIMES_SQL,
+                lane.venue,
+                lane.instrument_id,
+                lane.timeframe,
+                since,
+                until,
+            )
+
+        return tuple(row["open_time"] for row in rows)
+
     async def fetch_latest_candle(
         self,
         *,
@@ -330,13 +336,6 @@ class CandleRepository:
         before: datetime,
     ) -> CanonicalCandle | None:
         """Read the latest canonical candle closed no later than ``before``."""
-        if not isinstance(lane, MarketLane):
-            raise TypeError("lane must be a MarketLane")
-        if not isinstance(before, datetime):
-            raise TypeError("before must be a datetime")
-        if before.tzinfo is None or before.utcoffset() != timedelta(0):
-            raise ValueError("before must be timezone-aware UTC")
-
         async with self.pool.acquire() as connection:
             row = await connection.fetchrow(
                 _SELECT_LATEST_CANDLE_SQL,
@@ -350,13 +349,8 @@ class CandleRepository:
 
     async def fetch_pending_outbox(self, *, limit: int) -> tuple[OutboxEvent, ...]:
         """Read pending publication intents in deterministic occurred order."""
-        resolved_limit = _validate_positive_limit(limit)
-
         async with self.pool.acquire() as connection:
-            rows = await connection.fetch(
-                _SELECT_PENDING_OUTBOX_SQL,
-                resolved_limit,
-            )
+            rows = await connection.fetch(_SELECT_PENDING_OUTBOX_SQL, limit)
 
         return tuple(self._row_to_outbox_event(row) for row in rows)
 
@@ -375,18 +369,11 @@ class CandleRepository:
         published_at: datetime,
     ) -> bool:
         """Mark one pending event published without overwriting an earlier mark."""
-        if not isinstance(event_id, UUID):
-            raise TypeError("event_id must be a UUID")
-        resolved_published_at = _validate_utc_datetime(
-            published_at,
-            field_name="published_at",
-        )
-
         async with self.pool.acquire() as connection:
             marked_event_id = await connection.fetchval(
                 _MARK_OUTBOX_PUBLISHED_SQL,
                 event_id,
-                resolved_published_at,
+                published_at,
             )
 
         return marked_event_id is not None
@@ -398,14 +385,11 @@ class CandleRepository:
         limit: int,
     ) -> int:
         """Delete a bounded batch of already-published historical intents."""
-        resolved_cutoff = _validate_utc_datetime(cutoff, field_name="cutoff")
-        resolved_limit = _validate_positive_limit(limit)
-
         async with self.pool.acquire() as connection:
             deleted_event_ids = await connection.fetch(
                 _DELETE_PUBLISHED_OUTBOX_SQL,
-                resolved_cutoff,
-                resolved_limit,
+                cutoff,
+                limit,
             )
 
         return len(deleted_event_ids)
@@ -416,11 +400,9 @@ class CandleRepository:
         The table name is intentionally fixed to the canonical ingestion hypertable;
         this primitive is not a general-purpose SQL table deletion API.
         """
-        resolved_cutoff = _validate_utc_datetime(cutoff, field_name="cutoff")
-
         async with self.pool.acquire() as connection, connection.transaction():
-            rows = await connection.fetch(_SELECT_CANDLE_CHUNKS_SQL, resolved_cutoff)
-            await connection.execute(_DROP_CANDLE_CHUNKS_SQL, resolved_cutoff)
+            rows = await connection.fetch(_SELECT_CANDLE_CHUNKS_SQL, cutoff)
+            await connection.execute(_DROP_CANDLE_CHUNKS_SQL, cutoff)
 
         return tuple(str(row["chunk_name"]) for row in rows)
 

@@ -23,10 +23,6 @@ class LiveStreamInterrupted(DataIngestionError):
         reason: str,
         recovery_requests: tuple[RecoveryRequest, ...],
     ) -> None:
-        if not isinstance(reason, str) or not reason.strip():
-            raise ValueError("reason must be a non-empty string")
-        if not isinstance(recovery_requests, tuple):
-            raise TypeError("recovery_requests must be a tuple")
         self.reason = reason
         self.recovery_requests = recovery_requests
         super().__init__(f"live stream interrupted: {reason}")
@@ -42,17 +38,6 @@ class TransportDeadlineExceeded(DataIngestionError):
         operation: str,
         timeout_seconds: float,
     ) -> None:
-        if not isinstance(provider_id, str) or not provider_id.strip():
-            raise ValueError("provider_id must be a non-empty string")
-        if not isinstance(operation, str) or not operation.strip():
-            raise ValueError("operation must be a non-empty string")
-        if isinstance(timeout_seconds, bool) or not isinstance(
-            timeout_seconds,
-            (int, float),
-        ):
-            raise TypeError("timeout_seconds must be a number")
-        if not math.isfinite(float(timeout_seconds)) or timeout_seconds <= 0:
-            raise ValueError("timeout_seconds must be positive")
         self.provider_id = provider_id
         self.operation = operation
         self.timeout_seconds = float(timeout_seconds)
@@ -73,14 +58,6 @@ class ProviderRateLimitedError(ProviderAvailabilityError):
     """A provider asked the caller to stop requests for a finite interval."""
 
     def __init__(self, *, provider_id: str, retry_after_seconds: float) -> None:
-        if not isinstance(provider_id, str) or not provider_id.strip():
-            raise ValueError("provider_id must be a non-empty string")
-        if isinstance(retry_after_seconds, bool) or not isinstance(
-            retry_after_seconds, (int, float)
-        ):
-            raise TypeError("retry_after_seconds must be a number")
-        if not math.isfinite(float(retry_after_seconds)) or retry_after_seconds <= 0:
-            raise ValueError("retry_after_seconds must be positive")
         self.provider_id = provider_id
         self.retry_after_seconds = float(retry_after_seconds)
         super().__init__(

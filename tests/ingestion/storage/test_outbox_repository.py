@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -105,20 +105,6 @@ async def test_fetch_pending_outbox_reconstructs_canonical_json() -> None:
     )
 
 
-@pytest.mark.parametrize("limit", [0, -1, False, "10", 10.0])
-@pytest.mark.asyncio
-async def test_fetch_pending_outbox_rejects_non_strict_positive_limit(
-    limit: object,
-) -> None:
-    connection = _Connection()
-    repository = CandleRepository(_Pool(connection))
-
-    with pytest.raises((TypeError, ValueError), match="limit"):
-        await repository.fetch_pending_outbox(limit=limit)  # type: ignore[arg-type]
-
-    assert connection.fetch_calls == []
-
-
 @pytest.mark.asyncio
 async def test_mark_outbox_published_returns_transition() -> None:
     event_id = uuid4()
@@ -153,41 +139,6 @@ async def test_mark_outbox_published_false_does_not_overwrite_existing_mark() ->
     )
 
 
-@pytest.mark.parametrize(
-    ("event_id", "published_at"),
-    [
-        ("not-a-uuid", datetime(2026, 8, 9, 9, 1, tzinfo=UTC)),
-        (uuid4(), datetime(2026, 8, 9, 9, 1)),  # noqa: DTZ001
-        (
-            uuid4(),
-            datetime(
-                2026,
-                8,
-                9,
-                14,
-                31,
-                tzinfo=timezone(timedelta(hours=5, minutes=30)),
-            ),
-        ),
-    ],
-)
-@pytest.mark.asyncio
-async def test_mark_outbox_published_rejects_invalid_arguments(
-    event_id: object,
-    published_at: datetime,
-) -> None:
-    connection = _Connection()
-    repository = CandleRepository(_Pool(connection))
-
-    with pytest.raises((TypeError, ValueError)):
-        await repository.mark_outbox_published(
-            event_id=event_id,  # type: ignore[arg-type]
-            published_at=published_at,
-        )
-
-    assert connection.fetchval_calls == []
-
-
 @pytest.mark.asyncio
 async def test_delete_published_outbox_before_is_bounded_and_ordered() -> None:
     connection = _Connection(
@@ -208,28 +159,3 @@ async def test_delete_published_outbox_before_is_bounded_and_ordered() -> None:
     assert "ORDER BY published_at ASC, event_id ASC" in query
     assert "LIMIT $2" in query
     assert args == (cutoff, 2)
-
-
-@pytest.mark.parametrize(
-    ("cutoff", "limit"),
-    [
-        (datetime(2026, 8, 10), 1),  # noqa: DTZ001
-        (datetime(2026, 8, 10, tzinfo=UTC), 0),
-        (datetime(2026, 8, 10, tzinfo=UTC), False),
-    ],
-)
-@pytest.mark.asyncio
-async def test_delete_published_outbox_before_rejects_invalid_arguments(
-    cutoff: datetime,
-    limit: object,
-) -> None:
-    connection = _Connection()
-    repository = CandleRepository(_Pool(connection))
-
-    with pytest.raises((TypeError, ValueError)):
-        await repository.delete_published_outbox_before(
-            cutoff=cutoff,
-            limit=limit,  # type: ignore[arg-type]
-        )
-
-    assert connection.fetch_calls == []

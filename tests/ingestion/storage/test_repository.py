@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import replace
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Self
 
@@ -406,31 +406,56 @@ async def test_fetch_candles_reconstructs_ordered_canonical_rows() -> None:
     )
 
 
-@pytest.mark.parametrize(
-    ("since", "until", "message"),
-    [
-        (datetime(2026, 8, 9, 9, 0), _OPEN_TIME + timedelta(minutes=1), "since"),  # noqa: DTZ001
-        (_OPEN_TIME, datetime(2026, 8, 9, 9, 1), "until"),  # noqa: DTZ001
-        (_OPEN_TIME, _OPEN_TIME, "until must be after since"),
-    ],
-)
 @pytest.mark.asyncio
-async def test_fetch_candles_rejects_invalid_utc_bounds(
-    since: datetime,
-    until: datetime,
-    message: str,
-) -> None:
+async def test_fetch_candle_open_times_reads_ordered_open_times_only() -> None:
+    lane = MarketLane("binance", "BTC-TEST-PERP", "15m")
+    open_times = (
+        _OPEN_TIME,
+        _OPEN_TIME + timedelta(minutes=15),
+        _OPEN_TIME + timedelta(minutes=45),
+    )
+    connection = _Connection(
+        inserted=None,
+        existing=None,
+        range_rows=tuple({"open_time": open_time} for open_time in open_times),
+    )
+    repository = CandleRepository(_Pool(connection))
+
+    result = await repository.fetch_candle_open_times(
+        lane=lane,
+        since=_OPEN_TIME,
+        until=_OPEN_TIME + timedelta(hours=1),
+    )
+
+    assert result == open_times
+    assert isinstance(result, tuple)
+    query, args = connection.fetches[0]
+    assert query.split("FROM")[0].split() == ["SELECT", "open_time"]
+    assert "FROM ingestion.candles" in query
+    assert "open_time >= $4" in query
+    assert "open_time < $5" in query
+    assert "ORDER BY open_time ASC" in query
+    assert args == (
+        "binance",
+        "BTC-TEST-PERP",
+        "15m",
+        _OPEN_TIME,
+        _OPEN_TIME + timedelta(hours=1),
+    )
+
+
+@pytest.mark.asyncio
+async def test_fetch_candle_open_times_returns_empty_tuple_without_rows() -> None:
     connection = _Connection(inserted=None, existing=None)
     repository = CandleRepository(_Pool(connection))
 
-    with pytest.raises((TypeError, ValueError), match=message):
-        await repository.fetch_candles(
-            lane=MarketLane("binance", "BTC-TEST-PERP", "1m"),
-            since=since,
-            until=until,
-        )
+    result = await repository.fetch_candle_open_times(
+        lane=MarketLane("binance", "BTC-TEST-PERP", "15m"),
+        since=_OPEN_TIME,
+        until=_OPEN_TIME + timedelta(hours=1),
+    )
 
-    assert connection.fetches == []
+    assert result == ()
 
 
 @pytest.mark.asyncio
@@ -451,6 +476,7 @@ async def test_fetch_latest_candle_reconstructs_canonical_row() -> None:
     assert latest == candle
     query, args = connection.fetches[0]
     assert "close_time <= $4" in query
+    assert "open_time < $4" in query
     assert "ORDER BY open_time DESC" in query
     assert "LIMIT 1" in query
     assert args == (
@@ -472,24 +498,3 @@ async def test_fetch_latest_candle_returns_none_when_no_row_exists() -> None:
     )
 
     assert latest is None
-
-
-@pytest.mark.parametrize(
-    "before",
-    [
-        datetime(2026, 8, 9, 9, 0),  # noqa: DTZ001
-        datetime(2026, 8, 9, 14, 30, tzinfo=timezone(timedelta(hours=5, minutes=30))),
-    ],
-)
-@pytest.mark.asyncio
-async def test_fetch_latest_candle_rejects_non_utc_before(before: datetime) -> None:
-    connection = _Connection(inserted=None, existing=None)
-    repository = CandleRepository(_Pool(connection))
-
-    with pytest.raises((TypeError, ValueError), match="before"):
-        await repository.fetch_latest_candle(
-            lane=MarketLane("binance", "BTC-TEST-PERP", "1m"),
-            before=before,
-        )
-
-    assert connection.fetches == []

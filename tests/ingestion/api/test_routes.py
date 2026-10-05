@@ -11,6 +11,7 @@ from apps.ingestion_app.domain.time_alignment import aligned_bucket_start
 from apps.ingestion_app.runtime.controller import RuntimeControlConflictError
 from apps.ingestion_app.runtime.state import (
     DesiredRuntimeState,
+    LaneFault,
     RuntimeSnapshot,
     RuntimeState,
 )
@@ -135,6 +136,64 @@ async def test_health_routes_and_runtime_snapshot() -> None:
     not_ready = await request(app, "GET", "/health/ready")
     assert not_ready.status_code == 503
     assert not_ready.body["detail"]["runtime"]["last_error"] == "fatal"
+
+
+@pytest.mark.asyncio
+async def test_excluded_lanes_are_listed_and_ready_reports_degraded() -> None:
+    app, controller, _ = _client()
+    since = datetime(2026, 8, 9, 10, 0, tzinfo=UTC)
+    controller._snapshot = RuntimeSnapshot(
+        desired_state=DesiredRuntimeState.RUNNING,
+        state=RuntimeState.LIVE,
+        last_error=None,
+        excluded_lanes=(
+            LaneFault(
+                venue="binance",
+                instrument_id="ETH-TEST-PERP",
+                reason="recovery_exhausted",
+                detail="recovery exhausted for lane",
+                excluded_since=since,
+                next_retry_at=since + timedelta(seconds=60),
+            ),
+        ),
+    )
+
+    runtime = await request(app, "GET", "/runtime")
+    ready = await request(app, "GET", "/health/ready")
+
+    assert runtime.status_code == 200
+    assert runtime.body["excluded_lanes"] == [
+        {
+            "venue": "binance",
+            "instrument_id": "ETH-TEST-PERP",
+            "reason": "recovery_exhausted",
+            "detail": "recovery exhausted for lane",
+            "excluded_since": "2026-08-09T10:00:00Z",
+            "next_retry_at": "2026-08-09T10:01:00Z",
+        }
+    ]
+    assert ready.status_code == 200
+    assert ready.body["status"] == "degraded"
+    assert ready.body["runtime"]["excluded_lanes"][0]["instrument_id"] == (
+        "ETH-TEST-PERP"
+    )
+
+    controller._snapshot = RuntimeSnapshot(
+        desired_state=DesiredRuntimeState.RUNNING,
+        state=RuntimeState.ERROR,
+        last_error="fatal",
+        excluded_lanes=controller._snapshot.excluded_lanes,
+    )
+    assert (await request(app, "GET", "/health/ready")).status_code == 503
+
+    controller._snapshot = RuntimeSnapshot(
+        desired_state=DesiredRuntimeState.RUNNING,
+        state=RuntimeState.LIVE,
+        last_error=None,
+    )
+    healthy = await request(app, "GET", "/health/ready")
+    assert healthy.body["status"] == "ready"
+    assert healthy.body["runtime"]["excluded_lanes"] == []
 
 
 @pytest.mark.asyncio

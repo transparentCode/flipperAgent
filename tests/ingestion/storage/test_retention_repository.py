@@ -72,17 +72,3 @@ async def test_drop_candle_chunks_reports_names_and_uses_fixed_table() -> None:
     assert "drop_chunks('ingestion.candles'" in drop_query
     assert select_args == (cutoff,)
     assert drop_args == (cutoff,)
-
-
-@pytest.mark.asyncio
-async def test_drop_candle_chunks_rejects_non_utc_cutoff() -> None:
-    connection = _Connection()
-    repository = CandleRepository(_Pool(connection))
-
-    with pytest.raises(ValueError, match="cutoff"):
-        await repository.drop_candle_chunks_before(
-            cutoff=datetime(2026, 5, 13),  # noqa: DTZ001
-        )
-
-    assert connection.fetch_calls == []
-    assert connection.execute_calls == []

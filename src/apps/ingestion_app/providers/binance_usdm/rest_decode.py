@@ -115,7 +115,6 @@ def decode_binance_native_klines(
                 taker_buy_base=taker_buy_base,
                 received_at=received_at,
                 provider_close_time=provider_close_time,
-                provider_event_id=None,
             )
         except (TypeError, ValueError) as exc:
             raise DataIngestionError("Binance returned invalid candle values") from exc
@@ -216,7 +215,6 @@ def decode_ccxt_ohlcv_rows(
                 taker_buy_base=taker_buy_base,
                 received_at=received_at,
                 provider_close_time=provider_close_time,
-                provider_event_id=None,
             )
         except (TypeError, ValueError) as exc:
             raise DataIngestionError(

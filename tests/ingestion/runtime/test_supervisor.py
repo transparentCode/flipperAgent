@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -20,8 +22,10 @@ from apps.ingestion_app.providers.base import (
 )
 from apps.ingestion_app.runtime.state import RuntimeState, SupervisorSnapshot
 from apps.ingestion_app.runtime.supervisor import RuntimeSupervisor
+from apps.ingestion_app.services.candle_ingestion import canonicalize_observation
 from apps.ingestion_app.services.htf_aggregation import HTFAggregationService
 from apps.ingestion_app.services.recovery import (
+    RecoveryEngine,
     RecoveryExhaustedError,
     RecoveryRateLimitedError,
 )
@@ -33,12 +37,14 @@ NOW = datetime(2026, 8, 9, 10, 0, 30, tzinfo=UTC)
 BOUNDARY = datetime(2026, 8, 9, 10, 0, tzinfo=UTC)
 LANE = MarketLane("binance", "BTC-TEST-PERP", "1m")
 ETH_LANE = MarketLane("binance", "ETH-TEST-PERP", "1m")
+SOL_LANE = MarketLane("binance", "SOL-TEST-PERP", "1m")
 
 
 def _settings(
     *,
     target_timeframes: tuple[str, ...] = (),
     include_eth: bool = False,
+    include_sol: bool = False,
     reconnect_backoff_seconds: float = 0,
     startup_history_days: int | None = None,
     candle_days: int = 90,
@@ -95,6 +101,30 @@ def _settings(
                     "provider_symbols": {
                         "binance_native": "ETHUSDT",
                         "ccxt_binance": "ETH/USDT:USDT",
+                    },
+                    "timeframes": ["1m", *target_timeframes],
+                }
+            },
+        }
+    if include_sol:
+        assets["SOL"] = {
+            "asset": "SOL",
+            "enabled": True,
+            "instruments": {
+                "SOL-TEST-PERP": {
+                    "venue": "binance",
+                    "market_type": "perpetual",
+                    "base_asset": "SOL",
+                    "quote_asset": "USDT",
+                    "settlement_asset": "USDT",
+                    "live_provider": "binance_native",
+                    "historical_providers": [
+                        "binance_native",
+                        "ccxt_binance",
+                    ],
+                    "provider_symbols": {
+                        "binance_native": "SOLUSDT",
+                        "ccxt_binance": "SOL/USDT:USDT",
                     },
                     "timeframes": ["1m", *target_timeframes],
                 }
@@ -191,7 +221,6 @@ def _observation(
         taker_buy_base=Decimal("0.5"),
         received_at=open_time + timedelta(minutes=1),
         provider_close_time=open_time + timedelta(minutes=1),
-        provider_event_id=None,
     )
 
 
@@ -232,13 +261,16 @@ class _HTF:
         latest_requests: tuple[RecoveryRequest, ...] = (),
         missing_requests: tuple[RecoveryRequest, ...] = (),
         live_requests: tuple[RecoveryRequest, ...] = (),
+        materialize_count: int = 0,
     ) -> None:
         self.latest_requests = latest_requests
         self.missing_requests = missing_requests
         self.live_requests = live_requests
+        self.materialize_count = materialize_count
         self.latest_calls: list[dict[str, object]] = []
         self.missing_calls: list[dict[str, object]] = []
         self.live_calls: list[dict[str, object]] = []
+        self.materialize_calls: list[dict[str, object]] = []
 
     async def reconcile_latest_closed_buckets(self, **kwargs: object):
         self.latest_calls.append(kwargs)
@@ -247,6 +279,10 @@ class _HTF:
     async def reconcile_missing_closed_buckets(self, **kwargs: object):
         self.missing_calls.append(kwargs)
         return self.missing_requests
+
+    async def materialize_complete_missing_buckets(self, **kwargs: object):
+        self.materialize_calls.append(kwargs)
+        return self.materialize_count
 
     async def process_base_candle(self, candle: CanonicalCandle, **kwargs: object):
         self.live_calls.append({"candle": candle, **kwargs})
@@ -257,6 +293,8 @@ class _MemoryRepository:
     def __init__(self, candles: tuple[CanonicalCandle, ...] = ()) -> None:
         self.candles = list(candles)
         self.range_calls: list[tuple[MarketLane, datetime, datetime]] = []
+        # Latest-candle reads, kept apart from the ranges existing tests assert on.
+        self.latest_calls: list[tuple[MarketLane, datetime]] = []
 
     async def fetch_latest_candle(
         self,
@@ -264,6 +302,7 @@ class _MemoryRepository:
         lane: MarketLane,
         before: datetime,
     ) -> CanonicalCandle | None:
+        self.latest_calls.append((lane, before))
         matches = [
             candle
             for candle in self.candles
@@ -287,6 +326,21 @@ class _MemoryRepository:
                     if candle.lane == lane and since <= candle.open_time < until
                 ),
                 key=lambda candle: candle.open_time,
+            )
+        )
+
+    async def fetch_candle_open_times(
+        self,
+        *,
+        lane: MarketLane,
+        since: datetime,
+        until: datetime,
+    ) -> tuple[datetime, ...]:
+        return tuple(
+            sorted(
+                candle.open_time
+                for candle in self.candles
+                if candle.lane == lane and since <= candle.open_time < until
             )
         )
 
@@ -340,11 +394,27 @@ class _PartialPageRecovery:
         self,
         repository: _MemoryRepository,
         htf_service: HTFAggregationService,
+        *,
+        first_page_minutes: int = 30,
     ) -> None:
         self.repository = repository
         self.htf_service = htf_service
+        self.first_page_minutes = first_page_minutes
         self.calls: list[tuple[RecoveryRequest, ...]] = []
         self.first_page_failed = False
+        self.history_start_calls: list[tuple[MarketLane, datetime, datetime]] = []
+
+    async def find_history_start(
+        self,
+        lane: MarketLane,
+        *,
+        plan: object,
+        since: datetime,
+        until: datetime,
+    ) -> datetime | None:
+        del plan
+        self.history_start_calls.append((lane, since, until))
+        return since
 
     async def recover_closure(self, requests, *, plan) -> None:
         batch = tuple(requests)
@@ -354,7 +424,10 @@ class _PartialPageRecovery:
                 continue
             stop_at = request.until
             if not self.first_page_failed:
-                stop_at = min(request.until, request.since + timedelta(minutes=30))
+                stop_at = min(
+                    request.until,
+                    request.since + timedelta(minutes=self.first_page_minutes),
+                )
                 self.first_page_failed = True
             cursor = request.since
             while cursor < stop_at:
@@ -387,13 +460,31 @@ class _Recovery:
         | None = None,
         gate: asyncio.Event | None = None,
         on_call: Callable[[RecoveryRequest], None] | None = None,
+        history_starts: dict[MarketLane, datetime | None] | None = None,
     ) -> None:
         self.follow_ups = follow_ups or {}
         self.gate = gate
         self.on_call = on_call
+        self.history_starts = history_starts or {}
         self.calls: list[RecoveryRequest] = []
+        self.history_start_calls: list[tuple[MarketLane, datetime, datetime]] = []
         self.active = 0
         self.max_active = 0
+
+    async def find_history_start(
+        self,
+        lane: MarketLane,
+        *,
+        plan: object,
+        since: datetime,
+        until: datetime,
+    ) -> datetime | None:
+        del plan
+        self.history_start_calls.append((lane, since, until))
+        if lane in self.history_starts:
+            return self.history_starts[lane]
+        # Default: the lane's history reaches back to the startup floor.
+        return since
 
     async def recover(self, request: RecoveryRequest, **kwargs: object):
         del kwargs
@@ -670,6 +761,8 @@ async def test_configured_startup_history_extends_only_base_catchup_floor() -> N
         )
     ]
     assert htf.missing_calls[0]["since"] == BOUNDARY - timedelta(weeks=1)
+    assert htf.materialize_calls[0]["since"] == BOUNDARY - timedelta(days=120)
+    assert htf.materialize_calls[0]["before"] == BOUNDARY - timedelta(weeks=1)
 
 
 @pytest.mark.asyncio
@@ -741,6 +834,195 @@ async def test_startup_retry_repairs_every_closed_htf_bucket_after_partial_pages
             reason="runtime_catchup",
         ),
     )
+
+
+@pytest.mark.asyncio
+async def test_startup_retry_rebuilds_derived_history_over_configured_window() -> None:
+    settings = _settings(target_timeframes=("15m", "1h"), startup_history_days=1)
+    plan = compile_ingestion_plan(
+        settings,
+        live_provider_ids={"binance_native"},
+        historical_provider_ids={"binance_native", "ccxt_binance"},
+    )
+    lane_plan = plan.lanes[0]
+    assert lane_plan.history_floor_duration > lane_plan.lookback_duration
+    repository = _MemoryRepository()
+    ingestion = _PersistingIngestion(repository)
+    htf = HTFAggregationService(
+        repository=repository,  # type: ignore[arg-type]
+        ingestion_service=ingestion,  # type: ignore[arg-type]
+    )
+    recovery = _PartialPageRecovery(repository, htf, first_page_minutes=360)
+    provider = _LiveProvider([_Stream()])
+    supervisor = RuntimeSupervisor(
+        plan=plan,
+        live_provider=provider,
+        repository=repository,  # type: ignore[arg-type]
+        ingestion_service=ingestion,  # type: ignore[arg-type]
+        htf_service=htf,
+        recovery_engine=recovery,  # type: ignore[arg-type]
+        now_fn=lambda: NOW,
+        reconnect_sleep_fn=lambda _seconds: asyncio.sleep(0),
+    )
+
+    task = asyncio.create_task(supervisor.run())
+    while not provider.calls:
+        if task.done():
+            task.result()
+            pytest.fail("supervisor exited before opening the live stream")
+        await asyncio.sleep(0)
+    supervisor.stop()
+    await asyncio.wait_for(task, timeout=1)
+
+    window_start = BOUNDARY - lane_plan.history_floor_duration
+    assert recovery.first_page_failed is True
+    assert recovery.calls[0] == (
+        RecoveryRequest(
+            lane=LANE,
+            since=window_start,
+            until=BOUNDARY,
+            reason="runtime_catchup",
+        ),
+    )
+    assert recovery.calls[1] == (
+        RecoveryRequest(
+            lane=LANE,
+            since=window_start + timedelta(hours=6),
+            until=BOUNDARY,
+            reason="runtime_catchup",
+        ),
+    )
+    for timeframe, duration in lane_plan.target_durations.items():
+        expected_starts = tuple(
+            window_start + index * duration
+            for index in range((BOUNDARY - window_start) // duration)
+        )
+        actual_starts = tuple(
+            sorted(
+                candle.open_time
+                for candle in repository.candles
+                if candle.lane == MarketLane(LANE.venue, LANE.instrument_id, timeframe)
+            )
+        )
+        assert actual_starts == expected_starts, (
+            f"{timeframe}: {len(actual_starts)} of {len(expected_starts)} "
+            "closed derived buckets exist"
+        )
+
+
+def _base_candles(start: datetime, count: int) -> tuple[CanonicalCandle, ...]:
+    return tuple(
+        _canonical(close_time=start + (index + 1) * timedelta(minutes=1))
+        for index in range(count)
+    )
+
+
+def _supervisor_with_real_htf(
+    settings: object,
+    repository: _MemoryRepository,
+) -> tuple[RuntimeSupervisor, _PersistingIngestion, _Recovery]:
+    plan = compile_ingestion_plan(
+        settings,
+        live_provider_ids={"binance_native"},
+        historical_provider_ids={"binance_native", "ccxt_binance"},
+    )
+    ingestion = _PersistingIngestion(repository)
+    recovery = _Recovery()
+    supervisor = RuntimeSupervisor(
+        plan=plan,
+        live_provider=_LiveProvider([_Stream()]),
+        repository=repository,  # type: ignore[arg-type]
+        ingestion_service=ingestion,  # type: ignore[arg-type]
+        htf_service=HTFAggregationService(
+            repository=repository,  # type: ignore[arg-type]
+            ingestion_service=ingestion,  # type: ignore[arg-type]
+        ),
+        recovery_engine=recovery,  # type: ignore[arg-type]
+        now_fn=lambda: NOW,
+    )
+    return supervisor, ingestion, recovery
+
+
+@pytest.mark.asyncio
+async def test_shallow_database_prepares_without_recovering_older_history() -> None:
+    shallow_start = BOUNDARY - timedelta(hours=3)
+    repository = _MemoryRepository(
+        (
+            *_base_candles(shallow_start, 180),
+            *(
+                _derived_candle(
+                    LANE,
+                    shallow_start + index * timedelta(minutes=15),
+                    timedelta(minutes=15),
+                )
+                for index in range(12)
+            ),
+        )
+    )
+    supervisor, ingestion, recovery = _supervisor_with_real_htf(
+        _settings(target_timeframes=("15m",), startup_history_days=1),
+        repository,
+    )
+
+    assert await supervisor._prepare_live_connection() == BOUNDARY
+
+    assert recovery.calls == []
+    assert min(candle.open_time for candle in repository.candles) == shallow_start
+    assert all(
+        attempt.open_time >= BOUNDARY - timedelta(minutes=15)
+        for attempt in ingestion.commit_attempts
+    )
+
+
+@pytest.mark.asyncio
+async def test_older_missing_base_candle_is_skipped_without_blocking_startup() -> None:
+    window_start = BOUNDARY - timedelta(days=1)
+    gap_open = BOUNDARY - timedelta(hours=12) + timedelta(minutes=7)
+    repository = _MemoryRepository(
+        tuple(
+            candle
+            for candle in _base_candles(window_start, 1440)
+            if candle.open_time != gap_open
+        )
+    )
+    supervisor, _, recovery = _supervisor_with_real_htf(
+        _settings(target_timeframes=("15m", "1h"), startup_history_days=1),
+        repository,
+    )
+
+    assert await supervisor._prepare_live_connection() == BOUNDARY
+
+    assert recovery.calls == []
+    gap_bucket_start = BOUNDARY - timedelta(hours=12)
+    for timeframe, duration in supervisor.plan.lanes[0].target_durations.items():
+        expected_starts = tuple(
+            start
+            for start in (
+                window_start + index * duration
+                for index in range(timedelta(days=1) // duration)
+            )
+            if start != gap_bucket_start
+        )
+        actual_starts = tuple(
+            sorted(
+                candle.open_time
+                for candle in repository.candles
+                if candle.lane == MarketLane(LANE.venue, LANE.instrument_id, timeframe)
+            )
+        )
+        assert actual_starts == expected_starts, timeframe
+
+
+@pytest.mark.asyncio
+async def test_unset_startup_history_does_not_rebuild_older_buckets() -> None:
+    supervisor, _, _, htf, _, _ = _supervisor(
+        settings=_settings(target_timeframes=("1h",)),
+        repository=_Repository(),
+    )
+
+    await supervisor._prepare_live_connection()
+
+    assert htf.materialize_calls == []
 
 
 @pytest.mark.asyncio
@@ -1813,3 +2095,911 @@ async def test_public_execute_recovery_rejects_active_supervisor() -> None:
 
     supervisor.stop()
     await asyncio.wait_for(task, timeout=1)
+
+
+# ---------------------------------------------------------------------------
+# History-start probe on an empty lane during startup preparation
+# ---------------------------------------------------------------------------
+
+_LONG_HISTORY_SETTINGS = {
+    "target_timeframes": ("1w",),
+    "startup_history_days": 120,
+    "candle_days": 400,
+}
+_SHORT_SETTINGS = {"target_timeframes": ("15m", "1h"), "startup_history_days": 1}
+_HISTORY_WARNING = "history starts after the startup floor"
+
+
+def _history_warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [
+        record.getMessage()
+        for record in caplog.records
+        if _HISTORY_WARNING in record.getMessage()
+    ]
+
+
+@pytest.mark.asyncio
+async def test_empty_lane_catches_up_from_the_probed_first_candle(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    floor = BOUNDARY - timedelta(days=120)
+    first_open = BOUNDARY - timedelta(days=30)
+    recovery = _Recovery(history_starts={LANE: first_open})
+    supervisor, *_ = _supervisor(
+        settings=_settings(**_LONG_HISTORY_SETTINGS),
+        repository=_Repository(),
+        recovery=recovery,
+    )
+
+    with caplog.at_level(logging.WARNING):
+        await supervisor._prepare_live_connection()
+
+    assert recovery.history_start_calls == [(LANE, floor, BOUNDARY)]
+    assert recovery.calls == [
+        RecoveryRequest(
+            lane=LANE,
+            since=first_open,
+            until=BOUNDARY,
+            reason="runtime_catchup",
+        )
+    ]
+    (warning,) = _history_warnings(caplog)
+    for fragment in (
+        str(LANE),
+        str(floor),
+        str(first_open),
+        str(first_open - floor),
+    ):
+        assert fragment in warning
+
+
+@pytest.mark.asyncio
+async def test_probe_at_the_floor_starts_there_without_a_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    floor = BOUNDARY - timedelta(days=120)
+    recovery = _Recovery(history_starts={LANE: floor})
+    supervisor, *_ = _supervisor(
+        settings=_settings(**_LONG_HISTORY_SETTINGS),
+        repository=_Repository(),
+        recovery=recovery,
+    )
+
+    with caplog.at_level(logging.WARNING):
+        await supervisor._prepare_live_connection()
+
+    assert recovery.calls[0].since == floor
+    assert _history_warnings(caplog) == []
+
+
+@pytest.mark.asyncio
+async def test_probe_without_a_candle_excludes_the_only_lane_and_fails_as_before() -> (
+    None
+):
+    floor = BOUNDARY - timedelta(days=120)
+    recovery = _Recovery(history_starts={LANE: None})
+    supervisor, *_ = _supervisor(
+        settings=_settings(**_LONG_HISTORY_SETTINGS),
+        repository=_Repository(),
+        recovery=recovery,
+    )
+
+    with pytest.raises(RecoveryExhaustedError, match="no closed candle") as raised:
+        await supervisor._prepare_live_connection()
+
+    assert raised.value.lane == LANE
+    assert recovery.history_start_calls == [(LANE, floor, BOUNDARY)]
+    assert recovery.calls == []
+    assert supervisor.snapshot().excluded_lanes == ()
+
+
+@pytest.mark.asyncio
+async def test_lane_with_a_stored_candle_is_not_probed() -> None:
+    stale = _canonical(close_time=BOUNDARY - timedelta(days=200))
+    for latest in (_canonical(close_time=BOUNDARY - timedelta(minutes=3)), stale):
+        recovery = _Recovery(history_starts={LANE: BOUNDARY - timedelta(days=30)})
+        supervisor, *_ = _supervisor(
+            settings=_settings(**_LONG_HISTORY_SETTINGS),
+            repository=_Repository({LANE: latest}),
+            recovery=recovery,
+        )
+
+        await supervisor._prepare_live_connection()
+
+        assert recovery.history_start_calls == []
+        assert [call.since for call in recovery.calls] == [
+            max(latest.close_time, BOUNDARY - timedelta(days=120))
+        ]
+
+
+@pytest.mark.asyncio
+async def test_only_the_empty_lane_is_probed_when_lanes_differ() -> None:
+    floor = BOUNDARY - timedelta(days=120)
+    first_open = BOUNDARY - timedelta(days=30)
+    eth_latest = _canonical(ETH_LANE, close_time=BOUNDARY - timedelta(minutes=2))
+    recovery = _Recovery(history_starts={LANE: first_open})
+    supervisor, *_ = _supervisor(
+        settings=_settings(include_eth=True, **_LONG_HISTORY_SETTINGS),
+        repository=_Repository({ETH_LANE: eth_latest}),
+        recovery=recovery,
+    )
+
+    await supervisor._prepare_live_connection()
+
+    assert recovery.history_start_calls == [(LANE, floor, BOUNDARY)]
+    assert sorted(recovery.calls, key=lambda request: request.lane.instrument_id) == [
+        RecoveryRequest(
+            lane=LANE, since=first_open, until=BOUNDARY, reason="runtime_catchup"
+        ),
+        RecoveryRequest(
+            lane=ETH_LANE,
+            since=eth_latest.close_time,
+            until=BOUNDARY,
+            reason="runtime_catchup",
+        ),
+    ]
+
+
+class _ListedProvider:
+    """In-memory historical provider: a lane has candles only from its listing."""
+
+    def __init__(
+        self,
+        listed: dict[MarketLane, datetime],
+        provider_id: str = "binance_native",
+    ) -> None:
+        self.listed = listed
+        self.provider_id = provider_id
+        self.requests: list[tuple[MarketLane, datetime, datetime, int]] = []
+
+    async def fetch_closed_candles(
+        self,
+        *,
+        lane: MarketLane,
+        provider_symbol: str,
+        timeframe_duration: timedelta,
+        since: datetime,
+        until: datetime,
+        limit: int,
+    ) -> tuple[CandleObservation, ...]:
+        del provider_symbol
+        self.requests.append((lane, since, until, limit))
+        open_time = max(since, self.listed[lane])
+        rows: list[CandleObservation] = []
+        while open_time < until and len(rows) < limit:
+            rows.append(
+                replace(
+                    _observation(lane, open_time=open_time),
+                    provider_id=self.provider_id,
+                )
+            )
+            open_time += timeframe_duration
+        return tuple(rows)
+
+
+class _StoringIngestion(_PersistingIngestion):
+    async def commit_observation(
+        self, observation: CandleObservation
+    ) -> CandleCommitStatus:
+        return self.repository.insert(canonicalize_observation(observation))
+
+
+def _real_stack(
+    settings: object,
+    *,
+    listed: dict[MarketLane, datetime],
+    now: datetime = NOW,
+    reconnect_sleep_fn: Callable[[float], object] | None = None,
+) -> tuple[
+    RuntimeSupervisor,
+    _MemoryRepository,
+    _ListedProvider,
+    _ListedProvider,
+    _LiveProvider,
+]:
+    """Real supervisor, recovery engine and HTF service over in-memory storage."""
+    plan = compile_ingestion_plan(
+        settings,
+        live_provider_ids={"binance_native"},
+        historical_provider_ids={"binance_native", "ccxt_binance"},
+    )
+    repository = _MemoryRepository()
+    ingestion = _StoringIngestion(repository)
+    htf = HTFAggregationService(
+        repository=repository,  # type: ignore[arg-type]
+        ingestion_service=ingestion,  # type: ignore[arg-type]
+    )
+    historical = _ListedProvider(listed)
+    fallback = _ListedProvider(listed, "ccxt_binance")
+    engine = RecoveryEngine(
+        providers={"binance_native": historical, "ccxt_binance": fallback},  # type: ignore[dict-item]
+        repository=repository,  # type: ignore[arg-type]
+        ingestion_service=ingestion,  # type: ignore[arg-type]
+        htf_service=htf,
+        max_concurrency=2,
+        page_limit=500,
+        max_attempts_per_provider=1,
+        retry_backoff_seconds=0,
+        rest_finalization_grace_seconds=0,
+        now_fn=lambda: now,
+    )
+    live = _LiveProvider([_Stream()])
+    supervisor = RuntimeSupervisor(
+        plan=plan,
+        live_provider=live,
+        repository=repository,  # type: ignore[arg-type]
+        ingestion_service=ingestion,  # type: ignore[arg-type]
+        htf_service=htf,
+        recovery_engine=engine,
+        now_fn=lambda: now,
+        reconnect_sleep_fn=reconnect_sleep_fn,  # type: ignore[arg-type]
+    )
+    return supervisor, repository, historical, fallback, live
+
+
+def _stored_starts(
+    repository: _MemoryRepository, lane: MarketLane
+) -> tuple[datetime, ...]:
+    return tuple(
+        sorted(candle.open_time for candle in repository.candles if candle.lane == lane)
+    )
+
+
+def _complete_bucket_starts(
+    first: datetime, boundary: datetime, duration: timedelta
+) -> tuple[datetime, ...]:
+    start = aligned_bucket_start(first, duration, ORIGIN)
+    if start < first:
+        start += duration
+    starts: list[datetime] = []
+    while start + duration <= boundary:
+        starts.append(start)
+        start += duration
+    return tuple(starts)
+
+
+def _assert_history_starts_at(
+    supervisor: RuntimeSupervisor,
+    repository: _MemoryRepository,
+    lane: MarketLane,
+    *,
+    first: datetime,
+    boundary: datetime,
+) -> None:
+    """Base candles run contiguously from `first`; only complete buckets exist."""
+    assert _stored_starts(repository, lane) == tuple(
+        first + index * timedelta(minutes=1)
+        for index in range((boundary - first) // timedelta(minutes=1))
+    )
+    for timeframe, duration in supervisor.plan.lanes_by_lane[
+        lane
+    ].target_durations.items():
+        derived_lane = MarketLane(lane.venue, lane.instrument_id, timeframe)
+        assert _stored_starts(repository, derived_lane) == _complete_bucket_starts(
+            first, boundary, duration
+        ), timeframe
+
+
+@pytest.mark.parametrize(
+    "listed_ago",
+    [
+        timedelta(minutes=37),
+        timedelta(hours=5, minutes=20),
+        timedelta(hours=23, minutes=50),
+    ],
+)
+@pytest.mark.asyncio
+async def test_lane_listed_inside_the_window_prepares_in_one_cycle(
+    listed_ago: timedelta,
+) -> None:
+    first = BOUNDARY - listed_ago
+    floor = BOUNDARY - timedelta(days=1)
+    supervisor, repository, historical, fallback, _ = _real_stack(
+        _settings(**_SHORT_SETTINGS), listed={LANE: first}
+    )
+
+    assert await supervisor._prepare_live_connection() == BOUNDARY
+
+    _assert_history_starts_at(
+        supervisor, repository, LANE, first=first, boundary=BOUNDARY
+    )
+    assert historical.requests[0] == (LANE, floor, BOUNDARY, 1)
+    assert all(since >= first for _, since, _, _ in historical.requests[1:])
+    assert fallback.requests == []
+
+
+@pytest.mark.asyncio
+async def test_lane_listed_inside_the_window_opens_the_websocket_without_a_retry() -> (
+    None
+):
+    first = BOUNDARY - timedelta(hours=5, minutes=20)
+
+    async def forbid_retry(_seconds: float) -> None:
+        raise AssertionError("startup needed a retry cycle")
+
+    supervisor, repository, _, _, live = _real_stack(
+        _settings(**_SHORT_SETTINGS),
+        listed={LANE: first},
+        reconnect_sleep_fn=forbid_retry,
+    )
+
+    task = asyncio.create_task(supervisor.run())
+    while not live.calls:
+        if task.done():
+            task.result()
+            pytest.fail("supervisor exited before opening the live stream")
+        await asyncio.sleep(0)
+    supervisor.stop()
+    await asyncio.wait_for(task, timeout=1)
+
+    assert supervisor.snapshot().last_error is None
+    assert min(_stored_starts(repository, LANE)) == first
+
+
+@pytest.mark.asyncio
+async def test_a_late_listed_lane_does_not_hold_back_a_lane_with_full_history() -> None:
+    floor = BOUNDARY - timedelta(days=1)
+    eth_first = BOUNDARY - timedelta(hours=5, minutes=20)
+    supervisor, repository, _, _, _ = _real_stack(
+        _settings(include_eth=True, **_SHORT_SETTINGS),
+        listed={LANE: floor - timedelta(days=10), ETH_LANE: eth_first},
+    )
+
+    assert await supervisor._prepare_live_connection() == BOUNDARY
+
+    _assert_history_starts_at(
+        supervisor, repository, LANE, first=floor, boundary=BOUNDARY
+    )
+    _assert_history_starts_at(
+        supervisor, repository, ETH_LANE, first=eth_first, boundary=BOUNDARY
+    )
+
+
+@pytest.mark.asyncio
+async def test_full_history_cold_start_stores_base_candles_from_exactly_the_floor() -> (
+    None
+):
+    # A boundary that is not on any target grid, so the first 15m and 1h buckets
+    # straddle the floor.
+    now = datetime(2026, 8, 9, 10, 17, 30, tzinfo=UTC)
+    boundary = datetime(2026, 8, 9, 10, 17, tzinfo=UTC)
+    floor = boundary - timedelta(days=1)
+    supervisor, repository, historical, fallback, _ = _real_stack(
+        _settings(**_SHORT_SETTINGS),
+        listed={LANE: floor - timedelta(days=10)},
+        now=now,
+    )
+
+    assert await supervisor._prepare_live_connection() == boundary
+
+    _assert_history_starts_at(
+        supervisor, repository, LANE, first=floor, boundary=boundary
+    )
+    assert all(since >= floor for _, since, _, _ in historical.requests)
+    assert fallback.requests == []
+
+
+# ---------------------------------------------------------------------------
+# Lane fault isolation: one instrument that cannot be prepared is excluded and
+# repaired in the background instead of holding every instrument out of live
+# ingestion.
+# ---------------------------------------------------------------------------
+
+_RETRY = 60.0
+_OLD_CLOSE = BOUNDARY - timedelta(minutes=5)
+
+
+class _Clock:
+    def __init__(self) -> None:
+        self.value = NOW
+
+    def __call__(self) -> datetime:
+        return self.value
+
+    def advance(self, seconds: float) -> None:
+        self.value += timedelta(seconds=seconds)
+
+
+class _QueueStream:
+    """A live stream the test feeds one item at a time."""
+
+    def __init__(self) -> None:
+        self.queue: asyncio.Queue[object] = asyncio.Queue()
+        self.closed = False
+
+    def put(self, item: object) -> None:
+        self.queue.put_nowait(item)
+
+    def __aiter__(self) -> _QueueStream:
+        return self
+
+    async def __anext__(self) -> CandleObservation:
+        item = await self.queue.get()
+        if isinstance(item, BaseException):
+            raise item
+        return item  # type: ignore[return-value]
+
+    async def aclose(self) -> None:
+        self.closed = True
+
+
+class _LaneHTF(_HTF):
+    """Returns the live follow-up only for the faulty lane."""
+
+    async def process_base_candle(self, candle: CanonicalCandle, **kwargs: object):
+        self.live_calls.append({"candle": candle, **kwargs})
+        return self.live_requests if candle.lane == ETH_LANE else ()
+
+
+def _exhausted(request: RecoveryRequest) -> BaseException:
+    return RecoveryExhaustedError(
+        f"synthetic exhaustion for {request.lane}", lane=request.lane
+    )
+
+
+def _interruption(*lanes: MarketLane) -> LiveStreamInterrupted:
+    return LiveStreamInterrupted(
+        reason="websocket_disconnected",
+        recovery_requests=tuple(
+            RecoveryRequest(
+                lane=lane,
+                since=BOUNDARY - timedelta(minutes=1),
+                until=BOUNDARY,
+                reason="websocket_disconnected",
+            )
+            for lane in lanes
+        ),
+    )
+
+
+class _Rig:
+    """A supervisor over BTC (healthy) and one or two lanes that can fail."""
+
+    def __init__(
+        self,
+        *,
+        include_sol: bool = False,
+        old_lanes: tuple[MarketLane, ...] = (ETH_LANE,),
+        empty_lanes: tuple[MarketLane, ...] = (),
+        history_starts: dict[MarketLane, datetime | None] | None = None,
+        persistent: dict[MarketLane, object] | None = None,
+        scripts: dict[MarketLane, list[object]] | None = None,
+        repair_free_sleeps: int = 1,
+        stream_count: int = 2,
+        backoff: float = 3,
+        htf: _HTF | None = None,
+    ) -> None:
+        self.clock = _Clock()
+        self.persistent = persistent or {}
+        self.scripts = scripts or {}
+        self.reconnect_sleeps: list[float] = []
+        self.reconnect_snapshots: list[SupervisorSnapshot] = []
+        self.repair_sleeps: list[float] = []
+        self.repair_gate = asyncio.Event()
+        self.repair_free_sleeps = repair_free_sleeps
+        self.repair_cancelled = 0
+        self.streams = [_QueueStream() for _ in range(stream_count)]
+        self.provider = _LiveProvider(list(self.streams))  # type: ignore[arg-type]
+        lanes = [LANE, ETH_LANE, *([SOL_LANE] if include_sol else [])]
+        latest = {
+            lane: _canonical(
+                lane,
+                close_time=_OLD_CLOSE if lane in old_lanes else BOUNDARY,
+            )
+            for lane in lanes
+            if lane not in empty_lanes
+        }
+        self.recovery = _Recovery(
+            on_call=self._on_call,
+            history_starts=history_starts,
+        )
+        self.on_reconnect_sleep: Callable[[], None] | None = None
+        self.supervisor, *_ = _supervisor(
+            settings=_settings(
+                include_eth=True,
+                include_sol=include_sol,
+                reconnect_backoff_seconds=backoff,
+            ),
+            repository=_Repository(latest),
+            recovery=self.recovery,
+            htf=htf,
+            provider=self.provider,  # type: ignore[arg-type]
+            now_fn=self.clock,
+            reconnect_sleep_fn=self._reconnect_sleep,
+        )
+        self.supervisor._repair_sleep = self._repair_sleep
+
+    def _on_call(self, request: RecoveryRequest) -> None:
+        failure = self.persistent.get(request.lane)
+        if failure is None:
+            script = self.scripts.get(request.lane)
+            failure = script.pop(0) if script else None
+        if failure is not None:
+            error = failure(request)  # type: ignore[operator]
+            if error is not None:
+                raise error
+
+    async def _reconnect_sleep(self, seconds: float) -> None:
+        self.reconnect_sleeps.append(seconds)
+        self.reconnect_snapshots.append(self.supervisor.snapshot())
+        self.clock.advance(120)
+        if self.on_reconnect_sleep is not None:
+            self.on_reconnect_sleep()
+        await asyncio.sleep(0)
+
+    async def _repair_sleep(self, seconds: float) -> None:
+        self.repair_sleeps.append(seconds)
+        self.clock.advance(seconds)
+        try:
+            if len(self.repair_sleeps) > self.repair_free_sleeps:
+                await self.repair_gate.wait()
+            else:
+                await asyncio.sleep(0)
+        except asyncio.CancelledError:
+            self.repair_cancelled += 1
+            raise
+
+    def start(self) -> asyncio.Task[None]:
+        return asyncio.create_task(self.supervisor.run())
+
+    async def until(self, predicate: Callable[[], bool]) -> None:
+        async def wait() -> None:
+            while not predicate():
+                await asyncio.sleep(0.001)
+
+        await asyncio.wait_for(wait(), timeout=2)
+
+    async def finish(self, task: asyncio.Task[None]) -> None:
+        self.supervisor.stop()
+        await asyncio.wait_for(task, timeout=2)
+        assert self.supervisor._repair_task is None
+        assert not [
+            item
+            for item in asyncio.all_tasks()
+            if item.get_name() == "ingestion-lane-repair"
+        ]
+
+
+def _excluded(supervisor: RuntimeSupervisor) -> dict[MarketLane, object]:
+    return {
+        MarketLane(fault.venue, fault.instrument_id, "1m"): fault
+        for fault in supervisor.snapshot().excluded_lanes
+    }
+
+
+@pytest.mark.asyncio
+async def test_all_healthy_lanes_have_no_exclusions_or_repair_task() -> None:
+    rig = _Rig(old_lanes=())
+    task = rig.start()
+    rig.streams[0].put(_observation(LANE))
+    await rig.until(lambda: rig.supervisor.snapshot().state is RuntimeState.LIVE)
+
+    assert rig.supervisor.snapshot().excluded_lanes == ()
+    assert rig.supervisor._repair_task is None
+    assert set(rig.provider.calls[0]) == {LANE, ETH_LANE}
+    assert rig.repair_sleeps == []
+    await rig.finish(task)
+
+
+@pytest.mark.asyncio
+async def test_startup_probe_without_a_candle_excludes_only_that_lane() -> None:
+    rig = _Rig(
+        old_lanes=(),
+        empty_lanes=(ETH_LANE,),
+        history_starts={ETH_LANE: None},
+    )
+
+    anchor = await rig.supervisor._prepare_live_connection()
+
+    assert anchor == BOUNDARY
+    assert tuple(context.lane for context in rig.supervisor._admitted) == (LANE,)
+    ((lane, fault),) = _excluded(rig.supervisor).items()
+    assert lane == ETH_LANE
+    assert fault.reason == "no_closed_candle_in_window"
+    assert fault.detail == ""
+    assert fault.excluded_since == NOW
+    assert fault.next_retry_at == NOW + timedelta(seconds=_RETRY)
+    assert [call.lane for call in rig.recovery.calls] == []
+    assert rig.supervisor.active_lanes == (LANE, ETH_LANE)
+
+
+@pytest.mark.asyncio
+async def test_startup_exhaustion_excludes_the_lane_and_the_rest_goes_live() -> None:
+    rig = _Rig(persistent={ETH_LANE: _exhausted})
+    task = rig.start()
+    rig.streams[0].put(_observation(LANE))
+    await rig.until(lambda: rig.supervisor.snapshot().state is RuntimeState.LIVE)
+
+    assert rig.reconnect_sleeps == []
+    assert set(rig.provider.calls[0]) == {LANE}
+    ((lane, fault),) = _excluded(rig.supervisor).items()
+    assert lane == ETH_LANE
+    assert fault.reason == "recovery_exhausted"
+    assert "synthetic exhaustion" in fault.detail
+    assert rig.supervisor.snapshot().last_error is None
+    await rig.finish(task)
+
+
+@pytest.mark.asyncio
+async def test_excluded_lane_rejoins_after_repair_without_backoff() -> None:
+    rig = _Rig(scripts={ETH_LANE: [_exhausted, _exhausted]}, repair_free_sleeps=5)
+    task = rig.start()
+    rig.streams[0].put(_observation(LANE))
+    await rig.until(lambda: rig.supervisor.snapshot().state is RuntimeState.LIVE)
+    await rig.until(lambda: rig.supervisor._repair_task.done())
+
+    assert rig.supervisor._ready_to_rejoin == {ETH_LANE}
+    assert len(rig.provider.calls) == 1
+    assert set(rig.supervisor._admitted_by_lane) == {LANE}
+
+    rig.streams[0].put(_observation(LANE))
+    await rig.until(lambda: len(rig.provider.calls) == 2)
+    rig.streams[1].put(_observation(ETH_LANE))
+    await rig.until(lambda: rig.supervisor.snapshot().state is RuntimeState.LIVE)
+
+    assert set(rig.provider.calls[1]) == {LANE, ETH_LANE}
+    assert rig.supervisor.snapshot().excluded_lanes == ()
+    assert rig.supervisor._ready_to_rejoin == set()
+    assert rig.reconnect_sleeps == []
+    assert rig.streams[0].closed
+    await rig.finish(task)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("failure", "expected_delay"),
+    [
+        (_exhausted, _RETRY),
+        (lambda request: RecoveryRateLimitedError(retry_after_seconds=90), 90.0),
+        (lambda request: RecoveryRateLimitedError(retry_after_seconds=10), _RETRY),
+        (lambda request: asyncpg.PostgresConnectionError("db down"), _RETRY),
+    ],
+)
+async def test_failing_repair_reschedules_without_restarting_the_stream(
+    failure: Callable[[RecoveryRequest], BaseException],
+    expected_delay: float,
+) -> None:
+    rig = _Rig(scripts={ETH_LANE: [_exhausted, failure]})
+    task = rig.start()
+    rig.streams[0].put(_observation(LANE))
+    await rig.until(lambda: rig.supervisor.snapshot().state is RuntimeState.LIVE)
+    await rig.until(lambda: len(rig.repair_sleeps) == 2)
+
+    fault = _excluded(rig.supervisor)[ETH_LANE]
+    attempted_at = NOW + timedelta(seconds=_RETRY)
+    assert rig.repair_sleeps[0] == _RETRY
+    assert fault.excluded_since == NOW
+    assert fault.next_retry_at == attempted_at + timedelta(seconds=expected_delay)
+    assert rig.repair_sleeps[1] == expected_delay
+    assert len(rig.provider.calls) == 1
+    assert rig.reconnect_sleeps == []
+    assert rig.supervisor._ready_to_rejoin == set()
+    await rig.finish(task)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error",
+    [
+        TransportDeadlineExceeded(
+            provider_id="binance_native",
+            operation="REST klines",
+            timeout_seconds=30,
+        ),
+        DataIngestionError("synthetic non-availability failure"),
+    ],
+)
+async def test_fatal_repair_error_surfaces_after_the_next_observation(
+    error: BaseException,
+) -> None:
+    rig = _Rig(scripts={ETH_LANE: [_exhausted, lambda request: error]})
+    task = rig.start()
+    rig.streams[0].put(_observation(LANE))
+    await rig.until(lambda: rig.supervisor.snapshot().state is RuntimeState.LIVE)
+    await rig.until(lambda: rig.supervisor._repair_failure is not None)
+
+    assert not task.done()
+    rig.streams[0].put(_observation(LANE))
+    with pytest.raises(type(error)) as raised:
+        await asyncio.wait_for(task, timeout=2)
+
+    assert raised.value is error
+    assert rig.supervisor.snapshot().state is RuntimeState.ERROR
+    assert rig.supervisor.quarantined is isinstance(error, TransportDeadlineExceeded)
+    assert rig.streams[0].closed
+    assert rig.reconnect_sleeps == []
+    assert rig.supervisor._repair_task is None
+
+
+@pytest.mark.asyncio
+async def test_interruption_recovery_exhaustion_excludes_the_lane_next_cycle() -> None:
+    rig = _Rig(old_lanes=(), persistent={ETH_LANE: _exhausted})
+    rig.streams[0].put(_interruption(LANE, ETH_LANE))
+    task = rig.start()
+    await rig.until(lambda: len(rig.provider.calls) == 2)
+    rig.streams[1].put(_observation(LANE))
+    await rig.until(lambda: rig.supervisor.snapshot().state is RuntimeState.LIVE)
+
+    assert rig.reconnect_sleeps == [3]
+    assert set(rig.provider.calls[0]) == {LANE, ETH_LANE}
+    assert set(rig.provider.calls[1]) == {LANE}
+    assert set(_excluded(rig.supervisor)) == {ETH_LANE}
+    await rig.finish(task)
+
+
+@pytest.mark.asyncio
+async def test_live_followup_exhaustion_excludes_the_lane_next_cycle() -> None:
+    follow_up = RecoveryRequest(
+        lane=ETH_LANE,
+        since=BOUNDARY - timedelta(minutes=1),
+        until=BOUNDARY,
+        reason="htf_incomplete:1h",
+    )
+    rig = _Rig(
+        old_lanes=(),
+        persistent={ETH_LANE: _exhausted},
+        htf=_LaneHTF(live_requests=(follow_up,)),
+    )
+    rig.streams[0].put(_observation(ETH_LANE))
+    task = rig.start()
+    await rig.until(lambda: len(rig.provider.calls) == 2)
+    rig.streams[1].put(_observation(LANE))
+    await rig.until(lambda: rig.supervisor.snapshot().state is RuntimeState.LIVE)
+
+    assert rig.reconnect_sleeps == [3]
+    assert set(rig.provider.calls[1]) == {LANE}
+    assert set(_excluded(rig.supervisor)) == {ETH_LANE}
+    await rig.finish(task)
+
+
+@pytest.mark.asyncio
+async def test_every_lane_faulty_behaves_as_before_and_retries_every_lane() -> None:
+    rig = _Rig(
+        old_lanes=(LANE, ETH_LANE),
+        persistent={LANE: _exhausted, ETH_LANE: _exhausted},
+        backoff=3,
+    )
+    rig.on_reconnect_sleep = lambda: (
+        rig.supervisor.stop() if len(rig.reconnect_sleeps) == 2 else None
+    )
+    task = rig.start()
+    await asyncio.wait_for(task, timeout=2)
+
+    assert rig.provider.calls == []
+    assert rig.reconnect_sleeps == [3, 3]
+    first = rig.reconnect_snapshots[0]
+    assert first.state is RuntimeState.RECOVERING
+    assert first.last_error is not None
+    assert "synthetic exhaustion" in first.last_error
+    assert first.excluded_lanes == ()
+    assert rig.supervisor.snapshot().excluded_lanes == ()
+    attempted = [call.lane for call in rig.recovery.calls]
+    assert attempted.count(LANE) >= 2
+    assert attempted.count(ETH_LANE) >= 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("failure", "expected_sleep"),
+    [
+        (lambda request: RecoveryRateLimitedError(retry_after_seconds=7), 7.0),
+        (lambda request: asyncpg.PostgresConnectionError("db down"), 3.0),
+    ],
+)
+async def test_rate_limit_and_storage_outage_do_not_exclude_a_lane(
+    failure: Callable[[RecoveryRequest], BaseException],
+    expected_sleep: float,
+) -> None:
+    rig = _Rig(scripts={ETH_LANE: [failure]})
+    rig.on_reconnect_sleep = rig.supervisor.stop
+    task = rig.start()
+    await asyncio.wait_for(task, timeout=2)
+
+    assert rig.reconnect_sleeps == [expected_sleep]
+    assert rig.reconnect_snapshots[0].excluded_lanes == ()
+    assert rig.reconnect_snapshots[0].state is RuntimeState.RECOVERING
+    assert rig.supervisor.snapshot().excluded_lanes == ()
+    assert rig.provider.calls == []
+
+
+@pytest.mark.asyncio
+async def test_exhaustion_without_a_lane_is_not_isolated() -> None:
+    rig = _Rig(
+        persistent={ETH_LANE: lambda request: RecoveryExhaustedError("anonymous")}
+    )
+
+    with pytest.raises(RecoveryExhaustedError, match="anonymous") as raised:
+        await rig.supervisor._prepare_live_connection()
+
+    assert raised.value.lane is None
+    assert rig.supervisor.snapshot().excluded_lanes == ()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("healthy", [LANE, ETH_LANE, SOL_LANE])
+async def test_two_faulty_lanes_are_both_excluded_in_either_order(
+    healthy: MarketLane,
+) -> None:
+    lanes = (LANE, ETH_LANE, SOL_LANE)
+    rig = _Rig(
+        include_sol=True,
+        old_lanes=lanes,
+        persistent={lane: _exhausted for lane in lanes if lane != healthy},
+    )
+
+    await rig.supervisor._prepare_live_connection()
+
+    assert [
+        fault.instrument_id for fault in rig.supervisor.snapshot().excluded_lanes
+    ] == [lane.instrument_id for lane in lanes if lane != healthy]
+    assert tuple(context.lane for context in rig.supervisor._admitted) == (healthy,)
+    healthy_requests = {call for call in rig.recovery.calls if call.lane == healthy}
+    assert healthy_requests == {
+        RecoveryRequest(
+            lane=healthy,
+            since=BOUNDARY - timedelta(minutes=1),
+            until=BOUNDARY,
+            reason="runtime_catchup",
+        )
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("how", ["stop", "cancel", "interruption"])
+async def test_repair_task_is_cancelled_and_awaited_when_the_live_loop_ends(
+    how: str,
+) -> None:
+    rig = _Rig(persistent={ETH_LANE: _exhausted}, repair_free_sleeps=0)
+    task = rig.start()
+    await rig.until(lambda: len(rig.repair_sleeps) == 1)
+    assert rig.supervisor._repair_task is not None
+
+    if how == "stop":
+        await rig.finish(task)
+    elif how == "cancel":
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(task, timeout=2)
+        assert rig.supervisor._repair_task is None
+    else:
+        rig.on_reconnect_sleep = lambda: setattr(
+            rig, "cancelled_at_reconnect", rig.repair_cancelled
+        )
+        rig.streams[0].put(_interruption())
+        await rig.until(lambda: len(rig.provider.calls) == 2)
+        assert rig.cancelled_at_reconnect == 1  # type: ignore[attr-defined]
+        await rig.finish(task)
+
+    assert rig.repair_cancelled >= 1
+    assert not [
+        item
+        for item in asyncio.all_tasks()
+        if item.get_name() == "ingestion-lane-repair"
+    ]
+    assert rig.streams[0].closed
+
+
+def test_lane_exclusion_gauge_reports_every_planned_lane() -> None:
+    from opentelemetry.sdk.metrics import MeterProvider
+    from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+
+    reader = InMemoryMetricReader()
+    meter = MeterProvider(metric_readers=[reader]).get_meter("test")
+    observability = IngestionObservability(meter=meter)
+    observability.set_lane_exclusions((LANE, ETH_LANE), (ETH_LANE,))
+
+    def observed() -> dict[str, int]:
+        data = reader.get_metrics_data()
+        values: dict[str, int] = {}
+        for resource in data.resource_metrics:
+            for scope in resource.scope_metrics:
+                for metric in scope.metrics:
+                    if metric.name != "ingestion.lane.excluded":
+                        continue
+                    for point in metric.data.data_points:
+                        values[point.attributes["instrument_id"]] = point.value
+        return values
+
+    assert observed() == {"BTC-TEST-PERP": 0, "ETH-TEST-PERP": 1}
+    observability.set_lane_exclusions((LANE, ETH_LANE), ())
+    assert observed() == {"BTC-TEST-PERP": 0, "ETH-TEST-PERP": 0}

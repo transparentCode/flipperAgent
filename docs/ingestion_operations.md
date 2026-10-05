@@ -28,6 +28,43 @@ current six assets). Recovery persists candles individually, and each recovered
 candle is published through the outbox. Expect a substantially longer first
 start and a large publication backlog compared with an ordinary restart; measure
 and record the actual duration in the next soak rather than estimating it.
+If the first start is interrupted, the next preparation cycle rebuilds the
+missing derived candles from the stored base candles; derived candles are not
+rebuilt over ranges whose base candles are missing, which still need a manual
+`/runtime/recover`.
+
+An instrument with less exchange history than `startup_history_days` (a recent
+listing) does not need the whole window. On an empty lane the runtime first
+asks the historical providers for the instrument's first closed candle inside
+the window (a one-candle probe that stores nothing) and starts catch-up there,
+so the lane reaches live instead of retrying a first page that can never
+complete. Its derived candles begin at the first grid start at or after that
+candle. When the first candle is later than the start of the window the runtime
+logs one warning, `runtime lane history starts after the startup floor`, with
+the lane, the floor, the first candle time, and the shortfall. If that start is
+wrong (for example a provider reported its first candle too late), extend the
+history by running `/runtime/recover` over the earlier range; the runtime does
+not extend it automatically. An instrument with no closed candle at all in the
+window, or a gap after its first stored candle that no provider serves, is
+excluded (see below) instead of holding the other instruments back. On any cold start the base
+candles are stored from exactly the startup floor.
+
+### Excluded instruments
+
+When one instrument's history cannot be prepared, the runtime logs a WARNING
+(`runtime lane excluded from live ingestion`) and brings the other instruments
+live. `GET /runtime` lists the excluded instruments under `excluded_lanes`
+(`reason` is `no_closed_candle_in_window` or `recovery_exhausted`, with
+`detail`, `excluded_since` and `next_retry_at` in UTC), the gauge
+`ingestion.lane.excluded` is 1 for them, and `/health/ready` returns 200 with
+`status: "degraded"`. The runtime retries each one in the background every 60
+seconds (longer after a rate limit); when a repair succeeds the live stream
+reconnects once after its next candle, with no backoff, and admits the
+instrument. To force an immediate retry of every instrument call
+`POST /runtime/reconnect` (or change settings, resume, or restart); a manual
+`/runtime/recover` over the missing range also repairs an instrument whose gap
+the providers can serve. If every instrument is faulty the runtime behaves as
+before: it stays RECOVERING and retries all of them after the reconnect backoff.
 
 After the service has connected to Valkey, broker startup ordering is:
 

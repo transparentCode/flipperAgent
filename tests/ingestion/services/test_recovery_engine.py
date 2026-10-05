@@ -54,7 +54,6 @@ def _observation(
         taker_buy_base=Decimal(1),
         received_at=open_time + MINUTE,
         provider_close_time=None,
-        provider_event_id=None,
     )
 
 
@@ -335,35 +334,6 @@ async def _wait_for_lane_users(
             return entry
         await asyncio.sleep(0)
     raise AssertionError(f"lane lock users did not reach {expected}")
-
-
-@pytest.mark.parametrize(
-    ("field", "value"),
-    [
-        ("max_concurrency", 0),
-        ("page_limit", False),
-        ("max_attempts_per_provider", -1),
-        ("retry_backoff_seconds", "1"),
-        ("rest_finalization_grace_seconds", -1),
-    ],
-)
-def test_engine_limits_reject_invalid_values(field: str, value: object) -> None:
-    kwargs: dict[str, object] = {
-        "max_concurrency": 1,
-        "page_limit": 2,
-        "max_attempts_per_provider": 1,
-        "retry_backoff_seconds": 0,
-        "rest_finalization_grace_seconds": 0,
-    }
-    kwargs[field] = value
-    with pytest.raises((TypeError, ValueError)):
-        RecoveryEngine(
-            providers={},  # type: ignore[arg-type]
-            repository=object(),  # type: ignore[arg-type]
-            ingestion_service=object(),  # type: ignore[arg-type]
-            htf_service=object(),  # type: ignore[arg-type]
-            **kwargs,  # type: ignore[arg-type]
-        )
 
 
 def test_effective_until_excludes_forming_base_candle() -> None:
@@ -839,6 +809,34 @@ async def test_provider_exhaustion_raises_with_missing_count() -> None:
 
 
 @pytest.mark.asyncio
+async def test_incomplete_page_error_carries_the_request_lane() -> None:
+    since = datetime(2026, 1, 1, tzinfo=UTC)
+    primary = _ScriptedProvider("binance_native", [()])
+    repository = _Repository()
+    engine = _engine(
+        repository,
+        _Ingestion(repository),
+        _HTF(),
+        {"binance_native": primary},
+    )
+
+    with pytest.raises(RecoveryExhaustedError) as raised:
+        await engine.recover(
+            _request(since, since + MINUTE),
+            base_timeframe="1m",
+            base_duration=MINUTE,
+            provider_order=("binance_native",),
+            provider_symbols={"binance_native": "BTCUSDT"},
+            target_durations={},
+            alignment_origin=ORIGIN,
+        )
+
+    assert raised.value.lane == LANE
+    assert RecoveryExhaustedError("no lane").lane is None
+    assert RecoveryRateLimitedError(retry_after_seconds=1).lane is None
+
+
+@pytest.mark.asyncio
 async def test_provider_exhaustion_retains_last_provider_failure_as_cause() -> None:
     since = datetime(2026, 1, 1, tzinfo=UTC)
     until = since + MINUTE
@@ -1035,47 +1033,6 @@ async def test_unaligned_historical_until_fails_before_network() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("provider_order", "provider_symbols", "providers"),
-    [
-        ((), {"binance_native": "BTCUSDT"}, {"binance_native": "binance_native"}),
-        (("binance_native",), {}, {"binance_native": "binance_native"}),
-        (
-            ("binance_native",),
-            {"binance_native": "BTCUSDT"},
-            {"binance_native": "wrong_provider_id"},
-        ),
-    ],
-)
-async def test_provider_routes_fail_before_network(
-    provider_order: tuple[str, ...],
-    provider_symbols: dict[str, str],
-    providers: dict[str, str],
-) -> None:
-    since = datetime(2026, 1, 1, tzinfo=UTC)
-    until = since + MINUTE
-    repository = _Repository()
-    ingestion = _Ingestion(repository)
-    provider_objects = {
-        key: _ScriptedProvider(value, []) for key, value in providers.items()
-    }
-    engine = _engine(repository, ingestion, _HTF(), provider_objects)
-
-    with pytest.raises(DataIngestionError):
-        await engine.recover(
-            _request(since, until),
-            base_timeframe="1m",
-            base_duration=MINUTE,
-            provider_order=provider_order,
-            provider_symbols=provider_symbols,
-            target_durations={},
-            alignment_origin=ORIGIN,
-        )
-    assert repository.calls == []
-    assert ingestion.committed == []
-
-
-@pytest.mark.asyncio
 async def test_non_base_request_is_rejected_before_network() -> None:
     since = datetime(2026, 1, 1, tzinfo=UTC)
     until = since + MINUTE
@@ -1257,37 +1214,6 @@ async def test_recover_closure_rejects_unknown_plan_lane_before_recovery() -> No
     with pytest.raises(DataIngestionError, match="unknown plan lane"):
         await engine.recover_closure(
             (_request(since, since + MINUTE, lane=OTHER_LANE),),
-            plan=plan,
-        )
-
-
-@pytest.mark.asyncio
-async def test_recover_closure_rejects_malformed_followups() -> None:
-    since = datetime(2026, 1, 1, tzinfo=UTC)
-    plan = _plan_for_lanes(LANE)
-    engine = _engine(
-        _Repository(),
-        _Ingestion(_Repository()),
-        _HTF(),
-        {"binance_native": _ScriptedProvider("binance_native", [])},
-    )
-
-    async def malformed_recover(request: RecoveryRequest, **kwargs: object):
-        del request, kwargs
-        return [
-            RecoveryRequest(  # type: ignore[return-value]
-                lane=LANE,
-                since=since,
-                until=since + MINUTE,
-                reason="malformed",
-            )
-        ]
-
-    engine.recover = malformed_recover  # type: ignore[method-assign]
-
-    with pytest.raises(DataIngestionError, match="invalid follow-up requests"):
-        await engine.recover_closure(
-            (_request(since, since + MINUTE),),
             plan=plan,
         )
 
@@ -1891,3 +1817,346 @@ async def test_cancellation_propagates_from_provider() -> None:
     with pytest.raises(asyncio.CancelledError):
         await task
     assert engine._lane_locks == {}
+
+
+# ---------------------------------------------------------------------------
+# find_history_start: the one-candle probe used for a lane with no stored history
+# ---------------------------------------------------------------------------
+
+PROBE_SINCE = datetime(2026, 1, 1, tzinfo=UTC)
+PROBE_UNTIL = PROBE_SINCE + timedelta(days=1)
+PROBE_NOW = PROBE_UNTIL + MINUTE
+PROBE_SYMBOLS = {"binance_native": "BTCUSDT", "ccxt_binance": "BTC/USDT:USDT"}
+
+
+class _KeywordProvider(_ScriptedProvider):
+    """Scripted provider that also keeps every call's full keyword arguments."""
+
+    def __init__(self, provider_id: str, responses: list[object]) -> None:
+        super().__init__(provider_id, responses)
+        self.keyword_calls: list[dict[str, Any]] = []
+
+    async def fetch_closed_candles(
+        self, **kwargs: Any
+    ) -> tuple[CandleObservation, ...]:
+        self.keyword_calls.append(dict(kwargs))
+        return await super().fetch_closed_candles(**kwargs)
+
+
+class _ProbeHarness:
+    def __init__(
+        self,
+        primary: _KeywordProvider,
+        fallback: _KeywordProvider | None = None,
+        *,
+        max_attempts: int = 1,
+        now: datetime = PROBE_NOW,
+    ) -> None:
+        self.repository = _Repository()
+        self.ingestion = _Ingestion(self.repository)
+        self.htf = _HTF()
+        self.settlement_sleeps: list[float] = []
+
+        async def settlement_sleep(seconds: float) -> None:
+            self.settlement_sleeps.append(seconds)
+
+        providers = {"binance_native": primary}
+        if fallback is not None:
+            providers["ccxt_binance"] = fallback
+        self.engine = _engine(
+            self.repository,
+            self.ingestion,
+            self.htf,
+            providers,
+            max_attempts=max_attempts,
+            rest_finalization_grace=300,
+            now_fn=lambda: now,
+            settlement_sleep_fn=settlement_sleep,
+        )
+        self.plan = IngestionPlan(
+            base_timeframe="1m",
+            alignment_origin=ORIGIN,
+            reconnect_backoff_seconds=0,
+            lanes=(
+                LanePlan(
+                    lane=LANE,
+                    live_provider_id="binance_native",
+                    live_symbol="BTCUSDT",
+                    provider_order=tuple(providers),
+                    provider_symbols=PROBE_SYMBOLS,
+                    target_durations={},
+                    base_duration=MINUTE,
+                    lookback_duration=MINUTE,
+                    history_floor_duration=MINUTE,
+                ),
+            ),
+        )
+
+    async def probe(self) -> datetime | None:
+        return await self.engine.find_history_start(
+            LANE,
+            plan=self.plan,
+            since=PROBE_SINCE,
+            until=PROBE_UNTIL,
+        )
+
+    def assert_nothing_written_or_waited(self) -> None:
+        assert self.ingestion.committed == []
+        assert self.repository.rows == {}
+        assert self.repository.calls == []
+        assert self.htf.calls == []
+        assert self.settlement_sleeps == []
+        assert self.engine._lane_locks == {}
+
+
+def _unavailable(message: str) -> ProviderAvailabilityError:
+    return ProviderAvailabilityError(message)
+
+
+@pytest.mark.asyncio
+async def test_find_history_start_returns_first_open_time_with_one_candle_request() -> (
+    None
+):
+    first_open = PROBE_SINCE + 100 * MINUTE
+    primary = _KeywordProvider("binance_native", [(_observation(first_open),)])
+    fallback = _KeywordProvider("ccxt_binance", [])
+    harness = _ProbeHarness(primary, fallback, max_attempts=3)
+
+    assert await harness.probe() == first_open
+
+    assert primary.keyword_calls == [
+        {
+            "lane": LANE,
+            "provider_symbol": "BTCUSDT",
+            "timeframe_duration": MINUTE,
+            "since": PROBE_SINCE,
+            "until": PROBE_UNTIL,
+            "limit": 1,
+        }
+    ]
+    assert fallback.keyword_calls == []
+    harness.assert_nothing_written_or_waited()
+
+
+@pytest.mark.asyncio
+async def test_find_history_start_returns_none_when_every_provider_has_no_candle() -> (
+    None
+):
+    primary = _KeywordProvider("binance_native", [()])
+    fallback = _KeywordProvider("ccxt_binance", [()])
+    harness = _ProbeHarness(primary, fallback, max_attempts=3)
+
+    assert await harness.probe() is None
+
+    # An empty answer is an answer: it is neither retried nor an error.
+    assert len(primary.keyword_calls) == 1
+    assert len(fallback.keyword_calls) == 1
+    harness.assert_nothing_written_or_waited()
+
+
+@pytest.mark.asyncio
+async def test_find_history_start_uses_fallback_when_primary_is_unavailable() -> None:
+    first_open = PROBE_SINCE + 7 * MINUTE
+    primary = _KeywordProvider(
+        "binance_native",
+        [_unavailable("primary 1"), _unavailable("primary 2")],
+    )
+    fallback = _KeywordProvider(
+        "ccxt_binance",
+        [(_observation(first_open, provider_id="ccxt_binance"),)],
+    )
+    harness = _ProbeHarness(primary, fallback, max_attempts=2)
+
+    assert await harness.probe() == first_open
+
+    assert len(primary.keyword_calls) == 2
+    assert [call["provider_symbol"] for call in fallback.keyword_calls] == [
+        "BTC/USDT:USDT"
+    ]
+    assert fallback.keyword_calls[0]["limit"] == 1
+    harness.assert_nothing_written_or_waited()
+
+
+@pytest.mark.asyncio
+async def test_find_history_start_retries_the_same_provider_before_giving_up() -> None:
+    first_open = PROBE_SINCE + 3 * MINUTE
+    primary = _KeywordProvider(
+        "binance_native",
+        [_unavailable("transient"), (_observation(first_open),)],
+    )
+    harness = _ProbeHarness(primary, max_attempts=2)
+
+    assert await harness.probe() == first_open
+
+    assert len(primary.keyword_calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_find_history_start_empty_primary_does_not_hide_a_fallback_candle() -> (
+    None
+):
+    first_open = PROBE_SINCE + 55 * MINUTE
+    primary = _KeywordProvider("binance_native", [()])
+    fallback = _KeywordProvider(
+        "ccxt_binance",
+        [(_observation(first_open, provider_id="ccxt_binance"),)],
+    )
+    harness = _ProbeHarness(primary, fallback, max_attempts=2)
+
+    assert await harness.probe() == first_open
+
+    assert len(primary.keyword_calls) == 1
+    assert len(fallback.keyword_calls) == 1
+    harness.assert_nothing_written_or_waited()
+
+
+@pytest.mark.asyncio
+async def test_find_history_start_unavailable_everywhere_is_exhaustion_with_cause() -> (
+    None
+):
+    last_error = _unavailable("fallback 2")
+    primary = _KeywordProvider(
+        "binance_native",
+        [_unavailable("primary 1"), _unavailable("primary 2")],
+    )
+    fallback = _KeywordProvider(
+        "ccxt_binance",
+        [_unavailable("fallback 1"), last_error],
+    )
+    harness = _ProbeHarness(primary, fallback, max_attempts=2)
+
+    with pytest.raises(RecoveryExhaustedError) as raised:
+        await harness.probe()
+
+    assert not isinstance(raised.value, RecoveryRateLimitedError)
+    assert raised.value.__cause__ is last_error
+    assert len(primary.keyword_calls) == 2
+    assert len(fallback.keyword_calls) == 2
+    harness.assert_nothing_written_or_waited()
+
+
+@pytest.mark.asyncio
+async def test_find_history_start_rate_limit_stops_attempts_and_fallback() -> None:
+    rate_limit = ProviderRateLimitedError(
+        provider_id="binance_native",
+        retry_after_seconds=23,
+    )
+    primary = _KeywordProvider("binance_native", [rate_limit])
+    fallback = _KeywordProvider("ccxt_binance", [])
+    harness = _ProbeHarness(primary, fallback, max_attempts=3)
+
+    with pytest.raises(RecoveryRateLimitedError) as raised:
+        await harness.probe()
+
+    assert isinstance(raised.value, RecoveryExhaustedError)
+    assert raised.value.retry_after_seconds == 23
+    assert raised.value.__cause__ is rate_limit
+    assert len(primary.keyword_calls) == 1
+    assert fallback.keyword_calls == []
+    harness.assert_nothing_written_or_waited()
+
+
+@pytest.mark.asyncio
+async def test_find_history_start_transport_deadline_propagates_without_retry() -> None:
+    deadline = TransportDeadlineExceeded(
+        provider_id="binance_native",
+        operation="REST klines",
+        timeout_seconds=30,
+    )
+    primary = _KeywordProvider("binance_native", [deadline])
+    fallback = _KeywordProvider("ccxt_binance", [])
+    harness = _ProbeHarness(primary, fallback, max_attempts=3)
+
+    with pytest.raises(TransportDeadlineExceeded) as raised:
+        await harness.probe()
+
+    assert raised.value is deadline
+    assert len(primary.keyword_calls) == 1
+    assert fallback.keyword_calls == []
+    harness.assert_nothing_written_or_waited()
+
+
+@pytest.mark.asyncio
+async def test_find_history_start_other_provider_errors_propagate() -> None:
+    failure = RuntimeError("provider bug")
+    primary = _KeywordProvider("binance_native", [failure])
+    fallback = _KeywordProvider("ccxt_binance", [])
+    harness = _ProbeHarness(primary, fallback, max_attempts=3)
+
+    with pytest.raises(RuntimeError) as raised:
+        await harness.probe()
+
+    assert raised.value is failure
+    assert fallback.keyword_calls == []
+
+
+@pytest.mark.parametrize(
+    ("malformed", "message"),
+    [
+        (
+            (
+                _observation(PROBE_SINCE + MINUTE),
+                _observation(PROBE_SINCE + 2 * MINUTE),
+            ),
+            "more observations than page limit",
+        ),
+        (
+            (_observation(PROBE_SINCE + timedelta(seconds=30)),),
+            "off-grid observation",
+        ),
+        (
+            (_observation(PROBE_UNTIL - MINUTE),),
+            "not closed at recovery start",
+        ),
+        (
+            (_observation(PROBE_SINCE - MINUTE),),
+            "outside its page",
+        ),
+        (
+            (_observation(PROBE_SINCE + MINUTE, lane=OTHER_LANE),),
+            "wrong lane",
+        ),
+        (
+            (
+                replace(
+                    _observation(PROBE_SINCE + MINUTE),
+                    provider_id="ccxt_binance",
+                ),
+            ),
+            "wrong provider ID",
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_find_history_start_contract_violation_fails_closed(
+    malformed: tuple[CandleObservation, ...],
+    message: str,
+) -> None:
+    primary = _KeywordProvider("binance_native", [malformed])
+    fallback = _KeywordProvider("ccxt_binance", [])
+    # The request starts one second before the last candle of the window closes,
+    # so the candle in the "not closed" case is genuinely still forming.
+    harness = _ProbeHarness(
+        primary,
+        fallback,
+        max_attempts=3,
+        now=PROBE_UNTIL - timedelta(seconds=1),
+    )
+
+    with pytest.raises(DataIngestionError, match=message) as raised:
+        await harness.probe()
+
+    assert not isinstance(raised.value, RecoveryExhaustedError)
+    assert len(primary.keyword_calls) == 1
+    assert fallback.keyword_calls == []
+    harness.assert_nothing_written_or_waited()
+
+
+@pytest.mark.asyncio
+async def test_find_history_start_does_not_take_the_lane_lock() -> None:
+    first_open = PROBE_SINCE + 9 * MINUTE
+    primary = _KeywordProvider("binance_native", [(_observation(first_open),)])
+    harness = _ProbeHarness(primary)
+
+    async with harness.engine._lane_guard(LANE):
+        assert await asyncio.wait_for(harness.probe(), timeout=1) == first_open

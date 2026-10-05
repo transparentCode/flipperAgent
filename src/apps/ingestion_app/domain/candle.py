@@ -73,7 +73,6 @@ class CandleObservation:
     taker_buy_base: Decimal | None
     received_at: datetime
     provider_close_time: datetime | None = None
-    provider_event_id: str | None = None
 
     def __post_init__(self) -> None:
         _require_lane(self.lane)
@@ -84,11 +83,6 @@ class CandleObservation:
         require_utc(self.received_at, field_name="received_at")
         if self.provider_close_time is not None:
             require_utc(self.provider_close_time, field_name="provider_close_time")
-        if self.provider_event_id is not None:
-            require_non_empty_string(
-                self.provider_event_id,
-                field_name="provider_event_id",
-            )
         if self.close_time <= self.open_time:
             raise ValueError("close_time must be after open_time")
         _validate_candle_values(

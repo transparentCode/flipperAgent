@@ -11,7 +11,7 @@ from types import MappingProxyType
 from apps.ingestion_app.domain.candle import CandleObservation, CanonicalCandle
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
-from apps.ingestion_app.domain.time_alignment import aligned_bucket_start
+from apps.ingestion_app.domain.time_alignment import aligned_bucket_start, is_aligned
 from apps.ingestion_app.observability import IngestionObservability
 from apps.ingestion_app.planning import IngestionPlan, LanePlan
 from apps.ingestion_app.providers.base import (
@@ -20,6 +20,7 @@ from apps.ingestion_app.providers.base import (
     TransportDeadlineExceeded,
 )
 from apps.ingestion_app.runtime.state import (
+    LaneFault,
     RuntimeState,
     SupervisorSnapshot,
 )
@@ -44,13 +45,11 @@ from libs.common.logging.logger_utils import bind_logger
 
 _LOGGER = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_ENGINE)
 
-
-def _require_utc(value: object, *, field_name: str) -> datetime:
-    if not isinstance(value, datetime):
-        raise DataIngestionError(f"{field_name} must be a datetime")
-    if value.tzinfo is None or value.utcoffset() != timedelta(0):
-        raise DataIngestionError(f"{field_name} must be timezone-aware UTC")
-    return value
+# How long an instrument whose history cannot be prepared waits before its next
+# background repair attempt. A rate-limit delay longer than this is honoured.
+_EXCLUDED_LANE_RETRY_SECONDS = 60.0
+_REASON_NO_CLOSED_CANDLE = "no_closed_candle_in_window"
+_REASON_RECOVERY_EXHAUSTED = "recovery_exhausted"
 
 
 class RuntimeSupervisor:
@@ -68,22 +67,9 @@ class RuntimeSupervisor:
         now_fn: Callable[[], datetime] | None = None,
         monotonic_fn: Callable[[], float] | None = None,
         reconnect_sleep_fn: Callable[[float], Awaitable[None]] | None = None,
+        repair_sleep_fn: Callable[[float], Awaitable[None]] | None = None,
         observability: IngestionObservability | None = None,
     ) -> None:
-        if not isinstance(plan, IngestionPlan):
-            raise TypeError("plan must be IngestionPlan")
-        if not callable(getattr(live_provider, "stream_closed_candles", None)):
-            raise TypeError("live_provider must expose stream_closed_candles")
-        if not isinstance(getattr(live_provider, "provider_id", None), str):
-            raise DataIngestionError("live provider must expose a provider_id")
-        if not live_provider.provider_id.strip():
-            raise DataIngestionError("live provider ID must be non-empty")
-        if now_fn is not None and not callable(now_fn):
-            raise TypeError("now_fn must be callable")
-        if monotonic_fn is not None and not callable(monotonic_fn):
-            raise TypeError("monotonic_fn must be callable")
-        if reconnect_sleep_fn is not None and not callable(reconnect_sleep_fn):
-            raise TypeError("reconnect_sleep_fn must be callable")
         if not plan.lanes:
             raise DataIngestionError("no enabled ingestion runtime lanes")
         if any(
@@ -105,11 +91,9 @@ class RuntimeSupervisor:
         self._now = now_fn or (lambda: datetime.now(UTC))
         self._monotonic = monotonic_fn or time.monotonic
         self._reconnect_sleep = reconnect_sleep_fn or asyncio.sleep
+        self._repair_sleep = repair_sleep_fn or asyncio.sleep
         self._contexts = plan.lanes
         self._contexts_by_lane = plan.lanes_by_lane
-        self._subscriptions = MappingProxyType(
-            {context.lane: context.live_symbol for context in self._contexts}
-        )
 
         self._last_error: str | None = None
         self._fatal_error: str | None = None
@@ -118,6 +102,18 @@ class RuntimeSupervisor:
         self._not_live_since = self._monotonic()
         self._stop_requested = False
         self._active_task: asyncio.Task[None] | None = None
+
+        # Lane fault isolation, scoped to this supervisor generation: lanes held
+        # out of live ingestion, and those whose background repair succeeded.
+        self._excluded: dict[MarketLane, LaneFault] = {}
+        self._ready_to_rejoin: set[MarketLane] = set()
+        self._admitted: tuple[LanePlan, ...] = self._contexts
+        self._admitted_by_lane: dict[MarketLane, LanePlan] = dict(
+            self._contexts_by_lane
+        )
+        self._repair_task: asyncio.Task[None] | None = None
+        self._repair_failure: BaseException | None = None
+        self._publish_excluded_lanes()
 
     @property
     def active_lanes(self) -> tuple[MarketLane, ...]:
@@ -133,6 +129,11 @@ class RuntimeSupervisor:
             state=self._state,
             last_error=self._last_error,
             not_live_seconds=not_live_seconds,
+            excluded_lanes=tuple(
+                self._excluded[context.lane]
+                for context in self._contexts
+                if context.lane in self._excluded
+            ),
         )
 
     @property
@@ -188,8 +189,6 @@ class RuntimeSupervisor:
     async def execute_recovery(self, request: RecoveryRequest) -> None:
         """Execute one offline recovery closure without starting the live loop."""
         self._sync_transport_quarantine()
-        if not isinstance(request, RecoveryRequest):
-            raise TypeError("request must be a RecoveryRequest")
         if self._active_task is not None and not self._active_task.done():
             raise RuntimeError(
                 "cannot execute recovery while the supervisor is running"
@@ -253,100 +252,252 @@ class RuntimeSupervisor:
             raise DataIngestionError(
                 "latest canonical base candle has invalid duration geometry"
             )
-        if (
-            aligned_bucket_start(
-                candle.open_time,
-                context.base_duration,
-                self.plan.alignment_origin,
-            )
-            != candle.open_time
+        if not is_aligned(
+            candle.open_time,
+            context.base_duration,
+            self.plan.alignment_origin,
         ):
             raise DataIngestionError(
                 "latest canonical base candle is off the base grid"
             )
 
-    async def _prepare_live_connection(self) -> datetime:
-        """Repair bounded base history and closed HTFs before opening WS."""
-        alignment_origin = self.plan.alignment_origin
-        while True:
-            as_of = _require_utc(self._now(), field_name="runtime as_of")
-            current_closed_boundary = aligned_bucket_start(
-                as_of,
-                self._contexts[0].base_duration,
-                alignment_origin,
-            )
-            catch_up_requests: list[RecoveryRequest] = []
+    def _publish_excluded_lanes(self) -> None:
+        self.observability.set_lane_exclusions(
+            (context.lane for context in self._contexts),
+            self._excluded,
+        )
 
-            for context in self._contexts:
-                latest = await self.repository.fetch_latest_candle(
-                    lane=context.lane,
-                    before=current_closed_boundary,
+    def _exclude_lane(self, lane: MarketLane, *, reason: str, detail: str) -> None:
+        now = self._now()
+        next_retry_at = now + timedelta(seconds=_EXCLUDED_LANE_RETRY_SECONDS)
+        self._excluded[lane] = LaneFault(
+            venue=lane.venue,
+            instrument_id=lane.instrument_id,
+            reason=reason,
+            detail=detail,
+            excluded_since=now,
+            next_retry_at=next_retry_at,
+        )
+        self._ready_to_rejoin.discard(lane)
+        self._publish_excluded_lanes()
+        _LOGGER.warning(
+            "runtime lane excluded from live ingestion: lane=%s reason=%s "
+            "next_retry_at=%s detail=%s",
+            lane,
+            reason,
+            next_retry_at,
+            detail,
+        )
+
+    def _clear_exclusions(self) -> None:
+        self._excluded.clear()
+        self._ready_to_rejoin.clear()
+        self._publish_excluded_lanes()
+
+    async def _prepare_lanes(
+        self,
+        contexts: tuple[LanePlan, ...],
+        *,
+        as_of: datetime,
+        boundary: datetime,
+        empty_lanes: list[MarketLane],
+    ) -> None:
+        """Repair base history and closed HTFs of ``contexts`` up to ``boundary``.
+
+        A lane with no closed candle in its startup window is appended to
+        ``empty_lanes`` and skipped; the caller decides what that means.
+        """
+        alignment_origin = self.plan.alignment_origin
+        catch_up_requests: list[RecoveryRequest] = []
+
+        for context in contexts:
+            latest = await self.repository.fetch_latest_candle(
+                lane=context.lane,
+                before=boundary,
+            )
+            if latest is not None:
+                self._validate_latest_base_candle(
+                    latest,
+                    context=context,
+                    before=boundary,
                 )
-                if latest is not None:
-                    self._validate_latest_base_candle(
-                        latest,
-                        context=context,
-                        before=current_closed_boundary,
+                self.observability.record_base_last_close(
+                    context.lane,
+                    latest.close_time,
+                )
+            startup_floor = boundary - context.history_floor_duration
+            if latest is None:
+                first_open = await self.recovery_engine.find_history_start(
+                    context.lane,
+                    plan=self.plan,
+                    since=startup_floor,
+                    until=boundary,
+                )
+                if first_open is None:
+                    empty_lanes.append(context.lane)
+                    continue
+                if first_open > startup_floor:
+                    _LOGGER.warning(
+                        "runtime lane history starts after the startup "
+                        "floor: lane=%s floor=%s first_candle=%s "
+                        "shortfall=%s",
+                        context.lane,
+                        startup_floor,
+                        first_open,
+                        first_open - startup_floor,
                     )
-                    self.observability.record_base_last_close(
+                since = first_open
+            else:
+                if latest.close_time < startup_floor:
+                    _LOGGER.warning(
+                        "runtime startup catch-up bounded: lane=%s latest_close=%s "
+                        "floor=%s",
                         context.lane,
                         latest.close_time,
+                        startup_floor,
                     )
-                startup_floor = current_closed_boundary - context.history_floor_duration
-                if latest is None:
-                    since = startup_floor
-                else:
-                    if latest.close_time < startup_floor:
-                        _LOGGER.warning(
-                            "runtime startup catch-up bounded: lane=%s latest_close=%s "
-                            "floor=%s",
-                            context.lane,
-                            latest.close_time,
-                            startup_floor,
-                        )
-                    since = max(latest.close_time, startup_floor)
-                if since < current_closed_boundary:
-                    catch_up_requests.append(
-                        RecoveryRequest(
-                            lane=context.lane,
-                            since=since,
-                            until=current_closed_boundary,
-                            reason="runtime_catchup",
-                        )
-                    )
-
-            await self._execute_recovery_closure(catch_up_requests)
-
-            htf_requests: list[RecoveryRequest] = []
-            for context in self._contexts:
-                htf_requests.extend(
-                    await self.htf_service.reconcile_latest_closed_buckets(
-                        base_lane=context.lane,
-                        base_duration=context.base_duration,
-                        target_durations=context.target_durations,
-                        alignment_origin=alignment_origin,
-                        as_of=as_of,
+                since = max(latest.close_time, startup_floor)
+            if since < boundary:
+                catch_up_requests.append(
+                    RecoveryRequest(
+                        lane=context.lane,
+                        since=since,
+                        until=boundary,
+                        reason="runtime_catchup",
                     )
                 )
-                htf_requests.extend(
-                    await self.htf_service.reconcile_missing_closed_buckets(
-                        base_lane=context.lane,
-                        base_duration=context.base_duration,
-                        target_durations=context.target_durations,
-                        alignment_origin=alignment_origin,
-                        since=current_closed_boundary - context.lookback_duration,
-                        as_of=as_of,
-                    )
-                )
-            await self._execute_recovery_closure(htf_requests)
 
-            settled_as_of = _require_utc(
-                self._now(),
-                field_name="runtime settled_as_of",
+        await self._execute_recovery_closure(catch_up_requests)
+
+        prepared = tuple(
+            context for context in contexts if context.lane not in empty_lanes
+        )
+        for context in prepared:
+            if context.history_floor_duration <= context.lookback_duration:
+                continue
+            rebuilt = await self.htf_service.materialize_complete_missing_buckets(
+                base_lane=context.lane,
+                base_duration=context.base_duration,
+                target_durations=context.target_durations,
+                alignment_origin=alignment_origin,
+                since=boundary - context.history_floor_duration,
+                before=boundary - context.lookback_duration,
+                as_of=as_of,
             )
+            if rebuilt:
+                _LOGGER.info(
+                    "runtime rebuilt older derived buckets from stored base "
+                    "candles: lane=%s count=%d",
+                    context.lane,
+                    rebuilt,
+                )
+
+        htf_requests: list[RecoveryRequest] = []
+        for context in prepared:
+            htf_requests.extend(
+                await self.htf_service.reconcile_latest_closed_buckets(
+                    base_lane=context.lane,
+                    base_duration=context.base_duration,
+                    target_durations=context.target_durations,
+                    alignment_origin=alignment_origin,
+                    as_of=as_of,
+                )
+            )
+            htf_requests.extend(
+                await self.htf_service.reconcile_missing_closed_buckets(
+                    base_lane=context.lane,
+                    base_duration=context.base_duration,
+                    target_durations=context.target_durations,
+                    alignment_origin=alignment_origin,
+                    since=boundary - context.lookback_duration,
+                    as_of=as_of,
+                )
+            )
+        await self._execute_recovery_closure(htf_requests)
+
+    async def _prepare_admitted_lanes(
+        self,
+        *,
+        as_of: datetime,
+        boundary: datetime,
+    ) -> tuple[LanePlan, ...]:
+        """Prepare every lane that can be prepared; exclude those that cannot."""
+        for lane in tuple(self._ready_to_rejoin):
+            self._excluded.pop(lane, None)
+        self._ready_to_rejoin.clear()
+        self._publish_excluded_lanes()
+        candidates = tuple(
+            context for context in self._contexts if context.lane not in self._excluded
+        )
+        last_error: RecoveryExhaustedError | None = None
+        while candidates:
+            empty_lanes: list[MarketLane] = []
+            failure: RecoveryExhaustedError | None = None
+            try:
+                await self._prepare_lanes(
+                    candidates,
+                    as_of=as_of,
+                    boundary=boundary,
+                    empty_lanes=empty_lanes,
+                )
+            except RecoveryExhaustedError as exc:
+                candidate_lanes = {context.lane for context in candidates}
+                if (
+                    isinstance(exc, RecoveryRateLimitedError)
+                    or exc.lane not in candidate_lanes
+                ):
+                    raise
+                failure = exc
+            for lane in empty_lanes:
+                self._exclude_lane(lane, reason=_REASON_NO_CLOSED_CANDLE, detail="")
+                last_error = RecoveryExhaustedError(
+                    f"no closed candle exists in the startup window for lane {lane}",
+                    lane=lane,
+                )
+            if failure is not None:
+                assert failure.lane is not None
+                self._exclude_lane(
+                    failure.lane,
+                    reason=_REASON_RECOVERY_EXHAUSTED,
+                    detail=str(failure),
+                )
+                last_error = failure
+            candidates = tuple(
+                context for context in candidates if context.lane not in self._excluded
+            )
+            if failure is None:
+                # Every remaining lane was fully prepared in this pass.
+                break
+        if not candidates:
+            self._clear_exclusions()
+            if last_error is None:
+                raise DataIngestionError("no runtime lane could be prepared")
+            raise last_error
+        return candidates
+
+    async def _prepare_live_connection(self) -> datetime:
+        """Repair bounded base history and closed HTFs before opening WS."""
+        base_duration = self._contexts[0].base_duration
+        alignment_origin = self.plan.alignment_origin
+        while True:
+            as_of = self._now()
+            current_closed_boundary = aligned_bucket_start(
+                as_of,
+                base_duration,
+                alignment_origin,
+            )
+            self._admitted = await self._prepare_admitted_lanes(
+                as_of=as_of,
+                boundary=current_closed_boundary,
+            )
+            self._admitted_by_lane = {
+                context.lane: context for context in self._admitted
+            }
+
+            settled_as_of = self._now()
             settled_boundary = aligned_bucket_start(
                 settled_as_of,
-                self._contexts[0].base_duration,
+                base_duration,
                 alignment_origin,
             )
             if settled_boundary <= current_closed_boundary:
@@ -368,9 +519,7 @@ class RuntimeSupervisor:
         self,
         observation: CandleObservation,
     ) -> LanePlan:
-        if not isinstance(observation, CandleObservation):
-            raise DataIngestionError("live provider returned a non-observation")
-        context = self._contexts_by_lane.get(observation.lane)
+        context = self._admitted_by_lane.get(observation.lane)
         if context is None:
             raise DataIngestionError(
                 f"live observation targets an unknown runtime lane: {observation.lane}"
@@ -381,18 +530,128 @@ class RuntimeSupervisor:
             raise DataIngestionError("live observation is not on the base timeframe")
         return context
 
+    async def _repair_lane(self, lane: MarketLane) -> None:
+        """Run one background repair attempt for an excluded lane."""
+        context = self._contexts_by_lane[lane]
+        as_of = self._now()
+        boundary = aligned_bucket_start(
+            as_of,
+            self._contexts[0].base_duration,
+            self.plan.alignment_origin,
+        )
+        empty_lanes: list[MarketLane] = []
+        reason = self._excluded[lane].reason
+        retry_delay = _EXCLUDED_LANE_RETRY_SECONDS
+        try:
+            await self._prepare_lanes(
+                (context,),
+                as_of=as_of,
+                boundary=boundary,
+                empty_lanes=empty_lanes,
+            )
+            detail = ""
+            if empty_lanes:
+                reason = _REASON_NO_CLOSED_CANDLE
+            else:
+                self._ready_to_rejoin.add(lane)
+                _LOGGER.info(
+                    "runtime lane repaired and ready to rejoin live ingestion: lane=%s",
+                    lane,
+                )
+                return
+        except TransportDeadlineExceeded:
+            raise
+        except RecoveryExhaustedError as exc:
+            reason = _REASON_RECOVERY_EXHAUSTED
+            detail = str(exc)
+            if isinstance(exc, RecoveryRateLimitedError):
+                retry_delay = max(retry_delay, exc.retry_after_seconds)
+        except Exception as exc:
+            if not is_storage_availability_error(exc):
+                raise
+            detail = str(exc)
+
+        now = self._now()
+        fault = self._excluded[lane]
+        self._excluded[lane] = LaneFault(
+            venue=fault.venue,
+            instrument_id=fault.instrument_id,
+            reason=reason,
+            detail=detail,
+            excluded_since=fault.excluded_since,
+            next_retry_at=now + timedelta(seconds=retry_delay),
+        )
+        _LOGGER.warning(
+            "runtime lane repair failed; retrying at %s: lane=%s reason=%s detail=%s",
+            self._excluded[lane].next_retry_at,
+            lane,
+            reason,
+            detail,
+        )
+
+    def _pending_repairs(self) -> list[LaneFault]:
+        return [
+            self._excluded[context.lane]
+            for context in self._contexts
+            if context.lane in self._excluded
+            and context.lane not in self._ready_to_rejoin
+        ]
+
+    async def _repair_excluded_lanes(self) -> None:
+        """Retry excluded lanes in the background until each one is repaired."""
+        try:
+            while True:
+                now = self._now()
+                for context in self._contexts:
+                    fault = self._excluded.get(context.lane)
+                    if (
+                        fault is not None
+                        and context.lane not in self._ready_to_rejoin
+                        and fault.next_retry_at <= now
+                    ):
+                        await self._repair_lane(context.lane)
+                pending = self._pending_repairs()
+                if not pending:
+                    return
+                delay = (
+                    min(fault.next_retry_at for fault in pending) - self._now()
+                ).total_seconds()
+                await self._repair_sleep(max(0.0, delay))
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            # Surfaced by the live loop after its next observation.
+            self._repair_failure = exc
+
+    async def _stop_repair(self) -> None:
+        task = self._repair_task
+        self._repair_task = None
+        if task is None:
+            return
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
     async def _run_live_cycle(self) -> None:
         self._set_state(RuntimeState.STARTING)
         connection_anchor = await self._prepare_live_connection()
+        subscriptions = MappingProxyType(
+            {context.lane: context.live_symbol for context in self._admitted}
+        )
         stream = None
         try:
             stream = self.live_provider.stream_closed_candles(
-                self._subscriptions,
+                subscriptions,
                 base_timeframe=self.plan.base_timeframe,
                 timeframe_duration=self._contexts[0].base_duration,
                 alignment_origin=self.plan.alignment_origin,
                 connection_anchor=connection_anchor,
             )
+            self._repair_failure = None
+            if self._excluded:
+                self._repair_task = asyncio.create_task(
+                    self._repair_excluded_lanes(),
+                    name="ingestion-lane-repair",
+                )
             async for observation in stream:
                 context = self._validate_live_observation(observation)
                 status = await self.ingestion_service.commit_observation(observation)
@@ -401,11 +660,6 @@ class RuntimeSupervisor:
                         f"live canonical conflict for {observation.lane} "
                         f"at {observation.open_time}"
                     )
-                if status not in {
-                    CandleCommitStatus.INSERTED,
-                    CandleCommitStatus.DUPLICATE,
-                }:
-                    raise DataIngestionError("live commit returned an invalid status")
 
                 follow_ups = await self.htf_service.process_base_candle(
                     canonicalize_observation(observation),
@@ -423,12 +677,23 @@ class RuntimeSupervisor:
                     self._set_state(RuntimeState.RECOVERING)
                     await self._execute_recovery_closure(follow_ups)
                     self._set_state(RuntimeState.LIVE)
+                if self._repair_failure is not None:
+                    raise self._repair_failure
+                if self._ready_to_rejoin:
+                    _LOGGER.info(
+                        "runtime lanes repaired; reconnecting to admit them: lanes=%s",
+                        sorted(str(lane) for lane in self._ready_to_rejoin),
+                    )
+                    return
             raise DataIngestionError("live stream ended unexpectedly")
         finally:
-            if stream is not None:
-                close = getattr(stream, "aclose", None)
-                if close is not None:
-                    await close()
+            try:
+                await self._stop_repair()
+            finally:
+                if stream is not None:
+                    close = getattr(stream, "aclose", None)
+                    if close is not None:
+                        await close()
 
     async def _handle_stream_interruption(
         self,

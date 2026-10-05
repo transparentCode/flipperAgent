@@ -229,22 +229,9 @@ def test_websocket_lifecycle_timeout_defaults_to_thirty_seconds() -> None:
 
 
 @pytest.mark.parametrize(
-    "timeout",
-    [0, -1, False, "30", float("nan"), float("inf"), float("-inf")],
-)
-def test_websocket_lifecycle_timeout_rejects_invalid_values(
-    timeout: object,
-) -> None:
-    with pytest.raises((TypeError, ValueError), match="lifecycle_timeout_seconds"):
-        _manager([], lifecycle_timeout_seconds=timeout)  # type: ignore[arg-type]
-
-
-@pytest.mark.parametrize(
     "subscriptions",
     [
         {},
-        {"not-a-lane": SYMBOL},  # type: ignore[dict-item]
-        {LANE: ""},
         {
             LANE: SYMBOL,
             MarketLane("binance", "ETH-TEST-PERP", "1m"): "btcusdt",
@@ -267,29 +254,6 @@ def test_subscription_validation_happens_before_client_construction(
             connection_anchor=ORIGIN,
         )
 
-    assert not clients
-
-
-def test_subscription_validation_rejects_invalid_timing_inputs() -> None:
-    clients: list[_FakeClient] = []
-    manager = _manager(clients)
-
-    with pytest.raises(ValueError):
-        manager.stream_closed_candles(
-            {LANE: SYMBOL},
-            base_timeframe="1m",
-            timeframe_duration=timedelta(0),
-            alignment_origin=ORIGIN,
-            connection_anchor=ORIGIN,
-        )
-    with pytest.raises(ValueError):
-        manager.stream_closed_candles(
-            {LANE: SYMBOL},
-            base_timeframe="1m",
-            timeframe_duration=DURATION,
-            alignment_origin=datetime(2026, 1, 1, 5, 30),  # noqa: DTZ001
-            connection_anchor=ORIGIN,
-        )
     assert not clients
 
 
@@ -816,7 +780,7 @@ async def test_1024_subscriptions_use_one_consumer_without_per_lane_tasks(
         created_by_manager.append(coro)
         return original_create_task(coro, **kwargs)
 
-    monkeypatch.setattr(websocket_module.asyncio, "create_task", track_create_task)
+    monkeypatch.setattr(asyncio, "create_task", track_create_task)
     stream = manager.stream_closed_candles(
         subscriptions,
         base_timeframe="1m",

@@ -181,7 +181,6 @@ def observation(
         provider_close_time=(
             open_time + BASE_DURATION if transport == "websocket" else None
         ),
-        provider_event_id=None,
     )
 
 
@@ -316,15 +315,18 @@ class RecordingHTF:
         missing_requests: tuple[RecoveryRequest, ...] = (),
         affected_requests: tuple[RecoveryRequest, ...] = (),
         live_requests: tuple[RecoveryRequest, ...] = (),
+        materialize_count: int = 0,
     ) -> None:
         self.latest_requests = latest_requests
         self.missing_requests = missing_requests
         self.affected_requests = affected_requests
         self.live_requests = live_requests
+        self.materialize_count = materialize_count
         self.latest_calls: list[dict[str, Any]] = []
         self.missing_calls: list[dict[str, Any]] = []
         self.affected_calls: list[dict[str, Any]] = []
         self.live_calls: list[dict[str, Any]] = []
+        self.materialize_calls: list[dict[str, Any]] = []
 
     async def reconcile_latest_closed_buckets(self, **kwargs: Any):
         self.latest_calls.append(kwargs)
@@ -333,6 +335,10 @@ class RecordingHTF:
     async def reconcile_missing_closed_buckets(self, **kwargs: Any):
         self.missing_calls.append(kwargs)
         return self.missing_requests
+
+    async def materialize_complete_missing_buckets(self, **kwargs: Any):
+        self.materialize_calls.append(kwargs)
+        return self.materialize_count
 
     async def reconcile_affected_buckets(self, **kwargs: Any):
         self.affected_calls.append(kwargs)
@@ -407,10 +413,24 @@ class RecordingRecovery:
         gate: asyncio.Event | None = None,
     ) -> None:
         self.calls: list[RecoveryRequest] = []
+        self.history_start_calls: list[tuple[MarketLane, datetime, datetime]] = []
+        self.history_start: datetime | None = None
         self.update_latest = update_latest
         self.gate = gate
         self.active = 0
         self.max_active = 0
+
+    async def find_history_start(
+        self,
+        lane: MarketLane,
+        *,
+        plan: Any,
+        since: datetime,
+        until: datetime,
+    ) -> datetime | None:
+        del plan
+        self.history_start_calls.append((lane, since, until))
+        return self.history_start
 
     async def recover(self, request: RecoveryRequest, **kwargs: Any):
         del kwargs

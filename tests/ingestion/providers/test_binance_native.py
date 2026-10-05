@@ -627,12 +627,6 @@ async def test_binance_close_timeout_does_not_close_session_concurrently() -> No
     assert session.close_calls == 1
 
 
-@pytest.mark.parametrize("timeout", [float("nan"), float("inf"), float("-inf")])
-def test_binance_rejects_non_finite_timeout(timeout: float) -> None:
-    with pytest.raises(ValueError, match="attempt_timeout_seconds"):
-        BinanceNativeHistoricalProvider(attempt_timeout_seconds=timeout)
-
-
 @pytest.mark.asyncio
 async def test_binance_admits_configured_capacity_without_queueing() -> None:
     client = _HeldBinanceClient([])
@@ -951,40 +945,6 @@ async def test_binance_sdk_failure_preserves_cause() -> None:
         )
 
     assert raised.value.__cause__ is original
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("field", "value", "error_type"),
-    [
-        ("provider_symbol", " ", ValueError),
-        ("timeframe_duration", timedelta(0), ValueError),
-        ("since", datetime(2026, 1, 1), ValueError),  # noqa: DTZ001
-        ("until", SINCE, ValueError),
-        ("limit", True, TypeError),
-        ("limit", 0, ValueError),
-    ],
-)
-async def test_binance_validates_request_before_network(
-    field: str,
-    value: object,
-    error_type: type[Exception],
-) -> None:
-    client = _FakeBinanceClient([_raw_kline(SINCE)])
-    kwargs: dict[str, object] = {
-        "lane": LANE,
-        "provider_symbol": "BTCUSDT",
-        "timeframe_duration": MINUTE,
-        "since": SINCE,
-        "until": UNTIL,
-        "limit": 10,
-    }
-    kwargs[field] = value
-
-    with pytest.raises(error_type):
-        await BinanceNativeHistoricalProvider(client).fetch_closed_candles(**kwargs)  # type: ignore[arg-type]
-
-    assert client.calls == []
 
 
 @pytest.mark.asyncio

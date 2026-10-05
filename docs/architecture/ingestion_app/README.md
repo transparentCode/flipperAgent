@@ -114,10 +114,13 @@ and other application configuration remains read-only.
 
 Startup base-history catch-up uses the largest configured target timeframe as
 its minimum floor and extends that floor to `recovery.startup_history_days` when
-configured. Production uses 120 days. The separate missing-HTF-bucket scan
-remains bounded by the largest target timeframe, so deeper base catch-up does
-not widen that scan. Candle retention is 400 days, leaving at least 30 days
-beyond the largest configured Decision history requirement.
+configured. Production uses 120 days. The request-issuing missing-HTF-bucket
+scan stays bounded by the largest target timeframe. Missing derived buckets older
+than that, back to the startup history window, are rebuilt only from base candles
+already stored; that step never triggers provider recovery and never blocks
+startup. Both existence checks read only candle open times. Candle retention is
+400 days, leaving at least 30 days beyond the largest configured Decision
+history requirement.
 
 ### 2. Runtime controller and supervisor
 
@@ -154,10 +157,20 @@ the run loop has one common cancellation/deadline/ordinary failure boundary:
 1. determine the latest closed base boundary;
 2. perform bounded startup base-history catch-up from Timescale state, using the
    configured startup history floor (120 days in production) or the largest
-   target timeframe when unset;
-3. reconcile latest closed HTF buckets and every missing closed bucket within
-   the unchanged largest-target-timeframe lookback;
-4. open the Binance websocket only after recovery closure completes;
+   target timeframe when unset. A lane with no stored candle first probes its
+   historical providers for the first closed candle inside that window and
+   starts catch-up there (see "Lane history start"); a lane with a stored
+   candle is not probed;
+3. rebuild missing derived buckets older than the largest target timeframe, back
+   to the startup history window, from base candles already stored (never
+   requesting recovery); then reconcile latest closed HTF buckets and every
+   missing closed bucket within the largest target timeframe;
+   A lane whose history cannot be prepared (no closed candle in the window, or
+   recovery exhausted for that lane) is excluded from this generation's live
+   admission and repaired in the background; the other lanes continue (see
+   "Lane fault isolation");
+4. open the Binance websocket for the admitted lanes only after recovery
+   closure completes;
 5. commit each finalized base candle;
 6. aggregate/reconcile affected HTFs;
 7. recover detected interruptions before reconnecting.
@@ -218,14 +231,16 @@ Historical SDK calls remain in their adapter modules under
 row decoders. The Native and CCXT decoders deliberately retain
 their different out-of-window invalid-value ordering and error contracts rather
 than introducing a branching shared loop. `providers/binance_usdm/websocket.py`
-remains the orchestration facade: `providers/binance_usdm/websocket_session.py`
+remains the orchestration facade and builds one connection-scoped
+`providers/binance_usdm/websocket_pump.py` per stream, which owns the queue,
+failure state, and consumer/watchdog loop; `providers/binance_usdm/websocket_session.py`
 owns the Binance SDK factory/subscription/stop lifecycle,
 `providers/binance_usdm/websocket_bridge.py` owns the bounded callback-thread
 bridge, and `providers/live_sequence.py` owns consumed sequence, recovery-range,
 and causal liveness state. The existing
 `providers/binance_usdm/websocket_decode.py` remains the distinct pure payload decoder
 and receives the receive-time sampling seam only at finalized observation
-construction. The facade retains one multiplexed connection and one consumer
+construction. The pump retains one multiplexed connection and one consumer
 loop; the sequence tracker derives the earliest causal per-lane silence deadline
 from the connection anchor or the last consumed finalized close. A silent
 half-open raises the existing recoverable interruption contract with reason
@@ -252,9 +267,13 @@ and stop operations use the same ownership boundary; native REST session close
 and CCXT exchange close are bounded provider cleanup operations.
 
 The neutral owned-call and historical admission/accounting mechanics live in
-`src/apps/ingestion_app/transport/ownership.py`. Provider adapters retain their
-own SDK request construction, decoding, error classification, retry/fallback,
-and cleanup policy at the adapter boundary.
+`src/apps/ingestion_app/transport/ownership.py`. The historical REST adapters
+share their lifecycle plumbing in
+`src/apps/ingestion_app/providers/owned_historical.py`: the admission state, the
+idle barrier behind `wait_until_idle()`, the rate-limit gate, and the `close()`
+state machine. Provider adapters retain their own SDK request construction,
+decoding, error classification, retry/fallback, exclusive-admission rule, and SDK
+close call at the adapter boundary.
 
 Provider admission is limited by `recovery.max_concurrency` without an
 unbounded provider wait queue. Caller cancellation abandons the result but does
@@ -282,6 +301,11 @@ exception; later chunks are not started.
 A new venue-specific provider belongs under `providers/<venue>/` with one
 explicit construction branch in `providers/factory.py`; this fixed deployment
 does not build a provider registry or plugin-discovery mechanism.
+
+An SDK-backed historical provider subclasses
+`providers/owned_historical.OwnedHistoricalProvider`, which owns admission state,
+the idle barrier, the rate-limit gate, and close. The adapter supplies its
+request, error classification, decoding, admission rule, and close call.
 
 ### 4. Canonicalization and Timescale persistence
 
@@ -441,8 +465,12 @@ The supervisor enters `RECOVERING`, closes the missing range using historical
 providers, waits the configured reconnect backoff, then starts a fresh live cycle.
 If every configured provider completes its bounded attempts but the page remains
 incomplete, `RecoveryExhaustedError` keeps the supervisor in `RECOVERING`. It waits
-the same reconnect backoff and retries through normal DB-first startup catch-up;
-only one bounded recovery cycle is active, so retries do not accumulate work.
+the same reconnect backoff and retries through normal DB-first startup catch-up.
+When the exhausted request names its lane, the next preparation excludes that
+lane instead of failing the whole runtime ("Lane fault isolation"). The
+interruption recovery and the retry run in one foreground cycle at a time; the
+only concurrent recovery work is the background repair of excluded lanes, which
+touches only those lanes.
 Only completed non-rate-limit provider-availability failures enter the bounded
 provider retry/fallback path. Deterministic provider contract, market-data
 validation, authentication/client, canonical, non-availability database, and
@@ -474,11 +502,97 @@ supervisor tests.
 ### Startup derived-history completeness
 
 After bounded base-history catch-up, startup reconciles the latest closed bucket
-for each configured HTF and checks every closed target bucket inside the same
-startup lookback. Existing derived rows are left untouched; missing rows are
-materialized only from complete canonical provider base candles. Buckets whose
-base constituents are incomplete produce the existing bounded recovery request.
-The `as_of` close boundary prevents an open HTF bucket from being published.
+for each configured HTF and checks every closed target bucket inside the startup
+lookback (the largest target timeframe). Existing derived rows are left
+untouched; missing rows are materialized only from complete canonical provider
+base candles. Buckets whose base constituents are incomplete produce the
+existing bounded recovery request, except a bucket that begins before the
+lane's first stored base candle (see "Lane history start"). The `as_of` close
+boundary prevents an open HTF bucket from being published.
+
+When `recovery.startup_history_days` makes the startup history window longer than
+that lookback, a separate step first rebuilds missing derived buckets that start
+before the lookback, back to the start of the history window. It reads only the
+stored open times of each target lane and of the base lane, and builds a bucket
+only when every base candle it needs is already stored. It never issues a
+recovery request and never blocks startup, so a bucket over a range whose base
+candles are missing stays missing and needs manual recovery. This step is what
+completes derived history after an interrupted deep catch-up.
+
+### Lane history start
+
+An instrument listed more recently than the startup history window has no
+candles before its listing, so the first recovery page from the floor can never
+be complete and the lane could never finish startup. Startup therefore applies
+these rules:
+
+- A lane with no stored candle is probed once per preparation cycle by
+  `RecoveryEngine.find_history_start`: a one-candle (`limit=1`) request over
+  `[startup floor, closed boundary)`. Providers are tried in lane order with the
+  same attempt, backoff, rate-limit, and deadline handling as a recovery page;
+  an empty answer moves on to the next provider, and a result is validated like
+  a page (bounds, grid, closed at request start). The probe commits nothing,
+  does not wait for REST finalization, and takes no lane lock. If no provider
+  answers, it raises the usual provider-exhaustion error and startup retries.
+- Catch-up starts at the first candle the probe found. When that candle is
+  later than the startup floor, the supervisor logs one warning with the lane,
+  the floor, the first candle time, and the difference between them. The probe
+  result is trusted: if a provider wrongly reports a later first candle, the
+  lane's history starts late and is not extended automatically; a manual
+  `/runtime/recover` over the earlier range is the correction.
+- If providers answered but none has a closed candle in the window, the lane is
+  excluded with reason `no_closed_candle_in_window` and retried in the
+  background (see "Lane fault isolation"); the other lanes go live. If every
+  lane is in that state the preparation raises a provider-exhaustion error and
+  the runtime retries every lane after the reconnect backoff, as before.
+- A derived bucket that begins before the lane's first stored base candle (no
+  base candle is stored before it) is neither built nor requested, because its
+  missing leading candles do not exist. The rule relies on one lane's recovery
+  requests being processed in ascending time order under the lane lock. A
+  candle missing after the first stored one is still a gap: the follow-up
+  request starts at the first stored candle.
+- Any gap after a lane's first stored candle is repaired; if recovery is
+  exhausted for that lane it is excluded with reason `recovery_exhausted` and
+  retried in the background.
+- A cold start stores base candles from exactly the startup floor, and derived
+  history starts at the first grid start at or after it. A bucket that
+  straddles the floor is no longer repaired backwards past the floor.
+
+### Lane fault isolation
+
+One instrument whose history cannot be prepared no longer holds every other
+instrument out of live ingestion. State is scoped to one supervisor generation,
+so reconnect, settings replacement, manual recovery and resume retry every lane.
+
+- Foreground preparation (`_prepare_live_connection`) excludes a lane when the
+  history-start probe finds no closed candle, or when a `RecoveryExhaustedError`
+  that is not a `RecoveryRateLimitedError` names a lane being prepared (the
+  error carries `lane`). It logs a WARNING with the lane, reason and next retry
+  time and prepares the remaining lanes with no sleep between passes. Rate
+  limits, storage outages, `TransportDeadlineExceeded`, conflicts and any error
+  without a lane are not lane faults and behave as before. If no lane is left
+  the exclusions are cleared and the last error is raised, which is the
+  previous all-lanes-faulty behaviour.
+- The websocket subscribes only to admitted lanes; an observation for another
+  lane is rejected as an unknown lane.
+- After the stream is created, one background task retries each excluded lane
+  every 60 seconds (a longer rate-limit delay is honoured) using the same
+  preparation as startup. It still commits the base candles and complete
+  derived buckets it can fetch. A storage outage or exhaustion only
+  reschedules the lane; any other error, including a transport deadline, is
+  stored and raised by the live loop after its next observation, with today's
+  fatal handling. The task is cancelled and awaited before the stream closes
+  and so never overlaps foreground preparation.
+- When a lane is repaired the live loop ends cleanly after its next processed
+  observation and the next cycle starts at once (no reconnect backoff) and
+  admits the lane. A lane whose hole has aged out of the lookback window is
+  admitted as before.
+- Faults during interruption recovery or a live follow-up use the existing
+  recoverable path; the next preparation excludes the lane.
+- `/runtime` lists `excluded_lanes` (venue, instrument_id, reason, detail,
+  excluded_since, next_retry_at, UTC). The observable gauge
+  `ingestion.lane.excluded` (0/1 by venue and instrument_id) covers every
+  planned lane. `last_error` semantics are unchanged.
 
 ### Manual recovery
 
@@ -507,7 +621,9 @@ runtime in `ERROR`.
 remained outside `LIVE` for more than five minutes when desired state is
 `RUNNING` and at least one asset is enabled. This delay does not apply while
 paused, with no enabled assets, or before the five-minute threshold is exceeded.
-Existing not-started and `ERROR` readiness failures remain unchanged.
+Existing not-started and `ERROR` readiness failures remain unchanged. While some
+lanes are excluded (see "Lane fault isolation") readiness stays 200 but reports
+`status: "degraded"` instead of `"ready"`.
 
 ### Canonical conflict
 
@@ -556,6 +672,15 @@ does not depend on that certification-specific quiescence rule.
 - downstream historical recovery reads Timescale rather than assuming Valkey is a
   replay log;
 - lifecycle ownership is explicit per asset.
+
+**Validation boundaries.** Data is validated where it enters the application:
+configuration in `settings.py`, HTTP request bodies in `api/routes.py`, provider
+payloads in the REST and websocket decoders and
+`_validate_provider_observations`, and database rows where they are read back.
+The domain dataclasses and the plan dataclasses (`LanePlan`, `IngestionPlan`)
+enforce their own invariants on top of that. Modules inside `ingestion_app` do
+not re-check each other's argument types or settings that `IngestionSettings`
+has already validated.
 
 ## Downstream Contracts
 

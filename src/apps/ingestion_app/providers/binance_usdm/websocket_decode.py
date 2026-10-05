@@ -9,7 +9,7 @@ from decimal import Decimal, InvalidOperation
 
 from apps.ingestion_app.domain.candle import CandleObservation
 from apps.ingestion_app.domain.instrument import MarketLane
-from apps.ingestion_app.domain.time_alignment import aligned_bucket_start
+from apps.ingestion_app.domain.time_alignment import is_aligned
 from libs.common.exceptions import DataIngestionError
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
@@ -121,10 +121,7 @@ def decode_binance_websocket_message(
             "Binance websocket provider close timestamp disagrees with "
             "timeframe_duration"
         )
-    if (
-        aligned_bucket_start(open_time, timeframe_duration, alignment_origin)
-        != open_time
-    ):
+    if not is_aligned(open_time, timeframe_duration, alignment_origin):
         raise DataIngestionError(
             "Binance websocket open timestamp is not base-grid aligned"
         )
@@ -158,7 +155,6 @@ def decode_binance_websocket_message(
             taker_buy_base=taker_buy_base,
             received_at=received_at,
             provider_close_time=provider_close_time,
-            provider_event_id=None,
         )
     except (TypeError, ValueError) as exc:
         raise DataIngestionError(

@@ -27,6 +27,7 @@ from apps.ingestion_app.runtime.controller import (
 )
 from apps.ingestion_app.runtime.state import (
     DesiredRuntimeState,
+    LaneFault,
     RuntimeState,
     SupervisorSnapshot,
 )
@@ -1396,6 +1397,51 @@ async def test_controller_snapshot_passes_through_supervisor_not_live_duration()
 
     snapshot = controller.snapshot()
     assert snapshot.not_live_seconds == 42.5
+    await controller.close()
+
+
+@pytest.mark.asyncio
+async def test_controller_snapshot_passes_through_excluded_lanes() -> None:
+    created: list[_FakeSupervisor] = []
+
+    def factory(candidate: IngestionSettings) -> _FakeSupervisor:
+        del candidate
+        supervisor = _FakeSupervisor()
+        created.append(supervisor)
+        return supervisor
+
+    controller = RuntimeController(
+        settings=_settings(),
+        plan_factory=_plan_factory,
+        supervisor_factory=factory,
+    )
+    assert controller.snapshot().excluded_lanes == ()
+    await controller.start()
+    await created[0].run_started.wait()
+    now = datetime(2026, 8, 9, 10, 0, tzinfo=UTC)
+    fault = LaneFault(
+        venue="binance",
+        instrument_id="ETH-TEST-PERP",
+        reason="recovery_exhausted",
+        detail="synthetic",
+        excluded_since=now,
+        next_retry_at=now + timedelta(seconds=60),
+    )
+
+    created[0]._snapshot = SupervisorSnapshot(
+        state=RuntimeState.LIVE,
+        last_error=None,
+        excluded_lanes=(fault,),
+    )
+    assert controller.snapshot().state is RuntimeState.LIVE
+    assert controller.snapshot().excluded_lanes == (fault,)
+
+    created[0]._snapshot = SupervisorSnapshot(
+        state=RuntimeState.RECOVERING,
+        last_error="retrying",
+        excluded_lanes=(fault,),
+    )
+    assert controller.snapshot().excluded_lanes == (fault,)
     await controller.close()
 
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import math
 from collections.abc import (
     AsyncIterator,
     Awaitable,
@@ -20,7 +19,7 @@ from time import perf_counter
 from apps.ingestion_app.domain.candle import CandleObservation, CanonicalCandle
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
-from apps.ingestion_app.domain.time_alignment import aligned_bucket_start
+from apps.ingestion_app.domain.time_alignment import aligned_bucket_start, is_aligned
 from apps.ingestion_app.observability import IngestionObservability
 from apps.ingestion_app.planning import IngestionPlan
 from apps.ingestion_app.providers.base import (
@@ -43,19 +42,20 @@ _LOGGER = bind_logger(__name__, system_component=SystemComponent.DATA_INGESTION_
 
 
 class RecoveryExhaustedError(DataIngestionError):
-    """All configured providers completed but a recovery page is still incomplete."""
+    """All configured providers completed but a recovery page is still incomplete.
+
+    ``lane`` names the lane whose recovery failed when the raiser knows it.
+    """
+
+    def __init__(self, message: str = "", *, lane: MarketLane | None = None) -> None:
+        super().__init__(message)
+        self.lane = lane
 
 
 class RecoveryRateLimitedError(RecoveryExhaustedError):
     """Recovery is paused until the exchange's rate-limit interval expires."""
 
     def __init__(self, *, retry_after_seconds: float) -> None:
-        if isinstance(retry_after_seconds, bool) or not isinstance(
-            retry_after_seconds, (int, float)
-        ):
-            raise TypeError("retry_after_seconds must be a number")
-        if not math.isfinite(float(retry_after_seconds)) or retry_after_seconds <= 0:
-            raise ValueError("retry_after_seconds must be positive")
         self.retry_after_seconds = float(retry_after_seconds)
         super().__init__(
             f"recovery provider is rate limited; retry after "
@@ -67,41 +67,6 @@ class RecoveryRateLimitedError(RecoveryExhaustedError):
 class _LaneLockEntry:
     lock: asyncio.Lock
     users: int = 0
-
-
-def _require_utc(value: object, *, field_name: str) -> None:
-    if not isinstance(value, datetime):
-        raise DataIngestionError(f"{field_name} must be a datetime")
-    if value.tzinfo is None or value.utcoffset() != timedelta(0):
-        raise DataIngestionError(f"{field_name} must be timezone-aware UTC")
-
-
-def _require_positive_duration(value: object, *, field_name: str) -> timedelta:
-    if not isinstance(value, timedelta) or value <= timedelta(0):
-        raise DataIngestionError(f"{field_name} must be a positive timedelta")
-    return value
-
-
-def _require_non_empty_text(value: object, *, field_name: str) -> str:
-    if not isinstance(value, str) or not value.strip():
-        raise DataIngestionError(f"{field_name} must be a non-empty string")
-    return value
-
-
-def _require_positive_int(value: object, *, field_name: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise TypeError(f"{field_name} must be an integer")
-    if value <= 0:
-        raise ValueError(f"{field_name} must be positive")
-    return value
-
-
-def _require_non_negative_int(value: object, *, field_name: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise TypeError(f"{field_name} must be an integer")
-    if value < 0:
-        raise ValueError(f"{field_name} must be non-negative")
-    return value
 
 
 def _expected_open_times(
@@ -134,8 +99,6 @@ def _validate_canonical_page(
     expected = set(expected_open_times)
     actual: list[datetime] = []
     for row in rows:
-        if not isinstance(row, CanonicalCandle):
-            raise DataIngestionError("repository returned a non-canonical recovery row")
         if row.lane != lane:
             raise DataIngestionError("canonical recovery row belongs to the wrong lane")
         if row.source_type != "provider":
@@ -148,14 +111,7 @@ def _validate_canonical_page(
             raise DataIngestionError(
                 "canonical recovery row close_time does not match base duration"
             )
-        if (
-            aligned_bucket_start(
-                row.open_time,
-                base_duration,
-                alignment_origin,
-            )
-            != row.open_time
-        ):
+        if not is_aligned(row.open_time, base_duration, alignment_origin):
             raise DataIngestionError("canonical recovery row is off the base grid")
         if row.open_time not in expected:
             raise DataIngestionError("canonical recovery page contains an extra row")
@@ -182,15 +138,11 @@ def _validate_provider_observations(
     request_started_at: datetime,
     limit: int,
 ) -> None:
-    if not isinstance(observations, tuple):
-        raise DataIngestionError("provider returned a non-tuple observation result")
     if len(observations) > limit:
         raise DataIngestionError("provider returned more observations than page limit")
 
     open_times: list[datetime] = []
     for observation in observations:
-        if not isinstance(observation, CandleObservation):
-            raise DataIngestionError("provider returned a non-observation result")
         if observation.lane != lane:
             raise DataIngestionError(
                 "provider returned an observation for the wrong lane"
@@ -211,14 +163,7 @@ def _validate_provider_observations(
             raise DataIngestionError(
                 "provider returned an observation that was not closed at recovery start"
             )
-        if (
-            aligned_bucket_start(
-                observation.open_time,
-                base_duration,
-                alignment_origin,
-            )
-            != observation.open_time
-        ):
+        if not is_aligned(observation.open_time, base_duration, alignment_origin):
             raise DataIngestionError("provider returned an off-grid observation")
         open_times.append(observation.open_time)
 
@@ -241,7 +186,7 @@ def _effective_until(
         alignment_origin,
     )
     if until <= last_closed_boundary:
-        if aligned_bucket_start(until, base_duration, alignment_origin) != until:
+        if not is_aligned(until, base_duration, alignment_origin):
             raise DataIngestionError(
                 "historical recovery until must be aligned to the base grid"
             )
@@ -321,27 +266,11 @@ class RecoveryEngine:
         self.repository = repository
         self.ingestion_service = ingestion_service
         self.htf_service = htf_service
-        self.max_concurrency = _require_positive_int(
-            max_concurrency,
-            field_name="max_concurrency",
-        )
-        self.page_limit = _require_positive_int(page_limit, field_name="page_limit")
-        self.max_attempts_per_provider = _require_positive_int(
-            max_attempts_per_provider,
-            field_name="max_attempts_per_provider",
-        )
-        self.retry_backoff_seconds = _require_non_negative_int(
-            retry_backoff_seconds,
-            field_name="retry_backoff_seconds",
-        )
-        self.rest_finalization_grace_seconds = _require_non_negative_int(
-            rest_finalization_grace_seconds,
-            field_name="rest_finalization_grace_seconds",
-        )
-        if now_fn is not None and not callable(now_fn):
-            raise TypeError("now_fn must be callable")
-        if settlement_sleep_fn is not None and not callable(settlement_sleep_fn):
-            raise TypeError("settlement_sleep_fn must be callable")
+        self.max_concurrency = max_concurrency
+        self.page_limit = page_limit
+        self.max_attempts_per_provider = max_attempts_per_provider
+        self.retry_backoff_seconds = retry_backoff_seconds
+        self.rest_finalization_grace_seconds = rest_finalization_grace_seconds
         self._now = now_fn or (lambda: datetime.now(UTC))
         self._settlement_sleep = settlement_sleep_fn or asyncio.sleep
         self._semaphore = asyncio.Semaphore(self.max_concurrency)
@@ -372,31 +301,14 @@ class RecoveryEngine:
         provider_order: tuple[str, ...],
         provider_symbols: Mapping[str, str],
     ) -> tuple[tuple[str, HistoricalCandleProvider, str], ...]:
-        if not isinstance(provider_order, tuple) or not provider_order:
-            raise DataIngestionError("provider_order must be a non-empty tuple")
-        if len(provider_order) != len(set(provider_order)):
-            raise DataIngestionError("provider_order must not contain duplicates")
-        if not isinstance(provider_symbols, Mapping):
-            raise DataIngestionError("provider_symbols must be a mapping")
-
         routes: list[tuple[str, HistoricalCandleProvider, str]] = []
         for provider_id in provider_order:
-            _require_non_empty_text(provider_id, field_name="provider ID")
             provider = self.providers.get(provider_id)
             if provider is None:
                 raise DataIngestionError(
                     f"recovery provider '{provider_id}' is not configured"
                 )
-            symbol = provider_symbols.get(provider_id)
-            _require_non_empty_text(
-                symbol,
-                field_name=f"provider symbol for {provider_id}",
-            )
-            if getattr(provider, "provider_id", None) != provider_id:
-                raise DataIngestionError(
-                    f"provider route '{provider_id}' does not match provider.provider_id"
-                )
-            routes.append((provider_id, provider, symbol))
+            routes.append((provider_id, provider, provider_symbols[provider_id]))
         return tuple(routes)
 
     async def _read_page(
@@ -544,7 +456,8 @@ class RecoveryEngine:
         if not complete:
             error = RecoveryExhaustedError(
                 f"recovery exhausted for lane {request.lane} page "
-                f"[{page_start},{page_end}); missing {missing_count} candles"
+                f"[{page_start},{page_end}); missing {missing_count} candles",
+                lane=request.lane,
             )
             if last_provider_error is not None:
                 raise error from last_provider_error
@@ -562,33 +475,16 @@ class RecoveryEngine:
         alignment_origin: datetime,
     ) -> tuple[RecoveryRequest, ...]:
         """Repair a bounded base interval and reconcile affected closed HTFs."""
-        if not isinstance(request, RecoveryRequest):
-            raise DataIngestionError("request must be a RecoveryRequest")
-        _require_non_empty_text(base_timeframe, field_name="base_timeframe")
-        base_duration = _require_positive_duration(
-            base_duration,
-            field_name="base_duration",
-        )
-        _require_utc(alignment_origin, field_name="alignment_origin")
         if request.lane.timeframe != base_timeframe:
             raise DataIngestionError(
                 "recovery requests must target the configured base timeframe"
             )
-        if (
-            aligned_bucket_start(
-                request.since,
-                base_duration,
-                alignment_origin,
-            )
-            != request.since
-        ):
+        if not is_aligned(request.since, base_duration, alignment_origin):
             raise DataIngestionError("recovery since must be aligned to the base grid")
         routes = self._validate_routes(
             provider_order=provider_order,
             provider_symbols=provider_symbols,
         )
-        if not isinstance(target_durations, Mapping):
-            raise DataIngestionError("target_durations must be a mapping")
 
         request_started_at = self._now()
         effective_until = _effective_until(
@@ -599,18 +495,6 @@ class RecoveryEngine:
         )
         if effective_until <= request.since:
             return ()
-
-        if (
-            aligned_bucket_start(
-                effective_until,
-                base_duration,
-                alignment_origin,
-            )
-            != effective_until
-        ):
-            raise DataIngestionError(
-                "effective recovery until must be aligned to the base grid"
-            )
 
         async with self._lane_guard(request.lane), self._semaphore:
             for page_start, page_end in _page_windows(
@@ -652,8 +536,6 @@ class RecoveryEngine:
         alignment_origin: datetime,
     ) -> tuple[RecoveryRequest, ...]:
         """Trace and measure one bounded recovery without changing its contract."""
-        if not isinstance(request, RecoveryRequest):
-            raise DataIngestionError("request must be a RecoveryRequest")
         started = perf_counter()
         with self.observability.recovery_span(request) as span:
             try:
@@ -682,6 +564,77 @@ class RecoveryEngine:
                 )
                 return result
 
+    async def find_history_start(
+        self,
+        lane: MarketLane,
+        *,
+        plan: IngestionPlan,
+        since: datetime,
+        until: datetime,
+    ) -> datetime | None:
+        """Return the open time of the first closed candle a provider has.
+
+        Probes the lane's providers in order with a one-candle page over
+        ``[since, until)``. Returns ``None`` when at least one provider answered
+        and none had a candle. Commits nothing and takes no lane lock.
+        """
+        lane_plan = plan.lanes_by_lane[lane]
+        routes = self._validate_routes(
+            provider_order=lane_plan.provider_order,
+            provider_symbols=lane_plan.provider_symbols,
+        )
+        request_started_at = self._now()
+        last_provider_error: ProviderAvailabilityError | None = None
+        answered = False
+        for provider_id, provider, provider_symbol in routes:
+            for attempt in range(1, self.max_attempts_per_provider + 1):
+                try:
+                    observations = await provider.fetch_closed_candles(
+                        lane=lane,
+                        provider_symbol=provider_symbol,
+                        timeframe_duration=lane_plan.base_duration,
+                        since=since,
+                        until=until,
+                        limit=1,
+                    )
+                except TransportDeadlineExceeded:
+                    raise
+                except ProviderRateLimitedError as exc:
+                    raise RecoveryRateLimitedError(
+                        retry_after_seconds=exc.retry_after_seconds
+                    ) from exc
+                except ProviderAvailabilityError as exc:
+                    last_provider_error = exc
+                    if attempt < self.max_attempts_per_provider:
+                        await asyncio.sleep(self.retry_backoff_seconds)
+                    continue
+
+                _validate_provider_observations(
+                    observations,
+                    provider_id=provider_id,
+                    lane=lane,
+                    page_start=since,
+                    page_end=until,
+                    base_duration=lane_plan.base_duration,
+                    alignment_origin=plan.alignment_origin,
+                    request_started_at=request_started_at,
+                    limit=1,
+                )
+                answered = True
+                if observations:
+                    return observations[0].open_time
+                break
+
+        if not answered:
+            error = RecoveryExhaustedError(
+                f"history-start probe exhausted for lane {lane}",
+                lane=lane,
+            )
+            if last_provider_error is not None:
+                raise error from last_provider_error
+            raise error
+        return None
+
     async def _recover_closure_request(
         self,
         request: RecoveryRequest,
@@ -689,12 +642,8 @@ class RecoveryEngine:
         plan: IngestionPlan,
     ) -> tuple[RecoveryRequest, ...]:
         """Run one closure request using the current generation's plan."""
-        lane_plan = plan.lanes_by_lane.get(request.lane)
-        if lane_plan is None:
-            raise DataIngestionError(
-                f"recovery request targets unknown plan lane: {request.lane}"
-            )
-        follow_ups = await self.recover(
+        lane_plan = plan.lanes_by_lane[request.lane]
+        return await self.recover(
             request,
             base_timeframe=plan.base_timeframe,
             base_duration=lane_plan.base_duration,
@@ -703,13 +652,6 @@ class RecoveryEngine:
             target_durations=lane_plan.target_durations,
             alignment_origin=plan.alignment_origin,
         )
-        if not isinstance(follow_ups, tuple) or not all(
-            isinstance(follow_up, RecoveryRequest) for follow_up in follow_ups
-        ):
-            raise DataIngestionError(
-                "recovery engine returned invalid follow-up requests"
-            )
-        return follow_ups
 
     async def _recover_closure_chunk(
         self,
@@ -748,9 +690,6 @@ class RecoveryEngine:
         single-request primitive and retains the semaphore and lane lock that
         provide the second concurrency bound.
         """
-        if not isinstance(plan, IngestionPlan):
-            raise TypeError("plan must be an IngestionPlan")
-
         pending = list(requests)
         seen: set[tuple[str, str, str, datetime, datetime, str]] = set()
         while pending:
@@ -758,10 +697,6 @@ class RecoveryEngine:
                 tuple[str, str, str, datetime, datetime, str], RecoveryRequest
             ] = {}
             for request in pending:
-                if not isinstance(request, RecoveryRequest):
-                    raise DataIngestionError(
-                        "recovery worklist contains a non-RecoveryRequest"
-                    )
                 if request.lane not in plan.lanes_by_lane:
                     raise DataIngestionError(
                         f"recovery request targets unknown plan lane: {request.lane}"

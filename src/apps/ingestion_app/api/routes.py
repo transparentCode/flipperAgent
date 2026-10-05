@@ -16,13 +16,15 @@ from apps.ingestion_app.control.config_reconciliation import (
 )
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.domain.recovery import RecoveryRequest
-from apps.ingestion_app.domain.time_alignment import aligned_bucket_start
+from apps.ingestion_app.domain.time_alignment import is_aligned
 from apps.ingestion_app.runtime.controller import (
     RuntimeControlConflictError,
     RuntimeController,
 )
 from apps.ingestion_app.runtime.state import (
     DesiredRuntimeState,
+    LaneFault,
+    RuntimeSnapshot,
     RuntimeState,
 )
 from apps.ingestion_app.settings import AssetSettings
@@ -33,12 +35,33 @@ router = APIRouter()
 READINESS_MAX_NOT_LIVE_SECONDS = 300.0
 
 
+class ExcludedLaneResponse(BaseModel):
+    venue: str
+    instrument_id: str
+    reason: str
+    detail: str
+    excluded_since: datetime
+    next_retry_at: datetime
+
+    @classmethod
+    def from_fault(cls, fault: LaneFault) -> ExcludedLaneResponse:
+        return cls(
+            venue=fault.venue,
+            instrument_id=fault.instrument_id,
+            reason=fault.reason,
+            detail=fault.detail,
+            excluded_since=fault.excluded_since,
+            next_retry_at=fault.next_retry_at,
+        )
+
+
 class RuntimeSnapshotResponse(BaseModel):
     desired_state: DesiredRuntimeState
     state: RuntimeState
     last_error: str | None
     enabled_asset_count: int
     not_live_seconds: float | None = None
+    excluded_lanes: list[ExcludedLaneResponse] = []
 
 
 class HealthResponse(BaseModel):
@@ -92,14 +115,21 @@ class ManualRecoveryRequest(BaseModel):
         return self
 
 
-def _runtime_response(controller: RuntimeController) -> RuntimeSnapshotResponse:
-    snapshot = controller.snapshot()
+def _runtime_response(
+    controller: RuntimeController,
+    snapshot: RuntimeSnapshot | None = None,
+) -> RuntimeSnapshotResponse:
+    if snapshot is None:
+        snapshot = controller.snapshot()
     return RuntimeSnapshotResponse(
         desired_state=snapshot.desired_state,
         state=snapshot.state,
         last_error=snapshot.last_error,
         enabled_asset_count=controller.enabled_asset_count,
         not_live_seconds=snapshot.not_live_seconds,
+        excluded_lanes=[
+            ExcludedLaneResponse.from_fault(fault) for fault in snapshot.excluded_lanes
+        ],
     )
 
 
@@ -137,7 +167,8 @@ def health_ready(
         detail = {"status": "not_ready", "runtime": runtime.model_dump(mode="json")}
         detail["reason"] = "runtime_not_live"
         raise HTTPException(status_code=503, detail=detail)
-    return HealthResponse(status="ready", runtime=runtime)
+    status = "degraded" if runtime.excluded_lanes else "ready"
+    return HealthResponse(status=status, runtime=runtime)
 
 
 @router.get("/runtime", response_model=RuntimeSnapshotResponse)
@@ -212,7 +243,7 @@ async def pause_runtime(
         snapshot = await controller.pause()
     except RuntimeControlConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    return _runtime_response_from_snapshot(snapshot, controller)
+    return _runtime_response(controller, snapshot)
 
 
 @router.post("/runtime/resume", response_model=RuntimeSnapshotResponse)
@@ -223,7 +254,7 @@ async def resume_runtime(
         snapshot = await controller.resume()
     except RuntimeControlConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    return _runtime_response_from_snapshot(snapshot, controller)
+    return _runtime_response(controller, snapshot)
 
 
 @router.post("/runtime/reconnect", response_model=RuntimeSnapshotResponse)
@@ -234,20 +265,7 @@ async def reconnect_runtime(
         snapshot = await controller.reconnect()
     except RuntimeControlConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    return _runtime_response_from_snapshot(snapshot, controller)
-
-
-def _runtime_response_from_snapshot(
-    snapshot: Any,
-    controller: RuntimeController,
-) -> RuntimeSnapshotResponse:
-    return RuntimeSnapshotResponse(
-        desired_state=snapshot.desired_state,
-        state=snapshot.state,
-        last_error=snapshot.last_error,
-        enabled_asset_count=controller.enabled_asset_count,
-        not_live_seconds=snapshot.not_live_seconds,
-    )
+    return _runtime_response(controller, snapshot)
 
 
 def _validate_recovery_grid(
@@ -261,12 +279,12 @@ def _validate_recovery_grid(
         seconds=settings.timeframes[settings.base_timeframe].duration_seconds
     )
     origin = settings.calendar.alignment_origin
-    if aligned_bucket_start(since, base_duration, origin) != since:
+    if not is_aligned(since, base_duration, origin):
         raise HTTPException(
             status_code=422,
             detail="since must align to the configured base timeframe grid",
         )
-    if aligned_bucket_start(until, base_duration, origin) != until:
+    if not is_aligned(until, base_duration, origin):
         raise HTTPException(
             status_code=422,
             detail="until must align to the configured base timeframe grid",
@@ -319,7 +337,7 @@ async def recover_runtime(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail="manual recovery failed") from exc
-    return _runtime_response_from_snapshot(snapshot, controller)
+    return _runtime_response(controller, snapshot)
 
 
 __all__ = ["router"]

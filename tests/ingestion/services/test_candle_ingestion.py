@@ -47,7 +47,6 @@ def _observation() -> CandleObservation:
         taker_buy_base=None,
         received_at=datetime(2026, 8, 9, 9, 1, tzinfo=UTC),
         provider_close_time=None,
-        provider_event_id="provider-event",
     )
 
 
@@ -101,4 +100,3 @@ async def test_service_canonicalizes_observation_through_existing_commit_path() 
     assert not hasattr(repository.candle, "transport")
     assert not hasattr(repository.candle, "received_at")
     assert not hasattr(repository.candle, "provider_close_time")
-    assert not hasattr(repository.candle, "provider_event_id")

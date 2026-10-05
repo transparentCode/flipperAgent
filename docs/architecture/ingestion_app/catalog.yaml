@@ -126,6 +126,7 @@ internal_components:
   - name: provider_layer
     paths:
       - src/apps/ingestion_app/providers/base.py
+      - src/apps/ingestion_app/providers/owned_historical.py
       - src/apps/ingestion_app/providers/factory.py
       - src/apps/ingestion_app/providers/binance_usdm/rest_native.py
       - src/apps/ingestion_app/providers/binance_usdm/rest_ccxt.py
@@ -139,10 +140,20 @@ internal_components:
       - Binance-native REST history
       - CCXT Binance USD-M historical fallback
       - preserve adapter-specific REST row validation and filtering order
-      - compose the multiplexed Binance websocket facade with its session, bridge, and sequence components
+      - compose the multiplexed Binance websocket facade with its pump, session, bridge, and sequence components
       - decode websocket payloads at finalized observation construction
       - CCXT load-markets plus raw request ownership within one attempt deadline
       - historical-provider idle waits backed by actual owned-call/admission release
+      - share one owned-call lifecycle base (admission state, idle barrier, rate-limit gate, close) across SDK-backed historical adapters
+
+  - name: websocket_pump
+    paths:
+      - src/apps/ingestion_app/providers/binance_usdm/websocket_pump.py
+    responsibilities:
+      - own the connection-scoped queue, callback bridge, sequence tracker, and failure state for one multiplexed stream
+      - run the single consumer/watchdog loop with the earliest-deadline bounded wait and one bounded boundary snapshot
+      - map SDK callbacks and watchdog findings to typed interruptions without changing reasons or recovery ranges
+      - preserve cancellation and transport-deadline precedence through session cleanup
 
   - name: websocket_session
     paths:
@@ -174,6 +185,7 @@ internal_components:
     paths:
       - src/apps/ingestion_app/transport/__init__.py
       - src/apps/ingestion_app/transport/ownership.py
+      - src/apps/ingestion_app/providers/owned_historical.py
       - src/apps/ingestion_app/providers/binance_usdm/rest_native.py
       - src/apps/ingestion_app/providers/binance_usdm/rest_ccxt.py
       - src/apps/ingestion_app/providers/binance_usdm/websocket_session.py
@@ -233,6 +245,8 @@ internal_components:
       - trigger affected HTF work
       - submit startup, HTF, interruption, and manual recovery requests to the RecoveryEngine closure
       - retry completed provider exhaustion through bounded DB-first catch-up
+      - exclude a lane whose history cannot be prepared, keep the other lanes live, and repair the excluded lane in a background task that is cancelled before stream close or foreground preparation
+      - report excluded lanes in the snapshot, /runtime, the ingestion.lane.excluded gauge, and a degraded readiness status
       - keep recoverable availability diagnostics in RECOVERING without promoting them to ERROR
       - fail on canonical conflict
       - common cancellation/deadline/ordinary-failure handling for live and interruption paths
@@ -256,6 +270,8 @@ internal_components:
       - enforce complete constituent windows
       - use explicit continuous UTC alignment origin
       - emit follow-up recovery when a bucket is incomplete
+      - rebuild older missing derived buckets from stored base candles without requesting recovery
+      - skip a bucket that begins before the lane's first stored base candle (neither built nor requested) unless a candle is missing after the first stored one
 
   - name: recovery_engine
     paths:
@@ -272,6 +288,7 @@ internal_components:
       - global recovery-request identity deduplication and breadth-first closure
       - deterministic recovery chunks of at most max_concurrency
       - sibling cancellation and awaiting on chunk failure or cancellation
+      - probe the first closed base candle a provider has in a window (find_history_start) without committing, taking the lane lock, or waiting for REST finalization
 
   - name: outbox_publication
     paths:

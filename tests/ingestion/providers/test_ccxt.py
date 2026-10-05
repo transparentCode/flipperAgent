@@ -663,17 +663,6 @@ async def test_ccxt_close_timeout_does_not_close_exchange_concurrently() -> None
     assert exchange.close_calls == 1
 
 
-@pytest.mark.parametrize("timeout", [float("nan"), float("inf"), float("-inf")])
-def test_ccxt_rejects_non_finite_timeout(timeout: float) -> None:
-    with pytest.raises(ValueError, match="attempt_timeout_seconds"):
-        CCXTHistoricalProvider(
-            provider_id="ccxt_binance",
-            exchange_id="binanceusdm",
-            exchange=_FakeExchange(),
-            attempt_timeout_seconds=timeout,
-        )
-
-
 @pytest.mark.asyncio
 async def test_ccxt_admits_configured_capacity_without_queueing() -> None:
     exchange = _HeldExchange()
@@ -1000,44 +989,6 @@ async def test_ccxt_market_resolution_failure_fails_closed() -> None:
             until=UNTIL,
             limit=10,
         )
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("field", "value", "error_type"),
-    [
-        ("provider_symbol", " ", ValueError),
-        ("timeframe_duration", timedelta(0), ValueError),
-        ("since", datetime(2026, 1, 1), ValueError),  # noqa: DTZ001
-        ("until", SINCE, ValueError),
-        ("limit", True, TypeError),
-        ("limit", 0, ValueError),
-    ],
-)
-async def test_ccxt_validates_request_before_network(
-    field: str,
-    value: object,
-    error_type: type[Exception],
-) -> None:
-    exchange = _FakeExchange([_ohlcv_row(SINCE)])
-    kwargs: dict[str, object] = {
-        "lane": LANE,
-        "provider_symbol": "BTC/USDT:USDT",
-        "timeframe_duration": MINUTE,
-        "since": SINCE,
-        "until": UNTIL,
-        "limit": 10,
-    }
-    kwargs[field] = value
-
-    with pytest.raises(error_type):
-        await CCXTHistoricalProvider(
-            provider_id="ccxt_binance",
-            exchange_id="binanceusdm",
-            exchange=exchange,
-        ).fetch_closed_candles(**kwargs)  # type: ignore[arg-type]
-
-    assert exchange.calls == []
 
 
 @pytest.mark.asyncio

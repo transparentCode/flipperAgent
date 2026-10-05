@@ -84,10 +84,6 @@ class AssetConfigService:
         runtime_controller: RuntimeController,
         on_asset_changed: Callable[[str], None] | None = None,
     ) -> None:
-        if not isinstance(config_manager, ConfigManager):
-            raise TypeError("config_manager must be ConfigManager")
-        if not isinstance(runtime_controller, RuntimeController):
-            raise TypeError("runtime_controller must be RuntimeController")
         self.config_manager = config_manager
         self.runtime_controller = runtime_controller
         self._on_asset_changed = on_asset_changed
@@ -245,8 +241,6 @@ class AssetConfigService:
 
     async def create_asset(self, asset: AssetSettings) -> AssetSettings:
         async with self._mutation_lock:
-            if not isinstance(asset, AssetSettings):
-                raise TypeError("asset must be AssetSettings")
             current = self.runtime_controller.settings.assets.get(asset.asset)
             if current is not None:
                 raise AssetAlreadyExistsError(f"asset already exists: {asset.asset}")
@@ -265,8 +259,6 @@ class AssetConfigService:
     ) -> AssetSettings:
         async with self._mutation_lock:
             code = _asset_code(asset)
-            if not isinstance(updates, Mapping):
-                raise AssetCandidateError("asset updates must be a mapping")
             if "asset" in updates:
                 raise AssetCandidateError("asset identity cannot be changed")
 

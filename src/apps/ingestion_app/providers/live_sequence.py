@@ -32,7 +32,6 @@ def _same_live_observation(
         and first.volume == second.volume
         and first.taker_buy_base == second.taker_buy_base
         and first.provider_close_time == second.provider_close_time
-        and first.provider_event_id == second.provider_event_id
     )
 
 

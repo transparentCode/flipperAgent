@@ -54,9 +54,8 @@ def _canonical(**changes: object) -> CanonicalCandle:
 
 
 def test_valid_provider_observation() -> None:
-    observation = _observation(provider_event_id="event-1")
+    observation = _observation()
 
-    assert observation.provider_event_id == "event-1"
     assert observation.close_time == CLOSE_TIME
     assert not hasattr(observation, "finalized")
 
@@ -72,11 +71,6 @@ def test_observation_is_immutable() -> None:
 def test_observation_rejects_missing_provider_metadata(field_name: str) -> None:
     with pytest.raises(ValueError, match="non-empty"):
         _observation(**{field_name: " "})
-
-
-def test_blank_provider_event_id_is_rejected() -> None:
-    with pytest.raises(ValueError, match="non-empty"):
-        _observation(provider_event_id=" ")
 
 
 @pytest.mark.parametrize("field_name", ["open", "high", "low", "close", "volume"])

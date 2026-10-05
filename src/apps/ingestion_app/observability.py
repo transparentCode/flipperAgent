@@ -43,6 +43,7 @@ class IngestionObservability:
         self._active_base_lanes: frozenset[tuple[str, str]] | None = None
         self._outbox_pending = 0
         self._outbox_oldest = 0.0
+        self._lane_excluded: dict[tuple[str, str], int] = {}
 
         self.candle_commit_total = self.meter.create_counter(
             "ingestion.candle.commit_total",
@@ -122,6 +123,14 @@ class IngestionObservability:
             callbacks=[self._observe_runtime_live],
             description="Whether the ingestion runtime is LIVE.",
         )
+        self.lane_excluded = self.meter.create_observable_gauge(
+            "ingestion.lane.excluded",
+            callbacks=[self._observe_lane_excluded],
+            description=(
+                "Whether an instrument is held out of live ingestion while its "
+                "history is repaired (1) or not (0)."
+            ),
+        )
 
     def _observe_base_last_close(
         self,
@@ -177,6 +186,20 @@ class IngestionObservability:
             value = int(self._runtime_live)
         return (Observation(value),)
 
+    def _observe_lane_excluded(
+        self,
+        _options: CallbackOptions,
+    ) -> Iterator[Observation]:
+        with self._lock:
+            values = tuple(self._lane_excluded.items())
+        return iter(
+            Observation(
+                value,
+                {"venue": venue, "instrument_id": instrument_id},
+            )
+            for (venue, instrument_id), value in values
+        )
+
     def record_candle_commit(
         self,
         *,
@@ -186,8 +209,6 @@ class IngestionObservability:
         duration_ms: float,
     ) -> None:
         outcome_value = getattr(outcome, "value", outcome)
-        if outcome_value not in {"inserted", "duplicate", "conflict"}:
-            raise ValueError(f"unsupported candle commit outcome: {outcome_value}")
         attributes = {
             "timeframe": timeframe,
             "source_type": source_type,
@@ -214,20 +235,33 @@ class IngestionObservability:
 
     def install_active_lanes(self, lanes: Iterable[MarketLane]) -> None:
         """Install the active snapshot and retain progress for unchanged lanes."""
-        active_keys: set[tuple[str, str]] = set()
-        for lane in lanes:
-            if not isinstance(lane, MarketLane):
-                raise TypeError("active lanes must contain MarketLane instances")
-            active_keys.add((lane.venue, lane.instrument_id))
+        active = frozenset((lane.venue, lane.instrument_id) for lane in lanes)
 
         with self._lock:
-            active = frozenset(active_keys)
             self._active_base_lanes = active
             self._base_last_close = {
                 key: timestamp
                 for key, timestamp in self._base_last_close.items()
                 if key in active
             }
+
+    def set_lane_exclusions(
+        self,
+        planned_lanes: Iterable[MarketLane],
+        excluded_lanes: Iterable[MarketLane],
+    ) -> None:
+        """Publish whether each planned lane is excluded from live ingestion."""
+        excluded = frozenset(
+            (lane.venue, lane.instrument_id) for lane in excluded_lanes
+        )
+        state = {
+            (lane.venue, lane.instrument_id): int(
+                (lane.venue, lane.instrument_id) in excluded
+            )
+            for lane in planned_lanes
+        }
+        with self._lock:
+            self._lane_excluded = state
 
     def set_websocket_connected(self, connected: bool) -> None:
         with self._lock:
@@ -240,15 +274,11 @@ class IngestionObservability:
         self.websocket_interruption_total.add(1)
 
     def set_queue_utilization(self, qsize: int, maxsize: int) -> None:
-        if maxsize <= 0:
-            raise ValueError("maxsize must be positive")
         value = min(1.0, max(0.0, qsize / maxsize))
         with self._lock:
             self._queue_utilization = value
 
     def record_recovery(self, *, outcome: str, duration_ms: float) -> None:
-        if outcome not in {"success", "failure"}:
-            raise ValueError(f"unsupported recovery outcome: {outcome}")
         self.recovery_total.add(1, {"outcome": outcome})
         self.recovery_duration_ms.record(duration_ms)
 
@@ -283,8 +313,6 @@ class IngestionObservability:
         pending: int,
         oldest_pending: datetime | None,
     ) -> None:
-        if pending < 0:
-            raise ValueError("pending must be non-negative")
         with self._lock:
             self._outbox_pending = pending
             self._outbox_oldest = _timestamp_seconds(oldest_pending)

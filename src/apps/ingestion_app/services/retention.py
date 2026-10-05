@@ -25,12 +25,6 @@ class RetentionCleanupEvidence:
     completed_at: datetime
 
 
-def _utc_now(value: datetime, *, field_name: str) -> datetime:
-    if value.tzinfo is None or value.utcoffset() != timedelta(0):
-        raise ValueError(f"{field_name} must be timezone-aware UTC")
-    return value.astimezone(UTC)
-
-
 class RetentionJanitor:
     """Run bounded retention work without becoming part of ingestion health."""
 
@@ -53,7 +47,7 @@ class RetentionJanitor:
 
     async def cleanup_once(self) -> RetentionCleanupEvidence:
         """Delete bounded old publication intents, then drop old candle chunks."""
-        started_at = _utc_now(self._now_fn(), field_name="now")
+        started_at = self._now_fn()
         candle_cutoff = started_at - timedelta(days=self._settings.candle_days)
         published_outbox_cutoff = started_at - timedelta(
             days=self._settings.published_outbox_days
@@ -79,7 +73,7 @@ class RetentionJanitor:
         candle_chunks_dropped = await self._repository.drop_candle_chunks_before(
             cutoff=candle_cutoff
         )
-        completed_at = _utc_now(self._now_fn(), field_name="now")
+        completed_at = self._now_fn()
         evidence = RetentionCleanupEvidence(
             started_at=started_at,
             candle_cutoff=candle_cutoff,

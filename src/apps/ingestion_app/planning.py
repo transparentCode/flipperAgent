@@ -9,44 +9,12 @@ from __future__ import annotations
 
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from types import MappingProxyType
 
 from apps.ingestion_app.domain.instrument import MarketLane
 from apps.ingestion_app.settings import IngestionSettings
 from libs.common.exceptions import DataIngestionError
-
-
-def _require_non_empty_text(value: object, *, field_name: str) -> str:
-    if not isinstance(value, str):
-        raise TypeError(f"{field_name} must be a string")
-    normalized = value.strip()
-    if not normalized:
-        raise ValueError(f"{field_name} must be non-empty")
-    return normalized
-
-
-def _normalize_provider_ids(
-    provider_ids: Collection[str],
-    *,
-    field_name: str,
-) -> frozenset[str]:
-    try:
-        normalized = frozenset(
-            _require_non_empty_text(provider_id, field_name=field_name)
-            for provider_id in provider_ids
-        )
-    except TypeError as exc:
-        raise TypeError(f"{field_name} must be a collection of provider IDs") from exc
-    return normalized
-
-
-def _require_utc(value: object, *, field_name: str) -> datetime:
-    if not isinstance(value, datetime):
-        raise TypeError(f"{field_name} must be a datetime")
-    if value.tzinfo is None or value.utcoffset() != timedelta(0):
-        raise ValueError(f"{field_name} must be timezone-aware UTC")
-    return value.astimezone(UTC)
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,43 +32,14 @@ class LanePlan:
     history_floor_duration: timedelta
 
     def __post_init__(self) -> None:
-        if not isinstance(self.lane, MarketLane):
-            raise TypeError("lane must be MarketLane")
-        live_provider_id = _require_non_empty_text(
-            self.live_provider_id,
-            field_name="live_provider_id",
-        )
-        live_symbol = _require_non_empty_text(
-            self.live_symbol,
-            field_name="live_symbol",
-        )
-        try:
-            provider_order = tuple(
-                _require_non_empty_text(provider_id, field_name="provider_order ID")
-                for provider_id in self.provider_order
-            )
-        except TypeError as exc:
-            raise TypeError(
-                "provider_order must be a sequence of provider IDs"
-            ) from exc
+        provider_order = tuple(self.provider_order)
         if not provider_order:
             raise ValueError("provider_order must be non-empty")
         if len(provider_order) != len(set(provider_order)):
             raise ValueError("provider_order must not contain duplicates")
 
-        try:
-            provider_symbols = {
-                _require_non_empty_text(provider_id, field_name="provider symbol ID"): (
-                    _require_non_empty_text(
-                        symbol,
-                        field_name=f"provider symbol for {provider_id}",
-                    )
-                )
-                for provider_id, symbol in self.provider_symbols.items()
-            }
-        except AttributeError as exc:
-            raise TypeError("provider_symbols must be a mapping") from exc
-        if live_provider_id not in provider_symbols:
+        provider_symbols = dict(self.provider_symbols)
+        if self.live_provider_id not in provider_symbols:
             raise ValueError("provider_symbols must include the live provider")
         missing_symbols = set(provider_order) - provider_symbols.keys()
         if missing_symbols:
@@ -109,42 +48,19 @@ class LanePlan:
                 + ", ".join(sorted(missing_symbols))
             )
 
-        try:
-            target_durations = {
-                _require_non_empty_text(
-                    timeframe, field_name="target timeframe"
-                ): duration
-                for timeframe, duration in self.target_durations.items()
-            }
-        except AttributeError as exc:
-            raise TypeError("target_durations must be a mapping") from exc
-        if any(
-            not isinstance(duration, timedelta) or duration <= timedelta(0)
-            for duration in target_durations.values()
-        ):
+        target_durations = dict(self.target_durations)
+        if any(duration <= timedelta(0) for duration in target_durations.values()):
             raise ValueError("target_durations must contain positive durations")
-        if not isinstance(
-            self.base_duration, timedelta
-        ) or self.base_duration <= timedelta(0):
+        if self.base_duration <= timedelta(0):
             raise ValueError("base_duration must be positive")
-        if (
-            not isinstance(self.lookback_duration, timedelta)
-            or self.lookback_duration < self.base_duration
-            or self.lookback_duration
-            < max(
-                target_durations.values(),
-                default=self.base_duration,
-            )
+        if self.lookback_duration < self.base_duration or self.lookback_duration < max(
+            target_durations.values(),
+            default=self.base_duration,
         ):
             raise ValueError("lookback_duration must cover base and target durations")
-        if (
-            not isinstance(self.history_floor_duration, timedelta)
-            or self.history_floor_duration < self.lookback_duration
-        ):
+        if self.history_floor_duration < self.lookback_duration:
             raise ValueError("history_floor_duration must cover lookback_duration")
 
-        object.__setattr__(self, "live_provider_id", live_provider_id)
-        object.__setattr__(self, "live_symbol", live_symbol)
         object.__setattr__(self, "provider_order", provider_order)
         object.__setattr__(
             self,
@@ -179,27 +95,10 @@ class IngestionPlan:
     )
 
     def __post_init__(self) -> None:
-        base_timeframe = _require_non_empty_text(
-            self.base_timeframe,
-            field_name="base_timeframe",
-        )
-        alignment_origin = _require_utc(
-            self.alignment_origin,
-            field_name="alignment_origin",
-        )
-        if isinstance(self.reconnect_backoff_seconds, bool) or not isinstance(
-            self.reconnect_backoff_seconds, int
-        ):
-            raise TypeError("reconnect_backoff_seconds must be an integer")
         if self.reconnect_backoff_seconds < 0:
             raise ValueError("reconnect_backoff_seconds must be non-negative")
 
-        try:
-            lanes = tuple(self.lanes)
-        except TypeError as exc:
-            raise TypeError("lanes must be a sequence of LanePlan") from exc
-        if not all(isinstance(lane_plan, LanePlan) for lane_plan in lanes):
-            raise TypeError("lanes must contain only LanePlan values")
+        lanes = tuple(self.lanes)
         lane_keys = [
             (
                 lane_plan.lane.venue,
@@ -213,8 +112,6 @@ class IngestionPlan:
         if len(lane_keys) != len(set(lane_keys)):
             raise ValueError("lanes must not contain duplicates")
 
-        object.__setattr__(self, "base_timeframe", base_timeframe)
-        object.__setattr__(self, "alignment_origin", alignment_origin)
         object.__setattr__(self, "lanes", lanes)
         object.__setattr__(
             self,
@@ -235,16 +132,8 @@ def compile_ingestion_plan(
     reads the frozen settings graph and the provider IDs supplied by bootstrap.
     """
 
-    if not isinstance(settings, IngestionSettings):
-        raise TypeError("settings must be IngestionSettings")
-    composed_live_provider_ids = _normalize_provider_ids(
-        live_provider_ids,
-        field_name="live_provider_ids",
-    )
-    owned_historical_provider_ids = _normalize_provider_ids(
-        historical_provider_ids,
-        field_name="historical_provider_ids",
-    )
+    composed_live_provider_ids = frozenset(live_provider_ids)
+    owned_historical_provider_ids = frozenset(historical_provider_ids)
     base_timeframe = settings.base_timeframe
     base_duration = timedelta(
         seconds=settings.timeframes[base_timeframe].duration_seconds
@@ -295,20 +184,6 @@ def compile_ingestion_plan(
             seen_lanes.add(lane)
 
             provider_symbols = dict(instrument.provider_symbols)
-            missing_symbols = (
-                set(instrument.historical_providers) - provider_symbols.keys()
-            )
-            if missing_symbols:
-                raise DataIngestionError(
-                    f"instrument '{instrument_id}' has no symbol for historical "
-                    "provider(s): " + ", ".join(sorted(missing_symbols))
-                )
-            live_symbol = provider_symbols.get(instrument.live_provider)
-            if not isinstance(live_symbol, str) or not live_symbol.strip():
-                raise DataIngestionError(
-                    f"instrument '{instrument_id}' has no live provider symbol"
-                )
-
             target_durations = {
                 timeframe: timedelta(
                     seconds=settings.timeframes[timeframe].duration_seconds
@@ -328,7 +203,7 @@ def compile_ingestion_plan(
                 LanePlan(
                     lane=lane,
                     live_provider_id=instrument.live_provider,
-                    live_symbol=live_symbol,
+                    live_symbol=provider_symbols[instrument.live_provider],
                     provider_order=instrument.historical_providers,
                     provider_symbols=provider_symbols,
                     target_durations=target_durations,
