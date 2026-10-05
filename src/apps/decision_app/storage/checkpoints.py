@@ -13,11 +13,9 @@ from apps.decision_app.runtime.deadlines import (
     CleanupBudget,
     Deadline,
     acquire_db_connection,
-    cleanup_with_timeout,
     native_timeout_kwargs,
-    require_remaining,
-    run_until,
 )
+from apps.decision_app.storage.bounded_asyncpg import BoundedAsyncpgRepository
 from apps.decision_app.storage.state_codec import (
     StateCodecError,
     decode_state_payload,
@@ -200,8 +198,10 @@ def _validate_checkpoint(
         checkpoint.validate_binding_ids(expected_binding_ids)
 
 
-class CheckpointRepository:
+class CheckpointRepository(BoundedAsyncpgRepository):
     """Small asyncpg repository for ``decision.state_checkpoints``."""
+
+    _POISONED_MESSAGE = "checkpoint repository is poisoned after lease cleanup failure"
 
     def __init__(
         self,
@@ -211,56 +211,12 @@ class CheckpointRepository:
         operation_timeout_seconds: float | None = None,
         cleanup_timeout_seconds: float | None = None,
     ) -> None:
-        if pool is None or not hasattr(pool, "acquire"):
-            raise TypeError("pool must provide asyncpg acquire()")
-        for value in (
-            io_timeout_seconds,
-            operation_timeout_seconds,
-            cleanup_timeout_seconds,
-        ):
-            if value is not None:
-                Deadline.after(value)
-        if operation_timeout_seconds is not None and cleanup_timeout_seconds is None:
-            cleanup_timeout_seconds = 5.0
-        self._pool = pool
-        self._io_timeout_seconds = io_timeout_seconds
-        self._operation_timeout_seconds = operation_timeout_seconds
-        self._cleanup_timeout_seconds = cleanup_timeout_seconds
-        self._retained_cleanup_tasks: set[Any] = set()
-        self._poisoned = False
-
-    def _begin(self) -> Deadline | None:
-        self._ensure_usable()
-        if self._operation_timeout_seconds is None:
-            return None
-        return Deadline.after(self._operation_timeout_seconds)
-
-    async def _phase(
-        self,
-        awaitable: Any,
-        deadline: Deadline | None,
-        operation: str,
-    ) -> Any:
-        if deadline is None:
-            return await awaitable
-        return await run_until(awaitable, deadline, operation=operation)
-
-    def _finish(self, deadline: Deadline | None, operation: str) -> None:
-        if deadline is not None:
-            require_remaining(deadline, operation=operation)
-
-    def _poison(self) -> None:
-        self._poisoned = True
-
-    @property
-    def poisoned(self) -> bool:
-        return self._poisoned
-
-    def _ensure_usable(self) -> None:
-        if self._poisoned:
-            raise RuntimeError(
-                "checkpoint repository is poisoned after lease cleanup failure"
-            )
+        super().__init__(
+            pool,
+            io_timeout_seconds=io_timeout_seconds,
+            operation_timeout_seconds=operation_timeout_seconds,
+            cleanup_timeout_seconds=cleanup_timeout_seconds,
+        )
 
     async def load(
         self,
@@ -326,53 +282,15 @@ class CheckpointRepository:
             poison=self._poison,
             operation="checkpoint save",
         ) as connection:
-            transaction = getattr(connection, "transaction", None)
-            if callable(transaction) and deadline is None:
-                async with connection.transaction():
-                    return await self._save_locked(connection, checkpoint, now)
-            if callable(transaction):
-                tx = connection.transaction()
-                if deadline is not None:
-                    require_remaining(
-                        deadline,
-                        operation="checkpoint transaction begin",
-                    )
-                await self._phase(tx.start(), deadline, "checkpoint transaction begin")
-                try:
-                    result = await self._save_locked(
-                        connection,
-                        checkpoint,
-                        now,
-                        deadline=deadline,
-                    )
-                except BaseException:
-                    try:
-                        await cleanup_with_timeout(
-                            tx.rollback(),
-                            cleanup_budget.remaining(),
-                            operation="checkpoint transaction rollback",
-                            retained_tasks=self._retained_cleanup_tasks,
-                        )
-                    except BaseException:  # noqa: BLE001
-                        self._poison()
-                    raise
-                if deadline is not None:
-                    require_remaining(
-                        deadline,
-                        operation="checkpoint transaction commit",
-                    )
-                await self._phase(
-                    tx.commit(),
-                    deadline,
-                    "checkpoint transaction commit",
-                )
-            else:
-                result = await self._save_locked(
-                    connection,
-                    checkpoint,
-                    now,
-                    deadline=deadline,
-                )
+            result = await self._run_in_transaction(
+                connection,
+                deadline=deadline,
+                cleanup_budget=cleanup_budget,
+                label="checkpoint",
+                locked=lambda locked_deadline: self._save_locked(
+                    connection, checkpoint, now, deadline=locked_deadline
+                ),
+            )
         self._finish(deadline, "checkpoint save")
         return result
 

@@ -8,12 +8,11 @@ from typing import Any, Literal
 
 from apps.decision_app.domain.state import LaneExecutionIdentity
 from apps.decision_app.runtime.deadlines import (
-    Deadline,
     acquire_db_connection,
     native_timeout_kwargs,
     require_remaining,
-    run_until,
 )
+from apps.decision_app.storage.bounded_asyncpg import BoundedAsyncpgRepository
 from libs.contracts.decision import require_utc
 
 LaneEffectSkipReason = Literal[
@@ -112,8 +111,10 @@ class InMemoryLaneEffectSkipsRepository:
         )
 
 
-class LaneEffectSkipsRepository:
+class LaneEffectSkipsRepository(BoundedAsyncpgRepository):
     """Small asyncpg upsert for immutable lane identity and skipped ranges."""
+
+    _POISONED_MESSAGE = "lane effect skips repository is poisoned"
 
     def __init__(
         self,
@@ -123,34 +124,12 @@ class LaneEffectSkipsRepository:
         operation_timeout_seconds: float | None = None,
         cleanup_timeout_seconds: float | None = None,
     ) -> None:
-        if pool is None or not hasattr(pool, "acquire"):
-            raise TypeError("pool must provide asyncpg acquire()")
-        for value in (
-            io_timeout_seconds,
-            operation_timeout_seconds,
-            cleanup_timeout_seconds,
-        ):
-            if value is not None:
-                Deadline.after(value)
-        if operation_timeout_seconds is not None and cleanup_timeout_seconds is None:
-            cleanup_timeout_seconds = 5.0
-        self._pool = pool
-        self._io_timeout_seconds = io_timeout_seconds
-        self._operation_timeout_seconds = operation_timeout_seconds
-        self._cleanup_timeout_seconds = cleanup_timeout_seconds
-        self._retained_cleanup_tasks: set[Any] = set()
-        self._poisoned = False
-
-    @property
-    def poisoned(self) -> bool:
-        return self._poisoned
-
-    def _begin(self) -> Deadline | None:
-        if self._poisoned:
-            raise RuntimeError("lane effect skips repository is poisoned")
-        if self._operation_timeout_seconds is None:
-            return None
-        return Deadline.after(self._operation_timeout_seconds)
+        super().__init__(
+            pool,
+            io_timeout_seconds=io_timeout_seconds,
+            operation_timeout_seconds=operation_timeout_seconds,
+            cleanup_timeout_seconds=cleanup_timeout_seconds,
+        )
 
     async def upsert(self, skip: LaneEffectSkip) -> LaneEffectSkip:
         _validate_skip(skip)
@@ -219,19 +198,6 @@ class LaneEffectSkipsRepository:
             reason=row["reason"],
             recorded_at=row["recorded_at"],
         )
-
-    async def _phase(
-        self,
-        awaitable: Any,
-        deadline: Deadline | None,
-        operation: str,
-    ) -> Any:
-        if deadline is None:
-            return await awaitable
-        return await run_until(awaitable, deadline, operation=operation)
-
-    def _poison(self) -> None:
-        self._poisoned = True
 
 
 __all__ = [

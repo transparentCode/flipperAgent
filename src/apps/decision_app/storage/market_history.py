@@ -15,12 +15,10 @@ from apps.decision_app.domain.market_state import (
     validate_canonical_bar_geometry,
 )
 from apps.decision_app.runtime.deadlines import (
-    Deadline,
     acquire_db_connection,
     native_timeout_kwargs,
-    require_remaining,
-    run_until,
 )
+from apps.decision_app.storage.bounded_asyncpg import BoundedAsyncpgRepository
 from apps.decision_app.transport.ingestion import validate_canonical_provenance
 from libs.contracts.decision import CausalBarView, require_utc
 
@@ -62,8 +60,12 @@ class CanonicalMarketRecord:
             raise CanonicalHistoryError(str(exc)) from exc
 
 
-class CanonicalMarketHistoryRepository:
+class CanonicalMarketHistoryRepository(BoundedAsyncpgRepository):
     """Minimal asyncpg reader; it never writes or imports ingestion storage code."""
+
+    _POISONED_MESSAGE = (
+        "canonical history repository is poisoned after lease cleanup failure"
+    )
 
     def __init__(
         self,
@@ -74,59 +76,20 @@ class CanonicalMarketHistoryRepository:
         operation_timeout_seconds: float | None = None,
         cleanup_timeout_seconds: float | None = None,
     ) -> None:
-        if pool is None or not hasattr(pool, "acquire"):
-            raise TypeError("pool must provide asyncpg acquire()")
-        if timeframe_grid is not None and not isinstance(timeframe_grid, TimeframeGrid):
-            raise TypeError("timeframe_grid must be TimeframeGrid or None")
-        for value in (
-            io_timeout_seconds,
-            operation_timeout_seconds,
-            cleanup_timeout_seconds,
-        ):
-            if value is not None:
-                Deadline.after(value)
-        if operation_timeout_seconds is not None and cleanup_timeout_seconds is None:
-            cleanup_timeout_seconds = 5.0
-        self._pool = pool
+        def validate_grid() -> None:
+            if timeframe_grid is not None and not isinstance(
+                timeframe_grid, TimeframeGrid
+            ):
+                raise TypeError("timeframe_grid must be TimeframeGrid or None")
+
+        super().__init__(
+            pool,
+            io_timeout_seconds=io_timeout_seconds,
+            operation_timeout_seconds=operation_timeout_seconds,
+            cleanup_timeout_seconds=cleanup_timeout_seconds,
+            validate_after_pool=validate_grid,
+        )
         self._timeframe_grid = timeframe_grid
-        self._io_timeout_seconds = io_timeout_seconds
-        self._operation_timeout_seconds = operation_timeout_seconds
-        self._cleanup_timeout_seconds = cleanup_timeout_seconds
-        self._retained_cleanup_tasks: set[Any] = set()
-        self._poisoned = False
-
-    def _begin(self) -> Deadline | None:
-        self._ensure_usable()
-        if self._operation_timeout_seconds is None:
-            return None
-        return Deadline.after(self._operation_timeout_seconds)
-
-    async def _phase(
-        self,
-        awaitable: Any,
-        deadline: Deadline | None,
-        operation: str,
-    ) -> Any:
-        if deadline is None:
-            return await awaitable
-        return await run_until(awaitable, deadline, operation=operation)
-
-    def _finish(self, deadline: Deadline | None, operation: str) -> None:
-        if deadline is not None:
-            require_remaining(deadline, operation=operation)
-
-    def _poison(self) -> None:
-        self._poisoned = True
-
-    @property
-    def poisoned(self) -> bool:
-        return self._poisoned
-
-    def _ensure_usable(self) -> None:
-        if self._poisoned:
-            raise RuntimeError(
-                "canonical history repository is poisoned after lease cleanup failure"
-            )
 
     async def fetch_latest_cutoff(self, key: MarketSeriesKey) -> datetime | None:
         self._validate_key(key)
