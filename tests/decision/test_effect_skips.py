@@ -111,6 +111,45 @@ async def test_durable_skip_upsert_merges_range_idempotently() -> None:
     )
 
 
+@pytest.mark.asyncio
+async def test_equal_through_with_different_count_keeps_stored_row_in_both_paths() -> (
+    None
+):
+    first = _skip(5)
+    retry = LaneEffectSkip(
+        identity=IDENTITY,
+        skipped_from=first.skipped_from,
+        skipped_through=first.skipped_through,
+        cutoff_count=first.cutoff_count + 1,
+        reason=first.reason,
+    )
+    memory = InMemoryLaneEffectSkipsRepository()
+    await memory.upsert(first)
+    assert await memory.upsert(retry) == first
+
+    # The durable upsert keeps the stored count unless the range grows; the
+    # fake connection returns the row that SQL would hand back.
+    connection = _Connection()
+    repository = LaneEffectSkipsRepository(_Pool(connection))
+    stored = {
+        "skipped_from": first.skipped_from,
+        "skipped_through": first.skipped_through,
+        "cutoff_count": first.cutoff_count,
+        "reason": first.reason,
+        "recorded_at": BASE,
+    }
+
+    async def _stored_row(query: str, *args: object, **_kwargs: object):
+        connection.query = query
+        return stored
+
+    connection.fetchrow = _stored_row  # type: ignore[method-assign]
+    durable = await repository.upsert(retry)
+    assert durable.cutoff_count == first.cutoff_count
+    assert durable.skipped_through == first.skipped_through
+    assert "ELSE decision.lane_effect_skips.cutoff_count" in connection.query
+
+
 def test_skip_table_creation_is_idempotent_and_keeps_the_declared_identity() -> None:
     schema = (ROOT / "src/apps/decision_app/storage/schema.sql").read_text()
     declaration = schema.split(

@@ -46,8 +46,8 @@ from apps.decision_app.storage.market_history import (
     InMemoryCanonicalMarketHistoryRepository,
 )
 from apps.decision_app.storage.shadow_progress import (
-    InMemoryShadowProgressRepository,
-    ShadowProgressSaveResult,
+    InMemoryLaneEffectProgressRepository,
+    LaneEffectProgressSaveResult,
 )
 from apps.decision_app.transport.ingestion import canonical_ingestion_stream_key
 from apps.decision_app.transport.live_input import (
@@ -505,7 +505,7 @@ class _TimeoutLiveCheckpointRepository(InMemoryCheckpointRepository):
         return await super().save(checkpoint)
 
 
-class _TimeoutLiveProgressRepository(InMemoryShadowProgressRepository):
+class _TimeoutLiveProgressRepository(InMemoryLaneEffectProgressRepository):
     def __init__(self) -> None:
         super().__init__()
         self.fail_live = False
@@ -638,7 +638,7 @@ def _signal_coordinator(
     stream_client: _LiveInputClient,
     *,
     authority: str = "authoritative",
-    effect_progress_repository: InMemoryShadowProgressRepository | None = None,
+    effect_progress_repository: InMemoryLaneEffectProgressRepository | None = None,
     effect_skips_repository: InMemoryLaneEffectSkipsRepository | None = None,
     history_capacity: int | None = None,
 ) -> DecisionStartupCoordinator:
@@ -695,7 +695,7 @@ def _stateful_signal_coordinator(
     stream_client: _LiveInputClient,
     *,
     checkpoint_repository: InMemoryCheckpointRepository,
-    effect_progress_repository: InMemoryShadowProgressRepository,
+    effect_progress_repository: InMemoryLaneEffectProgressRepository,
     effect_skips_repository: InMemoryLaneEffectSkipsRepository,
 ) -> DecisionStartupCoordinator:
     return DecisionStartupCoordinator(
@@ -1009,7 +1009,7 @@ async def test_shadow_startup_persists_exact_baseline_without_backfill() -> None
         tail_index=2,
         field_factory=_signal_fields,
     )
-    progress = InMemoryShadowProgressRepository()
+    progress = InMemoryLaneEffectProgressRepository()
 
     first = await _signal_coordinator(
         history,
@@ -1094,7 +1094,7 @@ async def test_signal_freshness_boundary_is_exact_for_authoritative_and_shadow(
         tail_index=2,
         field_factory=_signal_fields,
     )
-    progress = InMemoryShadowProgressRepository()
+    progress = InMemoryLaneEffectProgressRepository()
     skips = InMemoryLaneEffectSkipsRepository()
     startup = await _signal_coordinator(
         history,
@@ -1149,7 +1149,7 @@ async def test_signal_freshness_boundary_is_exact_for_authoritative_and_shadow(
 @pytest.mark.asyncio
 async def test_stale_stateful_signal_commits_checkpoint_without_publication() -> None:
     checkpoints = InMemoryCheckpointRepository()
-    progress = InMemoryShadowProgressRepository()
+    progress = InMemoryLaneEffectProgressRepository()
     skips = InMemoryLaneEffectSkipsRepository()
     history = InMemoryCanonicalMarketHistoryRepository(
         {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(4))},
@@ -1241,7 +1241,7 @@ async def test_foreign_exact_id_is_recorded_as_skip_without_publication_conflict
         policy_version="1",
     )
     stream.effect_entries = {output_stream: {output_id: valkey_encode(foreign)}}
-    progress = InMemoryShadowProgressRepository()
+    progress = InMemoryLaneEffectProgressRepository()
     skips = InMemoryLaneEffectSkipsRepository()
     history = InMemoryCanonicalMarketHistoryRepository(
         {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(4))},
@@ -1286,7 +1286,7 @@ async def test_foreign_exact_id_is_recorded_as_skip_without_publication_conflict
 async def test_restart_skips_forward_records_one_range_and_evaluates_only_latest() -> (
     None
 ):
-    progress = InMemoryShadowProgressRepository()
+    progress = InMemoryLaneEffectProgressRepository()
     skips = InMemoryLaneEffectSkipsRepository()
     first_history = InMemoryCanonicalMarketHistoryRepository(
         {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(4))},
@@ -1398,7 +1398,7 @@ async def test_restart_skips_forward_records_one_range_and_evaluates_only_latest
 
 @pytest.mark.asyncio
 async def test_restart_skip_upsert_converges_after_progress_save_crash() -> None:
-    progress = InMemoryShadowProgressRepository()
+    progress = InMemoryLaneEffectProgressRepository()
     skips = InMemoryLaneEffectSkipsRepository()
     first_history = InMemoryCanonicalMarketHistoryRepository(
         {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(4))},
@@ -1484,7 +1484,7 @@ async def test_restart_skip_upsert_converges_after_progress_save_crash() -> None
 async def test_restart_pending_cutoff_retries_clock_wait_without_duplicate_effects() -> (
     None
 ):
-    progress = InMemoryShadowProgressRepository()
+    progress = InMemoryLaneEffectProgressRepository()
     skips = InMemoryLaneEffectSkipsRepository()
     first_history = InMemoryCanonicalMarketHistoryRepository(
         {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(4))},
@@ -1587,7 +1587,7 @@ async def test_restart_pending_cutoff_retries_clock_wait_without_duplicate_effec
 
 @pytest.mark.asyncio
 async def test_shadow_exact_id_reconciles_in_flight_cutoff_crash_window() -> None:
-    progress = InMemoryShadowProgressRepository()
+    progress = InMemoryLaneEffectProgressRepository()
     first_history = InMemoryCanonicalMarketHistoryRepository(
         {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(4))},
         timeframe_grid=SIGNAL_GRID,
@@ -1639,7 +1639,7 @@ async def test_shadow_exact_id_reconciles_in_flight_cutoff_crash_window() -> Non
         nonlocal failed_once
         if failed_once and item.last_disposition == "shadow":
             failed_once = False
-            return ShadowProgressSaveResult.CONFLICT
+            return LaneEffectProgressSaveResult.CONFLICT
         return await original_save(item)
 
     progress.save = fail_progress_save  # type: ignore[method-assign]

@@ -19,15 +19,10 @@ from apps.decision_app.storage.market_history import (
 )
 from apps.decision_app.storage.shadow_progress import (
     InMemoryLaneEffectProgressRepository,
-    InMemoryShadowProgressRepository,
     LaneEffectProgress,
     LaneEffectProgressCorruptionError,
     LaneEffectProgressRepository,
     LaneEffectProgressSaveResult,
-    ShadowProgress,
-    ShadowProgressCorruptionError,
-    ShadowProgressRepository,
-    ShadowProgressSaveResult,
 )
 
 __all__ = [
@@ -39,7 +34,6 @@ __all__ = [
     "InMemoryCheckpointRepository",
     "InMemoryLaneEffectProgressRepository",
     "InMemoryLaneEffectSkipsRepository",
-    "InMemoryShadowProgressRepository",
     "LaneEffectProgress",
     "LaneEffectProgressCorruptionError",
     "LaneEffectProgressRepository",
@@ -48,8 +42,4 @@ __all__ = [
     "LaneEffectSkipConflictError",
     "LaneEffectSkipsRepository",
     "LaneStateCheckpoint",
-    "ShadowProgress",
-    "ShadowProgressCorruptionError",
-    "ShadowProgressRepository",
-    "ShadowProgressSaveResult",
 ]

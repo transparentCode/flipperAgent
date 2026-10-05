@@ -39,7 +39,7 @@ from apps.decision_app.storage.checkpoints import CheckpointRepository
 from apps.decision_app.storage.market_history import (
     CanonicalMarketHistoryRepository,
 )
-from apps.decision_app.storage.shadow_progress import ShadowProgressRepository
+from apps.decision_app.storage.shadow_progress import LaneEffectProgressRepository
 from tests.decision.test_d9b_live_runtime import _sr_config
 
 
@@ -279,8 +279,8 @@ def _patch_owned_lifespan(
         CheckpointRepository,
     )
     monkeypatch.setattr(
-        "apps.decision_app.bootstrap.ShadowProgressRepository",
-        ShadowProgressRepository,
+        "apps.decision_app.bootstrap.LaneEffectProgressRepository",
+        LaneEffectProgressRepository,
     )
     monkeypatch.setattr(
         "apps.decision_app.bootstrap.AssetManifestStore",

@@ -26,10 +26,7 @@ from apps.decision_app.runtime.deadlines import (
 from libs.contracts.decision import require_utc
 
 LANE_EFFECT_PROGRESS_SCHEMA_VERSION = 1
-# Historical name retained for the already-certified C4B import surface.
-SHADOW_PROGRESS_SCHEMA_VERSION = LANE_EFFECT_PROGRESS_SCHEMA_VERSION
 LaneEffectDisposition = Literal["shadow", "published", "no_signal"]
-ShadowDisposition = LaneEffectDisposition
 
 
 class LaneEffectProgressCorruptionError(ValueError):
@@ -82,7 +79,7 @@ class LaneEffectProgress:
         *,
         identity: LaneExecutionIdentity,
         market_as_of: datetime,
-        last_disposition: ShadowDisposition | None = None,
+        last_disposition: LaneEffectDisposition | None = None,
         created_at: datetime | None = None,
         updated_at: datetime | None = None,
     ) -> LaneEffectProgress:
@@ -447,23 +444,9 @@ def _progress_from_row(
 
 __all__ = [
     "LANE_EFFECT_PROGRESS_SCHEMA_VERSION",
-    "SHADOW_PROGRESS_SCHEMA_VERSION",
     "InMemoryLaneEffectProgressRepository",
-    "InMemoryShadowProgressRepository",
     "LaneEffectProgress",
     "LaneEffectProgressCorruptionError",
     "LaneEffectProgressRepository",
     "LaneEffectProgressSaveResult",
-    "ShadowProgress",
-    "ShadowProgressCorruptionError",
-    "ShadowProgressRepository",
-    "ShadowProgressSaveResult",
 ]
-
-# Compatibility aliases for the certified C4B callers.  There is one
-# implementation and one table, not parallel shadow/authoritative stores.
-InMemoryShadowProgressRepository = InMemoryLaneEffectProgressRepository
-ShadowProgress = LaneEffectProgress
-ShadowProgressCorruptionError = LaneEffectProgressCorruptionError
-ShadowProgressRepository = LaneEffectProgressRepository
-ShadowProgressSaveResult = LaneEffectProgressSaveResult

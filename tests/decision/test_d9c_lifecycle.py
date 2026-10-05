@@ -7,6 +7,7 @@ import valkey.asyncio as valkey
 from valkey.connection import Connection
 
 from apps.decision_app.runtime.lifecycle import (
+    LifecycleNotificationError,
     LifecycleNotificationReader,
     capture_lifecycle_tail,
 )
@@ -199,3 +200,48 @@ async def test_unconfigured_lifecycle_event_is_notification_only() -> None:
     assert result.relevant_events == ()
     assert result.ignored_symbols == ("BTC", "ETH")
     assert result.rebuild_requested is False
+
+
+@pytest.mark.asyncio
+async def test_bad_fields_after_relevant_event_keep_rebuild_and_do_not_stall() -> None:
+    client = _LifecycleClient(
+        [("asset:lifecycle", [("4-0", _event("BTCUSDT")), ("5-0", "not-a-mapping")])]
+    )
+    reader = LifecycleNotificationReader(
+        stream_client=client,
+        cursor="3-0",
+        configured_manifest_assets=("BTCUSDT",),
+    )
+    result = await reader.read_once()
+    assert result.cursor == "5-0"
+    assert [event.symbol for event in result.relevant_events] == ["BTCUSDT"]
+    assert result.malformed_ids == ("5-0",)
+    assert result.rebuild_requested is True
+
+    client.records = [("asset:lifecycle", [("6-0", _event("ETH"))])]
+    follow_up = await reader.read_once()
+    assert client.xread_calls[-1][0] == {"asset:lifecycle": "5-0"}
+    assert follow_up.cursor == "6-0"
+    assert follow_up.malformed_ids == ()
+
+
+@pytest.mark.asyncio
+async def test_entry_without_usable_id_returns_earlier_events_then_raises() -> None:
+    client = _LifecycleClient(
+        [("asset:lifecycle", [("4-0", _event("BTCUSDT")), ("only-one-item",)])]
+    )
+    reader = LifecycleNotificationReader(
+        stream_client=client,
+        cursor="3-0",
+        configured_manifest_assets=("BTCUSDT",),
+    )
+    result = await reader.read_once()
+    assert result.cursor == "4-0"
+    assert [event.symbol for event in result.relevant_events] == ["BTCUSDT"]
+    assert result.rebuild_requested is True
+    assert "unreadable lifecycle entry" in (result.reason or "")
+
+    client.records = [("asset:lifecycle", [("only-one-item",)])]
+    with pytest.raises(LifecycleNotificationError, match="ID/fields"):
+        await reader.read_once()
+    assert reader.cursor == "4-0"

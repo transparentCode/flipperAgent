@@ -6,9 +6,9 @@ import pytest
 
 from apps.decision_app.domain.state import LaneExecutionIdentity
 from apps.decision_app.storage.shadow_progress import (
-    InMemoryShadowProgressRepository,
-    ShadowProgress,
-    ShadowProgressSaveResult,
+    InMemoryLaneEffectProgressRepository,
+    LaneEffectProgress,
+    LaneEffectProgressSaveResult,
 )
 
 BASE = datetime(2026, 1, 1, tzinfo=UTC)
@@ -24,40 +24,40 @@ def _identity() -> LaneExecutionIdentity:
 
 @pytest.mark.asyncio
 async def test_shadow_progress_is_monotonic_and_exact_identity_scoped() -> None:
-    repository = InMemoryShadowProgressRepository()
+    repository = InMemoryLaneEffectProgressRepository()
     identity = _identity()
-    first = ShadowProgress.create(identity=identity, market_as_of=BASE)
+    first = LaneEffectProgress.create(identity=identity, market_as_of=BASE)
 
-    assert await repository.save(first) == ShadowProgressSaveResult.INSERTED
-    assert await repository.save(first) == ShadowProgressSaveResult.IDENTICAL
+    assert await repository.save(first) == LaneEffectProgressSaveResult.INSERTED
+    assert await repository.save(first) == LaneEffectProgressSaveResult.IDENTICAL
     assert (
         await repository.save(
-            ShadowProgress.create(
+            LaneEffectProgress.create(
                 identity=identity,
                 market_as_of=BASE + timedelta(hours=1),
                 last_disposition="shadow",
             )
         )
-        == ShadowProgressSaveResult.UPDATED
+        == LaneEffectProgressSaveResult.UPDATED
     )
     assert (
         await repository.save(
-            ShadowProgress.create(
+            LaneEffectProgress.create(
                 identity=identity,
                 market_as_of=BASE,
                 last_disposition="shadow",
             )
         )
-        == ShadowProgressSaveResult.REJECTED_OLDER
+        == LaneEffectProgressSaveResult.REJECTED_OLDER
     )
     assert (
         await repository.save(
-            ShadowProgress.create(
+            LaneEffectProgress.create(
                 identity=identity,
                 market_as_of=BASE + timedelta(hours=1),
             )
         )
-        == ShadowProgressSaveResult.CONFLICT
+        == LaneEffectProgressSaveResult.CONFLICT
     )
 
     other_identity = LaneExecutionIdentity(
@@ -70,12 +70,12 @@ async def test_shadow_progress_is_monotonic_and_exact_identity_scoped() -> None:
 
 @pytest.mark.asyncio
 async def test_lane_effect_progress_accepts_authoritative_dispositions() -> None:
-    published = ShadowProgress.create(
+    published = LaneEffectProgress.create(
         identity=_identity(),
         market_as_of=BASE,
         last_disposition="published",  # type: ignore[arg-type]
     )
-    no_signal = ShadowProgress.create(
+    no_signal = LaneEffectProgress.create(
         identity=_identity(),
         market_as_of=BASE,
         last_disposition="no_signal",  # type: ignore[arg-type]
@@ -87,7 +87,7 @@ async def test_lane_effect_progress_accepts_authoritative_dispositions() -> None
 @pytest.mark.asyncio
 async def test_shadow_progress_rejects_invalid_disposition() -> None:
     with pytest.raises(ValueError, match="last_disposition"):
-        ShadowProgress.create(
+        LaneEffectProgress.create(
             identity=_identity(),
             market_as_of=BASE,
             last_disposition="invalid",  # type: ignore[arg-type]

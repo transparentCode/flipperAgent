@@ -92,10 +92,7 @@ class InMemoryLaneEffectSkipsRepository:
                 "lane effect skip start already has a different reason"
             )
         if current.skipped_through == skip.skipped_through:
-            if current.cutoff_count != skip.cutoff_count:
-                raise LaneEffectSkipConflictError(
-                    "identical skip range has a different cutoff count"
-                )
+            # Same range: keep the stored row, as the durable upsert does.
             return current
         if skip.skipped_through > current.skipped_through:
             merged = skip

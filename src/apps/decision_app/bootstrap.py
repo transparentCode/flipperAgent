@@ -52,7 +52,7 @@ from apps.decision_app.storage.effect_skips import (
 from apps.decision_app.storage.market_history import CanonicalMarketHistoryRepository
 from apps.decision_app.storage.shadow_progress import (
     InMemoryLaneEffectProgressRepository,
-    ShadowProgressRepository,
+    LaneEffectProgressRepository,
 )
 from apps.decision_app.transport.shadow import ValkeyShadowPublisher
 from apps.decision_app.transport.signals import ValkeySignalPublisher
@@ -125,7 +125,7 @@ def _require_bounded_repository(
     expected_types = {
         "history": CanonicalMarketHistoryRepository,
         "checkpoint": CheckpointRepository,
-        "shadow-progress": ShadowProgressRepository,
+        "shadow-progress": LaneEffectProgressRepository,
         "effect-skips": LaneEffectSkipsRepository,
     }
     expected_type = expected_types[name]
@@ -473,7 +473,7 @@ def create_application(
                             cleanup_timeout_seconds=dependency_io.cleanup_timeout_seconds,
                         )
                     if current_shadow_progress is None:
-                        current_shadow_progress = ShadowProgressRepository(
+                        current_shadow_progress = LaneEffectProgressRepository(
                             writer_pool,
                             io_timeout_seconds=dependency_io.io_timeout_seconds,
                             operation_timeout_seconds=(

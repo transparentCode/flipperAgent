@@ -70,14 +70,16 @@ class LifecycleReadResult:
         return bool(self.relevant_events or self.malformed_ids)
 
 
-def _entry_parts(entry: object) -> tuple[str, Mapping[object, object]]:
+def _entry_parts(entry: object) -> tuple[str, object]:
+    """Split one entry into its stream ID and raw fields.
+
+    Only a missing or unusable ID is a transport failure; badly shaped fields
+    are judged with the event itself so the cursor can still move past them.
+    """
+
     if not isinstance(entry, Sequence) or len(entry) != 2:
         raise LifecycleNotificationError("lifecycle entry must be ID/fields")
-    stream_id = normalize_stream_id(entry[0])
-    fields = entry[1]
-    if not isinstance(fields, Mapping):
-        raise LifecycleNotificationError("lifecycle fields must be a mapping")
-    return stream_id, fields
+    return normalize_stream_id(entry[0]), entry[1]
 
 
 def _stream_entries(raw: object) -> Iterable[tuple[str, object]]:
@@ -167,7 +169,12 @@ class LifecycleNotificationReader:
         return self._last_result
 
     async def read_once(self) -> LifecycleReadResult:
-        """Read after the captured cursor and advance past every seen record."""
+        """Read after the captured cursor and advance past every readable record.
+
+        An entry with a usable ID but bad contents is recorded as malformed and
+        skipped.  An entry or batch with no usable ID raises, unless earlier
+        entries were already gathered, in which case they are returned.
+        """
 
         try:
             raw = await run_with_timeout(
@@ -194,31 +201,40 @@ class LifecycleNotificationReader:
         ignored: list[str] = []
         malformed: list[str] = []
         reasons: list[str] = []
-        for _stream_key, raw_entry in _stream_entries(raw):
-            try:
-                stream_id, fields = _entry_parts(raw_entry)
-            except Exception as exc:
-                # There is no trustworthy ID to advance to.  Surface the
-                # transport/shape failure without changing the cursor.
-                raise LifecycleNotificationError(str(exc)) from exc
-            if compare_stream_ids(stream_id, self._cursor) <= 0:
-                malformed.append(stream_id)
-                reasons.append(f"non-forward lifecycle ID {stream_id}")
-                continue
-            self._cursor = stream_id
-            event_ids.append(stream_id)
-            try:
-                event = valkey_decode(dict(fields), AssetLifecycleEvent)
-                if event.source != "ingestion" or event.requested_by != "ingestion":
-                    raise ValueError("lifecycle event is not ingestion-owned")
-            except Exception as exc:  # noqa: BLE001
-                malformed.append(stream_id)
-                reasons.append(f"malformed lifecycle event {stream_id}: {exc}")
-                continue
-            if event.symbol in self._configured_assets:
-                relevant.append(event)
-            else:
-                ignored.append(event.symbol)
+        try:
+            for _stream_key, raw_entry in _stream_entries(raw):
+                try:
+                    stream_id, fields = _entry_parts(raw_entry)
+                except Exception as exc:
+                    raise LifecycleNotificationError(str(exc)) from exc
+                if compare_stream_ids(stream_id, self._cursor) <= 0:
+                    malformed.append(stream_id)
+                    reasons.append(f"non-forward lifecycle ID {stream_id}")
+                    continue
+                self._cursor = stream_id
+                event_ids.append(stream_id)
+                try:
+                    if not isinstance(fields, Mapping):
+                        raise TypeError("lifecycle fields must be a mapping")
+                    event = valkey_decode(dict(fields), AssetLifecycleEvent)
+                    if event.source != "ingestion" or event.requested_by != "ingestion":
+                        raise ValueError("lifecycle event is not ingestion-owned")
+                except Exception as exc:  # noqa: BLE001
+                    malformed.append(stream_id)
+                    reasons.append(f"malformed lifecycle event {stream_id}: {exc}")
+                    continue
+                if event.symbol in self._configured_assets:
+                    relevant.append(event)
+                else:
+                    ignored.append(event.symbol)
+        except LifecycleNotificationError as exc:
+            # No trustworthy ID to advance to, so the cursor stays at the last
+            # well-formed entry.  Hand back what was already gathered so a
+            # relevant earlier event still requests its rebuild; the next read
+            # meets the bad entry first and raises.
+            if not (event_ids or malformed):
+                raise
+            reasons.append(f"unreadable lifecycle entry after {self._cursor}: {exc}")
 
         result = LifecycleReadResult(
             cursor=self._cursor,
