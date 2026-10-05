@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import ssl
 import threading
 import time
 from datetime import UTC, datetime, timedelta
@@ -8,8 +9,12 @@ from decimal import Decimal
 
 import pytest
 from binance.error import ClientError, ServerError
+from requests.exceptions import (
+    ChunkedEncodingError,
+    ContentDecodingError,
+    SSLError,
+)
 from requests.exceptions import ConnectionError as RequestsConnectionError
-from requests.exceptions import SSLError
 
 import apps.ingestion_app.providers.binance_usdm.rest_native as native_module
 import apps.ingestion_app.transport.ownership as ownership_module
@@ -752,6 +757,78 @@ async def test_binance_requests_ssl_error_remains_fatal() -> None:
     assert provider.quarantined is False
     await _wait_for_retained_workers(provider, 0)
     assert provider.retained_worker_count == 0
+
+
+def _wrapped_ssl_error(inner: BaseException) -> SSLError:
+    """Build an SSLError the way requests does: the ssl error sits in ``reason``."""
+
+    class _MaxRetryError(Exception):
+        def __init__(self, reason: BaseException) -> None:
+            super().__init__("Max retries exceeded")
+            self.reason = reason
+
+    return SSLError(_MaxRetryError(inner))
+
+
+@pytest.mark.asyncio
+async def test_binance_wrapped_certificate_failure_remains_fatal() -> None:
+    original = _wrapped_ssl_error(
+        ssl.SSLCertVerificationError(1, "[SSL] verify failed: hostname mismatch")
+    )
+    provider = BinanceNativeHistoricalProvider(
+        _FakeBinanceClient(error=original),
+        attempt_timeout_seconds=1,
+    )
+
+    with pytest.raises(DataIngestionError, match="SSLError") as raised:
+        await provider.fetch_closed_candles(
+            lane=LANE,
+            provider_symbol="BTCUSDT",
+            timeframe_duration=MINUTE,
+            since=SINCE,
+            until=UNTIL,
+            limit=10,
+        )
+
+    assert not isinstance(raised.value, ProviderAvailabilityError)
+    assert raised.value.__cause__ is original
+    await _wait_for_retained_workers(provider, 0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "original",
+    [
+        _wrapped_ssl_error(
+            ssl.SSLEOFError(8, "EOF occurred in violation of protocol (_ssl.c:1010)")
+        ),
+        SSLError("[SSL: UNEXPECTED_EOF_WHILE_READING] unexpected eof while reading"),
+        ChunkedEncodingError("Connection broken: IncompleteRead(0 bytes read)"),
+        ContentDecodingError("Received response with content-encoding: gzip"),
+    ],
+    ids=["tls-eof-wrapped", "tls-eof-plain", "body-truncated", "body-undecodable"],
+)
+async def test_binance_dropped_connection_is_retryable(
+    original: BaseException,
+) -> None:
+    provider = BinanceNativeHistoricalProvider(
+        _FakeBinanceClient(error=original),
+        attempt_timeout_seconds=1,
+    )
+
+    with pytest.raises(ProviderAvailabilityError) as raised:
+        await provider.fetch_closed_candles(
+            lane=LANE,
+            provider_symbol="BTCUSDT",
+            timeframe_duration=MINUTE,
+            since=SINCE,
+            until=UNTIL,
+            limit=10,
+        )
+
+    assert raised.value.__cause__ is original
+    assert provider.quarantined is False
+    await _wait_for_retained_workers(provider, 0)
 
 
 @pytest.mark.asyncio

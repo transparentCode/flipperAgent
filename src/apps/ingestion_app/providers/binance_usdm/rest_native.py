@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import ssl
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from time import monotonic
@@ -10,8 +11,12 @@ from typing import Any
 
 from binance.error import ClientError, ServerError
 from binance.um_futures import UMFutures
+from requests.exceptions import (
+    ChunkedEncodingError,
+    ContentDecodingError,
+    SSLError,
+)
 from requests.exceptions import ConnectionError as RequestsConnectionError
-from requests.exceptions import SSLError
 from requests.exceptions import Timeout as RequestsTimeout
 
 from apps.ingestion_app.domain.candle import CandleObservation
@@ -29,11 +34,53 @@ from libs.common.exceptions import DataIngestionError
 from .rest_decode import decode_binance_native_klines
 
 
+def _is_certificate_failure(error: BaseException) -> bool:
+    """Return whether a TLS error is a failed certificate check.
+
+    requests wraps the ssl error inside urllib3 errors, so follow the chain.
+    """
+    pending: list[object] = [error]
+    seen: set[int] = set()
+    while pending:
+        current = pending.pop()
+        if not isinstance(current, BaseException) or id(current) in seen:
+            continue
+        seen.add(id(current))
+        if isinstance(current, ssl.SSLCertVerificationError):
+            return True
+        if "certificate" in str(current).lower():
+            return True
+        pending.extend(current.args)
+        pending.extend(
+            (
+                current.__cause__,
+                current.__context__,
+                getattr(current, "reason", None),
+            )
+        )
+    return False
+
+
 def _is_provider_availability_error(error: BaseException) -> bool:
+    """Return whether a failed request is safe to retry or fail over.
+
+    A connection that drops during the TLS handshake or part-way through the
+    response body is an outage. A failed certificate check is not: it stays
+    fatal, as do 4xx responses.
+    """
+    if isinstance(error, SSLError):
+        return not _is_certificate_failure(error)
     return isinstance(
         error,
-        (ServerError, RequestsConnectionError, RequestsTimeout, TimeoutError),
-    ) and not isinstance(error, SSLError)
+        (
+            ServerError,
+            RequestsConnectionError,
+            RequestsTimeout,
+            TimeoutError,
+            ChunkedEncodingError,
+            ContentDecodingError,
+        ),
+    )
 
 
 class BinanceNativeHistoricalProvider(OwnedHistoricalProvider[OwnedBlockingCall]):
@@ -144,7 +191,8 @@ class BinanceNativeHistoricalProvider(OwnedHistoricalProvider[OwnedBlockingCall]
                     f"{provider_symbol}"
                 ) from exc
             raise DataIngestionError(
-                f"Binance failed to fetch klines for {provider_symbol}"
+                f"Binance failed to fetch klines for {provider_symbol} "
+                f"({type(exc).__name__})"
             ) from exc
 
         if not isinstance(raw_rows, (list, tuple)):

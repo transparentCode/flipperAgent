@@ -490,6 +490,15 @@ reconnect backoff and the reported delay; stop still cancels that wait. Other
 4xx responses remain fatal. The gate is process-local and is not shared between
 native and CCXT adapter instances.
 
+### Provider outages
+
+The native adapter treats server errors, connection errors, timeouts, a
+connection dropped during the TLS handshake or part-way through a response
+body, and an undecodable response body as a provider outage: recovery retries
+and fails over as bounded by `max_attempts_per_provider`. A failed certificate
+check stays fatal, as do 4xx responses. A fatal request failure names the
+underlying exception type in the runtime error.
+
 Control cancellation during that repair is consumed as a runtime transition;
 external cancellation propagates after the supervisor publishes `STOPPED`; a
 typed transport deadline is latched as fatal `ERROR`; canonical conflicts,
