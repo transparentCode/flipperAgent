@@ -87,6 +87,10 @@ from apps.decision_app.transport.ingestion import (
     canonical_ingestion_stream_key,
     parse_canonical_ingestion_event,
 )
+from apps.decision_app.transport.publication import (
+    signal_stream_entry_id,
+    signal_stream_key,
+)
 from libs.contracts.decision import FrozenMapping, deep_freeze, require_utc
 from libs.contracts.serialization import valkey_decode
 from libs.contracts.signal import TradeSignal
@@ -913,6 +917,7 @@ class DecisionStartupCoordinator:
             return None
         from apps.decision_app.transport.shadow import (
             ShadowDecisionObservation,
+            shadow_stream_entry_id,
             shadow_stream_key,
         )
 
@@ -932,12 +937,12 @@ class DecisionStartupCoordinator:
             lane_revision=execution_revision,
             market_as_of=cutoff,
         )
-        stream_key = (
-            f"signals:{lane.asset}:{lane.decision_timeframe}"
-            if lane.authority == "authoritative"
-            else shadow_stream_key(lane.lane_id)
-        )
-        stream_id = f"{int(cutoff.timestamp() * 1000)}-0"
+        if lane.authority == "authoritative":
+            stream_key = signal_stream_key(lane.asset, lane.decision_timeframe)
+            stream_id = signal_stream_entry_id(cutoff)
+        else:
+            stream_key = shadow_stream_key(lane.lane_id)
+            stream_id = shadow_stream_entry_id(cutoff)
         records = await run_with_timeout(
             xrange(stream_key, stream_id, stream_id, count=1),
             self._io_timeout_seconds,

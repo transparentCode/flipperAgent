@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -479,6 +480,18 @@ class _FailingLiveCheckpointRepository(InMemoryCheckpointRepository):
         if self.fail_live:
             return CheckpointSaveResult.CONFLICT
         return await super().save(checkpoint)
+
+
+class _FixedLiveResultCheckpointRepository(InMemoryCheckpointRepository):
+    """Persists live saves normally but reports a chosen result to the runtime."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.live_result: CheckpointSaveResult | None = None
+
+    async def save(self, checkpoint):
+        result = await super().save(checkpoint)
+        return self.live_result if self.live_result is not None else result
 
 
 class _TimeoutLiveCheckpointRepository(InMemoryCheckpointRepository):
@@ -2493,6 +2506,57 @@ async def test_checkpoint_failure_after_commit_halts_without_rollback() -> None:
     assert runtime.lanes["BTCUSDT:main"].finalizer.watermark.latest_market_as_of == (
         sr_bar(50).market_as_of
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("live_result", "expected_status"),
+    [
+        (CheckpointSaveResult.INSERTED, "LIVE"),
+        (CheckpointSaveResult.REJECTED_OLDER, "HALTED"),
+    ],
+)
+async def test_live_checkpoint_inserted_after_commit_continues_with_warning(
+    caplog, live_result: CheckpointSaveResult, expected_status: str
+) -> None:
+    checkpoints = _FixedLiveResultCheckpointRepository()
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SR_SERIES: tuple(sr_bar(index) for index in range(50))},
+        timeframe_grid=SR_GRID,
+    )
+    stream = _LiveInputClient(
+        stream="stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+        tail_index=49,
+        field_factory=sr_stream_fields,
+    )
+    startup = await _sr_coordinator(history, checkpoints, stream).start()
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SR_GRID,
+        stream_client=stream,
+        history_repository=history,
+        checkpoint_repository=checkpoints,
+        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+    )
+    checkpoints.live_result = live_result
+    caplog.set_level(logging.WARNING)
+
+    stream.pending.append(("50-0", sr_stream_fields(50)))
+    result = await runtime.poll_once()
+    lane = result.lane_results["BTCUSDT:main"]
+
+    assert lane.status == expected_status
+    assert lane.checkpoint_result == live_result.value
+    events = [getattr(record, "event", None) for record in caplog.records]
+    if live_result is CheckpointSaveResult.INSERTED:
+        assert lane.reason is None
+        assert "decision.lane.checkpoint_reinserted" in events
+        assert "decision.lane.halted" not in events
+    else:
+        assert f"checkpoint durability returned {live_result.value}" in (
+            lane.reason or ""
+        )
+        assert "decision.lane.checkpoint_reinserted" not in events
 
 
 @pytest.mark.asyncio

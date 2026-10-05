@@ -30,6 +30,8 @@ from apps.decision_app.features.planning import (
 )
 from apps.decision_app.planning.planner import ResolvedLanePlan
 from apps.decision_app.runtime.plugins import RuntimePluginCatalog
+from libs.common.enums import SystemComponent
+from libs.common.logging.logger_utils import bind_logger
 from libs.contracts.decision import (
     DecisionContext,
     DecisionModelPlugin,
@@ -37,6 +39,8 @@ from libs.contracts.decision import (
     ModelOutcome,
     require_utc,
 )
+
+_LOGGER = bind_logger(__name__, system_component=SystemComponent.SIGNAL_GENERATOR)
 
 BindingExecutionStatus = Literal["EXECUTED", "UNAVAILABLE", "BLOCKED", "INVALID"]
 
@@ -55,6 +59,36 @@ class StateTransactionError(ModelRuntimeError):
 
 class RewarmError(ModelRuntimeError):
     """Raised when causal reconstruction cannot complete atomically."""
+
+
+def _log_plugin_failure(
+    *,
+    lane_id: str,
+    binding_id: str,
+    market_as_of: datetime,
+    rewarm: bool,
+    exc: BaseException,
+) -> None:
+    """Log a plugin failure with its traceback; logging can never change the outcome."""
+
+    try:
+        _LOGGER.error(
+            "decision.plugin.evaluate_failed: %s: %s",
+            type(exc).__name__,
+            exc,
+            exc_info=exc,
+            extra={
+                "event": "decision.plugin.evaluate_failed",
+                "lane_id": lane_id,
+                "binding_id": binding_id,
+                "market_cutoff": market_as_of,
+                "rewarm": rewarm,
+                "exception_type": type(exc).__name__,
+                "exception_message": str(exc),
+            },
+        )
+    except Exception:  # noqa: BLE001, S110 - logging cannot change runtime behavior
+        pass
 
 
 def _require_non_empty(value: object, *, field_name: str) -> str:
@@ -453,14 +487,6 @@ class ModelRuntime:
             self._pending_state_execution = prepared
         return prepared
 
-    async def prepare(
-        self,
-        lane_market_view: LaneMarketView,
-    ) -> PreparedLaneExecution:
-        """Compatibility spelling for the explicit LIVE preparation operation."""
-
-        return await self.prepare_live(lane_market_view)
-
     def commit_prepared(
         self,
         prepared: PreparedLaneExecution,
@@ -695,7 +721,14 @@ class ModelRuntime:
                     state_snapshot,
                 )
                 self._validate_outcome(binding, lane_market_view, outcome)
-            except Exception:  # noqa: BLE001 - plugin contract boundary
+            except Exception as exc:  # noqa: BLE001 - plugin contract boundary
+                _log_plugin_failure(
+                    lane_id=self._lane.lane_id,
+                    binding_id=binding_id,
+                    market_as_of=lane_market_view.market_as_of,
+                    rewarm=rewarm,
+                    exc=exc,
+                )
                 results[binding_id] = BindingExecutionResult(
                     binding_id=binding_id,
                     status="INVALID",

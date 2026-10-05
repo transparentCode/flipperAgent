@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,8 @@ from apps.decision_app.transport.publication import (
     SignalPublicationAck,
     build_signal_envelope,
     signal_idempotency_key,
+    signal_stream_entry_id,
+    signal_stream_key,
 )
 from libs.contracts.decision import FeatureRequirement
 from tests.decision.test_model_runtime import make_bundle
@@ -202,3 +205,41 @@ def test_d8_production_modules_have_no_infrastructure_imports() -> None:
 def test_publication_test_helper_does_not_use_legacy_featurevector_boundary() -> None:
     source = make_bundle.__module__
     assert "decision" in source
+
+
+def test_signal_stream_key_and_entry_id_are_exact_strings() -> None:
+    assert signal_stream_key("BTCUSDT", "1h") == "signals:BTCUSDT:1h"
+    assert (
+        signal_stream_entry_id(datetime(2026, 1, 1, 2, tzinfo=UTC)) == "1767232800000-0"
+    )
+    assert signal_stream_entry_id(datetime(1970, 1, 1, 0, 0, 1, tzinfo=UTC)) == "1000-0"
+
+
+@pytest.mark.asyncio
+async def test_startup_probe_and_envelope_agree_for_authoritative_lane() -> None:
+    from apps.decision_app.runtime.startup import DecisionStartupCoordinator
+
+    bundle, view, prepared, evaluation = await _prepared_signal()
+    envelope = build_signal_envelope(bundle.lane, prepared, evaluation, view)
+    calls: list[tuple[str, str, str, int]] = []
+
+    class _Streams:
+        async def xrange(self, stream, minimum, maximum, *, count=1):
+            calls.append((stream, minimum, maximum, count))
+            return []
+
+    coordinator = object.__new__(DecisionStartupCoordinator)
+    coordinator._streams = _Streams()
+    coordinator._io_timeout_seconds = 1.0
+
+    outcome = await coordinator._probe_effect_entry(
+        lane=bundle.lane,
+        identity=prepared.identity,
+        cutoff=view.market_as_of,
+    )
+
+    assert outcome is None
+    assert bundle.lane.authority == "authoritative"
+    assert calls == [
+        (envelope.stream_key, envelope.stream_entry_id, envelope.stream_entry_id, 1)
+    ]

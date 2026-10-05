@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import replace
 from datetime import timedelta
 
@@ -22,6 +23,7 @@ from libs.contracts.decision import (
 from tests.decision.test_model_runtime import (
     BASE,
     Bundle,
+    make_bar,
     make_bundle,
     make_spec,
 )
@@ -185,6 +187,29 @@ async def test_failed_middle_rewarm_leaves_real_store_unchanged():
         await bundle.runtime.rewarm(steps(bundle, 3))
 
     assert dict(bundle.runtime.state_store.records) == before
+
+
+@pytest.mark.asyncio
+async def test_rewarm_plugin_failure_is_logged_with_rewarm_flag(caplog):
+    bundle, plugin = counter_bundle()
+    plugin.fail_at = 2
+    caplog.set_level(logging.ERROR)
+
+    with pytest.raises(RewarmError, match="rewarm step failed"):
+        await bundle.runtime.rewarm(steps(bundle, 3))
+
+    records = [
+        record
+        for record in caplog.records
+        if getattr(record, "event", None) == "decision.plugin.evaluate_failed"
+    ]
+    assert len(records) == 1
+    record = records[0]
+    assert record.levelno == logging.ERROR
+    assert record.rewarm is True
+    assert record.exception_type == "RuntimeError"
+    assert "synthetic replay failure" in record.getMessage()
+    assert record.market_cutoff == make_bar(1).market_as_of
 
 
 @pytest.mark.asyncio

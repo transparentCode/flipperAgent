@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
@@ -477,3 +478,51 @@ async def test_prepared_execution_rejects_invalid_blocker_evidence(
                 b_id: blocked,
             },
         )
+
+
+class RaisingPlugin(RecordingPlugin):
+    def evaluate(
+        self,
+        context: DecisionContext,
+        state_snapshot: object | None = None,
+    ) -> ModelOutcome:
+        del context, state_snapshot
+        raise ValueError("boom-from-plugin")
+
+
+@pytest.mark.asyncio
+async def test_plugin_exception_is_invalid_and_logged_with_traceback(caplog):
+    spec = make_spec("Raiser", "raiser.v1")
+    bundle, _ = make_bundle(
+        [spec],
+        (
+            ModelBindingSpec(
+                slot_name="raiser", plugin_name="Raiser", plugin_version="1"
+            ),
+        ),
+        plugin_overrides={"Raiser": RaisingPlugin(spec, [])},
+    )
+    caplog.set_level(logging.ERROR)
+
+    prepared = await bundle.runtime.prepare_live(bundle.view(0))
+
+    result = next(iter(prepared.binding_results.values()))
+    assert result.status == "INVALID"
+    assert result.reason == "evaluate_invalid"
+    records = [
+        record
+        for record in caplog.records
+        if getattr(record, "event", None) == "decision.plugin.evaluate_failed"
+    ]
+    assert len(records) == 1
+    record = records[0]
+    assert record.levelno == logging.ERROR
+    assert "ValueError" in record.getMessage()
+    assert "boom-from-plugin" in record.getMessage()
+    assert record.exception_type == "ValueError"
+    assert record.exception_message == "boom-from-plugin"
+    assert record.rewarm is False
+    assert record.lane_id == bundle.lane.lane_id
+    assert record.binding_id == result.binding_id
+    assert record.market_cutoff == bundle.view(0).market_as_of
+    assert record.exc_info is not None

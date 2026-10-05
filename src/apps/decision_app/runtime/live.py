@@ -206,7 +206,7 @@ class DecisionPollResult:
 
     @property
     def clock_waiting(self) -> bool:
-        """Whether this poll is waiting for resolver time to catch up."""
+        """Whether this poll is waiting for the decision clock to catch up."""
 
         return any(
             result.status == "WAITING" and result.reason == _CLOCK_BEHIND_REASON
@@ -461,7 +461,6 @@ class LiveDecisionRuntime:
                 self._mark_series_failure(
                     failure.series_key,
                     failure.reason or "malformed input",
-                    observed_target_market_as_of=failure.market_as_of,
                 )
                 failed_streams.add(stream_key)
 
@@ -516,7 +515,6 @@ class LiveDecisionRuntime:
                         self._mark_series_failure(
                             pending.event.series_key,
                             result.reason or result.disposition,
-                            observed_target_market_as_of=result.market_as_of,
                         )
                         failed_streams.add(stream_key)
                         if _is_forward_canonical_market_gap(result):
@@ -830,7 +828,18 @@ class LiveDecisionRuntime:
                 )
                 return
             evidence.checkpoint_result = checkpoint_result
-            if checkpoint_result not in {"UPDATED", "IDENTICAL"}:
+            if checkpoint_result == "INSERTED":
+                # Startup saved a checkpoint row; its absence now means the
+                # row was lost.  The committed state has just been stored
+                # again, so the lane may continue.
+                _log_best_effort(
+                    "warning",
+                    "decision.lane.checkpoint_reinserted",
+                    lane_id=live_lane.lane_id,
+                    trigger_cutoff=receipt.market_as_of,
+                    generation_id=self._generation_id,
+                )
+            elif checkpoint_result not in {"UPDATED", "IDENTICAL"}:
                 self._halt_lane(
                     live_lane,
                     "HALTED",
@@ -1049,8 +1058,6 @@ class LiveDecisionRuntime:
         self,
         series_key: MarketSeriesKey | None,
         reason: str,
-        *,
-        observed_target_market_as_of: datetime | None = None,
     ) -> None:
         if series_key is None:
             return

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 from math import isfinite
 from typing import Literal
@@ -123,6 +124,18 @@ def signal_idempotency_key(decision_id: str) -> str:
     return sha256_fingerprint(
         {"identity": "decision-signal", "version": "1", "decision_id": decision_id}
     )
+
+
+def signal_stream_key(asset: str, decision_timeframe: str) -> str:
+    """The authoritative signal stream for one asset and decision timeframe."""
+
+    return f"signals:{asset}:{decision_timeframe}"
+
+
+def signal_stream_entry_id(market_as_of: datetime) -> str:
+    """The deterministic stream entry ID for one market cutoff."""
+
+    return f"{int(market_as_of.timestamp() * 1000)}-0"
 
 
 def signal_payload_fingerprint(signal: TradeSignal) -> str:
@@ -317,12 +330,10 @@ def build_signal_envelope(
         model_name=lane.risk_profile_key,
         metadata=metadata,
     )
-    stream_key = f"signals:{lane.asset}:{lane.decision_timeframe}"
-    stream_entry_id = f"{int(result.market_as_of.timestamp() * 1000)}-0"
     return SignalPublicationEnvelope(
         decision_id=result.decision_id,
-        stream_key=stream_key,
-        stream_entry_id=stream_entry_id,
+        stream_key=signal_stream_key(lane.asset, lane.decision_timeframe),
+        stream_entry_id=signal_stream_entry_id(result.market_as_of),
         signal=signal,
         payload_fingerprint=signal_payload_fingerprint(signal),
     )
@@ -359,5 +370,7 @@ __all__ = [
     "build_signal_envelope",
     "signal_idempotency_key",
     "signal_payload_fingerprint",
+    "signal_stream_entry_id",
+    "signal_stream_key",
     "validate_signal_envelope_against",
 ]
