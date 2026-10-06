@@ -161,9 +161,56 @@ def test_skip_table_creation_is_idempotent_and_keeps_the_declared_identity() -> 
     assert "feature_plan_fingerprint," in declaration
     assert "skipped_from" in declaration
     assert (
-        "reason IN ('restart', 'restart_rewarm', 'stale', 'foreign_entry')"
+        "reason text NOT NULL CONSTRAINT lane_effect_skips_reason_check CHECK ("
         in declaration
     )
+    assert (
+        "reason IN ('restart', 'restart_rewarm', 'stale', 'foreign_entry', 'lane_fault')"
+        in declaration
+    )
+
+
+def test_skip_reason_constraint_migration_admits_lane_fault_by_name() -> None:
+    schema = (ROOT / "src/apps/decision_app/storage/schema.sql").read_text()
+    after_table = schema.split(
+        "CREATE TABLE IF NOT EXISTS decision.lane_effect_skips", maxsplit=1
+    )[1]
+    block = after_table.split("DO $$", maxsplit=1)[1].split("$$;", maxsplit=1)[0]
+    assert "conname = 'lane_effect_skips_reason_check'" in block
+    assert "'known decision.lane_effect_skips reason constraint is missing'" in block
+    assert "ILIKE '%lane_fault%' THEN" in block
+    assert "ILIKE '%foreign_entry%'" in block
+    assert "DROP CONSTRAINT lane_effect_skips_reason_check" in block
+    assert "ADD CONSTRAINT lane_effect_skips_reason_check" in block
+    assert "'unsupported decision.lane_effect_skips reason constraint: %'" in block
+
+
+@pytest.mark.asyncio
+async def test_lane_fault_reason_is_accepted_and_unknown_reason_still_rejected() -> (
+    None
+):
+    skip = _skip(3, reason="lane_fault")
+    memory = InMemoryLaneEffectSkipsRepository()
+    assert (await memory.upsert(skip)).reason == "lane_fault"
+
+    connection = _Connection()
+    stored = {
+        "skipped_from": skip.skipped_from,
+        "skipped_through": skip.skipped_through,
+        "cutoff_count": skip.cutoff_count,
+        "reason": "lane_fault",
+        "recorded_at": BASE,
+    }
+
+    async def _stored_row(query: str, *args: object, **_kwargs: object):
+        connection.query = query
+        return stored
+
+    connection.fetchrow = _stored_row  # type: ignore[method-assign]
+    durable = await LaneEffectSkipsRepository(_Pool(connection)).upsert(skip)
+    assert durable.reason == "lane_fault"
+    with pytest.raises(ValueError, match="unsupported lane effect skip reason"):
+        _skip(3, reason="not_a_reason")
 
 
 @pytest.mark.asyncio

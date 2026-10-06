@@ -1276,6 +1276,7 @@ class DecisionStartupCoordinator:
         ):
             raise StartupLaneError("effect progress is ahead of market reconstruction")
         probe_result: Literal["published", "shadow", "foreign_entry"] | None = None
+        accounted_through = first_unaccounted
         recorded_skip = (
             None
             if previous_effect_cutoff is None
@@ -1307,6 +1308,35 @@ class DecisionStartupCoordinator:
                 lane_id=lane.lane_id,
                 cutoff=first_unaccounted.isoformat(),
                 reason=recorded_skip.reason,
+            )
+        elif (
+            recorded_skip is not None
+            and recorded_skip.reason == "lane_fault"
+            and recorded_skip.skipped_from == first_unaccounted
+        ):
+            # Live writes one lane_fault row per quarantined cutoff before it
+            # saves progress, so a crash or a failed save can leave contiguous
+            # rows ahead of progress.  Nothing was published for them; account
+            # through the recorded range without a stream probe or a second
+            # skip row.
+            if recorded_skip.skipped_through > resume_candidate:
+                raise StartupLaneError(
+                    "lane fault skip extends beyond startup resume cutoff"
+                )
+            probe_result = "foreign_entry"
+            accounted_through = recorded_skip.skipped_through
+            effect_progress = await self._save_effect_progress(
+                identity=identity,
+                market_as_of=accounted_through,
+                last_disposition=None,
+            )
+            _log_best_effort(
+                "info",
+                "decision_startup_skip_ledger_reconciled",
+                lane_id=lane.lane_id,
+                cutoff=first_unaccounted.isoformat(),
+                skipped_through=accounted_through.isoformat(),
+                reason="lane_fault",
             )
         elif previous_effect_cutoff != resume_candidate:
             probe_result = await self._probe_effect_entry(
@@ -1509,10 +1539,10 @@ class DecisionStartupCoordinator:
                     )
                 )
                 if probe_result is not None:
-                    skip_start = max(skip_start, first_unaccounted + trigger_duration)
+                    skip_start = max(skip_start, accounted_through + trigger_duration)
                 skip_through = (
                     resume_cutoff - trigger_duration
-                    if probe_result is not None and first_unaccounted == resume_cutoff
+                    if probe_result is not None and accounted_through == resume_cutoff
                     else resume_cutoff
                 )
                 await self._upsert_skip(
@@ -1534,7 +1564,7 @@ class DecisionStartupCoordinator:
         else:
             if current_effect_cutoff is None or current_effect_cutoff < resume_cutoff:
                 if probe_result in {"published", "shadow", "foreign_entry"}:
-                    skip_start = first_unaccounted + trigger_duration
+                    skip_start = accounted_through + trigger_duration
                 else:
                     skip_start = first_unaccounted
                 skip_through = resume_cutoff - trigger_duration

@@ -454,3 +454,38 @@ def test_pipeline_dashboard_is_dynamic_and_matches_decision_surface() -> None:
     assert "decision_input_closed_interval_lag" in serialized
     assert "decision_input_market_latency_ms" in serialized
     assert "decision_input_canonical_event_latency_ms" in serialized
+
+
+def test_lane_fault_skip_reason_is_recorded_and_quarantined_state_is_emitted() -> None:
+    meter = _Meter()
+    observation = DecisionObservability(
+        meter=meter,
+        timeframe_grid=TimeframeGrid(
+            alignment_origin=BASE,
+            durations={"1h": timedelta(hours=1)},
+        ),
+        now_fn=lambda: BASE + timedelta(hours=2),
+    )
+    observation.record_lane_skip(lane_id="BTCUSDT:momentum_1h", reason="lane_fault")
+    ((_value, attributes),) = meter.instruments["decision.lane.skip_total"].adds
+    assert attributes == {"lane": "BTCUSDT:momentum_1h", "reason": "lane_fault"}
+
+    btc = MarketSeriesKey(
+        asset="BTCUSDT", venue="binance", instrument_id="BTCUSDT", timeframe="1h"
+    )
+    runtime = _runtime(
+        btc,
+        lane_id="BTCUSDT:momentum_1h",
+        lane_timeframe="1h",
+        latest_input=BASE,
+        latest_watermark=BASE,
+    )
+    runtime.lanes["BTCUSDT:momentum_1h"].status = "QUARANTINED"
+    observation.replace_generation(runtime=runtime, input_series={btc: object()})
+    observation.refresh_runtime(runtime)
+    states = [
+        item
+        for item in _observations(meter, "decision.lane.state")
+        if dict(item.attributes)["state"] == "QUARANTINED"
+    ]
+    assert len(states) == 1 and states[0].value == 1

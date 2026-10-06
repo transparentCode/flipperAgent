@@ -595,10 +595,20 @@ class DecisionService:
                 status_counts[status] = status_counts.get(status, 0) + 1
                 watermark = lane.finalizer.watermark
                 last_result = self._last_lane_transactions.get(lane_id)
+                quarantine = getattr(lane, "quarantine", None)
                 lanes[lane_id] = {
                     "lane_id": lane_id,
                     "status": status,
                     "reason": lane.reason,
+                    "quarantine": None
+                    if quarantine is None
+                    else {
+                        "reason": quarantine.reason,
+                        "fault_cutoff": quarantine.fault_cutoff,
+                        "entered_at": quarantine.entered_at,
+                        "accounted_through": quarantine.accounted_through,
+                        "rebuild_required": quarantine.rebuild_required,
+                    },
                     "pending_trigger_cutoff": lane.pending_trigger_cutoff,
                     "watermark": {
                         "latest_market_as_of": watermark.latest_market_as_of,
@@ -1253,6 +1263,13 @@ class DecisionService:
             and item.reason == FORWARD_CANONICAL_MARKET_GAP_REASON
             for item in result.input_results
         )
+        quarantined = any(
+            item.status == "QUARANTINED" for item in result.lane_results.values()
+        )
+        quarantine_rebuild = any(
+            item.status == "QUARANTINED" and item.rebuild_required
+            for item in result.lane_results.values()
+        )
         if hard_failure:
             if self._service_state not in _CONTROL_STATES:
                 self._service_state = "DEGRADED"
@@ -1282,6 +1299,20 @@ class DecisionService:
             self._market_error = "D9B reported reconstruction required"
             self._last_error = self._market_error
             self._schedule_automatic_recovery(self._market_error)
+        elif quarantine_rebuild:
+            if self._service_state not in _CONTROL_STATES:
+                self._service_state = "DEGRADED"
+            self._market_error = (
+                "D9B quarantined a stateful lane; generation re-warm required"
+            )
+            self._last_error = self._market_error
+            self._schedule_automatic_recovery(self._market_error)
+        elif quarantined and self._service_state not in _CONTROL_STATES:
+            # Lane-local fault: only that lane is out of service, so no
+            # generation rebuild is requested.
+            self._service_state = "DEGRADED"
+            self._market_error = "D9B quarantined one or more lanes"
+            self._last_error = self._lifecycle_error or self._market_error
         else:
             if self._service_state not in _CONTROL_STATES:
                 self._market_error = None
@@ -1385,6 +1416,7 @@ class DecisionService:
             )
             or any(
                 item.status in {"RECONSTRUCTION_REQUIRED", "INVALID", "HALTED"}
+                or (item.status == "QUARANTINED" and item.rebuild_required)
                 for item in result.lane_results.values()
             )
         )

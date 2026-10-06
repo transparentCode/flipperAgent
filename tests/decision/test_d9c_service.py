@@ -2654,3 +2654,109 @@ async def test_cancelled_cleanup_retains_child_in_finite_owner_set() -> None:
     await task
     await asyncio.sleep(0)
     assert task not in retained
+
+
+def _quarantine_result(*, rebuild_required: bool) -> DecisionPollResult:
+    return DecisionPollResult(
+        input_results=(),
+        lane_results={
+            "bad": LanePollResult(
+                lane_id="bad",
+                status="QUARANTINED",
+                reason="model preparation failed: boom",
+                rebuild_required=rebuild_required,
+            ),
+            "good": LanePollResult(lane_id="good", status="LIVE"),
+        },
+        cursors={},
+    )
+
+
+@pytest.mark.asyncio
+async def test_stateless_quarantine_degrades_service_without_generation_rebuild() -> (
+    None
+):
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        return _generation(generation_id, _Runtime())
+
+    service = DecisionService(generation_factory=factory, now_fn=lambda: NOW)
+    await service.start()
+    result = _quarantine_result(rebuild_required=False)
+    service._classify_poll_result(result)
+
+    assert service.service_state == "DEGRADED"
+    assert service._rebuild_requested is False
+    assert service.snapshot().last_error == "D9B quarantined one or more lanes"
+    assert DecisionService._poll_is_clean(result) is True
+    # The state is sticky across later polls that still report the lane.
+    service._classify_poll_result(result)
+    assert service.service_state == "DEGRADED"
+    assert service.generation is not None and service.generation.generation_id == 1
+    await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_stateful_quarantine_requests_automatic_recovery() -> None:
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        return _generation(generation_id, _Runtime())
+
+    service = DecisionService(generation_factory=factory, now_fn=lambda: NOW)
+    await service.start()
+    result = _quarantine_result(rebuild_required=True)
+    service._classify_poll_result(result)
+
+    assert service.service_state == "DEGRADED"
+    assert service._rebuild_requested is True
+    assert service._rebuild_source == "AUTOMATIC_RECOVERY"
+    assert service._rebuild_due_at == NOW + timedelta(seconds=5)
+    assert DecisionService._poll_is_clean(result) is False
+    await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_snapshot_exposes_lane_quarantine_record() -> None:
+    entered = NOW - timedelta(minutes=2)
+    quarantine = SimpleNamespace(
+        reason="policy evaluation failed: boom",
+        fault_cutoff=NOW - timedelta(hours=1),
+        entered_at=entered,
+        accounted_through=NOW - timedelta(hours=1),
+        rebuild_required=False,
+    )
+    runtime = _Runtime()
+    runtime.lanes = {
+        "bad": SimpleNamespace(
+            status="QUARANTINED",
+            reason=quarantine.reason,
+            quarantine=quarantine,
+            pending_trigger_cutoff=None,
+            finalizer=SimpleNamespace(watermark=LaneCommitWatermark(lane_id="bad")),
+        ),
+        "good": SimpleNamespace(
+            status="LIVE",
+            reason=None,
+            pending_trigger_cutoff=None,
+            finalizer=SimpleNamespace(watermark=LaneCommitWatermark(lane_id="good")),
+        ),
+    }
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        return _generation(generation_id, runtime)
+
+    service = DecisionService(generation_factory=factory, now_fn=lambda: NOW)
+    await service.start()
+    snapshot = service.snapshot()
+
+    assert snapshot.lane_status_counts["QUARANTINED"] == 1
+    assert snapshot.lanes["bad"]["quarantine"] == {
+        "reason": quarantine.reason,
+        "fault_cutoff": quarantine.fault_cutoff,
+        "entered_at": entered,
+        "accounted_through": quarantine.accounted_through,
+        "rebuild_required": False,
+    }
+    assert snapshot.lanes["good"]["quarantine"] is None
+    await service.stop()

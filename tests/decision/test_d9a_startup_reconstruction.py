@@ -52,6 +52,17 @@ from libs.contracts.decision import (
     ModelRequestContext,
     ModelSpec,
 )
+from tests.decision.test_d9b_live_runtime import (
+    _ledger_row,
+    _rows_from_bar,
+    _signal_bar,
+    _signal_coordinator,
+    _signal_history,
+    _signal_stream,
+    _stateful_seed,
+    _stateful_signal_coordinator,
+    _stateless_seed,
+)
 
 BASE = datetime(2026, 1, 5, tzinfo=UTC)
 GRID = TimeframeGrid(
@@ -1049,3 +1060,131 @@ async def test_mixed_timeframe_pre_replay_gap_blocks_without_shortening_inceptio
     assert evidence.status == "BLOCKED"
     assert not result.runtimes
     assert not result.snapshot.lane_watermarks
+
+
+# --- DA-3a startup reconciliation of lane_fault rows -----------------------
+
+
+async def _lane_fault_stateless_seed(*, through: int):
+    # Progress at bar 2 and one lane_fault row spanning bar 3..through.
+    return await _stateless_seed("lane_fault", ledger_through=through)
+
+
+@pytest.mark.asyncio
+async def test_startup_accounts_lane_fault_range_without_probe_or_restart_row() -> None:
+    identity, progress, skips = await _lane_fault_stateless_seed(through=5)
+    stream = _signal_stream(6)
+
+    startup = await _signal_coordinator(
+        _signal_history(7),
+        stream,
+        authority="shadow",
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+
+    saved = await progress.load(identity)
+    assert startup.snapshot.status == "STARTUP_READY"
+    assert saved is not None and saved.market_as_of == _signal_bar(5).market_as_of
+    assert saved.last_disposition is None
+    assert startup.snapshot.lane_evidence["BTCUSDT:main"].pending_trigger_cutoff == (
+        _signal_bar(6).market_as_of
+    )
+    assert _rows_from_bar(skips, 3) == [
+        ("lane_fault", _signal_bar(3).market_as_of, _signal_bar(5).market_as_of)
+    ]
+    assert stream.xrange_calls == []
+
+
+@pytest.mark.asyncio
+async def test_startup_skips_forward_after_lane_fault_range_with_restart_row() -> None:
+    identity, progress, skips = await _lane_fault_stateless_seed(through=5)
+    stream = _signal_stream(8)
+
+    startup = await _signal_coordinator(
+        _signal_history(9),
+        stream,
+        authority="shadow",
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+
+    saved = await progress.load(identity)
+    assert startup.snapshot.status == "STARTUP_READY"
+    assert saved is not None and saved.market_as_of == _signal_bar(7).market_as_of
+    assert startup.snapshot.lane_evidence["BTCUSDT:main"].pending_trigger_cutoff == (
+        _signal_bar(8).market_as_of
+    )
+    assert _rows_from_bar(skips, 3) == [
+        ("lane_fault", _signal_bar(3).market_as_of, _signal_bar(5).market_as_of),
+        ("restart", _signal_bar(6).market_as_of, _signal_bar(7).market_as_of),
+    ]
+    assert stream.xrange_calls == []
+
+
+@pytest.mark.asyncio
+async def test_startup_rewarms_stateful_lane_after_lane_fault_range() -> None:
+    identity, checkpoints, progress, skips = await _stateful_seed(None)
+    await skips.upsert(_ledger_row(identity, 3, "lane_fault", through=5))
+    stream = _signal_stream(7)
+
+    startup = await _stateful_signal_coordinator(
+        _signal_history(8),
+        stream,
+        checkpoint_repository=checkpoints,
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+
+    saved = await progress.load(identity)
+    assert startup.snapshot.status == "STARTUP_READY"
+    assert saved is not None and saved.market_as_of == _signal_bar(7).market_as_of
+    assert _rows_from_bar(skips, 3) == [
+        ("lane_fault", _signal_bar(3).market_as_of, _signal_bar(5).market_as_of),
+        ("restart_rewarm", _signal_bar(6).market_as_of, _signal_bar(7).market_as_of),
+    ]
+    assert stream.xrange_calls == []
+
+
+@pytest.mark.asyncio
+async def test_startup_blocks_lane_fault_range_past_the_resume_cutoff() -> None:
+    identity, progress, skips = await _lane_fault_stateless_seed(through=8)
+    stream = _signal_stream(5)
+
+    startup = await _signal_coordinator(
+        _signal_history(6),
+        stream,
+        authority="shadow",
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+
+    assert startup.snapshot.status == "STARTUP_BLOCKED"
+    assert "lane fault skip extends beyond startup resume cutoff" in str(
+        startup.snapshot
+    )
+    assert (await progress.load(identity)).market_as_of == _signal_bar(2).market_as_of
+    assert stream.xrange_calls == []
+
+
+@pytest.mark.asyncio
+async def test_lane_fault_row_left_ahead_of_progress_recovers_on_restart() -> None:
+    identity, progress, skips = await _stateless_seed("lane_fault")
+    stream = _signal_stream(3)
+
+    startup = await _signal_coordinator(
+        _signal_history(5),
+        stream,
+        authority="shadow",
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+
+    saved = await progress.load(identity)
+    assert startup.snapshot.status == "STARTUP_READY"
+    assert saved is not None and saved.market_as_of == _signal_bar(3).market_as_of
+    assert startup.snapshot.lane_evidence["BTCUSDT:main"].pending_trigger_cutoff == (
+        _signal_bar(4).market_as_of
+    )
+    assert len(skips.records) == 1 and skips.records[0].reason == "lane_fault"
+    assert stream.xrange_calls == []

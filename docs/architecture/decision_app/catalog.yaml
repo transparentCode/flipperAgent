@@ -75,8 +75,8 @@ components:
       conflict detection.
   - name: lane_effect_skips
     role: >-
-      Append-only durable ranges for stale results, restart skip-forward, and
-      foreign exact-ID entries; latest effect progress remains compact.
+      Append-only durable ranges for stale results, restart skip-forward,
+      foreign exact-ID entries, and lane-fault quarantine cutoffs; latest effect progress remains compact.
 
 progress:
   input_read_cursor: >-

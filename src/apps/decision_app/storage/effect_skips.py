@@ -20,6 +20,7 @@ LaneEffectSkipReason = Literal[
     "restart_rewarm",
     "stale",
     "foreign_entry",
+    "lane_fault",
 ]
 
 
@@ -54,6 +55,7 @@ class LaneEffectSkip:
             "restart_rewarm",
             "stale",
             "foreign_entry",
+            "lane_fault",
         }:
             raise ValueError("unsupported lane effect skip reason")
         if self.recorded_at is not None:

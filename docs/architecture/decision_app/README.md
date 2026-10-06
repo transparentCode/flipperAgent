@@ -146,6 +146,14 @@ schedules generation-level `AUTOMATIC_RECOVERY` for blocked startup lanes; it
 does not make the whole ASGI lifespan fail. First-generation static plan/config
 errors and resource-construction failures remain fatal.
 
+A lane-local fault (model preparation, policy evaluation or verdict, stale
+finalization, pre-publication failure) sets that lane to `QUARANTINED` without a
+generation rebuild: each missed cutoff is recorded as a `lane_fault` skip and
+advances progress, the service is `DEGRADED`, and `/runtime/lanes` reports a
+`quarantine` object (`reason`, `fault_cutoff`, `entered_at`, `accounted_through`,
+`rebuild_required`) for the lane. A stateless lane rejoins on the next generation
+build; a stateful lane also requests `AUTOMATIC_RECOVERY`.
+
 Generic lane-level `RECONSTRUCTION_REQUIRED` remains lane-local and degraded;
 malformed/conflicting input and halted/invalid lanes remain fail-closed. A proven
 direct-cursor retention gap is distinct: only an input result with disposition
@@ -167,7 +175,9 @@ if it passes the freshness gate. Stateful lanes rewarm every required transition
 through `R` with publication suppressed, record a `restart_rewarm` range, then
 resume at the next trigger. Skip reasons and ranges are stored in the append-only
 `decision.lane_effect_skips` table; latest effect progress remains one row per
-lane and uses NULL disposition for skipped work.
+lane and uses NULL disposition for skipped work. Cutoffs missed by a quarantined
+lane are recorded as single-cutoff `lane_fault` rows, and startup accounts a
+`lane_fault` row left ahead of progress without a probe.
 
 Readiness remains degraded-ready while at least one configured lane is live.
 When the service is running with one or more configured lanes but no lane has
@@ -349,7 +359,8 @@ not trigger that automatic global rebuild. A full process restart reconstructs
 state and resumes input reading; it does not replay stale historical trading
 decisions from a persistent PEL. A matching exact-ID entry reconciles the
 in-flight effect; an entry owned by an older execution identity is recorded as a
-`foreign_entry` skip. Stateless skipped cutoffs use `restart`; stateful
+`foreign_entry` skip. A quarantined lane's missed cutoffs use `lane_fault`.
+Stateless skipped cutoffs use `restart`; stateful
 publication-free reconstruction uses `restart_rewarm`. The skip trail is
 append-only in `decision.lane_effect_skips`, while latest effect progress remains
 compact.

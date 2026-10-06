@@ -387,6 +387,16 @@ class LaneFinalizer:
             reason=reason,
         )
 
+    def record_lane_fault_skip(self, market_as_of: datetime) -> LaneCommitWatermark:
+        """Advance the watermark past a cutoff skipped because the lane is quarantined."""
+
+        require_utc(market_as_of, field_name="market_as_of")
+        latest = self._watermark.latest_market_as_of
+        if latest is not None and market_as_of <= latest:
+            raise FinalizationError("lane fault skip does not advance watermark")
+        self._advance_watermark(market_as_of, "skipped")
+        return self._watermark
+
     def _preflight(
         self,
         prepared: PreparedLaneExecution,

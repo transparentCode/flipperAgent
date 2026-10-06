@@ -96,6 +96,23 @@ and the fence cannot be lifted in-process, so the service enters a terminal
 readiness reports `dependency_poisoned` (`fenced_reason` in `/runtime`). Recovery
 is a process restart. User-approved 2026-10-06 ("Visible, stop retrying").
 
+DA-3 amendment (user-approved 2026-10-06). Lane-local faults quarantine only
+that lane and do not rebuild the generation. These are model preparation,
+policy evaluation or a BLOCKED/INVALID policy verdict, stale finalization, and
+pre-publication failures (missing publisher, envelope build, preflight,
+`finalize_no_signal`). The lane takes the status `QUARANTINED`. Each cutoff it
+then misses is recorded as a single-cutoff `lane_fault` skip row, advances lane
+effect progress and the finalizer watermark (disposition `skipped`), and the lane
+is not evaluated again. A stateless quarantined lane rejoins on the next
+generation build, whatever requests it; a stateful lane also requests
+`AUTOMATIC_RECOVERY` so its state is re-warmed. Shared faults (overtaken pending
+cutoff, fatal context, market-view failure, series failure, input dispositions),
+publish-uncertain faults (the publisher was called) and post-commit durability
+faults keep generation recovery. The service is `DEGRADED` while any lane is
+quarantined. Rejoin skips forward: a failed cutoff is never re-evaluated. If
+`lane_fault` accounting itself fails, the lane is HALTED for generation recovery.
+Automatic per-lane retry is deferred (DA-3b).
+
 ### Readiness measures live-lane availability
 
 The service remains ready while its existing generation/service-state contract

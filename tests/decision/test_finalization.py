@@ -413,3 +413,30 @@ async def test_finalization_receipt_rejects_contradictory_committed_evidence() -
             state_commit_receipt=receipt.state_commit_receipt,
             envelope=receipt.envelope,
         )
+
+
+@pytest.mark.asyncio
+async def test_record_lane_fault_skip_advances_watermark_as_skipped() -> None:
+    from datetime import UTC, datetime
+
+    from apps.decision_app.domain.contracts import LaneCommitWatermark
+
+    bundle, _view, _prepared, _evaluation = await _prepared_signal()
+    finalizer = LaneFinalizer(bundle.lane, bundle.runtime)
+    first = datetime(2026, 2, 1, 3, tzinfo=UTC)
+
+    watermark = finalizer.record_lane_fault_skip(first)
+    assert isinstance(watermark, LaneCommitWatermark)
+    assert watermark == finalizer.watermark
+    assert watermark.latest_market_as_of == first
+    assert watermark.last_disposition == "skipped"
+
+    for stale in (first, first - timedelta(hours=1)):
+        with pytest.raises(FinalizationError, match="does not advance watermark"):
+            finalizer.record_lane_fault_skip(stale)
+    with pytest.raises(ValueError):
+        finalizer.record_lane_fault_skip(datetime(2026, 2, 1, 5))  # noqa: DTZ001
+    assert finalizer.watermark.latest_market_as_of == first
+    assert finalizer.record_lane_fault_skip(
+        first + timedelta(hours=1)
+    ).latest_market_as_of == (first + timedelta(hours=1))

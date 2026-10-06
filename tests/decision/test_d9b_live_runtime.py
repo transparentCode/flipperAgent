@@ -26,6 +26,7 @@ from apps.decision_app.runtime.plugins import (
     RuntimePluginDefinition,
     StateInitializationRequirement,
 )
+from apps.decision_app.runtime.policy import DecisionPolicyEvaluation
 from apps.decision_app.runtime.startup import DecisionStartupCoordinator
 from apps.decision_app.settings import (
     CanonicalInstrument,
@@ -594,31 +595,42 @@ def _sr_config() -> DecisionConfig:
     )
 
 
-def _signal_config(*, authority: str = "authoritative") -> DecisionConfig:
-    lane = DecisionLaneSettings(
-        decision_timeframe="1h",
-        trigger_timeframe="1h",
-        trigger_mode="on_bar_close",
-        authority=authority,
-        risk_profile_key="test-risk" if authority == "authoritative" else None,
-        policy=DecisionPolicySettings(
-            name="passthrough",
-            version="1",
-            parameters={"source_slot": "decision"},
-        ),
-        bindings={
-            "decision": {
-                "plugin": "test-decision",
-                "version": "1",
-            }
-        },
-    )
+def _signal_config(
+    *, authority: str = "authoritative", lane_names: tuple[str, ...] = ("main",)
+) -> DecisionConfig:
+    def make_lane(lane_authority: str) -> DecisionLaneSettings:
+        return DecisionLaneSettings(
+            decision_timeframe="1h",
+            trigger_timeframe="1h",
+            trigger_mode="on_bar_close",
+            authority=lane_authority,
+            risk_profile_key=(
+                "test-risk" if lane_authority == "authoritative" else None
+            ),
+            policy=DecisionPolicySettings(
+                name="passthrough",
+                version="1",
+                parameters={"source_slot": "decision"},
+            ),
+            bindings={
+                "decision": {
+                    "plugin": "test-decision",
+                    "version": "1",
+                }
+            },
+        )
+
     asset = DecisionAssetSettings(
         manifest_asset="BTC",
         decision_asset="BTCUSDT",
         venue="binance",
         instrument_id="BTC-USDT-PERP",
-        lanes={"main": lane},
+        # The first lane takes ``authority``; extra lanes are shadow lanes
+        # because only one authoritative lane may own a route.
+        lanes={
+            name: make_lane(authority if index == 0 else "shadow")
+            for index, name in enumerate(lane_names)
+        },
     )
     return DecisionConfig(
         global_settings=DecisionGlobalSettings(),
@@ -643,6 +655,7 @@ def _signal_coordinator(
     effect_progress_repository: InMemoryLaneEffectProgressRepository | None = None,
     effect_skips_repository: InMemoryLaneEffectSkipsRepository | None = None,
     history_capacity: int | None = None,
+    lane_names: tuple[str, ...] = ("main",),
 ) -> DecisionStartupCoordinator:
     if history_capacity is None:
         plugin_spec = SIGNAL_SPEC
@@ -672,7 +685,7 @@ def _signal_coordinator(
         )
         plugin_factory = lambda _parameters: _HistorySignalPlugin()
     return DecisionStartupCoordinator(
-        decision_config=_signal_config(authority=authority),
+        decision_config=_signal_config(authority=authority, lane_names=lane_names),
         plugin_catalog=PluginCatalog([plugin_spec]),
         feature_catalog=feature_catalog,
         feature_policy=feature_policy,
@@ -2192,7 +2205,7 @@ async def test_shadow_preflight_failure_never_calls_publisher(monkeypatch) -> No
     stream.pending.append(("3-0", _signal_fields(3)))
     result = await runtime.poll_once()
 
-    assert result.lane_results["BTCUSDT:main"].status == "HALTED"
+    assert result.lane_results["BTCUSDT:main"].status == "QUARANTINED"
     assert publisher_client.xadd_calls == 0
     assert not publisher_client.entries
 
@@ -2217,16 +2230,26 @@ async def test_shadow_lane_without_shadow_publisher_fails_closed() -> None:
         history_repository=history,
         now_fn=lambda: _signal_bar(2).market_as_of + timedelta(seconds=300),
     )
-    baseline_watermark = runtime.lanes["BTCUSDT:main"].finalizer.watermark
     stream.pending.append(("3-0", _signal_fields(3)))
     result = await runtime.poll_once()
     lane = result.lane_results["BTCUSDT:main"]
+    watermark = runtime.lanes["BTCUSDT:main"].finalizer.watermark
 
-    assert lane.status == "HALTED"
-    assert lane.publication_outcome is None
+    assert lane.status == "QUARANTINED"
+    assert lane.publication_outcome == "SKIPPED_LANE_FAULT"
     assert lane.finalization_status is None
-    assert runtime.lanes["BTCUSDT:main"].finalizer.watermark == baseline_watermark
-    assert baseline_watermark.last_disposition is None
+    assert watermark.latest_market_as_of == _signal_bar(3).market_as_of
+    assert watermark.last_disposition == "skipped"
+    # A fresh lane also evaluates its startup cutoff (bar 2) in this poll, so
+    # both cutoffs are accounted as contiguous single-cutoff lane_fault rows.
+    assert [
+        (r.skipped_from, r.skipped_through)
+        for r in runtime._effect_skips.records
+        if r.reason == "lane_fault"
+    ] == [
+        (_signal_bar(2).market_as_of, _signal_bar(2).market_as_of),
+        (_signal_bar(3).market_as_of, _signal_bar(3).market_as_of),
+    ]
 
 
 @pytest.mark.asyncio
@@ -3063,13 +3086,286 @@ async def test_policy_failure_aborts_unresolved_state_proposal() -> None:
     result = await runtime.poll_once()
 
     lane = result.lane_results["BTCUSDT:main"]
-    assert lane.status == "INVALID"
+    assert lane.status == "QUARANTINED"
+    assert lane.rebuild_required is True
     assert "policy boundary failed" in (lane.reason or "")
+    assert [
+        r.reason for r in runtime._effect_skips.records if r.reason == "lane_fault"
+    ] == ["lane_fault"]
     assert runtime.lanes["BTCUSDT:main"].runtime.pending_state_execution is None
     binding_id = next(iter(startup.runtimes.values())).stateful_binding_ids[0]
     state = runtime.lanes["BTCUSDT:main"].runtime.state_store.get(binding_id)
     assert state.health == "DEGRADED"
     assert state.committed_market_as_of == sr_bar(49).market_as_of
-    assert runtime.lanes["BTCUSDT:main"].finalizer.watermark.latest_market_as_of == (
-        sr_bar(49).market_as_of
+    # The faulted cutoff is accounted as a skip, so the watermark moves past
+    # it while the committed state stays at the last good cutoff until the
+    # generation re-warm that rebuild_required asks for.
+    watermark = runtime.lanes["BTCUSDT:main"].finalizer.watermark
+    assert watermark.latest_market_as_of == sr_bar(50).market_as_of
+    assert watermark.last_disposition == "skipped"
+
+
+# ---------------------------------------------------------------------------
+# DA-3a lane quarantine
+# ---------------------------------------------------------------------------
+
+
+class _RaisingSkips(InMemoryLaneEffectSkipsRepository):
+    async def upsert(self, skip: LaneEffectSkip) -> LaneEffectSkip:
+        raise RuntimeError("skip store unavailable")
+
+
+class _SwitchableProgress(InMemoryLaneEffectProgressRepository):
+    def __init__(self) -> None:
+        super().__init__()
+        self.fail = False
+
+    async def save(self, progress: LaneEffectProgress):
+        if self.fail:
+            raise RuntimeError("progress store unavailable")
+        return await super().save(progress)
+
+
+class _BlockedPolicy:
+    def __init__(self, status: str, reason: str | None) -> None:
+        self.status = status
+        self.reason = reason
+
+    def evaluate(self, *args: object, **kwargs: object) -> DecisionPolicyEvaluation:
+        del args, kwargs
+        return DecisionPolicyEvaluation(status=self.status, reason=self.reason)  # type: ignore[arg-type]
+
+
+async def _quarantine_runtime(
+    *,
+    lane_names: tuple[str, ...] = ("main",),
+    authority: str = "authoritative",
+    with_publisher: bool = True,
+    skips: InMemoryLaneEffectSkipsRepository | None = None,
+    progress: InMemoryLaneEffectProgressRepository | None = None,
+):
+    history = _signal_history(3)
+    stream = _signal_stream(2)
+    progress = InMemoryLaneEffectProgressRepository() if progress is None else progress
+    skips = InMemoryLaneEffectSkipsRepository() if skips is None else skips
+    coordinator_kwargs = {
+        "authority": authority,
+        "effect_progress_repository": progress,
+        "effect_skips_repository": skips,
+        "lane_names": lane_names,
+    }
+    seeding = await _signal_coordinator(history, stream, **coordinator_kwargs).start()
+    # Seed every lane at the startup cutoff so the first live trigger is the
+    # only pending cutoff (a fresh lane would also evaluate a startup cutoff).
+    for lane_runtime in seeding.runtimes.values():
+        await progress.save(
+            LaneEffectProgress.create(
+                identity=lane_runtime.identity,
+                market_as_of=_signal_bar(2).market_as_of,
+                last_disposition=None,
+            )
+        )
+    startup = await _signal_coordinator(history, stream, **coordinator_kwargs).start()
+    client = _IsolatedSignalClient()
+    clock = [_signal_bar(3).market_as_of + timedelta(seconds=300)]
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        signal_publisher=ValkeySignalPublisher(client) if with_publisher else None,
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+        now_fn=lambda: clock[0],
     )
+    return runtime, stream, progress, skips, client, clock
+
+
+def _fail_prepare(live_lane, calls: list[datetime]) -> None:
+    async def prepare_live(view):
+        calls.append(view.market_as_of)
+        raise RuntimeError("model blew up")
+
+    live_lane.runtime.prepare_live = prepare_live
+
+
+def _lane_fault_rows(skips: InMemoryLaneEffectSkipsRepository):
+    return [
+        (r.skipped_from, r.skipped_through, r.cutoff_count)
+        for r in skips.records
+        if r.reason == "lane_fault"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_model_preparation_fault_quarantines_stateless_lane_and_accounts_cutoff() -> (
+    None
+):
+    runtime, stream, progress, skips, client, _clock = await _quarantine_runtime()
+    live_lane = runtime.lanes["BTCUSDT:main"]
+    calls: list[datetime] = []
+    _fail_prepare(live_lane, calls)
+
+    stream.pending.append(("3-0", _signal_fields(3)))
+    result = await runtime.poll_once()
+    lane = result.lane_results["BTCUSDT:main"]
+    cutoff = _signal_bar(3).market_as_of
+
+    assert lane.status == "QUARANTINED"
+    assert lane.rebuild_required is False
+    assert (lane.reason or "").startswith("model preparation failed:")
+    assert lane.publication_outcome == "SKIPPED_LANE_FAULT"
+    assert _lane_fault_rows(skips) == [(cutoff, cutoff, 1)]
+    saved = await progress.load(live_lane.identity)
+    assert saved is not None
+    assert saved.market_as_of == cutoff and saved.last_disposition is None
+    assert live_lane.finalizer.watermark.latest_market_as_of == cutoff
+    assert live_lane.finalizer.watermark.last_disposition == "skipped"
+    assert live_lane.pending_trigger_cutoff is None
+    assert live_lane.quarantine.accounted_through == cutoff
+    assert client.xadd_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_quarantined_lane_accounts_each_later_cutoff_without_touching_healthy_lane() -> (
+    None
+):
+    runtime, stream, progress, skips, client, clock = await _quarantine_runtime(
+        lane_names=("main", "aux")
+    )
+    faulty = runtime.lanes["BTCUSDT:aux"]
+    calls: list[datetime] = []
+    _fail_prepare(faulty, calls)
+
+    for index in (3, 4, 5):
+        clock[0] = _signal_bar(index).market_as_of + timedelta(seconds=300)
+        stream.pending.append((f"{index}-0", _signal_fields(index)))
+        result = await runtime.poll_once()
+        assert result.lane_results["BTCUSDT:main"].status == "LIVE"
+        assert result.lane_results["BTCUSDT:main"].publication_outcome == "PUBLISHED"
+        assert result.lane_results["BTCUSDT:aux"].status == "QUARANTINED"
+
+    bars = [_signal_bar(index).market_as_of for index in (3, 4, 5)]
+    assert _lane_fault_rows(skips) == [(bar, bar, 1) for bar in bars]
+    saved = await progress.load(faulty.identity)
+    assert saved is not None and saved.market_as_of == bars[-1]
+    assert calls == [bars[0]]
+    healthy = await progress.load(runtime.lanes["BTCUSDT:main"].identity)
+    assert healthy is not None and healthy.market_as_of == bars[-1]
+    published = [
+        entry_id for entries in client.entries.values() for entry_id in entries
+    ]
+    assert len(published) == 3 and len(set(published)) == 3
+
+
+@pytest.mark.asyncio
+async def test_pre_publication_fault_quarantines_but_publisher_fault_halts() -> None:
+    runtime, stream, _progress, skips, _client, _clock = await _quarantine_runtime(
+        with_publisher=False
+    )
+    stream.pending.append(("3-0", _signal_fields(3)))
+    result = await runtime.poll_once()
+    lane = result.lane_results["BTCUSDT:main"]
+    assert lane.status == "QUARANTINED"
+    assert lane.reason == "live finalization failed: SIGNAL requires a signal publisher"
+    assert len(_lane_fault_rows(skips)) == 1
+
+    (
+        halted_runtime,
+        halted_stream,
+        _p,
+        halted_skips,
+        _c,
+        _k,
+    ) = await _quarantine_runtime()
+    halted_runtime._publisher = _RaisingPublisher()
+    halted_stream.pending.append(("3-0", _signal_fields(3)))
+    halted = await halted_runtime.poll_once()
+    assert halted.lane_results["BTCUSDT:main"].status == "HALTED"
+    assert _lane_fault_rows(halted_skips) == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("status", "reason"), [("BLOCKED", "policy blocked it"), ("INVALID", None)]
+)
+async def test_policy_verdict_blocked_or_invalid_quarantines_lane(
+    status: str, reason: str | None
+) -> None:
+    runtime, stream, _progress, skips, _client, _clock = await _quarantine_runtime()
+    runtime._policy = _BlockedPolicy(status, reason)
+    stream.pending.append(("3-0", _signal_fields(3)))
+
+    lane = (await runtime.poll_once()).lane_results["BTCUSDT:main"]
+
+    assert lane.status == "QUARANTINED"
+    assert lane.reason == (reason or status)
+    assert lane.policy_status == status
+    assert lane.finalization_status == "ABORTED"
+    assert len(_lane_fault_rows(skips)) == 1
+
+
+@pytest.mark.asyncio
+async def test_policy_evaluation_failure_quarantines_stateless_lane() -> None:
+    runtime, stream, _progress, skips, _client, _clock = await _quarantine_runtime()
+    runtime._policy = _RaisingPolicy()
+    stream.pending.append(("3-0", _signal_fields(3)))
+
+    lane = (await runtime.poll_once()).lane_results["BTCUSDT:main"]
+
+    assert lane.status == "QUARANTINED"
+    assert lane.rebuild_required is False
+    assert "policy boundary failed" in (lane.reason or "")
+    assert len(_lane_fault_rows(skips)) == 1
+
+
+@pytest.mark.asyncio
+async def test_lane_fault_accounting_failure_halts_for_generation_recovery() -> None:
+    runtime, stream, _p, _s, _c, _k = await _quarantine_runtime(skips=_RaisingSkips())
+    _fail_prepare(runtime.lanes["BTCUSDT:main"], [])
+    stream.pending.append(("3-0", _signal_fields(3)))
+    lane = (await runtime.poll_once()).lane_results["BTCUSDT:main"]
+    assert lane.status == "HALTED"
+    assert (lane.reason or "").startswith("lane fault accounting failed:")
+    assert lane.rebuild_required is False
+    assert runtime.lanes["BTCUSDT:main"].quarantine is not None
+
+    progress = _SwitchableProgress()
+    runtime2, stream2, _p2, skips2, _c2, _k2 = await _quarantine_runtime(
+        progress=progress
+    )
+    progress.fail = True
+    _fail_prepare(runtime2.lanes["BTCUSDT:main"], [])
+    stream2.pending.append(("3-0", _signal_fields(3)))
+    lane2 = (await runtime2.poll_once()).lane_results["BTCUSDT:main"]
+    assert lane2.status == "HALTED"
+    assert (lane2.reason or "").startswith("lane fault accounting failed:")
+    assert len(_lane_fault_rows(skips2)) == 1
+    assert (
+        runtime2.lanes["BTCUSDT:main"].finalizer.watermark.latest_market_as_of
+        == _signal_bar(2).market_as_of
+    )
+
+
+@pytest.mark.asyncio
+async def test_shared_faults_keep_generation_scoped_status() -> None:
+    runtime, stream, _p, skips, _c, _k = await _quarantine_runtime()
+
+    def broken_build(*args: object, **kwargs: object):
+        raise RuntimeError("view exploded")
+
+    runtime._view_builder.build = broken_build  # type: ignore[method-assign]
+    stream.pending.append(("3-0", _signal_fields(3)))
+    lane = (await runtime.poll_once()).lane_results["BTCUSDT:main"]
+    assert lane.status == "INVALID" and "market view failed" in (lane.reason or "")
+
+    runtime2, stream2, _p2, skips2, _c2, _k2 = await _quarantine_runtime()
+
+    async def fatal_context(*args: object, **kwargs: object):
+        return False, "context is unrecoverable"
+
+    runtime2._ensure_context = fatal_context  # type: ignore[method-assign]
+    stream2.pending.append(("3-0", _signal_fields(3)))
+    lane2 = (await runtime2.poll_once()).lane_results["BTCUSDT:main"]
+    assert lane2.status == "RECONSTRUCTION_REQUIRED"
+    assert _lane_fault_rows(skips) == [] and _lane_fault_rows(skips2) == []

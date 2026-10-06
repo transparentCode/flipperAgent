@@ -88,6 +88,7 @@ LiveLaneStatus = Literal[
     "HALTED",
     "RECONSTRUCTION_REQUIRED",
     "INVALID",
+    "QUARANTINED",
 ]
 
 _CLOCK_BEHIND_REASON = "decision clock is behind lane market cutoff"
@@ -125,6 +126,17 @@ def _text(value: object, field_name: str) -> str:
 
 
 @dataclass(slots=True)
+class LaneQuarantine:
+    """Lane-local fault record kept while a lane is QUARANTINED."""
+
+    reason: str
+    fault_cutoff: datetime
+    entered_at: datetime
+    rebuild_required: bool
+    accounted_through: datetime | None = None
+
+
+@dataclass(slots=True)
 class LiveLane:
     """Mutable D9B ownership for one authoritative lane."""
 
@@ -140,6 +152,7 @@ class LiveLane:
     reconciliation_attempted: bool = False
     status: LiveLaneStatus = "LIVE"
     reason: str | None = None
+    quarantine: LaneQuarantine | None = None
 
     @property
     def lane_id(self) -> str:
@@ -162,6 +175,7 @@ class LanePollResult:
     finalization_status: str | None = None
     checkpoint_result: str | None = None
     reason: str | None = None
+    rebuild_required: bool = False
 
     def __post_init__(self) -> None:
         _text(self.lane_id, "lane_id")
@@ -171,8 +185,13 @@ class LanePollResult:
             "HALTED",
             "RECONSTRUCTION_REQUIRED",
             "INVALID",
+            "QUARANTINED",
         }:
             raise ValueError("unsupported live lane status")
+        if not isinstance(self.rebuild_required, bool):
+            raise TypeError("rebuild_required must be bool")
+        if self.rebuild_required and self.status != "QUARANTINED":
+            raise ValueError("rebuild_required requires QUARANTINED status")
         if self.trigger_cutoff is not None:
             require_utc(self.trigger_cutoff, field_name="trigger_cutoff")
         if self.reason is not None:
@@ -554,7 +573,7 @@ class LiveDecisionRuntime:
     def _schedule_trigger(self, event: CanonicalMarketEvent) -> None:
         for lane_id in self._lanes_by_series.get(event.series_key, ()):
             live_lane = self._lanes[lane_id]
-            if live_lane.status not in {"LIVE", "WAITING"}:
+            if live_lane.status not in {"LIVE", "WAITING", "QUARANTINED"}:
                 continue
             if live_lane.market_requirements.trigger_series != event.series_key:
                 continue
@@ -613,6 +632,13 @@ class LiveDecisionRuntime:
             live_lane = self._lanes[lane_id]
             if live_lane.pending_trigger_cutoff is None:
                 continue
+            if live_lane.status == "QUARANTINED":
+                evidence = poll_evidence[lane_id]
+                evidence.begin(live_lane.pending_trigger_cutoff)
+                await self._account_lane_fault(
+                    live_lane, live_lane.pending_trigger_cutoff, evidence
+                )
+                continue
             if live_lane.status not in {"LIVE", "WAITING"}:
                 continue
             await self._attempt_lane(live_lane, poll_evidence[lane_id])
@@ -666,7 +692,9 @@ class LiveDecisionRuntime:
         try:
             prepared = await live_lane.runtime.prepare_live(view)
         except Exception as exc:  # noqa: BLE001
-            self._halt_lane(live_lane, "INVALID", f"model preparation failed: {exc}")
+            await self._quarantine_lane(
+                live_lane, cutoff, f"model preparation failed: {exc}", evidence
+            )
             return
         decision_ready_at = self._now()
         try:
@@ -680,7 +708,9 @@ class LiveDecisionRuntime:
             abort_error = self._abort_prepared(live_lane, prepared, reason)
             if abort_error is not None:
                 reason = f"{reason}; {abort_error}"
-            self._halt_lane(live_lane, "INVALID", reason)
+                self._halt_lane(live_lane, "INVALID", reason)
+            else:
+                await self._quarantine_lane(live_lane, cutoff, reason, evidence)
             return
         evidence.policy_status = evaluation.status
         if evaluation.status in {"BLOCKED", "INVALID"}:
@@ -691,8 +721,11 @@ class LiveDecisionRuntime:
             except Exception as exc:  # noqa: BLE001
                 self._halt_lane(live_lane, "INVALID", f"policy abort failed: {exc}")
             else:
-                self._halt_lane(
-                    live_lane, evaluation.status, evaluation.reason or evaluation.status
+                await self._quarantine_lane(
+                    live_lane,
+                    cutoff,
+                    evaluation.reason or evaluation.status,
+                    evidence,
                 )
             return
         result = evaluation.result
@@ -716,7 +749,9 @@ class LiveDecisionRuntime:
                 abort_error = self._abort_prepared(live_lane, prepared, reason)
                 if abort_error is not None:
                     reason = f"{reason}; {abort_error}"
-                self._halt_lane(live_lane, "HALTED", reason)
+                    self._halt_lane(live_lane, "HALTED", reason)
+                else:
+                    await self._quarantine_lane(live_lane, cutoff, reason, evidence)
                 return
             evidence.publication_outcome = "SKIPPED_STALE"
             evidence.finalization_status = receipt.status
@@ -734,6 +769,7 @@ class LiveDecisionRuntime:
                 skip_reason="stale",
             )
             return
+        publish_started = False
         try:
             if live_lane.lane.authority == "shadow":
                 if self._shadow_publisher is None:
@@ -748,6 +784,7 @@ class LiveDecisionRuntime:
                     evaluation,
                     envelope,
                 )
+                publish_started = True
                 acknowledgement = await self._shadow_publisher.publish(envelope)
                 if not isinstance(acknowledgement, ShadowPublicationAck):
                     raise LiveRuntimeHalt(
@@ -783,6 +820,7 @@ class LiveDecisionRuntime:
                     envelope,
                     lane_market_view=view,
                 )
+                publish_started = True
                 acknowledgement = await self._publisher.publish(envelope)
                 if not isinstance(acknowledgement, SignalPublicationAck):
                     raise LiveRuntimeHalt("publisher returned invalid acknowledgement")
@@ -807,7 +845,10 @@ class LiveDecisionRuntime:
             abort_error = self._abort_prepared(live_lane, prepared, reason)
             if abort_error is not None:
                 reason = f"{reason}; {abort_error}"
-            self._halt_lane(live_lane, "HALTED", reason)
+            if publish_started or abort_error is not None:
+                self._halt_lane(live_lane, "HALTED", reason)
+            else:
+                await self._quarantine_lane(live_lane, cutoff, reason, evidence)
             return
         evidence.finalization_status = receipt.status
         if receipt.status != "COMMITTED":
@@ -916,10 +957,20 @@ class LiveDecisionRuntime:
             "skipped",
         }:
             raise LiveRuntimeHalt("committed finalization has no effect disposition")
+        return await self._save_progress(
+            live_lane, cutoff, None if disposition == "skipped" else disposition
+        )
+
+    async def _save_progress(
+        self,
+        live_lane: LiveLane,
+        cutoff: datetime,
+        last_disposition: str | None,
+    ) -> str:
         progress = LaneEffectProgress.create(
             identity=live_lane.identity,
             market_as_of=cutoff,
-            last_disposition=None if disposition == "skipped" else disposition,
+            last_disposition=last_disposition,
             updated_at=self._now(),
         )
         result = await self._effect_progress.save(progress)
@@ -928,6 +979,74 @@ class LiveDecisionRuntime:
         if isinstance(result, str):
             return result
         raise LiveRuntimeHalt("lane effect progress repository returned invalid result")
+
+    async def _quarantine_lane(
+        self,
+        live_lane: LiveLane,
+        cutoff: datetime,
+        reason: str,
+        evidence: _LanePollEvidence,
+    ) -> None:
+        """Take one lane out of service for a lane-local fault, then account it."""
+
+        live_lane.status = "QUARANTINED"
+        live_lane.reason = reason
+        live_lane.quarantine = LaneQuarantine(
+            reason=reason,
+            fault_cutoff=cutoff,
+            entered_at=self._now(),
+            rebuild_required=bool(live_lane.runtime.stateful_binding_ids),
+        )
+        _log_best_effort(
+            "warning",
+            "decision.lane.quarantined",
+            lane_id=live_lane.lane_id,
+            reason=reason,
+            trigger_cutoff=cutoff,
+            rebuild_required=live_lane.quarantine.rebuild_required,
+            generation_id=self._generation_id,
+        )
+        await self._account_lane_fault(live_lane, cutoff, evidence)
+
+    async def _account_lane_fault(
+        self,
+        live_lane: LiveLane,
+        cutoff: datetime,
+        evidence: _LanePollEvidence,
+    ) -> None:
+        """Record one skipped cutoff for a quarantined lane and advance progress."""
+
+        quarantine = live_lane.quarantine
+        assert quarantine is not None
+        try:
+            await self._effect_skips.upsert(
+                LaneEffectSkip(
+                    identity=live_lane.identity,
+                    skipped_from=cutoff,
+                    skipped_through=cutoff,
+                    cutoff_count=1,
+                    reason="lane_fault",
+                )
+            )
+            if self._observability is not None:
+                observe_best_effort(
+                    self._observability.record_lane_skip,
+                    lane_id=live_lane.lane_id,
+                    reason="lane_fault",
+                )
+            result = await self._save_progress(live_lane, cutoff, None)
+            if result not in {"INSERTED", "UPDATED", "IDENTICAL"}:
+                raise LiveRuntimeHalt(f"progress save returned {result}")
+            live_lane.finalizer.record_lane_fault_skip(cutoff)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            self._halt_lane(live_lane, "HALTED", f"lane fault accounting failed: {exc}")
+            return
+        live_lane.pending_trigger_cutoff = None
+        live_lane.reconciliation_attempted = False
+        quarantine.accounted_through = cutoff
+        evidence.publication_outcome = "SKIPPED_LANE_FAULT"
 
     async def _ensure_context(
         self,
@@ -1120,6 +1239,11 @@ class LiveDecisionRuntime:
             finalization_status=evidence.finalization_status,
             checkpoint_result=evidence.checkpoint_result,
             reason=live_lane.reason,
+            rebuild_required=(
+                live_lane.status == "QUARANTINED"
+                and live_lane.quarantine is not None
+                and live_lane.quarantine.rebuild_required
+            ),
         )
 
     def _record_lane_evaluation(self, live_lane: LiveLane, outcome: str) -> None:
@@ -1151,6 +1275,7 @@ class LiveDecisionRuntime:
 __all__ = [
     "DecisionPollResult",
     "LanePollResult",
+    "LaneQuarantine",
     "LiveDecisionRuntime",
     "LiveLane",
     "LiveLaneStatus",

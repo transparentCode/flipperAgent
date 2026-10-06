@@ -33,7 +33,7 @@ INPUT_DISPOSITIONS = frozenset(
 LANE_EVALUATION_OUTCOMES = frozenset(
     {"SIGNAL", "NO_SIGNAL", "BLOCKED", "INVALID", "stale"}
 )
-SKIP_REASONS = frozenset({"stale"})
+SKIP_REASONS = frozenset({"stale", "lane_fault"})
 PUBLICATION_OUTCOMES = frozenset(
     {"PUBLISHED", "ALREADY_IDENTICAL", "CONFLICT", "FAILED"}
 )

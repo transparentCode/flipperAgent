@@ -403,6 +403,10 @@ When a single-cutoff `stale` or `foreign_entry` row already exists at the first
 unaccounted cutoff (live records it after the cutoff commits and before it saves
 progress), startup advances progress to that cutoff and does not probe or
 re-record it, so an interrupted progress save cannot block the lane.
+A `lane_fault` row at the first unaccounted cutoff is accounted through its
+`skipped_through` (progress advances there, with no probe and no second skip
+row); if that is past the resume cutoff the lane is blocked with
+`lane fault skip extends beyond startup resume cutoff`.
 
 ## Freshness and effect skips
 
@@ -414,6 +418,8 @@ signal or shadow observation. Its cutoff is recorded in the append-only
 `decision.lane_effect_skips` table; latest effect progress advances with a NULL
 disposition for skipped work. Restart ranges and foreign exact-ID entries use the
 same durable skip trail, without expanding into one row per skipped cutoff.
+Cutoffs missed by a quarantined lane are recorded as one single-cutoff
+`lane_fault` row each.
 
 ## Service availability and recovery
 
@@ -426,8 +432,11 @@ static planning/configuration errors and application resource-construction
 failures remain fatal.
 
 The service schedules generation-level `AUTOMATIC_RECOVERY` for malformed or
-conflicting input, non-forward-gap `RECONSTRUCTION_REQUIRED`, halted/invalid or
-reconstruction-required lanes, blocked startup lanes, and failed rebuilds.
+conflicting input, non-forward-gap `RECONSTRUCTION_REQUIRED`, generation-scoped
+halted/invalid or reconstruction-required lanes (shared, publish-uncertain and
+post-commit durability faults), blocked startup lanes, and failed rebuilds. A lane-local fault instead
+quarantines only its lane (`QUARANTINED`, service `DEGRADED`, no generation
+rebuild); a quarantined stateful lane also schedules `AUTOMATIC_RECOVERY`.
 Automatic attempts use exponential delays from 5 seconds through a 300-second
 cap. While an installed generation waits for an automatic retry, it continues
 polling so healthy lanes can progress. A forward canonical market gap is the

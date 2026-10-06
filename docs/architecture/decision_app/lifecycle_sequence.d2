@@ -95,6 +95,10 @@ recovery: {
     class: step
     label: "INPUT_RECONSTRUCTION\nnormal D9A startup from Timescale + checkpoints"
   }
+  quarantine: {
+    class: failure
+    label: "Lane-local fault\nQUARANTINED; lane_fault skip per cutoff\nno generation rebuild\n(stateful: + AUTOMATIC_RECOVERY)"
+  }
   install: {
     class: terminal
     label: "Fresh tails + reconstructed state\ninstall replacement before reads resume"
@@ -159,6 +163,7 @@ live.freshness -> live.stale: "stale"
 live.publish -> live.progress: "effect committed"
 live.stale -> live.progress: "skip + state committed"
 
+live.evaluate -> recovery.quarantine: "lane-local fault"
 recovery.continuous -> live.append: "continue old cursor"
 recovery.continuous -> recovery.gap: "next input result"
 recovery.gap -> recovery.fence: "proven forward gap"
