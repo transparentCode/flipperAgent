@@ -125,6 +125,7 @@ def _config() -> DecisionConfig:
         decision_timeframe="1h",
         trigger_timeframe="1h",
         trigger_mode="on_bar_close",
+        authority="shadow",
         policy=DecisionPolicySettings(
             name="passthrough",
             version="1",

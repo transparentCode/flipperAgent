@@ -50,8 +50,9 @@ components:
     source_of_asset_availability: ingestion_manifest_lifecycle
   - name: bar_store
     role: >-
-      Shared bounded causal bar views keyed by lane/timeframe and fed by the
-      independent InputReadCursor.
+      Shared bounded causal bar views keyed by market series (asset, venue,
+      instrument, timeframe), shared across lanes, and fed by the independent
+      InputReadCursor.
   - name: lane_readiness
     role: >-
       Verifies required canonical inputs and dependencies reach the causal
@@ -150,8 +151,8 @@ identity:
     - lane_id
     - effective_lane_revision
     - feature_plan_fingerprint
-  effective_lane_revision: sha256_lane_base_revision_feature_plan_and_policy
-  decision_id: lane_id_plus_effective_lane_revision_plus_market_as_of
+  effective_lane_revision: sha256_lane_config_bindings_and_policy_excluding_feature_plan
+  decision_id: lane_id_plus_decision_execution_revision_plus_market_as_of
   data_plan_fingerprint_column: retained_and_written_as_none
 
 configuration:

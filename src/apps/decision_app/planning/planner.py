@@ -112,7 +112,7 @@ class DecisionLaneSpec:
     policy_name: str
     policy_version: str
     bindings: Sequence[ModelBindingSpec]
-    authority: PublicationAuthority = "authoritative"
+    authority: PublicationAuthority
     risk_profile_key: str | None = None
     policy_parameters: Mapping[str, Any] = field(default_factory=dict)
 

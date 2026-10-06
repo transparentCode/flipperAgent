@@ -101,7 +101,7 @@ class DecisionLaneSettings(BaseModel):
     decision_timeframe: str
     trigger_timeframe: str
     trigger_mode: str
-    authority: str = "shadow"
+    authority: str
     risk_profile_key: str | None = None
     policy: DecisionPolicySettings
     bindings: dict[str, DecisionBindingSettings]
@@ -519,12 +519,6 @@ class CanonicalInstrument:
                 if timeframe not in self.timeframes:
                     raise ValueError(f"unknown ingestion timeframe: {timeframe}")
                 timeframe_grid.duration(timeframe)
-            for binding in lane.bindings.values():
-                for timeframe in binding.parameters.get("required_timeframes", ()):
-                    if timeframe not in self.timeframes:
-                        raise ValueError(
-                            f"unknown required ingestion timeframe: {timeframe}"
-                        )
 
 
 def _parse_alignment_origin(value: object) -> datetime:

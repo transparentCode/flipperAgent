@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+from pydantic import ValidationError
 
 from apps.decision_app.domain.market_state import MarketSeriesKey, TimeframeGrid
 from apps.decision_app.settings import (
@@ -35,6 +36,7 @@ def _decision_config(*, instrument_id: str = "BTC-USDT-PERP") -> DecisionConfig:
         decision_timeframe="1h",
         trigger_timeframe="1h",
         trigger_mode="on_bar_close",
+        authority="shadow",
         policy=DecisionPolicySettings(
             name="passthrough",
             version="1",
@@ -105,6 +107,20 @@ def test_decision_config_is_strict_and_nested_values_are_immutable() -> None:
         config.assets["BTC"].lanes["main"].policy.parameters["new"] = True
     with pytest.raises(AttributeError):
         config.assets = {}
+
+
+def test_lane_authority_is_required_and_has_no_silent_default() -> None:
+    lane = {
+        "decision_timeframe": "1h",
+        "trigger_timeframe": "1h",
+        "trigger_mode": "on_bar_close",
+        "policy": {"name": "passthrough", "version": "1"},
+        "bindings": {"primary": {"plugin": "synthetic", "version": "1"}},
+    }
+
+    with pytest.raises(ValidationError, match="authority"):
+        DecisionLaneSettings.model_validate(lane)
+    assert DecisionLaneSettings.model_validate({**lane, "authority": "shadow"})
 
 
 def test_manifest_and_decision_asset_identity_are_not_conflated() -> None:

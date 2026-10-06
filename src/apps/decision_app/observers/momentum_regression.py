@@ -30,19 +30,6 @@ MOMENTUM_REGRESSION_OBSERVER_NAME = "momentum_regression_observer"
 MOMENTUM_REGRESSION_OBSERVER_VERSION = "1"
 MOMENTUM_REGRESSION_OBSERVATION_ARTIFACT_TYPE = "momentum.regression_observation.v1"
 
-REGRESSION_WHITELIST = (
-    "structural.slope_log_per_hour",
-    "structural.fit_quality",
-    "location.region",
-    "location.outer_channel_position",
-    "location.outer_width_fraction",
-    "location.upper_outer_breach",
-    "location.lower_outer_breach",
-    "location.previous_region",
-    "location.reentered_from_upper_outer",
-    "location.reentered_from_lower_outer",
-)
-
 _REGION_VALUES = frozenset(region.value for region in ResidualRegion)
 _MOMENTUM_VALUE_KEYS = frozenset({"direction", "score", "conviction"})
 _FEATURE_VALUE_KEYS = frozenset(
@@ -365,7 +352,6 @@ __all__ = [
     "MOMENTUM_REGRESSION_OBSERVER_NAME",
     "MOMENTUM_REGRESSION_OBSERVER_SPEC",
     "MOMENTUM_REGRESSION_OBSERVER_VERSION",
-    "REGRESSION_WHITELIST",
     "MomentumRegressionObserver",
     "momentum_regression_runtime_factory",
 ]

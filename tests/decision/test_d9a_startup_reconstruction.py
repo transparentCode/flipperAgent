@@ -121,6 +121,7 @@ def _config_for(plugin_name: str) -> DecisionConfig:
         decision_timeframe="1h",
         trigger_timeframe="1h",
         trigger_mode="on_bar_close",
+        authority="shadow",
         policy=DecisionPolicySettings(
             name="passthrough",
             version="1",
@@ -627,6 +628,7 @@ def _feature_plan_for_manifest_gate():
         decision_timeframe="1h",
         trigger_timeframe="1h",
         trigger_mode="on_bar_close",
+        authority="shadow",
         policy=DecisionPolicySettings(
             name="passthrough",
             version="1",
@@ -867,6 +869,7 @@ def _mixed_config() -> DecisionConfig:
         decision_timeframe="4h",
         trigger_timeframe="4h",
         trigger_mode="on_bar_close",
+        authority="shadow",
         policy=DecisionPolicySettings(
             name="passthrough",
             version="1",

@@ -47,7 +47,7 @@ configs/decision/assets/{MANIFEST_ASSET}.yaml
 ```
 
 Global policy controls runtime bounds, shared-feature allow/deny, the 300-second
-signal freshness threshold, publication limits, and concurrency. Asset configuration
+signal freshness threshold, and publication limits. Asset configuration
 declares model bindings, plugin names, parameters, lane policy, dependencies,
 and stable `risk_profile_key` values. Model code owns intrinsic capabilities and
 safe defaults. There is no inheritance/template/expression language and no hot
@@ -103,29 +103,35 @@ available, paused, or removing, but it cannot add a model, change a model
 timeframe, or invent a worker. Unconfigured ingestion assets never create
 decision lanes.
 
-Each `DecisionLane` is identified by a stable asset and decision-timeframe
-identity. It declares its trigger timeframe, required canonical context, feature
+Each `DecisionLane` is identified by `lane_id`, which is `<decision asset>:<config
+key>` (the lane's key in its asset file); it has no timeframe component, and the
+decision and trigger timeframes are lane properties. It declares its trigger timeframe, required canonical context, feature
 plan, model bindings, policy, and output authority. V1
 dependencies are static, named, acyclic, and confined to the same lane. A lane
 may have analytical or predictive models that emit artifacts without emitting a
 trade signal. Only the lane policy may publish the authoritative signal.
 
-One authoritative lane owns a given `(asset, decision timeframe)` output. Shadow
-or research lanes may calculate results, but they cannot publish to the
+One authoritative lane owns a given `(asset, decision timeframe)` output. A lane
+is configured as either authoritative or shadow (`authority` is a required lane
+setting). Shadow or research lanes may calculate results, but they cannot publish to the
 authoritative `signals:*` stream.
 
 ## Causal bars, progress, and readiness
 
-The shared `BarStore` stores bounded canonical observations keyed by lane
-identity and timeframe. It exposes views at a causal cutoff, not merely the last
+The shared `BarStore` stores bounded canonical observations keyed by market
+series (asset, venue, instrument, timeframe) and shared across lanes, not keyed
+by lane. It exposes views at a causal cutoff, not merely the last
 arrival, and continues advancing from `InputReadCursor` when an individual lane
 is degraded. A lane is ready only when every required canonical input is complete
-through its cutoff and all required dependencies are resolved.
+through its cutoff. Dependencies are resolved statically by the planner; readiness
+does not report missing dependencies.
 
 Arrival ordering is not causal ordering. If a 1h trigger arrives while a required
-4h context is not complete, the lane performs a bounded wait and an explicitly
-bounded canonical-history repair attempt. It then evaluates only if the required
-causal cutoff is reached. It never silently substitutes an older HTF observation.
+4h context is not complete, readiness (a pure evaluation of the `BarStore` at the
+cutoff) reports the lane as warming or degraded, and the lane evaluates only if
+the required causal cutoff is reached. Readiness itself performs no wait and no
+repair; the live runtime's bounded context repair in `runtime/live.py` is a
+separate mechanism. It never silently substitutes an older HTF observation.
 An unavailable dependency, a causal gap, or a model exception fails the affected
 evaluation closed. For a stateful binding, the
 binding becomes `DEGRADED`/`INVALID` and must causally re-warm to a newer safe
@@ -187,7 +193,9 @@ There is no universal always-on feature vector and no internal feature stream in
 the new hot path. The plan is bounded and keyed by causal `market_as_of`.
 Momentum history is route-specific: BTC 1h requires 136 bars, BTC 4h requires 272,
 and ETH 4h requires 544. A route's history change does not expand another lane's
-feature-plan identity or retained store.
+feature-plan identity or retained store. A lane's feature-plan fingerprint does
+include the global feature allowlist and the feature policy name and version
+(`features/planning.py`), so those inputs are shared by every lane.
 
 ## External-data contract types (inactive)
 
@@ -253,7 +261,7 @@ Stable identities are derived from canonical configuration/model identity and
 deterministic configuration fingerprints:
 
 ```text
-lane_id       = canonical asset + decision timeframe + lane identity
+lane_id       = <decision asset>:<lane config key>
 binding_config_fingerprint = SHA-256(canonical binding parameters + runtime binding)
 binding_id    = lane_id + binding slot + plugin/version + binding_config_fingerprint
 LaneExecutionIdentity = (lane_id, effective_lane_revision, feature_plan_fingerprint)
@@ -263,6 +271,14 @@ decision_id   = lane_id + decision_execution_revision + canonical market_as_of
 
 The physical `data_plan_fingerprint` columns remain for database compatibility
 and are written as `none`; they are excluded from runtime identity.
+
+Operator note on identity coupling: editing `decision.feature_policy.allowed_features`,
+or the feature policy name or version, changes the feature-plan fingerprint of
+every lane, and therefore every lane's decision IDs and signal idempotency keys
+from the next restart. Changing a lane's `authority` or `risk_profile_key`
+changes that lane's revision and its decision IDs. A parameter written as `70`
+and as `70.0` hashes differently, so the spelling of a numeric parameter is part
+of the identity.
 
 The authoritative publication entry uses an explicit millisecond stream ID
 derived from `market_as_of`; `TradeSignal.timestamp` remains epoch seconds.
@@ -333,11 +349,12 @@ compact.
 ## Lifecycle, control, and observability
 
 The application exposes readiness/liveness and bounded runtime status. Lifecycle
-events from `ingestion` control asset availability only. `PAUSED` stops decision
-evaluation according to the configured asset policy while preserving explicit
-position/risk handoff requirements; `REMOVING` stops the asset runtime and emits
-the removal transition, but does not invent a new risk liquidation policy. A
-model/lane can be disabled independently of asset availability. Decision does
+events from `ingestion` control asset availability only. An asset whose ingestion
+manifest state is not `LIVE` is installed as inactive when a generation is built;
+there is no configured per-asset `PAUSED` policy. `REMOVING` stops the asset
+runtime and emits the removal transition, but does not invent a new risk
+liquidation policy. Only an asset has an `enabled` flag (`DecisionAssetSettings`);
+a lane or model cannot be disabled independently of its asset. Decision does
 not own or publish `price_update:*`; a Risk-owned price continuity feed is a
 separate downstream contract. Operator `PAUSED` keeps canonical input active
 while suppressing model evaluation and signal finalization.
@@ -347,9 +364,14 @@ Structured logs include `decision.startup.lane`, `decision.lane.halted`,
 completed, and failed events. Startup outcomes are emitted once per generation;
 lane halt and input-block events are transition/first-block only. Observability
 also records `InputReadCursor`, per-lane `LaneCommitWatermark` and effect progress,
-skip ranges, readiness reasons, evaluation latency, dependency failures, state
+skip ranges, readiness reasons, dependency failures, state
 transitions, and publication conflicts. Controls are bounded and auditable; there
 is no hot graph mutation or live training control surface.
+
+Operator note on control endpoints: `POST /runtime/pause`, `/runtime/resume` and
+`/runtime/reconnect` have no authentication. `docker-compose.yml` publishes the
+Decision port on `127.0.0.1` only, but other containers on the compose network
+can reach it.
 
 ## Runtime deadlines and ownership
 

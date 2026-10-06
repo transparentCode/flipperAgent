@@ -90,6 +90,7 @@ def _lane_spec(timeframe: str, *, two_bindings: bool = False) -> DecisionLaneSpe
         decision_timeframe=timeframe,
         trigger_timeframe=timeframe,
         trigger_mode="on_bar_close",
+        authority="authoritative",
         policy_name="default",
         policy_version="1",
         risk_profile_key="btc-default",

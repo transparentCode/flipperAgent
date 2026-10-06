@@ -22,7 +22,7 @@ re-aggregate locally in the hot path.
 
 ### Shared causal BarStore
 
-The runtime keeps bounded shared bar views keyed by lane/timeframe and cutoff.
+The runtime keeps bounded shared bar views keyed by market series (asset, venue, instrument, timeframe) and cutoff, shared across lanes rather than keyed by lane.
 Models receive causal views rather than copied full histories. A lane is ready only
 when required timeframes reach the required cutoff; arrival order is not a
 readiness rule.

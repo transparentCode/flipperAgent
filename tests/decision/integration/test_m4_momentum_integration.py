@@ -515,6 +515,7 @@ def test_no_momentum_composition_keeps_registered_catalog_shape() -> None:
         decision_timeframe="1h",
         trigger_timeframe="1h",
         trigger_mode="on_bar_close",
+        authority="shadow",
         bindings={
             "primary": {
                 "plugin": "sr",

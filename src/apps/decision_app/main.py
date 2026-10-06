@@ -33,7 +33,6 @@ def _load_server_settings(config_manager: ConfigManager) -> DecisionServerSettin
 
 
 def main() -> None:
-    global app
     config_manager = ConfigManager()
     telemetry_initialized = False
     try:
@@ -60,11 +59,8 @@ def main() -> None:
             shutdown_telemetry_nonblocking()
 
 
-app = None
-
-
 if __name__ == "__main__":
     main()
 
 
-__all__ = ["app", "main"]
+__all__ = ["main"]

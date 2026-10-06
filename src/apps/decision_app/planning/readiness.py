@@ -94,12 +94,6 @@ class LaneMarketRequirements:
             FrozenMapping(_sorted_series_items(normalized)),
         )
 
-    @property
-    def required_bars_by_series(self) -> Mapping[MarketSeriesKey, int]:
-        """Alias expressing the same minimum-retention contract."""
-
-        return self.minimum_bars_by_series
-
 
 def compile_lane_market_requirements(
     lane: ResolvedLanePlan,

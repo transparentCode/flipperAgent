@@ -12,7 +12,7 @@ preserve these fields and rules.
 | `venue` | Canonical market venue supplied by `ingestion`. | Stable lane input identity. |
 | `instrument_id` | Canonical venue instrument identity. | Stable lane input identity. |
 | `timeframe` | Explicit bar duration, never inferred from arrival cadence. | Stable configuration identity. |
-| `lane_id` | One authoritative decision lane for an asset/timeframe and configured lane identity. | Deterministic from canonical configuration. |
+| `lane_id` | One decision lane, authoritative or shadow, identified as `<decision asset>:<lane config key>`; it has no timeframe component. | Deterministic from canonical configuration. |
 | `binding_id` | One named model binding slot inside a lane. | Deterministic from lane, slot, plugin/version, and binding configuration fingerprint. |
 | `decision_id` | One authoritative lane result for one market cutoff. | Deterministic from lane revision and canonical `market_as_of`. |
 
@@ -325,7 +325,7 @@ Decision does not publish that type.
 Canonical identity serialization is deterministic:
 
 ```text
-lane_id = canonical asset + decision timeframe + configured lane identity
+lane_id = <decision asset>:<lane config key>
 binding_config_fingerprint = SHA-256(canonical binding parameters + runtime binding)
 binding_id = lane_id + named slot + plugin/version + binding_config_fingerprint
 LaneExecutionIdentity = (lane_id, effective_lane_revision, feature_plan_fingerprint)
@@ -486,11 +486,12 @@ Ingestion lifecycle is availability authority:
 
 ```text
 LIVE       -> configured asset/lane runtimes may evaluate
-PAUSED     -> configured runtimes stop evaluation under explicit policy
+PAUSED     -> asset is not LIVE and is installed as inactive at the next generation build
 REMOVING   -> runtime tears down and emits removal state
 STOPPED    -> no evaluation until a new authoritative live transition
 ```
 
-Asset lifecycle never invents model bindings or timeframes. A configured lane may
-also be disabled without changing the asset manifest. Open-position and
+Asset lifecycle never invents model bindings or timeframes. Only an asset has an
+`enabled` flag; a lane or model cannot be disabled independently, and there is no
+configured per-asset PAUSED policy. Open-position and
 liquidation behavior remains a downstream risk contract and is not invented here.
