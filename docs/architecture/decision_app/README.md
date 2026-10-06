@@ -151,8 +151,12 @@ finalization, pre-publication failure) sets that lane to `QUARANTINED` without a
 generation rebuild: each missed cutoff is recorded as a `lane_fault` skip and
 advances progress, the service is `DEGRADED`, and `/runtime/lanes` reports a
 `quarantine` object (`reason`, `fault_cutoff`, `entered_at`, `accounted_through`,
-`rebuild_required`) for the lane. A stateless lane rejoins on the next generation
-build; a stateful lane also requests `AUTOMATIC_RECOVERY`.
+`rebuild_required`, `attempt`, `retry_due_at`, `pending_effect_cutoff`,
+`deferred_through`) for the lane. A stateful lane requests `AUTOMATIC_RECOVERY`
+and never retries in process. A stateless lane retries at the next closed cutoff
+after `retry_due_at` (5 s doubling to 300 s, skip forward) and rejoins without a
+generation rebuild when a cutoff COMMITs; a stateless post-commit durability
+fault (`pending_effect_cutoff`) replays only its idempotent writes first.
 
 Generic lane-level `RECONSTRUCTION_REQUIRED` remains lane-local and degraded;
 malformed/conflicting input and halted/invalid lanes remain fail-closed. A proven
@@ -379,6 +383,8 @@ separate downstream contract. Operator `PAUSED` keeps canonical input active
 while suppressing model evaluation and signal finalization.
 
 Structured logs include `decision.startup.lane`, `decision.lane.halted`,
+`decision.lane.quarantined`, `decision.lane.quarantine_retry`, `decision.lane.rejoined`,
+`decision.lane.effect_replay_failed`,
 `decision.lane.unblocked`, `decision.input.blocked`, and rebuild requested,
 completed, and failed events. Startup outcomes are emitted once per generation;
 lane halt and input-block events are transition/first-block only. Observability
@@ -390,7 +396,8 @@ is no hot graph mutation or live training control surface.
 Metrics: `decision.lane.state` carries a series for every configured lane,
 including startup-blocked or inactive lanes (state `BLOCKED` or `INACTIVE`);
 `decision.active_lane_count` counts admitted lanes only.
-`decision.lane.skip_total{lane, reason}` counts skip rows the live runtime
+`decision.lane.quarantine_attempt` reports failed automatic retries for lanes that
+hold a quarantine record (no series otherwise). `decision.lane.skip_total{lane, reason}` counts skip rows the live runtime
 writes (reason `stale`). `decision.lane.evaluation_total` is recorded after the
 freshness gate, so a stale skip is counted with outcome `stale`, not `SIGNAL`.
 

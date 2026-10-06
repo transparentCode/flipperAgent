@@ -25,7 +25,11 @@ from apps.decision_app.runtime.lifecycle import (
     LifecycleNotificationReader,
     LifecycleReadResult,
 )
-from apps.decision_app.runtime.live import DecisionPollResult
+from apps.decision_app.runtime.live import (
+    RECOVERY_BACKOFF_INITIAL_SECONDS,
+    RECOVERY_BACKOFF_MAX_SECONDS,
+    DecisionPollResult,
+)
 from apps.decision_app.transport.live_input import (
     FORWARD_CANONICAL_MARKET_GAP_REASON,
     InputTransportError,
@@ -55,8 +59,6 @@ RebuildSource = Literal[
 ]
 
 _CONTROL_STATES = frozenset({"PAUSED", "REBUILDING", "STOPPING", "STOPPED", "ERROR"})
-RECOVERY_BACKOFF_INITIAL_SECONDS = 5.0
-RECOVERY_BACKOFF_MAX_SECONDS = 300.0
 READINESS_MAX_NOT_LIVE_SECONDS = 300.0
 _REBUILD_SOURCE_PRIORITY = {
     "AUTOMATIC_RECOVERY": 1,
@@ -608,6 +610,12 @@ class DecisionService:
                         "entered_at": quarantine.entered_at,
                         "accounted_through": quarantine.accounted_through,
                         "rebuild_required": quarantine.rebuild_required,
+                        "attempt": quarantine.attempt,
+                        "retry_due_at": quarantine.retry_due_at,
+                        "pending_effect_cutoff": None
+                        if quarantine.pending_effect is None
+                        else quarantine.pending_effect.market_as_of,
+                        "deferred_through": quarantine.deferred_through,
                     },
                     "pending_trigger_cutoff": lane.pending_trigger_cutoff,
                     "watermark": {

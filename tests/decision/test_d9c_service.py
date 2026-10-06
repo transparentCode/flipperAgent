@@ -11,6 +11,7 @@ import pytest
 from apps.decision_app.domain.contracts import InputReadCursor, LaneCommitWatermark
 from apps.decision_app.domain.market_state import MarketSeriesKey
 from apps.decision_app.observability import DecisionObservability
+from apps.decision_app.runtime import service as service_module
 from apps.decision_app.runtime.deadlines import CleanupTimeout, cleanup_with_timeout
 from apps.decision_app.runtime.lifecycle import LifecycleReadResult
 from apps.decision_app.runtime.live import (
@@ -2724,6 +2725,10 @@ async def test_snapshot_exposes_lane_quarantine_record() -> None:
         entered_at=entered,
         accounted_through=NOW - timedelta(hours=1),
         rebuild_required=False,
+        attempt=3,
+        retry_due_at=NOW + timedelta(seconds=40),
+        pending_effect=SimpleNamespace(market_as_of=NOW - timedelta(hours=2)),
+        deferred_through=NOW - timedelta(hours=1),
     )
     runtime = _Runtime()
     runtime.lanes = {
@@ -2757,6 +2762,12 @@ async def test_snapshot_exposes_lane_quarantine_record() -> None:
         "entered_at": entered,
         "accounted_through": quarantine.accounted_through,
         "rebuild_required": False,
+        "attempt": 3,
+        "retry_due_at": NOW + timedelta(seconds=40),
+        "pending_effect_cutoff": NOW - timedelta(hours=2),
+        "deferred_through": NOW - timedelta(hours=1),
     }
     assert snapshot.lanes["good"]["quarantine"] is None
+    assert service_module.RECOVERY_BACKOFF_INITIAL_SECONDS == 5.0
+    assert service_module.RECOVERY_BACKOFF_MAX_SECONDS == 300.0
     await service.stop()

@@ -103,15 +103,24 @@ pre-publication failures (missing publisher, envelope build, preflight,
 `finalize_no_signal`). The lane takes the status `QUARANTINED`. Each cutoff it
 then misses is recorded as a single-cutoff `lane_fault` skip row, advances lane
 effect progress and the finalizer watermark (disposition `skipped`), and the lane
-is not evaluated again. A stateless quarantined lane rejoins on the next
-generation build, whatever requests it; a stateful lane also requests
-`AUTOMATIC_RECOVERY` so its state is re-warmed. Shared faults (overtaken pending
-cutoff, fatal context, market-view failure, series failure, input dispositions),
-publish-uncertain faults (the publisher was called) and post-commit durability
-faults keep generation recovery. The service is `DEGRADED` while any lane is
-quarantined. Rejoin skips forward: a failed cutoff is never re-evaluated. If
-`lane_fault` accounting itself fails, the lane is HALTED for generation recovery.
-Automatic per-lane retry is deferred (DA-3b).
+is not evaluated again until its retry is due. A stateful quarantined lane
+requests `AUTOMATIC_RECOVERY` so its state is re-warmed and never retries in
+process. A stateless lane retries itself (DA-3b): the retry delay doubles from 5
+seconds to a 300-second cap (the same constants as the generation backoff), and
+the retry happens at the first closed trigger cutoff after the due time, so a
+failed cutoff is never re-evaluated (skip forward). The counter resets only
+after a COMMITTED cutoff, which clears the lane's quarantine record and rejoins
+it without a generation rebuild; it also still rejoins on any generation build.
+Stateless post-commit durability faults (skip row or progress write after a
+committed cutoff) quarantine only that lane: the idempotent writes are replayed
+at the next due cutoff, cutoffs that arrive meanwhile are held in memory only,
+and one `lane_fault` row covers them once the replay succeeds (a crash during the
+deferral falls back to the startup path from the last durable progress). Shared
+faults (overtaken pending cutoff, fatal context, market-view failure, series
+failure, input dispositions), publish-uncertain faults (the publisher was
+called), stateful checkpoint faults and `lane_fault` accounting failures keep
+generation recovery (HALTED). The service is `DEGRADED` while any lane is
+quarantined.
 
 ### Readiness measures live-lane availability
 

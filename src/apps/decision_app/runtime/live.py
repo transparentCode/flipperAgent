@@ -9,6 +9,7 @@ framework.
 from __future__ import annotations
 
 import asyncio
+import math
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -93,6 +94,22 @@ LiveLaneStatus = Literal[
 
 _CLOCK_BEHIND_REASON = "decision clock is behind lane market cutoff"
 
+# Shared by the generation recovery backoff (service.py) and the per-lane
+# quarantine retry so both ladders stay in step.
+RECOVERY_BACKOFF_INITIAL_SECONDS = 5.0
+RECOVERY_BACKOFF_MAX_SECONDS = 300.0
+
+
+def lane_retry_delay_seconds(attempt: int, initial: float, maximum: float) -> float:
+    """Return ``min(initial * 2**attempt, maximum)`` without overflowing."""
+
+    delay = initial
+    for _ in range(max(attempt, 0)):
+        if delay >= maximum:
+            break
+        delay *= 2
+    return min(delay, maximum)
+
 
 def _is_forward_canonical_market_gap(result: InputRecordResult) -> bool:
     return (
@@ -134,6 +151,12 @@ class LaneQuarantine:
     entered_at: datetime
     rebuild_required: bool
     accounted_through: datetime | None = None
+    attempt: int = 0
+    retry_due_at: datetime | None = None
+    pending_effect: FinalizationReceipt | None = None
+    pending_skip_reason: Literal["stale"] | None = None
+    deferred_from: datetime | None = None
+    deferred_through: datetime | None = None
 
 
 @dataclass(slots=True)
@@ -264,6 +287,8 @@ class LiveDecisionRuntime:
         observability: DecisionObservability | None = None,
         generation_id: int | None = None,
         signal_freshness_seconds: int = 300,
+        lane_retry_initial_seconds: float = RECOVERY_BACKOFF_INITIAL_SECONDS,
+        lane_retry_max_seconds: float = RECOVERY_BACKOFF_MAX_SECONDS,
     ) -> None:
         if not isinstance(startup, DecisionStartupResult):
             raise TypeError("startup must be DecisionStartupResult")
@@ -322,6 +347,18 @@ class LiveDecisionRuntime:
         ):
             raise ValueError("signal_freshness_seconds must be a positive integer")
         self._signal_freshness_seconds = signal_freshness_seconds
+        if (
+            not all(
+                not isinstance(value, bool)
+                and isinstance(value, int | float)
+                and math.isfinite(value)
+                for value in (lane_retry_initial_seconds, lane_retry_max_seconds)
+            )
+            or not 0 < lane_retry_initial_seconds <= lane_retry_max_seconds
+        ):
+            raise ValueError("lane retry backoff must be positive and capped")
+        self._lane_retry_initial = float(lane_retry_initial_seconds)
+        self._lane_retry_max = float(lane_retry_max_seconds)
         self._policy = DecisionPolicy(
             DecisionPolicyCatalog([PASSTHROUGH_V1, PRIORITY_V1])
             if policy_catalog is None
@@ -633,15 +670,106 @@ class LiveDecisionRuntime:
             if live_lane.pending_trigger_cutoff is None:
                 continue
             if live_lane.status == "QUARANTINED":
-                evidence = poll_evidence[lane_id]
-                evidence.begin(live_lane.pending_trigger_cutoff)
-                await self._account_lane_fault(
-                    live_lane, live_lane.pending_trigger_cutoff, evidence
-                )
+                await self._attempt_quarantined_lane(live_lane, poll_evidence[lane_id])
                 continue
             if live_lane.status not in {"LIVE", "WAITING"}:
                 continue
             await self._attempt_lane(live_lane, poll_evidence[lane_id])
+
+    async def _attempt_quarantined_lane(
+        self,
+        live_lane: LiveLane,
+        evidence: _LanePollEvidence,
+    ) -> None:
+        """Handle one trigger for a QUARANTINED lane.
+
+        A due stateless lane replays any pending post-commit write and then
+        retries this cutoff; otherwise the cutoff is accounted or deferred.
+        """
+
+        quarantine = live_lane.quarantine
+        cutoff = live_lane.pending_trigger_cutoff
+        assert quarantine is not None and cutoff is not None
+        evidence.begin(cutoff)
+        due = quarantine.retry_due_at is not None and (
+            self._now() >= quarantine.retry_due_at
+        )
+        if quarantine.pending_effect is not None:
+            if not due or not await self._replay_committed_effect(live_lane):
+                if due:
+                    quarantine.attempt += 1
+                    self._schedule_lane_retry(live_lane)
+                self._defer_lane_cutoff(live_lane, cutoff)
+                return
+            quarantine.pending_effect = None
+            quarantine.pending_skip_reason = None
+            if not await self._account_deferred_cutoffs(live_lane):
+                return
+        if not due or quarantine.rebuild_required:
+            await self._account_lane_fault(live_lane, cutoff, evidence)
+            return
+        _log_best_effort(
+            "info",
+            "decision.lane.quarantine_retry",
+            lane_id=live_lane.lane_id,
+            attempt=quarantine.attempt,
+            trigger_cutoff=cutoff,
+            generation_id=self._generation_id,
+        )
+        live_lane.status = "LIVE"
+        live_lane.reason = None
+        await self._attempt_lane(live_lane, evidence)
+        return
+
+    def _defer_lane_cutoff(self, live_lane: LiveLane, cutoff: datetime) -> None:
+        """Hold a cutoff in memory while a post-commit write is still failing."""
+
+        quarantine = live_lane.quarantine
+        assert quarantine is not None
+        quarantine.deferred_from = quarantine.deferred_from or cutoff
+        quarantine.deferred_through = cutoff
+        live_lane.finalizer.record_lane_fault_skip(cutoff)
+        live_lane.pending_trigger_cutoff = None
+        live_lane.reconciliation_attempted = False
+
+    async def _account_deferred_cutoffs(self, live_lane: LiveLane) -> bool:
+        """Write the one skip row for cutoffs deferred during a phase-c replay."""
+
+        quarantine = live_lane.quarantine
+        assert quarantine is not None
+        first, last = quarantine.deferred_from, quarantine.deferred_through
+        if first is None or last is None:
+            return True
+        try:
+            await self._effect_skips.upsert(
+                LaneEffectSkip(
+                    identity=live_lane.identity,
+                    skipped_from=first,
+                    skipped_through=last,
+                    cutoff_count=(last - first)
+                    // self._grid.duration(live_lane.lane.trigger_timeframe)
+                    + 1,
+                    reason="lane_fault",
+                )
+            )
+            if self._observability is not None:
+                observe_best_effort(
+                    self._observability.record_lane_skip,
+                    lane_id=live_lane.lane_id,
+                    reason="lane_fault",
+                )
+            result = await self._save_progress(live_lane, last, None)
+            if result not in {"INSERTED", "UPDATED", "IDENTICAL"}:
+                raise LiveRuntimeHalt(f"progress save returned {result}")
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            self._halt_lane(live_lane, "HALTED", f"lane fault accounting failed: {exc}")
+            return False
+        quarantine.deferred_from = None
+        quarantine.deferred_through = None
+        quarantine.accounted_through = last
+        return True
 
     async def _attempt_lane(
         self,
@@ -910,9 +1038,10 @@ class LiveDecisionRuntime:
                     )
                 )
             except Exception as exc:  # noqa: BLE001
-                self._halt_lane(
+                await self._halt_or_quarantine_committed(
                     live_lane,
-                    "HALTED",
+                    receipt,
+                    skip_reason,
                     f"lane effect skip durability failed after commit: {exc}",
                 )
                 return
@@ -925,16 +1054,18 @@ class LiveDecisionRuntime:
         try:
             progress_result = await self._save_effect_progress(live_lane, receipt)
         except Exception as exc:  # noqa: BLE001
-            self._halt_lane(
+            await self._halt_or_quarantine_committed(
                 live_lane,
-                "HALTED",
+                receipt,
+                skip_reason,
                 f"lane effect progress durability failed after committed finalization: {exc}",
             )
             return
         if progress_result not in {"INSERTED", "UPDATED", "IDENTICAL"}:
-            self._halt_lane(
+            await self._halt_or_quarantine_committed(
                 live_lane,
-                "HALTED",
+                receipt,
+                skip_reason,
                 f"lane effect progress durability returned {progress_result} after commit",
             )
             return
@@ -942,6 +1073,74 @@ class LiveDecisionRuntime:
         live_lane.reconciliation_attempted = False
         live_lane.status = "LIVE"
         live_lane.reason = None
+        quarantine = live_lane.quarantine
+        if quarantine is not None:
+            # The only place the retry counter resets: a COMMITTED cutoff.
+            _log_best_effort(
+                "info",
+                "decision.lane.rejoined",
+                lane_id=live_lane.lane_id,
+                attempts=quarantine.attempt,
+                trigger_cutoff=receipt.market_as_of,
+                generation_id=self._generation_id,
+            )
+            live_lane.quarantine = None
+
+    async def _halt_or_quarantine_committed(
+        self,
+        live_lane: LiveLane,
+        receipt: FinalizationReceipt,
+        skip_reason: Literal["stale"] | None,
+        reason: str,
+    ) -> None:
+        """Stateless lanes retry the idempotent writes; stateful lanes halt."""
+
+        if live_lane.runtime.stateful_binding_ids:
+            self._halt_lane(live_lane, "HALTED", reason)
+            return
+        quarantine = self._enter_quarantine(
+            live_lane, receipt.market_as_of, reason, rebuild_required=False
+        )
+        quarantine.pending_effect = receipt
+        quarantine.pending_skip_reason = skip_reason
+        live_lane.pending_trigger_cutoff = None
+        live_lane.reconciliation_attempted = False
+        self._schedule_lane_retry(live_lane)
+        self._log_quarantined(live_lane, receipt.market_as_of)
+
+    async def _replay_committed_effect(self, live_lane: LiveLane) -> bool:
+        """Retry the idempotent durable writes of an already committed cutoff."""
+
+        quarantine = live_lane.quarantine
+        assert quarantine is not None and quarantine.pending_effect is not None
+        receipt = quarantine.pending_effect
+        try:
+            if quarantine.pending_skip_reason is not None:
+                await self._effect_skips.upsert(
+                    LaneEffectSkip(
+                        identity=live_lane.identity,
+                        skipped_from=receipt.market_as_of,
+                        skipped_through=receipt.market_as_of,
+                        cutoff_count=1,
+                        reason=quarantine.pending_skip_reason,
+                    )
+                )
+            result = await self._save_effect_progress(live_lane, receipt)
+            if result not in {"INSERTED", "UPDATED", "IDENTICAL"}:
+                raise LiveRuntimeHalt(f"progress save returned {result}")
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            _log_best_effort(
+                "warning",
+                "decision.lane.effect_replay_failed",
+                lane_id=live_lane.lane_id,
+                trigger_cutoff=receipt.market_as_of,
+                error=str(exc),
+                generation_id=self._generation_id,
+            )
+            return False
+        return True
 
     async def _save_effect_progress(
         self,
@@ -989,24 +1188,69 @@ class LiveDecisionRuntime:
     ) -> None:
         """Take one lane out of service for a lane-local fault, then account it."""
 
-        live_lane.status = "QUARANTINED"
-        live_lane.reason = reason
-        live_lane.quarantine = LaneQuarantine(
-            reason=reason,
-            fault_cutoff=cutoff,
-            entered_at=self._now(),
+        self._enter_quarantine(
+            live_lane,
+            cutoff,
+            reason,
             rebuild_required=bool(live_lane.runtime.stateful_binding_ids),
         )
+        self._schedule_lane_retry(live_lane)
+        self._log_quarantined(live_lane, cutoff)
+        await self._account_lane_fault(live_lane, cutoff, evidence)
+
+    def _enter_quarantine(
+        self,
+        live_lane: LiveLane,
+        cutoff: datetime,
+        reason: str,
+        *,
+        rebuild_required: bool,
+    ) -> LaneQuarantine:
+        """Create the quarantine record, or count a failed retry on the old one."""
+
+        live_lane.status = "QUARANTINED"
+        live_lane.reason = reason
+        quarantine = live_lane.quarantine
+        if quarantine is None:
+            quarantine = LaneQuarantine(
+                reason=reason,
+                fault_cutoff=cutoff,
+                entered_at=self._now(),
+                rebuild_required=rebuild_required,
+            )
+            live_lane.quarantine = quarantine
+        else:
+            quarantine.attempt += 1
+            quarantine.reason = reason
+            quarantine.fault_cutoff = cutoff
+        return quarantine
+
+    def _schedule_lane_retry(self, live_lane: LiveLane) -> None:
+        quarantine = live_lane.quarantine
+        assert quarantine is not None
+        if quarantine.rebuild_required:
+            quarantine.retry_due_at = None
+            return
+        quarantine.retry_due_at = self._now() + timedelta(
+            seconds=lane_retry_delay_seconds(
+                quarantine.attempt, self._lane_retry_initial, self._lane_retry_max
+            )
+        )
+
+    def _log_quarantined(self, live_lane: LiveLane, cutoff: datetime) -> None:
+        quarantine = live_lane.quarantine
+        assert quarantine is not None
         _log_best_effort(
             "warning",
             "decision.lane.quarantined",
             lane_id=live_lane.lane_id,
-            reason=reason,
+            reason=quarantine.reason,
             trigger_cutoff=cutoff,
-            rebuild_required=live_lane.quarantine.rebuild_required,
+            rebuild_required=quarantine.rebuild_required,
+            attempt=quarantine.attempt,
+            retry_due_at=quarantine.retry_due_at,
             generation_id=self._generation_id,
         )
-        await self._account_lane_fault(live_lane, cutoff, evidence)
 
     async def _account_lane_fault(
         self,

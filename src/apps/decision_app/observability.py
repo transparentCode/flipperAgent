@@ -112,6 +112,12 @@ class _LaneGaugeState:
     latest_market_as_of: datetime | None
     last_disposition: str | None
     admitted: bool = True
+    quarantine_attempt: int | None = None
+
+
+def _quarantine_attempt(live_lane: Any) -> int | None:
+    quarantine = getattr(live_lane, "quarantine", None)
+    return None if quarantine is None else quarantine.attempt
 
 
 class DecisionObservability:
@@ -169,6 +175,11 @@ class DecisionObservability:
             "decision.lane.state",
             callbacks=[self._observe_lane_state],
             description="Current exact LiveLaneStatus for a Decision lane.",
+        )
+        self.lane_quarantine_attempt = self.meter.create_observable_gauge(
+            "decision.lane.quarantine_attempt",
+            callbacks=[self._observe_lane_quarantine_attempt],
+            description="Failed automatic retries for a quarantined Decision lane.",
         )
         self.lane_watermark_closed_interval_lag = self.meter.create_observable_gauge(
             "decision.lane.watermark_closed_interval_lag",
@@ -253,6 +264,7 @@ class DecisionObservability:
                 state=live_lane.status,
                 latest_market_as_of=None,
                 last_disposition=None,
+                quarantine_attempt=_quarantine_attempt(live_lane),
             )
         # Lanes the runtime did not admit keep a state series so an operator
         # sees BLOCKED/INACTIVE lanes; cardinality stays the configured lanes.
@@ -306,6 +318,7 @@ class DecisionObservability:
                         state=live_lane.status,
                         latest_market_as_of=live_lane.finalizer.watermark.latest_market_as_of,
                         last_disposition=live_lane.finalizer.watermark.last_disposition,
+                        quarantine_attempt=_quarantine_attempt(live_lane),
                     )
                 elif not state.admitted:
                     # Startup-blocked lanes never enter ``runtime.lanes``; keep
@@ -490,6 +503,25 @@ class DecisionObservability:
                 ),
             )
             for lane in values
+        )
+
+    def _observe_lane_quarantine_attempt(
+        self,
+        _options: CallbackOptions,
+    ) -> Iterator[Observation]:
+        with self._lock:
+            values = tuple(self._lanes.values())
+        return iter(
+            Observation(
+                lane.quarantine_attempt,
+                _labels(
+                    lane=lane.lane_id,
+                    asset=lane.asset,
+                    timeframe=lane.timeframe,
+                ),
+            )
+            for lane in values
+            if lane.quarantine_attempt is not None
         )
 
     def _observe_lane_watermark_lag(

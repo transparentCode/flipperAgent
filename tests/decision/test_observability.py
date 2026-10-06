@@ -122,6 +122,7 @@ def test_decision_metric_surface_uses_only_approved_labels() -> None:
         "decision.input.blocked",
         "decision.input.closed_interval_lag",
         "decision.lane.state",
+        "decision.lane.quarantine_attempt",
         "decision.lane.watermark_closed_interval_lag",
         "decision.lane.last_disposition",
         "decision.input.records_total",
@@ -480,9 +481,21 @@ def test_lane_fault_skip_reason_is_recorded_and_quarantined_state_is_emitted() -
         latest_input=BASE,
         latest_watermark=BASE,
     )
-    runtime.lanes["BTCUSDT:momentum_1h"].status = "QUARANTINED"
+    live_lane = runtime.lanes["BTCUSDT:momentum_1h"]
+    live_lane.status = "QUARANTINED"
     observation.replace_generation(runtime=runtime, input_series={btc: object()})
     observation.refresh_runtime(runtime)
+    # No quarantine record: the attempt gauge emits nothing for the lane.
+    assert _observations(meter, "decision.lane.quarantine_attempt") == ()
+    live_lane.quarantine = SimpleNamespace(attempt=3)
+    observation.refresh_runtime(runtime)
+    (attempt,) = _observations(meter, "decision.lane.quarantine_attempt")
+    assert attempt.value == 3
+    assert dict(attempt.attributes) == {
+        "lane": "BTCUSDT:momentum_1h",
+        "asset": "BTCUSDT",
+        "timeframe": "1h",
+    }
     states = [
         item
         for item in _observations(meter, "decision.lane.state")

@@ -436,7 +436,13 @@ conflicting input, non-forward-gap `RECONSTRUCTION_REQUIRED`, generation-scoped
 halted/invalid or reconstruction-required lanes (shared, publish-uncertain and
 post-commit durability faults), blocked startup lanes, and failed rebuilds. A lane-local fault instead
 quarantines only its lane (`QUARANTINED`, service `DEGRADED`, no generation
-rebuild); a quarantined stateful lane also schedules `AUTOMATIC_RECOVERY`.
+rebuild); a quarantined stateful lane also schedules `AUTOMATIC_RECOVERY` and
+never retries in process. A quarantined stateless lane retries itself with the
+same 5 to 300 second ladder, at the next closed trigger cutoff after its
+`retry_due_at` (failed cutoffs are never re-evaluated); the retry counter resets
+only after a COMMITTED cutoff, which clears the quarantine record. Stateless
+post-commit durability faults replay only the idempotent skip/progress writes and
+defer later cutoffs in memory until the replay succeeds.
 Automatic attempts use exponential delays from 5 seconds through a 300-second
 cap. While an installed generation waits for an automatic retry, it continues
 polling so healthy lanes can progress. A forward canonical market gap is the

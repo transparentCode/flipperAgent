@@ -20,7 +20,12 @@ from apps.decision_app.features.planning import (
 from apps.decision_app.observability import DecisionObservability
 from apps.decision_app.planning.catalog import PluginCatalog
 from apps.decision_app.runtime.deadlines import OperationTimeout
-from apps.decision_app.runtime.live import LiveDecisionRuntime
+from apps.decision_app.runtime.live import (
+    RECOVERY_BACKOFF_INITIAL_SECONDS,
+    RECOVERY_BACKOFF_MAX_SECONDS,
+    LiveDecisionRuntime,
+    lane_retry_delay_seconds,
+)
 from apps.decision_app.runtime.plugins import (
     RuntimePluginCatalog,
     RuntimePluginDefinition,
@@ -2077,7 +2082,11 @@ async def test_shadow_exact_id_reconciles_in_flight_cutoff_crash_window() -> Non
 
     progress.save = fail_progress_save  # type: ignore[method-assign]
     result = await first_runtime.poll_once()
-    assert result.lane_results["BTCUSDT:main"].status == "HALTED"
+    # The cutoff committed and only the stateless progress write failed, so the
+    # lane quarantines and replays the write instead of halting the generation.
+    assert result.lane_results["BTCUSDT:main"].status == "QUARANTINED"
+    quarantine = first_runtime.lanes["BTCUSDT:main"].quarantine
+    assert quarantine is not None and quarantine.pending_effect is not None
     assert len(publisher_client.entries["decision:shadow:BTCUSDT:main"]) == 1
 
     progress.save = original_save  # type: ignore[method-assign]
@@ -2115,7 +2124,9 @@ async def test_shadow_exact_id_reconciles_in_flight_cutoff_crash_window() -> Non
 
 
 @pytest.mark.asyncio
-async def test_shadow_progress_sql_timeout_after_commit_halts_without_rewind() -> None:
+async def test_shadow_progress_sql_timeout_after_commit_quarantines_without_rewind() -> (
+    None
+):
     progress = _TimeoutLiveProgressRepository()
     history = InMemoryCanonicalMarketHistoryRepository(
         {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(3))},
@@ -2153,7 +2164,8 @@ async def test_shadow_progress_sql_timeout_after_commit_halts_without_rewind() -
 
     assert lane.publication_outcome == "PUBLISHED"
     assert lane.finalization_status == "COMMITTED"
-    assert lane.status == "HALTED"
+    assert lane.status == "QUARANTINED"
+    assert runtime.lanes["BTCUSDT:main"].quarantine.pending_effect is not None
     assert "lane effect progress durability failed after committed finalization" in (
         lane.reason or ""
     )
@@ -3143,6 +3155,7 @@ async def _quarantine_runtime(
     with_publisher: bool = True,
     skips: InMemoryLaneEffectSkipsRepository | None = None,
     progress: InMemoryLaneEffectProgressRepository | None = None,
+    **runtime_kwargs,
 ):
     history = _signal_history(3)
     stream = _signal_stream(2)
@@ -3177,6 +3190,7 @@ async def _quarantine_runtime(
         effect_progress_repository=progress,
         effect_skips_repository=skips,
         now_fn=lambda: clock[0],
+        **runtime_kwargs,
     )
     return runtime, stream, progress, skips, client, clock
 
@@ -3230,8 +3244,12 @@ async def test_model_preparation_fault_quarantines_stateless_lane_and_accounts_c
 async def test_quarantined_lane_accounts_each_later_cutoff_without_touching_healthy_lane() -> (
     None
 ):
+    # A retry backoff longer than the test keeps every later cutoff "not due",
+    # so each is accounted lane_fault without evaluating the plugin again.
     runtime, stream, progress, skips, client, clock = await _quarantine_runtime(
-        lane_names=("main", "aux")
+        lane_names=("main", "aux"),
+        lane_retry_initial_seconds=10**7,
+        lane_retry_max_seconds=10**7,
     )
     faulty = runtime.lanes["BTCUSDT:aux"]
     calls: list[datetime] = []
@@ -3369,3 +3387,245 @@ async def test_shared_faults_keep_generation_scoped_status() -> None:
     lane2 = (await runtime2.poll_once()).lane_results["BTCUSDT:main"]
     assert lane2.status == "RECONSTRUCTION_REQUIRED"
     assert _lane_fault_rows(skips) == [] and _lane_fault_rows(skips2) == []
+
+
+# ---------------------------------------------------------------------------
+# DA-3b lane retry, rejoin and phase-c replay
+# ---------------------------------------------------------------------------
+
+
+def _restore_prepare(live_lane, original) -> None:
+    live_lane.runtime.prepare_live = original
+
+
+async def _feed(runtime, stream, clock, index: int, *, advance: bool = True):
+    if advance:
+        clock[0] = _signal_bar(index).market_as_of + timedelta(seconds=300)
+    stream.pending.append((f"{index}-0", _signal_fields(index)))
+    return (await runtime.poll_once()).lane_results["BTCUSDT:main"]
+
+
+def test_lane_retry_delay_ladder_and_validation() -> None:
+    delays = [lane_retry_delay_seconds(n, 5.0, 300.0) for n in range(9)]
+    assert delays == [5, 10, 20, 40, 80, 160, 300, 300, 300]
+    assert lane_retry_delay_seconds(10**6, 5.0, 300.0) == 300.0
+    assert RECOVERY_BACKOFF_INITIAL_SECONDS == 5.0
+    assert RECOVERY_BACKOFF_MAX_SECONDS == 300.0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("initial", "maximum"),
+    [(0, 10), (-1, 10), (10, 5), (True, 10), (float("nan"), 10), (5, float("inf"))],
+)
+async def test_runtime_rejects_invalid_lane_retry_backoff(initial, maximum) -> None:
+    with pytest.raises(ValueError, match="lane retry backoff must be positive"):
+        await _quarantine_runtime(
+            lane_retry_initial_seconds=initial, lane_retry_max_seconds=maximum
+        )
+
+
+@pytest.mark.asyncio
+async def test_always_failing_lane_retries_once_per_due_cutoff_with_backoff() -> None:
+    runtime, stream, _progress, skips, _client, clock = await _quarantine_runtime()
+    live_lane = runtime.lanes["BTCUSDT:main"]
+    calls: list[datetime] = []
+    _fail_prepare(live_lane, calls)
+
+    seen: list[tuple[int, float]] = []
+    indexes = range(3, 11)
+    for index in indexes:
+        lane = await _feed(runtime, stream, clock, index)
+        assert lane.status == "QUARANTINED"
+        q = live_lane.quarantine
+        seen.append((q.attempt, (q.retry_due_at - clock[0]).total_seconds()))
+
+    assert seen == [
+        (0, 5),
+        (1, 10),
+        (2, 20),
+        (3, 40),
+        (4, 80),
+        (5, 160),
+        (6, 300),
+        (7, 300),
+    ]
+    bars = [_signal_bar(i).market_as_of for i in indexes]
+    assert calls == bars  # every cutoff attempted exactly once, strictly increasing
+    assert _lane_fault_rows(skips) == [(bar, bar, 1) for bar in bars]
+
+
+@pytest.mark.asyncio
+async def test_recovering_lane_rejoins_on_committed_cutoff_and_resets_counter() -> None:
+    runtime, stream, progress, skips, client, clock = await _quarantine_runtime()
+    live_lane = runtime.lanes["BTCUSDT:main"]
+    original = live_lane.runtime.prepare_live
+    _fail_prepare(live_lane, [])
+
+    lane = await _feed(runtime, stream, clock, 3)
+    assert lane.status == "QUARANTINED" and live_lane.quarantine.attempt == 0
+    assert client.xadd_calls == 0
+
+    _restore_prepare(live_lane, original)
+    lane = await _feed(runtime, stream, clock, 4)
+    assert lane.status == "LIVE" and lane.publication_outcome == "PUBLISHED"
+    assert live_lane.quarantine is None
+    assert client.xadd_calls == 1
+    c, d = _signal_bar(3).market_as_of, _signal_bar(4).market_as_of
+    assert _lane_fault_rows(skips) == [(c, c, 1)]
+    saved = await progress.load(live_lane.identity)
+    assert saved is not None and saved.market_as_of == d
+
+    _fail_prepare(live_lane, [])
+    lane = await _feed(runtime, stream, clock, 5)
+    assert lane.status == "QUARANTINED" and live_lane.quarantine.attempt == 0
+
+
+@pytest.mark.asyncio
+async def test_failed_retry_keeps_counting_and_waiting_does_not_reset() -> None:
+    runtime, stream, _progress, _skips, _client, clock = await _quarantine_runtime()
+    live_lane = runtime.lanes["BTCUSDT:main"]
+    _fail_prepare(live_lane, [])
+    await _feed(runtime, stream, clock, 3)
+    await _feed(runtime, stream, clock, 4)
+    assert live_lane.quarantine.attempt == 1
+    # A clock-behind retry parks the lane WAITING but keeps the record.
+    stream.pending.append(("5-0", _signal_fields(5)))
+    clock[0] = _signal_bar(5).market_as_of - timedelta(seconds=1)
+    lane = (await runtime.poll_once()).lane_results["BTCUSDT:main"]
+    assert lane.status == "WAITING"
+    assert live_lane.quarantine is not None and live_lane.quarantine.attempt == 1
+
+
+@pytest.mark.asyncio
+async def test_progress_fault_after_commit_replays_and_rejoins_with_one_deferred_row() -> (
+    None
+):
+    progress = _SwitchableProgress()
+    runtime, stream, _p, skips, client, clock = await _quarantine_runtime(
+        progress=progress
+    )
+    live_lane = runtime.lanes["BTCUSDT:main"]
+    c, d = _signal_bar(3).market_as_of, _signal_bar(4).market_as_of
+
+    progress.fail = True
+    lane = await _feed(runtime, stream, clock, 3)
+    assert lane.status == "QUARANTINED" and lane.publication_outcome == "PUBLISHED"
+    assert live_lane.quarantine.pending_effect.market_as_of == c
+    assert live_lane.quarantine.rebuild_required is False
+    assert _lane_fault_rows(skips) == []  # C committed, so it is not a lane fault
+    assert live_lane.finalizer.watermark.latest_market_as_of == c
+
+    # C+d arrives before the retry is due: held in memory, nothing durable.
+    progress.fail = False
+    lane = await _feed(runtime, stream, clock, 4, advance=False)
+    assert lane.status == "QUARANTINED"
+    assert _lane_fault_rows(skips) == []
+    assert await progress.load(live_lane.identity) is None or (
+        (await progress.load(live_lane.identity)).market_as_of < c
+    )
+    assert live_lane.quarantine.deferred_through == d
+    assert live_lane.finalizer.watermark.latest_market_as_of == d
+
+    # C+2d arrives after the due time: replay C, account C+d, then evaluate C+2d.
+    lane = await _feed(runtime, stream, clock, 5)
+    assert lane.status == "LIVE" and lane.publication_outcome == "PUBLISHED"
+    assert live_lane.quarantine is None
+    assert _lane_fault_rows(skips) == [(d, d, 1)]
+    saved = await progress.load(live_lane.identity)
+    assert saved is not None and saved.market_as_of == _signal_bar(5).market_as_of
+    assert client.xadd_calls == 2  # C and C+2d; C+d is the only skipped cutoff
+
+
+@pytest.mark.asyncio
+async def test_phase_c_replay_that_keeps_failing_defers_into_one_multi_cutoff_row() -> (
+    None
+):
+    progress = _SwitchableProgress()
+    runtime, stream, _p, skips, client, clock = await _quarantine_runtime(
+        progress=progress
+    )
+    live_lane = runtime.lanes["BTCUSDT:main"]
+    progress.fail = True
+    await _feed(runtime, stream, clock, 3)
+    assert live_lane.quarantine.attempt == 0
+
+    await _feed(runtime, stream, clock, 4)
+    assert live_lane.quarantine.attempt == 1
+    await _feed(runtime, stream, clock, 5)
+    q = live_lane.quarantine
+    assert q.attempt == 2 and q.pending_effect is not None
+    assert q.deferred_from == _signal_bar(4).market_as_of
+    assert q.deferred_through == _signal_bar(5).market_as_of
+    assert _lane_fault_rows(skips) == []
+
+    progress.fail = False
+    lane = await _feed(runtime, stream, clock, 6)
+    assert lane.status == "LIVE" and lane.publication_outcome == "PUBLISHED"
+    assert live_lane.quarantine is None
+    assert _lane_fault_rows(skips) == [
+        (_signal_bar(4).market_as_of, _signal_bar(5).market_as_of, 2)
+    ]
+    assert client.xadd_calls == 2
+
+
+@pytest.mark.asyncio
+async def test_stale_skip_progress_fault_replays_the_skip_row_and_rejoins() -> None:
+    progress = _SwitchableProgress()
+    runtime, stream, _p, skips, client, clock = await _quarantine_runtime(
+        progress=progress
+    )
+    live_lane = runtime.lanes["BTCUSDT:main"]
+    c = _signal_bar(3).market_as_of
+    progress.fail = True
+    # A decision clock beyond the freshness window makes the cutoff stale.
+    clock[0] = c + timedelta(seconds=3600)
+    stream.pending.append(("3-0", _signal_fields(3)))
+    lane = (await runtime.poll_once()).lane_results["BTCUSDT:main"]
+    assert lane.status == "QUARANTINED"
+    assert live_lane.quarantine.pending_skip_reason == "stale"
+    assert client.xadd_calls == 0
+
+    progress.fail = False
+    lane = await _feed(runtime, stream, clock, 4)
+    assert lane.status == "LIVE" and lane.publication_outcome == "PUBLISHED"
+    assert live_lane.quarantine is None
+    assert [(r.skipped_from, r.reason) for r in skips.records] == [(c, "stale")]
+    saved = await progress.load(live_lane.identity)
+    assert saved is not None and saved.market_as_of == _signal_bar(4).market_as_of
+
+
+@pytest.mark.asyncio
+async def test_stateful_quarantined_lane_never_retries_in_process() -> None:
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SR_SERIES: tuple(sr_bar(index) for index in range(50))},
+        timeframe_grid=SR_GRID,
+    )
+    stream = _LiveInputClient(
+        stream="stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+        tail_index=49,
+        field_factory=sr_stream_fields,
+    )
+    checkpoints = InMemoryCheckpointRepository()
+    startup = await _sr_coordinator(history, checkpoints, stream).start()
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SR_GRID,
+        stream_client=stream,
+        history_repository=history,
+        checkpoint_repository=checkpoints,
+        now_fn=lambda: datetime(2026, 2, 2, tzinfo=UTC),
+    )
+    runtime._policy = _RaisingPolicy()
+    stream.pending.append(("50-0", sr_stream_fields(50)))
+    await runtime.poll_once()
+    runtime._now_fn = lambda: datetime(2026, 3, 1, tzinfo=UTC)
+    stream.pending.append(("51-0", sr_stream_fields(51)))
+    lane = (await runtime.poll_once()).lane_results["BTCUSDT:main"]
+    q = runtime.lanes["BTCUSDT:main"].quarantine
+    assert lane.status == "QUARANTINED" and lane.rebuild_required is True
+    assert q.retry_due_at is None and q.attempt == 0
+    assert [r.skipped_from for r in runtime._effect_skips.records] == [
+        sr_bar(50).market_as_of,
+        sr_bar(51).market_as_of,
+    ]
