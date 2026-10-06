@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "hindsight": {
+      "type": "http",
+      "url": "http://localhost:8888/mcp"
+    },
+    "codebase-memory-mcp": {
+      "type": "http",
+      "url": "http://localhost:9748/mcp"
+    },
+    "gitnexus": {
+      "type": "http",
+      "url": "http://localhost:9750/mcp"
+    }
+  }
+}

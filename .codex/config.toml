@@ -47,6 +47,9 @@ approval_mode = "approve"
 [mcp_servers.codebase-memory-mcp.tools.search_code]
 approval_mode = "approve"
 
+[mcp_servers.codebase-memory-mcp.tools.get_code_snippet]
+approval_mode = "approve"
+
 [mcp_servers.gitnexus]
 url = "http://localhost:9750/mcp"
 required = false

@@ -23,6 +23,10 @@ ENV/
 # Secrets (cookies, API keys, etc.)
 secrets/
 
+# Claude Code machine-local overrides
+.claude/settings.local.json
+CLAUDE.local.md
+
 # IDE specific
 # .idea/
 # .vscode/
