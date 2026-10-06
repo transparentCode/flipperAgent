@@ -1933,6 +1933,90 @@ async def test_clean_generation_poll_and_manual_reconnect_reset_recovery_attempt
         await service.stop()
 
 
+def test_snapshot_reports_last_accepted_at_and_lane_input_silence() -> None:
+    now = [NOW + timedelta(seconds=90)]
+    key = MarketSeriesKey(
+        asset="BTCUSDT",
+        venue="binance",
+        instrument_id="BTCUSDT-PERP",
+        timeframe="1h",
+    )
+    cursor = InputReadCursor(
+        stream_key="stream:btc:1h",
+        latest_stream_id="1-0",
+        latest_market_as_of=NOW,
+    )
+    accepted_at = {"stream:btc:1h": NOW + timedelta(seconds=30)}
+
+    async def poll_once(**_kwargs):
+        raise AssertionError("snapshot must not poll")
+
+    runtime = SimpleNamespace(
+        poll_once=poll_once,
+        input=SimpleNamespace(
+            cursors={cursor.stream_key: cursor},
+            blocked_streams={},
+            cursor_for=lambda requested: cursor,
+        ),
+        last_accepted_at=accepted_at,
+        lanes={
+            "BTCUSDT:main": SimpleNamespace(
+                status="LIVE",
+                reason=None,
+                pending_trigger_cutoff=None,
+                history_requirements={key: 10},
+                finalizer=SimpleNamespace(
+                    watermark=LaneCommitWatermark(
+                        lane_id="BTCUSDT:main",
+                        latest_market_as_of=NOW,
+                        last_disposition="published",
+                    )
+                ),
+            ),
+            "BTCUSDT:idle": SimpleNamespace(
+                status="LIVE",
+                reason=None,
+                pending_trigger_cutoff=None,
+                history_requirements={key: 10},
+                finalizer=SimpleNamespace(
+                    watermark=LaneCommitWatermark(lane_id="BTCUSDT:idle")
+                ),
+            ),
+        },
+        blocked_lanes={},
+    )
+    generation = DecisionRuntimeGeneration(
+        generation_id=1,
+        created_at=NOW,
+        startup=SimpleNamespace(
+            snapshot=SimpleNamespace(active_manifest_assets=("BTCUSDT",)),
+            decision_plan=SimpleNamespace(lanes=(object(), object())),
+        ),
+        live_runtime=runtime,
+    )
+    service = DecisionService(
+        generation_factory=lambda **_: None,  # type: ignore[arg-type]
+        configured_lane_count=2,
+        now_fn=lambda: now[0],
+    )
+    service._generation = generation
+
+    first = service.snapshot()
+    assert first.inputs["stream:btc:1h"]["last_accepted_at"] == (
+        NOW + timedelta(seconds=30)
+    )
+    assert first.lanes["BTCUSDT:main"]["input_silent_seconds"] == 60.0
+
+    now[0] = NOW + timedelta(seconds=150)
+    later = service.snapshot()
+    assert later.lanes["BTCUSDT:main"]["input_silent_seconds"] == 120.0
+
+    accepted_at.clear()
+    nothing = service.snapshot()
+    assert nothing.inputs["stream:btc:1h"]["last_accepted_at"] is None
+    assert nothing.lanes["BTCUSDT:main"]["input_silent_seconds"] is None
+
+
 def test_readiness_grace_applies_only_to_running_configured_lanes() -> None:
     now = [NOW]
     runtime = _Runtime()

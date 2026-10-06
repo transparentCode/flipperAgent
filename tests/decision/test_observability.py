@@ -129,6 +129,7 @@ def test_decision_metric_surface_uses_only_approved_labels() -> None:
         "decision.input.canonical_event_latency_ms",
         "decision.poll.duration_ms",
         "decision.lane.evaluation_total",
+        "decision.lane.skip_total",
         "decision.publication.total",
         "decision.rebuild.total",
         "decision.rebuild.duration_ms",
@@ -247,6 +248,87 @@ def test_generation_replacement_removes_retired_input_and_lane_series() -> None:
         ("state", "LIVE"),
     ) in lane_labels
     assert all("BTCUSDT" not in str(labels) for labels in lane_labels)
+
+
+def test_generation_with_blocked_lane_exposes_its_lane_state() -> None:
+    meter = _Meter()
+    observation = DecisionObservability(
+        meter=meter,
+        timeframe_grid=TimeframeGrid(
+            alignment_origin=BASE,
+            durations={"1h": timedelta(hours=1)},
+        ),
+        now_fn=lambda: BASE + timedelta(hours=2),
+    )
+    btc = MarketSeriesKey(
+        asset="BTCUSDT", venue="binance", instrument_id="BTCUSDT", timeframe="1h"
+    )
+    runtime = _runtime(
+        btc,
+        lane_id="BTCUSDT:momentum_1h",
+        lane_timeframe="1h",
+        latest_input=BASE,
+        latest_watermark=BASE,
+    )
+    runtime.blocked_lanes = {
+        "ETHUSDT:momentum_1h": {
+            "lane_id": "ETHUSDT:momentum_1h",
+            "asset": "ETHUSDT",
+            "timeframe": "1h",
+            "status": "BLOCKED",
+            "reason": "history unavailable",
+            "startup_status": "BLOCKED",
+        },
+        "SOLUSDT:momentum_1h": {
+            "lane_id": "SOLUSDT:momentum_1h",
+            "asset": "SOLUSDT",
+            "timeframe": "1h",
+            "status": "INACTIVE",
+            "reason": "asset inactive",
+            "startup_status": "INACTIVE",
+        },
+    }
+    observation.replace_generation(runtime=runtime, input_series={btc: object()})
+    observation.refresh_runtime(runtime)
+
+    lane_labels = {
+        tuple(item.attributes.items())
+        for item in _observations(meter, "decision.lane.state")
+    }
+    assert (
+        ("lane", "ETHUSDT:momentum_1h"),
+        ("asset", "ETHUSDT"),
+        ("timeframe", "1h"),
+        ("state", "BLOCKED"),
+    ) in lane_labels
+    assert (
+        ("lane", "SOLUSDT:momentum_1h"),
+        ("asset", "SOLUSDT"),
+        ("timeframe", "1h"),
+        ("state", "INACTIVE"),
+    ) in lane_labels
+    assert len(lane_labels) == 3
+    # Blocked lanes are not admitted, so the active count stays admitted-only.
+    (active,) = _observations(meter, "decision.active_lane_count")
+    assert active.value == 1
+
+
+def test_lane_skip_counter_is_labelled_and_reason_is_finite() -> None:
+    meter = _Meter()
+    observation = DecisionObservability(
+        meter=meter,
+        timeframe_grid=TimeframeGrid(
+            alignment_origin=BASE,
+            durations={"1h": timedelta(hours=1)},
+        ),
+    )
+    observation.record_lane_skip(lane_id="BTCUSDT:momentum_1h", reason="stale")
+    ((value, attributes),) = meter.instruments["decision.lane.skip_total"].adds
+    assert value == 1
+    assert attributes == {"lane": "BTCUSDT:momentum_1h", "reason": "stale"}
+    assert set(attributes) <= ALLOWED_METRIC_LABELS
+    with pytest.raises(ValueError):
+        observation.record_lane_skip(lane_id="BTCUSDT:momentum_1h", reason="other")
 
 
 def test_all_input_dispositions_and_latency_are_recorded_without_transport_labels() -> (

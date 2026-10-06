@@ -624,12 +624,30 @@ class DecisionService:
         if runtime is not None:
             blocked = runtime.input.blocked_streams
             blocked_count = len(blocked)
+            accepted_at = getattr(runtime, "last_accepted_at", {})
             for stream_key, cursor in runtime.input.cursors.items():
                 inputs[stream_key] = {
                     "latest_stream_id": cursor.latest_stream_id,
                     "latest_market_as_of": cursor.latest_market_as_of,
+                    "last_accepted_at": accepted_at.get(stream_key),
                     "blocked_reason": blocked.get(stream_key),
                 }
+            now = self._now()
+            for lane_id, lane in runtime.lanes.items():
+                newest = max(
+                    (
+                        accepted
+                        for key in getattr(lane, "history_requirements", ())
+                        for accepted in (
+                            accepted_at.get(runtime.input.cursor_for(key).stream_key),
+                        )
+                        if accepted is not None
+                    ),
+                    default=None,
+                )
+                lanes[lane_id]["input_silent_seconds"] = (
+                    None if newest is None else max(0.0, (now - newest).total_seconds())
+                )
         lifecycle_evidence = self._last_lifecycle_evidence
         configured_lane_count = self._configured_lane_count or (
             0 if generation is None else len(generation.startup.decision_plan.lanes)

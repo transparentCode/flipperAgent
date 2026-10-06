@@ -905,10 +905,12 @@ async def test_signal_path_publishes_exact_id_then_finalizes() -> None:
     # Startup's latest retained cutoff is evaluated once, then skipped as stale;
     # the arriving fresh cutoff is evaluated and published once.
     assert len(meter.instruments["decision.lane.evaluation_total"].adds) == 2
-    assert (
-        meter.instruments["decision.lane.evaluation_total"].adds[0][1]["outcome"]
-        == "SIGNAL"
-    )
+    assert [
+        attributes["outcome"]
+        for _value, attributes in meter.instruments[
+            "decision.lane.evaluation_total"
+        ].adds
+    ] == ["stale", "SIGNAL"]
     assert len(meter.instruments["decision.publication.total"].adds) == 1
     assert (
         meter.instruments["decision.publication.total"].adds[0][1]["outcome"]
@@ -1146,6 +1148,73 @@ async def test_signal_freshness_boundary_is_exact_for_authoritative_and_shadow(
         assert skips.records[0].skipped_through == cutoff
         assert skips.records[0].reason == "stale"
         assert publisher_client.xadd_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_stale_skip_counts_skip_and_stale_outcome_not_signal() -> None:
+    checkpoints = InMemoryCheckpointRepository()
+    progress = InMemoryLaneEffectProgressRepository()
+    skips = InMemoryLaneEffectSkipsRepository()
+    history = InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(4))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+    stream = _LiveInputClient(
+        stream="stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+        tail_index=3,
+        field_factory=_signal_fields,
+    )
+    startup = await _stateful_signal_coordinator(
+        history,
+        stream,
+        checkpoint_repository=checkpoints,
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+    stream.pending.append(("4-0", _signal_fields(4)))
+    accepted_at = _signal_bar(4).market_as_of + timedelta(seconds=301)
+    meter = _Meter()
+    observability = DecisionObservability(
+        meter=meter,
+        timeframe_grid=SIGNAL_GRID,
+        now_fn=lambda: accepted_at,
+    )
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        signal_publisher=ValkeySignalPublisher(_IsolatedSignalClient()),
+        checkpoint_repository=checkpoints,
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+        now_fn=lambda: accepted_at,
+        observability=observability,
+    )
+    observability.replace_generation(
+        runtime=runtime,
+        input_series=startup.snapshot.series_positions,
+    )
+
+    assert runtime.last_accepted_at == {}
+    result = await runtime.poll_once()
+
+    assert result.lane_results["BTCUSDT:main"].publication_outcome == "SKIPPED_STALE"
+    skip_adds = meter.instruments["decision.lane.skip_total"].adds
+    assert len(skip_adds) == 1
+    assert skip_adds[0][0] == 1
+    assert skip_adds[0][1]["reason"] == "stale"
+    assert skip_adds[0][1]["lane"] == "BTCUSDT:main"
+    outcomes = [
+        attributes["outcome"]
+        for _value, attributes in meter.instruments[
+            "decision.lane.evaluation_total"
+        ].adds
+    ]
+    assert outcomes == ["stale"]
+    assert "SIGNAL" not in outcomes
+    assert len(meter.instruments["decision.publication.total"].adds) == 0
+    assert set(runtime.last_accepted_at.values()) == {accepted_at}
 
 
 @pytest.mark.asyncio
@@ -2726,9 +2795,14 @@ async def test_signal_batch_processes_each_cutoff_before_capacity_eviction() -> 
     publication_adds = meter.instruments["decision.publication.total"].adds
     assert len(evaluation_adds) == 3
     assert [attributes["outcome"] for _value, attributes in evaluation_adds] == [
+        "stale",
+        "stale",
         "SIGNAL",
-        "SIGNAL",
-        "SIGNAL",
+    ]
+    skip_adds = meter.instruments["decision.lane.skip_total"].adds
+    assert [attributes["reason"] for _value, attributes in skip_adds] == [
+        "stale",
+        "stale",
     ]
     assert len(publication_adds) == 1
     assert [attributes["outcome"] for _value, attributes in publication_adds] == [

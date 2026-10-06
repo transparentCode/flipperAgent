@@ -17,7 +17,9 @@ from libs.contracts.decision import require_utc
 
 _LOGGER = logging.getLogger(__name__)
 
-ALLOWED_METRIC_LABELS = frozenset({"lane", "asset", "timeframe", "outcome", "state"})
+ALLOWED_METRIC_LABELS = frozenset(
+    {"lane", "asset", "timeframe", "outcome", "state", "reason"}
+)
 INPUT_DISPOSITIONS = frozenset(
     {
         "INSERTED",
@@ -28,7 +30,10 @@ INPUT_DISPOSITIONS = frozenset(
         "MALFORMED",
     }
 )
-LANE_EVALUATION_OUTCOMES = frozenset({"SIGNAL", "NO_SIGNAL", "BLOCKED", "INVALID"})
+LANE_EVALUATION_OUTCOMES = frozenset(
+    {"SIGNAL", "NO_SIGNAL", "BLOCKED", "INVALID", "stale"}
+)
+SKIP_REASONS = frozenset({"stale"})
 PUBLICATION_OUTCOMES = frozenset(
     {"PUBLISHED", "ALREADY_IDENTICAL", "CONFLICT", "FAILED"}
 )
@@ -68,6 +73,7 @@ def _labels(
     timeframe: str | None = None,
     outcome: str | None = None,
     state: str | None = None,
+    reason: str | None = None,
 ) -> dict[str, str]:
     values = {
         key: value
@@ -77,6 +83,7 @@ def _labels(
             "timeframe": timeframe,
             "outcome": outcome,
             "state": state,
+            "reason": reason,
         }.items()
         if value is not None
     }
@@ -104,6 +111,7 @@ class _LaneGaugeState:
     state: str
     latest_market_as_of: datetime | None
     last_disposition: str | None
+    admitted: bool = True
 
 
 class DecisionObservability:
@@ -201,6 +209,10 @@ class DecisionObservability:
             "decision.publication.total",
             description="Decision publication acknowledgement outcomes.",
         )
+        self.lane_skip_total = self.meter.create_counter(
+            "decision.lane.skip_total",
+            description="Decision lane skip rows written by the live runtime.",
+        )
         self.rebuild_total = self.meter.create_counter(
             "decision.rebuild.total",
             description="Decision generation rebuild outcomes.",
@@ -242,6 +254,20 @@ class DecisionObservability:
                 latest_market_as_of=None,
                 last_disposition=None,
             )
+        # Lanes the runtime did not admit keep a state series so an operator
+        # sees BLOCKED/INACTIVE lanes; cardinality stays the configured lanes.
+        for lane_id, blocked in getattr(runtime, "blocked_lanes", {}).items():
+            if lane_id in lanes:
+                continue
+            lanes[lane_id] = _LaneGaugeState(
+                lane_id=lane_id,
+                asset=blocked.get("asset"),
+                timeframe=blocked.get("timeframe"),
+                state=blocked["status"],
+                latest_market_as_of=None,
+                last_disposition=None,
+                admitted=False,
+            )
         with self._lock:
             self._inputs = inputs
             self._lanes = lanes
@@ -269,19 +295,22 @@ class DecisionObservability:
                 )
                 for key, state in self._inputs.items()
             }
-            lanes = {
-                lane_id: _LaneGaugeState(
-                    lane_id=lane_id,
-                    asset=state.asset,
-                    timeframe=state.timeframe,
-                    state=live_lane.status,
-                    latest_market_as_of=live_lane.finalizer.watermark.latest_market_as_of,
-                    last_disposition=live_lane.finalizer.watermark.last_disposition,
-                )
-                for lane_id, state in self._lanes.items()
-                for live_lane in (runtime.lanes.get(lane_id),)
-                if live_lane is not None
-            }
+            lanes = {}
+            for lane_id, state in self._lanes.items():
+                live_lane = runtime.lanes.get(lane_id)
+                if live_lane is not None:
+                    lanes[lane_id] = _LaneGaugeState(
+                        lane_id=lane_id,
+                        asset=state.asset,
+                        timeframe=state.timeframe,
+                        state=live_lane.status,
+                        latest_market_as_of=live_lane.finalizer.watermark.latest_market_as_of,
+                        last_disposition=live_lane.finalizer.watermark.last_disposition,
+                    )
+                elif not state.admitted:
+                    # Startup-blocked lanes never enter ``runtime.lanes``; keep
+                    # their recorded series from the generation install.
+                    lanes[lane_id] = state
             self._inputs = inputs
             self._lanes = lanes
 
@@ -356,6 +385,14 @@ class DecisionObservability:
             _labels(**self._lane_identity_labels(lane_id), outcome=outcome),
         )
 
+    def record_lane_skip(self, *, lane_id: str, reason: str) -> None:
+        if not isinstance(reason, str) or reason not in SKIP_REASONS:
+            raise ValueError(f"unsupported lane skip reason: {reason}")
+        self.lane_skip_total.add(
+            1,
+            _labels(**self._lane_identity_labels(lane_id), reason=reason),
+        )
+
     def record_publication(self, *, lane_id: str, outcome: str) -> None:
         if not isinstance(outcome, str) or outcome not in PUBLICATION_OUTCOMES:
             raise ValueError(f"unsupported publication outcome: {outcome}")
@@ -388,7 +425,7 @@ class DecisionObservability:
         _options: CallbackOptions,
     ) -> tuple[Observation, ...]:
         with self._lock:
-            value = len(self._lanes)
+            value = sum(lane.admitted for lane in self._lanes.values())
         return (Observation(value),)
 
     def _observe_blocked_input_count(
@@ -523,6 +560,7 @@ __all__ = [
     "INPUT_DISPOSITIONS",
     "LANE_EVALUATION_OUTCOMES",
     "PUBLICATION_OUTCOMES",
+    "SKIP_REASONS",
     "DecisionObservability",
     "observe_best_effort",
 ]

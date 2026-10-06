@@ -376,9 +376,20 @@ skip ranges, readiness reasons, dependency failures, state
 transitions, and publication conflicts. Controls are bounded and auditable; there
 is no hot graph mutation or live training control surface.
 
+Metrics: `decision.lane.state` carries a series for every configured lane,
+including startup-blocked or inactive lanes (state `BLOCKED` or `INACTIVE`);
+`decision.active_lane_count` counts admitted lanes only.
+`decision.lane.skip_total{lane, reason}` counts skip rows the live runtime
+writes (reason `stale`). `decision.lane.evaluation_total` is recorded after the
+freshness gate, so a stale skip is counted with outcome `stale`, not `SIGNAL`.
+
 Operator note on silent series: Decision does not consume ingestion's
 `excluded_lanes` or `degraded` readiness. When a series goes silent, check
 ingestion `GET /runtime` for that series.
+
+`inputs[*].last_accepted_at` and `lanes[*].input_silent_seconds` in `/runtime`,
+`/runtime/inputs` and `/runtime/lanes` are the first place to look when a lane
+shows "context not ready".
 
 Operator note on control endpoints: `POST /runtime/pause`, `/runtime/resume` and
 `/runtime/reconnect` have no authentication. `docker-compose.yml` publishes the

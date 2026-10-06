@@ -315,6 +315,7 @@ class LiveDecisionRuntime:
         ):
             raise TypeError("observability must be DecisionObservability or None")
         self._observability = observability
+        self._last_accepted_at: dict[str, datetime] = {}
         self._reader = DirectCursorInput(
             stream_client=stream_client,
             startup_positions=startup.snapshot.series_positions,
@@ -374,16 +375,26 @@ class LiveDecisionRuntime:
         """Startup lanes not admitted to live evaluation, with their reason."""
 
         blocked: dict[str, Mapping[str, Any]] = {}
+        plans = {lane.lane_id: lane for lane in self._startup.decision_plan.lanes}
         for lane_id, evidence in self._startup.snapshot.lane_evidence.items():
             if evidence.status == "STARTUP_READY":
                 continue
+            plan = plans.get(lane_id)
             blocked[lane_id] = {
                 "lane_id": lane_id,
+                "asset": None if plan is None else plan.asset,
+                "timeframe": None if plan is None else plan.decision_timeframe,
                 "status": "INACTIVE" if evidence.status == "INACTIVE" else "BLOCKED",
                 "reason": evidence.reason,
                 "startup_status": evidence.status,
             }
         return FrozenMapping(dict(sorted(blocked.items())))
+
+    @property
+    def last_accepted_at(self) -> Mapping[str, datetime]:
+        """Wall-clock UTC of the last INSERTED record per input stream key."""
+
+        return FrozenMapping(dict(sorted(self._last_accepted_at.items())))
 
     @property
     def has_unblocked_streams(self) -> bool:
@@ -507,6 +518,8 @@ class LiveDecisionRuntime:
                     accepted_at = self._now()
                     input_results.append(result)
                     self._record_input_result(result, accepted_at=accepted_at)
+                    if result.disposition == "INSERTED":
+                        self._last_accepted_at[stream_key] = accepted_at
                     if result.disposition in {
                         "RECONSTRUCTION_REQUIRED",
                         "CONFLICT",
@@ -670,13 +683,8 @@ class LiveDecisionRuntime:
             self._halt_lane(live_lane, "INVALID", reason)
             return
         evidence.policy_status = evaluation.status
-        if self._observability is not None:
-            observe_best_effort(
-                self._observability.record_lane_evaluation,
-                lane_id=live_lane.lane_id,
-                outcome=evaluation.status,
-            )
         if evaluation.status in {"BLOCKED", "INVALID"}:
+            self._record_lane_evaluation(live_lane, evaluation.status)
             try:
                 receipt = live_lane.finalizer.abort_policy_failure(prepared, evaluation)
                 evidence.finalization_status = receipt.status
@@ -697,6 +705,9 @@ class LiveDecisionRuntime:
             result.decision_ready_at - result.market_as_of
             > timedelta(seconds=self._signal_freshness_seconds)
         )
+        # Recorded after the freshness gate so a stale skip is not counted as
+        # a SIGNAL (or NO_SIGNAL) outcome.
+        self._record_lane_evaluation(live_lane, "stale" if stale else evaluation.status)
         if stale:
             try:
                 receipt = live_lane.finalizer.finalize_skipped(prepared, evaluation)
@@ -864,6 +875,12 @@ class LiveDecisionRuntime:
                     f"lane effect skip durability failed after commit: {exc}",
                 )
                 return
+            if self._observability is not None:
+                observe_best_effort(
+                    self._observability.record_lane_skip,
+                    lane_id=live_lane.lane_id,
+                    reason=skip_reason,
+                )
         try:
             progress_result = await self._save_effect_progress(live_lane, receipt)
         except Exception as exc:  # noqa: BLE001
@@ -1104,6 +1121,14 @@ class LiveDecisionRuntime:
             checkpoint_result=evidence.checkpoint_result,
             reason=live_lane.reason,
         )
+
+    def _record_lane_evaluation(self, live_lane: LiveLane, outcome: str) -> None:
+        if self._observability is not None:
+            observe_best_effort(
+                self._observability.record_lane_evaluation,
+                lane_id=live_lane.lane_id,
+                outcome=outcome,
+            )
 
     def _record_input_result(
         self,
