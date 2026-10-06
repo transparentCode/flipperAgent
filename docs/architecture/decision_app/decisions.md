@@ -211,6 +211,9 @@ with publication suppressed, then record `restart_rewarm`. The append-only
 `decision.lane_effect_skips` table records ranges; latest effect progress uses
 NULL disposition when no publication effect occurred. A stale cutoff is also
 committed as `skipped`, with proposed state/checkpoint advanced and no publication.
+If progress was not saved after that skip row, startup reconciles the existing
+single-cutoff `stale` or `foreign_entry` row at the first unaccounted cutoff by
+advancing progress, rather than recording the cutoff again as `restart`.
 
 ### Freshness and identity
 

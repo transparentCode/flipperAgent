@@ -91,6 +91,8 @@ from apps.decision_app.transport.publication import (
     signal_stream_entry_id,
     signal_stream_key,
 )
+from libs.common.enums import SystemComponent
+from libs.common.logging.logger_utils import bind_logger
 from libs.contracts.decision import FrozenMapping, deep_freeze, require_utc
 from libs.contracts.serialization import valkey_decode
 from libs.contracts.signal import TradeSignal
@@ -118,6 +120,16 @@ def _text(value: object, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise TypeError(f"{field_name} must be non-empty text")
     return value
+
+
+_LOGGER = bind_logger(__name__, system_component=SystemComponent.SIGNAL_GENERATOR)
+
+
+def _log_best_effort(level: str, event: str, **fields: Any) -> None:
+    try:
+        getattr(_LOGGER, level)(event, extra={"event": event, **fields})
+    except Exception:  # noqa: BLE001, S110 - logging cannot change runtime behavior
+        pass
 
 
 def _save_result_value(value: object) -> str:
@@ -532,8 +544,12 @@ class DecisionStartupCoordinator:
         self._effect_skips = (
             effect_skips_repository or InMemoryLaneEffectSkipsRepository()
         )
-        if not callable(getattr(self._effect_skips, "upsert", None)):
-            raise TypeError("lane effect skips repository must provide upsert()")
+        if not callable(getattr(self._effect_skips, "upsert", None)) or not callable(
+            getattr(self._effect_skips, "load", None)
+        ):
+            raise TypeError(
+                "lane effect skips repository must provide upsert() and load()"
+            )
         self._io_timeout_seconds = io_timeout_seconds
 
     async def start(self) -> DecisionStartupResult:
@@ -1260,7 +1276,39 @@ class DecisionStartupCoordinator:
         ):
             raise StartupLaneError("effect progress is ahead of market reconstruction")
         probe_result: Literal["published", "shadow", "foreign_entry"] | None = None
-        if previous_effect_cutoff != resume_candidate:
+        recorded_skip = (
+            None
+            if previous_effect_cutoff is None
+            or previous_effect_cutoff == resume_candidate
+            else await self._effect_skips.load(identity, first_unaccounted)
+        )
+        if (
+            recorded_skip is not None
+            and recorded_skip.skipped_from
+            == recorded_skip.skipped_through
+            == first_unaccounted
+            and recorded_skip.reason in {"stale", "foreign_entry"}
+        ):
+            # Live writes this single-cutoff row after the cutoff committed and
+            # before it saves progress, and nothing was published for it.  A
+            # failed or interrupted progress save leaves the row ahead of
+            # progress; account for the cutoff instead of re-recording it under
+            # a different reason.  The first-unaccounted guard above already
+            # rejects a cutoff beyond the resume cutoff.
+            probe_result = "foreign_entry"
+            effect_progress = await self._save_effect_progress(
+                identity=identity,
+                market_as_of=first_unaccounted,
+                last_disposition=None,
+            )
+            _log_best_effort(
+                "info",
+                "decision_startup_skip_ledger_reconciled",
+                lane_id=lane.lane_id,
+                cutoff=first_unaccounted.isoformat(),
+                reason=recorded_skip.reason,
+            )
+        elif previous_effect_cutoff != resume_candidate:
             probe_result = await self._probe_effect_entry(
                 lane=lane,
                 identity=identity,

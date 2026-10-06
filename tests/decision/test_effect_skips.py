@@ -164,3 +164,81 @@ def test_skip_table_creation_is_idempotent_and_keeps_the_declared_identity() -> 
         "reason IN ('restart', 'restart_rewarm', 'stale', 'foreign_entry')"
         in declaration
     )
+
+
+@pytest.mark.asyncio
+async def test_in_memory_skip_load_returns_stored_row_or_none() -> None:
+    repository = InMemoryLaneEffectSkipsRepository()
+    stored = await repository.upsert(_skip(3, reason="stale"))
+
+    assert await repository.load(IDENTITY, stored.skipped_from) == stored
+    assert (
+        await repository.load(IDENTITY, stored.skipped_from + timedelta(hours=1))
+        is None
+    )
+    other = LaneExecutionIdentity(
+        lane_id=IDENTITY.lane_id,
+        effective_lane_revision="lane-r2",
+        feature_plan_fingerprint=IDENTITY.feature_plan_fingerprint,
+    )
+    assert await repository.load(other, stored.skipped_from) is None
+
+
+class _LoadConnection:
+    def __init__(self, row: dict[str, object] | None) -> None:
+        self.row = row
+        self.query = ""
+        self.args: tuple[object, ...] = ()
+
+    async def fetchrow(self, query: str, *args: object, **_kwargs: object):
+        self.query = query
+        self.args = args
+        return self.row
+
+
+@pytest.mark.asyncio
+async def test_durable_skip_load_selects_by_primary_key() -> None:
+    row = {
+        "skipped_from": BASE + timedelta(hours=1),
+        "skipped_through": BASE + timedelta(hours=1),
+        "cutoff_count": 1,
+        "reason": "stale",
+        "recorded_at": BASE,
+    }
+    connection = _LoadConnection(row)
+    repository = LaneEffectSkipsRepository(_Pool(connection))  # type: ignore[arg-type]
+
+    loaded = await repository.load(IDENTITY, BASE + timedelta(hours=1))
+
+    assert loaded == LaneEffectSkip(
+        identity=IDENTITY,
+        skipped_from=BASE + timedelta(hours=1),
+        skipped_through=BASE + timedelta(hours=1),
+        cutoff_count=1,
+        reason="stale",
+        recorded_at=BASE,
+    )
+    assert connection.query.lstrip().startswith("SELECT")
+    assert "FROM decision.lane_effect_skips" in connection.query
+    for column in (
+        "lane_id = $1",
+        "effective_lane_revision = $2",
+        "feature_plan_fingerprint = $3",
+        "skipped_from = $4",
+    ):
+        assert column in connection.query
+    assert "INSERT" not in connection.query
+    assert connection.args == (
+        IDENTITY.lane_id,
+        IDENTITY.effective_lane_revision,
+        IDENTITY.feature_plan_fingerprint,
+        BASE + timedelta(hours=1),
+    )
+
+
+@pytest.mark.asyncio
+async def test_durable_skip_load_returns_none_for_missing_key() -> None:
+    connection = _LoadConnection(None)
+    repository = LaneEffectSkipsRepository(_Pool(connection))  # type: ignore[arg-type]
+
+    assert await repository.load(IDENTITY, BASE + timedelta(hours=9)) is None

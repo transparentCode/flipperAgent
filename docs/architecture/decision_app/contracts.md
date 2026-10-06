@@ -393,6 +393,10 @@ required transition through `R` with publication suppressed, then record the
 missed range as `restart_rewarm` and resume at `R + trigger_duration`. Skipped
 progress uses NULL disposition; the append-only skip table preserves the reason
 and range without one row per cutoff.
+When a single-cutoff `stale` or `foreign_entry` row already exists at the first
+unaccounted cutoff (live records it after the cutoff commits and before it saves
+progress), startup advances progress to that cutoff and does not probe or
+re-record it, so an interrupted progress save cannot block the lane.
 
 ## Freshness and effect skips
 

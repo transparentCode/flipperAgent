@@ -41,12 +41,14 @@ from apps.decision_app.storage.checkpoints import (
 )
 from apps.decision_app.storage.effect_skips import (
     InMemoryLaneEffectSkipsRepository,
+    LaneEffectSkip,
 )
 from apps.decision_app.storage.market_history import (
     InMemoryCanonicalMarketHistoryRepository,
 )
 from apps.decision_app.storage.shadow_progress import (
     InMemoryLaneEffectProgressRepository,
+    LaneEffectProgress,
     LaneEffectProgressSaveResult,
 )
 from apps.decision_app.transport.ingestion import canonical_ingestion_stream_key
@@ -1478,6 +1480,355 @@ async def test_restart_skip_upsert_converges_after_progress_save_crash() -> None
     assert advanced is not None
     assert advanced.market_as_of == _signal_bar(6).market_as_of
     assert advanced.last_disposition is None
+
+
+def _signal_stream(tail_index: int) -> _LiveInputClient:
+    return _LiveInputClient(
+        stream="stream:ohlcv:ingestion:binance:BTC-USDT-PERP:1h",
+        tail_index=tail_index,
+        field_factory=_signal_fields,
+    )
+
+
+def _signal_history(bar_count: int) -> InMemoryCanonicalMarketHistoryRepository:
+    return InMemoryCanonicalMarketHistoryRepository(
+        {SIGNAL_SERIES: tuple(_signal_bar(index) for index in range(bar_count))},
+        timeframe_grid=SIGNAL_GRID,
+    )
+
+
+def _ledger_row(
+    identity, cutoff_index: int, reason: str, *, through: int | None = None
+):
+    return LaneEffectSkip(
+        identity=identity,
+        skipped_from=_signal_bar(cutoff_index).market_as_of,
+        skipped_through=_signal_bar(
+            cutoff_index if through is None else through
+        ).market_as_of,
+        cutoff_count=1 if through is None else through - cutoff_index + 1,
+        reason=reason,  # type: ignore[arg-type]
+    )
+
+
+async def _stateless_seed(
+    reason: str | None = "stale",
+    *,
+    ledger_through: int | None = None,
+    authority: str = "shadow",
+):
+    """Progress at bar 2 and an optional ledger row at bar 3 (progress + one)."""
+
+    progress = InMemoryLaneEffectProgressRepository()
+    skips = InMemoryLaneEffectSkipsRepository()
+    first = await _signal_coordinator(
+        _signal_history(4),
+        _signal_stream(2),
+        authority=authority,
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+    identity = next(iter(first.runtimes.values())).identity
+    assert await progress.load(identity) is None
+    await progress.save(
+        LaneEffectProgress.create(
+            identity=identity,
+            market_as_of=_signal_bar(2).market_as_of,
+            last_disposition=None,
+        )
+    )
+    assert not skips.records
+    if reason is not None:
+        await skips.upsert(_ledger_row(identity, 3, reason, through=ledger_through))
+    return identity, progress, skips
+
+
+@pytest.mark.asyncio
+async def test_startup_reconciles_stale_row_left_ahead_of_progress_stateless() -> None:
+    identity, progress, skips = await _stateless_seed("stale")
+    stream = _signal_stream(3)
+
+    startup = await _signal_coordinator(
+        _signal_history(5),
+        stream,
+        authority="shadow",
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+
+    evidence = startup.snapshot.lane_evidence["BTCUSDT:main"]
+    saved = await progress.load(identity)
+    assert startup.snapshot.status == "STARTUP_READY"
+    assert saved is not None and saved.market_as_of == _signal_bar(3).market_as_of
+    assert saved.last_disposition is None
+    assert evidence.pending_trigger_cutoff == _signal_bar(4).market_as_of
+    assert [(r.reason, r.skipped_from, r.skipped_through) for r in skips.records] == [
+        (
+            "stale",
+            _signal_bar(3).market_as_of,
+            _signal_bar(3).market_as_of,
+        )
+    ]
+    assert stream.xrange_calls == []
+
+
+@pytest.mark.asyncio
+async def test_startup_reconciles_stale_row_at_resume_cutoff() -> None:
+    identity, progress, skips = await _stateless_seed("stale")
+    stream = _signal_stream(2)
+
+    startup = await _signal_coordinator(
+        _signal_history(4),
+        stream,
+        authority="shadow",
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+
+    saved = await progress.load(identity)
+    assert startup.snapshot.status == "STARTUP_READY"
+    assert saved is not None and saved.market_as_of == _signal_bar(3).market_as_of
+    assert startup.snapshot.lane_evidence["BTCUSDT:main"].pending_trigger_cutoff is None
+    assert len(skips.records) == 1 and skips.records[0].reason == "stale"
+    assert stream.xrange_calls == []
+
+
+@pytest.mark.asyncio
+async def test_startup_reconciles_foreign_entry_row_whose_stream_entry_is_gone() -> (
+    None
+):
+    identity, progress, skips = await _stateless_seed("foreign_entry")
+    stream = _signal_stream(2)
+    assert stream.effect_entries == {}
+
+    startup = await _signal_coordinator(
+        _signal_history(4),
+        stream,
+        authority="shadow",
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+
+    saved = await progress.load(identity)
+    assert startup.snapshot.status == "STARTUP_READY"
+    assert saved is not None and saved.market_as_of == _signal_bar(3).market_as_of
+    assert [r.reason for r in skips.records] == ["foreign_entry"]
+    assert stream.xrange_calls == []
+
+
+@pytest.mark.asyncio
+async def test_startup_reconciliation_is_idempotent_across_reruns() -> None:
+    identity, progress, skips = await _stateless_seed("stale")
+    for _ in range(2):
+        startup = await _signal_coordinator(
+            _signal_history(5),
+            _signal_stream(3),
+            authority="shadow",
+            effect_progress_repository=progress,
+            effect_skips_repository=skips,
+        ).start()
+        assert startup.snapshot.status == "STARTUP_READY"
+    assert (await progress.load(identity)).market_as_of == _signal_bar(3).market_as_of
+    assert len(skips.records) == 1
+
+
+def _rows_from_bar(skips: InMemoryLaneEffectSkipsRepository, index: int):
+    return [
+        (r.reason, r.skipped_from, r.skipped_through)
+        for r in skips.records
+        if r.skipped_from >= _signal_bar(index).market_as_of
+    ]
+
+
+async def _stateful_seed(reason: str | None = "stale"):
+    checkpoints = InMemoryCheckpointRepository()
+    progress = InMemoryLaneEffectProgressRepository()
+    skips = InMemoryLaneEffectSkipsRepository()
+    first = await _stateful_signal_coordinator(
+        _signal_history(3),
+        _signal_stream(2),
+        checkpoint_repository=checkpoints,
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+    identity = next(iter(first.runtimes.values())).identity
+    assert (await progress.load(identity)).market_as_of == _signal_bar(2).market_as_of
+    if reason is not None:
+        await skips.upsert(_ledger_row(identity, 3, reason))
+    return identity, checkpoints, progress, skips
+
+
+@pytest.mark.asyncio
+async def test_startup_reconciles_stale_row_for_stateful_lane_at_resume_cutoff() -> (
+    None
+):
+    identity, checkpoints, progress, skips = await _stateful_seed()
+    stream = _signal_stream(3)
+
+    startup = await _stateful_signal_coordinator(
+        _signal_history(4),
+        stream,
+        checkpoint_repository=checkpoints,
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+
+    saved = await progress.load(identity)
+    assert startup.snapshot.status == "STARTUP_READY"
+    assert saved is not None and saved.market_as_of == _signal_bar(3).market_as_of
+    assert _rows_from_bar(skips, 3) == [
+        ("stale", _signal_bar(3).market_as_of, _signal_bar(3).market_as_of)
+    ]
+    assert stream.xrange_calls == []
+
+
+@pytest.mark.asyncio
+async def test_startup_reconciles_stale_row_for_stateful_lane_then_skips_forward() -> (
+    None
+):
+    identity, checkpoints, progress, skips = await _stateful_seed()
+    stream = _signal_stream(4)
+
+    startup = await _stateful_signal_coordinator(
+        _signal_history(5),
+        stream,
+        checkpoint_repository=checkpoints,
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+
+    saved = await progress.load(identity)
+    assert startup.snapshot.status == "STARTUP_READY"
+    assert saved is not None and saved.market_as_of == _signal_bar(4).market_as_of
+    assert _rows_from_bar(skips, 3) == [
+        ("stale", _signal_bar(3).market_as_of, _signal_bar(3).market_as_of),
+        ("restart_rewarm", _signal_bar(4).market_as_of, _signal_bar(4).market_as_of),
+    ]
+    assert stream.xrange_calls == []
+
+
+@pytest.mark.asyncio
+async def test_startup_does_not_reconcile_a_restart_row() -> None:
+    identity, progress, skips = await _stateless_seed("restart")
+    stream = _signal_stream(3)
+
+    startup = await _signal_coordinator(
+        _signal_history(5),
+        stream,
+        authority="shadow",
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+
+    # Today's path: the exact-entry probe runs and the matching row is reused.
+    assert startup.snapshot.status == "STARTUP_READY"
+    assert stream.xrange_calls
+    assert [r.reason for r in skips.records] == ["restart"]
+    assert (await progress.load(identity)).market_as_of == _signal_bar(3).market_as_of
+
+
+@pytest.mark.asyncio
+async def test_startup_does_not_reconcile_a_multi_cutoff_row() -> None:
+    identity, progress, skips = await _stateless_seed("stale", ledger_through=4)
+    stream = _signal_stream(4)
+
+    startup = await _signal_coordinator(
+        _signal_history(6),
+        stream,
+        authority="shadow",
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+
+    # Unchanged behaviour: the probe runs and the restart row conflicts.
+    assert startup.snapshot.status == "STARTUP_BLOCKED"
+    assert stream.xrange_calls
+    assert (await progress.load(identity)).market_as_of == _signal_bar(2).market_as_of
+
+
+@pytest.mark.asyncio
+async def test_startup_blocks_when_ledger_row_is_ahead_of_resumable_history() -> None:
+    identity, progress, skips = await _stateless_seed(None)
+    await skips.upsert(_ledger_row(identity, 5, "stale"))
+    # Progress is at bar 2 but history only reaches bar 3 with progress ahead.
+    await progress.save(
+        LaneEffectProgress.create(
+            identity=identity,
+            market_as_of=_signal_bar(4).market_as_of,
+            last_disposition=None,
+        )
+    )
+    stream = _signal_stream(2)
+
+    startup = await _signal_coordinator(
+        _signal_history(4),
+        stream,
+        authority="shadow",
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+
+    assert startup.snapshot.status == "STARTUP_BLOCKED"
+    assert stream.xrange_calls == []
+    assert (await progress.load(identity)).market_as_of == _signal_bar(4).market_as_of
+
+
+@pytest.mark.asyncio
+async def test_stale_skip_followed_by_failed_progress_save_recovers_on_restart() -> (
+    None
+):
+    cutoff = _signal_bar(2).market_as_of
+    history = _signal_history(3)
+    stream = _signal_stream(2)
+    progress = InMemoryLaneEffectProgressRepository()
+    skips = InMemoryLaneEffectSkipsRepository()
+    startup = await _signal_coordinator(
+        history,
+        stream,
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+    identity = next(iter(startup.runtimes.values())).identity
+    assert await progress.load(identity) is None
+    prior = LaneEffectProgress.create(
+        identity=identity,
+        market_as_of=_signal_bar(1).market_as_of,
+        last_disposition=None,
+    )
+    await progress.save(prior)
+
+    original_save = progress.save
+
+    async def fail_once(item):
+        progress.save = original_save  # type: ignore[method-assign]
+        raise RuntimeError("simulated crash between skip row and progress save")
+
+    progress.save = fail_once  # type: ignore[method-assign]
+    runtime = LiveDecisionRuntime(
+        startup=startup,
+        timeframe_grid=SIGNAL_GRID,
+        stream_client=stream,
+        history_repository=history,
+        signal_publisher=ValkeySignalPublisher(_IsolatedSignalClient()),
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+        now_fn=lambda: cutoff + timedelta(seconds=301),
+    )
+    await runtime.poll_once()
+    assert [r.reason for r in skips.records] == ["stale"]
+    assert await progress.load(identity) == prior
+
+    restarted = await _signal_coordinator(
+        history,
+        _signal_stream(2),
+        effect_progress_repository=progress,
+        effect_skips_repository=skips,
+    ).start()
+
+    assert restarted.snapshot.status == "STARTUP_READY"
+    saved = await progress.load(identity)
+    assert saved is not None and saved.market_as_of == cutoff
+    assert [r.reason for r in skips.records] == ["stale"]
 
 
 @pytest.mark.asyncio

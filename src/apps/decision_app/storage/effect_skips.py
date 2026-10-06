@@ -73,6 +73,12 @@ def _validate_skip(skip: LaneEffectSkip) -> None:
     )
 
 
+def _validate_skip_key(identity: LaneExecutionIdentity, skipped_from: datetime) -> None:
+    if not isinstance(identity, LaneExecutionIdentity):
+        raise TypeError("identity must be LaneExecutionIdentity")
+    require_utc(skipped_from, field_name="skipped_from")
+
+
 class InMemoryLaneEffectSkipsRepository:
     """Idempotent test/runtime twin of the durable skip-row upsert."""
 
@@ -99,6 +105,12 @@ class InMemoryLaneEffectSkipsRepository:
             merged = current
         self._items[key] = merged
         return merged
+
+    async def load(
+        self, identity: LaneExecutionIdentity, skipped_from: datetime
+    ) -> LaneEffectSkip | None:
+        _validate_skip_key(identity, skipped_from)
+        return self._items.get((identity, skipped_from))
 
     @property
     def records(self) -> tuple[LaneEffectSkip, ...]:
@@ -190,6 +202,58 @@ class LaneEffectSkipsRepository(BoundedAsyncpgRepository):
             )
         if deadline is not None:
             require_remaining(deadline, operation="lane effect skip upsert")
+        return LaneEffectSkip(
+            identity=identity,
+            skipped_from=row["skipped_from"],
+            skipped_through=row["skipped_through"],
+            cutoff_count=row["cutoff_count"],
+            reason=row["reason"],
+            recorded_at=row["recorded_at"],
+        )
+
+    async def load(
+        self, identity: LaneExecutionIdentity, skipped_from: datetime
+    ) -> LaneEffectSkip | None:
+        """Return the stored skip row for one primary key, or ``None``."""
+
+        _validate_skip_key(identity, skipped_from)
+        deadline = self._begin()
+        async with acquire_db_connection(
+            self._pool,
+            deadline=deadline,
+            io_timeout_seconds=self._io_timeout_seconds,
+            cleanup_timeout_seconds=self._cleanup_timeout_seconds or 5.0,
+            retained_tasks=self._retained_cleanup_tasks,
+            poison=self._poison,
+            operation="lane effect skip load",
+        ) as connection:
+            row = await self._phase(
+                connection.fetchrow(
+                    """
+                SELECT skipped_from, skipped_through, cutoff_count, reason,
+                       recorded_at
+                FROM decision.lane_effect_skips
+                WHERE lane_id = $1
+                  AND effective_lane_revision = $2
+                  AND feature_plan_fingerprint = $3
+                  AND skipped_from = $4
+                """,
+                    identity.lane_id,
+                    identity.effective_lane_revision,
+                    identity.feature_plan_fingerprint,
+                    skipped_from,
+                    **native_timeout_kwargs(
+                        deadline,
+                        operation="lane effect skip load query",
+                    ),
+                ),
+                deadline,
+                "lane effect skip load query",
+            )
+        if deadline is not None:
+            require_remaining(deadline, operation="lane effect skip load")
+        if row is None:
+            return None
         return LaneEffectSkip(
             identity=identity,
             skipped_from=row["skipped_from"],
