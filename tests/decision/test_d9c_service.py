@@ -18,7 +18,11 @@ from apps.decision_app.runtime.live import (
     LanePollResult,
     LiveDecisionRuntime,
 )
-from apps.decision_app.runtime.service import DecisionRuntimeGeneration, DecisionService
+from apps.decision_app.runtime.service import (
+    DecisionRuntimeGeneration,
+    DecisionService,
+    GenerationFenced,
+)
 from apps.decision_app.storage.checkpoints import InMemoryCheckpointRepository
 from apps.decision_app.storage.market_history import (
     InMemoryCanonicalMarketHistoryRepository,
@@ -172,6 +176,7 @@ class _IndependentLaneRuntime:
                 ),
             },
             blocked_streams={"series-a": "causal gap"},
+            stream_keys=("series-a", "series-b"),
         )
         self.lanes = {
             "lane-a": SimpleNamespace(
@@ -2110,6 +2115,155 @@ async def test_zero_lane_zero_stream_generation_is_paced_not_busy_looped() -> No
     try:
         await asyncio.sleep(0.12)
         assert 1 <= runtime.calls <= 3
+    finally:
+        await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_all_streams_blocked_with_pending_recovery_is_paced_and_rebuilds() -> (
+    None
+):
+    class _BlockedRuntime:
+        def __init__(self) -> None:
+            self.calls = 0
+            self.input = SimpleNamespace(
+                cursors={},
+                blocked_streams={"stream:test": "malformed"},
+                stream_keys=("stream:test",),
+                has_unblocked_streams=False,
+            )
+            self.lanes = {
+                "lane": SimpleNamespace(
+                    status="RECONSTRUCTION_REQUIRED",
+                    reason="stream blocked",
+                    pending_trigger_cutoff=None,
+                    finalizer=SimpleNamespace(
+                        watermark=LaneCommitWatermark(
+                            lane_id="lane",
+                            latest_market_as_of=NOW,
+                            last_disposition="published",
+                        )
+                    ),
+                )
+            }
+
+        async def poll_once(self, *, evaluate_lanes: bool = True):
+            del evaluate_lanes
+            self.calls += 1
+            return DecisionPollResult(input_results=(), lane_results={}, cursors={})
+
+    blocked = _BlockedRuntime()
+    rebuilt = _Runtime()
+    factory_calls: list[int] = []
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        factory_calls.append(generation_id)
+        return _generation(generation_id, blocked if generation_id == 1 else rebuilt)
+
+    service = DecisionService(
+        generation_factory=factory,
+        block_ms=50,
+        now_fn=lambda: datetime.now(UTC),
+    )
+    await service.start()
+    try:
+        service._request_rebuild(
+            "AUTOMATIC_RECOVERY",
+            "lane fault",
+            due_at=datetime.now(UTC) + timedelta(seconds=0.3),
+        )
+        await asyncio.sleep(0.2)
+        # Unpaced this loop made tens of thousands of polls per second.
+        assert blocked.calls <= 12
+        assert factory_calls == [1]
+        await _wait_until_realtime(lambda: factory_calls == [1, 2])
+        assert service.generation is not None
+        assert service.generation.generation_id == 2
+    finally:
+        await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_poisoned_fence_on_automatic_rebuild_is_terminal_without_retry() -> None:
+    runtime = _ResultRuntime([_forward_input_gap()])
+    factory_calls: list[int] = []
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        factory_calls.append(generation_id)
+        if generation_id == 2:
+            raise GenerationFenced("history")
+        return _generation(generation_id, runtime)
+
+    service = DecisionService(
+        generation_factory=factory,
+        block_ms=1,
+        now_fn=lambda: datetime.now(UTC),
+        recovery_backoff_initial_seconds=0.01,
+        recovery_backoff_max_seconds=0.02,
+    )
+    await service.start()
+    try:
+        await _wait_until_realtime(lambda: service.snapshot().fenced_reason is not None)
+        await asyncio.sleep(0.15)  # many backoff periods; a retry would show here
+        snapshot = service.snapshot()
+        assert factory_calls == [1, 2]
+        assert service.service_state == "ERROR"
+        assert service.generation is None
+        assert snapshot.generation_id is None
+        assert snapshot.ready is False
+        assert snapshot.readiness_reason == "dependency_poisoned"
+        assert snapshot.fenced_reason == (
+            "history repository is poisoned; generation rebuild is fenced"
+        )
+        assert snapshot.last_error == snapshot.fenced_reason
+        assert snapshot.rebuild_due_at is None
+        assert service._rebuild_requested is False
+        assert service._rebuild_due_at is None
+    finally:
+        await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_poisoned_fence_rejects_later_rebuild_requests_without_building() -> None:
+    factory_calls: list[int] = []
+
+    async def factory(*, reason: str, generation_id: int):
+        del reason
+        factory_calls.append(generation_id)
+        if generation_id == 2:
+            raise GenerationFenced("checkpoint")
+        return _generation(generation_id, _Runtime())
+
+    service = DecisionService(
+        generation_factory=factory,
+        block_ms=1,
+        now_fn=lambda: datetime.now(UTC),
+        recovery_backoff_initial_seconds=0.01,
+        recovery_backoff_max_seconds=0.02,
+    )
+    await service.start()
+    try:
+        fenced = await service.reconnect()
+        assert fenced.service_state == "ERROR"
+        assert fenced.generation_id is None
+        assert fenced.readiness_reason == "dependency_poisoned"
+        assert "checkpoint repository is poisoned" in (fenced.fenced_reason or "")
+        assert factory_calls == [1, 2]
+
+        for control in (service.reconnect, service.resume):
+            with pytest.raises(RuntimeError, match="process restart required"):
+                await control()
+        assert (
+            service._request_rebuild("LIFECYCLE_RECONCILIATION", "x", due_at=None)
+            is False
+        )
+        await service._rebuild_locked("direct")
+        await asyncio.sleep(0.1)
+        assert factory_calls == [1, 2]
+        assert service.service_state == "ERROR"
+        assert service._rebuild_requested is False
     finally:
         await service.stop()
 

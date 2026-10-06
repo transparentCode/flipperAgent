@@ -40,6 +40,7 @@ from apps.decision_app.runtime.service import (
     DecisionRuntimeGeneration,
     DecisionService,
     GenerationFactory,
+    GenerationFenced,
 )
 from apps.decision_app.runtime.startup import DecisionStartupCoordinator
 from apps.decision_app.settings import DecisionConfig, load_decision_config
@@ -192,9 +193,7 @@ def build_generation_factory(
             ("effect-skips", resolved_effect_skips_repository),
         ):
             if bool(getattr(repository, "poisoned", False)):
-                raise RuntimeError(
-                    f"{name} repository is poisoned; generation rebuild is fenced"
-                )
+                raise GenerationFenced(name)
         coordinator = DecisionStartupCoordinator(
             decision_config=config,
             plugin_catalog=composition.plugin_catalog,

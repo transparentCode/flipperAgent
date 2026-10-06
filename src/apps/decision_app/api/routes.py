@@ -39,6 +39,7 @@ def snapshot_payload(snapshot: DecisionServiceSnapshot) -> dict[str, Any]:
             "rebuild_source": snapshot.rebuild_source,
             "recovery_attempt": snapshot.recovery_attempt,
             "rebuild_due_at": snapshot.rebuild_due_at,
+            "fenced_reason": snapshot.fenced_reason,
             "configured_asset_count": snapshot.configured_asset_count,
             "configured_lane_count": snapshot.configured_lane_count,
             "active_lane_count": snapshot.active_lane_count,

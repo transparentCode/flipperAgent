@@ -130,6 +130,7 @@ class DecisionServiceSnapshot:
     rebuild_source: RebuildSource | None = None
     recovery_attempt: int = 0
     rebuild_due_at: datetime | None = None
+    fenced_reason: str | None = None
 
     def __post_init__(self) -> None:
         if self.service_state not in {
@@ -157,6 +158,8 @@ class DecisionServiceSnapshot:
                 require_utc(value, field_name=field_name)
         if self.last_error is not None:
             _text(self.last_error, field_name="last_error")
+        if self.fenced_reason is not None:
+            _text(self.fenced_reason, field_name="fenced_reason")
         if self.rebuild_source not in {None, *_REBUILD_SOURCE_PRIORITY}:
             raise ValueError("unsupported rebuild source")
         if (
@@ -214,6 +217,8 @@ class DecisionServiceSnapshot:
     def readiness_reason(self) -> str | None:
         if self.ready:
             return None
+        if self.fenced_reason is not None:
+            return "dependency_poisoned"
         if self.generation_id is None:
             return "no_generation"
         if (
@@ -240,6 +245,20 @@ class GenerationFactory(Protocol):
 
 class DecisionControlError(RuntimeError):
     """Raised when an admitted control cannot finish within its budget."""
+
+
+class GenerationFenced(RuntimeError):
+    """Raised by a generation factory when a poisoned repository fences rebuilds.
+
+    The fence cannot be lifted in-process; the service treats it as terminal
+    and recovery is a process restart.
+    """
+
+    def __init__(self, repository: str) -> None:
+        self.repository = repository
+        super().__init__(
+            f"{repository} repository is poisoned; generation rebuild is fenced"
+        )
 
 
 class DecisionService:
@@ -342,6 +361,7 @@ class DecisionService:
         self._market_error: str | None = None
         self._lifecycle_error: str | None = None
         self._last_poll_result: DecisionPollResult | None = None
+        self._fenced_reason: str | None = None
         self._last_lane_transactions: dict[str, Any] = {}
         self._last_lifecycle_evidence: LifecycleReadResult | None = None
         self._rebuild_requested = False
@@ -350,7 +370,6 @@ class DecisionService:
         self._rebuild_due_at: datetime | None = None
         self._recovery_attempt = 0
         self._generation_needs_clean_poll = False
-        self._poll_active = False
         self._retained_cleanup_tasks: set[asyncio.Task[Any]] = set()
 
     @property
@@ -402,6 +421,7 @@ class DecisionService:
             self._rebuild_due_at = None
             self._recovery_attempt = 0
             self._generation_needs_clean_poll = False
+            self._fenced_reason = None
             if generation is None:
                 try:
                     generation = await self._build_generation(
@@ -635,6 +655,7 @@ class DecisionService:
             rebuild_source=self._rebuild_source,
             recovery_attempt=self._recovery_attempt,
             rebuild_due_at=self._rebuild_due_at,
+            fenced_reason=self._fenced_reason,
             configured_asset_count=self._configured_asset_count
             or (
                 0
@@ -674,6 +695,11 @@ class DecisionService:
         try:
             async with self._transition_scope(deadline):
                 self._ensure_control_available()
+                if self._fenced_reason is not None:
+                    raise RuntimeError(
+                        f"decision service cannot {reason}: {self._fenced_reason}; "
+                        "process restart required"
+                    )
                 self._desired_state = "RUNNING"
                 self._recovery_attempt = 0
                 # Mark the old generation unusable before waiting.  The market
@@ -896,6 +922,10 @@ class DecisionService:
         self,
         reason: str,
     ) -> None:
+        if self._fenced_reason is not None:
+            # The fence cannot be lifted in-process: no build attempt.
+            self._enter_fenced_state(self._fenced_reason)
+            return
         source = self._rebuild_source or "AUTOMATIC_RECOVERY"
         self._service_state = "REBUILDING"
         self._last_error = None
@@ -920,6 +950,25 @@ class DecisionService:
                 self._rebuild_source = None
                 self._rebuild_due_at = None
                 self._sync_observability()
+                return
+            if isinstance(exc, GenerationFenced):
+                self._enter_fenced_state(str(exc))
+                if self._observability is not None:
+                    observe_best_effort(
+                        self._observability.record_rebuild,
+                        outcome="failure",
+                        duration_ms=(perf_counter() - started) * 1000.0,
+                    )
+                _log_best_effort(
+                    "error",
+                    "decision.rebuild.failed",
+                    source=source,
+                    fenced=True,
+                    repository=exc.repository,
+                    generation_id=self._generation_number + 1,
+                    duration_ms=(perf_counter() - started) * 1000.0,
+                    error=f"{exc}; process restart required",
+                )
                 return
             if source != "AUTOMATIC_RECOVERY":
                 self._generation = None
@@ -994,6 +1043,22 @@ class DecisionService:
         self._wake_event.set()
         self._sync_observability()
 
+    def _enter_fenced_state(self, reason: str) -> None:
+        """Latch the terminal poisoned-repository state; never schedule a retry."""
+
+        self._fenced_reason = reason
+        self._generation = None
+        self._service_state = "ERROR"
+        self._last_error = reason
+        self._market_error = None
+        self._rebuild_requested = False
+        self._rebuild_reason = None
+        self._rebuild_source = None
+        self._rebuild_due_at = None
+        if self._observability is not None:
+            observe_best_effort(self._observability.clear_generation)
+        self._sync_observability()
+
     async def _market_loop(self) -> None:
         while not self._stop_event.is_set():
             if self._rebuild_requested:
@@ -1036,7 +1101,6 @@ class DecisionService:
                     self._service_state = "ERROR"
                     await self._wait_for_wake()
                 continue
-            self._poll_active = True
             self._poll_idle.clear()
             poll_started = perf_counter()
             evaluate_lanes = self._desired_state == "RUNNING"
@@ -1068,7 +1132,6 @@ class DecisionService:
                         self._observability.record_poll_duration,
                         (perf_counter() - poll_started) * 1000.0,
                     )
-                self._poll_active = False
                 self._poll_idle.set()
             if wait_for_wake:
                 await self._wait_for_wake()
@@ -1102,9 +1165,10 @@ class DecisionService:
                 self._generation_needs_clean_poll = False
             self._sync_observability()
             self._wake_event.set()
-            if not generation.live_runtime.lanes and not self._runtime_has_streams(
-                generation.live_runtime
-            ):
+            if not self._runtime_has_streams(generation.live_runtime):
+                # No readable stream (no lanes, or every stream blocked while
+                # recovery is pending): poll_once() returns without transport
+                # I/O, so pace here instead of spinning.
                 await self._pace_empty_generation()
             elif result.clock_waiting:
                 await self._wait_for_clock_catchup(
@@ -1227,6 +1291,8 @@ class DecisionService:
         *,
         due_at: datetime | None,
     ) -> bool:
+        if self._fenced_reason is not None:
+            return False
         if self._rebuild_requested and self._rebuild_source is not None:
             current_priority = _REBUILD_SOURCE_PRIORITY[self._rebuild_source]
             requested_priority = _REBUILD_SOURCE_PRIORITY[source]
@@ -1492,6 +1558,7 @@ __all__ = [
     "DecisionServiceSnapshot",
     "DesiredState",
     "GenerationFactory",
+    "GenerationFenced",
     "RebuildSource",
     "ServiceState",
 ]

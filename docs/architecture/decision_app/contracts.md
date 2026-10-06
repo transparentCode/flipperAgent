@@ -362,6 +362,12 @@ LaneReadiness
 Readiness is evaluated against canonical cutoffs for every required timeframe and
 dependency. An arrival-only condition is insufficient.
 
+Note: the lane-view readiness check covers the market minimum only (1 bar for
+momentum lanes). The configured feature history window (`history_bars`, currently
+136/272/544) is enforced earlier, by the live runtime's missing-history check
+(`LiveDecisionRuntime._missing_history`), so view readiness alone does not prove
+the feature window is present.
+
 ## Startup and replay contract
 
 The startup sequence is:
@@ -431,7 +437,10 @@ reconciliation are also immediate. Rebuild precedence is
 `AUTOMATIC_RECOVERY`. A failed non-automatic rebuild retains its source and
 request, exposes `ERROR`/not-ready, and retries after the bounded backoff; a
 failed automatic rebuild retains the current generation in `DEGRADED` and
-retries it.
+retries it. The exception is a poisoned repository: the factory raises
+`GenerationFenced`, the service enters terminal `ERROR` with no generation and no
+retry, rejects later rebuild requests, and readiness reports
+`dependency_poisoned` (`fenced_reason` in `/runtime`) until the process restarts.
 
 Readiness is true only under the existing installed-generation, desired-running,
 and `RUNNING`/`DEGRADED` service conditions, except that a zero-lane configuration

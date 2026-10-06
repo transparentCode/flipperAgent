@@ -179,6 +179,14 @@ control-plane readiness policy; zero-lane plans are exempt from this timeout.
 Liveness remains independent. Runtime status exposes the no-live duration and
 pending rebuild source, attempt, and due time.
 
+A poisoned storage repository (history, checkpoint, shadow-progress or
+effect-skips) is terminal for the process. The generation factory raises
+`GenerationFenced`; the service enters `ERROR`, drops the generation, schedules
+no retry, rejects later manual, lifecycle and automatic rebuild requests without a
+build attempt, logs one ERROR (`decision.rebuild.failed`, `fenced=true`) and
+reports `fenced_reason` in `/runtime`. `/health/ready` returns 503 with
+`reason=dependency_poisoned`. Recovery is a process restart.
+
 ## FeaturePlan and policy
 
 Feature computation has three categories:
@@ -367,6 +375,10 @@ also records `InputReadCursor`, per-lane `LaneCommitWatermark` and effect progre
 skip ranges, readiness reasons, dependency failures, state
 transitions, and publication conflicts. Controls are bounded and auditable; there
 is no hot graph mutation or live training control surface.
+
+Operator note on silent series: Decision does not consume ingestion's
+`excluded_lanes` or `degraded` readiness. When a series goes silent, check
+ingestion `GET /runtime` for that series.
 
 Operator note on control endpoints: `POST /runtime/pause`, `/runtime/resume` and
 `/runtime/reconnect` have no authentication. `docker-compose.yml` publishes the

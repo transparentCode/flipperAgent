@@ -157,14 +157,6 @@ class MomentumBindingEnvelope:
     def route_key(self) -> str:
         return f"{self.asset}/{self.decision_timeframe}"
 
-    def profile_payload(self) -> Mapping[str, Any]:
-        return {
-            "asset": self.asset,
-            "decision_timeframe": self.decision_timeframe,
-            "model": self.model_config.to_mapping(),
-            "feature_profile": self.feature_profile.to_mapping(),
-        }
-
 
 def momentum_route_profile_digest(
     *,

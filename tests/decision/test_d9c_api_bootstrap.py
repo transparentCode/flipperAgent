@@ -27,6 +27,7 @@ from apps.decision_app.runtime.service import (
     DecisionRuntimeGeneration,
     DecisionService,
     DecisionServiceSnapshot,
+    GenerationFenced,
 )
 from apps.decision_app.settings import (
     DecisionConfig,
@@ -63,6 +64,8 @@ def _api_snapshot(
     not_live_seconds: float = 0.0,
     configured_lane_count: int = 1,
     active_lane_count: int = 0,
+    fenced_reason: str | None = None,
+    last_error: str | None = None,
 ) -> DecisionServiceSnapshot:
     return DecisionServiceSnapshot(
         service_state=service_state,  # type: ignore[arg-type]
@@ -72,7 +75,8 @@ def _api_snapshot(
         last_poll_at=None,
         last_rebuild_at=None,
         last_lifecycle_event_at=None,
-        last_error=None,
+        last_error=last_error,
+        fenced_reason=fenced_reason,
         configured_asset_count=1,
         configured_lane_count=configured_lane_count,
         active_lane_count=active_lane_count,
@@ -504,6 +508,113 @@ async def test_d9c_http_readiness_and_control_routes_use_cached_service_state() 
     )
     assert live_within_grace.lanes == {"lane": {"status": "LIVE"}}
     assert live_within_grace.ready is True
+
+
+@pytest.mark.asyncio
+async def test_runtime_lanes_and_inputs_routes_return_snapshot_subsets() -> None:
+    snapshot = DecisionServiceSnapshot(
+        service_state="RUNNING",
+        desired_state="RUNNING",
+        generation_id=3,
+        started_at=datetime(2026, 8, 14, tzinfo=UTC),
+        last_poll_at=None,
+        last_rebuild_at=None,
+        last_lifecycle_event_at=None,
+        last_error=None,
+        configured_asset_count=1,
+        configured_lane_count=1,
+        active_lane_count=1,
+        lane_status_counts={"LIVE": 1},
+        blocked_stream_count=1,
+        lifecycle_cursor="9-0",
+        lanes={"lane": {"status": "LIVE", "reason": None}},
+        inputs={
+            "stream:a": {
+                "latest_stream_id": "5-0",
+                "latest_market_as_of": datetime(2026, 8, 14, tzinfo=UTC),
+                "blocked_reason": None,
+            },
+            "stream:b": {
+                "latest_stream_id": "6-0",
+                "latest_market_as_of": None,
+                "blocked_reason": "malformed",
+            },
+        },
+        last_lifecycle_evidence={},
+    )
+    service = SimpleNamespace(snapshot=lambda: snapshot)
+    app = create_app(decision_service=service)  # type: ignore[arg-type]
+
+    lanes_status, lanes_body = await _asgi_request(app, "GET", "/runtime/lanes")
+    assert lanes_status == 200
+    assert lanes_body == {
+        "service_state": "RUNNING",
+        "generation_id": 3,
+        "active_lane_count": 1,
+        "lane_status_counts": {"LIVE": 1},
+        "lanes": {"lane": {"status": "LIVE", "reason": None}},
+    }
+
+    inputs_status, inputs_body = await _asgi_request(app, "GET", "/runtime/inputs")
+    assert inputs_status == 200
+    assert inputs_body["service_state"] == "RUNNING"
+    assert inputs_body["generation_id"] == 3
+    assert inputs_body["lifecycle_cursor"] == "9-0"
+    assert inputs_body["blocked_stream_count"] == 1
+    assert inputs_body["inputs"]["stream:a"]["latest_stream_id"] == "5-0"
+    assert inputs_body["inputs"]["stream:b"]["blocked_reason"] == "malformed"
+
+
+@pytest.mark.asyncio
+async def test_poisoned_fence_reports_dependency_poisoned_on_readiness() -> None:
+    reason = "history repository is poisoned; generation rebuild is fenced"
+    snapshot = _api_snapshot(
+        service_state="ERROR",
+        generation_id=None,
+        fenced_reason=reason,
+        last_error=reason,
+    )
+    assert snapshot.ready is False
+    assert snapshot.readiness_reason == "dependency_poisoned"
+    service = SimpleNamespace(snapshot=lambda: snapshot)
+    app = create_app(decision_service=service)  # type: ignore[arg-type]
+
+    status, body = await _asgi_request(app, "GET", "/health/ready")
+    assert status == 503
+    assert body["detail"]["reason"] == "dependency_poisoned"
+    assert body["detail"]["runtime"]["fenced_reason"] == reason
+
+    runtime_status, runtime_body = await _asgi_request(app, "GET", "/runtime")
+    assert runtime_status == 200
+    assert runtime_body["fenced_reason"] == reason
+    assert runtime_body["service_state"] == "ERROR"
+
+
+@pytest.mark.asyncio
+async def test_generation_factory_raises_typed_fence_for_poisoned_repository() -> None:
+    class Client:
+        async def xread(self, *_args, **_kwargs):
+            return []
+
+        xrange = xrevrange = xadd = xread
+
+    config = _sr_config()
+    factory = build_generation_factory(
+        config=config,
+        composition=build_production_composition(config),
+        stream_client=Client(),
+        history_repository=SimpleNamespace(
+            fetch_bars=lambda *args, **kwargs: (),
+            poisoned=True,
+        ),
+        checkpoint_repository=SimpleNamespace(),
+    )
+    with pytest.raises(
+        GenerationFenced, match="history repository is poisoned"
+    ) as info:
+        await factory(reason="test", generation_id=2)
+    assert info.value.repository == "history"
+    assert isinstance(info.value, RuntimeError)
 
 
 @pytest.mark.asyncio

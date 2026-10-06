@@ -89,6 +89,13 @@ immediate rebuild behavior, with lifecycle authority taking precedence.
 This uses the existing generation factory and startup reconstruction path. It
 does not add lane workers or a second per-lane reconstruction algorithm.
 
+Poisoning is the exception to retry. When a storage repository is poisoned
+(unconfirmed cleanup after a lease timeout) the factory raises `GenerationFenced`
+and the fence cannot be lifted in-process, so the service enters a terminal
+`ERROR`: no generation, no retry, later rebuild requests are rejected, and
+readiness reports `dependency_poisoned` (`fenced_reason` in `/runtime`). Recovery
+is a process restart. User-approved 2026-10-06 ("Visible, stop retrying").
+
 ### Readiness measures live-lane availability
 
 The service remains ready while its existing generation/service-state contract
