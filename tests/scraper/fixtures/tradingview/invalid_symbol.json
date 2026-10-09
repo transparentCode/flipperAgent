@@ -1,0 +1,16 @@
+{
+ "requested_symbol": "CRYPTOCAP:NOPE_NOT_A_SYMBOL",
+ "interval": "60",
+ "n_bars": 6,
+ "recorded_at_utc": "2026-10-09T06:17:48Z",
+ "sent": [
+  "~m~57~m~{\"m\": \"set_auth_token\", \"p\": [\"unauthorized_user_token\"]}",
+  "~m~60~m~{\"m\": \"chart_create_session\", \"p\": [\"cs_fixture000001\", \"\"]}",
+  "~m~163~m~{\"m\": \"resolve_symbol\", \"p\": [\"cs_fixture000001\", \"sds_sym_1\", \"={\\\"symbol\\\":\\\"CRYPTOCAP:NOPE_NOT_A_SYMBOL\\\",\\\"adjustment\\\":\\\"splits\\\",\\\"session\\\":\\\"extended\\\"}\"]}",
+  "~m~90~m~{\"m\": \"create_series\", \"p\": [\"cs_fixture000001\", \"sds_1\", \"s1\", \"sds_sym_1\", \"60\", 6, \"\"]}"
+ ],
+ "received": [
+  "~m~300~m~{\"session_id\":\"0.205694791.2_mum1-charts-free-3-stress-tvbs-wvf6o-7\",\"timestamp\":1791526668,\"timestampMs\":1791526668756,\"release\":\"release_210-6\",\"studies_metadata_hash\":\"2732c87781e15988be19602efaf7915965787112\",\"auth_scheme_vsn\":2,\"protocol\":\"json\",\"via\":\"109.61.45.185:443\",\"javastudies\":[\"3.66\"]}",
+  "~m~96~m~{\"m\":\"series_loading\",\"p\":[\"cs_fixture000001\",\"sds_1\",\"s1\"],\"t\":1791526668,\"t_ms\":1791526668852}~m~110~m~{\"m\":\"symbol_error\",\"p\":[\"cs_fixture000001\",\"sds_sym_1\",\"invalid symbol\"],\"t\":1791526668,\"t_ms\":1791526668852}~m~190~m~{\"m\":\"series_error\",\"p\":[\"cs_fixture000001\",\"sds_1\",\"s1\",\"resolve error\",\"mum1-charts-free-3-stress-tvbs-wvf6o-7@mum1-charts-free-3-stress-tvbs-wvf6o-7\"],\"t\":1791526668,\"t_ms\":1791526668852}"
+ ]
+}

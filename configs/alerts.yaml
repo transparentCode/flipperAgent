@@ -131,15 +131,11 @@ alerts:
       startup_grace_seconds: 60
       healthy_statuses:
         - ready
-    scraper_service:
+    scraper_collector:
       enabled: true
       source_app: scraper_app
-      url: http://scraper-service:8081/health
-      timeout_seconds: 5
-      startup_grace_seconds: 60
+      url: http://scraper:8005/health/ready
+      timeout_seconds: 8
+      startup_grace_seconds: 120
       healthy_statuses:
-        - ok
-  freshness:
-    scraper:
-      worker_running_timeout_seconds: 1200
-      success_stale_threshold_seconds: 3600
+        - ready

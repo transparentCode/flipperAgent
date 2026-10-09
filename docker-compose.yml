@@ -313,71 +313,6 @@ services:
     networks:
       - flipper-net
 
-  scraper-tradingview:
-    build:
-      context: .
-      dockerfile: Dockerfile.tv-scraper
-    init: true
-    command: arq apps.scraper_app.providers.tradingview.worker.WorkerSettings
-    volumes:
-      - ./secrets:/app/secrets:ro
-      - ./data:/app/data
-      - ./configs:/app/configs:ro
-    tmpfs:
-      - /tmp
-    environment:
-      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
-      VALKEY_URI: redis://broker:6379/0
-      TV_COOKIES_PATH: /app/secrets/tv_cookies.json
-    depends_on:
-      db:
-        condition: service_healthy
-      broker:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: '0.5'
-    networks:
-      - flipper-net
-
-  scraper-service:
-    build:
-      context: .
-      dockerfile: Dockerfile.tv-scraper
-    init: true
-    command: python -m apps.scraper_app.api.main
-    ports:
-      - "127.0.0.1:8081:8081"
-    volumes:
-      - ./secrets:/app/secrets:ro
-      - ./data:/app/data
-      - ./configs:/app/configs:ro
-      - flipper-logs:/app/logs
-    tmpfs:
-      - /tmp
-    environment:
-      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
-      VALKEY_URI: redis://broker:6379/0
-      LOG_FILE: /app/logs/scraper_service.log
-      LOG_FORMAT: ${LOG_FORMAT:-json}
-      SCRAPER_SERVICE_PORT: 8081
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
-      OTEL_SERVICE_NAME: scraper_service
-    depends_on:
-      db:
-        condition: service_healthy
-      broker:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: '0.5'
-    networks:
-      - flipper-net
-
   api-server:
     build:
       context: .
@@ -462,6 +397,138 @@ services:
           cpus: '0.5'
     networks:
       - flipper-net
+
+  scraper-db-bootstrap:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m apps.scraper_app.storage.bootstrap
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-flipper}:${POSTGRES_PASSWORD:-flipperpass}@db:5432/${POSTGRES_DB:-flipper_db}
+      SCRAPER_DB_PASSWORD: ${SCRAPER_DB_PASSWORD:-scraperpass}
+      SCRAPER_PURGE_DB_PASSWORD: ${SCRAPER_PURGE_DB_PASSWORD:-scraperpurgepass}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - flipper-net
+
+  scraper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m apps.scraper_app.main
+    ports:
+      - "127.0.0.1:8005:8005"
+    volumes:
+      - ./configs:/app/configs:ro
+      - ./secrets:/app/secrets:ro
+      - flipper-logs:/app/logs
+    tmpfs:
+      - /tmp
+    environment:
+      SCRAPER_POSTGRES_URI: postgresql://scraper_app:${SCRAPER_DB_PASSWORD:-scraperpass}@db:5432/${POSTGRES_DB:-flipper_db}
+      SCRAPER_PURGE_POSTGRES_URI: postgresql://scraper_purge:${SCRAPER_PURGE_DB_PASSWORD:-scraperpurgepass}@db:5432/${POSTGRES_DB:-flipper_db}
+      SCRAPER_API_READ_TOKEN: ${SCRAPER_API_READ_TOKEN:-}
+      SCRAPER_API_READ_TOKEN_FILE: /app/secrets/scraper_api_read_token
+      LOG_FILE: /app/logs/scraper.log
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: scraper
+    depends_on:
+      db:
+        condition: service_healthy
+      scraper-db-bootstrap:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8005/health/ready', timeout=8)",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+    networks:
+      - flipper-net
+      - scraper-browser-net
+
+  # CoinGlass lane: headless engine with no route except the allow-listing proxy.
+  scraper-browser:
+    build:
+      context: docker/scraper-browser
+    command: ["moli", "serve", "--host", "0.0.0.0", "--port", "9222", "--http-proxy", "http://scraper-egress:8888"]
+    networks:
+      - scraper-browser-net
+    depends_on:
+      - scraper-egress
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/9222"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+
+  scraper-egress:
+    build:
+      context: docker/scraper-egress
+    networks:
+      - scraper-browser-net
+      - scraper-egress-net
+    tmpfs:
+      - /tmp
+      - /run
+    healthcheck:
+      # Real request for a domain the filter refuses: any HTTP status line proves the proxy answers,
+      # and tinyproxy no longer logs a half-open connection every interval.
+      test:
+        - CMD
+        - bash
+        - -c
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/8888 &&
+          printf 'GET http://health.invalid/ HTTP/1.0\r\nHost: health.invalid\r\n\r\n' >&3 &&
+          read -r -t 3 line <&3 && [[ "$$line" == HTTP/* ]]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 64M
 
   # ---- Observability Stack ----
 
@@ -587,6 +654,11 @@ services:
 
 networks:
   flipper-net:
+    driver: bridge
+  scraper-browser-net:
+    driver: bridge
+    internal: true
+  scraper-egress-net:
     driver: bridge
 
 volumes:

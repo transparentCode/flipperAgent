@@ -22,7 +22,6 @@ Current validated scope includes:
 - lifecycle event consumption from `asset:lifecycle`
 - execution failure stream consumption from `execution:failures:{asset}`
 - reconciler-driven freshness detection for signal and strategy
-- reconciler-driven scraper job failure/recovery detection
 - reconciler-driven health check breach/recovery detection
 - incident dedupe, renotify, ack, resolve, and silence management
 - webhook and Telegram delivery
@@ -52,7 +51,7 @@ At a high level the app has four runtime pieces:
 - **Stream consumers**
   - lifecycle and execution failure streams
 - **Synthetic reconciler**
-  - scans signal/strategy runtime hashes, scraper jobs, and configured health endpoints
+  - scans signal/strategy runtime hashes and configured health endpoints
 - **Incident engine**
   - dedupe, open/update/resolve, hot-state projection, SQL durability
 - **Notification dispatcher**
@@ -77,10 +76,10 @@ At a high level the app has four runtime pieces:
 - `execution:failures:{asset}`
 - `signal:status:{asset}:{tf}`
 - `strategy:status:{asset}:{tf}`
-- `scraper:job:{job_id}`
 - configured HTTP health surfaces such as:
   - `ingestion:8003/health/ready`
-  - `scraper-service:8081/health`
+  - `decision:8004/health/ready`
+  - `scraper:8005/health/ready` (healthy status `ready`, 120 s startup grace)
   - with per-check startup grace from `alerts.health_checks.*.startup_grace_seconds`
 
 ### Produced / Owned
@@ -97,7 +96,6 @@ The current implementation is backed by local and Docker validation for:
 - incident list/detail/ack/resolve/silence-delete flows
 - execution failure incident creation
 - signal freshness breach + recovery
-- scraper job failure incident creation
 - route rate limiting and transport retry behavior
 - Telegram HTML-safe formatting
 - startup grace for health probes to suppress cold-start noise

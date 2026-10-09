@@ -29,6 +29,18 @@ def test_decision_health_config_uses_ready_status() -> None:
     assert health["healthy_statuses"] == ["ready"]
 
 
+def test_scraper_collector_health_config_uses_ready_status() -> None:
+    config_path = Path(__file__).parents[2] / "configs" / "alerts.yaml"
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    health = config["alerts"]["health_checks"]["scraper_collector"]
+
+    assert health["source_app"] == "scraper_app"
+    assert health["url"] == "http://scraper:8005/health/ready"
+    assert health["healthy_statuses"] == ["ready"]
+    assert "scraper_service" not in config["alerts"]["health_checks"]
+    assert "scraper" not in config["alerts"].get("freshness", {})
+
+
 def test_alert_settings_load_from_config() -> None:
     settings = AlertAppSettings.from_config()
     assert settings.consumer_group == "alert_app_group"

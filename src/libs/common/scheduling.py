@@ -5,6 +5,6 @@ class BaseScheduler(ABC):
     @abstractmethod
     def get_cron_jobs(self) -> List:
         """
-        Define cron-like periodic tasks for the arq worker.
+        Define cron-like periodic tasks for the scheduler runtime.
         """
         pass

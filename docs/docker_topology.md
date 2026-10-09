@@ -14,7 +14,7 @@ flowchart LR
     E[execution-worker]
     P[portfolio-worker]
     A[alert-worker / alert-api]
-    SC[scraper-service / scraper-tradingview]
+    SC[scraper\napps.scraper_app]
     API[api-server]
     SCH[scheduler]
 
@@ -25,7 +25,7 @@ flowchart LR
     I --> D --> R --> E --> P
     VK --> A
     SC --> DB
-    API --> SC
+    A -. health probe .-> SC
     SCH --> VK
 ```
 
@@ -39,8 +39,8 @@ flowchart LR
 | `decision` | Sole production signal publisher; consumes canonical ingestion and publishes exact authoritative routes |
 | `risk-worker`, `execution-worker`, `portfolio-worker` | Downstream trading pipeline |
 | `alert-worker`, `alert-api` | Lifecycle/failure/health alerting |
-| `scraper-service`, `scraper-tradingview` | Research and auxiliary market-data scraping |
-| `api-server` | Central API and scraper compatibility bridge |
+| `scraper`, `scraper-db-bootstrap`, `scraper-browser`, `scraper-egress` | TradingView and CoinGlass collector, its schema bootstrap, the headless engine, and the allow-listing egress proxy |
+| `api-server` | Central config and operational API |
 | `scheduler` | Generic scheduled application support; not an ingestion runtime |
 
 The former legacy ingestion services and their ARQ/WebSocket runtime were

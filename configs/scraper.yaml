@@ -1,0 +1,324 @@
+# v2 TradingView collector (apps.scraper_app.main). Strictly validated by
+# apps.scraper_app.settings; unknown keys are rejected. The database URI is not
+# configured here: it comes only from the SCRAPER_POSTGRES_URI environment variable.
+scraper:
+  server:
+    host: 0.0.0.0
+    port: 8005
+  database:
+    connect_timeout_seconds: 10
+    command_timeout_seconds: 15
+  tradingview:
+    ws_url: "wss://data.tradingview.com/socket.io/websocket"
+    origin: "https://www.tradingview.com"
+    connect_timeout_seconds: 10
+    read_deadline_seconds: 30        # whole exchange, hard deadline
+    max_response_bytes: 20000000
+    request_spacing_seconds: 1.0
+    max_attempts_per_slot: 3
+    retry_backoff_seconds: [5, 20]
+    min_bars_per_request: 10
+    max_bars_per_request: 5000
+  schedule:
+    slot_minutes: [0]
+    slot_second: 30
+    late_bar_retries: 3
+    late_bar_retry_seconds: 20
+    wake_check_seconds: 30
+  readiness:
+    max_read_age_seconds: 7800       # 2 slots + 10 min
+    latest_bar_grace_seconds: 300    # the slot runs 30 s after the boundary
+    recent_gap_window_seconds: 172800  # a hole newer than 48 h degrades readiness
+    max_clock_skew_seconds: 120      # |finished_at - provider_time|
+    probe_timeout_seconds: 5         # whole readiness computation; below the health check timeout
+  # Purge of stored data older than N days, per provider (null keeps everything).
+  # Runs inside the collector on its own slot, through the SELECT+DELETE role
+  # scraper_purge (env SCRAPER_PURGE_POSTGRES_URI). The newest ok read of a dataset
+  # and its payload are never deleted. A TradingView retention must cover
+  # revision_watch_seconds + 2 intervals of every dataset (validated), otherwise every
+  # read would re-insert purged bars. 14 days fits the 12 day watch windows below
+  # (12 d + 2 x 1 d for the 1D datasets is exactly the limit).
+  retention:
+    enabled: true
+    slot_minutes: [45]
+    slot_second: 0
+    wake_check_seconds: 30
+    batch_rows: 5000
+    tradingview_days: 14
+    coinglass_days: 14
+    readiness_max_age_seconds: 10800   # no successful pass for 3 h -> degraded
+  # Read-only agent API under /v2 (bearer token from env SCRAPER_API_READ_TOKEN or the
+  # file named by SCRAPER_API_READ_TOKEN_FILE; never configured here). It has its own
+  # read-only connection pool, so API load cannot take a collector connection.
+  api:
+    enabled: true
+    default_limit: 500
+    max_limit: 5000
+    max_payload_list: 500
+    pool_max_size: 2
+    query_timeout_seconds: 5
+    as_of_settle_seconds: 60         # a named instant must be at least this old
+  # Second lane: CoinGlass through a headless engine over CDP (see the README).
+  coinglass:
+    engine_url: "http://scraper-browser:9222"
+    host_page_url: "https://www.coinglass.com/pro/futures/LiquidationHeatMapNew?coin=BTC&type=pair"
+    slot_minutes: [5, 20, 35, 50]
+    slot_second: 0
+    wake_check_seconds: 30
+    connect_timeout_seconds: 10
+    command_timeout_seconds: 15
+    navigation_timeout_seconds: 30
+    helper_timeout_seconds: 20
+    cycle_deadline_seconds: 120
+    call_spacing_seconds: 1
+    cycle_retries: 1
+    cycle_retry_delay_seconds: 20
+    max_payload_bytes: 4000000
+    max_provider_age_seconds: 1800
+    cookies_path: "secrets/coinglass_cookies.json"
+    readiness:
+      max_read_age_seconds: 2100
+    datasets:
+      - id: cg.binance.btcusdt.liq_heatmap.5m.24h
+        kind: liq_heatmap
+        endpoint: "/api/index/v5/liqHeatMap"
+        args: {merge: true, symbol: "Binance_BTCUSDT", interval: 5, limit: 288}
+        expect: {exchange: Binance, instrument: BTCUSDT, interval_seconds: 300, columns: 288}
+      - id: cg.maxpain.24h
+        kind: max_pain
+        endpoint: "/api/liqHeatMap/list"
+        args: {range: "24h"}
+        coins: [BTC, ETH, SOL, BNB]
+      - id: cg.binance.ethusdt.liq_heatmap.5m.24h
+        kind: liq_heatmap
+        endpoint: "/api/index/v5/liqHeatMap"
+        args: {merge: true, symbol: "Binance_ETHUSDT", interval: 5, limit: 288}
+        expect: {exchange: Binance, instrument: ETHUSDT, interval_seconds: 300, columns: 288}
+        requires_login: true
+      - id: cg.binance.solusdt.liq_heatmap.5m.24h
+        kind: liq_heatmap
+        endpoint: "/api/index/v5/liqHeatMap"
+        args: {merge: true, symbol: "Binance_SOLUSDT", interval: 5, limit: 288}
+        expect: {exchange: Binance, instrument: SOLUSDT, interval_seconds: 300, columns: 288}
+        requires_login: true
+      - id: cg.binance.bnbusdt.liq_heatmap.5m.24h
+        kind: liq_heatmap
+        endpoint: "/api/index/v5/liqHeatMap"
+        args: {merge: true, symbol: "Binance_BNBUSDT", interval: 5, limit: 288}
+        expect: {exchange: Binance, instrument: BNBUSDT, interval_seconds: 300, columns: 288}
+        requires_login: true
+      - id: cg.binance.btcusdt.liq_map.1d
+        kind: liq_map
+        endpoint: "/api/index/5/liqMap"
+        args: {merge: true, symbol: "Binance_BTCUSDT", interval: 1, limit: 1500}
+        expect: {exchange: Binance, instrument: BTCUSDT}
+        requires_login: true
+      - id: cg.binance.ethusdt.liq_map.1d
+        kind: liq_map
+        endpoint: "/api/index/5/liqMap"
+        args: {merge: true, symbol: "Binance_ETHUSDT", interval: 1, limit: 1500}
+        expect: {exchange: Binance, instrument: ETHUSDT}
+        requires_login: true
+      - id: cg.binance.solusdt.liq_map.1d
+        kind: liq_map
+        endpoint: "/api/index/5/liqMap"
+        args: {merge: true, symbol: "Binance_SOLUSDT", interval: 1, limit: 1500}
+        expect: {exchange: Binance, instrument: SOLUSDT}
+        requires_login: true
+      - id: cg.binance.bnbusdt.liq_map.1d
+        kind: liq_map
+        endpoint: "/api/index/5/liqMap"
+        args: {merge: true, symbol: "Binance_BNBUSDT", interval: 1, limit: 1500}
+        expect: {exchange: Binance, instrument: BNBUSDT}
+        requires_login: true
+  # finality_horizon_seconds: a bar is "final" only after a covering read finished
+  # this long after its close. revision_watch_seconds: how far back EVERY read
+  # re-reads, so revisions inside the window are observed (must be >= the horizon).
+  # 12 days (cut from 14/30 on 2026-10-10 so a 14 day retention is valid) is still three
+  # times the oldest revision recorded (about 4 days).
+  datasets:
+    # Crypto market-cap indices: 24x7, volume present. Every TradingView dataset uses the
+    # same provisional rule (see the README): bars are revised for days after close.
+    - id: tv.cryptocap.total2.1h
+      request_symbol: "CRYPTOCAP:TOTAL2"
+      canonical_symbol: "CRYPTOCAP:TOTAL2"
+      interval: "1h"
+      shape: ohlcv
+      contiguous: true
+      non_negative: true
+      finality_horizon_seconds: 345600
+      revision_watch_seconds: 1036800
+    - id: tv.cryptocap.total2.4h
+      request_symbol: "CRYPTOCAP:TOTAL2"
+      canonical_symbol: "CRYPTOCAP:TOTAL2"
+      interval: "4h"
+      shape: ohlcv
+      contiguous: true
+      non_negative: true
+      finality_horizon_seconds: 345600
+      revision_watch_seconds: 1036800
+    - id: tv.cryptocap.total2.1d
+      request_symbol: "CRYPTOCAP:TOTAL2"
+      canonical_symbol: "CRYPTOCAP:TOTAL2"
+      interval: "1D"
+      shape: ohlcv
+      contiguous: true
+      non_negative: true
+      finality_horizon_seconds: 604800
+      revision_watch_seconds: 1036800
+    - id: tv.cryptocap.total3.1h
+      request_symbol: "CRYPTOCAP:TOTAL3"
+      canonical_symbol: "CRYPTOCAP:TOTAL3"
+      interval: "1h"
+      shape: ohlcv
+      contiguous: true
+      non_negative: true
+      finality_horizon_seconds: 345600
+      revision_watch_seconds: 1036800
+    - id: tv.cryptocap.total3.4h
+      request_symbol: "CRYPTOCAP:TOTAL3"
+      canonical_symbol: "CRYPTOCAP:TOTAL3"
+      interval: "4h"
+      shape: ohlcv
+      contiguous: true
+      non_negative: true
+      finality_horizon_seconds: 345600
+      revision_watch_seconds: 1036800
+    - id: tv.cryptocap.total3.1d
+      request_symbol: "CRYPTOCAP:TOTAL3"
+      canonical_symbol: "CRYPTOCAP:TOTAL3"
+      interval: "1D"
+      shape: ohlcv
+      contiguous: true
+      non_negative: true
+      finality_horizon_seconds: 604800
+      revision_watch_seconds: 1036800
+    - id: tv.cryptocap.total3es.1h
+      request_symbol: "CRYPTOCAP:TOTAL3ES"
+      canonical_symbol: "CRYPTOCAP:TOTAL3ES"
+      interval: "1h"
+      shape: ohlcv
+      contiguous: true
+      non_negative: true
+      finality_horizon_seconds: 345600
+      revision_watch_seconds: 1036800
+    - id: tv.cryptocap.total3es.4h
+      request_symbol: "CRYPTOCAP:TOTAL3ES"
+      canonical_symbol: "CRYPTOCAP:TOTAL3ES"
+      interval: "4h"
+      shape: ohlcv
+      contiguous: true
+      non_negative: true
+      finality_horizon_seconds: 345600
+      revision_watch_seconds: 1036800
+    - id: tv.cryptocap.total3es.1d
+      request_symbol: "CRYPTOCAP:TOTAL3ES"
+      canonical_symbol: "CRYPTOCAP:TOTAL3ES"
+      interval: "1D"
+      shape: ohlcv
+      contiguous: true
+      non_negative: true
+      finality_horizon_seconds: 604800
+      revision_watch_seconds: 1036800
+    - id: tv.cryptocap.btc_d.1h
+      request_symbol: "CRYPTOCAP:BTC.D"
+      canonical_symbol: "CRYPTOCAP:BTC.D"
+      interval: "1h"
+      shape: ohlcv
+      contiguous: true
+      non_negative: true
+      finality_horizon_seconds: 345600
+      revision_watch_seconds: 1036800
+    - id: tv.cryptocap.btc_d.4h
+      request_symbol: "CRYPTOCAP:BTC.D"
+      canonical_symbol: "CRYPTOCAP:BTC.D"
+      interval: "4h"
+      shape: ohlcv
+      contiguous: true
+      non_negative: true
+      finality_horizon_seconds: 345600
+      revision_watch_seconds: 1036800
+    - id: tv.cryptocap.btc_d.1d
+      request_symbol: "CRYPTOCAP:BTC.D"
+      canonical_symbol: "CRYPTOCAP:BTC.D"
+      interval: "1D"
+      shape: ohlcv
+      contiguous: true
+      non_negative: true
+      finality_horizon_seconds: 604800
+      revision_watch_seconds: 1036800
+    # Binance perpetual open interest: request alias resolves to the canonical .P_OI name.
+    # Not final at close: BNB and SOL bars were revised 9-21 h later (2026-10-09).
+    - id: tv.binance.btcusdt_p.oi.1h
+      request_symbol: "BINANCE:BTCUSDTPERP_OI"
+      canonical_symbol: "BINANCE:BTCUSDT.P_OI"
+      interval: "1h"
+      shape: ohlc
+      contiguous: true
+      non_negative: true
+      finality_horizon_seconds: 345600
+      revision_watch_seconds: 1036800
+    - id: tv.binance.ethusdt_p.oi.1h
+      request_symbol: "BINANCE:ETHUSDTPERP_OI"
+      canonical_symbol: "BINANCE:ETHUSDT.P_OI"
+      interval: "1h"
+      shape: ohlc
+      contiguous: true
+      non_negative: true
+      finality_horizon_seconds: 345600
+      revision_watch_seconds: 1036800
+    - id: tv.binance.bnbusdt_p.oi.1h
+      request_symbol: "BINANCE:BNBUSDTPERP_OI"
+      canonical_symbol: "BINANCE:BNBUSDT.P_OI"
+      interval: "1h"
+      shape: ohlc
+      contiguous: true
+      non_negative: true
+      finality_horizon_seconds: 345600
+      revision_watch_seconds: 1036800
+    - id: tv.binance.solusdt_p.oi.1h
+      request_symbol: "BINANCE:SOLUSDTPERP_OI"
+      canonical_symbol: "BINANCE:SOLUSDT.P_OI"
+      interval: "1h"
+      shape: ohlc
+      contiguous: true
+      non_negative: true
+      finality_horizon_seconds: 345600
+      revision_watch_seconds: 1036800
+    # Binance perpetual funding rate: may skip hours and go negative.
+    - id: tv.binance.btcusdt_p.funding.1h
+      request_symbol: "BINANCE:BTCUSDT.P_FR"
+      canonical_symbol: "BINANCE:BTCUSDT.P_FR"
+      interval: "1h"
+      shape: ohlc
+      contiguous: false
+      non_negative: false
+      finality_horizon_seconds: 345600
+      revision_watch_seconds: 1036800
+    - id: tv.binance.ethusdt_p.funding.1h
+      request_symbol: "BINANCE:ETHUSDT.P_FR"
+      canonical_symbol: "BINANCE:ETHUSDT.P_FR"
+      interval: "1h"
+      shape: ohlc
+      contiguous: false
+      non_negative: false
+      finality_horizon_seconds: 345600
+      revision_watch_seconds: 1036800
+    - id: tv.binance.bnbusdt_p.funding.1h
+      request_symbol: "BINANCE:BNBUSDT.P_FR"
+      canonical_symbol: "BINANCE:BNBUSDT.P_FR"
+      interval: "1h"
+      shape: ohlc
+      contiguous: false
+      non_negative: false
+      finality_horizon_seconds: 345600
+      revision_watch_seconds: 1036800
+    - id: tv.binance.solusdt_p.funding.1h
+      request_symbol: "BINANCE:SOLUSDT.P_FR"
+      canonical_symbol: "BINANCE:SOLUSDT.P_FR"
+      interval: "1h"
+      shape: ohlc
+      contiguous: false
+      non_negative: false
+      finality_horizon_seconds: 345600
+      revision_watch_seconds: 1036800

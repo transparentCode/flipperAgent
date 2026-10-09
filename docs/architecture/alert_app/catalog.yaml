@@ -24,10 +24,8 @@ features:
     summary: Watches execution failure streams and raises critical incidents
   - key: freshness_reconciliation
     summary: Detects signal/strategy freshness breaches
-  - key: scraper_job_alerting
-    summary: Detects failed scraper jobs and resolves incidents when jobs recover
   - key: health_probe_alerting
-    summary: Probes configured app health endpoints and emits breach/recovery incidents
+    summary: Probes configured app health endpoints (ingestion, decision, scraper collector at /health/ready) and emits breach/recovery incidents
   - key: incident_api
     summary: Exposes alert summary, incidents, routes, silences, and delivery history
   - key: notification_dispatch
@@ -72,7 +70,6 @@ internal_components:
       - src/apps/alert_app/runtime/reconciler.py
     responsibilities:
       - Scan signal/strategy runtime status keys
-      - Scan scraper job state keys
       - Probe configured health endpoints
       - Respect per-check startup grace before opening new health-breach incidents
       - Emit breach and recovery events for silent-failure cases
@@ -134,8 +131,6 @@ valkey:
       producer: signal_app
     - name: strategy:status:{asset}:{tf}
       producer: strategy_app
-    - name: scraper:job:{job_id}
-      producer: scraper_app
   owns:
     - name: alert:incident:{incident_id}
       purpose: hot incident state projection

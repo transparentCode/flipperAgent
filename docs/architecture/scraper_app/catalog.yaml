@@ -2,180 +2,129 @@ app:
   name: scraper_app
   path: src/apps/scraper_app
   purpose: >
-    Provides a browser-backed internal scraper service for TradingView and
-    CoinGlass, owns cache publication and on-demand scrape job orchestration,
-    and refreshes selected provider datasets on scheduled workers.
+    Always-on collector for TradingView series (hourly) and CoinGlass payloads
+    (every 15 minutes, through a contained headless engine). Writes append-only
+    observations to the PostgreSQL schema scraper and reports readiness over HTTP.
 
 entrypoints:
-  internal_api:
-    path: src/apps/scraper_app/api/main.py
-    role: Launches the internal FastAPI scraper service
-  app_factory:
-    path: src/apps/scraper_app/api/app.py
-    role: Wires fetch and job services, Valkey access, and pending-job recovery
-  tradingview_worker:
-    path: src/apps/scraper_app/providers/tradingview/worker.py
-    role: Schedules TradingView index and derivatives refresh into cache and TimescaleDB
-  coinglass_worker:
-    path: src/apps/scraper_app/providers/coinglass/worker.py
-    role: Schedules CoinGlass liquidation heatmap refresh into Valkey cache
-  research_cli:
-    path: src/apps/scraper_app/cli.py
-    role: Runs offline TradingView and CoinGlass fetches for research/debugging
+  collector:
+    path: src/apps/scraper_app/main.py
+    role: Starts the singleton, scheduler, TradingView lane, optional CoinGlass lane and health server
+  schema_bootstrap:
+    path: src/apps/scraper_app/storage/bootstrap.py
+    role: Operator step (Compose service scraper-db-bootstrap) that creates schema, role and grants; idempotent
 
 features:
-  - key: internal_scraper_api
-    summary: Serves health, cached-read, synchronous fetch, and async job endpoints
-  - key: tradingview_cache_access
-    summary: Returns latest cached TradingView OHLCV and derivative series snapshots from Valkey
-  - key: provider_live_fetch
-    summary: Performs live browser-backed provider fetches through shared fetch service abstractions
-  - key: async_job_dedupe_and_recovery
-    summary: Persists job state in Valkey, dedupes matching requests, and resumes queued/running jobs on restart
-  - key: tradingview_periodic_refresh
-    summary: Periodically refreshes TradingView indices and derivatives into Valkey and TimescaleDB
-  - key: coinglass_periodic_refresh
-    summary: Periodically refreshes CoinGlass heatmap payloads into Valkey
-  - key: shared_browser_runtime
-    summary: Reuses Patchright browser contexts and normalizes cookie loading across providers
+  - key: tradingview_lane
+    summary: Reads 20 datasets over the TradingView websocket, gates them and stores bars change-only
+  - key: coinglass_lane
+    summary: Reads liquidation heatmap and max-pain payloads through CDP on the contained engine
+  - key: append_only_store
+    summary: Reads, bar observations and payload observations are only inserted; revisions add a seq
+  - key: single_instance
+    summary: A PostgreSQL advisory lock keeps one writer; a second instance exits non-zero
+  - key: retention_purge
+    summary: A task in the collector deletes data older than the per-provider retention through the scraper_purge role
+  - key: agent_read_api
+    summary: Read-only /v2 API (bearer token, own read-only pool) with final, as_of and current bar reads and stored payloads
+  - key: readiness
+    summary: GET /health/ready returns 200 ready or degraded, 503 not_ready; probed by alert_app
 
 architecture_decisions:
-  service_boundary:
-    rule: scraper_app isolates browser automation and provider-specific scraping from ingestion and downstream runtime loops.
-  storage_split:
-    hot_state:
-      kind: valkey
-      contracts:
-        - index:latest:{short_name}
-        - derivatives:latest:{asset}:oi
-        - derivatives:latest:{asset}:funding
-        - coinglass:latest:liquidation_heatmap:{exchange}:{short_name}
-        - scraper:job:{job_id}
-        - scraper:job:result:{job_id}
-    durable_state:
-      kind: timescaledb
-      contracts:
-        - tv_index_ohlcv
-        - open_interest
-        - funding_rate
-  job_rule:
-    rule: matching async scrape requests reuse queued/running jobs and only reuse completed jobs when freshness requirements allow it.
-  deployment_rule:
-    rule: the default Docker stack deploys the scraper API and TradingView worker; CoinGlass worker support exists in code/config but is not yet composed by default.
+  storage:
+    rule: Append-only; a bar is final only after a covering ok read finished at or after bar_close plus the finality horizon.
+  containment:
+    rule: The engine sits on an internal network and reaches only coinglass.com and coinglasscdn.com through the default-deny proxy.
+  failure_isolation:
+    rule: A CoinGlass failure never affects the TradingView lane and never makes readiness not_ready.
 
 internal_components:
-  - name: internal_api
+  - name: settings
     paths:
-      - src/apps/scraper_app/api/app.py
-      - src/apps/scraper_app/api/routes.py
-    responsibilities:
-      - Serve scraper health endpoint
-      - Serve cached TradingView and CoinGlass reads
-      - Accept synchronous provider fetch requests
-      - Accept and query async scrape jobs
-
-  - name: fetch_service
+      - src/apps/scraper_app/settings.py
+      - configs/scraper.yaml
+  - name: domain
     paths:
-      - src/apps/scraper_app/service/fetch_service.py
-    responsibilities:
-      - Dispatch provider-specific live fetches
-      - Read latest provider cache entries from Valkey
-      - Publish live TradingView OHLCV fetches into cache
-
-  - name: job_service
+      - src/apps/scraper_app/domain/bars.py
+      - src/apps/scraper_app/domain/datasets.py
+      - src/apps/scraper_app/domain/payloads.py
+      - src/apps/scraper_app/domain/errors.py
+  - name: adapters
     paths:
-      - src/apps/scraper_app/service/job_service.py
-    responsibilities:
-      - Build deterministic job ids
-      - Persist job state and results
-      - Deduplicate queued/running requests
-      - Recover pending jobs after service restart
-
-  - name: tradingview_provider
+      - src/apps/scraper_app/adapters/tradingview
+      - src/apps/scraper_app/adapters/coinglass
+  - name: runtime
     paths:
-      - src/apps/scraper_app/providers/tradingview/interceptor.py
-      - src/apps/scraper_app/providers/tradingview/worker.py
-    responsibilities:
-      - Intercept TradingView websocket/chart payloads
-      - Extract OHLCV and single-value time series
-      - Publish latest cache state
-      - Upsert durable market-data history
-
-  - name: coinglass_provider
+      - src/apps/scraper_app/runtime/scheduler.py
+      - src/apps/scraper_app/runtime/collector.py
+      - src/apps/scraper_app/runtime/coinglass.py
+      - src/apps/scraper_app/runtime/singleton.py
+      - src/apps/scraper_app/runtime/slots.py
+      - src/apps/scraper_app/runtime/purge.py
+      - src/apps/scraper_app/runtime/status.py
+  - name: storage
     paths:
-      - src/apps/scraper_app/providers/coinglass/interceptor.py
-      - src/apps/scraper_app/providers/coinglass/worker.py
-    responsibilities:
-      - Capture CoinGlass heatmap payloads from browser/network surfaces
-      - Publish latest heatmap cache state
-
-  - name: browser_runtime
+      - src/apps/scraper_app/storage/repository.py
+      - src/apps/scraper_app/storage/bootstrap.py
+  - name: http_api
     paths:
-      - src/apps/scraper_app/core/browser_runtime.py
-    responsibilities:
-      - Manage Patchright browser/context lifecycle
-      - Apply provider cookies
-      - Normalize cookie formats and proxy configuration
+      - src/apps/scraper_app/http_api/app.py
+      - src/apps/scraper_app/http_api/routes.py
+      - src/apps/scraper_app/http_api/v2.py
+      - src/apps/scraper_app/http_api/rules.py
+      - src/apps/scraper_app/http_api/auth.py
+      - src/apps/scraper_app/http_api/catalog.py
 
 tech_stack:
   language: python
   framework:
-    - fastapi
     - asyncio
-    - arq
+    - fastapi
+    - websockets
   infra:
-    - valkey
-    - timescaledb
-  browser:
-    - patchright
-    - chromium
-
-valkey:
-  owns:
-    - name: index:latest:{short_name}
-      purpose: latest TradingView index candle snapshot
-    - name: derivatives:latest:{asset}:oi
-      purpose: latest TradingView open-interest snapshot
-    - name: derivatives:latest:{asset}:funding
-      purpose: latest TradingView funding-rate snapshot
-    - name: coinglass:latest:liquidation_heatmap:{exchange}:{short_name}
-      purpose: latest CoinGlass heatmap snapshot
-    - name: scraper:job:{job_id}
-      purpose: async scraper job status
-    - name: scraper:job:result:{job_id}
-      purpose: async scraper job result payload
+    - postgresql
+    - tinyproxy
+  engine:
+    - moli
 
 storage:
-  timescaledb_tables:
-    - tv_index_ohlcv
-    - open_interest
-    - funding_rate
+  schema: scraper
+  tables:
+    - scraper.reads
+    - scraper.bar_observations
+    - scraper.payload_observations
 
 api:
   base_path: /
   routes:
-    - GET /health
-    - GET /latest/tradingview/ohlcv
-    - GET /latest/tradingview/series
-    - GET /latest/coinglass/heatmap
-    - POST /fetch/sync
-    - POST /jobs
-    - GET /jobs/{job_id}
+    - GET /health/live
+    - GET /health/ready
+    - GET /v2/datasets (bearer token)
+    - GET /v2/datasets/{id}
+    - GET /v2/datasets/{id}/bars
+    - GET /v2/datasets/{id}/payload
+    - GET /v2/datasets/{id}/payloads
+    - GET /v2/datasets/{id}/payloads/{observation_id}
 
 consumers:
-  - app: api_app
-    contract: /ingestion/scraper/*
-    purpose: Bridges on-demand scraper requests without coupling them to the ingestion runtime loop
-  - app: signal_app
-    contract: index:latest:{short_name}
-    purpose: Reads latest TradingView index snapshots for feature computation
   - app: alert_app
-    contract: GET /health
-    purpose: Probes scraper service health
+    contract: GET http://scraper:8005/health/ready (healthy status ready)
+    purpose: health_checks.scraper_collector breach and recovery incidents
+
+diagram: docs/architecture/scraper_app/v2-collector.d2
+
+runtime_services:
+  - name: scraper-db-bootstrap
+    role: one-shot schema bootstrap (roles scraper_app, scraper_purge)
+  - name: scraper
+    networks: [flipper-net, scraper-browser-net]
+  - name: scraper-browser
+    role: Moli headless engine, CDP :9222, internal network only
+    build: docker/scraper-browser
+  - name: scraper-egress
+    role: tinyproxy allow-list for coinglass.com and coinglasscdn.com, CONNECT 443 only
+    build: docker/scraper-egress
 
 validated_tests:
   unit_and_integration:
-    - tests/test_scraper_service.py
-    - tests/test_tv_scraper.py
-    - tests/test_coinglass_scraper.py
-    - tests/test_scraper_cli.py
+    - tests/scraper

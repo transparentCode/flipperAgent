@@ -42,7 +42,6 @@ class AlertEventType(str, Enum):
     EXECUTION_FAILURE = "execution_failure"
     SIGNAL_FRESHNESS_BREACH = "signal_freshness_breach"
     STRATEGY_FRESHNESS_BREACH = "strategy_freshness_breach"
-    SCRAPER_FAILURE = "scraper_failure"
     TRANSPORT_FAILURE = "transport_failure"
     SYSTEM_HEALTH_BREACH = "system_health_breach"
     RECOVERY = "recovery"

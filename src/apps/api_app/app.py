@@ -9,7 +9,6 @@ from fastapi import FastAPI
 from apps.api_app.routers import config as config_router
 from apps.api_app.routers import execution as execution_router
 from apps.api_app.routers import health as health_router
-from apps.api_app.routers import ingestion as ingestion_router
 from apps.api_app.routers import portfolio as portfolio_router
 from apps.api_app.routers import risk as risk_router
 from libs.common.config import ConfigManager
@@ -22,7 +21,6 @@ from libs.common.constants import (
     CONFIG_FILE_PORTFOLIO,
     CONFIG_FILE_RISK,
     CONFIG_FILE_SELECTION,
-    CONFIG_FILE_TRADINGVIEW,
 )
 from libs.common.db.pool_manager import DBPoolManager
 from libs.common.enums import SystemComponent
@@ -38,7 +36,6 @@ _ALL_CONFIG_FILES = [
     CONFIG_FILE_PORTFOLIO,
     CONFIG_FILE_OPTIMIZATION,
     CONFIG_FILE_SELECTION,
-    CONFIG_FILE_TRADINGVIEW,
 ]
 
 
@@ -64,7 +61,6 @@ def create_app() -> FastAPI:
     )
     app.include_router(health_router.router)
     app.include_router(config_router.router)
-    app.include_router(ingestion_router.router)
     app.include_router(risk_router.router)
     app.include_router(execution_router.router)
     app.include_router(portfolio_router.router)

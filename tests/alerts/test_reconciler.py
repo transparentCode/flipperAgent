@@ -9,16 +9,6 @@ from apps.alert_app.runtime.reconciler import (
     AlertFreshnessReconciler,
     _source_app_from_value,
 )
-from apps.scraper_app.core.models import (
-    ScrapeDataset,
-    ScrapeIntent,
-    ScrapeJobRecord,
-    ScrapeJobStatus,
-    ScrapePriority,
-    ScrapeRequest,
-    ScraperProvider,
-)
-from apps.scraper_app.runtime_status import ScraperRuntimeStatus
 
 
 class _FakeIncidentService:
@@ -55,24 +45,7 @@ class _FakeRedis:
                 "last_signal_ts": "100.0",
             },
         }
-        failed_job = ScrapeJobRecord(
-            job_id="scrape-coinglass-heatmap-1",
-            status=ScrapeJobStatus.FAILED,
-            request=ScrapeRequest(
-                provider=ScraperProvider.COINGLASS,
-                dataset=ScrapeDataset.HEATMAP,
-                intent=ScrapeIntent.ON_DEMAND_REFRESH,
-                priority=ScrapePriority.NORMAL,
-                coin="SOL",
-                short_name="SOLUSDT",
-            ),
-            created_at=100.0,
-            updated_at=100.0,
-            error="provider timeout",
-        )
-        self.values = {
-            "scraper:job:scrape-coinglass-heatmap-1": failed_job.model_dump_json(),
-        }
+        self.values = {}
 
     async def hgetall(self, key: str):
         return dict(self.hashes.get(key, {}))
@@ -88,8 +61,6 @@ class _FakeRedis:
 class _FakeConfig:
     def __init__(self) -> None:
         self.values = {
-            "alerts.freshness.scraper.worker_running_timeout_seconds": 50,
-            "alerts.freshness.scraper.success_stale_threshold_seconds": 50,
             "alerts.freshness.signal.max_lag_seconds": 50,
             "alerts.freshness.strategy.max_lag_seconds": 50,
             "alerts.health_checks": {
@@ -247,7 +218,7 @@ async def test_decision_health_breach_and_recovery_preserve_source_identity() ->
 
 
 @pytest.mark.asyncio
-async def test_reconciler_emits_signal_strategy_scraper_and_health_events(
+async def test_reconciler_emits_signal_strategy_and_health_events(
     monkeypatch,
 ) -> None:
     incident_service = _FakeIncidentService()
@@ -268,7 +239,6 @@ async def test_reconciler_emits_signal_strategy_scraper_and_health_events(
     assert "ingestion_runtime_failure" not in event_types
     assert "signal_freshness_breach" in event_types
     assert "strategy_freshness_breach" in event_types
-    assert "scraper_failure" in event_types
     assert "system_health_breach" in event_types
     health_event = next(
         event
@@ -316,42 +286,6 @@ async def test_reconciler_skips_recovery_without_open_incident(monkeypatch) -> N
     await reconciler.reconcile_once()
 
     assert incident_service.events == []
-
-
-@pytest.mark.asyncio
-async def test_reconciler_emits_scraper_runtime_failure(monkeypatch) -> None:
-    incident_service = _FakeIncidentService()
-    redis = _FakeRedis()
-    redis.values = {
-        "scraper:runtime_status:tradingview:fetch_tv_indices": ScraperRuntimeStatus(
-            worker_name="tradingview",
-            provider="tradingview",
-            job_name="fetch_tv_indices",
-            status="failed",
-            updated_at=100.0,
-            last_started_at=90.0,
-            last_finished_at=100.0,
-            consecutive_failures=2,
-            last_error="TradingView index refresh degraded",
-        ).model_dump_json(),
-    }
-    reconciler = AlertFreshnessReconciler(
-        redis_client=redis,
-        incident_service=incident_service,
-        config_manager=_FakeConfig(),
-        interval_seconds=1,
-    )
-    reconciler._probe_health_check = _healthy
-
-    import apps.alert_app.runtime.reconciler as reconciler_module
-
-    monkeypatch.setattr(reconciler_module.time, "time", lambda: 200.0)
-    await reconciler.reconcile_once()
-
-    assert any(
-        event.title == "Scraper runtime failed for fetch_tv_indices"
-        for event, _ in incident_service.events
-    )
 
 
 @pytest.mark.asyncio

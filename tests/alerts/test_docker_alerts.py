@@ -15,15 +15,6 @@ import pytest_asyncio
 import valkey.asyncio as avalkey
 
 from apps.execution_app.state import ExecutionFailureEvent
-from apps.scraper_app.core.models import (
-    ScrapeDataset,
-    ScrapeIntent,
-    ScrapeJobRecord,
-    ScrapeJobStatus,
-    ScrapePriority,
-    ScrapeRequest,
-    ScraperProvider,
-)
 from libs.contracts.serialization import valkey_encode
 
 
@@ -353,38 +344,3 @@ async def test_alert_signal_freshness_breach_and_recovery(alert_valkey_client):
         description="signal freshness recovery incident resolution",
     )
     assert resolved["resolved_at"] is not None
-
-
-@pytest.mark.asyncio
-async def test_alert_scraper_failure_creates_incident(alert_valkey_client):
-    job_id = f"scrape-coinglass-heatmap-{uuid.uuid4().hex[:8]}"
-    record = ScrapeJobRecord(
-        job_id=job_id,
-        status=ScrapeJobStatus.FAILED,
-        request=ScrapeRequest(
-            provider=ScraperProvider.COINGLASS,
-            dataset=ScrapeDataset.HEATMAP,
-            intent=ScrapeIntent.ON_DEMAND_REFRESH,
-            priority=ScrapePriority.NORMAL,
-            coin="SOL",
-            short_name="SOLUSDT",
-        ),
-        created_at=time.time(),
-        updated_at=time.time(),
-        error="provider timeout",
-    )
-    await alert_valkey_client.set(
-        f"scraper:job:{job_id}",
-        record.model_dump_json(),
-        ex=3600,
-    )
-    await asyncio.to_thread(_trigger_alert_reconcile_once)
-
-    incident = await _wait_for_incident(
-        asset="SOLUSDT",
-        source_app="scraper_app",
-        event_type="scraper_failure",
-        predicate=lambda item: item.get("detail", {}).get("job_id") == job_id,
-        timeout_s=20.0,
-    )
-    assert incident["state"] == "open"

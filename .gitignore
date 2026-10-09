@@ -93,3 +93,7 @@ plans/
 .github/
 .artifacts/
 artifacts/
+
+# Moli engine archive (scripts/fetch_moli.sh)
+docker/scraper-browser/vendor/*
+!docker/scraper-browser/vendor/.gitkeep

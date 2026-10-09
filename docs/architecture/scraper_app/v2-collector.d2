@@ -1,0 +1,90 @@
+direction: right
+
+title: {
+  label: "scraper_app collector: one process (apps.scraper_app.main), two collection lanes, purge and read API"
+  near: top-center
+}
+
+tradingview: {
+  label: "TradingView\nwss://data.tradingview.com/socket.io/websocket\n(anonymous, ~m~ frames)"
+  style.fill: "#E8F1FF"
+}
+coinglass_site: {
+  label: "coinglass.com / coinglasscdn.com"
+  style.fill: "#E8F1FF"
+}
+egress: {
+  label: "scraper-egress (tinyproxy)\ndefault-deny: coinglass.com,\ncoinglasscdn.com; CONNECT 443 only"
+  style.fill: "#FDECEC"
+}
+engine: {
+  label: "scraper-browser (Moli engine)\nCDP :9222, internal network only\nread-only root, 512 MiB, cap_drop ALL"
+  style.fill: "#FDECEC"
+}
+agents: {
+  label: "agents / research clients"
+  style.fill: "#E8F1FF"
+}
+
+app: {
+  label: "apps.scraper_app.main (single process, :8005)"
+  style.fill: "#EEF7EA"
+
+  tv: {
+    label: "TradingView lane"
+    scheduler: "runtime/scheduler.py\nwall-clock slots :00:30\nstartup + missed-slot catch-up\nserial lane, 1s spacing"
+    collector: "runtime/collector.py\nsize request -> fetch -> gate ->\ndrop bars older than tradingview_days\n(newest kept) -> commit"
+    client: "adapters/tradingview\nasync websockets, one connection per read,\ndeadline + size cap, frame codec"
+    gate: "domain/bars.py\nidentity, shape, closed-bar (newest dropped),\nholes counted (not rejected), domain, bar_close"
+    scheduler -> collector
+    collector -> client
+    collector -> gate
+  }
+
+  cg: {
+    label: "CoinGlass lane"
+    lane: "runtime/coinglass.py\nslots :05 :20 :35 :50\none cycle, one read per dataset\none retry if the cycle fails\nbefore its first helper call"
+    cdp: "adapters/coinglass\nraw CDP on websockets, fresh page per cycle,\nin-page helper lookup, JSON.stringify"
+    gate: "domain/payloads.py\nenvelope, identity, grid, staleness,\ncanonical JSON + sha256"
+    lane -> cdp
+    lane -> gate
+  }
+
+  purge: "runtime/purge.py\nslot :45, only while the lock is held\nTradingView and CoinGlass, 14 days each\nSELECT+DELETE role scraper_purge\nnewest ok read always kept"
+  singleton: "runtime/singleton.py\npg_try_advisory_lock"
+  status: "runtime/status.py\nreadiness (incl. purge section)"
+  http: "http_api\n/health/live  /health/ready"
+  v2api: "http_api /v2 (bearer token)\ncatalog, bars final|as_of|current,\npayload, payloads, payloads/{id}\nown read-only pool, role scraper_app"
+
+  tv.scheduler -> singleton: "can_write"
+  http -> status
+}
+
+postgres: {
+  label: "PostgreSQL schema scraper\nscraper_app: SELECT, INSERT (append-only)\nscraper_purge: SELECT, DELETE (retention 14 days)"
+  style.fill: "#FFF4E0"
+
+  reads: "scraper.reads\ntrigger, status, covered_from/to,\ngap_before, holes, error_code, meta"
+  obs: "scraper.bar_observations\n(dataset_id, bar_open, seq)\ncontent_hash, backfilled"
+  payloads: "scraper.payload_observations\none gzip JSON payload per ok read\n(read_id, observed_at, content_hash)"
+}
+
+bootstrap: "storage/bootstrap.py\noperator step: schema, roles, grants"
+
+tradingview -> app.tv.client: "series (20 datasets)"
+app.cg.cdp -> engine: "CDP over scraper-browser-net"
+engine -> egress: "--http-proxy"
+egress -> coinglass_site: "allow-listed hosts only"
+
+app.tv.collector -> postgres.reads: "one transaction per read"
+app.tv.collector -> postgres.obs: "ascending bar_open, change-only"
+app.cg.lane -> postgres.reads: "reads.meta, one transaction"
+app.cg.lane -> postgres.payloads: "payload in the same transaction"
+app.singleton -> postgres: "advisory lock (dedicated connection)"
+app.status -> postgres.reads: "latest ok read"
+app.purge -> postgres.reads: "DELETE by primary key, batched"
+app.purge -> postgres.obs: "bars older than tradingview_days"
+app.purge -> postgres.payloads: "payloads older than coinglass_days"
+app.v2api -> postgres: "read-only, statement_timeout"
+agents -> app.v2api: "GET /v2/... Authorization: Bearer"
+bootstrap -> postgres: "DDL + grants"

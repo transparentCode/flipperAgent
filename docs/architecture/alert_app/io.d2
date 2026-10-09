@@ -41,12 +41,6 @@ sources: {
     shape: stored_data
   }
 
-  scraper_jobs: {
-    class: source
-    label: "scraper:job:{job_id}"
-    shape: stored_data
-  }
-
   health_checks: {
     class: source
     label: "alerts.health_checks\n(url + healthy_statuses + startup_grace_seconds)"
@@ -177,7 +171,6 @@ sources.lifecycle -> components.consumer: "normalize"
 sources.execution_failures -> components.consumer: "normalize"
 sources.signal_runtime -> components.reconciler: "scan"
 sources.strategy_runtime -> components.reconciler: "scan"
-sources.scraper_jobs -> components.reconciler: "scan"
 sources.health_checks -> components.reconciler: "probe"
 
 components.consumer -> components.service: "record_event"

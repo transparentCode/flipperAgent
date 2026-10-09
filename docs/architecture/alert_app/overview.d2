@@ -24,11 +24,6 @@ sources: {
     link: "../../../src/apps/alert_app/runtime/reconciler.py"
   }
 
-  scraper_jobs: {
-    label: "scraper:job:{job_id}\nscraper_app"
-    link: "../../../src/apps/alert_app/runtime/reconciler.py"
-  }
-
   health_endpoints: {
     label: "configured /health probes\n+ startup grace"
     link: "../../../configs/alerts.yaml"
@@ -159,7 +154,6 @@ rules: {
 sources.ingestion_lifecycle -> alert_app.consumer: "stream"
 sources.execution_failures -> alert_app.consumer: "stream family"
 sources.runtime_hashes -> alert_app.reconciler: "poll"
-sources.scraper_jobs -> alert_app.reconciler: "poll"
 sources.health_endpoints -> alert_app.reconciler: "HTTP probe"
 
 alert_app.runtime_process -> alert_app.runner: "boot"
