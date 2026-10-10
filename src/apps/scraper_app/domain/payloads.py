@@ -46,6 +46,8 @@ MAX_PAIN_FIELDS = (
 _HEATMAP_ROW_FIELDS = 6
 _LIQ_MAP_ROW_FIELDS = 4
 _MAX_EXPONENT = 1000
+_MAX_DEPTH = 64
+_MAX_COLUMN_LOOKBACK_SECONDS = 2 * 86400
 _DETAIL_LIMIT = 200
 
 
@@ -123,8 +125,10 @@ def _number_text(value: int | Decimal) -> str:
     return canonical_decimal(value)
 
 
-def canonical_json(value: object) -> str:
+def canonical_json(value: object, _depth: int = 0) -> str:
     """Sorted keys, no whitespace, plain exponent-free numbers."""
+    if _depth > _MAX_DEPTH:
+        raise _bad("payload nesting too deep")
     if value is None:
         return "null"
     if value is True:
@@ -136,12 +140,14 @@ def canonical_json(value: object) -> str:
     if isinstance(value, str):
         return json.dumps(value, ensure_ascii=True)
     if isinstance(value, list):
-        return "[" + ",".join(canonical_json(v) for v in value) + "]"
+        return "[" + ",".join(canonical_json(v, _depth + 1) for v in value) + "]"
     if isinstance(value, dict):
         return (
             "{"
             + ",".join(
-                json.dumps(k, ensure_ascii=True) + ":" + canonical_json(value[k])
+                json.dumps(k, ensure_ascii=True)
+                + ":"
+                + canonical_json(value[k], _depth + 1)
                 for k in sorted(value)
             )
             + "}"
@@ -200,6 +206,13 @@ def _ms_to_utc(ms: int) -> datetime:
         return datetime.fromtimestamp(ms / 1000, tz=UTC)
     except (OverflowError, OSError, ValueError) as exc:
         raise _bad("updateTime out of range") from exc
+
+
+def _s_to_utc(seconds: int) -> datetime:
+    try:
+        return datetime.fromtimestamp(seconds, tz=UTC)
+    except (OverflowError, OSError, ValueError) as exc:
+        raise _bad("column time out of range") from exc
 
 
 def _gate_heatmap(
@@ -282,10 +295,16 @@ def _gate_heatmap(
         )
     if -age > max_age_seconds:
         raise _bad(f"updateTime is {-age:.0f}s ahead of the local clock")
+    update_s = update // 1000
+    if (
+        times[0] < update_s - _MAX_COLUMN_LOOKBACK_SECONDS
+        or times[-1] > update_s + step
+    ):
+        raise _bad("column times outside the provider update window")
     return (
         provider_time,
-        datetime.fromtimestamp(times[0], tz=UTC),
-        datetime.fromtimestamp(times[-1], tz=UTC),
+        _s_to_utc(times[0]),
+        _s_to_utc(times[-1]),
         len(times),
         holes,
     )

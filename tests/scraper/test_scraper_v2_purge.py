@@ -303,11 +303,31 @@ async def test_tradingview_purge_drops_old_bars_keeps_answers_for_retained_ones(
     # 3 old bar rows in 2 batches; 3 unreferenced old reads in 2 batches.
     assert result.deleted == {"bar_observations": 3, "reads": 3}
     assert result.batches == 4
-    assert other.deleted == {"bar_observations": 1, "reads": 0}
+    # The newest bar of a dataset is kept even when it is past the cutoff.
+    assert other.deleted == {"bar_observations": 0, "reads": 0}
+    assert await env.count("bar_observations", TV2.id) == 1
     assert await env.count("bar_observations", TV.id) == 3
     assert await env.count("reads", TV.id) == 3
     assert await env.count("reads", TV2.id) == 1  # newest ok read kept
     assert await answers() == before
+
+
+@pytest.mark.asyncio
+async def test_purge_batches_delete_whole_bars_and_keep_the_newest_bar(env) -> None:
+    old1, old2 = ago(31), ago(31) + timedelta(hours=1)
+    await env.bars(TV, [make_bar(old1, 1), make_bar(old2, 2)], 30)
+    await env.bars(TV, [make_bar(old1, 5)], 29)  # old1 -> seq 2
+    await env.bars(TV, [make_bar(old1, 6)], 28)  # old1 -> seq 3
+    assert await env.count("bar_observations", TV.id) == 4
+    # batch_rows=2 selects the first two rows, both of old1; its third row must
+    # go with them, and old2 (the newest bar) stays although it is past the cutoff.
+    result = await env.purge(TV.id, PURGE_TRADINGVIEW, 14, batch_rows=2)
+    assert result.deleted["bar_observations"] == 3
+    assert await env.count("bar_observations", TV.id) == 1
+    remaining = await env.repo.fetch_bars(TV.id, mode="final", limit=100)
+    assert [b.bar_open for b in remaining] == [old2]
+    again = await env.purge(TV.id, PURGE_TRADINGVIEW, 14, batch_rows=2)
+    assert again.deleted["bar_observations"] == 0
 
 
 @pytest.mark.asyncio

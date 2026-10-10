@@ -292,7 +292,7 @@ async def test_readiness_is_degraded_not_unready_when_the_engine_is_down() -> No
     assert after.status == DEGRADED and after.http_status == 200
     assert after.service_reasons == ()
     assert {d.last_error_code for d in after.datasets} == {errors.ENGINE_UNREACHABLE}
-    assert set(spy.calls) <= {"latest_ok_read", "latest_read"}
+    assert set(spy.calls) <= {"latest_reads"}  # reads table only, one statement
 
 
 async def test_multi_minute_update_lag_gives_no_skew_or_bar_reasons(engine) -> None:
@@ -313,7 +313,7 @@ async def test_multi_minute_update_lag_gives_no_skew_or_bar_reasons(engine) -> N
     )
     assert report.status == READY and report.clock_skew_seconds is None
     assert all(d.clock_skew_seconds is None and not d.reasons for d in report.datasets)
-    assert set(spy.calls) <= {"latest_ok_read", "latest_read"}
+    assert set(spy.calls) <= {"latest_reads"}  # reads table only, one statement
 
 
 COOKIES = [

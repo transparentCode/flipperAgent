@@ -244,6 +244,17 @@ jobs. Health routes stay unauthenticated.
   purge) is 422 `as_of_before_vintage`. `start` inclusive, `end` exclusive on `bar_open`,
   default `end` = reference time, span at most `max_limit` intervals; `limit`, `order`
   (`desc` default); `next` carries the window and mode to continue without gaps or repeats.
+  Bars responses carry `history_from` (oldest retained `bar_open`) and `truncated`
+  (`window.start < history_from`); the default window start is clamped to `history_from` and
+  `next` is never emitted below it. Replay is exact only for windows at or after
+  `history_from`; payload responses carry `history_from` too (oldest retained ok read).
+  Bars next to a persistent provider hole are never final (accepted residual).
+  The payload list pages by the keyset `(observed_at, read_id)`: `next` carries `end` and
+  `end_before_id`, so rows sharing an `observed_at` are neither skipped nor repeated.
+  `/v2/datasets` reuses its store facts (heads, revision counts; one batched statement each)
+  for `api.catalog_cache_seconds` (10); decompressed payload texts are kept in a byte-bounded
+  LRU (`api.payload_cache_bytes`, 32 MiB) keyed by the immutable `read_id`.
+  `/docs` and `/redoc` are off; the OpenAPI schema is `GET /v2/openapi.json` behind the token.
   Timestamps need an explicit offset (`Z` or `+00:00`; encode `+` as `%2B` in URLs). Prices and
   volumes are exact decimal strings.
 - Payloads: `data` is the stored canonical JSON inserted verbatim, so the SHA-256 of that text
@@ -292,3 +303,14 @@ The legacy SQL tables `tv_index_ohlcv`, `funding_rate` and `open_interest` were 
 ```bash
 ./scripts/render_d2.sh docs/architecture/scraper_app/v2-collector.d2 docs/architecture/scraper_app/v2-collector.svg
 ```
+
+## Running the database-gated tests
+
+`./scripts/test_scraper_pg.sh [pytest args]` starts (or reuses) a throwaway
+`timescale/timescaledb:latest-pg15` container named `scraper-pgtest` on `127.0.0.1:55432`
+(database `scraper_test`), runs `tests/scraper` with `SCRAPER_TEST_POSTGRES_URI` and
+`SCRAPER_REQUIRE_PG=1` (a database-gated skip becomes a failure) and removes the container on
+exit only if the script started it. Pool sizes are configuration: `database.pool_max_size`
+(default 3, at least 3: two lanes plus readiness) and `retention.pool_max_size` (default 2).
+Readiness uses a constant number of statements for the latest reads (two) plus one
+window-bounded contiguity query per contiguous dataset.

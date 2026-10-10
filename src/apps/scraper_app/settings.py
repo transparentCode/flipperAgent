@@ -111,6 +111,8 @@ class ScheduleSettings(SlotSettings):
 class DatabaseSettings(_Strict):
     connect_timeout_seconds: float = Field(gt=0)
     command_timeout_seconds: float = Field(gt=0)
+    # Main pool: two lanes plus readiness each need a connection at once.
+    pool_max_size: StrictInt = Field(default=3, ge=3)
 
 
 class ReadinessSettings(_Strict):
@@ -265,6 +267,7 @@ class RetentionSettings(SlotSettings):
     tradingview_days: StrictInt | None = Field(default=None, ge=1)
     coinglass_days: StrictInt | None = Field(default=None, ge=1)
     readiness_max_age_seconds: StrictInt = Field(gt=0)
+    pool_max_size: StrictInt = Field(default=2, ge=1)
 
 
 class ApiSettings(_Strict):
@@ -277,6 +280,10 @@ class ApiSettings(_Strict):
     pool_max_size: StrictInt = Field(ge=1)
     query_timeout_seconds: float = Field(gt=0)
     as_of_settle_seconds: StrictInt = Field(ge=0)
+    # How long the catalog's store facts (heads, revision counts) are reused.
+    catalog_cache_seconds: float = Field(default=10.0, ge=0)
+    # Decompressed payload texts kept for repeat requests (bytes).
+    payload_cache_bytes: StrictInt = Field(default=33554432, ge=0)
 
     @model_validator(mode="after")
     def _limits(self) -> ApiSettings:
@@ -317,6 +324,21 @@ class ScraperSettings(_Strict):
         too_big = [d.id for d in self.datasets if d.initial_bars > limit]
         if too_big:
             raise ValueError(f"initial_bars exceeds max_bars_per_request: {too_big}")
+        return self
+
+    @model_validator(mode="after")
+    def _settle_covers_write_latency(self) -> ScraperSettings:
+        api = self.api
+        if api is None:
+            return self
+        # A commit can take up to command_timeout per statement; a named instant
+        # must be older than any commit that could still land behind it.
+        floor = 3 * self.database.command_timeout_seconds
+        if api.as_of_settle_seconds < floor:
+            raise ValueError(
+                "api.as_of_settle_seconds must be at least 3 x "
+                f"database.command_timeout_seconds ({floor:g})"
+            )
         return self
 
     @model_validator(mode="after")

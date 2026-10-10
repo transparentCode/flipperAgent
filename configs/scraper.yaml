@@ -8,6 +8,7 @@ scraper:
   database:
     connect_timeout_seconds: 10
     command_timeout_seconds: 15
+    pool_max_size: 3                 # two lanes + readiness; at least 3
   tradingview:
     ws_url: "wss://data.tradingview.com/socket.io/websocket"
     origin: "https://www.tradingview.com"
@@ -47,6 +48,7 @@ scraper:
     tradingview_days: 14
     coinglass_days: 14
     readiness_max_age_seconds: 10800   # no successful pass for 3 h -> degraded
+    pool_max_size: 2
   # Read-only agent API under /v2 (bearer token from env SCRAPER_API_READ_TOKEN or the
   # file named by SCRAPER_API_READ_TOKEN_FILE; never configured here). It has its own
   # read-only connection pool, so API load cannot take a collector connection.
@@ -58,6 +60,8 @@ scraper:
     pool_max_size: 2
     query_timeout_seconds: 5
     as_of_settle_seconds: 60         # a named instant must be at least this old
+    catalog_cache_seconds: 10        # store facts of /v2/datasets are reused this long
+    payload_cache_bytes: 33554432    # decompressed payload texts kept for repeat requests
   # Second lane: CoinGlass through a headless engine over CDP (see the README).
   coinglass:
     engine_url: "http://scraper-browser:9222"

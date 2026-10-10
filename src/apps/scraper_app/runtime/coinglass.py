@@ -61,6 +61,7 @@ class CoinGlassLane:
         self._sleep = sleep
         self._can_write = can_write
         self._announced_disabled = False
+        self._rotation = 0
         state.coinglass_enabled = True
         self._refresh_disabled()
 
@@ -102,6 +103,12 @@ class CoinGlassLane:
 
     async def _pass(self, trigger: str) -> None:
         enabled = self._refresh_disabled()
+        if enabled:
+            # Start one dataset later each pass so a cycle deadline does not
+            # always starve the same datasets.
+            shift = self._rotation % len(enabled)
+            enabled = enabled[shift:] + enabled[:shift]
+            self._rotation += 1
         started_at = self._clock()
         logger.info(
             "coinglass pass starting trigger=%s datasets=%d", trigger, len(enabled)
@@ -207,13 +214,20 @@ class CoinGlassLane:
         meta: dict[str, Any],
     ) -> bool:
         s = self._settings
-        accepted = gate_payload(
-            spec,
-            result.text,
-            returned_at=result.returned_at,
-            max_payload_bytes=s.max_payload_bytes,
-            max_age_seconds=s.max_provider_age_seconds,
-        )
+        try:
+            # Parse, gate and canonicalise are CPU-bound for large payloads.
+            accepted = await asyncio.to_thread(
+                gate_payload,
+                spec,
+                result.text,
+                returned_at=result.returned_at,
+                max_payload_bytes=s.max_payload_bytes,
+                max_age_seconds=s.max_provider_age_seconds,
+            )
+        except ScraperError:
+            raise
+        except Exception as exc:
+            raise ScraperError(errors.PAYLOAD_INVALID, type(exc).__name__) from exc
         try:
             gap_before = await self._gap_before(spec, accepted.covered_from)
             await self._repository.commit_ok_payload(

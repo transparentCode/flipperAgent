@@ -20,6 +20,8 @@ class LockConnection(Protocol):
 
     async def close(self) -> None: ...
 
+    def terminate(self) -> None: ...
+
     def is_closed(self) -> bool: ...
 
 
@@ -131,10 +133,12 @@ class AdvisoryLock:
     async def _discard(connection: LockConnection | None) -> None:
         if connection is None:
             return
+        # terminate() is synchronous and never waits on the (possibly hung)
+        # server; a graceful close() can block on a cancel connection.
         try:
-            await connection.close()
+            connection.terminate()
         except Exception:
-            logger.debug("closing the lock connection failed", exc_info=True)
+            logger.debug("terminating the lock connection failed", exc_info=True)
 
 
 __all__ = ["ADVISORY_LOCK_KEY", "AdvisoryLock", "ConnectionFactory", "LockConnection"]

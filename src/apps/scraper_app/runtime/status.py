@@ -11,7 +11,7 @@ from typing import Any
 
 from apps.scraper_app.domain.bars import expected_latest_closed_bar_open
 from apps.scraper_app.domain.datasets import DatasetSpec
-from apps.scraper_app.storage.repository import ScraperRepository
+from apps.scraper_app.storage.repository import ReadRecord, ScraperRepository
 from libs.common.enums import SystemComponent
 from libs.common.logging.logger_utils import bind_logger
 
@@ -196,13 +196,14 @@ async def _dataset_status(
     spec: DatasetSpec,
     repository: ScraperRepository,
     *,
+    latest_ok: ReadRecord | None,
+    latest: ReadRecord | None,
+    first: datetime | None,
     now: datetime,
     max_read_age_seconds: int,
     latest_bar_grace_seconds: int,
     recent_gap_window_seconds: int,
 ) -> DatasetStatus:
-    latest_ok = await repository.latest_ok_read(spec.id)
-    latest = await repository.latest_read(spec.id)
     last_error = latest.error_code if latest is not None else None
     if latest_ok is None:
         return DatasetStatus(spec.id, (REASON_NEVER_SUCCEEDED,), last_error, None, None)
@@ -221,7 +222,6 @@ async def _dataset_status(
         window_start = now - timedelta(seconds=recent_gap_window_seconds)
         # Bounded to the window: readiness never scans the full history.
         run_start = await repository.contiguous_from(spec.id, not_before=window_start)
-        first = await repository.first_bar_open(spec.id)
         if (
             run_start is not None
             and first is not None
@@ -248,8 +248,9 @@ async def _dataset_status(
 
 async def _coinglass_status(
     dataset_id: str,
-    repository: ScraperRepository,
     *,
+    latest_ok: ReadRecord | None,
+    latest: ReadRecord | None,
     now: datetime,
     max_read_age_seconds: int,
     disabled: frozenset[str],
@@ -257,8 +258,6 @@ async def _coinglass_status(
     """Reads-table only: no bar queries, no gap query, no clock skew."""
     if dataset_id in disabled:
         return DatasetStatus(dataset_id, (), None, None, None, disabled=True)
-    latest_ok = await repository.latest_ok_read(dataset_id)
-    latest = await repository.latest_read(dataset_id)
     last_error = latest.error_code if latest is not None else None
     if latest_ok is None:
         return DatasetStatus(
@@ -301,12 +300,29 @@ async def compute_readiness(
     try:
         now = clock()
         async with asyncio.timeout(probe_timeout_seconds):
+            # Two statements for every dataset, then one window-bounded
+            # contiguity query per contiguous dataset.
+            wanted = [s.id for s in specs]
+            if coinglass is not None:
+                wanted += [
+                    i
+                    for i in coinglass.dataset_ids
+                    if i not in state.coinglass_disabled
+                ]
+            evaluating = "*"
+            reads = await repository.latest_reads(wanted)
+            contiguous = [s.id for s in specs if s.contiguous]
+            firsts = await repository.first_bar_opens(contiguous) if contiguous else {}
             for spec in specs:
                 evaluating = spec.id
+                latest_ok, latest = reads.get(spec.id, (None, None))
                 datasets.append(
                     await _dataset_status(
                         spec,
                         repository,
+                        latest_ok=latest_ok,
+                        latest=latest,
+                        first=firsts.get(spec.id),
                         now=now,
                         max_read_age_seconds=max_read_age_seconds,
                         latest_bar_grace_seconds=latest_bar_grace_seconds,
@@ -316,10 +332,12 @@ async def compute_readiness(
             if coinglass is not None:
                 for dataset_id in coinglass.dataset_ids:
                     evaluating = dataset_id
+                    latest_ok, latest = reads.get(dataset_id, (None, None))
                     datasets.append(
                         await _coinglass_status(
                             dataset_id,
-                            repository,
+                            latest_ok=latest_ok,
+                            latest=latest,
                             now=now,
                             max_read_age_seconds=coinglass.max_read_age_seconds,
                             disabled=state.coinglass_disabled,
@@ -374,23 +392,45 @@ async def compute_readiness(
 class ReadinessService:
     """Single flight: concurrent probes share one computation (one connection).
 
-    The deadline lives inside the computation, so the in-flight query is
-    cancelled when it expires and the shared task always finishes.
+    Callers wait for the shared computation at most ``wait_seconds``, never for
+    the cancellation of a stuck query: cancelling an asyncpg query against a
+    hung server waits on a cancel request without limit. On expiry the caller
+    gets ``not_ready`` / ``store_timeout`` at once and the stuck task stays the
+    single flight until it finishes by itself.
     """
 
-    def __init__(self, compute: Callable[[], Awaitable[ReadinessReport]]) -> None:
+    def __init__(
+        self,
+        compute: Callable[[], Awaitable[ReadinessReport]],
+        *,
+        wait_seconds: float | None = None,
+    ) -> None:
         self._compute = compute
+        self._wait_seconds = wait_seconds
         self._inflight: asyncio.Task[ReadinessReport] | None = None
+        self._stuck_logged = False
         self.computations = 0
 
     async def __call__(self) -> ReadinessReport:
         task = self._inflight
         if task is None or task.done():
             self.computations += 1
+            self._stuck_logged = False
             task = asyncio.ensure_future(self._compute())
             self._inflight = task
-        # A caller that goes away must not cancel the computation others wait on.
-        return await asyncio.shield(task)
+        # Waiting on the task through asyncio.wait neither cancels it when this
+        # caller goes away nor waits for it after the deadline.
+        done, _ = await asyncio.wait({task}, timeout=self._wait_seconds)
+        if task in done:
+            return task.result()
+        if not self._stuck_logged:
+            self._stuck_logged = True
+            logger.warning(
+                "readiness computation exceeded %.1fs; answering store_timeout "
+                "until it finishes",
+                self._wait_seconds,
+            )
+        return ReadinessReport(NOT_READY, (STORE_TIMEOUT,))
 
 
 __all__ = [

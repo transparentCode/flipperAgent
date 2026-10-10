@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
+from collections import OrderedDict
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -37,7 +39,11 @@ from apps.scraper_app.http_api.rules import (
     stamp,
 )
 from apps.scraper_app.settings import ApiSettings
-from apps.scraper_app.storage.repository import ScraperRepository
+from apps.scraper_app.storage.repository import (
+    DatasetHead,
+    PayloadRecord,
+    ScraperRepository,
+)
 
 BUSY_WAIT_SECONDS = 2.0
 _DEADLINE_FACTOR = 8
@@ -51,29 +57,86 @@ class ApiDependencies:
     tokens: TokenSource
     disabled: Callable[[], frozenset[str]] = lambda: frozenset()
     gate: asyncio.Semaphore = field(init=False)
+    clock: Callable[[], float] = time.monotonic
+    payload_cache: PayloadTextCache = field(init=False)
+    facts: tuple[float, dict[str, tuple[DatasetHead, int]]] | None = field(
+        default=None, init=False
+    )
 
     def __post_init__(self) -> None:
         self.gate = asyncio.Semaphore(self.settings.pool_max_size)
+        self.payload_cache = PayloadTextCache(self.settings.payload_cache_bytes)
+
+
+class PayloadTextCache:
+    """Bounded LRU of decompressed canonical payload text, keyed by ``read_id``.
+
+    Payload rows are immutable, so entries never go stale; a purged id is simply
+    never requested again and ages out. The bound is the text size in bytes
+    (canonical JSON is ASCII).
+    """
+
+    def __init__(self, max_bytes: int) -> None:
+        self._max = max_bytes
+        self._size = 0
+        self._items: OrderedDict[int, str] = OrderedDict()
+
+    def get(self, read_id: int) -> str | None:
+        text = self._items.get(read_id)
+        if text is not None:
+            self._items.move_to_end(read_id)
+        return text
+
+    def put(self, read_id: int, text: str) -> None:
+        if len(text) > self._max or read_id in self._items:
+            return
+        self._items[read_id] = text
+        self._size += len(text)
+        while self._size > self._max:
+            _, evicted = self._items.popitem(last=False)
+            self._size -= len(evicted)
+
+    @property
+    def size(self) -> int:
+        return self._size
+
+
+def _consume(task: asyncio.Future[Any]) -> None:
+    if not task.cancelled():
+        task.exception()
 
 
 async def guarded[T](deps: ApiDependencies, work: Callable[[], Awaitable[T]]) -> T:
+    """Run ``work`` under the gate and a deadline, never waiting for a cancel.
+
+    Cancelling an asyncpg query against a hung server waits on a cancel request
+    without limit, so on expiry the task is cancelled and abandoned; the gate
+    slot is returned only when it has really finished.
+    """
     try:
         await asyncio.wait_for(deps.gate.acquire(), BUSY_WAIT_SECONDS)
     except TimeoutError:
         raise ApiError(503, "busy", "the read API is at capacity; retry") from None
+    task = asyncio.ensure_future(work())
+    task.add_done_callback(_consume)
+    task.add_done_callback(lambda _t: deps.gate.release())
+    deadline = deps.settings.query_timeout_seconds * _DEADLINE_FACTOR
     try:
-        async with asyncio.timeout(
-            deps.settings.query_timeout_seconds * _DEADLINE_FACTOR
-        ):
-            return await work()
+        done, _ = await asyncio.wait({task}, timeout=deadline)
+    except BaseException:
+        task.cancel()
+        raise
+    if task not in done:
+        task.cancel()
+        raise ApiError(503, "store_timeout", "the store did not answer in time")
+    try:
+        return task.result()
     except (TimeoutError, asyncpg.QueryCanceledError):
         raise ApiError(
             503, "store_timeout", "the store did not answer in time"
         ) from None
     except (asyncpg.PostgresError, asyncpg.InterfaceError, OSError):
         raise ApiError(503, "store_unavailable", "the store is unavailable") from None
-    finally:
-        deps.gate.release()
 
 
 def json_response(body: dict[str, Any], status: int = 200) -> JSONResponse:
@@ -143,8 +206,23 @@ def build_v2_router(deps: ApiDependencies) -> APIRouter:
             "as_of_settle_seconds": cfg.as_of_settle_seconds,
         }
 
-    async def describe(entry: CatalogEntry) -> dict[str, Any]:
-        head = await repo.dataset_head(entry.id)
+    async def store_facts() -> dict[str, tuple[DatasetHead, int]]:
+        """Heads and revision counts of every dataset, reused briefly."""
+        cached = deps.facts
+        now = deps.clock()
+        if cached is not None and now - cached[0] < cfg.catalog_cache_seconds:
+            return cached[1]
+        ids = list(deps.catalog)
+        bar_ids = [i for i, e in deps.catalog.items() if e.is_bars]
+        heads = await repo.dataset_heads(ids, bar_ids=bar_ids)
+        revisions = await repo.revisions_after_horizon_many(bar_ids)
+        facts = {i: (heads[i], revisions.get(i, 0)) for i in ids}
+        deps.facts = (now, facts)
+        return facts
+
+    def describe(
+        entry: CatalogEntry, head: DatasetHead, revisions: int
+    ) -> dict[str, Any]:
         latest = head.latest_ok_read
         out = entry.static_fields()
         out["disabled"] = entry.id in deps.disabled()
@@ -153,9 +231,7 @@ def build_v2_router(deps: ApiDependencies) -> APIRouter:
         if entry.is_bars:
             out["first"] = stamp(head.first_bar_open)
             out["last"] = stamp(head.last_bar_open)
-            out["revisions_after_horizon"] = await repo.revisions_after_horizon(
-                entry.id
-            )
+            out["revisions_after_horizon"] = revisions
         else:
             out["first"] = stamp(head.first_ok_read_finished_at)
             out["last"] = None if latest is None else stamp(latest.finished_at)
@@ -164,10 +240,11 @@ def build_v2_router(deps: ApiDependencies) -> APIRouter:
     @router.get("/datasets")
     async def datasets() -> JSONResponse:
         async def work():
+            facts = await store_facts()
             return {
                 "server_time": stamp(await repo.server_time()),
                 "limits": limits(),
-                "datasets": [await describe(e) for e in deps.catalog.values()],
+                "datasets": [describe(e, *facts[e.id]) for e in deps.catalog.values()],
             }
 
         return json_response(await guarded(deps, work))
@@ -177,10 +254,11 @@ def build_v2_router(deps: ApiDependencies) -> APIRouter:
         entry = _entry(deps, dataset_id)
 
         async def work():
+            facts = await store_facts()
             return {
                 "server_time": stamp(await repo.server_time()),
                 "limits": limits(),
-                **await describe(entry),
+                **describe(entry, *facts[entry.id]),
             }
 
         return json_response(await guarded(deps, work))
@@ -211,7 +289,15 @@ def build_v2_router(deps: ApiDependencies) -> APIRouter:
 
         async def work():
             now = await repo.server_time()
-            head = await repo.dataset_head(dataset_id)
+            # One head call: the reference instant is known before the vintage is.
+            head_at = (
+                as_of
+                if mode == "as_of"
+                else settled(now, cfg.as_of_settle_seconds)
+                if mode == "current"
+                else None
+            )
+            head = await repo.dataset_head(dataset_id, at=head_at)
             ref = resolve_bars_reference(
                 mode,
                 as_of,
@@ -226,23 +312,27 @@ def build_v2_router(deps: ApiDependencies) -> APIRouter:
                 interval_seconds=spec.interval_seconds,
                 max_limit=cfg.max_limit,
             )
-            at_head = (
-                head
-                if ref.as_of is None
-                else await repo.dataset_head(dataset_id, at=ref.as_of)
-            )
-            last = at_head.latest_ok_read
+            history_from = head.first_bar_open
+            if start is None and history_from is not None:
+                # The default window never reaches into purged history.
+                window_start = max(window_start, min(history_from, window_end))
+            truncated = history_from is not None and window_start < history_from
+            last = head.latest_ok_read
             result = _raise_if_stale(
                 entry, ref.time, None if last is None else last.finished_at, allow_stale
             )
-            rows = await repo.fetch_bars(
-                dataset_id,
-                mode="final" if ref.as_of is None else "as_of",
-                as_of=ref.as_of,
-                start=window_start,
-                end=window_end,
-                newest_first=order == "desc",
-                limit=limit,
+            rows = (
+                []
+                if window_start >= window_end
+                else await repo.fetch_bars(
+                    dataset_id,
+                    mode="final" if ref.as_of is None else "as_of",
+                    as_of=ref.as_of,
+                    start=window_start,
+                    end=window_end,
+                    newest_first=order == "desc",
+                    limit=limit,
+                )
             )
             following = None
             if rows:
@@ -255,7 +345,7 @@ def build_v2_router(deps: ApiDependencies) -> APIRouter:
                     first_open=rows[0].bar_open,
                     last_open=rows[-1].bar_open,
                 )
-                if nxt is not None:
+                if nxt is not None and (history_from is None or nxt[1] > history_from):
                     following = {
                         "mode": "final" if ref.as_of is None else "as_of",
                         "as_of": stamp(ref.as_of),
@@ -270,6 +360,8 @@ def build_v2_router(deps: ApiDependencies) -> APIRouter:
                 "as_of": stamp(ref.as_of),
                 "order": order,
                 "window": {"start": stamp(window_start), "end": stamp(window_end)},
+                "history_from": stamp(history_from),
+                "truncated": truncated,
                 "server_time": stamp(now),
                 "last_ok_read": None
                 if last is None
@@ -314,6 +406,21 @@ def build_v2_router(deps: ApiDependencies) -> APIRouter:
             "raw_bytes": record.raw_bytes,
         }
 
+    async def payload_text(record: PayloadRecord) -> str:
+        """Canonical text from the LRU, else fetched, decompressed and kept."""
+        text = deps.payload_cache.get(record.read_id)
+        if text is not None:
+            return text
+        full = record
+        if not record.payload:
+            fetched = await repo.payload_by_id(record.dataset_id, record.read_id)
+            if fetched is None:  # purged between the two statements
+                raise ApiError(404, "no_data", "the payload was purged; retry")
+            full = fetched
+        text = full.text()
+        deps.payload_cache.put(record.read_id, text)
+        return text
+
     def with_data(meta: dict[str, Any], text: str) -> Response:
         # The stored canonical text goes in verbatim: no float round trip.
         head = json.dumps(meta, separators=(",", ":"))
@@ -328,7 +435,8 @@ def build_v2_router(deps: ApiDependencies) -> APIRouter:
 
         async def work():
             now = await repo.server_time()
-            head = await repo.dataset_head(dataset_id)
+            reference = as_of or settled(now, cfg.as_of_settle_seconds)
+            head = await repo.dataset_head(dataset_id, at=reference)
             if as_of is not None:
                 check_as_of(
                     as_of,
@@ -336,16 +444,14 @@ def build_v2_router(deps: ApiDependencies) -> APIRouter:
                     settle_seconds=cfg.as_of_settle_seconds,
                     vintage=head.first_ok_read_finished_at,
                 )
-            reference = as_of or settled(now, cfg.as_of_settle_seconds)
-            at_head = await repo.dataset_head(dataset_id, at=reference)
-            last = at_head.latest_ok_read
+            last = head.latest_ok_read
             result = _raise_if_stale(
                 entry,
                 reference,
                 None if last is None else last.finished_at,
                 allow_stale,
             )
-            record = await repo.latest_payload(dataset_id, at=reference)
+            record = await repo.latest_payload(dataset_id, at=reference, blob=False)
             if record is None:
                 raise ApiError(
                     404,
@@ -358,10 +464,11 @@ def build_v2_router(deps: ApiDependencies) -> APIRouter:
                 as_of=stamp(reference),
                 server_time=stamp(now),
                 vintage_available_from=stamp(head.first_ok_read_finished_at),
+                history_from=stamp(head.first_ok_read_finished_at),
                 age_seconds=result.age_seconds,
                 stale=result.stale,
             )
-            return with_data(meta, record.text())
+            return with_data(meta, await payload_text(record))
 
         return await guarded(deps, work)
 
@@ -377,6 +484,11 @@ def build_v2_router(deps: ApiDependencies) -> APIRouter:
             low=1,
             high=cfg.max_payload_list,
         )
+        end_before_id = (
+            parse_int("end_before_id", q["end_before_id"], default=0, low=1, high=2**62)
+            if "end_before_id" in q
+            else None
+        )
 
         async def work():
             now = await repo.server_time()
@@ -388,21 +500,32 @@ def build_v2_router(deps: ApiDependencies) -> APIRouter:
                     latest_as_of=stamp(latest),
                 )
             window_end = latest if end is None else end
-            if start is not None and start >= window_end:
+            if start is not None and (
+                start > window_end or (start == window_end and end_before_id is None)
+            ):
                 raise invalid("start must be earlier than end")
+            head = await repo.dataset_head(dataset_id)
             rows = await repo.list_payloads(
-                dataset_id, start=start, end=window_end, limit=limit
+                dataset_id,
+                start=start,
+                end=window_end,
+                limit=limit,
+                end_before_id=end_before_id,
             )
             following = None
-            if len(rows) == limit and (start is None or rows[-1].observed_at > start):
+            if len(rows) == limit:
+                # Keyset cursor (observed_at, read_id): rows that share an
+                # observed_at are neither skipped nor repeated.
                 following = {
                     "start": stamp(start),
                     "end": stamp(rows[-1].observed_at),
+                    "end_before_id": rows[-1].read_id,
                     "limit": limit,
                 }
             return {
                 "dataset_id": dataset_id,
                 "window": {"start": stamp(start), "end": stamp(window_end)},
+                "history_from": stamp(head.first_ok_read_finished_at),
                 "server_time": stamp(now),
                 "next": following,
                 "payloads": [
@@ -425,7 +548,7 @@ def build_v2_router(deps: ApiDependencies) -> APIRouter:
 
         async def work():
             now = await repo.server_time()
-            record = await repo.payload_by_id(dataset_id, observation_id)
+            record = await repo.payload_by_id(dataset_id, observation_id, blob=False)
             if record is None:
                 raise ApiError(
                     404,
@@ -439,7 +562,7 @@ def build_v2_router(deps: ApiDependencies) -> APIRouter:
                 age_seconds=age,
                 stale=age > entry.max_age_seconds,
             )
-            return with_data(meta, record.text())
+            return with_data(meta, await payload_text(record))
 
         return await guarded(deps, work)
 

@@ -103,7 +103,13 @@ class CdpConnection:
                     message = json.loads(raw)
                 except ValueError:
                     continue
-                future = self._pending.pop(message.get("id"), None)
+                if not isinstance(message, dict):
+                    logger.debug("ignoring a CDP message that is not an object")
+                    continue
+                call_id = message.get("id")
+                if not isinstance(call_id, int):
+                    continue
+                future = self._pending.pop(call_id, None)
                 if future is not None and not future.done():
                     future.set_result(message)
         except Exception as exc:  # noqa: BLE001 - the socket died

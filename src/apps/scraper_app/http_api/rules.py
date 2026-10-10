@@ -48,7 +48,10 @@ def parse_timestamp(name: str, value: str) -> datetime:
         raise invalid(f"{name} is not an RFC 3339 timestamp") from None
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise invalid(f"{name} needs an explicit UTC offset (for example Z)")
-    return parsed.astimezone(UTC)
+    try:
+        return parsed.astimezone(UTC)
+    except OverflowError:
+        raise invalid(f"{name} is outside the supported range") from None
 
 
 def parse_int(
@@ -159,7 +162,10 @@ def bars_window(
     """``start`` inclusive, ``end`` exclusive, on ``bar_open``."""
     widest = timedelta(seconds=interval_seconds * max_limit)
     window_end = reference if end is None else end
-    window_start = window_end - widest if start is None else start
+    try:
+        window_start = window_end - widest if start is None else start
+    except OverflowError:
+        raise invalid("the window start is outside the supported range") from None
     if window_start >= window_end:
         raise invalid("start must be earlier than end")
     if window_end - window_start > widest:
@@ -202,7 +208,10 @@ def next_after_page(
     if order == "desc":
         # end is exclusive: continue strictly before the oldest bar returned.
         return (start, last_open) if last_open > start else None
-    after = last_open + _MICROSECOND
+    try:
+        after = last_open + _MICROSECOND
+    except OverflowError:
+        return None
     return (after, end) if after < end else None
 
 

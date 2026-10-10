@@ -401,6 +401,7 @@ def test_payload_vintage_moves_after_a_purge() -> None:
         w.repo.purge_dataset(HEATMAP, kind="coinglass", days=14, batch_rows=10)
     )
     assert result.deleted["payload_observations"] == 2
+    w.deps.facts = None  # the catalog reuses store facts for catalog_cache_seconds
     assert w.get(path).json()["vintage_available_from"] == iso(
         NOW - timedelta(minutes=10)
     )

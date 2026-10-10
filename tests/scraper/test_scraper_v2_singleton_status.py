@@ -48,6 +48,11 @@ class _Conn:
         if self.server.holder is self:
             self.server.holder = None
 
+    def terminate(self):
+        self.closed = True
+        if self.server.holder is self:
+            self.server.holder = None
+
     def is_closed(self):
         return self.closed
 

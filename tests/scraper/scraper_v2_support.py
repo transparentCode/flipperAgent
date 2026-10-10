@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -21,6 +22,16 @@ from apps.scraper_app.settings import (
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "tradingview"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SESSION = "cs_fixture000001"
+
+
+def postgres_required() -> bool:
+    """``SCRAPER_REQUIRE_PG=1``: a database-gated test must run, never skip."""
+    return os.environ.get("SCRAPER_REQUIRE_PG") == "1"
+
+
+def is_postgres_skip(reason: object) -> bool:
+    """True for the skips that mean "no test database was configured"."""
+    return "SCRAPER_TEST_POSTGRES_URI" in str(reason)
 
 
 async def require_test_database(connection) -> None:

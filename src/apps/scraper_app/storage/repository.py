@@ -7,9 +7,10 @@ for ``finished_at`` and ``observed_at`` come from the database
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any, Literal, Protocol
@@ -159,7 +160,7 @@ class ScraperRepository(Protocol):
     ) -> PayloadCommit: ...
 
     async def latest_payload(
-        self, dataset_id: str, *, at: datetime | None = None
+        self, dataset_id: str, *, at: datetime | None = None, blob: bool = True
     ) -> PayloadRecord | None: ...
 
     async def list_payloads(
@@ -169,12 +170,13 @@ class ScraperRepository(Protocol):
         start: datetime | None,
         end: datetime,
         limit: int,
+        end_before_id: int | None = None,
     ) -> list[PayloadMeta]:
         """Metadata with ``start <= observed_at < end``, newest first."""
         ...
 
     async def payload_by_id(
-        self, dataset_id: str, read_id: int
+        self, dataset_id: str, read_id: int, *, blob: bool = True
     ) -> PayloadRecord | None: ...
 
     async def server_time(self) -> datetime: ...
@@ -208,6 +210,27 @@ class ScraperRepository(Protocol):
     async def contiguous_from(
         self, dataset_id: str, *, not_before: datetime | None = None
     ) -> datetime | None: ...
+
+    # Batched forms: one statement for all datasets, whatever their number.
+    async def latest_reads(
+        self, dataset_ids: Sequence[str]
+    ) -> dict[str, tuple[ReadRecord | None, ReadRecord | None]]:
+        """``{id: (latest ok read, latest read of any status)}``."""
+        ...
+
+    async def first_bar_opens(
+        self, dataset_ids: Sequence[str]
+    ) -> dict[str, datetime | None]: ...
+
+    async def dataset_heads(
+        self, dataset_ids: Sequence[str], *, bar_ids: Sequence[str] | None = None
+    ) -> dict[str, DatasetHead]:
+        """Heads for every id; bar edges only for ``bar_ids`` (default: all)."""
+        ...
+
+    async def revisions_after_horizon_many(
+        self, dataset_ids: Sequence[str]
+    ) -> dict[str, int]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -291,6 +314,38 @@ _READ_COLUMNS = (
     "read_id, dataset_id, trigger, status, started_at, finished_at, provider_time, "
     "covered_from, covered_to, bars_seen, bars_written, gap_before, holes, "
     "error_code, error_detail, meta::text AS meta"
+)
+
+# Batched lookups: the outer side is the bound id list and every inner side is a
+# LIMIT 1 index probe, so no row estimate can turn them into a scan or a join.
+_LATEST_READS_SQL = (
+    f"SELECT 'ok' AS which, r.* FROM unnest($1::text[]) AS ids(dataset_id) "
+    f"CROSS JOIN LATERAL (SELECT {_READ_COLUMNS} FROM scraper.reads "
+    "WHERE dataset_id = ids.dataset_id AND status = 'ok' "
+    "ORDER BY finished_at DESC, read_id DESC LIMIT 1) r "
+    "UNION ALL "
+    f"SELECT 'any' AS which, r.* FROM unnest($1::text[]) AS ids(dataset_id) "
+    f"CROSS JOIN LATERAL (SELECT {_READ_COLUMNS} FROM scraper.reads "
+    "WHERE dataset_id = ids.dataset_id "
+    "ORDER BY finished_at DESC, read_id DESC LIMIT 1) r"
+)
+_FIRST_OK_READ_SQL = (
+    "SELECT ids.dataset_id, f.finished_at FROM unnest($1::text[]) AS ids(dataset_id) "
+    "CROSS JOIN LATERAL (SELECT finished_at FROM scraper.reads "
+    "WHERE dataset_id = ids.dataset_id AND status = 'ok' "
+    "ORDER BY finished_at ASC, read_id ASC LIMIT 1) f"
+)
+_BAR_EDGE_SQL = (
+    "SELECT ids.dataset_id, f.bar_open FROM unnest($1::text[]) AS ids(dataset_id) "
+    "CROSS JOIN LATERAL (SELECT bar_open FROM scraper.bar_observations "
+    "WHERE dataset_id = ids.dataset_id ORDER BY bar_open {order} LIMIT 1) f"
+)
+_REVISIONS_MANY_SQL = (
+    "SELECT d.dataset_id, c.n FROM unnest($1::text[], $2::double precision[]) "
+    "AS d(dataset_id, horizon) CROSS JOIN LATERAL ("
+    "SELECT count(*) AS n FROM scraper.bar_observations "
+    "WHERE dataset_id = d.dataset_id AND seq > 1 "
+    "AND observed_at > bar_close + d.horizon * interval '1 second') c"
 )
 
 
@@ -549,7 +604,8 @@ class PostgresScraperRepository:
         meta: Mapping[str, Any] | None = None,
     ) -> PayloadCommit:
         _check_trigger(trigger)
-        blob = encode_payload(accepted.text)
+        # CPU-bound (up to max_payload_bytes): never on the event loop.
+        blob = await asyncio.to_thread(encode_payload, accepted.text)
         async with self._pool.acquire() as connection, connection.transaction():
             row = await connection.fetchrow(
                 "INSERT INTO scraper.reads (dataset_id, trigger, status, started_at, "
@@ -584,14 +640,15 @@ class PostgresScraperRepository:
         return PayloadCommit(read_id=row["read_id"], observed_at=row["finished_at"])
 
     async def latest_payload(
-        self, dataset_id: str, *, at: datetime | None = None
+        self, dataset_id: str, *, at: datetime | None = None, blob: bool = True
     ) -> PayloadRecord | None:
         bound = "" if at is None else " AND observed_at <= $2"
         args = (dataset_id,) if at is None else (dataset_id, at)
+        column = "payload" if blob else "''::bytea AS payload"
         async with self._pool.acquire() as connection:
             row = await connection.fetchrow(
                 "SELECT read_id, dataset_id, observed_at, provider_time, format, "
-                "raw_bytes, content_hash, payload FROM scraper.payload_observations "
+                f"raw_bytes, content_hash, {column} FROM scraper.payload_observations "
                 f"WHERE dataset_id = $1{bound} "
                 "ORDER BY observed_at DESC, read_id DESC LIMIT 1",
                 *args,
@@ -605,26 +662,34 @@ class PostgresScraperRepository:
         start: datetime | None,
         end: datetime,
         limit: int,
+        end_before_id: int | None = None,
     ) -> list[PayloadMeta]:
         lower = "" if start is None else " AND observed_at >= $4"
-        args = (dataset_id, end, limit) + (() if start is None else (start,))
+        args: tuple[Any, ...] = (dataset_id, end, limit)
+        args += () if start is None else (start,)
+        upper = "observed_at < $2"
+        if end_before_id is not None:
+            # Keyset: (observed_at, read_id) strictly before the cursor.
+            args += (end_before_id,)
+            upper = f"(observed_at, read_id) < ($2, ${len(args)})"
         async with self._pool.acquire() as connection:
             rows = await connection.fetch(
                 "SELECT read_id, observed_at, provider_time, content_hash, raw_bytes "
                 "FROM scraper.payload_observations "
-                f"WHERE dataset_id = $1 AND observed_at < $2{lower} "
+                f"WHERE dataset_id = $1 AND {upper}{lower} "
                 "ORDER BY observed_at DESC, read_id DESC LIMIT $3",
                 *args,
             )
         return [PayloadMeta(**dict(row)) for row in rows]
 
     async def payload_by_id(
-        self, dataset_id: str, read_id: int
+        self, dataset_id: str, read_id: int, *, blob: bool = True
     ) -> PayloadRecord | None:
+        column = "payload" if blob else "''::bytea AS payload"
         async with self._pool.acquire() as connection:
             row = await connection.fetchrow(
                 "SELECT read_id, dataset_id, observed_at, provider_time, format, "
-                "raw_bytes, content_hash, payload FROM scraper.payload_observations "
+                f"raw_bytes, content_hash, {column} FROM scraper.payload_observations "
                 "WHERE read_id = $1 AND dataset_id = $2",
                 read_id,
                 dataset_id,
@@ -748,6 +813,84 @@ class PostgresScraperRepository:
                 _CONTIGUOUS_FROM_SQL, dataset_id, step, not_before
             )
 
+    async def latest_reads(
+        self, dataset_ids: Sequence[str]
+    ) -> dict[str, tuple[ReadRecord | None, ReadRecord | None]]:
+        ids = list(dataset_ids)
+        if not ids:
+            return {}
+        async with self._pool.acquire() as connection:
+            rows = await connection.fetch(_LATEST_READS_SQL, ids)
+        ok: dict[str, ReadRecord] = {}
+        anyone: dict[str, ReadRecord] = {}
+        for row in rows:
+            values = dict(row)
+            which = values.pop("which")
+            (ok if which == "ok" else anyone)[values["dataset_id"]] = _read_record(
+                values
+            )
+        return {i: (ok.get(i), anyone.get(i)) for i in ids}
+
+    async def first_bar_opens(
+        self, dataset_ids: Sequence[str]
+    ) -> dict[str, datetime | None]:
+        ids = list(dataset_ids)
+        if not ids:
+            return {}
+        async with self._pool.acquire() as connection:
+            rows = await connection.fetch(_BAR_EDGE_SQL.format(order="ASC"), ids)
+        found = {r["dataset_id"]: r["bar_open"] for r in rows}
+        return {i: found.get(i) for i in ids}
+
+    async def dataset_heads(
+        self, dataset_ids: Sequence[str], *, bar_ids: Sequence[str] | None = None
+    ) -> dict[str, DatasetHead]:
+        ids = list(dataset_ids)
+        if not ids:
+            return {}
+        bars = ids if bar_ids is None else list(bar_ids)
+        async with self._pool.acquire() as connection:
+            first_reads = await connection.fetch(_FIRST_OK_READ_SQL, ids)
+            latest = await connection.fetch(_LATEST_READS_SQL, ids)
+            first_bars = last_bars = []
+            if bars:
+                first_bars = await connection.fetch(
+                    _BAR_EDGE_SQL.format(order="ASC"), bars
+                )
+                last_bars = await connection.fetch(
+                    _BAR_EDGE_SQL.format(order="DESC"), bars
+                )
+        first_read = {r["dataset_id"]: r["finished_at"] for r in first_reads}
+        latest_ok = {
+            r["dataset_id"]: _read_record(
+                {k: v for k, v in dict(r).items() if k != "which"}
+            )
+            for r in latest
+            if r["which"] == "ok"
+        }
+        first_bar = {r["dataset_id"]: r["bar_open"] for r in first_bars}
+        last_bar = {r["dataset_id"]: r["bar_open"] for r in last_bars}
+        return {
+            i: DatasetHead(
+                first_ok_read_finished_at=first_read.get(i),
+                latest_ok_read=latest_ok.get(i),
+                first_bar_open=first_bar.get(i),
+                last_bar_open=last_bar.get(i),
+            )
+            for i in ids
+        }
+
+    async def revisions_after_horizon_many(
+        self, dataset_ids: Sequence[str]
+    ) -> dict[str, int]:
+        ids = list(dataset_ids)
+        if not ids:
+            return {}
+        horizons = [float(self._specs[i].finality_horizon_seconds) for i in ids]
+        async with self._pool.acquire() as connection:
+            rows = await connection.fetch(_REVISIONS_MANY_SQL, ids, horizons)
+        return {r["dataset_id"]: r["n"] for r in rows}
+
 
 # Index-ordered selections bounded by LIMIT, then deletes by primary key: no
 # self-join, nothing that depends on planner statistics. Each batch runs in its
@@ -764,15 +907,17 @@ PURGE_PAYLOAD_SELECT_SQL = (
 PURGE_PAYLOAD_DELETE_SQL = (
     "DELETE FROM scraper.payload_observations WHERE read_id = ANY($1::bigint[])"
 )
+# Whole bars only: the batch boundary is a bar_open and every row of every bar
+# up to it goes, so a bar is never left half-purged. The newest bar of the
+# dataset is always kept (the collector's anchor), like the newest payload read.
 PURGE_BAR_SELECT_SQL = (
-    "SELECT bar_open, seq FROM scraper.bar_observations "
-    "WHERE dataset_id = $1 AND bar_open < $2 ORDER BY bar_open, seq LIMIT $3"
+    "SELECT bar_open FROM scraper.bar_observations "
+    "WHERE dataset_id = $1 AND bar_open < $2 AND bar_open < ("
+    "SELECT max(bar_open) FROM scraper.bar_observations WHERE dataset_id = $1) "
+    "ORDER BY bar_open, seq LIMIT $3"
 )
-# Every selected key is <= the last one and the selection is the first n in key
-# order, so the row-value bound on the primary key removes exactly that batch.
 PURGE_BAR_DELETE_SQL = (
-    "DELETE FROM scraper.bar_observations "
-    "WHERE dataset_id = $1 AND bar_open < $2 AND (bar_open, seq) <= ($3, $4)"
+    "DELETE FROM scraper.bar_observations WHERE dataset_id = $1 AND bar_open <= $2"
 )
 _PURGE_READ_SELECT = (
     "SELECT r.read_id FROM scraper.reads r "
@@ -836,13 +981,8 @@ class PostgresPurgeRepository:
                 )
                 if not keys:
                     return 0
-                last = keys[-1]
                 tag = await connection.execute(
-                    PURGE_BAR_DELETE_SQL,
-                    dataset_id,
-                    cutoff,
-                    last["bar_open"],
-                    last["seq"],
+                    PURGE_BAR_DELETE_SQL, dataset_id, keys[-1]["bar_open"]
                 )
                 return _deleted_count(tag)
             keep = await connection.fetchval(_PURGE_KEEP_SQL, dataset_id)
@@ -1075,19 +1215,22 @@ class InMemoryScraperRepository:
         if kind == PURGE_TRADINGVIEW:
             evidence_table = "bar_observations"
             stored = self._observations.setdefault(dataset_id, {})
+            newest = max(stored, default=None)
             keys = sorted(
                 (bar_open, row.seq)
                 for bar_open, rows in stored.items()
-                if bar_open < cutoff
+                if bar_open < cutoff and bar_open != newest
                 for row in rows
             )
-            evidence = len(keys)
-            batches += -(-len(keys) // batch_rows)
-            for bar_open, seq in keys:
-                rows = [r for r in stored[bar_open] if r.seq != seq]
-                if rows:
-                    stored[bar_open] = rows
-                else:
+            evidence = 0
+            # Batches of batch_rows rows, extended to the end of the last bar.
+            while keys:
+                boundary = keys[min(batch_rows, len(keys)) - 1][0]
+                taken = [k for k in keys if k[0] <= boundary]
+                keys = keys[len(taken) :]
+                evidence += len(taken)
+                batches += 1
+                for bar_open in {k[0] for k in taken}:
                     del stored[bar_open]
             referenced = {row.read_id for rows in stored.values() for row in rows}
         else:
@@ -1124,14 +1267,17 @@ class InMemoryScraperRepository:
         return PurgeResult({evidence_table: evidence, "reads": len(old_reads)}, batches)
 
     async def latest_payload(
-        self, dataset_id: str, *, at: datetime | None = None
+        self, dataset_id: str, *, at: datetime | None = None, blob: bool = True
     ) -> PayloadRecord | None:
         eligible = [
             p
             for p in self._payloads
             if p.dataset_id == dataset_id and (at is None or p.observed_at <= at)
         ]
-        return max(eligible, key=lambda p: (p.observed_at, p.read_id), default=None)
+        best = max(eligible, key=lambda p: (p.observed_at, p.read_id), default=None)
+        if best is None or blob:
+            return best
+        return replace(best, payload=b"")
 
     async def list_payloads(
         self,
@@ -1140,13 +1286,18 @@ class InMemoryScraperRepository:
         start: datetime | None,
         end: datetime,
         limit: int,
+        end_before_id: int | None = None,
     ) -> list[PayloadMeta]:
         rows = sorted(
             (
                 p
                 for p in self._payloads
                 if p.dataset_id == dataset_id
-                and p.observed_at < end
+                and (
+                    p.observed_at < end
+                    if end_before_id is None
+                    else (p.observed_at, p.read_id) < (end, end_before_id)
+                )
                 and (start is None or p.observed_at >= start)
             ),
             key=lambda p: (p.observed_at, p.read_id),
@@ -1160,9 +1311,9 @@ class InMemoryScraperRepository:
         ]
 
     async def payload_by_id(
-        self, dataset_id: str, read_id: int
+        self, dataset_id: str, read_id: int, *, blob: bool = True
     ) -> PayloadRecord | None:
-        return next(
+        found = next(
             (
                 p
                 for p in self._payloads
@@ -1170,6 +1321,9 @@ class InMemoryScraperRepository:
             ),
             None,
         )
+        if found is None or blob:
+            return found
+        return replace(found, payload=b"")
 
     async def server_time(self) -> datetime:
         return self._clock()
@@ -1301,6 +1455,36 @@ class InMemoryScraperRepository:
                 break
             start = previous
         return start
+
+    async def latest_reads(
+        self, dataset_ids: Sequence[str]
+    ) -> dict[str, tuple[ReadRecord | None, ReadRecord | None]]:
+        return {
+            i: (await self.latest_ok_read(i), await self.latest_read(i))
+            for i in dataset_ids
+        }
+
+    async def first_bar_opens(
+        self, dataset_ids: Sequence[str]
+    ) -> dict[str, datetime | None]:
+        return {i: await self.first_bar_open(i) for i in dataset_ids}
+
+    async def dataset_heads(
+        self, dataset_ids: Sequence[str], *, bar_ids: Sequence[str] | None = None
+    ) -> dict[str, DatasetHead]:
+        with_bars = set(dataset_ids if bar_ids is None else bar_ids)
+        heads: dict[str, DatasetHead] = {}
+        for i in dataset_ids:
+            head = await self.dataset_head(i)
+            if i not in with_bars:
+                head = replace(head, first_bar_open=None, last_bar_open=None)
+            heads[i] = head
+        return heads
+
+    async def revisions_after_horizon_many(
+        self, dataset_ids: Sequence[str]
+    ) -> dict[str, int]:
+        return {i: await self.revisions_after_horizon(i) for i in dataset_ids}
 
 
 __all__ = [

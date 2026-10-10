@@ -56,6 +56,14 @@ EXIT_LOCK_NOT_ACQUIRED = 2
 EXIT_SCHEMA_MISSING = 3
 EXIT_COLLECTOR_STOPPED = 4
 
+# A dead peer is noticed in about a minute, so an orphaned session (and the
+# advisory lock it holds) does not survive for hours.
+TCP_KEEPALIVE_SETTINGS = {
+    "tcp_keepalives_idle": "30",
+    "tcp_keepalives_interval": "10",
+    "tcp_keepalives_count": "3",
+}
+
 BOOTSTRAP_COMMAND = "python -m apps.scraper_app.storage.bootstrap"
 
 
@@ -81,9 +89,10 @@ async def serve(settings: ScraperSettings, uri: str) -> int:
     pool = await asyncpg.create_pool(
         uri,
         min_size=1,
-        max_size=3,
+        max_size=db.pool_max_size,
         timeout=db.connect_timeout_seconds,
         command_timeout=db.command_timeout_seconds,
+        server_settings=dict(TCP_KEEPALIVE_SETTINGS),
     )
     lock = AdvisoryLock(
         partial(
@@ -91,6 +100,7 @@ async def serve(settings: ScraperSettings, uri: str) -> int:
             uri,
             timeout=db.connect_timeout_seconds,
             command_timeout=db.command_timeout_seconds,
+            server_settings=dict(TCP_KEEPALIVE_SETTINGS),
         ),
         probe_timeout_seconds=db.command_timeout_seconds,
     )
@@ -176,9 +186,10 @@ async def serve(settings: ScraperSettings, uri: str) -> int:
                 purge_pool = await asyncpg.create_pool(
                     purge_uri,
                     min_size=0,
-                    max_size=2,
+                    max_size=retention.pool_max_size,
                     timeout=db.connect_timeout_seconds,
                     command_timeout=db.command_timeout_seconds,
+                    server_settings=dict(TCP_KEEPALIVE_SETTINGS),
                 )
                 purge_task = PurgeTask(
                     repository=PostgresPurgeRepository(purge_pool),
@@ -208,7 +219,10 @@ async def serve(settings: ScraperSettings, uri: str) -> int:
                 coinglass=coinglass_readiness,
             )
 
-        readiness = ReadinessService(compute)
+        readiness = ReadinessService(
+            compute,
+            wait_seconds=settings.readiness.probe_timeout_seconds + 1.0,
+        )
 
         api_deps: ApiDependencies | None = None
         api = settings.api
@@ -222,6 +236,7 @@ async def serve(settings: ScraperSettings, uri: str) -> int:
                 timeout=db.connect_timeout_seconds,
                 command_timeout=api.query_timeout_seconds,
                 server_settings={
+                    **TCP_KEEPALIVE_SETTINGS,
                     "application_name": "scraper_api",
                     "default_transaction_read_only": "on",
                     "statement_timeout": str(int(api.query_timeout_seconds * 1000)),

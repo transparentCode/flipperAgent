@@ -125,6 +125,11 @@ def build_expression(
     return _LOOKUP_JS.replace("__PARAMS__", json.dumps(params, ensure_ascii=True))
 
 
+def _source_length(value: object) -> int | None:
+    """Page-supplied; kept only when it is a plain integer."""
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
 def interpret_result(value: object, *, returned_at: datetime) -> HelperResult:
     """Turn the page's answer into a result or a typed error."""
     if not isinstance(value, dict):
@@ -132,7 +137,7 @@ def interpret_result(value: object, *, returned_at: datetime) -> HelperResult:
     meta = {
         "module": str(value.get("module", ""))[:40],
         "export": str(value.get("export", ""))[:40],
-        "source_length": value.get("sourceLength"),
+        "source_length": _source_length(value.get("sourceLength")),
     }
     meta = {k: v for k, v in meta.items() if v not in ("", None)}
     error = value.get("error")
@@ -152,12 +157,12 @@ def interpret_result(value: object, *, returned_at: datetime) -> HelperResult:
     text = value.get("text")
     if not isinstance(text, str):
         raise HelperError(errors.ENGINE_ERROR, "helper result has no text", meta)
-    length = value.get("sourceLength")
+    length = _source_length(value.get("sourceLength"))
     return HelperResult(
         text=text,
         module=str(value.get("module", ""))[:40],
         export=str(value.get("export", ""))[:40],
-        source_length=length if isinstance(length, int) else 0,
+        source_length=length or 0,
         returned_at=returned_at,
     )
 
