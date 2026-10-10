@@ -44,29 +44,6 @@ async def test_timescale_reader_reads_ticks_without_legacy_ohlcv_methods() -> No
 
 
 @pytest.mark.asyncio
-async def test_timescale_reader_reads_open_interest() -> None:
-    timestamp = datetime.now(UTC)
-    reader, connection = _reader(
-        [
-            {
-                "timestamp": timestamp,
-                "symbol": "BTCUSDT",
-                "open_interest": 123.4,
-            }
-        ]
-    )
-
-    frame = await reader.get_open_interest(
-        "BTCUSDT",
-        int(timestamp.timestamp() * 1000),
-        int(timestamp.timestamp() * 1000),
-    )
-
-    assert frame.iloc[0]["open_interest"] == 123.4
-    assert "FROM open_interest" in connection.fetch.await_args.args[0]
-
-
-@pytest.mark.asyncio
 async def test_timescale_reader_reads_latest_l2_features() -> None:
     pool = MagicMock()
     connection = AsyncMock()

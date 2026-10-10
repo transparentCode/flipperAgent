@@ -285,7 +285,7 @@ for p in 'scraper:runtime_status:*' 'scraper:job:*' 'index:latest:*' 'derivative
 done
 ```
 
-The SQL tables `tv_index_ohlcv`, `funding_rate` and `open_interest` stay until an explicit decision.
+The legacy SQL tables `tv_index_ohlcv`, `funding_rate` and `open_interest` were dropped on 2026-10-10 (empty, no reader); their DDL is removed from `sql/`.
 
 ## Rendering
 

@@ -36,34 +36,6 @@ class TimescaleReader:
 
         return pd.DataFrame([dict(r) for r in records])
 
-    async def get_open_interest(
-        self, symbol: str, start_time: int, end_time: int
-    ) -> pd.DataFrame:
-        """
-        Fetch open interest data for a given symbol.
-        start_time and end_time should be provided as integer milliseconds.
-        """
-        start_dt = datetime.fromtimestamp(start_time / 1000.0, tz=UTC)
-        end_dt = datetime.fromtimestamp(end_time / 1000.0, tz=UTC)
-
-        query = """
-            SELECT timestamp, symbol, open_interest
-            FROM open_interest
-            WHERE symbol = $1 
-              AND timestamp >= $2
-              AND timestamp <= $3
-            ORDER BY timestamp ASC
-        """
-
-        async with self.pool.acquire() as conn:
-            records = await conn.fetch(query, symbol, start_dt, end_dt)
-
-        columns = ["timestamp", "symbol", "open_interest"]
-        if not records:
-            return pd.DataFrame(columns=columns)
-
-        return pd.DataFrame([dict(r) for r in records])
-
     async def get_latest_l2_features(
         self,
         symbol: str,
